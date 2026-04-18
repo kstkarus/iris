@@ -205,7 +205,10 @@ class _UnusedLibtorrentEngineAdapter implements LibtorrentEngineAdapter {
   }
 
   @override
-  Stream<PlaybackLaunchProgressModel> waitForStreamReady(int streamId) {
+  Stream<PlaybackLaunchProgressModel> waitForStreamReady(
+    int streamId, {
+    required bool Function() isCancelled,
+  }) {
     throw UnimplementedError();
   }
 

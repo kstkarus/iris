@@ -343,6 +343,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get playerTracksUnavailable => 'Not available';
 
   @override
+  String get invalidRouteArgumentsMessage =>
+      'This screen was opened with invalid navigation data.';
+
+  @override
   String get playerPlayButton => 'Play';
 
   @override

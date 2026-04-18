@@ -136,6 +136,33 @@ void main() {
 
     expect(repository.disposedSessionIds, isEmpty);
   });
+
+  test('disposes prepared source after reclaimed ownership on close', () async {
+    final repository = _PreparedSourceRepository(
+      const PreparedPlayerSource(
+        sessionId: '42',
+        files: [
+          PlayerVideoFile(
+            index: 1,
+            name: 'episode-01.mkv',
+            size: 700,
+            extension: 'mkv',
+          ),
+        ],
+      ),
+    );
+    final cubit = PlayerSourceCubit(
+      magnet: 'magnet:?xt=urn:btih:test-source',
+      repository: repository,
+    );
+
+    await cubit.loadSource();
+    cubit.transferSessionOwnership();
+    cubit.reclaimSessionOwnership();
+    await cubit.close();
+
+    expect(repository.disposedSessionIds, ['42']);
+  });
 }
 
 class _PreparedSourceRepository implements PlayerRepository {

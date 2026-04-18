@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:iris/features/player/data/adapters/libtorrent_engine_adapter.dart';
@@ -5,6 +7,7 @@ import 'package:iris/features/player/data/adapters/player_runtime_memory_adapter
 import 'package:iris/features/player/data/datasources/libtorrent_player_data_source.dart';
 import 'package:iris/features/player/data/exceptions/no_playable_video_exception.dart';
 import 'package:iris/features/player/data/exceptions/startup_buffer_unavailable_exception.dart';
+import 'package:iris/features/player/data/exceptions/torrent_metadata_unavailable_exception.dart';
 import 'package:iris/features/player/data/models/playback_launch_progress_model.dart';
 import 'package:iris/features/player/data/models/playback_runtime_stats_model.dart';
 import 'package:iris/features/player/data/models/playback_launch_update_model.dart';
@@ -78,6 +81,25 @@ void main() {
       expect(engine.disposedTorrentIds, [42]);
     },
   );
+
+  test('disposes torrent session when metadata loading times out', () async {
+    final engine = _FakeLibtorrentEngineAdapter(
+      files: const [],
+      streamUrl: 'http://127.0.0.1:8080/stream/0',
+      waitForMetadataError: const TorrentMetadataUnavailableException(
+        torrentId: 42,
+        timeout: Duration(seconds: 90),
+      ),
+    );
+
+    final dataSource = LibtorrentPlayerDataSource(engine: engine);
+
+    await expectLater(
+      () => dataSource.prepareSource(magnet: 'magnet:?xt=urn:btih:no-meta'),
+      throwsA(isA<TorrentMetadataUnavailableException>()),
+    );
+    expect(engine.disposedTorrentIds, [42]);
+  });
 
   test(
     'starts playback for selected file index instead of auto-choosing a file',
@@ -196,6 +218,119 @@ void main() {
       ),
     );
   });
+
+  test('does not start a second stream for the same active session', () async {
+    final engine = _FakeLibtorrentEngineAdapter(
+      files: const [],
+      streamUrl: 'http://127.0.0.1:8080/stream/8',
+    );
+    final dataSource = LibtorrentPlayerDataSource(
+      engine: engine,
+      probe: _FakePlaybackStreamProbe(),
+    );
+
+    await dataSource.startPlayback(sessionId: '42', fileIndex: 8).last;
+    final secondAttempt = await dataSource
+        .startPlayback(sessionId: '42', fileIndex: 8)
+        .toList();
+
+    expect(engine.startStreamCallCount, 1);
+    expect(secondAttempt, const [
+      PlaybackLaunchFailureUpdateModel(
+        PlaybackLaunchFailureModel.unableToStart,
+      ),
+    ]);
+  });
+
+  test(
+    'stops startup quietly when playback is disposed during stream readiness',
+    () async {
+      final engine = _FakeLibtorrentEngineAdapter(
+        files: const [],
+        streamUrl: 'http://127.0.0.1:8080/stream/8',
+        waitForStreamReadyCompleter: Completer<void>(),
+      );
+      final dataSource = LibtorrentPlayerDataSource(
+        engine: engine,
+        probe: _FakePlaybackStreamProbe(),
+      );
+
+      final updates = <PlaybackLaunchUpdateModel>[];
+      final done = Completer<void>();
+      final subscription = dataSource
+          .startPlayback(sessionId: '42', fileIndex: 8)
+          .listen(
+            updates.add,
+            onDone: () {
+              if (!done.isCompleted) {
+                done.complete();
+              }
+            },
+          );
+
+      await Future<void>.delayed(Duration.zero);
+      await dataSource.disposePlayback(sessionId: '42');
+      engine.waitForStreamReadyCompleter?.complete();
+      await done.future.timeout(const Duration(seconds: 2));
+      await subscription.cancel();
+
+      expect(updates, isEmpty);
+      expect(engine.waitForStreamReadyWasCancelled, isTrue);
+    },
+  );
+
+  test(
+    'stops HTTP probing quietly when playback is disposed mid-probe',
+    () async {
+      final probe = _BlockingPlaybackStreamProbe();
+      final engine = _FakeLibtorrentEngineAdapter(
+        files: const [],
+        streamUrl: 'http://127.0.0.1:8080/stream/8',
+      );
+      final dataSource = LibtorrentPlayerDataSource(
+        engine: engine,
+        probe: probe,
+      );
+
+      final updates = <PlaybackLaunchUpdateModel>[];
+      final done = Completer<void>();
+      final subscription = dataSource
+          .startPlayback(sessionId: '42', fileIndex: 8)
+          .listen(
+            updates.add,
+            onDone: () {
+              if (!done.isCompleted) {
+                done.complete();
+              }
+            },
+          );
+
+      await probe.started.future;
+      await dataSource.disposePlayback(sessionId: '42');
+      probe.release(
+        const PlaybackProbeResult(
+          statusCode: 206,
+          contentType: null,
+          contentLength: 64,
+          acceptRanges: 'bytes',
+          firstBytes: [0x00],
+        ),
+      );
+      await done.future.timeout(const Duration(seconds: 2));
+      await subscription.cancel();
+
+      expect(updates, const [
+        PlaybackLaunchProgressUpdateModel(
+          PlaybackLaunchProgressModel(
+            bufferProgress: 0.25,
+            downloadRateBytesPerSecond: 2048,
+            stage: PlaybackLaunchStageModel.buffering,
+          ),
+        ),
+      ]);
+      expect(probe.probedUrls.length, 1);
+    },
+  );
 }
 
 class _FakeLibtorrentEngineAdapter implements LibtorrentEngineAdapter {
@@ -204,12 +339,16 @@ class _FakeLibtorrentEngineAdapter implements LibtorrentEngineAdapter {
     required this.streamUrl,
     this.waitForStreamReadyError,
     this.runtimeStats,
+    this.waitForMetadataError,
+    this.waitForStreamReadyCompleter,
   });
 
   final List<TorrentFileDescriptor> files;
   final String streamUrl;
   final Object? waitForStreamReadyError;
   final PlaybackRuntimeStatsModel? runtimeStats;
+  final Object? waitForMetadataError;
+  final Completer<void>? waitForStreamReadyCompleter;
 
   bool initialized = false;
   String? lastMagnet;
@@ -218,6 +357,8 @@ class _FakeLibtorrentEngineAdapter implements LibtorrentEngineAdapter {
   int? startedStreamFileIndex;
   int? waitedForStreamReadyId;
   int? runtimeStatsStreamId;
+  int startStreamCallCount = 0;
+  bool waitForStreamReadyWasCancelled = false;
   final List<int> disposedTorrentIds = [];
 
   @override
@@ -244,6 +385,7 @@ class _FakeLibtorrentEngineAdapter implements LibtorrentEngineAdapter {
     int torrentId, {
     required int fileIndex,
   }) {
+    startStreamCallCount++;
     startedStreamTorrentId = torrentId;
     startedStreamFileIndex = fileIndex;
     return PlaybackStreamDescriptor(streamId: 77, url: streamUrl);
@@ -251,14 +393,27 @@ class _FakeLibtorrentEngineAdapter implements LibtorrentEngineAdapter {
 
   @override
   Future<void> waitForMetadata(int torrentId) async {
+    if (waitForMetadataError != null) {
+      throw waitForMetadataError!;
+    }
     waitedForMetadataTorrentId = torrentId;
   }
 
   @override
-  Stream<PlaybackLaunchProgressModel> waitForStreamReady(int streamId) async* {
+  Stream<PlaybackLaunchProgressModel> waitForStreamReady(
+    int streamId, {
+    required bool Function() isCancelled,
+  }) async* {
     waitedForStreamReadyId = streamId;
     if (waitForStreamReadyError != null) {
       throw waitForStreamReadyError!;
+    }
+    if (waitForStreamReadyCompleter != null) {
+      await waitForStreamReadyCompleter!.future;
+      waitForStreamReadyWasCancelled = isCancelled();
+      if (isCancelled()) {
+        return;
+      }
     }
     yield const PlaybackLaunchProgressModel(
       bufferProgress: 0.25,
@@ -287,6 +442,28 @@ class _FakePlaybackStreamProbe implements PlaybackStreamProbe {
       acceptRanges: 'bytes',
       firstBytes: [0x1A, 0x45, 0xDF, 0xA3],
     );
+  }
+}
+
+class _BlockingPlaybackStreamProbe implements PlaybackStreamProbe {
+  final List<String> probedUrls = [];
+  final Completer<void> started = Completer<void>();
+  final Completer<PlaybackProbeResult> _result =
+      Completer<PlaybackProbeResult>();
+
+  void release(PlaybackProbeResult result) {
+    if (!_result.isCompleted) {
+      _result.complete(result);
+    }
+  }
+
+  @override
+  Future<PlaybackProbeResult> probe(String url) async {
+    probedUrls.add(url);
+    if (!started.isCompleted) {
+      started.complete();
+    }
+    return _result.future;
   }
 }
 

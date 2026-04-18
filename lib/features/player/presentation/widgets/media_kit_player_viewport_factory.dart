@@ -119,7 +119,9 @@ class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
 
   bool _recoveringAudioTrack = false;
   bool _reconfiguringPlayback = false;
+  bool _recreatePlayerQueued = false;
   bool _isPlayerBuffering = false;
+  bool _isDisposing = false;
   Track _selectedTrack = const Track();
   final ValueNotifier<PlayerPlaybackStats?> _playbackStatsNotifier =
       ValueNotifier<PlayerPlaybackStats?>(null);
@@ -146,6 +148,9 @@ class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
     _playbackStatsSubscription = widget.repository
         .watchPlaybackStats(sessionId: widget.session.sessionId)
         .listen((stats) {
+          if (_isDisposing) {
+            return;
+          }
           _playbackStatsNotifier.value = stats;
         });
     _openPlayback();
@@ -154,6 +159,9 @@ class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
   Future<void> _handleSubtitlePreferencesChanged(
     SubtitlePreferences next,
   ) async {
+    if (_isDisposing) {
+      return;
+    }
     final previous = _subtitlePreferences;
     _subtitlePreferences = next;
 
@@ -181,6 +189,9 @@ class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
   }
 
   Future<void> _openPlayback() async {
+    if (_isDisposing) {
+      return;
+    }
     final startupGeneration = ++_startupGeneration;
     _cancelStartupTimeout();
     if (mounted) {
@@ -249,28 +260,35 @@ class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
   }
 
   Future<void> _recreatePlayer() async {
-    if (_reconfiguringPlayback) {
+    if (_isDisposing || _reconfiguringPlayback) {
+      _recreatePlayerQueued = true;
       return;
     }
 
-    developer.log(
-      'Recreating media_kit player because subtitle renderer changed. sessionId=${widget.session.sessionId} libass=${_subtitlePreferences.libassEnabled}',
-      name: 'iris.player.media',
-    );
+    do {
+      _recreatePlayerQueued = false;
+      developer.log(
+        'Recreating media_kit player because subtitle renderer changed. sessionId=${widget.session.sessionId} libass=${_subtitlePreferences.libassEnabled}',
+        name: 'iris.player.media',
+      );
 
-    setState(() {
-      _reconfiguringPlayback = true;
-      _startupState = const _MediaKitViewportStartupState.openingSource();
-    });
+      setState(() {
+        _reconfiguringPlayback = true;
+        _startupState = const _MediaKitViewportStartupState.openingSource();
+      });
 
-    await _disposePlayerResources();
-    _createPlayer();
+      await _disposePlayerResources();
+      if (_isDisposing) {
+        break;
+      }
+      _createPlayer();
 
-    if (mounted) {
-      setState(() {});
-    }
+      if (mounted) {
+        setState(() {});
+      }
 
-    await _openPlayback();
+      await _openPlayback();
+    } while (_recreatePlayerQueued && !_isDisposing);
 
     if (mounted) {
       setState(() {
@@ -283,6 +301,9 @@ class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
 
   void _attachDebugListeners() {
     _bufferingSubscription = _player.stream.buffering.listen((buffering) {
+      if (_isDisposing) {
+        return;
+      }
       developer.log(
         'media_kit buffering changed: $buffering',
         name: 'iris.player.media',
@@ -299,18 +320,27 @@ class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
       unawaited(_logCacheBufferingState('buffering changed'));
     });
     _playingSubscription = _player.stream.playing.listen((playing) {
+      if (_isDisposing) {
+        return;
+      }
       developer.log(
         'media_kit playing changed: $playing',
         name: 'iris.player.media',
       );
     });
     _completedSubscription = _player.stream.completed.listen((completed) {
+      if (_isDisposing) {
+        return;
+      }
       developer.log(
         'media_kit completed changed: $completed',
         name: 'iris.player.media',
       );
     });
     _durationSubscription = _player.stream.duration.listen((duration) {
+      if (_isDisposing) {
+        return;
+      }
       final hasDuration = duration > Duration.zero;
       if (_startupState.hasDuration == hasDuration) {
         return;
@@ -324,6 +354,9 @@ class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
       _markViewportReadyIfPrepared();
     });
     _trackSubscription = _player.stream.track.listen((track) {
+      if (_isDisposing) {
+        return;
+      }
       if (_selectedTrack == track) {
         return;
       }
@@ -341,6 +374,9 @@ class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
       }
     });
     _tracksSubscription = _player.stream.tracks.listen((tracks) {
+      if (_isDisposing) {
+        return;
+      }
       final hasVideoTrack = _hasRealVideoTrack(tracks);
       if (_startupState.hasVideoTrack == hasVideoTrack) {
         return;
@@ -354,6 +390,9 @@ class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
       _markViewportReadyIfPrepared();
     });
     _errorSubscription = _player.stream.error.listen((error) {
+      if (_isDisposing) {
+        return;
+      }
       developer.log(
         'media_kit emitted player error: $error',
         name: 'iris.player.media',
@@ -380,6 +419,9 @@ class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
   }
 
   Future<void> _recoverFromUnsupportedAudio(AudioTrack fallbackTrack) async {
+    if (_isDisposing) {
+      return;
+    }
     _recoveringAudioTrack = true;
     try {
       await _player.setAudioTrack(fallbackTrack);
@@ -446,7 +488,8 @@ class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
   }
 
   Future<void> _handleViewportStartupTimeout(int startupGeneration) async {
-    if (!mounted ||
+    if (_isDisposing ||
+        !mounted ||
         startupGeneration != _startupGeneration ||
         _startupState.phase != _MediaKitViewportPhase.waitingForFirstFrame) {
       return;
@@ -471,8 +514,12 @@ class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
       return;
     }
 
+    final readinessReason = _startupState.firstFrameRendered
+        ? 'first-frame'
+        : 'timeline-fallback';
+
     developer.log(
-      'media_kit viewport is ready. firstFrameRendered=${_startupState.firstFrameRendered} hasDuration=${_startupState.hasDuration} hasVideoTrack=${_startupState.hasVideoTrack}',
+      'media_kit viewport is ready. reason=$readinessReason firstFrameRendered=${_startupState.firstFrameRendered} hasDuration=${_startupState.hasDuration} hasVideoTrack=${_startupState.hasVideoTrack}',
       name: 'iris.player.media',
     );
     _cancelStartupTimeout();
@@ -590,13 +637,28 @@ class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
 
   Future<void> _disposePlayerResources() async {
     _cancelStartupTimeout();
-    await _bufferingSubscription?.cancel();
-    await _playingSubscription?.cancel();
-    await _completedSubscription?.cancel();
-    await _errorSubscription?.cancel();
-    await _durationSubscription?.cancel();
-    await _trackSubscription?.cancel();
-    await _tracksSubscription?.cancel();
+    final bufferingSubscription = _bufferingSubscription;
+    final playingSubscription = _playingSubscription;
+    final completedSubscription = _completedSubscription;
+    final errorSubscription = _errorSubscription;
+    final durationSubscription = _durationSubscription;
+    final trackSubscription = _trackSubscription;
+    final tracksSubscription = _tracksSubscription;
+    _bufferingSubscription = null;
+    _playingSubscription = null;
+    _completedSubscription = null;
+    _errorSubscription = null;
+    _durationSubscription = null;
+    _trackSubscription = null;
+    _tracksSubscription = null;
+
+    await bufferingSubscription?.cancel();
+    await playingSubscription?.cancel();
+    await completedSubscription?.cancel();
+    await errorSubscription?.cancel();
+    await durationSubscription?.cancel();
+    await trackSubscription?.cancel();
+    await tracksSubscription?.cancel();
     await _player.dispose();
   }
 
@@ -606,10 +668,21 @@ class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
       'Disposing media_kit viewport. sessionId=${widget.session.sessionId}',
       name: 'iris.player.media',
     );
-    unawaited(_subtitlePreferencesSubscription?.cancel());
-    unawaited(_playbackStatsSubscription?.cancel());
-    unawaited(_disposePlayerResources());
-    _playbackStatsNotifier.dispose();
+    _isDisposing = true;
+    _startupGeneration++;
+    _cancelStartupTimeout();
+
+    final subtitlePreferencesSubscription = _subtitlePreferencesSubscription;
+    final playbackStatsSubscription = _playbackStatsSubscription;
+    _subtitlePreferencesSubscription = null;
+    _playbackStatsSubscription = null;
+
+    unawaited(() async {
+      await subtitlePreferencesSubscription?.cancel();
+      await playbackStatsSubscription?.cancel();
+      await _disposePlayerResources();
+      _playbackStatsNotifier.dispose();
+    }());
     super.dispose();
   }
 

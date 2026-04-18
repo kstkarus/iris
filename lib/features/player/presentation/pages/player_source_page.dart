@@ -1,3 +1,5 @@
+import 'dart:developer' as developer;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -78,18 +80,27 @@ class PlayerSourcePage extends StatelessWidget {
     required PlayerVideoFile file,
     required String sessionId,
   }) {
-    context.read<PlayerSourceCubit>().transferSessionOwnership();
-    context.pushReplacementNamed(
-      'anime-player',
-      pathParameters: {'id': args.animeId},
-      extra: AnimePlayerArgs(
-        animeId: args.animeId,
-        animeTitle: args.animeTitle,
-        sourceTitle: args.sourceTitle,
-        sessionId: sessionId,
-        fileIndex: file.index,
-        fileName: file.name,
-      ),
-    );
+    final cubit = context.read<PlayerSourceCubit>();
+    cubit.transferSessionOwnership();
+    try {
+      context.pushReplacementNamed(
+        'anime-player',
+        pathParameters: {'id': args.animeId},
+        extra: AnimePlayerArgs(
+          animeId: args.animeId,
+          animeTitle: args.animeTitle,
+          sourceTitle: args.sourceTitle,
+          sessionId: sessionId,
+          fileIndex: file.index,
+          fileName: file.name,
+        ),
+      );
+    } catch (_) {
+      cubit.reclaimSessionOwnership();
+      developer.log(
+        'Failed to open the player route. Ownership was reclaimed.',
+        name: 'iris.player.source_page',
+      );
+    }
   }
 }

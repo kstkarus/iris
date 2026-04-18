@@ -76,6 +76,62 @@ void main() {
     expect(find.text('Player Route'), findsOneWidget);
     expect(cubit.didTransferOwnership, isTrue);
   });
+
+  testWidgets('reclaims session ownership when navigation throws', (
+    tester,
+  ) async {
+    late _TestPlayerSourceCubit cubit;
+    final router = GoRouter(
+      initialLocation: '/files',
+      routes: [
+        GoRoute(
+          path: '/files',
+          builder: (context, state) {
+            cubit = _TestPlayerSourceCubit();
+            return BlocProvider<PlayerSourceCubit>.value(
+              value: cubit,
+              child: const PlayerSourcePage(
+                args: AnimePlayerSourceArgs(
+                  animeId: '5114',
+                  animeTitle: 'Fullmetal Alchemist: Brotherhood',
+                  sourceTitle: '[Mock] Fullmetal Alchemist: Brotherhood Batch',
+                  magnet: 'magnet:?xt=urn:btih:test-source',
+                ),
+              ),
+            );
+          },
+        ),
+      ],
+    );
+
+    await tester.pumpWidget(
+      MaterialApp.router(
+        locale: const Locale('en'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        routerConfig: router,
+      ),
+    );
+
+    cubit.emitReady(
+      const PreparedPlayerSource(
+        sessionId: '42',
+        files: [
+          PlayerVideoFile(
+            index: 1,
+            name: 'episode-01.mkv',
+            size: 734003200,
+            extension: 'mkv',
+          ),
+        ],
+      ),
+    );
+    await tester.pump();
+
+    expect(cubit.didTransferOwnership, isTrue);
+    expect(cubit.didReclaimOwnership, isTrue);
+    expect(find.byType(PlayerSourcePage), findsOneWidget);
+  });
 }
 
 class _TestPlayerSourceCubit extends PlayerSourceCubit {
@@ -86,6 +142,7 @@ class _TestPlayerSourceCubit extends PlayerSourceCubit {
       );
 
   bool didTransferOwnership = false;
+  bool didReclaimOwnership = false;
 
   void emitReady(PreparedPlayerSource source) {
     emit(PlayerSourceReady(source));
@@ -95,6 +152,12 @@ class _TestPlayerSourceCubit extends PlayerSourceCubit {
   void transferSessionOwnership() {
     didTransferOwnership = true;
     super.transferSessionOwnership();
+  }
+
+  @override
+  void reclaimSessionOwnership() {
+    didReclaimOwnership = true;
+    super.reclaimSessionOwnership();
   }
 }
 

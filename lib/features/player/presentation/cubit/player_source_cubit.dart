@@ -67,6 +67,10 @@ class PlayerSourceCubit extends Cubit<PlayerSourceState> {
     _sessionOwnershipTransferred = true;
   }
 
+  void reclaimSessionOwnership() {
+    _sessionOwnershipTransferred = false;
+  }
+
   @override
   Future<void> close() async {
     final preparedSource = _preparedSource;

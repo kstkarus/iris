@@ -4,6 +4,7 @@ import 'package:iris/features/player/data/adapters/libtorrent_engine_adapter.dar
 import 'package:iris/features/player/data/adapters/player_runtime_memory_adapter.dart';
 import 'package:iris/features/player/data/exceptions/startup_buffer_unavailable_exception.dart';
 import 'package:iris/features/player/data/exceptions/no_playable_video_exception.dart';
+import 'package:iris/features/player/data/exceptions/torrent_metadata_unavailable_exception.dart';
 import 'package:iris/features/player/data/models/playback_launch_update_model.dart';
 import 'package:iris/features/player/data/models/playback_runtime_stats_model.dart';
 import 'package:iris/features/player/data/models/prepared_playback_model.dart';
@@ -28,6 +29,8 @@ class LibtorrentPlayerDataSource {
   final Duration _statsPollInterval;
   final PlaybackStreamProbe _probe;
   final Map<String, int> _streamIdsBySessionId = {};
+  final Map<String, _PlaybackLaunchCancellation>
+  _launchCancellationBySessionId = {};
 
   Future<PreparedPlayerSourceModel> prepareSource({
     required String magnet,
@@ -39,7 +42,12 @@ class LibtorrentPlayerDataSource {
     await _engine.initialize();
 
     final torrentId = _engine.addMagnet(magnet);
-    await _engine.waitForMetadata(torrentId);
+    try {
+      await _engine.waitForMetadata(torrentId);
+    } on TorrentMetadataUnavailableException {
+      await _engine.disposeTorrent(torrentId);
+      rethrow;
+    }
 
     final files = _engine.getFiles(torrentId);
     developer.log(
@@ -87,18 +95,45 @@ class LibtorrentPlayerDataSource {
       name: 'iris.player.datasource',
     );
 
+    if (_streamIdsBySessionId.containsKey(sessionId) ||
+        _launchCancellationBySessionId.containsKey(sessionId)) {
+      developer.log(
+        'Skipping playback start because sessionId=$sessionId already has an active stream.',
+        name: 'iris.player.datasource',
+      );
+      yield const PlaybackLaunchFailureUpdateModel(
+        PlaybackLaunchFailureModel.unableToStart,
+      );
+      return;
+    }
+
+    final cancellation = _PlaybackLaunchCancellation();
+    _launchCancellationBySessionId[sessionId] = cancellation;
     final stream = _engine.startStream(torrentId, fileIndex: fileIndex);
     _streamIdsBySessionId[sessionId] = stream.streamId;
     PlaybackLaunchProgressUpdateModel? lastProgressUpdate;
     try {
       await for (final progress in _engine.waitForStreamReady(
         stream.streamId,
+        isCancelled: () => cancellation.isCancelled,
       )) {
+        if (cancellation.isCancelled) {
+          _completeLaunch(sessionId);
+          return;
+        }
         final progressUpdate = PlaybackLaunchProgressUpdateModel(progress);
         lastProgressUpdate = progressUpdate;
         yield progressUpdate;
       }
+      if (cancellation.isCancelled) {
+        _completeLaunch(sessionId);
+        return;
+      }
     } on StartupBufferUnavailableException catch (error) {
+      if (cancellation.isCancelled) {
+        _completeLaunch(sessionId);
+        return;
+      }
       developer.log(
         'Torrent stream could not gather enough startup buffer. sessionId=$sessionId torrentId=$torrentId streamId=${stream.streamId}',
         name: 'iris.player.datasource',
@@ -112,9 +147,13 @@ class LibtorrentPlayerDataSource {
       yield const PlaybackLaunchFailureUpdateModel(
         PlaybackLaunchFailureModel.unableToPrepareStartupBuffer,
       );
-      _streamIdsBySessionId.remove(sessionId);
+      _completeLaunch(sessionId);
       return;
     } catch (error, stackTrace) {
+      if (cancellation.isCancelled) {
+        _completeLaunch(sessionId);
+        return;
+      }
       developer.log(
         'Playback startup failed unexpectedly before HTTP probe. sessionId=$sessionId torrentId=$torrentId streamId=${stream.streamId}',
         name: 'iris.player.datasource',
@@ -124,20 +163,32 @@ class LibtorrentPlayerDataSource {
       yield const PlaybackLaunchFailureUpdateModel(
         PlaybackLaunchFailureModel.unableToStart,
       );
-      _streamIdsBySessionId.remove(sessionId);
+      _completeLaunch(sessionId);
       return;
     }
 
     try {
-      await _waitForPlayableHttpStream(stream.url);
+      final prepared = await _waitForPlayableHttpStream(
+        stream.url,
+        isCancelled: () => cancellation.isCancelled,
+      );
+      if (!prepared) {
+        _completeLaunch(sessionId);
+        return;
+      }
       developer.log(
         'Playback stream prepared. torrentId=$torrentId sessionId=$sessionId streamId=${stream.streamId} url=${stream.url}',
         name: 'iris.player.datasource',
       );
+      _launchCancellationBySessionId.remove(sessionId);
       yield PlaybackLaunchReadyUpdateModel(
         PreparedPlaybackModel(sessionId: sessionId, streamUrl: stream.url),
       );
     } catch (error, stackTrace) {
+      if (cancellation.isCancelled) {
+        _completeLaunch(sessionId);
+        return;
+      }
       developer.log(
         'Playback HTTP probe failed after stream startup. sessionId=$sessionId torrentId=$torrentId streamId=${stream.streamId}',
         name: 'iris.player.datasource',
@@ -147,7 +198,7 @@ class LibtorrentPlayerDataSource {
       yield const PlaybackLaunchFailureUpdateModel(
         PlaybackLaunchFailureModel.unableToStart,
       );
-      _streamIdsBySessionId.remove(sessionId);
+      _completeLaunch(sessionId);
     }
   }
 
@@ -188,6 +239,8 @@ class LibtorrentPlayerDataSource {
       return;
     }
 
+    final launchCancellation = _launchCancellationBySessionId.remove(sessionId);
+    launchCancellation?.cancel();
     _streamIdsBySessionId.remove(sessionId);
     developer.log(
       'Disposing playback session. sessionId=$sessionId torrentId=$torrentId',
@@ -196,10 +249,20 @@ class LibtorrentPlayerDataSource {
     await _engine.disposeTorrent(torrentId);
   }
 
-  Future<void> _waitForPlayableHttpStream(String url) async {
+  Future<bool> _waitForPlayableHttpStream(
+    String url, {
+    required bool Function() isCancelled,
+  }) async {
     PlaybackProbeResult? lastResult;
 
     for (var attempt = 1; attempt <= 6; attempt++) {
+      if (isCancelled()) {
+        developer.log(
+          'Stopping playback HTTP probe because launch was cancelled. url=$url attempt=$attempt',
+          name: 'iris.player.datasource',
+        );
+        return false;
+      }
       developer.log(
         'Running playback HTTP probe. attempt=$attempt url=$url',
         name: 'iris.player.datasource',
@@ -207,15 +270,25 @@ class LibtorrentPlayerDataSource {
       final result = await _probe.probe(url);
       lastResult = result;
 
+      if (isCancelled()) {
+        developer.log(
+          'Stopping playback HTTP probe after probe completion because launch was cancelled. url=$url attempt=$attempt',
+          name: 'iris.player.datasource',
+        );
+        return false;
+      }
+
       if (result.looksLikePlayableMedia) {
         developer.log(
           'Playback HTTP probe recognized a playable media container. url=$url attempt=$attempt',
           name: 'iris.player.datasource',
         );
-        return;
+        return true;
       }
 
-      await Future<void>.delayed(const Duration(seconds: 1));
+      if (attempt < 6) {
+        await Future<void>.delayed(const Duration(seconds: 1));
+      }
     }
 
     developer.log(
@@ -225,6 +298,19 @@ class LibtorrentPlayerDataSource {
     throw StateError(
       'Local torrent stream did not expose a playable media container.',
     );
+  }
+
+  void _completeLaunch(String sessionId) {
+    _launchCancellationBySessionId.remove(sessionId);
+    _streamIdsBySessionId.remove(sessionId);
+  }
+}
+
+class _PlaybackLaunchCancellation {
+  bool isCancelled = false;
+
+  void cancel() {
+    isCancelled = true;
   }
 }
 

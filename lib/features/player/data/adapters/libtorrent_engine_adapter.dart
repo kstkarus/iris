@@ -1,9 +1,11 @@
+import 'dart:async';
 import 'dart:developer' as developer;
 
 import 'package:libtorrent_flutter/libtorrent_flutter.dart';
 
 import 'package:iris/features/player/data/adapters/stream_startup_monitor.dart';
 import 'package:iris/features/player/data/exceptions/startup_buffer_unavailable_exception.dart';
+import 'package:iris/features/player/data/exceptions/torrent_metadata_unavailable_exception.dart';
 import 'package:iris/features/player/data/models/playback_launch_progress_model.dart';
 import 'package:iris/features/player/data/models/playback_runtime_stats_model.dart';
 import 'package:iris/features/player/data/models/playback_stream_descriptor.dart';
@@ -21,7 +23,10 @@ abstract interface class LibtorrentEngineAdapter {
 
   PlaybackStreamDescriptor startStream(int torrentId, {required int fileIndex});
 
-  Stream<PlaybackLaunchProgressModel> waitForStreamReady(int streamId);
+  Stream<PlaybackLaunchProgressModel> waitForStreamReady(
+    int streamId, {
+    required bool Function() isCancelled,
+  });
 
   PlaybackRuntimeStatsModel? getPlaybackRuntimeStats(int streamId);
 
@@ -29,9 +34,12 @@ abstract interface class LibtorrentEngineAdapter {
 }
 
 class LibtorrentEngineAdapterImpl implements LibtorrentEngineAdapter {
-  LibtorrentEngineAdapterImpl();
+  LibtorrentEngineAdapterImpl({
+    Duration metadataWaitTimeout = const Duration(seconds: 90),
+  }) : _metadataWaitTimeout = metadataWaitTimeout;
 
   LibtorrentFlutter get _engine => LibtorrentFlutter.instance;
+  final Duration _metadataWaitTimeout;
 
   @override
   int addMagnet(String magnet) {
@@ -44,12 +52,13 @@ class LibtorrentEngineAdapterImpl implements LibtorrentEngineAdapter {
   }
 
   @override
-  Future<void> disposeTorrent(int torrentId) async {
+  Future<void> disposeTorrent(int torrentId) {
     developer.log(
       'Disposing torrent session. torrentId=$torrentId',
       name: 'iris.player.libtorrent',
     );
     _engine.disposeTorrent(torrentId);
+    return Future<void>.value();
   }
 
   @override
@@ -92,7 +101,10 @@ class LibtorrentEngineAdapterImpl implements LibtorrentEngineAdapter {
   }
 
   @override
-  Stream<PlaybackLaunchProgressModel> waitForStreamReady(int streamId) async* {
+  Stream<PlaybackLaunchProgressModel> waitForStreamReady(
+    int streamId, {
+    required bool Function() isCancelled,
+  }) async* {
     developer.log(
       'Waiting for torrent stream readiness. streamId=$streamId',
       name: 'iris.player.libtorrent',
@@ -102,6 +114,14 @@ class LibtorrentEngineAdapterImpl implements LibtorrentEngineAdapter {
     PlaybackLaunchProgressModel? lastReportedProgress;
 
     while (true) {
+      if (isCancelled()) {
+        developer.log(
+          'Stopping torrent stream readiness wait because launch was cancelled. streamId=$streamId',
+          name: 'iris.player.libtorrent',
+        );
+        return;
+      }
+
       final current = _engine.getStreamInfo(streamId);
       if (current != null) {
         developer.log(
@@ -184,10 +204,23 @@ class LibtorrentEngineAdapterImpl implements LibtorrentEngineAdapter {
       return;
     }
 
-    await _engine.torrentUpdates.firstWhere((torrents) {
-      final torrent = torrents[torrentId];
-      return torrent != null && torrent.hasMetadata;
-    });
+    try {
+      await _engine.torrentUpdates
+          .firstWhere((torrents) {
+            final torrent = torrents[torrentId];
+            return torrent != null && torrent.hasMetadata;
+          })
+          .timeout(_metadataWaitTimeout);
+    } on TimeoutException {
+      developer.log(
+        'Timed out while waiting for torrent metadata. torrentId=$torrentId timeout=${_metadataWaitTimeout.inSeconds}s',
+        name: 'iris.player.libtorrent',
+      );
+      throw TorrentMetadataUnavailableException(
+        torrentId: torrentId,
+        timeout: _metadataWaitTimeout,
+      );
+    }
     developer.log(
       'Torrent metadata received. torrentId=$torrentId',
       name: 'iris.player.libtorrent',

@@ -103,39 +103,161 @@ void main() {
       expect(find.text('Try Again'), findsOneWidget);
     },
   );
+
+  testWidgets('ignores late playback stats after viewport disposal starts', (
+    tester,
+  ) async {
+    final firstFrameCompleter = Completer<void>()..complete();
+    final platformPlayer = _FakePlatformPlayer(
+      configuration: const PlayerConfiguration(),
+    );
+    final repository = _LateStatsPlayerRepository();
+
+    await tester.pumpWidget(
+      _wrapViewport(
+        platformPlayer: platformPlayer,
+        firstFrameFuture: firstFrameCompleter.future,
+        repository: repository,
+      ),
+    );
+    await tester.pump();
+
+    await tester.pumpWidget(const MaterialApp(home: SizedBox.shrink()));
+    repository.emitStat(
+      const PlayerPlaybackStats(
+        downloadRateBytesPerSecond: 1024,
+        appMemoryBytes: 2048,
+        activePeers: 3,
+      ),
+    );
+    await tester.pump();
+
+    expect(tester.takeException(), isNull);
+    repository.finishCancel();
+  });
+
+  testWidgets(
+    'applies the latest subtitle renderer preference after queued recreates',
+    (tester) async {
+      final subtitleCubit = PlayerSubtitlePreferencesCubit(
+        repository: const _FakeSubtitlePreferencesRepository(),
+      );
+      final slowOpenCompleter = Completer<void>();
+      final createdPlayers = <_ControllablePlatformPlayer>[];
+
+      await tester.pumpWidget(
+        _wrapViewport(
+          repository: const _FakePlayerRepository(),
+          subtitleCubit: subtitleCubit,
+          playerBuilder: (configuration) {
+            final player = _ControllablePlatformPlayer(
+              configuration: configuration,
+              openFuture: createdPlayers.isEmpty
+                  ? Future<void>.value()
+                  : createdPlayers.length == 1
+                  ? slowOpenCompleter.future
+                  : Future<void>.value(),
+            );
+            createdPlayers.add(player);
+            return Player(platformPlayer: player);
+          },
+          videoControllerBuilder: (player) => _FakeVideoController(
+            player: player,
+            firstFrameFuture: Future<void>.value(),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      await subtitleCubit.setLibassEnabled(false);
+      await tester.runAsync(() async {
+        await Future<void>.delayed(const Duration(milliseconds: 1));
+      });
+      for (
+        var attempt = 0;
+        attempt < 10 && createdPlayers.length < 2;
+        attempt++
+      ) {
+        await tester.pump(const Duration(milliseconds: 10));
+      }
+
+      expect(createdPlayers.length, 2);
+      expect(createdPlayers.last.configuration.libass, isFalse);
+
+      await subtitleCubit.setLibassEnabled(true);
+      await tester.runAsync(() async {
+        await Future<void>.delayed(const Duration(milliseconds: 1));
+      });
+      await tester.pump();
+      await tester.pump();
+
+      slowOpenCompleter.complete();
+      await tester.runAsync(() async {
+        await Future<void>.delayed(const Duration(milliseconds: 1));
+      });
+      for (
+        var attempt = 0;
+        attempt < 10 && createdPlayers.length < 3;
+        attempt++
+      ) {
+        await tester.pump(const Duration(milliseconds: 10));
+      }
+
+      expect(createdPlayers.length, 3);
+      expect(createdPlayers.last.configuration.libass, isTrue);
+    },
+  );
 }
 
 Widget _wrapViewport({
-  required _FakePlatformPlayer platformPlayer,
-  required Future<void> firstFrameFuture,
+  _FakePlatformPlayer? platformPlayer,
+  Future<void>? firstFrameFuture,
+  PlayerRepository repository = const _FakePlayerRepository(),
+  PlayerSubtitlePreferencesCubit? subtitleCubit,
+  MediaKitPlayerBuilder? playerBuilder,
+  MediaKitVideoControllerBuilder? videoControllerBuilder,
 }) {
-  final factory = MediaKitPlayerViewportFactory(
-    repository: const _FakePlayerRepository(),
-    playerBuilder: (configuration) => Player(platformPlayer: platformPlayer),
-    videoControllerBuilder: (player) =>
-        _FakeVideoController(player: player, firstFrameFuture: firstFrameFuture),
-    videoSurfaceBuilder: ({
-      required controller,
-      required subtitleViewConfiguration,
-      required normalTheme,
-      required fullscreenTheme,
-    }) {
-      return const ColoredBox(
-        key: Key('player_video_surface'),
-        color: Colors.black,
-        child: SizedBox.expand(),
+  final effectivePlatformPlayer =
+      platformPlayer ??
+      _FakePlatformPlayer(configuration: const PlayerConfiguration());
+  final effectiveFirstFrameFuture = firstFrameFuture ?? Future<void>.value();
+  final effectiveSubtitleCubit =
+      subtitleCubit ??
+      PlayerSubtitlePreferencesCubit(
+        repository: const _FakeSubtitlePreferencesRepository(),
       );
-    },
+  final factory = MediaKitPlayerViewportFactory(
+    repository: repository,
+    playerBuilder:
+        playerBuilder ??
+        (configuration) => Player(platformPlayer: effectivePlatformPlayer),
+    videoControllerBuilder:
+        videoControllerBuilder ??
+        (player) => _FakeVideoController(
+          player: player,
+          firstFrameFuture: effectiveFirstFrameFuture,
+        ),
+    videoSurfaceBuilder:
+        ({
+          required controller,
+          required subtitleViewConfiguration,
+          required normalTheme,
+          required fullscreenTheme,
+        }) {
+          return const ColoredBox(
+            key: Key('player_video_surface'),
+            color: Colors.black,
+            child: SizedBox.expand(),
+          );
+        },
   );
 
   return MaterialApp(
     locale: const Locale('en'),
     localizationsDelegates: AppLocalizations.localizationsDelegates,
     supportedLocales: AppLocalizations.supportedLocales,
-    home: BlocProvider(
-      create: (_) => PlayerSubtitlePreferencesCubit(
-        repository: const _FakeSubtitlePreferencesRepository(),
-      ),
+    home: BlocProvider<PlayerSubtitlePreferencesCubit>.value(
+      value: effectiveSubtitleCubit,
       child: Scaffold(
         body: factory.build(
           source: _source,
@@ -171,6 +293,47 @@ class _FakePlayerRepository implements PlayerRepository {
   @override
   Stream<PlayerPlaybackStats> watchPlaybackStats({required String sessionId}) {
     return const Stream.empty();
+  }
+}
+
+class _LateStatsPlayerRepository implements PlayerRepository {
+  late final StreamController<PlayerPlaybackStats> _controller =
+      StreamController<PlayerPlaybackStats>.broadcast(
+        onCancel: () async {
+          await _cancelCompleter.future;
+        },
+      );
+  final _cancelCompleter = Completer<void>();
+
+  void emitStat(PlayerPlaybackStats stats) {
+    _controller.add(stats);
+  }
+
+  void finishCancel() {
+    if (!_cancelCompleter.isCompleted) {
+      _cancelCompleter.complete();
+    }
+  }
+
+  @override
+  Future<void> disposePlayback({required String sessionId}) async {}
+
+  @override
+  Future<PreparedPlayerSource> prepareSource({required String magnet}) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Stream<PlayerLaunchUpdate> startPlayback({
+    required String sessionId,
+    required int fileIndex,
+  }) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Stream<PlayerPlaybackStats> watchPlaybackStats({required String sessionId}) {
+    return _controller.stream;
   }
 }
 
@@ -221,6 +384,20 @@ class _FakePlatformPlayer extends PlatformPlayer {
   void emitTracks(Tracks tracks) {
     state = state.copyWith(tracks: tracks);
     tracksController.add(tracks);
+  }
+}
+
+class _ControllablePlatformPlayer extends _FakePlatformPlayer {
+  _ControllablePlatformPlayer({
+    required super.configuration,
+    required this.openFuture,
+  });
+
+  final Future<void> openFuture;
+
+  @override
+  Future<void> open(Playable playable, {bool play = true}) async {
+    await openFuture;
   }
 }
 

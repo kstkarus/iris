@@ -710,6 +710,12 @@ abstract class AppLocalizations {
   /// **'Not available'**
   String get playerTracksUnavailable;
 
+  /// No description provided for @invalidRouteArgumentsMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'This screen was opened with invalid navigation data.'**
+  String get invalidRouteArgumentsMessage;
+
   /// No description provided for @playerPlayButton.
   ///
   /// In en, this message translates to:

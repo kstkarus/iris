@@ -171,6 +171,7 @@
   "playerTrackAuto": "Auto",
   "playerTrackOff": "Off",
   "playerTracksUnavailable": "Not available",
+  "invalidRouteArgumentsMessage": "This screen was opened with invalid navigation data.",
   "playerPlayButton": "Play",
   "playerPauseButton": "Pause"
 }

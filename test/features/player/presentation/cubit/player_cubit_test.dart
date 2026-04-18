@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:iris/features/player/domain/entities/anime_player_source.dart';
@@ -109,6 +111,44 @@ void main() {
     expect(repository.startedFileIndices, [2]);
     expect(repository.disposedSessionIds, ['42']);
   });
+
+  test(
+    'ignores repeated loadPlayback while launch is already active',
+    () async {
+      final repository = _ControlledPlayerRepository();
+      final cubit = PlayerCubit(source: _source, repository: repository);
+
+      final firstLaunch = cubit.loadPlayback();
+      await Future<void>.delayed(Duration.zero);
+      cubit.loadPlayback();
+
+      expect(repository.startedSessionIds, ['42']);
+      expect(repository.startedFileIndices, [2]);
+
+      repository.emit(
+        const PlayerLaunchReadyUpdate(
+          PlayerSession(
+            sessionId: '42',
+            streamUrl: 'http://127.0.0.1:8080/stream/2',
+          ),
+        ),
+      );
+      await firstLaunch;
+    },
+  );
+
+  test('cancels active launch subscription when cubit closes', () async {
+    final repository = _ControlledPlayerRepository();
+    final cubit = PlayerCubit(source: _source, repository: repository);
+
+    cubit.loadPlayback();
+    await Future<void>.delayed(Duration.zero);
+
+    await cubit.close();
+
+    expect(repository.cancelledLaunchCount, 1);
+    expect(repository.disposedSessionIds, ['42']);
+  });
 }
 
 class _SuccessPlayerRepository implements PlayerRepository {
@@ -207,6 +247,49 @@ class _StartupBufferFailingPlayerRepository implements PlayerRepository {
     yield const PlayerLaunchFailureUpdate(
       PlayerLaunchFailure.unableToPrepareStartupBuffer,
     );
+  }
+
+  @override
+  Stream<PlayerPlaybackStats> watchPlaybackStats({required String sessionId}) {
+    return const Stream.empty();
+  }
+}
+
+class _ControlledPlayerRepository implements PlayerRepository {
+  final List<String> startedSessionIds = [];
+  final List<int> startedFileIndices = [];
+  final List<String> disposedSessionIds = [];
+  int cancelledLaunchCount = 0;
+  StreamController<PlayerLaunchUpdate>? _controller;
+
+  @override
+  Future<void> disposePlayback({required String sessionId}) async {
+    disposedSessionIds.add(sessionId);
+  }
+
+  void emit(PlayerLaunchUpdate update) {
+    _controller?.add(update);
+  }
+
+  @override
+  Future<PreparedPlayerSource> prepareSource({required String magnet}) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Stream<PlayerLaunchUpdate> startPlayback({
+    required String sessionId,
+    required int fileIndex,
+  }) {
+    startedSessionIds.add(sessionId);
+    startedFileIndices.add(fileIndex);
+    final controller = StreamController<PlayerLaunchUpdate>(
+      onCancel: () {
+        cancelledLaunchCount++;
+      },
+    );
+    _controller = controller;
+    return controller.stream;
   }
 
   @override

@@ -1,3 +1,6 @@
+import 'dart:developer' as developer;
+
+import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
@@ -23,6 +26,7 @@ import 'package:iris/features/watch_sources/domain/repositories/watch_sources_re
 import 'package:iris/features/watch_sources/presentation/cubit/watch_sources_cubit.dart';
 import 'package:iris/features/watch_sources/presentation/models/anime_watch_sources_args.dart';
 import 'package:iris/features/watch_sources/presentation/pages/watch_sources_page.dart';
+import 'package:iris/l10n/generated/app_localizations.dart';
 
 abstract final class AppRouter {
   static GoRouter createRouter() {
@@ -60,13 +64,16 @@ abstract final class AppRouter {
           path: '/anime/:id/watch',
           name: 'anime-watch-sources',
           builder: (context, state) {
-            final extra = state.extra;
-            final args = extra is AnimeWatchSourcesArgs
-                ? extra
-                : AnimeWatchSourcesArgs(
-                    animeId: state.pathParameters['id'] ?? '',
-                    animeEnglishTitle: '',
-                  );
+            final args = state.extra;
+            if (args is! AnimeWatchSourcesArgs ||
+                args.animeId.trim().isEmpty ||
+                state.pathParameters['id']?.trim().isEmpty != false) {
+              _reportInvalidRouteArgs(
+                routeName: 'anime-watch-sources',
+                extra: state.extra,
+              );
+              return const _InvalidRoutePage();
+            }
 
             return BlocProvider(
               create: (_) => WatchSourcesCubit(
@@ -82,15 +89,17 @@ abstract final class AppRouter {
           path: '/anime/:id/watch/files',
           name: 'anime-player-files',
           builder: (context, state) {
-            final extra = state.extra;
-            final args = extra is AnimePlayerSourceArgs
-                ? extra
-                : AnimePlayerSourceArgs(
-                    animeId: state.pathParameters['id'] ?? '',
-                    animeTitle: '',
-                    sourceTitle: '',
-                    magnet: '',
-                  );
+            final args = state.extra;
+            if (args is! AnimePlayerSourceArgs ||
+                args.animeId.trim().isEmpty ||
+                args.magnet.trim().isEmpty ||
+                state.pathParameters['id']?.trim().isEmpty != false) {
+              _reportInvalidRouteArgs(
+                routeName: 'anime-player-files',
+                extra: state.extra,
+              );
+              return const _InvalidRoutePage();
+            }
 
             return BlocProvider(
               create: (_) => PlayerSourceCubit(
@@ -105,17 +114,17 @@ abstract final class AppRouter {
           path: '/anime/:id/watch/player',
           name: 'anime-player',
           builder: (context, state) {
-            final extra = state.extra;
-            final args = extra is AnimePlayerArgs
-                ? extra
-                : AnimePlayerArgs(
-                    animeId: state.pathParameters['id'] ?? '',
-                    animeTitle: '',
-                    sourceTitle: '',
-                    sessionId: '',
-                    fileIndex: 0,
-                    fileName: '',
-                  );
+            final args = state.extra;
+            if (args is! AnimePlayerArgs ||
+                args.animeId.trim().isEmpty ||
+                args.sessionId.trim().isEmpty ||
+                state.pathParameters['id']?.trim().isEmpty != false) {
+              _reportInvalidRouteArgs(
+                routeName: 'anime-player',
+                extra: state.extra,
+              );
+              return const _InvalidRoutePage();
+            }
 
             return MultiBlocProvider(
               providers: [
@@ -145,6 +154,57 @@ abstract final class AppRouter {
           },
         ),
       ],
+    );
+  }
+}
+
+void _reportInvalidRouteArgs({
+  required String routeName,
+  required Object? extra,
+}) {
+  developer.log(
+    'Route $routeName received invalid navigation data: $extra',
+    name: 'iris.app_router',
+  );
+}
+
+class _InvalidRoutePage extends StatelessWidget {
+  const _InvalidRoutePage();
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final materialL10n = MaterialLocalizations.of(context);
+
+    return Scaffold(
+      appBar: AppBar(title: Text(l10n.appName)),
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.error_outline, size: 40),
+              const SizedBox(height: 12),
+              Text(
+                l10n.invalidRouteArgumentsMessage,
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 16),
+              FilledButton(
+                onPressed: () {
+                  if (Navigator.of(context).canPop()) {
+                    Navigator.of(context).pop();
+                    return;
+                  }
+                  context.goNamed('anime-list');
+                },
+                child: Text(materialL10n.backButtonTooltip),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

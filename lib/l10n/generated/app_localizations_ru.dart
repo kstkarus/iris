@@ -349,6 +349,10 @@ class AppLocalizationsRu extends AppLocalizations {
   String get playerTracksUnavailable => 'Нет доступных дорожек';
 
   @override
+  String get invalidRouteArgumentsMessage =>
+      'Этот экран был открыт с некорректными данными навигации.';
+
+  @override
   String get playerPlayButton => 'Играть';
 
   @override
