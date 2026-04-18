@@ -20,6 +20,51 @@ import 'package:iris/l10n/generated/app_localizations.dart';
 
 void main() {
   testWidgets(
+    'keeps the track menu button available before and after viewport readiness',
+    (tester) async {
+      final firstFrameCompleter = Completer<void>();
+      final platformPlayer = _FakePlatformPlayer(
+        configuration: const PlayerConfiguration(),
+      );
+
+      await tester.pumpWidget(
+        _wrapViewport(
+          platformPlayer: platformPlayer,
+          firstFrameFuture: firstFrameCompleter.future,
+          videoSurfaceBuilder:
+              ({
+                required controller,
+                required subtitleViewConfiguration,
+                required normalTheme,
+                required fullscreenTheme,
+              }) {
+                return Column(
+                  children: [
+                    Row(children: normalTheme.topButtonBar),
+                    const Expanded(
+                      child: ColoredBox(
+                        key: Key('player_video_surface'),
+                        color: Colors.black,
+                        child: SizedBox.expand(),
+                      ),
+                    ),
+                  ],
+                );
+              },
+        ),
+      );
+      await tester.pump();
+
+      expect(find.byIcon(Icons.tune), findsOneWidget);
+
+      firstFrameCompleter.complete();
+      await tester.pump();
+
+      expect(find.byIcon(Icons.tune), findsOneWidget);
+    },
+  );
+
+  testWidgets(
     'keeps viewport in local buffering state until the first frame is rendered',
     (tester) async {
       final firstFrameCompleter = Completer<void>();
@@ -35,8 +80,9 @@ void main() {
       );
       await tester.pump();
 
-      expect(find.text('Buffering...'), findsOneWidget);
+      expect(find.text('Buffering...'), findsAtLeastNWidgets(1));
       expect(find.byKey(const Key('player_video_surface')), findsOneWidget);
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
 
       firstFrameCompleter.complete();
       await tester.pump();
@@ -104,6 +150,130 @@ void main() {
     },
   );
 
+  testWidgets(
+    'shows only startup status on the overlay while waiting for the first frame',
+    (tester) async {
+      final firstFrameCompleter = Completer<void>();
+      final platformPlayer = _FakePlatformPlayer(
+        configuration: const PlayerConfiguration(),
+      );
+      final repository = _LateStatsPlayerRepository();
+
+      await tester.pumpWidget(
+        _wrapViewport(
+          platformPlayer: platformPlayer,
+          firstFrameFuture: firstFrameCompleter.future,
+          repository: repository,
+        ),
+      );
+      await tester.pump();
+
+      repository.emitStat(
+        const PlayerPlaybackStats(
+          downloadRateBytesPerSecond: 3 * 1024 * 1024,
+          appMemoryBytes: null,
+          activePeers: 8,
+          bufferSeconds: 12,
+          bufferPieces: 16,
+          readaheadWindow: 30,
+        ),
+      );
+      await tester.pump();
+
+      expect(find.text('Buffering...'), findsOneWidget);
+      expect(find.text('3.0 MB/s'), findsNothing);
+      expect(find.text('8'), findsNothing);
+      expect(find.text('53%'), findsNothing);
+
+      repository.finishCancel();
+    },
+  );
+
+  testWidgets(
+    'keeps top stats visible after readiness even when controls keep the initial theme instance',
+    (tester) async {
+      final platformPlayer = _FakePlatformPlayer(
+        configuration: const PlayerConfiguration(),
+      );
+      final repository = _LateStatsPlayerRepository();
+
+      await tester.pumpWidget(
+        _wrapViewport(
+          platformPlayer: platformPlayer,
+          firstFrameFuture: Future<void>.value(),
+          repository: repository,
+          videoSurfaceBuilder:
+              ({
+                required controller,
+                required subtitleViewConfiguration,
+                required normalTheme,
+                required fullscreenTheme,
+              }) {
+                return _StickyTopBarSurface(
+                  topButtonBar: normalTheme.topButtonBar,
+                );
+              },
+        ),
+      );
+      await tester.pump();
+
+      repository.emitStat(
+        const PlayerPlaybackStats(
+          downloadRateBytesPerSecond: 0,
+          appMemoryBytes: null,
+          activePeers: 0,
+          bufferSeconds: 0,
+          bufferPieces: 0,
+          readaheadWindow: 30,
+        ),
+      );
+      await tester.pump();
+
+      expect(find.byIcon(Icons.tune), findsOneWidget);
+      expect(find.text('0 B/s'), findsOneWidget);
+      expect(find.text('0'), findsOneWidget);
+
+      repository.finishCancel();
+    },
+  );
+
+  testWidgets(
+    'fails startup early when playback stats show no network activity',
+    (tester) async {
+      final firstFrameCompleter = Completer<void>();
+      final platformPlayer = _FakePlatformPlayer(
+        configuration: const PlayerConfiguration(),
+      );
+      final repository = _LateStatsPlayerRepository();
+
+      await tester.pumpWidget(
+        _wrapViewport(
+          platformPlayer: platformPlayer,
+          firstFrameFuture: firstFrameCompleter.future,
+          repository: repository,
+        ),
+      );
+      await tester.pump();
+
+      repository.emitStat(
+        const PlayerPlaybackStats(
+          downloadRateBytesPerSecond: 0,
+          appMemoryBytes: null,
+          activePeers: 0,
+          bufferSeconds: 0,
+          bufferPieces: 0,
+          readaheadWindow: 30,
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 16));
+
+      expect(find.text('Unable to start playback.'), findsOneWidget);
+
+      repository.finishCancel();
+    },
+  );
+
   testWidgets('ignores late playback stats after viewport disposal starts', (
     tester,
   ) async {
@@ -128,6 +298,9 @@ void main() {
         downloadRateBytesPerSecond: 1024,
         appMemoryBytes: 2048,
         activePeers: 3,
+        bufferSeconds: 12,
+        bufferPieces: 18,
+        readaheadWindow: 30,
       ),
     );
     await tester.pump();
@@ -216,6 +389,7 @@ Widget _wrapViewport({
   PlayerSubtitlePreferencesCubit? subtitleCubit,
   MediaKitPlayerBuilder? playerBuilder,
   MediaKitVideoControllerBuilder? videoControllerBuilder,
+  MediaKitVideoSurfaceBuilder? videoSurfaceBuilder,
 }) {
   final effectivePlatformPlayer =
       platformPlayer ??
@@ -238,6 +412,7 @@ Widget _wrapViewport({
           firstFrameFuture: effectiveFirstFrameFuture,
         ),
     videoSurfaceBuilder:
+        videoSurfaceBuilder ??
         ({
           required controller,
           required subtitleViewConfiguration,
@@ -348,6 +523,37 @@ class _FakeSubtitlePreferencesRepository
 
   @override
   Future<void> savePreferences(SubtitlePreferences preferences) async {}
+}
+
+class _StickyTopBarSurface extends StatefulWidget {
+  const _StickyTopBarSurface({required this.topButtonBar});
+
+  final List<Widget> topButtonBar;
+
+  @override
+  State<_StickyTopBarSurface> createState() => _StickyTopBarSurfaceState();
+}
+
+class _StickyTopBarSurfaceState extends State<_StickyTopBarSurface> {
+  late final List<Widget> _initialTopButtonBar = List<Widget>.from(
+    widget.topButtonBar,
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Row(children: _initialTopButtonBar),
+        const Expanded(
+          child: ColoredBox(
+            key: Key('player_video_surface'),
+            color: Colors.black,
+            child: SizedBox.expand(),
+          ),
+        ),
+      ],
+    );
+  }
 }
 
 class _FakePlatformPlayer extends PlatformPlayer {

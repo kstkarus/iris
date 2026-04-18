@@ -11,6 +11,7 @@ import 'package:iris/features/player/domain/entities/player_launch_progress.dart
 import 'package:iris/features/player/domain/entities/player_launch_update.dart';
 import 'package:iris/features/player/domain/entities/player_playback_stats.dart';
 import 'package:iris/features/player/domain/entities/player_video_file.dart';
+import 'package:iris/features/player/domain/player_buffer_policy.dart';
 import 'package:iris/features/player/domain/entities/player_session.dart';
 import 'package:iris/features/player/domain/entities/prepared_player_source.dart';
 import 'package:iris/features/player/domain/repositories/player_repository.dart';
@@ -122,17 +123,18 @@ PlayerLaunchProgress _mapLaunchProgress(PlaybackLaunchProgressModel progress) {
 }
 
 double _mapReadinessProgress(double rawBufferProgress) {
-  final normalized = rawBufferProgress / _startupReadyBufferProgress;
+  final normalized = rawBufferProgress / playerStartupReadyBufferProgress;
   return normalized.clamp(0.0, 1.0);
 }
-
-const _startupReadyBufferProgress = 0.5;
 
 PlayerPlaybackStats _mapPlaybackStats(PlaybackRuntimeStatsModel stats) {
   return PlayerPlaybackStats(
     downloadRateBytesPerSecond: stats.downloadRateBytesPerSecond,
     appMemoryBytes: stats.appMemoryBytes,
     activePeers: stats.activePeers,
+    bufferSeconds: stats.bufferSeconds,
+    bufferPieces: stats.bufferPieces,
+    readaheadWindow: stats.readaheadWindow,
   );
 }
 

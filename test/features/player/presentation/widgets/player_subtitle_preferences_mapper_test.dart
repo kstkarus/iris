@@ -31,10 +31,7 @@ void main() {
     );
 
     expect(configuration.playerConfiguration.libass, isTrue);
-    expect(
-      configuration.playerConfiguration.bufferSize,
-      192 * 1024 * 1024,
-    );
+    expect(configuration.playerConfiguration.bufferSize, 256 * 1024 * 1024);
     expect(
       configuration.playerConfiguration.libassAndroidFont,
       subtitleLibassFontAssetPath,
@@ -46,8 +43,8 @@ void main() {
     expect(configuration.mpvProperties['cache'], 'yes');
     expect(configuration.mpvProperties['cache-pause'], 'yes');
     expect(configuration.mpvProperties['cache-pause-initial'], 'yes');
-    expect(configuration.mpvProperties['cache-pause-wait'], '2');
-    expect(configuration.mpvProperties['demuxer-max-bytes'], '201326592');
+    expect(configuration.mpvProperties['cache-pause-wait'], '5');
+    expect(configuration.mpvProperties['demuxer-max-bytes'], '268435456');
     expect(configuration.mpvProperties['demuxer-max-back-bytes'], '33554432');
   });
 

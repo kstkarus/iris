@@ -6,7 +6,6 @@ import 'package:iris/features/player/data/adapters/libtorrent_engine_adapter.dar
 import 'package:iris/features/player/data/adapters/player_runtime_memory_adapter.dart';
 import 'package:iris/features/player/data/datasources/libtorrent_player_data_source.dart';
 import 'package:iris/features/player/data/exceptions/no_playable_video_exception.dart';
-import 'package:iris/features/player/data/exceptions/startup_buffer_unavailable_exception.dart';
 import 'package:iris/features/player/data/exceptions/torrent_metadata_unavailable_exception.dart';
 import 'package:iris/features/player/data/models/playback_launch_progress_model.dart';
 import 'package:iris/features/player/data/models/playback_runtime_stats_model.dart';
@@ -121,16 +120,10 @@ void main() {
 
       expect(engine.startedStreamTorrentId, 42);
       expect(engine.startedStreamFileIndex, 8);
-      expect(engine.waitedForStreamReadyId, 77);
+      expect(engine.startedStreamMaxCacheBytes, 256 * 1024 * 1024);
+      expect(engine.waitedForStreamReadyId, isNull);
       expect(probe.probedUrls, ['http://127.0.0.1:8080/stream/8']);
       expect(updates, [
-        const PlaybackLaunchProgressUpdateModel(
-          PlaybackLaunchProgressModel(
-            bufferProgress: 0.25,
-            downloadRateBytesPerSecond: 2048,
-            stage: PlaybackLaunchStageModel.buffering,
-          ),
-        ),
         const PlaybackLaunchReadyUpdateModel(
           PreparedPlaybackModel(
             sessionId: '42',
@@ -142,35 +135,33 @@ void main() {
   );
 
   test(
-    'emits startup buffer failure when engine cannot prepare the buffer',
+    'emits startup failure when HTTP probe cannot confirm a playable stream',
     () async {
+      final probe = _FakePlaybackStreamProbe(
+        result: const PlaybackProbeResult(
+          statusCode: 206,
+          contentType: null,
+          contentLength: 64,
+          acceptRanges: 'bytes',
+          firstBytes: [0x00],
+        ),
+      );
       final engine = _FakeLibtorrentEngineAdapter(
         files: const [],
         streamUrl: 'http://127.0.0.1:8080/stream/8',
-        waitForStreamReadyError: const StartupBufferUnavailableException(
-          progress: PlaybackLaunchProgressModel(
-            bufferProgress: 0.125,
-            downloadRateBytesPerSecond: 4096,
-            stage: PlaybackLaunchStageModel.extendedBuffering,
-          ),
-        ),
       );
-      final dataSource = LibtorrentPlayerDataSource(engine: engine);
+      final dataSource = LibtorrentPlayerDataSource(
+        engine: engine,
+        probe: probe,
+      );
 
       final updates = await dataSource
           .startPlayback(sessionId: '42', fileIndex: 8)
           .toList();
 
       expect(updates, [
-        const PlaybackLaunchProgressUpdateModel(
-          PlaybackLaunchProgressModel(
-            bufferProgress: 0.125,
-            downloadRateBytesPerSecond: 4096,
-            stage: PlaybackLaunchStageModel.extendedBuffering,
-          ),
-        ),
         const PlaybackLaunchFailureUpdateModel(
-          PlaybackLaunchFailureModel.unableToPrepareStartupBuffer,
+          PlaybackLaunchFailureModel.unableToStart,
         ),
       ]);
     },
@@ -196,6 +187,9 @@ void main() {
         downloadRateBytesPerSecond: 3145728,
         appMemoryBytes: null,
         activePeers: 24,
+        bufferSeconds: 14,
+        bufferPieces: 20,
+        readaheadWindow: 30,
       ),
     );
     final dataSource = LibtorrentPlayerDataSource(
@@ -215,6 +209,9 @@ void main() {
         downloadRateBytesPerSecond: 3145728,
         appMemoryBytes: 134217728,
         activePeers: 24,
+        bufferSeconds: 14,
+        bufferPieces: 20,
+        readaheadWindow: 30,
       ),
     );
   });
@@ -241,43 +238,6 @@ void main() {
       ),
     ]);
   });
-
-  test(
-    'stops startup quietly when playback is disposed during stream readiness',
-    () async {
-      final engine = _FakeLibtorrentEngineAdapter(
-        files: const [],
-        streamUrl: 'http://127.0.0.1:8080/stream/8',
-        waitForStreamReadyCompleter: Completer<void>(),
-      );
-      final dataSource = LibtorrentPlayerDataSource(
-        engine: engine,
-        probe: _FakePlaybackStreamProbe(),
-      );
-
-      final updates = <PlaybackLaunchUpdateModel>[];
-      final done = Completer<void>();
-      final subscription = dataSource
-          .startPlayback(sessionId: '42', fileIndex: 8)
-          .listen(
-            updates.add,
-            onDone: () {
-              if (!done.isCompleted) {
-                done.complete();
-              }
-            },
-          );
-
-      await Future<void>.delayed(Duration.zero);
-      await dataSource.disposePlayback(sessionId: '42');
-      engine.waitForStreamReadyCompleter?.complete();
-      await done.future.timeout(const Duration(seconds: 2));
-      await subscription.cancel();
-
-      expect(updates, isEmpty);
-      expect(engine.waitForStreamReadyWasCancelled, isTrue);
-    },
-  );
 
   test(
     'stops HTTP probing quietly when playback is disposed mid-probe',
@@ -319,15 +279,7 @@ void main() {
       await done.future.timeout(const Duration(seconds: 2));
       await subscription.cancel();
 
-      expect(updates, const [
-        PlaybackLaunchProgressUpdateModel(
-          PlaybackLaunchProgressModel(
-            bufferProgress: 0.25,
-            downloadRateBytesPerSecond: 2048,
-            stage: PlaybackLaunchStageModel.buffering,
-          ),
-        ),
-      ]);
+      expect(updates, isEmpty);
       expect(probe.probedUrls.length, 1);
     },
   );
@@ -337,24 +289,21 @@ class _FakeLibtorrentEngineAdapter implements LibtorrentEngineAdapter {
   _FakeLibtorrentEngineAdapter({
     required this.files,
     required this.streamUrl,
-    this.waitForStreamReadyError,
     this.runtimeStats,
     this.waitForMetadataError,
-    this.waitForStreamReadyCompleter,
   });
 
   final List<TorrentFileDescriptor> files;
   final String streamUrl;
-  final Object? waitForStreamReadyError;
   final PlaybackRuntimeStatsModel? runtimeStats;
   final Object? waitForMetadataError;
-  final Completer<void>? waitForStreamReadyCompleter;
 
   bool initialized = false;
   String? lastMagnet;
   int? waitedForMetadataTorrentId;
   int? startedStreamTorrentId;
   int? startedStreamFileIndex;
+  int? startedStreamMaxCacheBytes;
   int? waitedForStreamReadyId;
   int? runtimeStatsStreamId;
   int startStreamCallCount = 0;
@@ -384,10 +333,12 @@ class _FakeLibtorrentEngineAdapter implements LibtorrentEngineAdapter {
   PlaybackStreamDescriptor startStream(
     int torrentId, {
     required int fileIndex,
+    int maxCacheBytes = 0,
   }) {
     startStreamCallCount++;
     startedStreamTorrentId = torrentId;
     startedStreamFileIndex = fileIndex;
+    startedStreamMaxCacheBytes = maxCacheBytes;
     return PlaybackStreamDescriptor(streamId: 77, url: streamUrl);
   }
 
@@ -405,16 +356,7 @@ class _FakeLibtorrentEngineAdapter implements LibtorrentEngineAdapter {
     required bool Function() isCancelled,
   }) async* {
     waitedForStreamReadyId = streamId;
-    if (waitForStreamReadyError != null) {
-      throw waitForStreamReadyError!;
-    }
-    if (waitForStreamReadyCompleter != null) {
-      await waitForStreamReadyCompleter!.future;
-      waitForStreamReadyWasCancelled = isCancelled();
-      if (isCancelled()) {
-        return;
-      }
-    }
+    waitForStreamReadyWasCancelled = isCancelled();
     yield const PlaybackLaunchProgressModel(
       bufferProgress: 0.25,
       downloadRateBytesPerSecond: 2048,
@@ -430,18 +372,23 @@ class _FakeLibtorrentEngineAdapter implements LibtorrentEngineAdapter {
 }
 
 class _FakePlaybackStreamProbe implements PlaybackStreamProbe {
-  final List<String> probedUrls = [];
-
-  @override
-  Future<PlaybackProbeResult> probe(String url) async {
-    probedUrls.add(url);
-    return const PlaybackProbeResult(
+  _FakePlaybackStreamProbe({
+    this.result = const PlaybackProbeResult(
       statusCode: 206,
       contentType: null,
       contentLength: 64,
       acceptRanges: 'bytes',
       firstBytes: [0x1A, 0x45, 0xDF, 0xA3],
-    );
+    ),
+  });
+
+  final PlaybackProbeResult result;
+  final List<String> probedUrls = [];
+
+  @override
+  Future<PlaybackProbeResult> probe(String url) async {
+    probedUrls.add(url);
+    return result;
   }
 }
 

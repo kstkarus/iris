@@ -1,4 +1,5 @@
 import 'package:iris/features/player/data/models/playback_launch_progress_model.dart';
+import 'package:iris/features/player/domain/player_buffer_policy.dart';
 
 enum StreamStartupDecisionType { pending, ready, failed }
 
@@ -18,7 +19,8 @@ class StreamStartupDecision {
 
 class StreamStartupMonitor {
   StreamStartupMonitor({
-    this.readyBufferProgress = 0.5,
+    this.readyBufferProgress = playerStartupReadyBufferProgress,
+    this.readyBufferSeconds = playerStartupReadyBufferSeconds,
     this.progressStallTimeout = const Duration(seconds: 8),
     this.extendedBufferingTimeout = const Duration(seconds: 20),
     this.activityGracePeriod = const Duration(seconds: 4),
@@ -27,6 +29,7 @@ class StreamStartupMonitor {
   });
 
   final double readyBufferProgress;
+  final double readyBufferSeconds;
   final Duration progressStallTimeout;
   final Duration extendedBufferingTimeout;
   final Duration activityGracePeriod;
@@ -41,6 +44,7 @@ class StreamStartupMonitor {
 
   StreamStartupDecision evaluate({
     required double bufferProgress,
+    required double bufferSeconds,
     required int downloadRateBytesPerSecond,
     required int activePeers,
     required bool isReady,
@@ -59,7 +63,11 @@ class StreamStartupMonitor {
       _lastActivityAt = elapsed;
     }
 
-    if (isReady || bufferProgress >= readyBufferProgress) {
+    final hasEnoughStartupBuffer =
+        bufferProgress >= readyBufferProgress &&
+        bufferSeconds >= readyBufferSeconds;
+
+    if (hasEnoughStartupBuffer) {
       return StreamStartupDecision(
         type: StreamStartupDecisionType.ready,
         progress: _toProgress(bufferProgress, downloadRateBytesPerSecond),

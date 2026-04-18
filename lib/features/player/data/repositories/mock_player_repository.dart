@@ -52,6 +52,9 @@ class MockPlayerRepository implements PlayerRepository {
         downloadRateBytesPerSecond: 1572864,
         appMemoryBytes: 134217728,
         activePeers: 42,
+        bufferSeconds: 16,
+        bufferPieces: 22,
+        readaheadWindow: 30,
       ),
     );
   }

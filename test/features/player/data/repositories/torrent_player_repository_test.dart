@@ -112,6 +112,9 @@ void main() {
             downloadRateBytesPerSecond: 3145728,
             appMemoryBytes: 134217728,
             activePeers: 42,
+            bufferSeconds: 18,
+            bufferPieces: 24,
+            readaheadWindow: 32,
           ),
         ],
       ),
@@ -125,6 +128,9 @@ void main() {
         downloadRateBytesPerSecond: 3145728,
         appMemoryBytes: 134217728,
         activePeers: 42,
+        bufferSeconds: 18,
+        bufferPieces: 24,
+        readaheadWindow: 32,
       ),
     );
   });
@@ -195,6 +201,7 @@ class _UnusedLibtorrentEngineAdapter implements LibtorrentEngineAdapter {
   PlaybackStreamDescriptor startStream(
     int torrentId, {
     required int fileIndex,
+    int maxCacheBytes = 0,
   }) {
     throw UnimplementedError();
   }

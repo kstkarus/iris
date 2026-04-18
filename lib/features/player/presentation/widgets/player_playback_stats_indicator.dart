@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'package:iris/features/player/domain/entities/player_playback_stats.dart';
+import 'package:iris/features/player/presentation/widgets/player_buffer_health_tracker.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 
 class PlayerPlaybackStatsListenable extends StatelessWidget {
@@ -12,6 +13,7 @@ class PlayerPlaybackStatsListenable extends StatelessWidget {
     this.videoCodec,
     this.audioCodec,
     this.isBuffering = false,
+    this.bufferMarginState,
     super.key,
   });
 
@@ -19,6 +21,7 @@ class PlayerPlaybackStatsListenable extends StatelessWidget {
   final String? videoCodec;
   final String? audioCodec;
   final bool isBuffering;
+  final PlayerBufferMarginState? bufferMarginState;
 
   @override
   Widget build(BuildContext context) {
@@ -33,6 +36,7 @@ class PlayerPlaybackStatsListenable extends StatelessWidget {
           videoCodec: videoCodec,
           audioCodec: audioCodec,
           isBuffering: isBuffering,
+          bufferMarginState: bufferMarginState,
         );
       },
     );
@@ -45,6 +49,7 @@ class PlayerPlaybackStatsIndicator extends StatelessWidget {
     this.videoCodec,
     this.audioCodec,
     this.isBuffering = false,
+    this.bufferMarginState,
     super.key,
   });
 
@@ -52,6 +57,7 @@ class PlayerPlaybackStatsIndicator extends StatelessWidget {
   final String? videoCodec;
   final String? audioCodec;
   final bool isBuffering;
+  final PlayerBufferMarginState? bufferMarginState;
 
   @override
   Widget build(BuildContext context) {
@@ -130,13 +136,29 @@ class PlayerPlaybackStatsIndicator extends StatelessWidget {
       ),
     ];
 
+    final bufferedWindowProgress = _resolveBufferedWindowProgress(stats);
+    if (bufferedWindowProgress > 0) {
+      items.add(
+        _PlayerOverlayMetricItem(
+          value: _formatBufferedWindowProgress(bufferedWindowProgress),
+          icon: Icons.timelapse_rounded,
+          priority: 2,
+          backgroundColor:
+              ((bufferMarginState ?? resolvePlayerBufferMargin(stats)) ==
+                  PlayerBufferMarginState.sufficient
+              ? const Color(0x4032D583)
+              : const Color(0x40F59E0B)),
+        ),
+      );
+    }
+
     final shortVideoCodec = _shortCodec(videoCodec);
     if (shortVideoCodec != null) {
       items.add(
         _PlayerOverlayMetricItem(
           value: shortVideoCodec,
           icon: Icons.movie_outlined,
-          priority: 2,
+          priority: 3,
           tooltip: l10n.playerRuntimeStatsVideoCodec(shortVideoCodec),
         ),
       );
@@ -148,7 +170,7 @@ class PlayerPlaybackStatsIndicator extends StatelessWidget {
         _PlayerOverlayMetricItem(
           value: shortAudioCodec,
           icon: Icons.audiotrack_rounded,
-          priority: 3,
+          priority: 4,
           tooltip: l10n.playerRuntimeStatsAudioCodec(shortAudioCodec),
         ),
       );
@@ -161,7 +183,7 @@ class PlayerPlaybackStatsIndicator extends StatelessWidget {
         _PlayerOverlayMetricItem(
           value: formattedMemory,
           icon: Icons.memory_rounded,
-          priority: 4,
+          priority: 5,
           tooltip: l10n.playerRuntimeStatsMemory(formattedMemory),
         ),
       );
@@ -172,7 +194,7 @@ class PlayerPlaybackStatsIndicator extends StatelessWidget {
         _PlayerOverlayMetricItem(
           value: l10n.playerBuffering,
           icon: Icons.hourglass_top_rounded,
-          priority: 5,
+          priority: 6,
           tooltip: l10n.playerBuffering,
         ),
       );
@@ -200,7 +222,7 @@ class _MetricChip extends StatelessWidget {
       constraints: BoxConstraints(maxWidth: maxWidth),
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: Colors.white.withAlpha(31),
+          color: metric.backgroundColor ?? Colors.white.withAlpha(31),
           borderRadius: BorderRadius.circular(999),
         ),
         child: Padding(
@@ -239,12 +261,14 @@ class _PlayerOverlayMetricItem {
     required this.icon,
     required this.priority,
     this.tooltip,
+    this.backgroundColor,
   });
 
   final String value;
   final IconData icon;
   final int priority;
   final String? tooltip;
+  final Color? backgroundColor;
 }
 
 List<_PlayerOverlayMetricItem> _selectVisibleMetrics({
@@ -319,6 +343,18 @@ String _formatTransferRate(int bytesPerSecond) {
 
 String _formatMemory(int bytes) {
   return _formatBytes(bytes);
+}
+
+double _resolveBufferedWindowProgress(PlayerPlaybackStats stats) {
+  if (stats.readaheadWindow <= 0 || stats.bufferPieces <= 0) {
+    return 0;
+  }
+
+  return (stats.bufferPieces / stats.readaheadWindow).clamp(0.0, 1.0);
+}
+
+String _formatBufferedWindowProgress(double progress) {
+  return '${(progress * 100).round()}%';
 }
 
 String _formatBytes(int bytes) {

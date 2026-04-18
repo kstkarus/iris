@@ -2,7 +2,6 @@ import 'dart:developer' as developer;
 
 import 'package:iris/features/player/data/adapters/libtorrent_engine_adapter.dart';
 import 'package:iris/features/player/data/adapters/player_runtime_memory_adapter.dart';
-import 'package:iris/features/player/data/exceptions/startup_buffer_unavailable_exception.dart';
 import 'package:iris/features/player/data/exceptions/no_playable_video_exception.dart';
 import 'package:iris/features/player/data/exceptions/torrent_metadata_unavailable_exception.dart';
 import 'package:iris/features/player/data/models/playback_launch_update_model.dart';
@@ -109,63 +108,12 @@ class LibtorrentPlayerDataSource {
 
     final cancellation = _PlaybackLaunchCancellation();
     _launchCancellationBySessionId[sessionId] = cancellation;
-    final stream = _engine.startStream(torrentId, fileIndex: fileIndex);
+    final stream = _engine.startStream(
+      torrentId,
+      fileIndex: fileIndex,
+      maxCacheBytes: torrentStreamCacheBytes,
+    );
     _streamIdsBySessionId[sessionId] = stream.streamId;
-    PlaybackLaunchProgressUpdateModel? lastProgressUpdate;
-    try {
-      await for (final progress in _engine.waitForStreamReady(
-        stream.streamId,
-        isCancelled: () => cancellation.isCancelled,
-      )) {
-        if (cancellation.isCancelled) {
-          _completeLaunch(sessionId);
-          return;
-        }
-        final progressUpdate = PlaybackLaunchProgressUpdateModel(progress);
-        lastProgressUpdate = progressUpdate;
-        yield progressUpdate;
-      }
-      if (cancellation.isCancelled) {
-        _completeLaunch(sessionId);
-        return;
-      }
-    } on StartupBufferUnavailableException catch (error) {
-      if (cancellation.isCancelled) {
-        _completeLaunch(sessionId);
-        return;
-      }
-      developer.log(
-        'Torrent stream could not gather enough startup buffer. sessionId=$sessionId torrentId=$torrentId streamId=${stream.streamId}',
-        name: 'iris.player.datasource',
-      );
-      final failureProgressUpdate = PlaybackLaunchProgressUpdateModel(
-        error.progress,
-      );
-      if (failureProgressUpdate != lastProgressUpdate) {
-        yield failureProgressUpdate;
-      }
-      yield const PlaybackLaunchFailureUpdateModel(
-        PlaybackLaunchFailureModel.unableToPrepareStartupBuffer,
-      );
-      _completeLaunch(sessionId);
-      return;
-    } catch (error, stackTrace) {
-      if (cancellation.isCancelled) {
-        _completeLaunch(sessionId);
-        return;
-      }
-      developer.log(
-        'Playback startup failed unexpectedly before HTTP probe. sessionId=$sessionId torrentId=$torrentId streamId=${stream.streamId}',
-        name: 'iris.player.datasource',
-        error: error,
-        stackTrace: stackTrace,
-      );
-      yield const PlaybackLaunchFailureUpdateModel(
-        PlaybackLaunchFailureModel.unableToStart,
-      );
-      _completeLaunch(sessionId);
-      return;
-    }
 
     try {
       final prepared = await _waitForPlayableHttpStream(

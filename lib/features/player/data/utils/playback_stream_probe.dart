@@ -67,35 +67,40 @@ class PlaybackProbeResult {
 }
 
 class HttpPlaybackStreamProbe implements PlaybackStreamProbe {
-  const HttpPlaybackStreamProbe();
+  const HttpPlaybackStreamProbe({this.timeout = const Duration(seconds: 5)});
+
+  final Duration timeout;
 
   @override
   Future<PlaybackProbeResult> probe(String url) async {
     final client = HttpClient();
+    client.connectionTimeout = timeout;
     try {
-      final request = await client.getUrl(Uri.parse(url));
-      request.headers.set(HttpHeaders.rangeHeader, 'bytes=0-63');
-      final response = await request.close();
-      final bytes = await response.fold<List<int>>(<int>[], (buffer, chunk) {
-        if (buffer.length >= 64) {
+      final result = await () async {
+        final request = await client.getUrl(Uri.parse(url));
+        request.headers.set(HttpHeaders.rangeHeader, 'bytes=0-63');
+        final response = await request.close();
+        final bytes = await response.fold<List<int>>(<int>[], (buffer, chunk) {
+          if (buffer.length >= 64) {
+            return buffer;
+          }
+
+          final remaining = 64 - buffer.length;
+          buffer.addAll(chunk.take(remaining));
           return buffer;
-        }
+        });
 
-        final remaining = 64 - buffer.length;
-        buffer.addAll(chunk.take(remaining));
-        return buffer;
-      });
-
-      final result = PlaybackProbeResult(
-        statusCode: response.statusCode,
-        contentType: response.headers.contentType,
-        contentLength: response.contentLength,
-        acceptRanges: response.headers.value(HttpHeaders.acceptRangesHeader),
-        firstBytes: bytes,
-      );
+        return PlaybackProbeResult(
+          statusCode: response.statusCode,
+          contentType: response.headers.contentType,
+          contentLength: response.contentLength,
+          acceptRanges: response.headers.value(HttpHeaders.acceptRangesHeader),
+          firstBytes: bytes,
+        );
+      }().timeout(timeout);
 
       developer.log(
-        'HTTP probe completed. status=${result.statusCode} contentType=${result.contentType} contentLength=${result.contentLength} acceptRanges=${result.acceptRanges} firstBytesHex=${_toHex(bytes)} firstBytesText=${_toAscii(bytes)} looksLikePlayableMedia=${result.looksLikePlayableMedia}',
+        'HTTP probe completed. status=${result.statusCode} contentType=${result.contentType} contentLength=${result.contentLength} acceptRanges=${result.acceptRanges} firstBytesHex=${_toHex(result.firstBytes)} firstBytesText=${_toAscii(result.firstBytes)} looksLikePlayableMedia=${result.looksLikePlayableMedia}',
         name: 'iris.player.http_probe',
       );
       return result;

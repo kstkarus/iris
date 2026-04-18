@@ -16,6 +16,9 @@ void main() {
             downloadRateBytesPerSecond: 1572864,
             appMemoryBytes: 268435456,
             activePeers: 42,
+            bufferSeconds: 18,
+            bufferPieces: 24,
+            readaheadWindow: 32,
           ),
         ),
       ),
@@ -24,6 +27,7 @@ void main() {
     expect(find.text('1.5 MB/s'), findsOneWidget);
     expect(find.text('256 MB'), findsOneWidget);
     expect(find.text('42'), findsOneWidget);
+    expect(find.text('75%'), findsOneWidget);
   });
 
   testWidgets('renders only speed when memory is unavailable', (tester) async {
@@ -34,6 +38,9 @@ void main() {
             downloadRateBytesPerSecond: 524288,
             appMemoryBytes: null,
             activePeers: 11,
+            bufferSeconds: 4,
+            bufferPieces: 6,
+            readaheadWindow: 20,
           ),
         ),
       ),
@@ -41,6 +48,7 @@ void main() {
 
     expect(find.text('512 KB/s'), findsOneWidget);
     expect(find.text('11'), findsOneWidget);
+    expect(find.text('30%'), findsOneWidget);
     expect(find.text('Buffering...'), findsNothing);
   });
 
@@ -60,12 +68,16 @@ void main() {
       downloadRateBytesPerSecond: 1048576,
       appMemoryBytes: 134217728,
       activePeers: 24,
+      bufferSeconds: 12,
+      bufferPieces: 18,
+      readaheadWindow: 30,
     );
     await tester.pump();
 
     expect(find.text('1.0 MB/s'), findsOneWidget);
     expect(find.text('128 MB'), findsOneWidget);
     expect(find.text('24'), findsOneWidget);
+    expect(find.text('60%'), findsOneWidget);
   });
 
   testWidgets('renders codecs and buffering state when they are available', (
@@ -78,6 +90,9 @@ void main() {
             downloadRateBytesPerSecond: 1048576,
             appMemoryBytes: 134217728,
             activePeers: 24,
+            bufferSeconds: 12,
+            bufferPieces: 18,
+            readaheadWindow: 30,
           ),
           videoCodec: 'AV1',
           audioCodec: 'Opus',
@@ -106,6 +121,9 @@ void main() {
               downloadRateBytesPerSecond: 1572864,
               appMemoryBytes: 268435456,
               activePeers: 42,
+              bufferSeconds: 18,
+              bufferPieces: 24,
+              readaheadWindow: 32,
             ),
             videoCodec: 'H.265 / HEVC Main 10',
             audioCodec: 'Opus 5.1 Surround',
@@ -117,6 +135,29 @@ void main() {
 
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('renders zero-valued live runtime metrics once stats exist', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _wrap(
+        child: const PlayerPlaybackStatsIndicator(
+          stats: PlayerPlaybackStats(
+            downloadRateBytesPerSecond: 0,
+            appMemoryBytes: null,
+            activePeers: 0,
+            bufferSeconds: 0,
+            bufferPieces: 0,
+            readaheadWindow: 32,
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('0 B/s'), findsOneWidget);
+    expect(find.text('0'), findsOneWidget);
+    expect(find.text('0%'), findsNothing);
   });
 }
 

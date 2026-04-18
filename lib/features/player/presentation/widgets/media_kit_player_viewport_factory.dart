@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:developer' as developer;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:media_kit/media_kit.dart';
@@ -9,10 +10,12 @@ import 'package:media_kit_video/media_kit_video.dart';
 import 'package:iris/features/player/domain/entities/anime_player_source.dart';
 import 'package:iris/features/player/domain/entities/player_playback_stats.dart';
 import 'package:iris/features/player/domain/entities/player_session.dart';
+import 'package:iris/features/player/domain/player_buffer_policy.dart';
 import 'package:iris/features/player/domain/entities/subtitle_preferences.dart';
 import 'package:iris/features/player/domain/repositories/player_repository.dart';
 import 'package:iris/features/player/presentation/cubit/player_subtitle_preferences_cubit.dart';
 import 'package:iris/features/player/presentation/widgets/player_audio_fallback_resolver.dart';
+import 'package:iris/features/player/presentation/widgets/player_buffer_health_tracker.dart';
 import 'package:iris/features/player/presentation/widgets/player_playback_stats_indicator.dart';
 import 'package:iris/features/player/presentation/widgets/player_subtitle_preferences_mapper.dart';
 import 'package:iris/features/player/presentation/widgets/player_subtitle_settings_sheet.dart';
@@ -123,11 +126,32 @@ class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
   bool _isPlayerBuffering = false;
   bool _isDisposing = false;
   Track _selectedTrack = const Track();
+  PlayerBufferMarginState _bufferMarginState =
+      PlayerBufferMarginState.insufficient;
+  final PlayerRebufferCycleTracker _rebufferCycleTracker =
+      PlayerRebufferCycleTracker();
   final ValueNotifier<PlayerPlaybackStats?> _playbackStatsNotifier =
       ValueNotifier<PlayerPlaybackStats?>(null);
+  final ValueNotifier<_MediaKitViewportPhase> _startupPhaseNotifier =
+      ValueNotifier<_MediaKitViewportPhase>(
+        _MediaKitViewportPhase.openingSource,
+      );
+  final ValueNotifier<Track> _selectedTrackNotifier = ValueNotifier<Track>(
+    const Track(),
+  );
+  final ValueNotifier<bool> _playerBufferingNotifier = ValueNotifier<bool>(
+    false,
+  );
+  final ValueNotifier<PlayerBufferMarginState> _bufferMarginStateNotifier =
+      ValueNotifier<PlayerBufferMarginState>(
+        PlayerBufferMarginState.insufficient,
+      );
   _MediaKitViewportStartupState _startupState =
       const _MediaKitViewportStartupState.openingSource();
   Timer? _startupTimeoutTimer;
+  Timer? _startupNetworkWatchdogTimer;
+  Duration? _startupNetworkMonitoringElapsed;
+  Duration? _lastStartupNetworkActivityAt;
   int _startupGeneration = 0;
 
   @override
@@ -152,6 +176,8 @@ class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
             return;
           }
           _playbackStatsNotifier.value = stats;
+          _updateBufferMarginState(stats);
+          _trackStartupNetworkActivity(stats);
         });
     _openPlayback();
   }
@@ -185,6 +211,8 @@ class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
     _videoController = widget.videoControllerBuilder(_player);
     _selectedTrack = _player.state.track;
     _isPlayerBuffering = _player.state.buffering;
+    _selectedTrackNotifier.value = _selectedTrack;
+    _playerBufferingNotifier.value = _isPlayerBuffering;
     _attachDebugListeners();
   }
 
@@ -193,7 +221,9 @@ class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
       return;
     }
     final startupGeneration = ++_startupGeneration;
+    _rebufferCycleTracker.reset();
     _cancelStartupTimeout();
+    _cancelStartupNetworkWatchdog();
     if (mounted) {
       setState(() {
         _startupState = const _MediaKitViewportStartupState.openingSource();
@@ -308,6 +338,18 @@ class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
         'media_kit buffering changed: $buffering',
         name: 'iris.player.media',
       );
+      if (buffering &&
+          _startupState.phase == _MediaKitViewportPhase.ready &&
+          _rebufferCycleTracker.markBufferingStarted()) {
+        developer.log(
+          'Rebuffer cycle detected. count=${_rebufferCycleTracker.rebufferCount} window=${playerRebufferWindow.inSeconds}s',
+          name: 'iris.player.media',
+        );
+      } else if (!buffering &&
+          _startupState.phase == _MediaKitViewportPhase.ready &&
+          _player.state.playing) {
+        _rebufferCycleTracker.markPlaybackStable();
+      }
       if (_isPlayerBuffering != buffering) {
         if (mounted) {
           setState(() {
@@ -316,6 +358,7 @@ class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
         } else {
           _isPlayerBuffering = buffering;
         }
+        _playerBufferingNotifier.value = buffering;
       }
       unawaited(_logCacheBufferingState('buffering changed'));
     });
@@ -327,6 +370,16 @@ class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
         'media_kit playing changed: $playing',
         name: 'iris.player.media',
       );
+      if (_startupState.phase != _MediaKitViewportPhase.ready) {
+        return;
+      }
+      if (playing && !_isPlayerBuffering) {
+        _rebufferCycleTracker.markPlaybackStable();
+        return;
+      }
+      if (!playing) {
+        _rebufferCycleTracker.clearStablePlayback();
+      }
     });
     _completedSubscription = _player.stream.completed.listen((completed) {
       if (_isDisposing) {
@@ -372,6 +425,7 @@ class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
       } else {
         _selectedTrack = track;
       }
+      _selectedTrackNotifier.value = track;
     });
     _tracksSubscription = _player.stream.tracks.listen((tracks) {
       if (_isDisposing) {
@@ -452,6 +506,7 @@ class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
     }
 
     _updateStartupState(phase: _MediaKitViewportPhase.waitingForFirstFrame);
+    _startStartupNetworkWatchdog(startupGeneration);
     _startupTimeoutTimer = Timer(widget.mediaKitStartupTimeout, () {
       unawaited(_handleViewportStartupTimeout(startupGeneration));
     });
@@ -523,11 +578,16 @@ class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
       name: 'iris.player.media',
     );
     _cancelStartupTimeout();
+    _cancelStartupNetworkWatchdog();
     _updateStartupState(phase: _MediaKitViewportPhase.ready);
+    if (_player.state.playing && !_isPlayerBuffering) {
+      _rebufferCycleTracker.markPlaybackStable();
+    }
   }
 
   void _failViewport(_ViewportFailureType failureType) {
     _cancelStartupTimeout();
+    _cancelStartupNetworkWatchdog();
     if (!mounted) {
       _startupState = _startupState.copyWith(
         phase: _MediaKitViewportPhase.failed,
@@ -564,17 +624,94 @@ class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
 
     if (!mounted) {
       _startupState = nextState;
+      _startupPhaseNotifier.value = nextState.phase;
       return;
     }
 
     setState(() {
       _startupState = nextState;
     });
+    _startupPhaseNotifier.value = nextState.phase;
   }
 
   void _cancelStartupTimeout() {
     _startupTimeoutTimer?.cancel();
     _startupTimeoutTimer = null;
+  }
+
+  void _trackStartupNetworkActivity(PlayerPlaybackStats stats) {
+    if (_startupState.phase == _MediaKitViewportPhase.ready ||
+        _startupState.phase == _MediaKitViewportPhase.failed) {
+      return;
+    }
+
+    _startupNetworkMonitoringElapsed ??= Duration.zero;
+    if (stats.downloadRateBytesPerSecond > 0 || stats.activePeers > 0) {
+      _lastStartupNetworkActivityAt = _startupNetworkMonitoringElapsed;
+    }
+  }
+
+  void _startStartupNetworkWatchdog(int startupGeneration) {
+    if (_startupNetworkWatchdogTimer != null) {
+      return;
+    }
+
+    _startupNetworkWatchdogTimer = Timer.periodic(const Duration(seconds: 1), (
+      _,
+    ) {
+      if (_isDisposing ||
+          !mounted ||
+          startupGeneration != _startupGeneration ||
+          _startupState.phase == _MediaKitViewportPhase.ready ||
+          _startupState.phase == _MediaKitViewportPhase.failed) {
+        _cancelStartupNetworkWatchdog();
+        return;
+      }
+
+      final monitoringElapsed = _startupNetworkMonitoringElapsed;
+      if (monitoringElapsed == null) {
+        return;
+      }
+
+      final nextElapsed = monitoringElapsed + const Duration(seconds: 1);
+      _startupNetworkMonitoringElapsed = nextElapsed;
+
+      final lastActivityAt = _lastStartupNetworkActivityAt ?? Duration.zero;
+      if (nextElapsed - lastActivityAt < const Duration(seconds: 15)) {
+        return;
+      }
+
+      developer.log(
+        'media_kit startup failed because torrent stream never showed network activity.',
+        name: 'iris.player.media',
+      );
+      _failViewport(_ViewportFailureType.transportStartupTimeout);
+    });
+  }
+
+  void _cancelStartupNetworkWatchdog() {
+    _startupNetworkWatchdogTimer?.cancel();
+    _startupNetworkWatchdogTimer = null;
+    _startupNetworkMonitoringElapsed = null;
+    _lastStartupNetworkActivityAt = null;
+  }
+
+  void _updateBufferMarginState(PlayerPlaybackStats stats) {
+    final nextState = resolvePlayerBufferMargin(stats);
+    if (nextState == _bufferMarginState) {
+      return;
+    }
+
+    if (!mounted) {
+      _bufferMarginState = nextState;
+      _bufferMarginStateNotifier.value = nextState;
+      return;
+    }
+
+    setState(() {
+      _bufferMarginState = nextState;
+    });
+    _bufferMarginStateNotifier.value = nextState;
   }
 
   Future<void> _logCacheBufferingState(String reason) async {
@@ -637,6 +774,7 @@ class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
 
   Future<void> _disposePlayerResources() async {
     _cancelStartupTimeout();
+    _cancelStartupNetworkWatchdog();
     final bufferingSubscription = _bufferingSubscription;
     final playingSubscription = _playingSubscription;
     final completedSubscription = _completedSubscription;
@@ -671,6 +809,7 @@ class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
     _isDisposing = true;
     _startupGeneration++;
     _cancelStartupTimeout();
+    _cancelStartupNetworkWatchdog();
 
     final subtitlePreferencesSubscription = _subtitlePreferencesSubscription;
     final playbackStatsSubscription = _playbackStatsSubscription;
@@ -682,6 +821,10 @@ class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
       await playbackStatsSubscription?.cancel();
       await _disposePlayerResources();
       _playbackStatsNotifier.dispose();
+      _startupPhaseNotifier.dispose();
+      _selectedTrackNotifier.dispose();
+      _playerBufferingNotifier.dispose();
+      _bufferMarginStateNotifier.dispose();
     }());
     super.dispose();
   }
@@ -759,25 +902,13 @@ class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
                   ),
                   if (_reconfiguringPlayback ||
                       _startupState.phase != _MediaKitViewportPhase.ready)
-                    ColoredBox(
+                    _PlayerStartupOverlay(
                       key: const Key('player_viewport_loading_overlay'),
-                      color: Colors.black54,
-                      child: Center(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const CircularProgressIndicator(),
-                            const SizedBox(height: 12),
-                            Text(
-                              _startupState.phase ==
-                                      _MediaKitViewportPhase.openingSource
-                                  ? l10n.playerPreparing
-                                  : l10n.playerBuffering,
-                              style: const TextStyle(color: Colors.white),
-                            ),
-                          ],
-                        ),
-                      ),
+                      label:
+                          _startupState.phase ==
+                              _MediaKitViewportPhase.openingSource
+                          ? l10n.playerPreparing
+                          : l10n.playerBuffering,
                     ),
                 ],
               ),
@@ -798,13 +929,12 @@ class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
             alignment: Alignment.centerLeft,
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 280),
-              child: PlayerPlaybackStatsListenable(
+              child: _PlayerControlsStatsPanel(
                 listenable: _playbackStatsNotifier,
-                videoCodec: _selectedTrack.video.codec,
-                audioCodec: _selectedTrack.audio.codec,
-                isBuffering:
-                    _startupState.phase == _MediaKitViewportPhase.ready &&
-                    _isPlayerBuffering,
+                startupPhaseListenable: _startupPhaseNotifier,
+                trackListenable: _selectedTrackNotifier,
+                bufferMarginStateListenable: _bufferMarginStateNotifier,
+                isBufferingListenable: _playerBufferingNotifier,
               ),
             ),
           ),
@@ -824,8 +954,10 @@ class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
       brightnessGesture: true,
       seekGesture: true,
       seekOnDoubleTap: true,
-      bufferingIndicatorBuilder: (context) =>
-          _BufferingIndicator(label: l10n.playerBuffering),
+      bufferingIndicatorBuilder: (context) => _PlayerControlsBufferingOverlay(
+        startupPhaseListenable: _startupPhaseNotifier,
+        label: l10n.playerBuffering,
+      ),
     );
   }
 }
@@ -837,7 +969,11 @@ enum _MediaKitViewportPhase {
   failed,
 }
 
-enum _ViewportFailureType { generic, firstFrameTimeout }
+enum _ViewportFailureType {
+  generic,
+  firstFrameTimeout,
+  transportStartupTimeout,
+}
 
 class _MediaKitViewportStartupState {
   const _MediaKitViewportStartupState({
@@ -920,6 +1056,98 @@ class _BufferingIndicator extends StatelessWidget {
         const SizedBox(height: 12),
         Text(label, style: const TextStyle(color: Colors.white)),
       ],
+    );
+  }
+}
+
+class _PlayerStartupOverlay extends StatelessWidget {
+  const _PlayerStartupOverlay({required this.label, super.key});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return ColoredBox(
+      color: Colors.black54,
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const CircularProgressIndicator(),
+              const SizedBox(height: 12),
+              Text(label, style: const TextStyle(color: Colors.white)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PlayerControlsStatsPanel extends StatelessWidget {
+  const _PlayerControlsStatsPanel({
+    required this.listenable,
+    required this.startupPhaseListenable,
+    required this.trackListenable,
+    required this.bufferMarginStateListenable,
+    required this.isBufferingListenable,
+  });
+
+  final ValueListenable<PlayerPlaybackStats?> listenable;
+  final ValueListenable<_MediaKitViewportPhase> startupPhaseListenable;
+  final ValueListenable<Track> trackListenable;
+  final ValueListenable<PlayerBufferMarginState> bufferMarginStateListenable;
+  final ValueListenable<bool> isBufferingListenable;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: Listenable.merge([
+        startupPhaseListenable,
+        trackListenable,
+        bufferMarginStateListenable,
+        isBufferingListenable,
+      ]),
+      builder: (context, child) {
+        if (startupPhaseListenable.value != _MediaKitViewportPhase.ready) {
+          return const SizedBox.shrink();
+        }
+
+        final track = trackListenable.value;
+        return PlayerPlaybackStatsListenable(
+          listenable: listenable,
+          videoCodec: track.video.codec,
+          audioCodec: track.audio.codec,
+          bufferMarginState: bufferMarginStateListenable.value,
+          isBuffering: isBufferingListenable.value,
+        );
+      },
+    );
+  }
+}
+
+class _PlayerControlsBufferingOverlay extends StatelessWidget {
+  const _PlayerControlsBufferingOverlay({
+    required this.startupPhaseListenable,
+    required this.label,
+  });
+
+  final ValueListenable<_MediaKitViewportPhase> startupPhaseListenable;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<_MediaKitViewportPhase>(
+      valueListenable: startupPhaseListenable,
+      builder: (context, phase, child) {
+        if (phase != _MediaKitViewportPhase.ready) {
+          return const SizedBox.shrink();
+        }
+
+        return _BufferingIndicator(label: label);
+      },
     );
   }
 }
