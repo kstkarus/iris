@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:iris/features/player/data/exceptions/no_playable_video_exception.dart';
@@ -163,6 +165,56 @@ void main() {
 
     expect(repository.disposedSessionIds, ['42']);
   });
+
+  test(
+    'does not emit after close and disposes a late prepared source',
+    () async {
+      final repository = _DeferredSourceRepository();
+      final cubit = PlayerSourceCubit(
+        magnet: 'magnet:?xt=urn:btih:test-source',
+        repository: repository,
+      );
+
+      final loadFuture = cubit.loadSource();
+      await cubit.close();
+
+      repository.completeWith(
+        const PreparedPlayerSource(
+          sessionId: '42',
+          files: [
+            PlayerVideoFile(
+              index: 1,
+              name: 'episode-01.mkv',
+              size: 700,
+              extension: 'mkv',
+            ),
+          ],
+        ),
+      );
+
+      await expectLater(loadFuture, completes);
+      expect(repository.disposedSessionIds, ['42']);
+    },
+  );
+
+  test(
+    'does not emit after close when source preparation fails late',
+    () async {
+      final repository = _DeferredSourceRepository();
+      final cubit = PlayerSourceCubit(
+        magnet: 'magnet:?xt=urn:btih:test-source',
+        repository: repository,
+      );
+
+      final loadFuture = cubit.loadSource();
+      await cubit.close();
+
+      repository.completeWithError(Exception('late failure'));
+
+      await expectLater(loadFuture, completes);
+      expect(repository.disposedSessionIds, isEmpty);
+    },
+  );
 }
 
 class _PreparedSourceRepository implements PlayerRepository {
@@ -202,6 +254,47 @@ class _UnsupportedSourceRepository implements PlayerRepository {
   @override
   Future<PreparedPlayerSource> prepareSource({required String magnet}) async {
     throw const NoPlayableVideoException();
+  }
+
+  @override
+  Stream<PlayerLaunchUpdate> startPlayback({
+    required String sessionId,
+    required int fileIndex,
+  }) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Stream<PlayerPlaybackStats> watchPlaybackStats({required String sessionId}) {
+    return const Stream.empty();
+  }
+}
+
+class _DeferredSourceRepository implements PlayerRepository {
+  final Completer<PreparedPlayerSource> _prepareCompleter =
+      Completer<PreparedPlayerSource>();
+  final List<String> disposedSessionIds = [];
+
+  void completeWith(PreparedPlayerSource preparedSource) {
+    if (!_prepareCompleter.isCompleted) {
+      _prepareCompleter.complete(preparedSource);
+    }
+  }
+
+  void completeWithError(Object error) {
+    if (!_prepareCompleter.isCompleted) {
+      _prepareCompleter.completeError(error);
+    }
+  }
+
+  @override
+  Future<void> disposePlayback({required String sessionId}) async {
+    disposedSessionIds.add(sessionId);
+  }
+
+  @override
+  Future<PreparedPlayerSource> prepareSource({required String magnet}) {
+    return _prepareCompleter.future;
   }
 
   @override

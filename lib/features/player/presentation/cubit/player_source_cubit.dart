@@ -19,12 +19,18 @@ class PlayerSourceCubit extends Cubit<PlayerSourceState> {
 
   PreparedPlayerSource? _preparedSource;
   bool _sessionOwnershipTransferred = false;
+  int _loadAttemptId = 0;
+  bool _isClosing = false;
 
   Future<void> loadSource() async {
+    final attemptId = ++_loadAttemptId;
     developer.log(
       'Starting source preparation flow.',
       name: 'iris.player.source_cubit',
     );
+    if (!_isAttemptCurrent(attemptId)) {
+      return;
+    }
     emit(const PlayerSourceLoading());
 
     if (magnet.trim().isEmpty) {
@@ -32,12 +38,23 @@ class PlayerSourceCubit extends Cubit<PlayerSourceState> {
         'Source preparation aborted because magnet is empty.',
         name: 'iris.player.source_cubit',
       );
+      if (!_isAttemptCurrent(attemptId)) {
+        return;
+      }
       emit(const PlayerSourceFailure(PlayerSourceFailureType.unableToPrepare));
       return;
     }
 
     try {
       final preparedSource = await _repository.prepareSource(magnet: magnet);
+      if (!_isAttemptCurrent(attemptId)) {
+        developer.log(
+          'Prepared source arrived after source cubit became stale. Disposing sessionId=${preparedSource.sessionId}',
+          name: 'iris.player.source_cubit',
+        );
+        await _repository.disposePlayback(sessionId: preparedSource.sessionId);
+        return;
+      }
       _preparedSource = preparedSource;
       developer.log(
         'Source prepared successfully. sessionId=${preparedSource.sessionId} fileCount=${preparedSource.files.length}',
@@ -45,6 +62,9 @@ class PlayerSourceCubit extends Cubit<PlayerSourceState> {
       );
       emit(PlayerSourceReady(preparedSource));
     } on NoPlayableVideoException {
+      if (!_isAttemptCurrent(attemptId)) {
+        return;
+      }
       developer.log(
         'Source preparation failed because no supported video files were found.',
         name: 'iris.player.source_cubit',
@@ -53,6 +73,15 @@ class PlayerSourceCubit extends Cubit<PlayerSourceState> {
         const PlayerSourceFailure(PlayerSourceFailureType.unsupportedSource),
       );
     } catch (error, stackTrace) {
+      if (!_isAttemptCurrent(attemptId)) {
+        developer.log(
+          'Source preparation finished with an error after source cubit became stale.',
+          name: 'iris.player.source_cubit',
+          error: error,
+          stackTrace: stackTrace,
+        );
+        return;
+      }
       developer.log(
         'Source preparation failed with unexpected error.',
         name: 'iris.player.source_cubit',
@@ -73,6 +102,8 @@ class PlayerSourceCubit extends Cubit<PlayerSourceState> {
 
   @override
   Future<void> close() async {
+    _isClosing = true;
+    _loadAttemptId++;
     final preparedSource = _preparedSource;
     if (!_sessionOwnershipTransferred && preparedSource != null) {
       developer.log(
@@ -83,5 +114,9 @@ class PlayerSourceCubit extends Cubit<PlayerSourceState> {
     }
 
     return super.close();
+  }
+
+  bool _isAttemptCurrent(int attemptId) {
+    return !_isClosing && !isClosed && attemptId == _loadAttemptId;
   }
 }
