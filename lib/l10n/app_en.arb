@@ -1,0 +1,135 @@
+{
+  "@@locale": "en",
+  "appName": "Iris",
+  "commonRetry": "Try Again",
+  "animeKindTv": "TV",
+  "animeKindMovie": "Movie",
+  "animeKindOva": "OVA",
+  "animeKindOna": "ONA",
+  "animeStatusReleased": "Released",
+  "animeStatusOngoing": "Ongoing",
+  "animeStatusAnnounced": "Announced",
+  "animeScoreLabel": "Score {value}",
+  "@animeScoreLabel": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "animeEpisodeProgress": "{aired}/{total} {count, plural, =1{episode} other{episodes}}",
+  "@animeEpisodeProgress": {
+    "placeholders": {
+      "aired": {
+        "type": "String"
+      },
+      "total": {
+        "type": "String"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "animeListTitle": "Anime List",
+  "animeListLoading": "Loading anime list...",
+  "animeListLoadError": "Unable to load anime list.",
+  "animeListLoadMoreError": "Unable to load more anime.",
+  "animeListSearchHint": "Search anime",
+  "animeListFilterSortButton": "Filter & Sort",
+  "animeListFilterSortTitle": "Filter & Sort",
+  "animeListSortSectionTitle": "Sort",
+  "animeListTypeSectionTitle": "Type",
+  "animeListStatusSectionTitle": "Status",
+  "animeListSortPopularity": "Popularity",
+  "animeListSortScore": "Score",
+  "animeListSortAiredOn": "Aired On",
+  "animeListApplyButton": "Apply",
+  "animeListResetButton": "Reset",
+  "animeListEmpty": "No anime available right now.",
+  "animeListSearchEmpty": "No anime found for your search.",
+  "animeListCriteriaEmpty": "Nothing found for selected criteria.",
+  "animeDetailsTitle": "Anime Details",
+  "animeDetailsLoading": "Loading anime details...",
+  "animeDetailsLoadError": "Unable to load anime details.",
+  "watchSourcesTitle": "Watch Sources",
+  "watchSourcesOpenButton": "Watch",
+  "watchSourcesLoading": "Loading watch sources...",
+  "watchSourcesLoadError": "Unable to load watch sources.",
+  "watchSourcesEmpty": "No watch sources found.",
+  "watchSourcesSearchHint": "Search sources",
+  "watchSourcesSearchEmpty": "No watch sources match your search.",
+  "watchSourcesSortButton": "Sort",
+  "watchSourcesSortSheetTitle": "Sort",
+  "watchSourcesSortApplyButton": "Apply",
+  "watchSourcesSortSeeders": "Seeders",
+  "watchSourcesSortPublishedAt": "Date",
+  "watchSourcesSortDownloads": "Downloads",
+  "watchSourcesSortTitle": "Title",
+  "watchSourcesSizeLabel": "Size",
+  "watchSourcesTimeLabel": "Time",
+  "watchSourcesSeedersLabel": "Seeders",
+  "watchSourcesLeechersLabel": "Leechers",
+  "watchSourcesDownloadsLabel": "Downloads",
+  "watchSourcesPageLinkLabel": "Page Link",
+  "watchSourcesTorrentLinkLabel": "Torrent Link",
+  "watchSourcesMagnetLinkLabel": "Magnet Link",
+  "playerTitle": "Player",
+  "playerOpenButton": "Play",
+  "playerSourceTitle": "Choose File",
+  "playerSourcePreparing": "Preparing torrent files...",
+  "playerSourceUnsupported": "This source is not suitable for playback.",
+  "playerSourceUnableToPrepare": "Unable to prepare this source.",
+  "playerWatchFileButton": "Watch File",
+  "playerFileSizeLabel": "Size",
+  "playerFileTypeLabel": "Type",
+  "playerPreparing": "Preparing video...",
+  "playerWaitingMetadata": "Looking for torrent metadata...",
+  "playerBuffering": "Buffering...",
+  "playerPreparingMoreBuffer": "Collecting more buffered data...",
+  "playerStreamPreparationProgress": "{percent}% ready for playback",
+  "@playerStreamPreparationProgress": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "playerStreamPreparationSpeed": "Current speed: {value}",
+  "@playerStreamPreparationSpeed": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "playerUnableToStart": "Unable to start playback.",
+  "playerUnableToBufferForStart": "Unable to prepare enough buffered data to start playback.",
+  "playerNoPlayableVideo": "No playable video found.",
+  "playerTracksTitle": "Playback Tracks",
+  "playerAudioTracksTitle": "Audio",
+  "playerSubtitleTracksTitle": "Subtitles",
+  "playerSubtitleAppearanceTitle": "Subtitle Appearance",
+  "playerSubtitleVisibilityLabel": "Show subtitles",
+  "playerSubtitleLibassLabel": "Improved ASS/SSA rendering",
+  "playerSubtitleLibassDescription": "Uses native subtitle rendering for better compatibility with anime releases.",
+  "playerSubtitleSizeLabel": "Size",
+  "playerSubtitleColorLabel": "Text color",
+  "playerSubtitleBackgroundLabel": "Background",
+  "playerSubtitlePositionLabel": "Position",
+  "playerSubtitleResetAction": "Reset",
+  "playerSubtitleColorWhite": "White",
+  "playerSubtitleColorYellow": "Yellow",
+  "playerSubtitleColorCyan": "Cyan",
+  "playerSubtitleBackgroundNone": "Off",
+  "playerSubtitleBackgroundTranslucent": "Translucent",
+  "playerSubtitleBackgroundSolid": "Solid",
+  "playerSubtitlePositionLow": "Lower",
+  "playerSubtitlePositionStandard": "Standard",
+  "playerSubtitlePositionHigh": "Higher",
+  "playerTrackAuto": "Auto",
+  "playerTrackOff": "Off",
+  "playerTracksUnavailable": "Not available",
+  "playerPlayButton": "Play",
+  "playerPauseButton": "Pause"
+}
