@@ -32,6 +32,10 @@ void main() {
 
     expect(configuration.playerConfiguration.libass, isTrue);
     expect(
+      configuration.playerConfiguration.bufferSize,
+      192 * 1024 * 1024,
+    );
+    expect(
       configuration.playerConfiguration.libassAndroidFont,
       subtitleLibassFontAssetPath,
     );
@@ -39,6 +43,12 @@ void main() {
       configuration.playerConfiguration.libassAndroidFontName,
       subtitleLibassFontFamilyName,
     );
+    expect(configuration.mpvProperties['cache'], 'yes');
+    expect(configuration.mpvProperties['cache-pause'], 'yes');
+    expect(configuration.mpvProperties['cache-pause-initial'], 'yes');
+    expect(configuration.mpvProperties['cache-pause-wait'], '2');
+    expect(configuration.mpvProperties['demuxer-max-bytes'], '201326592');
+    expect(configuration.mpvProperties['demuxer-max-back-bytes'], '33554432');
   });
 
   test('recreates player only when libass toggle changes', () {

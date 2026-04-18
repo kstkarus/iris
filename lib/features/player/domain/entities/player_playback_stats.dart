@@ -2,10 +2,12 @@ class PlayerPlaybackStats {
   const PlayerPlaybackStats({
     required this.downloadRateBytesPerSecond,
     required this.appMemoryBytes,
+    required this.activePeers,
   });
 
   final int downloadRateBytesPerSecond;
   final int? appMemoryBytes;
+  final int activePeers;
 
   @override
   bool operator ==(Object other) {
@@ -15,9 +17,11 @@ class PlayerPlaybackStats {
 
     return other is PlayerPlaybackStats &&
         other.downloadRateBytesPerSecond == downloadRateBytesPerSecond &&
-        other.appMemoryBytes == appMemoryBytes;
+        other.appMemoryBytes == appMemoryBytes &&
+        other.activePeers == activePeers;
   }
 
   @override
-  int get hashCode => Object.hash(downloadRateBytesPerSecond, appMemoryBytes);
+  int get hashCode =>
+      Object.hash(downloadRateBytesPerSecond, appMemoryBytes, activePeers);
 }

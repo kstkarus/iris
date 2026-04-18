@@ -247,7 +247,26 @@ class AppLocalizationsRu extends AppLocalizations {
   }
 
   @override
+  String playerRuntimeStatsPeers(String value) {
+    return 'Пиры $value';
+  }
+
+  @override
+  String playerRuntimeStatsVideoCodec(String value) {
+    return 'Видео $value';
+  }
+
+  @override
+  String playerRuntimeStatsAudioCodec(String value) {
+    return 'Аудио $value';
+  }
+
+  @override
   String get playerUnableToStart => 'Не удалось начать воспроизведение.';
+
+  @override
+  String get playerUnableToPrepareFirstFrame =>
+      'Поток открыт, но плеер не смог подготовить первый кадр.';
 
   @override
   String get playerUnableToBufferForStart =>

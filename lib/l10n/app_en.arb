@@ -119,7 +119,32 @@
       }
     }
   },
+  "playerRuntimeStatsPeers": "Peers {value}",
+  "@playerRuntimeStatsPeers": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "playerRuntimeStatsVideoCodec": "Video {value}",
+  "@playerRuntimeStatsVideoCodec": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "playerRuntimeStatsAudioCodec": "Audio {value}",
+  "@playerRuntimeStatsAudioCodec": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
   "playerUnableToStart": "Unable to start playback.",
+  "playerUnableToPrepareFirstFrame": "The stream is open, but the player could not prepare the first frame.",
   "playerUnableToBufferForStart": "Unable to prepare enough buffered data to start playback.",
   "playerNoPlayableVideo": "No playable video found.",
   "playerTracksTitle": "Playback Tracks",

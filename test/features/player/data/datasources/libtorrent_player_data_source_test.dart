@@ -173,6 +173,7 @@ void main() {
       runtimeStats: const PlaybackRuntimeStatsModel(
         downloadRateBytesPerSecond: 3145728,
         appMemoryBytes: null,
+        activePeers: 24,
       ),
     );
     final dataSource = LibtorrentPlayerDataSource(
@@ -191,6 +192,7 @@ void main() {
       const PlaybackRuntimeStatsModel(
         downloadRateBytesPerSecond: 3145728,
         appMemoryBytes: 134217728,
+        activePeers: 24,
       ),
     );
   });

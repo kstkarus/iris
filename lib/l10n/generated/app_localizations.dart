@@ -524,11 +524,35 @@ abstract class AppLocalizations {
   /// **'Memory {value}'**
   String playerRuntimeStatsMemory(String value);
 
+  /// No description provided for @playerRuntimeStatsPeers.
+  ///
+  /// In en, this message translates to:
+  /// **'Peers {value}'**
+  String playerRuntimeStatsPeers(String value);
+
+  /// No description provided for @playerRuntimeStatsVideoCodec.
+  ///
+  /// In en, this message translates to:
+  /// **'Video {value}'**
+  String playerRuntimeStatsVideoCodec(String value);
+
+  /// No description provided for @playerRuntimeStatsAudioCodec.
+  ///
+  /// In en, this message translates to:
+  /// **'Audio {value}'**
+  String playerRuntimeStatsAudioCodec(String value);
+
   /// No description provided for @playerUnableToStart.
   ///
   /// In en, this message translates to:
   /// **'Unable to start playback.'**
   String get playerUnableToStart;
+
+  /// No description provided for @playerUnableToPrepareFirstFrame.
+  ///
+  /// In en, this message translates to:
+  /// **'The stream is open, but the player could not prepare the first frame.'**
+  String get playerUnableToPrepareFirstFrame;
 
   /// No description provided for @playerUnableToBufferForStart.
   ///

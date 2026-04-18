@@ -165,6 +165,7 @@ class LibtorrentEngineAdapterImpl implements LibtorrentEngineAdapter {
     return PlaybackRuntimeStatsModel(
       downloadRateBytesPerSecond: current.downloadRate,
       appMemoryBytes: null,
+      activePeers: current.activePeers,
     );
   }
 

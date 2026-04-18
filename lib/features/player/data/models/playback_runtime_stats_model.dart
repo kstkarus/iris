@@ -2,14 +2,17 @@ class PlaybackRuntimeStatsModel {
   const PlaybackRuntimeStatsModel({
     required this.downloadRateBytesPerSecond,
     required this.appMemoryBytes,
+    required this.activePeers,
   });
 
   final int downloadRateBytesPerSecond;
   final int? appMemoryBytes;
+  final int activePeers;
 
   PlaybackRuntimeStatsModel copyWith({
     int? downloadRateBytesPerSecond,
     int? appMemoryBytes,
+    int? activePeers,
     bool clearAppMemoryBytes = false,
   }) {
     return PlaybackRuntimeStatsModel(
@@ -18,6 +21,7 @@ class PlaybackRuntimeStatsModel {
       appMemoryBytes: clearAppMemoryBytes
           ? null
           : appMemoryBytes ?? this.appMemoryBytes,
+      activePeers: activePeers ?? this.activePeers,
     );
   }
 
@@ -29,9 +33,11 @@ class PlaybackRuntimeStatsModel {
 
     return other is PlaybackRuntimeStatsModel &&
         other.downloadRateBytesPerSecond == downloadRateBytesPerSecond &&
-        other.appMemoryBytes == appMemoryBytes;
+        other.appMemoryBytes == appMemoryBytes &&
+        other.activePeers == activePeers;
   }
 
   @override
-  int get hashCode => Object.hash(downloadRateBytesPerSecond, appMemoryBytes);
+  int get hashCode =>
+      Object.hash(downloadRateBytesPerSecond, appMemoryBytes, activePeers);
 }

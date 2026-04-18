@@ -6,6 +6,8 @@ import 'package:iris/features/player/domain/entities/subtitle_preferences.dart';
 
 const subtitleLibassFontAssetPath = 'assets/fonts/NotoSansCJKjp-Regular.otf';
 const subtitleLibassFontFamilyName = 'Noto Sans CJK JP';
+const torrentPlayerBufferSizeBytes = 192 * 1024 * 1024;
+const torrentPlayerBackBufferSizeBytes = 32 * 1024 * 1024;
 
 class PlayerRenderingConfiguration {
   const PlayerRenderingConfiguration({
@@ -24,6 +26,7 @@ PlayerRenderingConfiguration buildPlayerRenderingConfiguration(
 ) {
   return PlayerRenderingConfiguration(
     playerConfiguration: PlayerConfiguration(
+      bufferSize: torrentPlayerBufferSizeBytes,
       libass: preferences.libassEnabled,
       libassAndroidFont: subtitleLibassFontAssetPath,
       libassAndroidFontName: subtitleLibassFontFamilyName,
@@ -58,6 +61,12 @@ Map<String, String> buildSubtitleMpvProperties(
   SubtitlePreferences preferences,
 ) {
   return {
+    'cache': 'yes',
+    'cache-pause': 'yes',
+    'cache-pause-initial': 'yes',
+    'cache-pause-wait': '2',
+    'demuxer-max-bytes': torrentPlayerBufferSizeBytes.toString(),
+    'demuxer-max-back-bytes': torrentPlayerBackBufferSizeBytes.toString(),
     'sub-visibility': preferences.visible ? 'yes' : 'no',
     'sub-scale': _textScale(preferences.textScale).toString(),
     'sub-color': _mpvColor(_textColor(preferences.textColor)),

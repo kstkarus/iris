@@ -51,6 +51,7 @@ class MockPlayerRepository implements PlayerRepository {
       const PlayerPlaybackStats(
         downloadRateBytesPerSecond: 1572864,
         appMemoryBytes: 134217728,
+        activePeers: 42,
       ),
     );
   }

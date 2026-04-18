@@ -111,6 +111,7 @@ void main() {
           PlaybackRuntimeStatsModel(
             downloadRateBytesPerSecond: 3145728,
             appMemoryBytes: 134217728,
+            activePeers: 42,
           ),
         ],
       ),
@@ -123,6 +124,7 @@ void main() {
       const PlayerPlaybackStats(
         downloadRateBytesPerSecond: 3145728,
         appMemoryBytes: 134217728,
+        activePeers: 42,
       ),
     );
   });

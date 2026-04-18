@@ -132,6 +132,7 @@ PlayerPlaybackStats _mapPlaybackStats(PlaybackRuntimeStatsModel stats) {
   return PlayerPlaybackStats(
     downloadRateBytesPerSecond: stats.downloadRateBytesPerSecond,
     appMemoryBytes: stats.appMemoryBytes,
+    activePeers: stats.activePeers,
   );
 }
 

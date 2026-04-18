@@ -241,7 +241,26 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String playerRuntimeStatsPeers(String value) {
+    return 'Peers $value';
+  }
+
+  @override
+  String playerRuntimeStatsVideoCodec(String value) {
+    return 'Video $value';
+  }
+
+  @override
+  String playerRuntimeStatsAudioCodec(String value) {
+    return 'Audio $value';
+  }
+
+  @override
   String get playerUnableToStart => 'Unable to start playback.';
+
+  @override
+  String get playerUnableToPrepareFirstFrame =>
+      'The stream is open, but the player could not prepare the first frame.';
 
   @override
   String get playerUnableToBufferForStart =>
