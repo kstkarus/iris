@@ -1,5 +1,6 @@
 import 'package:iris/features/player/domain/entities/player_session.dart';
 import 'package:iris/features/player/domain/entities/player_launch_update.dart';
+import 'package:iris/features/player/domain/entities/player_playback_stats.dart';
 import 'package:iris/features/player/domain/entities/player_video_file.dart';
 import 'package:iris/features/player/domain/entities/prepared_player_source.dart';
 import 'package:iris/features/player/domain/repositories/player_repository.dart';
@@ -40,6 +41,16 @@ class MockPlayerRepository implements PlayerRepository {
       PlayerSession(
         sessionId: 'mock-session',
         streamUrl: 'http://127.0.0.1/mock/stream',
+      ),
+    );
+  }
+
+  @override
+  Stream<PlayerPlaybackStats> watchPlaybackStats({required String sessionId}) {
+    return Stream.value(
+      const PlayerPlaybackStats(
+        downloadRateBytesPerSecond: 1572864,
+        appMemoryBytes: 134217728,
       ),
     );
   }

@@ -103,6 +103,22 @@
       }
     }
   },
+  "playerRuntimeStatsSpeed": "Speed {value}",
+  "@playerRuntimeStatsSpeed": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "playerRuntimeStatsMemory": "Memory {value}",
+  "@playerRuntimeStatsMemory": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
   "playerUnableToStart": "Unable to start playback.",
   "playerUnableToBufferForStart": "Unable to prepare enough buffered data to start playback.",
   "playerNoPlayableVideo": "No playable video found.",

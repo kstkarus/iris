@@ -1,23 +1,33 @@
 import 'dart:developer' as developer;
 
 import 'package:iris/features/player/data/adapters/libtorrent_engine_adapter.dart';
+import 'package:iris/features/player/data/adapters/player_runtime_memory_adapter.dart';
 import 'package:iris/features/player/data/exceptions/startup_buffer_unavailable_exception.dart';
 import 'package:iris/features/player/data/exceptions/no_playable_video_exception.dart';
 import 'package:iris/features/player/data/models/playback_launch_update_model.dart';
+import 'package:iris/features/player/data/models/playback_runtime_stats_model.dart';
 import 'package:iris/features/player/data/models/prepared_playback_model.dart';
 import 'package:iris/features/player/data/models/prepared_player_source_model.dart';
 import 'package:iris/features/player/data/utils/playback_stream_probe.dart';
 import 'package:iris/features/player/data/utils/player_debug_formatter.dart';
 
 class LibtorrentPlayerDataSource {
-  const LibtorrentPlayerDataSource({
+  LibtorrentPlayerDataSource({
     required LibtorrentEngineAdapter engine,
+    PlayerRuntimeMemoryAdapter memoryAdapter =
+        const MethodChannelPlayerRuntimeMemoryAdapter(),
     PlaybackStreamProbe probe = const HttpPlaybackStreamProbe(),
+    Duration statsPollInterval = const Duration(seconds: 1),
   }) : _engine = engine,
+       _memoryAdapter = memoryAdapter,
+       _statsPollInterval = statsPollInterval,
        _probe = probe;
 
   final LibtorrentEngineAdapter _engine;
+  final PlayerRuntimeMemoryAdapter _memoryAdapter;
+  final Duration _statsPollInterval;
   final PlaybackStreamProbe _probe;
+  final Map<String, int> _streamIdsBySessionId = {};
 
   Future<PreparedPlayerSourceModel> prepareSource({
     required String magnet,
@@ -78,9 +88,12 @@ class LibtorrentPlayerDataSource {
     );
 
     final stream = _engine.startStream(torrentId, fileIndex: fileIndex);
+    _streamIdsBySessionId[sessionId] = stream.streamId;
     PlaybackLaunchProgressUpdateModel? lastProgressUpdate;
     try {
-      await for (final progress in _engine.waitForStreamReady(stream.streamId)) {
+      await for (final progress in _engine.waitForStreamReady(
+        stream.streamId,
+      )) {
         final progressUpdate = PlaybackLaunchProgressUpdateModel(progress);
         lastProgressUpdate = progressUpdate;
         yield progressUpdate;
@@ -99,6 +112,7 @@ class LibtorrentPlayerDataSource {
       yield const PlaybackLaunchFailureUpdateModel(
         PlaybackLaunchFailureModel.unableToPrepareStartupBuffer,
       );
+      _streamIdsBySessionId.remove(sessionId);
       return;
     } catch (error, stackTrace) {
       developer.log(
@@ -110,6 +124,7 @@ class LibtorrentPlayerDataSource {
       yield const PlaybackLaunchFailureUpdateModel(
         PlaybackLaunchFailureModel.unableToStart,
       );
+      _streamIdsBySessionId.remove(sessionId);
       return;
     }
 
@@ -132,6 +147,34 @@ class LibtorrentPlayerDataSource {
       yield const PlaybackLaunchFailureUpdateModel(
         PlaybackLaunchFailureModel.unableToStart,
       );
+      _streamIdsBySessionId.remove(sessionId);
+    }
+  }
+
+  Stream<PlaybackRuntimeStatsModel> watchPlaybackStats({
+    required String sessionId,
+  }) async* {
+    final streamId = _streamIdsBySessionId[sessionId];
+    if (streamId == null) {
+      return;
+    }
+
+    PlaybackRuntimeStatsModel? lastStats;
+    while (_streamIdsBySessionId[sessionId] == streamId) {
+      final streamStats = _engine.getPlaybackRuntimeStats(streamId);
+      if (streamStats != null) {
+        final appMemoryBytes = await _memoryAdapter.getAppMemoryBytes();
+        final stats = streamStats.copyWith(
+          appMemoryBytes: appMemoryBytes,
+          clearAppMemoryBytes: appMemoryBytes == null,
+        );
+        if (stats != lastStats) {
+          lastStats = stats;
+          yield stats;
+        }
+      }
+
+      await Future<void>.delayed(_statsPollInterval);
     }
   }
 
@@ -145,6 +188,7 @@ class LibtorrentPlayerDataSource {
       return;
     }
 
+    _streamIdsBySessionId.remove(sessionId);
     developer.log(
       'Disposing playback session. sessionId=$sessionId torrentId=$torrentId',
       name: 'iris.player.datasource',

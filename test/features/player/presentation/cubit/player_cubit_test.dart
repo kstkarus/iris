@@ -4,6 +4,7 @@ import 'package:iris/features/player/domain/entities/anime_player_source.dart';
 import 'package:iris/features/player/domain/entities/player_launch_failure.dart';
 import 'package:iris/features/player/domain/entities/player_launch_progress.dart';
 import 'package:iris/features/player/domain/entities/player_launch_update.dart';
+import 'package:iris/features/player/domain/entities/player_playback_stats.dart';
 import 'package:iris/features/player/domain/entities/player_session.dart';
 import 'package:iris/features/player/domain/entities/prepared_player_source.dart';
 import 'package:iris/features/player/domain/repositories/player_repository.dart';
@@ -27,9 +28,7 @@ void main() {
       expectLater(
         cubit.stream,
         emitsInOrder([
-          const PlayerPreparing(
-            progress: PlayerLaunchProgress.initial(),
-          ),
+          const PlayerPreparing(progress: PlayerLaunchProgress.initial()),
           const PlayerPreparing(
             progress: PlayerLaunchProgress(
               bufferProgress: 0.25,
@@ -57,9 +56,7 @@ void main() {
     expectLater(
       cubit.stream,
       emitsInOrder([
-        const PlayerPreparing(
-          progress: PlayerLaunchProgress.initial(),
-        ),
+        const PlayerPreparing(progress: PlayerLaunchProgress.initial()),
         const PlayerFailure(PlayerLaunchFailure.unableToStart),
       ]),
     );
@@ -69,31 +66,32 @@ void main() {
     expect(repository.disposedSessionIds, ['42']);
   });
 
-  test('emits startup buffer failure when repository reports stalled buffer', () async {
-    final repository = _StartupBufferFailingPlayerRepository();
-    final cubit = PlayerCubit(source: _source, repository: repository);
+  test(
+    'emits startup buffer failure when repository reports stalled buffer',
+    () async {
+      final repository = _StartupBufferFailingPlayerRepository();
+      final cubit = PlayerCubit(source: _source, repository: repository);
 
-    expectLater(
-      cubit.stream,
-      emitsInOrder([
-        const PlayerPreparing(
-          progress: PlayerLaunchProgress.initial(),
-        ),
-        const PlayerPreparing(
-          progress: PlayerLaunchProgress(
-            bufferProgress: 0.125,
-            downloadRateBytesPerSecond: 8192,
-            stage: PlayerLaunchStage.waitingForBuffer,
+      expectLater(
+        cubit.stream,
+        emitsInOrder([
+          const PlayerPreparing(progress: PlayerLaunchProgress.initial()),
+          const PlayerPreparing(
+            progress: PlayerLaunchProgress(
+              bufferProgress: 0.125,
+              downloadRateBytesPerSecond: 8192,
+              stage: PlayerLaunchStage.waitingForBuffer,
+            ),
           ),
-        ),
-        const PlayerFailure(PlayerLaunchFailure.unableToPrepareStartupBuffer),
-      ]),
-    );
+          const PlayerFailure(PlayerLaunchFailure.unableToPrepareStartupBuffer),
+        ]),
+      );
 
-    await cubit.loadPlayback();
+      await cubit.loadPlayback();
 
-    expect(repository.disposedSessionIds, ['42']);
-  });
+      expect(repository.disposedSessionIds, ['42']);
+    },
+  );
 
   test('disposes active playback on close', () async {
     final repository = _SuccessPlayerRepository(
@@ -147,6 +145,11 @@ class _SuccessPlayerRepository implements PlayerRepository {
     );
     yield PlayerLaunchReadyUpdate(session);
   }
+
+  @override
+  Stream<PlayerPlaybackStats> watchPlaybackStats({required String sessionId}) {
+    return const Stream.empty();
+  }
 }
 
 class _FailingPlayerRepository implements PlayerRepository {
@@ -168,6 +171,11 @@ class _FailingPlayerRepository implements PlayerRepository {
     required int fileIndex,
   }) async* {
     yield const PlayerLaunchFailureUpdate(PlayerLaunchFailure.unableToStart);
+  }
+
+  @override
+  Stream<PlayerPlaybackStats> watchPlaybackStats({required String sessionId}) {
+    return const Stream.empty();
   }
 }
 
@@ -199,6 +207,11 @@ class _StartupBufferFailingPlayerRepository implements PlayerRepository {
     yield const PlayerLaunchFailureUpdate(
       PlayerLaunchFailure.unableToPrepareStartupBuffer,
     );
+  }
+
+  @override
+  Stream<PlayerPlaybackStats> watchPlaybackStats({required String sessionId}) {
+    return const Stream.empty();
   }
 }
 

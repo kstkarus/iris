@@ -16,6 +16,7 @@ import 'package:iris/features/anime_list/data/repositories/remote_anime_list_rep
 import 'package:iris/features/anime_list/domain/repositories/anime_list_repository.dart';
 import 'package:iris/features/anime_list/presentation/bloc/anime_list_bloc.dart';
 import 'package:iris/features/player/data/adapters/libtorrent_engine_adapter.dart';
+import 'package:iris/features/player/data/adapters/player_runtime_memory_adapter.dart';
 import 'package:iris/features/player/data/datasources/libtorrent_player_data_source.dart';
 import 'package:iris/features/player/data/repositories/mock_player_repository.dart';
 import 'package:iris/features/player/data/repositories/shared_preferences_subtitle_preferences_repository.dart';
@@ -164,10 +165,17 @@ Future<void> configureDependencies({
       );
     }
 
+    if (!serviceLocator.isRegistered<PlayerRuntimeMemoryAdapter>()) {
+      serviceLocator.registerLazySingleton<PlayerRuntimeMemoryAdapter>(
+        MethodChannelPlayerRuntimeMemoryAdapter.new,
+      );
+    }
+
     if (!serviceLocator.isRegistered<LibtorrentPlayerDataSource>()) {
       serviceLocator.registerLazySingleton<LibtorrentPlayerDataSource>(
         () => LibtorrentPlayerDataSource(
           engine: serviceLocator<LibtorrentEngineAdapter>(),
+          memoryAdapter: serviceLocator<PlayerRuntimeMemoryAdapter>(),
         ),
       );
     }
@@ -206,7 +214,9 @@ Future<void> configureDependencies({
 
     if (!serviceLocator.isRegistered<PlayerViewportFactory>()) {
       serviceLocator.registerLazySingleton<PlayerViewportFactory>(
-        MediaKitPlayerViewportFactory.new,
+        () => MediaKitPlayerViewportFactory(
+          repository: serviceLocator<PlayerRepository>(),
+        ),
       );
     }
 

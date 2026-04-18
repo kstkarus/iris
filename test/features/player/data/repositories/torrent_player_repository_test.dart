@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:iris/features/player/data/adapters/libtorrent_engine_adapter.dart';
 import 'package:iris/features/player/data/datasources/libtorrent_player_data_source.dart';
 import 'package:iris/features/player/data/models/playback_launch_progress_model.dart';
+import 'package:iris/features/player/data/models/playback_runtime_stats_model.dart';
 import 'package:iris/features/player/data/models/playback_launch_update_model.dart';
 import 'package:iris/features/player/data/models/playback_stream_descriptor.dart';
 import 'package:iris/features/player/data/models/prepared_playback_model.dart';
@@ -12,6 +13,7 @@ import 'package:iris/features/player/data/repositories/torrent_player_repository
 import 'package:iris/features/player/domain/entities/player_launch_failure.dart';
 import 'package:iris/features/player/domain/entities/player_launch_progress.dart';
 import 'package:iris/features/player/domain/entities/player_launch_update.dart';
+import 'package:iris/features/player/domain/entities/player_playback_stats.dart';
 import 'package:iris/features/player/domain/entities/player_session.dart';
 
 void main() {
@@ -101,16 +103,41 @@ void main() {
       ]);
     },
   );
+
+  test('maps runtime playback stats into domain playback stats', () async {
+    final repository = TorrentPlayerRepository(
+      dataSource: _FakePlayerDataSource(
+        runtimeStats: const [
+          PlaybackRuntimeStatsModel(
+            downloadRateBytesPerSecond: 3145728,
+            appMemoryBytes: 134217728,
+          ),
+        ],
+      ),
+    );
+
+    final stats = await repository.watchPlaybackStats(sessionId: '42').first;
+
+    expect(
+      stats,
+      const PlayerPlaybackStats(
+        downloadRateBytesPerSecond: 3145728,
+        appMemoryBytes: 134217728,
+      ),
+    );
+  });
 }
 
 class _FakePlayerDataSource extends LibtorrentPlayerDataSource {
   _FakePlayerDataSource({
     this.launchUpdates = const [],
     this.throwOnStartPlayback = false,
+    this.runtimeStats = const [],
   }) : super(engine: _UnusedLibtorrentEngineAdapter());
 
   final List<PlaybackLaunchUpdateModel> launchUpdates;
   final bool throwOnStartPlayback;
+  final List<PlaybackRuntimeStatsModel> runtimeStats;
 
   @override
   Future<PreparedPlayerSourceModel> prepareSource({required String magnet}) {
@@ -128,6 +155,15 @@ class _FakePlayerDataSource extends LibtorrentPlayerDataSource {
 
     for (final update in launchUpdates) {
       yield update;
+    }
+  }
+
+  @override
+  Stream<PlaybackRuntimeStatsModel> watchPlaybackStats({
+    required String sessionId,
+  }) async* {
+    for (final stats in runtimeStats) {
+      yield stats;
     }
   }
 }
@@ -168,6 +204,11 @@ class _UnusedLibtorrentEngineAdapter implements LibtorrentEngineAdapter {
 
   @override
   Stream<PlaybackLaunchProgressModel> waitForStreamReady(int streamId) {
+    throw UnimplementedError();
+  }
+
+  @override
+  PlaybackRuntimeStatsModel? getPlaybackRuntimeStats(int streamId) {
     throw UnimplementedError();
   }
 }

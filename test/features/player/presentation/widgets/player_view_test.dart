@@ -6,6 +6,7 @@ import 'package:iris/features/player/domain/entities/anime_player_source.dart';
 import 'package:iris/features/player/domain/entities/player_launch_failure.dart';
 import 'package:iris/features/player/domain/entities/player_launch_progress.dart';
 import 'package:iris/features/player/domain/entities/player_launch_update.dart';
+import 'package:iris/features/player/domain/entities/player_playback_stats.dart';
 import 'package:iris/features/player/domain/entities/player_session.dart';
 import 'package:iris/features/player/domain/entities/prepared_player_source.dart';
 import 'package:iris/features/player/domain/repositories/player_repository.dart';
@@ -127,6 +128,11 @@ class _UnusedPlayerRepository implements PlayerRepository {
     required int fileIndex,
   }) {
     throw UnimplementedError();
+  }
+
+  @override
+  Stream<PlayerPlaybackStats> watchPlaybackStats({required String sessionId}) {
+    return const Stream.empty();
   }
 }
 

@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:iris/features/player/domain/entities/player_launch_update.dart';
+import 'package:iris/features/player/domain/entities/player_playback_stats.dart';
 import 'package:iris/features/player/domain/entities/player_video_file.dart';
 import 'package:iris/features/player/domain/entities/prepared_player_source.dart';
 import 'package:iris/features/player/domain/repositories/player_repository.dart';
@@ -105,5 +106,10 @@ class _UnusedPlayerRepository implements PlayerRepository {
     required int fileIndex,
   }) {
     throw UnimplementedError();
+  }
+
+  @override
+  Stream<PlayerPlaybackStats> watchPlaybackStats({required String sessionId}) {
+    return const Stream.empty();
   }
 }

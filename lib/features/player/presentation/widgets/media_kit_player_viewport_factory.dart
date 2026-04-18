@@ -7,10 +7,13 @@ import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 
 import 'package:iris/features/player/domain/entities/anime_player_source.dart';
+import 'package:iris/features/player/domain/entities/player_playback_stats.dart';
 import 'package:iris/features/player/domain/entities/player_session.dart';
 import 'package:iris/features/player/domain/entities/subtitle_preferences.dart';
+import 'package:iris/features/player/domain/repositories/player_repository.dart';
 import 'package:iris/features/player/presentation/cubit/player_subtitle_preferences_cubit.dart';
 import 'package:iris/features/player/presentation/widgets/player_audio_fallback_resolver.dart';
+import 'package:iris/features/player/presentation/widgets/player_playback_stats_indicator.dart';
 import 'package:iris/features/player/presentation/widgets/player_subtitle_preferences_mapper.dart';
 import 'package:iris/features/player/presentation/widgets/player_subtitle_settings_sheet.dart';
 import 'package:iris/features/player/presentation/widgets/player_track_selector_sheet.dart';
@@ -31,15 +34,18 @@ typedef MediaKitVideoSurfaceBuilder =
 
 class MediaKitPlayerViewportFactory implements PlayerViewportFactory {
   MediaKitPlayerViewportFactory({
+    required PlayerRepository repository,
     MediaKitPlayerBuilder? playerBuilder,
     MediaKitVideoControllerBuilder? videoControllerBuilder,
     MediaKitVideoSurfaceBuilder? videoSurfaceBuilder,
-  }) : _playerBuilder = playerBuilder ?? _defaultPlayerBuilder,
+  }) : _repository = repository,
+       _playerBuilder = playerBuilder ?? _defaultPlayerBuilder,
        _videoControllerBuilder =
            videoControllerBuilder ?? _defaultVideoControllerBuilder,
        _videoSurfaceBuilder =
            videoSurfaceBuilder ?? _defaultVideoSurfaceBuilder;
 
+  final PlayerRepository _repository;
   final MediaKitPlayerBuilder _playerBuilder;
   final MediaKitVideoControllerBuilder _videoControllerBuilder;
   final MediaKitVideoSurfaceBuilder _videoSurfaceBuilder;
@@ -52,6 +58,7 @@ class MediaKitPlayerViewportFactory implements PlayerViewportFactory {
     return _MediaKitPlayerViewport(
       source: source,
       session: session,
+      repository: _repository,
       playerBuilder: _playerBuilder,
       videoControllerBuilder: _videoControllerBuilder,
       videoSurfaceBuilder: _videoSurfaceBuilder,
@@ -63,6 +70,7 @@ class _MediaKitPlayerViewport extends StatefulWidget {
   const _MediaKitPlayerViewport({
     required this.source,
     required this.session,
+    required this.repository,
     required this.playerBuilder,
     required this.videoControllerBuilder,
     required this.videoSurfaceBuilder,
@@ -70,6 +78,7 @@ class _MediaKitPlayerViewport extends StatefulWidget {
 
   final AnimePlayerSource source;
   final PlayerSession session;
+  final PlayerRepository repository;
   final MediaKitPlayerBuilder playerBuilder;
   final MediaKitVideoControllerBuilder videoControllerBuilder;
   final MediaKitVideoSurfaceBuilder videoSurfaceBuilder;
@@ -88,11 +97,13 @@ class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
   StreamSubscription<bool>? _playingSubscription;
   StreamSubscription<bool>? _completedSubscription;
   StreamSubscription<String>? _errorSubscription;
+  StreamSubscription<PlayerPlaybackStats>? _playbackStatsSubscription;
   StreamSubscription<SubtitlePreferences>? _subtitlePreferencesSubscription;
 
   bool _openFailed = false;
   bool _recoveringAudioTrack = false;
   bool _reconfiguringPlayback = false;
+  PlayerPlaybackStats? _playbackStats;
 
   @override
   void initState() {
@@ -108,6 +119,16 @@ class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
         .stream
         .listen((preferences) {
           unawaited(_handleSubtitlePreferencesChanged(preferences));
+        });
+    _playbackStatsSubscription = widget.repository
+        .watchPlaybackStats(sessionId: widget.session.sessionId)
+        .listen((stats) {
+          if (!mounted) {
+            return;
+          }
+          setState(() {
+            _playbackStats = stats;
+          });
         });
     _openPlayback();
   }
@@ -366,6 +387,7 @@ class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
       name: 'iris.player.media',
     );
     unawaited(_subtitlePreferencesSubscription?.cancel());
+    unawaited(_playbackStatsSubscription?.cancel());
     unawaited(_disposePlayerResources());
     super.dispose();
   }
@@ -470,6 +492,8 @@ class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
     return MaterialVideoControlsThemeData(
       primaryButtonBar: const [Spacer(), MaterialPlayOrPauseButton(), Spacer()],
       topButtonBar: [
+        if (_playbackStats != null)
+          PlayerPlaybackStatsIndicator(stats: _playbackStats!),
         const Spacer(),
         MaterialCustomButton(
           icon: const Icon(Icons.tune),

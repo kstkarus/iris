@@ -1,10 +1,12 @@
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:iris/features/player/data/adapters/libtorrent_engine_adapter.dart';
+import 'package:iris/features/player/data/adapters/player_runtime_memory_adapter.dart';
 import 'package:iris/features/player/data/datasources/libtorrent_player_data_source.dart';
 import 'package:iris/features/player/data/exceptions/no_playable_video_exception.dart';
 import 'package:iris/features/player/data/exceptions/startup_buffer_unavailable_exception.dart';
 import 'package:iris/features/player/data/models/playback_launch_progress_model.dart';
+import 'package:iris/features/player/data/models/playback_runtime_stats_model.dart';
 import 'package:iris/features/player/data/models/playback_launch_update_model.dart';
 import 'package:iris/features/player/data/models/playback_stream_descriptor.dart';
 import 'package:iris/features/player/data/models/prepared_playback_model.dart';
@@ -91,10 +93,9 @@ void main() {
         probe: probe,
       );
 
-      final updates = await dataSource.startPlayback(
-        sessionId: '42',
-        fileIndex: 8,
-      ).toList();
+      final updates = await dataSource
+          .startPlayback(sessionId: '42', fileIndex: 8)
+          .toList();
 
       expect(engine.startedStreamTorrentId, 42);
       expect(engine.startedStreamFileIndex, 8);
@@ -118,38 +119,40 @@ void main() {
     },
   );
 
-  test('emits startup buffer failure when engine cannot prepare the buffer', () async {
-    final engine = _FakeLibtorrentEngineAdapter(
-      files: const [],
-      streamUrl: 'http://127.0.0.1:8080/stream/8',
-      waitForStreamReadyError: const StartupBufferUnavailableException(
-        progress: PlaybackLaunchProgressModel(
-          bufferProgress: 0.125,
-          downloadRateBytesPerSecond: 4096,
-          stage: PlaybackLaunchStageModel.extendedBuffering,
+  test(
+    'emits startup buffer failure when engine cannot prepare the buffer',
+    () async {
+      final engine = _FakeLibtorrentEngineAdapter(
+        files: const [],
+        streamUrl: 'http://127.0.0.1:8080/stream/8',
+        waitForStreamReadyError: const StartupBufferUnavailableException(
+          progress: PlaybackLaunchProgressModel(
+            bufferProgress: 0.125,
+            downloadRateBytesPerSecond: 4096,
+            stage: PlaybackLaunchStageModel.extendedBuffering,
+          ),
         ),
-      ),
-    );
-    final dataSource = LibtorrentPlayerDataSource(engine: engine);
+      );
+      final dataSource = LibtorrentPlayerDataSource(engine: engine);
 
-    final updates = await dataSource.startPlayback(
-      sessionId: '42',
-      fileIndex: 8,
-    ).toList();
+      final updates = await dataSource
+          .startPlayback(sessionId: '42', fileIndex: 8)
+          .toList();
 
-    expect(updates, [
-      const PlaybackLaunchProgressUpdateModel(
-        PlaybackLaunchProgressModel(
-          bufferProgress: 0.125,
-          downloadRateBytesPerSecond: 4096,
-          stage: PlaybackLaunchStageModel.extendedBuffering,
+      expect(updates, [
+        const PlaybackLaunchProgressUpdateModel(
+          PlaybackLaunchProgressModel(
+            bufferProgress: 0.125,
+            downloadRateBytesPerSecond: 4096,
+            stage: PlaybackLaunchStageModel.extendedBuffering,
+          ),
         ),
-      ),
-      const PlaybackLaunchFailureUpdateModel(
-        PlaybackLaunchFailureModel.unableToPrepareStartupBuffer,
-      ),
-    ]);
-  });
+        const PlaybackLaunchFailureUpdateModel(
+          PlaybackLaunchFailureModel.unableToPrepareStartupBuffer,
+        ),
+      ]);
+    },
+  );
 
   test('disposes torrent session by torrent id', () async {
     final engine = _FakeLibtorrentEngineAdapter(
@@ -162,6 +165,35 @@ void main() {
 
     expect(engine.disposedTorrentIds, [17]);
   });
+
+  test('watches playback stats for an active playback session', () async {
+    final engine = _FakeLibtorrentEngineAdapter(
+      files: const [],
+      streamUrl: 'http://127.0.0.1:8080/stream/8',
+      runtimeStats: const PlaybackRuntimeStatsModel(
+        downloadRateBytesPerSecond: 3145728,
+        appMemoryBytes: null,
+      ),
+    );
+    final dataSource = LibtorrentPlayerDataSource(
+      engine: engine,
+      memoryAdapter: const _FakePlayerRuntimeMemoryAdapter(134217728),
+      probe: _FakePlaybackStreamProbe(),
+      statsPollInterval: Duration.zero,
+    );
+
+    await dataSource.startPlayback(sessionId: '42', fileIndex: 8).last;
+    final stats = await dataSource.watchPlaybackStats(sessionId: '42').first;
+
+    expect(engine.runtimeStatsStreamId, 77);
+    expect(
+      stats,
+      const PlaybackRuntimeStatsModel(
+        downloadRateBytesPerSecond: 3145728,
+        appMemoryBytes: 134217728,
+      ),
+    );
+  });
 }
 
 class _FakeLibtorrentEngineAdapter implements LibtorrentEngineAdapter {
@@ -169,11 +201,13 @@ class _FakeLibtorrentEngineAdapter implements LibtorrentEngineAdapter {
     required this.files,
     required this.streamUrl,
     this.waitForStreamReadyError,
+    this.runtimeStats,
   });
 
   final List<TorrentFileDescriptor> files;
   final String streamUrl;
   final Object? waitForStreamReadyError;
+  final PlaybackRuntimeStatsModel? runtimeStats;
 
   bool initialized = false;
   String? lastMagnet;
@@ -181,6 +215,7 @@ class _FakeLibtorrentEngineAdapter implements LibtorrentEngineAdapter {
   int? startedStreamTorrentId;
   int? startedStreamFileIndex;
   int? waitedForStreamReadyId;
+  int? runtimeStatsStreamId;
   final List<int> disposedTorrentIds = [];
 
   @override
@@ -229,6 +264,12 @@ class _FakeLibtorrentEngineAdapter implements LibtorrentEngineAdapter {
       stage: PlaybackLaunchStageModel.buffering,
     );
   }
+
+  @override
+  PlaybackRuntimeStatsModel? getPlaybackRuntimeStats(int streamId) {
+    runtimeStatsStreamId = streamId;
+    return runtimeStats;
+  }
 }
 
 class _FakePlaybackStreamProbe implements PlaybackStreamProbe {
@@ -245,4 +286,13 @@ class _FakePlaybackStreamProbe implements PlaybackStreamProbe {
       firstBytes: [0x1A, 0x45, 0xDF, 0xA3],
     );
   }
+}
+
+class _FakePlayerRuntimeMemoryAdapter implements PlayerRuntimeMemoryAdapter {
+  const _FakePlayerRuntimeMemoryAdapter(this.appMemoryBytes);
+
+  final int? appMemoryBytes;
+
+  @override
+  Future<int?> getAppMemoryBytes() async => appMemoryBytes;
 }

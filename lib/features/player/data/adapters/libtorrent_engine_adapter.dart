@@ -5,6 +5,7 @@ import 'package:libtorrent_flutter/libtorrent_flutter.dart';
 import 'package:iris/features/player/data/adapters/stream_startup_monitor.dart';
 import 'package:iris/features/player/data/exceptions/startup_buffer_unavailable_exception.dart';
 import 'package:iris/features/player/data/models/playback_launch_progress_model.dart';
+import 'package:iris/features/player/data/models/playback_runtime_stats_model.dart';
 import 'package:iris/features/player/data/models/playback_stream_descriptor.dart';
 import 'package:iris/features/player/data/models/torrent_file_descriptor.dart';
 import 'package:iris/shared/utils/playback_runtime_initializer.dart';
@@ -21,6 +22,8 @@ abstract interface class LibtorrentEngineAdapter {
   PlaybackStreamDescriptor startStream(int torrentId, {required int fileIndex});
 
   Stream<PlaybackLaunchProgressModel> waitForStreamReady(int streamId);
+
+  PlaybackRuntimeStatsModel? getPlaybackRuntimeStats(int streamId);
 
   Future<void> disposeTorrent(int torrentId);
 }
@@ -150,6 +153,19 @@ class LibtorrentEngineAdapterImpl implements LibtorrentEngineAdapter {
 
       await Future<void>.delayed(const Duration(seconds: 1));
     }
+  }
+
+  @override
+  PlaybackRuntimeStatsModel? getPlaybackRuntimeStats(int streamId) {
+    final current = _engine.getStreamInfo(streamId);
+    if (current == null) {
+      return null;
+    }
+
+    return PlaybackRuntimeStatsModel(
+      downloadRateBytesPerSecond: current.downloadRate,
+      appMemoryBytes: null,
+    );
   }
 
   @override

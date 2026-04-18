@@ -512,6 +512,18 @@ abstract class AppLocalizations {
   /// **'Current speed: {value}'**
   String playerStreamPreparationSpeed(String value);
 
+  /// No description provided for @playerRuntimeStatsSpeed.
+  ///
+  /// In en, this message translates to:
+  /// **'Speed {value}'**
+  String playerRuntimeStatsSpeed(String value);
+
+  /// No description provided for @playerRuntimeStatsMemory.
+  ///
+  /// In en, this message translates to:
+  /// **'Memory {value}'**
+  String playerRuntimeStatsMemory(String value);
+
   /// No description provided for @playerUnableToStart.
   ///
   /// In en, this message translates to:

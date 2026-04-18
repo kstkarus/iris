@@ -231,6 +231,16 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String playerRuntimeStatsSpeed(String value) {
+    return 'Speed $value';
+  }
+
+  @override
+  String playerRuntimeStatsMemory(String value) {
+    return 'Memory $value';
+  }
+
+  @override
   String get playerUnableToStart => 'Unable to start playback.';
 
   @override

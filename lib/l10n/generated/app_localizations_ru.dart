@@ -237,6 +237,16 @@ class AppLocalizationsRu extends AppLocalizations {
   }
 
   @override
+  String playerRuntimeStatsSpeed(String value) {
+    return 'Скорость $value';
+  }
+
+  @override
+  String playerRuntimeStatsMemory(String value) {
+    return 'Память $value';
+  }
+
+  @override
   String get playerUnableToStart => 'Не удалось начать воспроизведение.';
 
   @override
