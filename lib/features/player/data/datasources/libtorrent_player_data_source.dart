@@ -13,6 +13,12 @@ import 'package:iris/features/player/data/utils/player_debug_formatter.dart';
 import 'package:iris/shared/torrent/torrent_activity_registry.dart';
 import 'package:iris/shared/torrent/torrent_key.dart';
 
+/// Player sessions over libtorrent.
+///
+/// libtorrent keeps one native torrent per info-hash, whatever id an add
+/// returns, so sessions of the same torrent (a player page closing while the
+/// next one opens) share one torrent here: it is removed, with its files,
+/// only when the last of its sessions is disposed.
 class LibtorrentPlayerDataSource {
   LibtorrentPlayerDataSource({
     required LibtorrentEngineAdapter engine,
@@ -32,7 +38,11 @@ class LibtorrentPlayerDataSource {
   final Duration _statsPollInterval;
   final PlaybackStreamProbe _probe;
   final TorrentActivityRegistry _activityRegistry;
-  final Map<String, String> _torrentKeysBySessionId = {};
+  final Map<String, _SharedTorrent> _torrentsByKey = {};
+  final Map<String, _SharedTorrent> _torrentsBySessionId = {};
+
+  /// Numeric: the player routes numeric session ids to streaming.
+  int _lastSessionId = 0;
   final Map<String, int> _streamIdsBySessionId = {};
   final Map<String, _PlaybackLaunchCancellation>
   _launchCancellationBySessionId = {};
@@ -47,23 +57,15 @@ class LibtorrentPlayerDataSource {
     );
     await _engine.initialize();
 
-    final torrentKey = torrentKeyFromMagnet(magnet);
-    // Must happen before addMagnet: a download of the same torrent releases
-    // its native handle synchronously, otherwise libtorrent would hand us the
-    // download's torrent and disposing playback would delete its files.
-    _activityRegistry.acquireStreaming(torrentKey);
-    final int torrentId;
+    final torrent = _acquireTorrent(magnet);
+    final sessionId = '${++_lastSessionId}';
+    _torrentsBySessionId[sessionId] = torrent;
+    torrent.sessionIds.add(sessionId);
+    final torrentId = torrent.torrentId;
     try {
-      torrentId = _engine.addMagnet(magnet);
+      await torrent.metadata;
     } catch (_) {
-      _activityRegistry.releaseStreaming(torrentKey);
-      rethrow;
-    }
-    _torrentKeysBySessionId[torrentId.toString()] = torrentKey;
-    try {
-      await _engine.waitForMetadata(torrentId);
-    } catch (_) {
-      await disposePlayback(sessionId: torrentId.toString());
+      await disposePlayback(sessionId: sessionId);
       rethrow;
     }
 
@@ -77,29 +79,68 @@ class LibtorrentPlayerDataSource {
         'No streamable files found for torrentId=$torrentId',
         name: 'iris.player.datasource',
       );
-      await disposePlayback(sessionId: torrentId.toString());
+      await disposePlayback(sessionId: sessionId);
       throw const NoPlayableVideoException();
     }
 
     developer.log(
-      'Prepared source session. torrentId=$torrentId sessionId=$torrentId fileCount=${files.length}',
+      'Prepared source session. torrentId=$torrentId sessionId=$sessionId '
+      'sessionsOnTorrent=${torrent.sessionIds.length} '
+      'fileCount=${files.length}',
       name: 'iris.player.datasource',
     );
 
-    return PreparedPlayerSourceModel(
-      sessionId: torrentId.toString(),
-      files: files,
+    return PreparedPlayerSourceModel(sessionId: sessionId, files: files);
+  }
+
+  /// The torrent of [magnet]: the one a live session still holds, or a new
+  /// one. A download of the same torrent steps aside before it is added.
+  _SharedTorrent _acquireTorrent(String magnet) {
+    final torrentKey = torrentKeyFromMagnet(magnet);
+    final existing = _torrentsByKey[torrentKey];
+    if (existing != null) {
+      developer.log(
+        'Reusing the torrent of a live session. '
+        'torrentId=${existing.torrentId} '
+        'sessionsOnTorrent=${existing.sessionIds.length}',
+        name: 'iris.player.datasource',
+      );
+      return existing;
+    }
+
+    // Must happen before addMagnet: a download of the same torrent releases
+    // its native handle synchronously, otherwise libtorrent would hand us the
+    // download's torrent and disposing playback would delete its files.
+    _activityRegistry.acquireStreaming(torrentKey);
+    final int torrentId;
+    try {
+      torrentId = _engine.addMagnet(magnet);
+    } catch (_) {
+      _activityRegistry.releaseStreaming(torrentKey);
+      rethrow;
+    }
+    final metadata = _engine.waitForMetadata(torrentId);
+    // Each preparing session awaits it; this only keeps a failure that no
+    // session awaits any more from being reported as unhandled.
+    metadata.ignore();
+    final torrent = _SharedTorrent(
+      torrentKey: torrentKey,
+      torrentId: torrentId,
+      metadata: metadata,
     );
+    _torrentsByKey[torrentKey] = torrent;
+    return torrent;
   }
 
   Stream<PlaybackLaunchUpdateModel> startPlayback({
     required String sessionId,
     required int fileIndex,
   }) async* {
-    final torrentId = int.tryParse(sessionId);
-    if (torrentId == null) {
+    final torrent = _torrentsBySessionId[sessionId];
+    if (torrent == null) {
       developer.log(
-        'Skipping playback start because sessionId is invalid: $sessionId',
+        'Skipping playback start because the session is unknown or '
+        'disposed: $sessionId',
         name: 'iris.player.datasource',
       );
       yield const PlaybackLaunchFailureUpdateModel(
@@ -107,6 +148,7 @@ class LibtorrentPlayerDataSource {
       );
       return;
     }
+    final torrentId = torrent.torrentId;
 
     developer.log(
       'Starting playback for prepared session. sessionId=$sessionId torrentId=$torrentId fileIndex=$fileIndex',
@@ -125,6 +167,7 @@ class LibtorrentPlayerDataSource {
       return;
     }
 
+    _stopOtherStreamsOnTorrent(torrent, sessionId: sessionId);
     final cancellation = _PlaybackLaunchCancellation();
     _launchCancellationBySessionId[sessionId] = cancellation;
     final stream = _engine.startStream(
@@ -166,6 +209,29 @@ class LibtorrentPlayerDataSource {
     }
   }
 
+  /// The end of a stream resets the whole torrent's piece priorities, which
+  /// would starve a newer stream of the same torrent. So an older session's
+  /// stream stops before a new one starts; in practice that session's page
+  /// is already closing.
+  void _stopOtherStreamsOnTorrent(
+    _SharedTorrent torrent, {
+    required String sessionId,
+  }) {
+    for (final otherSessionId in torrent.sessionIds) {
+      if (otherSessionId == sessionId) continue;
+      final streamId = _streamIdsBySessionId[otherSessionId];
+      if (streamId == null) continue;
+      developer.log(
+        'Stopping the stream of an older session on the same torrent. '
+        'sessionId=$otherSessionId streamId=$streamId '
+        'newSessionId=$sessionId',
+        name: 'iris.player.datasource',
+      );
+      _releaseStream(otherSessionId);
+      _engine.stopStream(streamId);
+    }
+  }
+
   Stream<PlaybackRuntimeStatsModel> watchPlaybackStats({
     required String sessionId,
   }) async* {
@@ -195,9 +261,7 @@ class LibtorrentPlayerDataSource {
 
   /// Stops the session's stream and keeps the torrent for the next file.
   Future<void> stopPlayback({required String sessionId}) async {
-    _launchCancellationBySessionId.remove(sessionId)?.cancel();
-    _probeTokensBySessionId.remove(sessionId)?.cancel();
-    final streamId = _streamIdsBySessionId.remove(sessionId);
+    final streamId = _releaseStream(sessionId);
     if (streamId == null) return;
     developer.log(
       'Stopping playback stream. sessionId=$sessionId streamId=$streamId',
@@ -206,28 +270,49 @@ class LibtorrentPlayerDataSource {
     _engine.stopStream(streamId);
   }
 
+  /// Ends the session: stops its stream and lets go of its torrent, which
+  /// is removed with its files once no session holds it. An unknown or
+  /// already disposed session is left alone.
   Future<void> disposePlayback({required String sessionId}) async {
-    final torrentId = int.tryParse(sessionId);
-    if (torrentId == null) {
+    final torrent = _torrentsBySessionId.remove(sessionId);
+    final streamId = _releaseStream(sessionId);
+    if (torrent == null) {
       developer.log(
-        'Skipping playback dispose because sessionId is invalid: $sessionId',
+        'Skipping playback dispose because the session is unknown or '
+        'already disposed: $sessionId',
         name: 'iris.player.datasource',
       );
       return;
     }
 
-    final launchCancellation = _launchCancellationBySessionId.remove(sessionId);
-    launchCancellation?.cancel();
-    final probeToken = _probeTokensBySessionId.remove(sessionId);
-    probeToken?.cancel();
-    _streamIdsBySessionId.remove(sessionId);
+    torrent.sessionIds.remove(sessionId);
     developer.log(
-      'Disposing playback session. sessionId=$sessionId torrentId=$torrentId',
+      'Disposing playback session. sessionId=$sessionId '
+      'torrentId=${torrent.torrentId} '
+      'sessionsLeftOnTorrent=${torrent.sessionIds.length}',
       name: 'iris.player.datasource',
     );
-    await _engine.disposeTorrent(torrentId);
-    final torrentKey = _torrentKeysBySessionId.remove(sessionId);
-    if (torrentKey != null) _activityRegistry.releaseStreaming(torrentKey);
+    if (torrent.sessionIds.isNotEmpty) {
+      if (streamId != null) _engine.stopStream(streamId);
+      return;
+    }
+
+    _torrentsByKey.remove(torrent.torrentKey);
+    try {
+      // Also stops whatever still streams from it.
+      await _engine.disposeTorrent(torrent.torrentId);
+    } finally {
+      // A failed removal must not keep a download of it waiting for good.
+      _activityRegistry.releaseStreaming(torrent.torrentKey);
+    }
+  }
+
+  /// Forgets the session's stream and its launch and probe; the caller
+  /// stops the native stream. Returns the stream's id, if it had one.
+  int? _releaseStream(String sessionId) {
+    _launchCancellationBySessionId.remove(sessionId)?.cancel();
+    _probeTokensBySessionId.remove(sessionId)?.cancel();
+    return _streamIdsBySessionId.remove(sessionId);
   }
 
   void _launchHttpProbeInBackground({
@@ -337,6 +422,22 @@ class LibtorrentPlayerDataSource {
     probeToken?.cancel();
     _streamIdsBySessionId.remove(sessionId);
   }
+}
+
+/// One native torrent and the sessions playing from it.
+class _SharedTorrent {
+  _SharedTorrent({
+    required this.torrentKey,
+    required this.torrentId,
+    required this.metadata,
+  });
+
+  final String torrentKey;
+  final int torrentId;
+
+  /// Awaited by every session that prepares this torrent.
+  final Future<void> metadata;
+  final Set<String> sessionIds = {};
 }
 
 class _PlaybackLaunchCancellation {
