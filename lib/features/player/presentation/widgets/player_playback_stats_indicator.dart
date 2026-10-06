@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart' show NumberFormat;
 
 import 'package:iris/features/player/domain/entities/player_playback_stats.dart';
 import 'package:iris/features/player/presentation/widgets/player_buffer_health_tracker.dart';
@@ -17,11 +18,15 @@ class PlayerPlaybackStatsListenable extends StatelessWidget {
     this.isBuffering = false,
     this.bufferMarginState,
     this.detailed = true,
+    this.immersive = false,
     super.key,
   });
 
   final ValueListenable<PlayerPlaybackStats?> listenable;
   final bool detailed;
+
+  /// Drawn like the immersive player's other controls over the video.
+  final bool immersive;
   final String? videoCodec;
   final String? audioCodec;
   final PlayerPlaybackDiagnostics? diagnostics;
@@ -48,6 +53,7 @@ class PlayerPlaybackStatsListenable extends StatelessWidget {
           isBuffering: isBuffering,
           bufferMarginState: bufferMarginState,
           detailed: detailed,
+          immersive: immersive,
         );
       },
     );
@@ -63,6 +69,7 @@ class PlayerPlaybackStatsIndicator extends StatelessWidget {
     this.isBuffering = false,
     this.bufferMarginState,
     this.detailed = true,
+    this.immersive = false,
     super.key,
   });
 
@@ -79,6 +86,10 @@ class PlayerPlaybackStatsIndicator extends StatelessWidget {
 
   /// Also show peers, decoder, output, codecs and memory.
   final bool detailed;
+
+  /// One dark glass readout like the immersive player's buttons, with the
+  /// buffer state in its icon's colour, instead of coloured chips.
+  final bool immersive;
 
   @override
   Widget build(BuildContext context) {
@@ -105,6 +116,7 @@ class PlayerPlaybackStatsIndicator extends StatelessWidget {
     if (metrics.isEmpty) {
       return const SizedBox.shrink();
     }
+    if (immersive) return _ImmersiveReadout(metrics: metrics);
 
     return IgnorePointer(
       child: DecoratedBox(
@@ -147,11 +159,11 @@ class PlayerPlaybackStatsIndicator extends StatelessWidget {
     // should stay visible in the player.
     final items = <_PlayerOverlayMetricItem>[
       _PlayerOverlayMetricItem(
-        value: _formatTransferRate(stats.downloadRateBytesPerSecond),
+        value: _formatTransferRate(l10n, stats.downloadRateBytesPerSecond),
         icon: Icons.download_rounded,
         priority: 0,
         tooltip: l10n.playerRuntimeStatsSpeed(
-          _formatTransferRate(stats.downloadRateBytesPerSecond),
+          _formatTransferRate(l10n, stats.downloadRateBytesPerSecond),
         ),
       ),
       _PlayerOverlayMetricItem(
@@ -163,17 +175,21 @@ class PlayerPlaybackStatsIndicator extends StatelessWidget {
     ];
 
     final bufferedWindowProgress = _resolveBufferedWindowProgress(stats);
+    final bufferSufficient =
+        (bufferMarginState ?? resolvePlayerBufferMargin(stats)) ==
+        PlayerBufferMarginState.sufficient;
     if (bufferedWindowProgress > 0) {
       items.add(
         _PlayerOverlayMetricItem(
           value: _formatBufferedWindowProgress(bufferedWindowProgress),
           icon: Icons.timelapse_rounded,
           priority: 2,
-          backgroundColor:
-              ((bufferMarginState ?? resolvePlayerBufferMargin(stats)) ==
-                  PlayerBufferMarginState.sufficient
+          backgroundColor: bufferSufficient
               ? const Color(0x4032D583)
-              : const Color(0x40F59E0B)),
+              : const Color(0x40F59E0B),
+          accentColor: bufferSufficient
+              ? const Color(0xFF32D583)
+              : const Color(0xFFF59E0B),
         ),
       );
     }
@@ -240,7 +256,7 @@ class PlayerPlaybackStatsIndicator extends StatelessWidget {
 
     final memory = stats.appMemoryBytes;
     if (memory != null) {
-      final formattedMemory = _formatMemory(memory);
+      final formattedMemory = _formatMemory(l10n, memory);
       items.add(
         _PlayerOverlayMetricItem(
           value: formattedMemory,
@@ -370,6 +386,7 @@ class _PlayerOverlayMetricItem {
     required this.priority,
     this.tooltip,
     this.backgroundColor,
+    this.accentColor,
   });
 
   final String value;
@@ -377,6 +394,67 @@ class _PlayerOverlayMetricItem {
   final int priority;
   final String? tooltip;
   final Color? backgroundColor;
+
+  /// The icon's colour in the immersive readout, for states.
+  final Color? accentColor;
+}
+
+/// Metrics as a quiet caption over the video: no box, so it reads as
+/// information next to the buttons rather than as one more button.
+class _ImmersiveReadout extends StatelessWidget {
+  const _ImmersiveReadout({required this.metrics});
+
+  static const _maxValueWidth = 160.0;
+  static const _shadows = [Shadow(color: Colors.black87, blurRadius: 6)];
+
+  final List<_PlayerOverlayMetricItem> metrics;
+
+  @override
+  Widget build(BuildContext context) {
+    final textStyle = Theme.of(context).textTheme.titleSmall?.copyWith(
+      color: Colors.white70,
+      fontWeight: FontWeight.w500,
+      fontFeatures: const [FontFeature.tabularFigures()],
+      shadows: _shadows,
+    );
+    return IgnorePointer(
+      child: Padding(
+        key: const Key('player_stats_readout'),
+        // Centres the first line on the 48 px back button beside it.
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        child: Wrap(
+          spacing: 20,
+          runSpacing: 8,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            for (final metric in metrics)
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    metric.icon,
+                    size: 16,
+                    color: metric.accentColor ?? Colors.white54,
+                    shadows: _shadows,
+                  ),
+                  const SizedBox(width: 6),
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: _maxValueWidth),
+                    child: Text(
+                      metric.value,
+                      style: textStyle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      softWrap: false,
+                    ),
+                  ),
+                ],
+              ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 List<_PlayerOverlayMetricItem> _selectVisibleMetrics({
@@ -445,12 +523,12 @@ double _resolveMaxChipWidth(double maxWidth) {
   return math.max(_chipMinimumWidth, math.min(target, _chipMaximumWidth));
 }
 
-String _formatTransferRate(int bytesPerSecond) {
-  return '${_formatBytes(bytesPerSecond)}/s';
+String _formatTransferRate(AppLocalizations l10n, int bytesPerSecond) {
+  return l10n.playerRate(_formatBytes(l10n, bytesPerSecond));
 }
 
-String _formatMemory(int bytes) {
-  return _formatBytes(bytes);
+String _formatMemory(AppLocalizations l10n, int bytes) {
+  return _formatBytes(l10n, bytes);
 }
 
 double _resolveBufferedWindowProgress(PlayerPlaybackStats stats) {
@@ -465,8 +543,13 @@ String _formatBufferedWindowProgress(double progress) {
   return '${(progress * 100).round()}%';
 }
 
-String _formatBytes(int bytes) {
-  const units = ['B', 'KB', 'MB', 'GB'];
+String _formatBytes(AppLocalizations l10n, int bytes) {
+  final units = [
+    l10n.byteUnitB,
+    l10n.byteUnitKB,
+    l10n.byteUnitMB,
+    l10n.byteUnitGB,
+  ];
   var value = bytes.toDouble();
   var unitIndex = 0;
 
@@ -476,7 +559,11 @@ String _formatBytes(int bytes) {
   }
 
   final fractionDigits = unitIndex <= 1 || value >= 10 ? 0 : 1;
-  return '${value.toStringAsFixed(fractionDigits)} ${units[unitIndex]}';
+  final number = NumberFormat.decimalPatternDigits(
+    locale: l10n.localeName,
+    decimalDigits: fractionDigits,
+  ).format(value);
+  return '$number ${units[unitIndex]}';
 }
 
 String? _shortCodec(String? codec) {

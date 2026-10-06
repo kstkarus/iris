@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:media_kit/media_kit.dart';
@@ -862,6 +863,640 @@ void main() {
     expect(videoSize.width, 400);
     expect(videoSize.height, closeTo(400 * 9 / 16, 0.01));
   });
+
+  group('immersive controls', () {
+    PlayerChrome chrome({
+      VoidCallback? onBack,
+      PlayerEpisodesBuilder? episodes,
+      PlayerNotice? notice,
+    }) {
+      return PlayerChrome(
+        title: 'Episode 11',
+        overline: 'Frieren',
+        details: '[SubsPlease] Frieren · 11 of 28',
+        onBack: onBack ?? () {},
+        episodes: episodes,
+        notice: notice,
+      );
+    }
+
+    testWidgets('draw the titles over a video that fills the window', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(1280, 720);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      var backs = 0;
+      MediaKitVideoControlsThemes? themes;
+
+      await tester.pumpWidget(
+        _wrapViewport(
+          chrome: chrome(onBack: () => backs++),
+          videoSurfaceBuilder:
+              ({
+                required controller,
+                required subtitleViewConfiguration,
+                required controlsThemes,
+              }) {
+                themes = controlsThemes;
+                return const ColoredBox(
+                  key: Key('player_video_surface'),
+                  color: Colors.black,
+                  child: SizedBox.expand(),
+                );
+              },
+        ),
+      );
+      await tester.pump();
+
+      expect(themes, isA<MediaKitImmersiveVideoControlsThemes>());
+      expect(
+        tester.getSize(find.byKey(const Key('player_video_surface'))),
+        const Size(1280, 720),
+      );
+      expect(find.text('Frieren'), findsOneWidget);
+      expect(find.text('[SubsPlease] Frieren · 11 of 28'), findsOneWidget);
+      expect(find.text('Episode 11'), findsOneWidget);
+      expect(find.byKey(const Key('player_seek_bar')), findsOneWidget);
+      expect(find.byKey(const Key('player_episodes_button')), findsNothing);
+      expect(tester.takeException(), isNull);
+
+      await tester.tap(find.byKey(const Key('player_back_button')));
+      expect(backs, 1);
+    });
+
+    testWidgets('play, seek and change the volume from the keyboard', (
+      tester,
+    ) async {
+      final platformPlayer = _FakePlatformPlayer(
+        configuration: const PlayerConfiguration(),
+      );
+      await tester.pumpWidget(
+        _wrapViewport(platformPlayer: platformPlayer, chrome: chrome()),
+      );
+      await tester.pump();
+      platformPlayer.emitDuration(const Duration(minutes: 24));
+      platformPlayer.emitPosition(const Duration(minutes: 5));
+      await _deliverPlayerEvent(tester);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.space);
+      expect(platformPlayer.playOrPauseCount, 1);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+      expect(
+        platformPlayer.seeks.last,
+        const Duration(minutes: 5, seconds: 10),
+      );
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyJ);
+      expect(
+        platformPlayer.seeks.last,
+        const Duration(minutes: 4, seconds: 50),
+      );
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      expect(platformPlayer.volumes.last, 95);
+      await tester.pump();
+      expect(find.byKey(const Key('player_volume_hud')), findsOneWidget);
+      expect(find.text('95%'), findsOneWidget);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyM);
+      expect(platformPlayer.volumes.last, 0);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyM);
+      expect(platformPlayer.volumes.last, 95);
+      await tester.pump(const Duration(seconds: 1));
+      expect(find.byKey(const Key('player_volume_hud')), findsNothing);
+    });
+
+    testWidgets('switch the window to full screen and back, also when the '
+        'player goes away', (tester) async {
+      var entered = 0;
+      var exited = 0;
+      await tester.pumpWidget(
+        _wrapViewport(
+          chrome: chrome(),
+          enterNativeFullscreen: () async => entered++,
+          exitNativeFullscreen: () async => exited++,
+        ),
+      );
+      await tester.pump();
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyF);
+      await tester.pump();
+      expect(entered, 1);
+      expect(find.byIcon(Icons.fullscreen_exit_rounded), findsOneWidget);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pump();
+      expect(exited, 1);
+
+      await tester.tap(find.byKey(const Key('player_fullscreen_button')));
+      await tester.pump();
+      expect(entered, 2);
+
+      await tester.pumpWidget(const SizedBox());
+      expect(exited, 2);
+    });
+
+    testWidgets('hide with the cursor during playback until the pointer '
+        'moves', (tester) async {
+      final platformPlayer = _FakePlatformPlayer(
+        configuration: const PlayerConfiguration(),
+      );
+      await tester.pumpWidget(
+        _wrapViewport(platformPlayer: platformPlayer, chrome: chrome()),
+      );
+      await tester.pump();
+      double opacity() => tester
+          .widget<AnimatedOpacity>(
+            find.byKey(const Key('player_immersive_controls')),
+          )
+          .opacity;
+
+      await tester.pump(const Duration(seconds: 4));
+      expect(opacity(), 1, reason: 'paused playback keeps the controls');
+
+      platformPlayer.emitPlaying(true);
+      await _deliverPlayerEvent(tester);
+      await tester.pump(const Duration(seconds: 3));
+      expect(opacity(), 0);
+
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await mouse.addPointer(location: const Offset(400, 300));
+      await mouse.moveTo(const Offset(410, 300));
+      await tester.pump();
+      expect(opacity(), 1);
+      await mouse.removePointer();
+    });
+
+    testWidgets('open the episodes in a drawer that Escape closes', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(1280, 720);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      VoidCallback? closeDrawer;
+
+      await tester.pumpWidget(
+        _wrapViewport(
+          chrome: chrome(
+            episodes: (context, close) {
+              closeDrawer = close;
+              return const Text('Episode list');
+            },
+          ),
+        ),
+      );
+      await tester.pump();
+
+      await tester.tap(find.byKey(const Key('player_episodes_button')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('player_episodes_drawer')), findsOneWidget);
+      expect(find.text('Episode list'), findsOneWidget);
+      final drawer = tester.getRect(
+        find.byKey(const Key('player_episodes_drawer')),
+      );
+      expect(drawer.right, closeTo(1280 - 16, 0.1));
+      expect(drawer.width, inInclusiveRange(320, 420));
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('player_episodes_drawer')), findsNothing);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyE);
+      await tester.pumpAndSettle();
+      expect(find.text('Episode list'), findsOneWidget);
+      closeDrawer!();
+      await tester.pumpAndSettle();
+      expect(find.text('Episode list'), findsNothing);
+    });
+
+    testWidgets('offer to skip the opening above the timeline', (tester) async {
+      final platformPlayer = _FakePlatformPlayer(
+        configuration: const PlayerConfiguration(),
+      );
+      platformPlayer.nativeProperties.addAll({
+        'chapter-list/count': '2',
+        'chapter-list/0/title': 'Opening',
+        'chapter-list/0/time': '0.000000',
+        'chapter-list/1/title': 'Part A',
+        'chapter-list/1/time': '90.000000',
+      });
+      await tester.pumpWidget(
+        _wrapViewport(platformPlayer: platformPlayer, chrome: chrome()),
+      );
+      await tester.pump();
+      platformPlayer.emitDuration(const Duration(minutes: 24));
+      platformPlayer.emitPosition(const Duration(seconds: 10));
+      await _deliverPlayerEvent(tester);
+
+      expect(find.text('Skip opening'), findsOneWidget);
+      await tester.tap(find.byKey(_skipSegmentButton));
+      await tester.pump();
+      expect(platformPlayer.seeks.last, const Duration(seconds: 90));
+    });
+
+    testWidgets('put the startup spinner in place of the play button', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(1280, 720);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final firstFrame = Completer<void>();
+      await tester.pumpWidget(
+        _wrapViewport(firstFrameFuture: firstFrame.future, chrome: chrome()),
+      );
+      await tester.pump();
+
+      expect(find.text('Buffering...'), findsOneWidget);
+      final spinner = tester.getCenter(
+        find.byKey(const Key('player_buffering_spinner')),
+      );
+      final backward = tester.getCenter(
+        find.byKey(const Key('player_seek_backward_button')),
+      );
+      final forward = tester.getCenter(
+        find.byKey(const Key('player_seek_forward_button')),
+      );
+      expect(spinner.dy, closeTo(backward.dy, 0.5));
+      expect(spinner.dx, closeTo((backward.dx + forward.dx) / 2, 0.5));
+      expect(
+        tester.getTopLeft(find.text('Buffering...')).dy,
+        greaterThan(backward.dy + 48),
+      );
+      expect(find.byKey(const Key('player_play_pause_button')), findsNothing);
+
+      firstFrame.complete();
+      await tester.pump();
+      await tester.pump();
+      expect(find.byKey(const Key('player_buffering_spinner')), findsNothing);
+      expect(find.byKey(const Key('player_play_pause_button')), findsOneWidget);
+    });
+
+    testWidgets('show a notice with its action above the timeline', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(1280, 720);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      var actions = 0;
+      await tester.pumpWidget(
+        _wrapViewport(
+          chrome: chrome(
+            notice: PlayerNotice(
+              message: 'Resumed from 2:22',
+              actionLabel: 'Start over',
+              onAction: () => actions++,
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(find.text('Resumed from 2:22'), findsOneWidget);
+      expect(find.byType(SnackBar), findsNothing);
+      final notice = tester.getRect(find.byKey(const Key('player_notice')));
+      final seekBar = tester.getRect(find.byKey(const Key('player_seek_bar')));
+      expect(notice.left, 48);
+      expect(notice.bottom, lessThan(seekBar.top));
+
+      await tester.tap(find.byKey(const Key('player_notice_action')));
+      expect(actions, 1);
+    });
+
+    testWidgets('keep the episodes with the buttons beside the timeline', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(1280, 720);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      late _FakePlatformPlayer platformPlayer;
+      await tester.pumpWidget(
+        _wrapViewport(
+          playerBuilder: (configuration) {
+            platformPlayer = _FakePlatformPlayer(configuration: configuration);
+            return Player(platformPlayer: platformPlayer);
+          },
+          chrome: chrome(episodes: (context, close) => const SizedBox()),
+        ),
+      );
+      await tester.pump();
+      platformPlayer.emitDuration(const Duration(minutes: 24));
+      platformPlayer.emitPosition(const Duration(seconds: 30));
+      await _deliverPlayerEvent(tester);
+
+      final episodes = find.byKey(const Key('player_episodes_button'));
+      final tracks = find.byKey(const Key('player_tracks_button'));
+      expect(tester.getSize(episodes), tester.getSize(tracks));
+      expect(tester.getCenter(episodes).dy, tester.getCenter(tracks).dy);
+      expect(
+        tester.getCenter(episodes).dx,
+        lessThan(tester.getCenter(tracks).dx),
+      );
+      expect(
+        tester.getCenter(episodes).dy,
+        greaterThan(600),
+        reason: 'the episodes left the top bar',
+      );
+    });
+
+    testWidgets('light a glyph under the pointer and keep the focus with '
+        'the player after a click', (tester) async {
+      tester.view.physicalSize = const Size(1280, 720);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      late _FakePlatformPlayer platformPlayer;
+      await tester.pumpWidget(
+        _wrapViewport(
+          playerBuilder: (configuration) {
+            platformPlayer = _FakePlatformPlayer(configuration: configuration);
+            return Player(platformPlayer: platformPlayer);
+          },
+          chrome: chrome(),
+        ),
+      );
+      await tester.pump();
+      platformPlayer.emitDuration(const Duration(minutes: 24));
+      await _deliverPlayerEvent(tester);
+
+      final mute = find.byKey(const Key('player_mute_button'));
+      double opacity() => tester
+          .widget<AnimatedOpacity>(
+            find.descendant(of: mute, matching: find.byType(AnimatedOpacity)),
+          )
+          .opacity;
+      expect(opacity(), lessThan(1));
+      expect(
+        find.descendant(of: mute, matching: find.byType(InkWell)),
+        findsNothing,
+        reason: 'no Material circle behind the glyph',
+      );
+
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      addTearDown(mouse.removePointer);
+      await mouse.addPointer(location: Offset.zero);
+      await mouse.moveTo(tester.getCenter(mute));
+      await tester.pump();
+      expect(opacity(), 1);
+
+      await tester.tap(mute);
+      await tester.pump();
+      expect(
+        FocusManager.instance.primaryFocus?.debugLabel,
+        'player_immersive_controls',
+      );
+    });
+
+    testWidgets('keep waiting on screen until the first frame, also when '
+        'the file header already made playback ready', (tester) async {
+      final firstFrameCompleter = Completer<void>();
+      final platformPlayer = _FakePlatformPlayer(
+        configuration: const PlayerConfiguration(),
+      );
+      await tester.pumpWidget(
+        _wrapViewport(
+          platformPlayer: platformPlayer,
+          firstFrameFuture: firstFrameCompleter.future,
+          chrome: chrome(),
+        ),
+      );
+      await tester.pump();
+
+      platformPlayer.emitDuration(const Duration(minutes: 24));
+      platformPlayer.emitTracks(
+        const Tracks(
+          video: [
+            VideoTrack('auto', null, null),
+            VideoTrack('no', null, null),
+            VideoTrack('1', 'Main Video', 'jpn'),
+          ],
+        ),
+      );
+      await tester.pump();
+
+      expect(find.byKey(const Key('player_startup_label')), findsOneWidget);
+      expect(find.byKey(const Key('player_buffering_spinner')), findsOneWidget);
+      expect(find.byKey(const Key('player_play_pause_button')), findsNothing);
+
+      firstFrameCompleter.complete();
+      await tester.pump();
+      await tester.pump();
+
+      expect(find.byKey(const Key('player_startup_label')), findsNothing);
+      expect(find.byKey(const Key('player_play_pause_button')), findsOneWidget);
+    });
+
+    testWidgets('switch the time left to the position and length on a '
+        'click', (tester) async {
+      tester.view.physicalSize = const Size(1280, 720);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      late _FakePlatformPlayer platformPlayer;
+      await tester.pumpWidget(
+        _wrapViewport(
+          playerBuilder: (configuration) {
+            platformPlayer = _FakePlatformPlayer(configuration: configuration);
+            return Player(platformPlayer: platformPlayer);
+          },
+          chrome: chrome(),
+        ),
+      );
+      await tester.pump();
+      platformPlayer.emitDuration(const Duration(minutes: 24));
+      platformPlayer.emitPosition(const Duration(minutes: 4));
+      await _deliverPlayerEvent(tester);
+
+      String timeText() =>
+          tester.widget<Text>(find.byKey(const Key('player_time_left'))).data!;
+      expect(timeText(), '−20:00');
+
+      await tester.tap(find.byKey(const Key('player_time_toggle')));
+      await tester.pump();
+      expect(timeText(), '4:00 / 24:00');
+
+      await tester.tap(find.byKey(const Key('player_time_toggle')));
+      await tester.pump();
+      expect(timeText(), '−20:00');
+    });
+
+    testWidgets('show the stats only when asked for or when they explain '
+        'a problem', (tester) async {
+      tester.view.physicalSize = const Size(1280, 720);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final repository = _LateStatsPlayerRepository();
+      await tester.pumpWidget(
+        _wrapViewport(
+          platformPlayer: _FakePlatformPlayer(
+            configuration: const PlayerConfiguration(),
+          ),
+          firstFrameFuture: Future<void>.value(),
+          repository: repository,
+          chrome: chrome(),
+        ),
+      );
+      await tester.pump();
+
+      repository.emitStat(
+        const PlayerPlaybackStats(
+          downloadRateBytesPerSecond: 3 * 1024 * 1024,
+          appMemoryBytes: null,
+          activePeers: 8,
+          bufferSeconds: 30,
+          bufferPieces: 30,
+          readaheadWindow: 30,
+        ),
+      );
+      await tester.pump();
+      expect(find.text('3.0 MB/s'), findsNothing);
+
+      playerDetailedStatsEnabled.value = true;
+      addTearDown(() => playerDetailedStatsEnabled.value = false);
+      await tester.pump();
+      expect(find.text('3.0 MB/s'), findsOneWidget);
+
+      repository.finishCancel();
+    });
+
+    testWidgets('dim a paused frame', (tester) async {
+      tester.view.physicalSize = const Size(1280, 720);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      late _FakePlatformPlayer platformPlayer;
+      await tester.pumpWidget(
+        _wrapViewport(
+          playerBuilder: (configuration) {
+            platformPlayer = _FakePlatformPlayer(configuration: configuration);
+            return Player(platformPlayer: platformPlayer);
+          },
+          chrome: chrome(),
+        ),
+      );
+      await tester.pump();
+      platformPlayer.emitDuration(const Duration(minutes: 24));
+      await _deliverPlayerEvent(tester);
+
+      double dim() => tester
+          .widget<AnimatedOpacity>(find.byKey(const Key('player_pause_dim')))
+          .opacity;
+      platformPlayer.emitPlaying(true);
+      await _deliverPlayerEvent(tester);
+      expect(dim(), 0);
+
+      platformPlayer.emitPlaying(false);
+      await _deliverPlayerEvent(tester);
+      expect(dim(), 1);
+    });
+
+    testWidgets('raise subtitles before the titles show and lower them '
+        'after the titles hide', (tester) async {
+      tester.view.physicalSize = const Size(1280, 720);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final platformPlayer = _FakePlatformPlayer(
+        configuration: const PlayerConfiguration(),
+      );
+      await tester.pumpWidget(
+        _wrapViewport(platformPlayer: platformPlayer, chrome: chrome()),
+      );
+      await tester.pumpAndSettle();
+      int subtitlePosition() =>
+          int.parse(platformPlayer.nativeProperties['sub-pos']!);
+
+      platformPlayer.emitPlaying(true);
+      await _deliverPlayerEvent(tester);
+      await tester.pump(const Duration(milliseconds: 300));
+      final aboveBar = subtitlePosition();
+
+      platformPlayer.emitPlaying(false);
+      await _deliverPlayerEvent(tester);
+      final aboveTitles = subtitlePosition();
+      expect(aboveTitles, lessThan(aboveBar), reason: 'rises at once');
+
+      platformPlayer.emitPlaying(true);
+      await _deliverPlayerEvent(tester);
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(subtitlePosition(), aboveTitles, reason: 'titles still shown');
+      await tester.pump(const Duration(milliseconds: 150));
+      expect(subtitlePosition(), aboveBar);
+    });
+
+    testWidgets('show no hover tooltips', (tester) async {
+      tester.view.physicalSize = const Size(1280, 720);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final semantics = tester.ensureSemantics();
+      await tester.pumpWidget(_wrapViewport(chrome: chrome()));
+      await tester.pump();
+
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await mouse.addPointer(location: Offset.zero);
+      await mouse.moveTo(
+        tester.getCenter(find.byKey(const Key('player_seek_forward_button'))),
+      );
+      await tester.pump(const Duration(seconds: 2));
+
+      expect(find.text('Forward 10 s'), findsNothing);
+      expect(
+        find.bySemanticsLabel('Forward 10 s'),
+        findsOneWidget,
+        reason: 'screen readers keep the label',
+      );
+      await mouse.removePointer();
+      semantics.dispose();
+    });
+
+    testWidgets('show the titles only while paused', (tester) async {
+      final platformPlayer = _FakePlatformPlayer(
+        configuration: const PlayerConfiguration(),
+      );
+      await tester.pumpWidget(
+        _wrapViewport(platformPlayer: platformPlayer, chrome: chrome()),
+      );
+      await tester.pump();
+      expect(find.byKey(const Key('player_title_block')), findsOneWidget);
+
+      platformPlayer.emitPlaying(true);
+      await _deliverPlayerEvent(tester);
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('player_title_block')), findsNothing);
+      expect(find.byKey(const Key('player_seek_bar')), findsOneWidget);
+
+      platformPlayer.emitPlaying(false);
+      await _deliverPlayerEvent(tester);
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('player_title_block')), findsOneWidget);
+    });
+
+    testWidgets('move subtitles drawn by mpv above the visible controls', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(1280, 720);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final platformPlayer = _FakePlatformPlayer(
+        configuration: const PlayerConfiguration(),
+      );
+      await tester.pumpWidget(
+        _wrapViewport(platformPlayer: platformPlayer, chrome: chrome()),
+      );
+      await tester.pump();
+      // The height settles before the subtitles move.
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pump();
+
+      final lifted = int.parse(platformPlayer.nativeProperties['sub-pos']!);
+      expect(lifted, lessThan(100));
+      expect(lifted, greaterThan(50));
+
+      platformPlayer.emitPlaying(true);
+      await _deliverPlayerEvent(tester);
+      await tester.pump(const Duration(seconds: 3));
+      // They come down once the controls have faded.
+      await tester.pump(const Duration(milliseconds: 250));
+      expect(platformPlayer.nativeProperties['sub-pos'], '100');
+    });
+  });
 }
 
 class _TopBarSurface extends StatelessWidget {
@@ -930,6 +1565,9 @@ Widget _wrapViewport({
   MediaKitVideoSurfaceBuilder? videoSurfaceBuilder,
   ValueChanged<MediaKitPlayerEngine>? onEngine,
   PlayerNextFile? next,
+  PlayerChrome? chrome,
+  NativeFullscreenToggle? enterNativeFullscreen,
+  NativeFullscreenToggle? exitNativeFullscreen,
 }) {
   final effectivePlatformPlayer =
       platformPlayer ??
@@ -949,6 +1587,8 @@ Widget _wrapViewport({
       );
   final factory = MediaKitPlayerViewportFactory(
     repository: repository,
+    enterNativeFullscreen: enterNativeFullscreen ?? () async {},
+    exitNativeFullscreen: exitNativeFullscreen ?? () async {},
     playerBuilder:
         playerBuilder ??
         (configuration) => Player(platformPlayer: effectivePlatformPlayer),
@@ -993,6 +1633,7 @@ Widget _wrapViewport({
           decodingCubit: effectiveDecodingCubit,
           onEngine: onEngine,
           next: next,
+          chrome: chrome,
         ),
       ),
     ),
@@ -1013,6 +1654,7 @@ class _EngineHost extends StatefulWidget {
     required this.decodingCubit,
     this.onEngine,
     this.next,
+    this.chrome,
   });
 
   final MediaKitPlayerViewportFactory factory;
@@ -1020,6 +1662,7 @@ class _EngineHost extends StatefulWidget {
   final PlayerDecodingPreferencesCubit decodingCubit;
   final ValueChanged<MediaKitPlayerEngine>? onEngine;
   final PlayerNextFile? next;
+  final PlayerChrome? chrome;
 
   @override
   State<_EngineHost> createState() => _EngineHostState();
@@ -1046,7 +1689,11 @@ class _EngineHostState extends State<_EngineHost> {
 
   @override
   Widget build(BuildContext context) {
-    return widget.factory.build(engine: _engine, next: widget.next);
+    return widget.factory.build(
+      engine: _engine,
+      next: widget.next,
+      chrome: widget.chrome,
+    );
   }
 }
 
@@ -1242,6 +1889,28 @@ class _FakePlatformPlayer extends PlatformPlayer {
   void emitTracks(Tracks tracks) {
     state = state.copyWith(tracks: tracks);
     tracksController.add(tracks);
+  }
+
+  void emitPlaying(bool playing) {
+    state = state.copyWith(playing: playing);
+    playingController.add(playing);
+  }
+
+  int playOrPauseCount = 0;
+
+  @override
+  Future<void> playOrPause() async {
+    playOrPauseCount++;
+    emitPlaying(!state.playing);
+  }
+
+  final volumes = <double>[];
+
+  @override
+  Future<void> setVolume(double volume) async {
+    volumes.add(volume);
+    state = state.copyWith(volume: volume);
+    volumeController.add(volume);
   }
 }
 

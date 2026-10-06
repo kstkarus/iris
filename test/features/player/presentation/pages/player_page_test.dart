@@ -139,6 +139,194 @@ void main() {
     expect(find.text('Resumed from 12:34'), findsNothing);
   });
 
+  group('on desktop', () {
+    final desktop = TargetPlatformVariant.only(TargetPlatform.windows);
+
+    testWidgets('fills the window with the immersive player', (tester) async {
+      setWindow(tester, const Size(1280, 720));
+
+      await tester.pumpWidget(_wrap(source: _seriesSource));
+
+      expect(find.byType(AppBar), findsNothing);
+      expect(
+        find.text('overline: Fullmetal Alchemist: Brotherhood'),
+        findsOneWidget,
+      );
+      expect(find.text('title: Episode 2'), findsOneWidget);
+      expect(
+        find.text('titleDetail: of 3'),
+        findsOneWidget,
+        reason: 'the file is the second of three, as its number says',
+      );
+      expect(find.text('details: null'), findsOneWidget);
+      expect(
+        find.text(
+          'episodes: [Mock] Fullmetal Alchemist: Brotherhood Batch · 3 episodes',
+        ),
+        findsOneWidget,
+        reason: 'the full release name heads the drawer',
+      );
+      final theme = Theme.of(tester.element(find.text('title: Episode 2')));
+      expect(theme.brightness, Brightness.dark);
+      expect(tester.takeException(), isNull);
+    }, variant: desktop);
+
+    testWidgets('keeps the place apart when it differs from the number', (
+      tester,
+    ) async {
+      setWindow(tester, const Size(1280, 720));
+
+      await tester.pumpWidget(
+        _wrap(
+          source: const AnimePlayerSource(
+            animeId: '5114',
+            animeTitle: 'Season two',
+            sourceTitle: 'Season two batch',
+            sessionId: '42',
+            fileIndex: 2,
+            fileName: 'episode-14.mkv',
+            files: [
+              PlayerVideoFile(
+                index: 1,
+                name: 'episode-13.mkv',
+                size: 1,
+                extension: 'mkv',
+              ),
+              PlayerVideoFile(
+                index: 2,
+                name: 'episode-14.mkv',
+                size: 1,
+                extension: 'mkv',
+              ),
+            ],
+          ),
+        ),
+      );
+
+      expect(find.text('title: Episode 14'), findsOneWidget);
+      expect(find.text('titleDetail: null'), findsOneWidget);
+      expect(find.text('details: 2 of 2'), findsOneWidget);
+    }, variant: desktop);
+
+    testWidgets('names a torrent without an anime by its release', (
+      tester,
+    ) async {
+      setWindow(tester, const Size(1280, 720));
+
+      await tester.pumpWidget(
+        _wrap(
+          source: const AnimePlayerSource(
+            animeId: '',
+            animeTitle: '',
+            sourceTitle: 'Some release',
+            sessionId: '42',
+            fileIndex: 0,
+            fileName: 'Movie.mkv',
+          ),
+        ),
+      );
+
+      expect(find.text('overline: Some release'), findsOneWidget);
+      expect(find.text('title: Movie'), findsOneWidget);
+      expect(find.text('details: null'), findsOneWidget);
+
+      // A new provider, so the page gets the new source.
+      await tester.pumpWidget(
+        KeyedSubtree(
+          key: UniqueKey(),
+          child: _wrap(
+            source: const AnimePlayerSource(
+              animeId: '',
+              animeTitle: '[Group] Saved release (2006) [1080p]',
+              sourceTitle: '[Group] Saved release (2006) [1080p]',
+              sessionId: '42',
+              fileIndex: 0,
+              fileName: 'Movie.mkv',
+            ),
+          ),
+        ),
+      );
+      expect(
+        find.text('overline: Saved release'),
+        findsOneWidget,
+        reason: 'a saved torrent is named by its release, without tags',
+      );
+      expect(find.text('details: null'), findsOneWidget);
+    }, variant: desktop);
+
+    testWidgets('plays an episode picked in the drawer', (tester) async {
+      setWindow(tester, const Size(1280, 720));
+
+      await tester.pumpWidget(_wrap(source: _seriesSource));
+
+      expect(find.text('Now playing'), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('player_episode_card_3')));
+      await tester.pump();
+      final cubit =
+          tester.element(find.byType(PlayerPage)).read<PlayerCubit>()
+              as _FakePlayerCubit;
+      expect(cubit.playedFiles, [3]);
+
+      await tester.tap(find.byKey(const ValueKey('player_episode_card_2')));
+      expect(cubit.playedFiles, [3], reason: 'the current file plays');
+    }, variant: desktop);
+
+    testWidgets('announces the resume inside the player instead of a '
+        'snackbar', (tester) async {
+      setWindow(tester, const Size(1280, 720));
+      await tester.pumpWidget(_wrap());
+      final cubit =
+          tester.element(find.byType(PlayerPage)).read<PlayerCubit>()
+              as _FakePlayerCubit;
+
+      cubit.push(
+        const PlayerReady(
+          PlayerSession(sessionId: '42', streamUrl: 'http://127.0.0.1/2'),
+          startPosition: Duration(minutes: 2, seconds: 22),
+          showResumeNotice: true,
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+
+      expect(find.byType(SnackBar), findsNothing);
+      expect(
+        find.text('notice: Resumed from 2:22 / Start over'),
+        findsOneWidget,
+      );
+
+      await tester.pump(const Duration(seconds: 8));
+      expect(find.textContaining('notice:'), findsNothing);
+    }, variant: desktop);
+
+    testWidgets('goes back from the player', (tester) async {
+      setWindow(tester, const Size(1280, 720));
+
+      await tester.pumpWidget(
+        MaterialApp(
+          locale: const Locale('en'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Builder(
+            builder: (context) => TextButton(
+              onPressed: () => Navigator.of(
+                context,
+              ).push(MaterialPageRoute<void>(builder: (_) => _page(_source))),
+              child: const Text('open'),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+      expect(find.byType(PlayerPage), findsOneWidget);
+
+      await tester.tap(find.text('back'));
+      await tester.pumpAndSettle();
+      expect(find.byType(PlayerPage), findsNothing);
+    }, variant: desktop);
+  });
+
   test('detects desktop platforms', () {
     expect(isDesktopPlayerPlatform(TargetPlatform.windows), isTrue);
     expect(isDesktopPlayerPlatform(TargetPlatform.linux), isTrue);
@@ -158,10 +346,19 @@ Widget _wrap({
     locale: const Locale('en'),
     localizationsDelegates: AppLocalizations.localizationsDelegates,
     supportedLocales: AppLocalizations.supportedLocales,
-    home: BlocProvider<PlayerCubit>(
-      create: (_) => _FakePlayerCubit(source, state),
-      child: const PlayerPage(viewportFactory: _FakeViewportFactory()),
-    ),
+    home: _page(source, state),
+  );
+}
+
+Widget _page(
+  AnimePlayerSource source, [
+  PlayerState state = const PlayerReady(
+    PlayerSession(sessionId: '42', streamUrl: 'http://127.0.0.1:8080/stream/2'),
+  ),
+]) {
+  return BlocProvider<PlayerCubit>(
+    create: (_) => _FakePlayerCubit(source, state),
+    child: const PlayerPage(viewportFactory: _FakeViewportFactory()),
   );
 }
 
@@ -176,6 +373,13 @@ class _FakePlayerCubit extends PlayerCubit {
   }
 
   void push(PlayerState next) => emit(next);
+
+  final playedFiles = <int>[];
+
+  @override
+  Future<void> playFile(PlayerVideoFile file) async {
+    playedFiles.add(file.index);
+  }
 
   @override
   Future<void> loadPlayback() async {}
@@ -219,8 +423,35 @@ class _FakeViewportFactory implements PlayerViewportFactory {
   }
 
   @override
-  Widget build({required PlayerEngine engine, PlayerNextFile? next}) {
-    return const _FakeVideoSurface(key: Key('player_video_surface'));
+  Widget build({
+    required PlayerEngine engine,
+    PlayerNextFile? next,
+    PlayerChrome? chrome,
+  }) {
+    const surface = _FakeVideoSurface(key: Key('player_video_surface'));
+    if (chrome == null) return surface;
+    final episodes = chrome.episodes;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 200, child: surface),
+        Text('overline: ${chrome.overline}'),
+        Text('details: ${chrome.details}'),
+        Text('title: ${chrome.title}'),
+        Text('titleDetail: ${chrome.titleDetail}'),
+        Text('episodes: ${chrome.episodesCaption}'),
+        if (chrome.notice case final notice?)
+          TextButton(
+            onPressed: notice.onAction,
+            child: Text('notice: ${notice.message} / ${notice.actionLabel}'),
+          ),
+        TextButton(onPressed: chrome.onBack, child: const Text('back')),
+        if (episodes != null)
+          Expanded(
+            child: Builder(builder: (context) => episodes(context, () {})),
+          ),
+      ],
+    );
   }
 }
 

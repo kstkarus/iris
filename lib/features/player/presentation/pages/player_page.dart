@@ -1,23 +1,33 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:iris/entities/watch_progress/domain/watch_progress.dart';
 import 'package:iris/entities/watch_progress/presentation/watch_progress_cubit.dart';
 import 'package:iris/features/player/domain/entities/anime_player_source.dart';
+import 'package:iris/features/player/domain/entities/player_video_file.dart';
 import 'package:iris/features/player/presentation/cubit/player_cubit.dart';
 import 'package:iris/features/player/presentation/cubit/player_state.dart';
+import 'package:iris/features/player/presentation/widgets/player_adaptive_layout.dart';
+import 'package:iris/features/player/presentation/widgets/player_episode_cards.dart';
 import 'package:iris/features/player/presentation/widgets/player_episodes_list.dart';
 import 'package:iris/features/player/presentation/widgets/player_view.dart';
 import 'package:iris/features/player/presentation/widgets/player_viewport_factory.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/utils/duration_formatter.dart';
+import 'package:iris/shared/utils/episode_number.dart';
 import 'package:iris/shared/utils/file_display_name.dart';
+import 'package:iris/shared/utils/release_title.dart';
 import 'package:iris/shared/widgets/adaptive/window_size_class.dart';
 import 'package:iris/shared/widgets/page_title.dart';
 
 /// Video with the torrent's episodes as a supporting pane: beside the video
 /// on expanded and landscape windows (about 70/30, can be hidden), below it
 /// on portrait ones.
+///
+/// On desktop the video fills the window instead, with streaming-app
+/// controls over it and the episodes in a drawer.
 class PlayerPage extends StatefulWidget {
   const PlayerPage({required this.viewportFactory, super.key});
 
@@ -42,10 +52,28 @@ class _PlayerPageState extends State<PlayerPage> {
   /// ScaffoldMessenger would otherwise carry it to the next screen).
   ScaffoldFeatureController<SnackBar, SnackBarClosedReason>? _playbackSnackBar;
 
+  /// The immersive player's own resume message, instead of a snackbar.
+  PlayerNotice? _notice;
+  Timer? _noticeTimer;
+
+  static const _noticeDuration = Duration(seconds: 8);
+
   @override
   void dispose() {
     _closePlaybackSnackBar();
+    _noticeTimer?.cancel();
     super.dispose();
+  }
+
+  void _showNotice(PlayerNotice notice) {
+    _noticeTimer?.cancel();
+    setState(() => _notice = notice);
+    _noticeTimer = Timer(_noticeDuration, _hideNotice);
+  }
+
+  void _hideNotice() {
+    _noticeTimer?.cancel();
+    if (mounted && _notice != null) setState(() => _notice = null);
   }
 
   void _closePlaybackSnackBar() {
@@ -70,6 +98,8 @@ class _PlayerPageState extends State<PlayerPage> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final cubit = context.read<PlayerCubit>();
+
+    if (isDesktopPlayerPlatform()) return _buildImmersive(context);
 
     return BlocConsumer<PlayerCubit, PlayerState>(
       listener: _showPlaybackMessages,
@@ -143,12 +173,81 @@ class _PlayerPageState extends State<PlayerPage> {
     );
   }
 
+  Widget _buildImmersive(BuildContext context) {
+    return Theme(
+      data: immersivePlayerTheme(Theme.of(context)),
+      child: BlocConsumer<PlayerCubit, PlayerState>(
+        listener: _showPlaybackMessages,
+        builder: (context, state) {
+          return Scaffold(
+            backgroundColor: Colors.black,
+            body: PlayerView(
+              key: _playerKey,
+              viewportFactory: widget.viewportFactory,
+              chrome: _immersiveChrome(context),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  PlayerChrome _immersiveChrome(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final cubit = context.read<PlayerCubit>();
+    final source = cubit.source;
+    final release = source.sourceTitle.trim();
+    final anime = source.animeTitle.trim();
+    // Saved torrents carry their release name as the anime title too.
+    final overline = anime.isNotEmpty && anime != release
+        ? anime
+        : releaseDisplayTitle(release);
+    final episode = episodeNumberFromFileName(source.fileName);
+    final count = source.files.length;
+    final position = source.files.indexWhere(
+      (file) => file.index == source.fileIndex,
+    );
+    final inRelease = count > 1 && position >= 0;
+    // Where the episode number is the file's place, the place adds only
+    // the total: "Episode 20 of 37" instead of a line repeating the 20.
+    final placeIsNumber = inRelease && episode == position + 1;
+    final details = inRelease && !placeIsNumber
+        ? l10n.playerEpisodePosition(position + 1, count)
+        : null;
+    final episodesCaption = [
+      if (release.isNotEmpty) release,
+      l10n.animeEpisodeCount('$count', count),
+    ].join(' · ');
+
+    return PlayerChrome(
+      title: episode == null
+          ? fileDisplayName(source.fileName)
+          : l10n.playerEpisodeNumber(episode),
+      titleDetail: placeIsNumber ? l10n.playerEpisodeOfTotal(count) : null,
+      overline: overline,
+      details: details,
+      episodesCaption: episodesCaption,
+      onBack: () => Navigator.of(context).maybePop(),
+      notice: _notice,
+      episodes: source.files.length > 1
+          ? (context, close) => _EpisodeCardsPane(
+              source: source,
+              onSelected: (file) {
+                close();
+                cubit.playFile(file);
+              },
+            )
+          : null,
+    );
+  }
+
   /// The automatic resume, with "Start over"; it does not interrupt
   /// playback. The next file is offered inside the player (also in full
   /// screen) when a file ends.
   void _showPlaybackMessages(BuildContext context, PlayerState state) {
     if (state is! PlayerReady) {
       _closePlaybackSnackBar();
+      _hideNotice();
       return;
     }
     final l10n = AppLocalizations.of(context);
@@ -156,7 +255,23 @@ class _PlayerPageState extends State<PlayerPage> {
     final behavior = _snackBarPlacement(context);
 
     final startPosition = state.startPosition;
-    if (state.showResumeNotice && startPosition != null) {
+    if (state.showResumeNotice &&
+        startPosition != null &&
+        isDesktopPlayerPlatform()) {
+      cubit.dismissResumeNotice();
+      _showNotice(
+        PlayerNotice(
+          message: l10n.playerResumedFrom(
+            formatPlaybackPosition(startPosition),
+          ),
+          actionLabel: l10n.playerStartOver,
+          onAction: () {
+            _hideNotice();
+            cubit.restartFromBeginning();
+          },
+        ),
+      );
+    } else if (state.showResumeNotice && startPosition != null) {
       cubit.dismissResumeNotice();
       _showPlaybackSnackBar(
         context,
@@ -188,6 +303,20 @@ class _PlayerPageState extends State<PlayerPage> {
     return (behavior: SnackBarBehavior.fixed, width: null);
   }
   return (behavior: SnackBarBehavior.floating, width: 480);
+}
+
+/// The app's colours as they read over video: a dark theme from the same
+/// primary, so dialogs and progress opened from the player match it.
+ThemeData immersivePlayerTheme(ThemeData base) {
+  if (base.brightness == Brightness.dark) return base;
+  return ThemeData(
+    useMaterial3: true,
+    colorScheme: ColorScheme.fromSeed(
+      seedColor: base.colorScheme.primary,
+      brightness: Brightness.dark,
+    ),
+    visualDensity: base.visualDensity,
+  );
 }
 
 class _SideBySideLayout extends StatelessWidget {
@@ -311,6 +440,27 @@ class _EpisodesPane extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _EpisodeCardsPane extends StatelessWidget {
+  const _EpisodeCardsPane({required this.source, required this.onSelected});
+
+  final AnimePlayerSource source;
+  final ValueChanged<PlayerVideoFile> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final torrentKey = source.torrentKey;
+    final progress = torrentKey == null
+        ? const <int, WatchProgress>{}
+        : progressByFile(context.watchWatchProgress(), torrentKey);
+    return PlayerEpisodeCards(
+      files: source.files,
+      currentFileIndex: source.fileIndex,
+      progressByFile: progress,
+      onSelected: onSelected,
     );
   }
 }

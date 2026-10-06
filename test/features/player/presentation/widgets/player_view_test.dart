@@ -173,7 +173,11 @@ class _FakeViewportFactory implements PlayerViewportFactory {
   }
 
   @override
-  Widget build({required PlayerEngine engine, PlayerNextFile? next}) {
+  Widget build({
+    required PlayerEngine engine,
+    PlayerNextFile? next,
+    PlayerChrome? chrome,
+  }) {
     return const ColoredBox(
       key: Key('player_video_surface'),
       color: Colors.black,

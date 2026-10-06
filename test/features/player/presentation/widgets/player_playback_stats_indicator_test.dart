@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:iris/features/player/domain/entities/player_playback_stats.dart';
+import 'package:iris/features/player/presentation/widgets/player_buffer_health_tracker.dart';
 import 'package:iris/features/player/presentation/widgets/player_playback_stats_indicator.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 
@@ -28,6 +29,38 @@ void main() {
     expect(find.text('256 MB'), findsOneWidget);
     expect(find.text('42'), findsOneWidget);
     expect(find.text('75%'), findsOneWidget);
+  });
+
+  testWidgets('draws one readout over the immersive player, with the '
+      'buffer state in its icon', (tester) async {
+    const stats = PlayerPlaybackStats(
+      downloadRateBytesPerSecond: 524288,
+      appMemoryBytes: null,
+      activePeers: 11,
+      bufferSeconds: 4,
+      bufferPieces: 6,
+      readaheadWindow: 20,
+    );
+    await tester.pumpWidget(
+      _wrap(
+        child: const PlayerPlaybackStatsIndicator(
+          stats: stats,
+          detailed: false,
+          immersive: true,
+          bufferMarginState: PlayerBufferMarginState.insufficient,
+        ),
+      ),
+    );
+
+    expect(find.byKey(const Key('player_stats_readout')), findsOneWidget);
+    expect(find.text('512 KB/s'), findsOneWidget);
+    expect(find.text('30%'), findsOneWidget);
+    expect(find.text('11'), findsNothing, reason: 'peers are a detail');
+    expect(
+      tester.widget<Icon>(find.byIcon(Icons.timelapse_rounded)).color,
+      const Color(0xFFF59E0B),
+    );
+    expect(find.byType(Tooltip), findsNothing);
   });
 
   testWidgets('renders only speed when memory is unavailable', (tester) async {

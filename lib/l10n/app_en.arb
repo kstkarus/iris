@@ -346,6 +346,87 @@
   "playerNowPlaying": "Now playing",
   "playerDetailedStats": "Technical details",
   "playerDetailedStatsHint": "Peers, decoder and codecs over the video",
+  "playerBack": "Back",
+  "playerEpisodeNumber": "Episode {number}",
+  "@playerEpisodeNumber": {
+    "placeholders": {
+      "number": {
+        "type": "int"
+      }
+    }
+  },
+  "playerEpisodePosition": "{position} of {total}",
+  "@playerEpisodePosition": {
+    "placeholders": {
+      "position": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "playerEpisodeOfTotal": "of {total}",
+  "@playerEpisodeOfTotal": {
+    "placeholders": {
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "playerTimeLeft": "{time} left",
+  "@playerTimeLeft": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "playerSeekBackward": "Back {seconds} s",
+  "@playerSeekBackward": {
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "playerSeekForward": "Forward {seconds} s",
+  "@playerSeekForward": {
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "playerMute": "Mute",
+  "playerUnmute": "Unmute",
+  "playerAudioAndSubtitles": "Audio & subtitles",
+  "playerEnterFullscreen": "Full screen",
+  "playerExitFullscreen": "Exit full screen",
+  "playerCloseEpisodes": "Close episodes",
+  "playerRate": "{value}/s",
+  "@playerRate": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "byteUnitB": "B",
+  "byteUnitKB": "KB",
+  "byteUnitMB": "MB",
+  "byteUnitGB": "GB",
+  "playerTimePosition": "{position} of {duration}",
+  "@playerTimePosition": {
+    "placeholders": {
+      "position": {
+        "type": "String"
+      },
+      "duration": {
+        "type": "String"
+      }
+    }
+  },
   "animeDetailsChooseSourceButton": "Choose source",
   "animeEpisodeCount": "{value} {count, plural, =1{episode} other{episodes}}",
   "@animeEpisodeCount": {

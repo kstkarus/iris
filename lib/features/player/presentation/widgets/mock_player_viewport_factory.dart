@@ -27,8 +27,12 @@ class MockPlayerViewportFactory implements PlayerViewportFactory {
   }
 
   @override
-  Widget build({required PlayerEngine engine, PlayerNextFile? next}) {
-    return Center(
+  Widget build({
+    required PlayerEngine engine,
+    PlayerNextFile? next,
+    PlayerChrome? chrome,
+  }) {
+    final surface = Center(
       child: Container(
         key: const Key('mock_player_surface'),
         width: double.infinity,
@@ -40,6 +44,23 @@ class MockPlayerViewportFactory implements PlayerViewportFactory {
           style: TextStyle(color: Colors.white),
         ),
       ),
+    );
+    if (chrome == null) return surface;
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        surface,
+        Positioned(
+          left: 24,
+          top: 20,
+          child: IconButton(
+            key: const Key('player_back_button'),
+            color: Colors.white,
+            icon: const Icon(Icons.arrow_back),
+            onPressed: chrome.onBack,
+          ),
+        ),
+      ],
     );
   }
 }

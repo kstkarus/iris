@@ -166,7 +166,13 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
   StreamSubscription<PlayerPlaybackStats>? _playbackStatsSubscription;
   String? _statsSessionId;
 
+  /// Since the current file started opening, for the startup log.
+  final _startupClock = Stopwatch();
+
   bool _recoveringAudioTrack = false;
+
+  /// Share of the video's height kept clear for on-screen controls.
+  double _subtitleLift = 0;
   bool _reconfiguring = false;
   bool _recreateQueued = false;
   bool _closed = false;
@@ -430,6 +436,7 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
           playbackStats.value = stats;
           _updateBufferMargin(stats);
           _trackStartupNetworkActivity(stats);
+          unawaited(_logStartupProgress(stats));
           unawaited(_refreshPlaybackDiagnostics());
         });
   }
@@ -496,6 +503,9 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
     final player = _player;
     if (_closed || session == null || player == null) return;
     final startupGeneration = ++_startupGeneration;
+    _startupClock
+      ..reset()
+      ..start();
     _rebufferCycleTracker.reset();
     _cancelStartupTimeout();
     _cancelStartupNetworkWatchdog();
@@ -528,14 +538,50 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
     }
   }
 
+  /// Raises the subtitles mpv draws itself (libass) by [fraction] of the
+  /// video's height, clear of controls over the video; 0 puts them back.
+  Future<void> liftSubtitles(double fraction) async {
+    final lift = fraction.clamp(0.0, 0.6);
+    if (lift == _subtitleLift) return;
+    _subtitleLift = lift;
+    final platform = _player?.platform;
+    if (platform == null || _closed) return;
+    final position = _liftedSubtitlePosition(
+      buildSubtitleMpvProperties(_subtitlePreferences)['sub-pos'],
+    );
+    if (position == null) return;
+    try {
+      await (platform as dynamic).setProperty('sub-pos', position);
+    } catch (error) {
+      developer.log(
+        'Failed to move subtitles.',
+        name: 'iris.player.media',
+        error: error,
+      );
+    }
+  }
+
+  /// mpv's `sub-pos` (percent of the height, 100 = bottom) with the lift.
+  String? _liftedSubtitlePosition(String? base) {
+    final position = int.tryParse(base ?? '');
+    if (position == null) return base;
+    final lifted = position - (_subtitleLift * 100).round();
+    return lifted.clamp(0, 150).toString();
+  }
+
   Future<void> _applyNativePlayerProperties() async {
     final platform = _player?.platform;
     if (platform == null) return;
 
-    final properties = buildPlayerRenderingConfiguration(
-      _subtitlePreferences,
-      _decodingPreferences,
-    ).mpvProperties;
+    final properties = {
+      ...buildPlayerRenderingConfiguration(
+        _subtitlePreferences,
+        _decodingPreferences,
+      ).mpvProperties,
+    };
+    if (properties['sub-pos'] case final base?) {
+      properties['sub-pos'] = _liftedSubtitlePosition(base) ?? base;
+    }
 
     try {
       for (final entry in properties.entries) {
@@ -879,7 +925,8 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
       if (_closed || startupGeneration != _startupGeneration) return;
 
       developer.log(
-        'media_kit rendered the first frame successfully.',
+        'media_kit rendered the first frame successfully. '
+        't=${(_startupClock.elapsedMilliseconds / 1000).toStringAsFixed(1)}s',
         name: 'iris.player.media',
       );
       _updateStartupState(_startupState.copyWith(firstFrameRendered: true));
@@ -1007,6 +1054,55 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
   void _updateBufferMargin(PlayerPlaybackStats stats) {
     final next = resolvePlayerBufferMargin(stats);
     if (next != bufferMargin.value) bufferMargin.value = next;
+  }
+
+  /// mpv's view of a starting stream: where it reads the file, what its
+  /// cache holds, and whether it waits for data.
+  static const _startupMpvProperties = [
+    'stream-pos',
+    'file-size',
+    'time-pos',
+    'demuxer-cache-time',
+    'demuxer-cache-duration',
+    'cache-buffering-state',
+    'paused-for-cache',
+    'core-idle',
+  ];
+
+  /// Until the first picture, a line per stats update: what the torrent
+  /// delivers next to what mpv has, to tell a slow swarm from a demuxer
+  /// waiting on data elsewhere in the file.
+  Future<void> _logStartupProgress(PlayerPlaybackStats stats) async {
+    final state = _startupState;
+    if (state.firstFrameRendered ||
+        state.phase == PlayerEnginePhase.failed ||
+        !_startupClock.isRunning) {
+      return;
+    }
+    final elapsed = _startupClock.elapsedMilliseconds / 1000;
+    final platform = _player?.platform;
+    final mpv = <String>[];
+    if (platform != null) {
+      for (final name in _startupMpvProperties) {
+        try {
+          final value = await (platform as dynamic).getProperty(
+            name,
+            waitForInitialization: false,
+          );
+          mpv.add('$name=$value');
+        } catch (_) {}
+      }
+    }
+    developer.log(
+      'Startup progress. t=${elapsed.toStringAsFixed(1)}s '
+      'phase=${state.phase.name} '
+      'rate=${stats.downloadRateBytesPerSecond ~/ 1024}KB/s '
+      'peers=${stats.activePeers} '
+      'buffer=${stats.bufferPieces}/${stats.readaheadWindow} pieces '
+      '${stats.bufferSeconds.toStringAsFixed(1)}s '
+      'mpv: ${mpv.join(' ')}',
+      name: 'iris.player.startup',
+    );
   }
 
   Future<void> _logCacheBufferingState(String reason) async {

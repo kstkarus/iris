@@ -622,6 +622,79 @@ class AppLocalizationsEn extends AppLocalizations {
       'Peers, decoder and codecs over the video';
 
   @override
+  String get playerBack => 'Back';
+
+  @override
+  String playerEpisodeNumber(int number) {
+    return 'Episode $number';
+  }
+
+  @override
+  String playerEpisodePosition(int position, int total) {
+    return '$position of $total';
+  }
+
+  @override
+  String playerEpisodeOfTotal(int total) {
+    return 'of $total';
+  }
+
+  @override
+  String playerTimeLeft(String time) {
+    return '$time left';
+  }
+
+  @override
+  String playerSeekBackward(int seconds) {
+    return 'Back $seconds s';
+  }
+
+  @override
+  String playerSeekForward(int seconds) {
+    return 'Forward $seconds s';
+  }
+
+  @override
+  String get playerMute => 'Mute';
+
+  @override
+  String get playerUnmute => 'Unmute';
+
+  @override
+  String get playerAudioAndSubtitles => 'Audio & subtitles';
+
+  @override
+  String get playerEnterFullscreen => 'Full screen';
+
+  @override
+  String get playerExitFullscreen => 'Exit full screen';
+
+  @override
+  String get playerCloseEpisodes => 'Close episodes';
+
+  @override
+  String playerRate(String value) {
+    return '$value/s';
+  }
+
+  @override
+  String get byteUnitB => 'B';
+
+  @override
+  String get byteUnitKB => 'KB';
+
+  @override
+  String get byteUnitMB => 'MB';
+
+  @override
+  String get byteUnitGB => 'GB';
+
+  @override
+  String playerTimePosition(String position, String duration) {
+    return '$position of $duration';
+  }
+
+  @override
   String get animeDetailsChooseSourceButton => 'Choose source';
 
   @override

@@ -13,7 +13,9 @@ import 'package:iris/features/player/presentation/cubit/player_subtitle_preferen
 import 'package:iris/features/player/presentation/playback/media_kit_player_engine.dart';
 import 'package:iris/features/player/presentation/playback/player_engine.dart';
 import 'package:iris/features/player/presentation/widgets/player_adaptive_layout.dart';
+import 'package:iris/features/player/presentation/widgets/player_auto_hiding_offer.dart';
 import 'package:iris/features/player/presentation/widgets/player_buffer_health_tracker.dart';
+import 'package:iris/features/player/presentation/widgets/player_immersive_controls.dart';
 import 'package:iris/features/player/presentation/widgets/player_overlay_preferences.dart';
 import 'package:iris/features/player/presentation/widgets/player_playback_stats_indicator.dart';
 import 'package:iris/features/player/presentation/widgets/player_subtitle_settings_sheet.dart';
@@ -100,6 +102,31 @@ final class MediaKitDesktopVideoControlsThemes
   VideoControlsBuilder get controlsBuilder => MaterialDesktopVideoControls;
 }
 
+/// No media_kit controls: [PlayerImmersiveControls] are drawn over the
+/// video instead.
+final class MediaKitImmersiveVideoControlsThemes
+    extends MediaKitVideoControlsThemes {
+  const MediaKitImmersiveVideoControlsThemes({required this.subtitleLift});
+
+  /// Pixels kept clear at the bottom of the Flutter subtitle view.
+  final ValueListenable<double> subtitleLift;
+
+  @override
+  List<Widget> get topButtonBar => const [];
+
+  /// Draws nothing; only moves the Flutter subtitle view, which belongs to
+  /// the [VideoState].
+  @override
+  VideoControlsBuilder get controlsBuilder =>
+      (state) => _SubtitleLift(video: state, lift: subtitleLift);
+
+  @override
+  MediaKitControlsDecorator? get decorateControls => null;
+}
+
+/// Switches the native window in or out of full screen.
+typedef NativeFullscreenToggle = Future<void> Function();
+
 class MediaKitPlayerViewportFactory implements PlayerViewportFactory {
   MediaKitPlayerViewportFactory({
     required PlayerRepository repository,
@@ -108,7 +135,11 @@ class MediaKitPlayerViewportFactory implements PlayerViewportFactory {
     MediaKitFirstFrameAwaiter? firstFrameAwaiter,
     MediaKitVideoSurfaceBuilder? videoSurfaceBuilder,
     Duration mediaKitStartupTimeout = const Duration(seconds: 45),
+    NativeFullscreenToggle enterNativeFullscreen = defaultEnterNativeFullscreen,
+    NativeFullscreenToggle exitNativeFullscreen = defaultExitNativeFullscreen,
   }) : _repository = repository,
+       _enterNativeFullscreen = enterNativeFullscreen,
+       _exitNativeFullscreen = exitNativeFullscreen,
        _playerBuilder = playerBuilder,
        _videoControllerBuilder = videoControllerBuilder,
        _firstFrameAwaiter = firstFrameAwaiter,
@@ -122,6 +153,8 @@ class MediaKitPlayerViewportFactory implements PlayerViewportFactory {
   final MediaKitFirstFrameAwaiter? _firstFrameAwaiter;
   final MediaKitVideoSurfaceBuilder _videoSurfaceBuilder;
   final Duration _mediaKitStartupTimeout;
+  final NativeFullscreenToggle _enterNativeFullscreen;
+  final NativeFullscreenToggle _exitNativeFullscreen;
 
   @override
   MediaKitPlayerEngine createEngine({
@@ -140,11 +173,18 @@ class MediaKitPlayerViewportFactory implements PlayerViewportFactory {
   }
 
   @override
-  Widget build({required PlayerEngine engine, PlayerNextFile? next}) {
+  Widget build({
+    required PlayerEngine engine,
+    PlayerNextFile? next,
+    PlayerChrome? chrome,
+  }) {
     return _MediaKitPlayerViewport(
       engine: engine as MediaKitPlayerEngine,
       next: next,
+      chrome: chrome,
       videoSurfaceBuilder: _videoSurfaceBuilder,
+      enterNativeFullscreen: _enterNativeFullscreen,
+      exitNativeFullscreen: _exitNativeFullscreen,
     );
   }
 }
@@ -153,12 +193,18 @@ class _MediaKitPlayerViewport extends StatefulWidget {
   const _MediaKitPlayerViewport({
     required this.engine,
     required this.next,
+    required this.chrome,
     required this.videoSurfaceBuilder,
+    required this.enterNativeFullscreen,
+    required this.exitNativeFullscreen,
   });
 
   final MediaKitPlayerEngine engine;
   final PlayerNextFile? next;
+  final PlayerChrome? chrome;
   final MediaKitVideoSurfaceBuilder videoSurfaceBuilder;
+  final NativeFullscreenToggle enterNativeFullscreen;
+  final NativeFullscreenToggle exitNativeFullscreen;
 
   @override
   State<_MediaKitPlayerViewport> createState() =>
@@ -178,6 +224,12 @@ class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
   /// Full screen closed for a replaced native player, to reopen with the
   /// new one.
   bool _reenterFullscreen = false;
+
+  /// The immersive player's window full screen; it has no route of its own.
+  final _windowFullscreen = ValueNotifier<bool>(false);
+
+  /// Room the immersive controls take at the bottom, for the subtitles.
+  final _subtitleLift = ValueNotifier<double>(0);
 
   @override
   void initState() {
@@ -207,6 +259,9 @@ class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
   void dispose() {
     widget.engine.removeListener(_onEngineChanged);
     _closeFullscreen();
+    if (_windowFullscreen.value) unawaited(widget.exitNativeFullscreen());
+    _windowFullscreen.dispose();
+    _subtitleLift.dispose();
     _nextTitle.dispose();
     super.dispose();
   }
@@ -252,6 +307,37 @@ class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
 
   void _playNext() => widget.next?.play();
 
+  /// Moves the subtitles above [clearance] pixels of controls at the
+  /// bottom of a [viewSize] box the video is fitted into.
+  void _liftSubtitles(double clearance, Size viewSize) {
+    _subtitleLift.value = clearance;
+    final engine = widget.engine;
+    if (!engine.hasPlayer) return;
+    // mpv places its subtitles relative to the video, not the box.
+    final state = engine.player.state;
+    var videoHeight = viewSize.height;
+    final width = state.width;
+    final height = state.height;
+    if (width != null && height != null && width > 0 && height > 0) {
+      videoHeight = (viewSize.width * height / width).clamp(
+        0.0,
+        viewSize.height,
+      );
+    }
+    if (videoHeight <= 0) return;
+    final belowVideo = (viewSize.height - videoHeight) / 2;
+    final lift = (clearance - belowVideo).clamp(0.0, videoHeight);
+    unawaited(engine.liftSubtitles(lift / videoHeight));
+  }
+
+  void _toggleWindowFullscreen() {
+    final enter = !_windowFullscreen.value;
+    _windowFullscreen.value = enter;
+    unawaited(
+      enter ? widget.enterNativeFullscreen() : widget.exitNativeFullscreen(),
+    );
+  }
+
   Widget _decorateControls(VideoState video, Widget controls) {
     return _PlayerControlsFrame(
       phase: widget.engine.phase,
@@ -275,30 +361,11 @@ class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
     final theme = Theme.of(context);
     final engine = widget.engine;
     final startupState = engine.startupState;
+    final chrome = widget.chrome;
+    if (chrome != null) return _buildImmersive(l10n, chrome);
 
     if (startupState.phase == PlayerEnginePhase.failed) {
-      final errorMessage =
-          startupState.failure == PlayerEngineFailure.firstFrameTimeout
-          ? l10n.playerUnableToPrepareFirstFrame
-          : l10n.playerUnableToStart;
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.error_outline, size: 40),
-              const SizedBox(height: 12),
-              Text(errorMessage, textAlign: TextAlign.center),
-              const SizedBox(height: 16),
-              FilledButton(
-                onPressed: () => unawaited(engine.retry()),
-                child: Text(l10n.commonRetry),
-              ),
-            ],
-          ),
-        ),
-      );
+      return _buildFailure(l10n);
     }
 
     final videoFrame = AspectRatio(
@@ -345,6 +412,78 @@ class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
     );
   }
 
+  Widget _buildFailure(AppLocalizations l10n) {
+    final engine = widget.engine;
+    final errorMessage =
+        engine.startupState.failure == PlayerEngineFailure.firstFrameTimeout
+        ? l10n.playerUnableToPrepareFirstFrame
+        : l10n.playerUnableToStart;
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.error_outline, size: 40),
+            const SizedBox(height: 12),
+            Text(errorMessage, textAlign: TextAlign.center),
+            const SizedBox(height: 16),
+            FilledButton(
+              onPressed: () => unawaited(engine.retry()),
+              child: Text(l10n.commonRetry),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// The video fills the box; the immersive controls lie over it.
+  Widget _buildImmersive(AppLocalizations l10n, PlayerChrome chrome) {
+    final engine = widget.engine;
+    final startupState = engine.startupState;
+    final Widget video;
+    if (startupState.phase == PlayerEnginePhase.failed) {
+      video = _buildFailure(l10n);
+    } else {
+      video = widget.videoSurfaceBuilder(
+        controller: _controller,
+        subtitleViewConfiguration: engine.subtitleViewConfiguration,
+        controlsThemes: MediaKitImmersiveVideoControlsThemes(
+          subtitleLift: _subtitleLift,
+        ),
+      );
+    }
+    final String? startupLabel;
+    if (startupState.phase == PlayerEnginePhase.failed) {
+      startupLabel = null;
+    } else if (startupState.phase == PlayerEnginePhase.openingSource) {
+      startupLabel = l10n.playerPreparing;
+    } else if (engine.reconfiguring ||
+        startupState.phase != PlayerEnginePhase.ready ||
+        // Ready can come from the file's header alone; the stream may take
+        // seconds more to show a picture, and a black screen would hide it.
+        !startupState.firstFrameRendered) {
+      startupLabel = l10n.playerBuffering;
+    } else {
+      startupLabel = null;
+    }
+
+    return PlayerImmersiveControls(
+      engine: engine,
+      chrome: chrome,
+      next: widget.next,
+      video: video,
+      startupLabel: startupLabel,
+      statsPanel: _buildStatsPanel(immersive: true),
+      fullscreen: _windowFullscreen,
+      onToggleFullscreen: _toggleWindowFullscreen,
+      onSubtitleClearance: _liftSubtitles,
+      onShowTracks: () => unawaited(_showTrackSelectorSheet()),
+      onShowSettings: () => unawaited(showPlayerSubtitleSettingsSheet(context)),
+    );
+  }
+
   MediaKitVideoControlsThemes _buildControlsThemes(
     AppLocalizations l10n,
     ColorScheme colorScheme,
@@ -365,15 +504,19 @@ class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
     );
   }
 
-  Widget _buildStatsPanel() {
+  Widget _buildStatsPanel({bool immersive = false}) {
     final engine = widget.engine;
     return Flexible(
       fit: FlexFit.loose,
       child: Align(
         alignment: Alignment.centerLeft,
+        // As tall as the stats, not the row: the immersive top bar has no
+        // fixed height.
+        heightFactor: 1,
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 280),
+          constraints: BoxConstraints(maxWidth: immersive ? 640 : 280),
           child: _PlayerControlsStatsPanel(
+            immersive: immersive,
             listenable: engine.playbackStats,
             diagnosticsListenable: engine.diagnostics,
             startupPhaseListenable: engine.phase,
@@ -582,7 +725,7 @@ class _PlayerControlsFrame extends StatefulWidget {
 }
 
 class _PlayerControlsFrameState extends State<_PlayerControlsFrame> {
-  final _activity = _PointerActivity();
+  final _activity = PlayerPointerActivity();
   late final _nextState = Listenable.merge([
     widget.finishing,
     widget.completed,
@@ -622,7 +765,7 @@ class _PlayerControlsFrameState extends State<_PlayerControlsFrame> {
             valueListenable: widget.skipSegment,
             builder: (context, segment, _) {
               if (segment == null) return const SizedBox.shrink();
-              return _AutoHidingOffer(
+              return PlayerAutoHidingOffer(
                 key: ValueKey(segment),
                 activity: _activity,
                 child: _PlayerActionPill(
@@ -644,7 +787,7 @@ class _PlayerControlsFrameState extends State<_PlayerControlsFrame> {
               if (title == null || !(widget.finishing.value || completed)) {
                 return const SizedBox.shrink();
               }
-              return _AutoHidingOffer(
+              return PlayerAutoHidingOffer(
                 activity: _activity,
                 // Once the file has ended there is nothing left to cover.
                 pinned: completed,
@@ -676,80 +819,6 @@ class _PlayerControlsFrameState extends State<_PlayerControlsFrame> {
               ),
             ),
         ],
-      ),
-    );
-  }
-}
-
-/// Pointer movement or a tap over the player.
-class _PointerActivity extends ChangeNotifier {
-  void ping() => notifyListeners();
-}
-
-/// Shows [child] for a while when it appears, then again briefly after
-/// pointer activity, like the player controls; [pinned] keeps it shown.
-class _AutoHidingOffer extends StatefulWidget {
-  const _AutoHidingOffer({
-    required this.activity,
-    required this.child,
-    this.pinned = false,
-    super.key,
-  });
-
-  static const shownAtStart = Duration(seconds: 8);
-  static const shownOnActivity = Duration(seconds: 3);
-
-  final Listenable activity;
-  final bool pinned;
-  final Widget child;
-
-  @override
-  State<_AutoHidingOffer> createState() => _AutoHidingOfferState();
-}
-
-class _AutoHidingOfferState extends State<_AutoHidingOffer> {
-  bool _shown = true;
-  bool _holdingAtStart = true;
-  Timer? _hideTimer;
-
-  @override
-  void initState() {
-    super.initState();
-    widget.activity.addListener(_onActivity);
-    _hideAfter(_AutoHidingOffer.shownAtStart);
-  }
-
-  @override
-  void dispose() {
-    widget.activity.removeListener(_onActivity);
-    _hideTimer?.cancel();
-    super.dispose();
-  }
-
-  void _onActivity() {
-    // Activity must not cut the first, longer showing short.
-    if (_holdingAtStart) return;
-    setState(() => _shown = true);
-    _hideAfter(_AutoHidingOffer.shownOnActivity);
-  }
-
-  void _hideAfter(Duration duration) {
-    _hideTimer?.cancel();
-    _hideTimer = Timer(duration, () {
-      _holdingAtStart = false;
-      if (mounted) setState(() => _shown = false);
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final visible = _shown || widget.pinned;
-    return IgnorePointer(
-      ignoring: !visible,
-      child: AnimatedOpacity(
-        opacity: visible ? 1 : 0,
-        duration: const Duration(milliseconds: 200),
-        child: widget.child,
       ),
     );
   }
@@ -821,6 +890,54 @@ class _PlayerActionPill extends StatelessWidget {
   }
 }
 
+/// Keeps the Flutter subtitle view above [lift] pixels of controls.
+class _SubtitleLift extends StatefulWidget {
+  const _SubtitleLift({required this.video, required this.lift});
+
+  final VideoState video;
+  final ValueListenable<double> lift;
+
+  @override
+  State<_SubtitleLift> createState() => _SubtitleLiftState();
+}
+
+class _SubtitleLiftState extends State<_SubtitleLift> {
+  @override
+  void initState() {
+    super.initState();
+    widget.lift.addListener(_apply);
+    // The subtitle view mounts in the same frame.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _apply());
+  }
+
+  @override
+  void didUpdateWidget(covariant _SubtitleLift oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.lift != widget.lift) {
+      oldWidget.lift.removeListener(_apply);
+      widget.lift.addListener(_apply);
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.lift.removeListener(_apply);
+    super.dispose();
+  }
+
+  void _apply() {
+    if (!mounted || !widget.video.mounted) return;
+    final base = widget.video.widget.subtitleViewConfiguration.padding;
+    widget.video.setSubtitleViewPadding(
+      base.copyWith(bottom: base.bottom + widget.lift.value),
+      duration: const Duration(milliseconds: 200),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) => const SizedBox.shrink();
+}
+
 class _BufferingIndicator extends StatelessWidget {
   const _BufferingIndicator({required this.label});
 
@@ -860,6 +977,7 @@ class _PlayerStartupOverlay extends StatelessWidget {
 
 class _PlayerControlsStatsPanel extends StatelessWidget {
   const _PlayerControlsStatsPanel({
+    required this.immersive,
     required this.listenable,
     required this.diagnosticsListenable,
     required this.startupPhaseListenable,
@@ -874,6 +992,7 @@ class _PlayerControlsStatsPanel extends StatelessWidget {
   final ValueListenable<Track> trackListenable;
   final ValueListenable<PlayerBufferMarginState> bufferMarginStateListenable;
   final ValueListenable<bool> isBufferingListenable;
+  final bool immersive;
 
   @override
   Widget build(BuildContext context) {
@@ -889,6 +1008,17 @@ class _PlayerControlsStatsPanel extends StatelessWidget {
         if (startupPhaseListenable.value != PlayerEnginePhase.ready) {
           return const SizedBox.shrink();
         }
+        // Over a full-bleed video the numbers show up when they explain
+        // something: a stall, a thin buffer, or when asked for.
+        final detailed = playerDetailedStatsEnabled.value;
+        final buffering = isBufferingListenable.value;
+        final bufferMargin = bufferMarginStateListenable.value;
+        if (immersive &&
+            !detailed &&
+            !buffering &&
+            bufferMargin != PlayerBufferMarginState.insufficient) {
+          return const SizedBox.shrink();
+        }
 
         final track = trackListenable.value;
         return PlayerPlaybackStatsListenable(
@@ -896,9 +1026,10 @@ class _PlayerControlsStatsPanel extends StatelessWidget {
           videoCodec: track.video.codec,
           audioCodec: track.audio.codec,
           diagnosticsListenable: diagnosticsListenable,
-          bufferMarginState: bufferMarginStateListenable.value,
-          isBuffering: isBufferingListenable.value,
-          detailed: playerDetailedStatsEnabled.value,
+          bufferMarginState: bufferMargin,
+          isBuffering: buffering,
+          detailed: detailed,
+          immersive: immersive,
         );
       },
     );
@@ -954,5 +1085,11 @@ Widget _defaultVideoSurfaceBuilder({
         fullscreen: fullscreen,
         child: video,
       ),
+    MediaKitImmersiveVideoControlsThemes() => Video(
+      key: const Key('player_video_surface'),
+      controller: controller,
+      controls: NoVideoControls,
+      subtitleViewConfiguration: subtitleViewConfiguration,
+    ),
   };
 }

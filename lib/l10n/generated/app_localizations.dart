@@ -1196,6 +1196,120 @@ abstract class AppLocalizations {
   /// **'Peers, decoder and codecs over the video'**
   String get playerDetailedStatsHint;
 
+  /// No description provided for @playerBack.
+  ///
+  /// In en, this message translates to:
+  /// **'Back'**
+  String get playerBack;
+
+  /// No description provided for @playerEpisodeNumber.
+  ///
+  /// In en, this message translates to:
+  /// **'Episode {number}'**
+  String playerEpisodeNumber(int number);
+
+  /// No description provided for @playerEpisodePosition.
+  ///
+  /// In en, this message translates to:
+  /// **'{position} of {total}'**
+  String playerEpisodePosition(int position, int total);
+
+  /// No description provided for @playerEpisodeOfTotal.
+  ///
+  /// In en, this message translates to:
+  /// **'of {total}'**
+  String playerEpisodeOfTotal(int total);
+
+  /// No description provided for @playerTimeLeft.
+  ///
+  /// In en, this message translates to:
+  /// **'{time} left'**
+  String playerTimeLeft(String time);
+
+  /// No description provided for @playerSeekBackward.
+  ///
+  /// In en, this message translates to:
+  /// **'Back {seconds} s'**
+  String playerSeekBackward(int seconds);
+
+  /// No description provided for @playerSeekForward.
+  ///
+  /// In en, this message translates to:
+  /// **'Forward {seconds} s'**
+  String playerSeekForward(int seconds);
+
+  /// No description provided for @playerMute.
+  ///
+  /// In en, this message translates to:
+  /// **'Mute'**
+  String get playerMute;
+
+  /// No description provided for @playerUnmute.
+  ///
+  /// In en, this message translates to:
+  /// **'Unmute'**
+  String get playerUnmute;
+
+  /// No description provided for @playerAudioAndSubtitles.
+  ///
+  /// In en, this message translates to:
+  /// **'Audio & subtitles'**
+  String get playerAudioAndSubtitles;
+
+  /// No description provided for @playerEnterFullscreen.
+  ///
+  /// In en, this message translates to:
+  /// **'Full screen'**
+  String get playerEnterFullscreen;
+
+  /// No description provided for @playerExitFullscreen.
+  ///
+  /// In en, this message translates to:
+  /// **'Exit full screen'**
+  String get playerExitFullscreen;
+
+  /// No description provided for @playerCloseEpisodes.
+  ///
+  /// In en, this message translates to:
+  /// **'Close episodes'**
+  String get playerCloseEpisodes;
+
+  /// No description provided for @playerRate.
+  ///
+  /// In en, this message translates to:
+  /// **'{value}/s'**
+  String playerRate(String value);
+
+  /// No description provided for @byteUnitB.
+  ///
+  /// In en, this message translates to:
+  /// **'B'**
+  String get byteUnitB;
+
+  /// No description provided for @byteUnitKB.
+  ///
+  /// In en, this message translates to:
+  /// **'KB'**
+  String get byteUnitKB;
+
+  /// No description provided for @byteUnitMB.
+  ///
+  /// In en, this message translates to:
+  /// **'MB'**
+  String get byteUnitMB;
+
+  /// No description provided for @byteUnitGB.
+  ///
+  /// In en, this message translates to:
+  /// **'GB'**
+  String get byteUnitGB;
+
+  /// No description provided for @playerTimePosition.
+  ///
+  /// In en, this message translates to:
+  /// **'{position} of {duration}'**
+  String playerTimePosition(String position, String duration);
+
   /// No description provided for @animeDetailsChooseSourceButton.
   ///
   /// In en, this message translates to:

@@ -627,6 +627,79 @@ class AppLocalizationsRu extends AppLocalizations {
   String get playerDetailedStatsHint => 'Пиры, декодер и кодеки поверх видео';
 
   @override
+  String get playerBack => 'Назад';
+
+  @override
+  String playerEpisodeNumber(int number) {
+    return 'Серия $number';
+  }
+
+  @override
+  String playerEpisodePosition(int position, int total) {
+    return '$position из $total';
+  }
+
+  @override
+  String playerEpisodeOfTotal(int total) {
+    return 'из $total';
+  }
+
+  @override
+  String playerTimeLeft(String time) {
+    return 'Осталось $time';
+  }
+
+  @override
+  String playerSeekBackward(int seconds) {
+    return 'Назад на $seconds с';
+  }
+
+  @override
+  String playerSeekForward(int seconds) {
+    return 'Вперёд на $seconds с';
+  }
+
+  @override
+  String get playerMute => 'Выключить звук';
+
+  @override
+  String get playerUnmute => 'Включить звук';
+
+  @override
+  String get playerAudioAndSubtitles => 'Аудио и субтитры';
+
+  @override
+  String get playerEnterFullscreen => 'Во весь экран';
+
+  @override
+  String get playerExitFullscreen => 'Выйти из полноэкранного режима';
+
+  @override
+  String get playerCloseEpisodes => 'Закрыть список серий';
+
+  @override
+  String playerRate(String value) {
+    return '$value/с';
+  }
+
+  @override
+  String get byteUnitB => 'Б';
+
+  @override
+  String get byteUnitKB => 'КБ';
+
+  @override
+  String get byteUnitMB => 'МБ';
+
+  @override
+  String get byteUnitGB => 'ГБ';
+
+  @override
+  String playerTimePosition(String position, String duration) {
+    return '$position из $duration';
+  }
+
+  @override
   String get animeDetailsChooseSourceButton => 'Выбрать источник';
 
   @override

@@ -10,33 +10,61 @@ import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/utils/file_display_name.dart';
 
 class PlayerView extends StatelessWidget {
-  const PlayerView({required this.viewportFactory, super.key});
+  const PlayerView({required this.viewportFactory, this.chrome, super.key});
 
   final PlayerViewportFactory viewportFactory;
+
+  /// Immersive mode: passed to the viewport, and the loading and failure
+  /// states get a way back since there is no app bar.
+  final PlayerChrome? chrome;
 
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<PlayerCubit, PlayerState>(
       builder: (context, state) {
         final cubit = context.read<PlayerCubit>();
-        return switch (state) {
-          PlayerReady() ||
-          PlayerPreparing(keepsPlayer: true) => viewportFactory.build(
-            engine: cubit.engine,
-            next: switch (cubit.source.nextFile) {
-              final next? => PlayerNextFile(
-                title: fileDisplayName(next.name),
-                play: () => cubit.playFile(next),
+        final Widget status;
+        switch (state) {
+          case PlayerReady() || PlayerPreparing(keepsPlayer: true):
+            return viewportFactory.build(
+              engine: cubit.engine,
+              chrome: chrome,
+              next: switch (cubit.source.nextFile) {
+                final next? => PlayerNextFile(
+                  title: fileDisplayName(next.name),
+                  play: () => cubit.playFile(next),
+                ),
+                null => null,
+              },
+            );
+          case PlayerInitial():
+            status = _LoadingState(
+              progress: const PlayerLaunchProgress.initial(),
+            );
+          case PlayerPreparing(:final progress):
+            status = _LoadingState(progress: progress);
+          case PlayerFailure(:final type):
+            status = _FailureState(type: type);
+        }
+        final immersive = chrome;
+        if (immersive == null) return status;
+        return Stack(
+          fit: StackFit.expand,
+          children: [
+            status,
+            Positioned(
+              left: 24,
+              top: 20,
+              child: IconButton(
+                key: const Key('player_back_button'),
+                tooltip: AppLocalizations.of(context).playerBack,
+                iconSize: 28,
+                icon: const Icon(Icons.arrow_back),
+                onPressed: immersive.onBack,
               ),
-              null => null,
-            },
-          ),
-          PlayerInitial() => _LoadingState(
-            progress: const PlayerLaunchProgress.initial(),
-          ),
-          PlayerPreparing(:final progress) => _LoadingState(progress: progress),
-          PlayerFailure(:final type) => _FailureState(type: type),
-        };
+            ),
+          ],
+        );
       },
     );
   }
