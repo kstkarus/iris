@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:get_it/get_it.dart';
 import 'package:go_router/go_router.dart';
 import 'package:path/path.dart' as path;
@@ -64,6 +65,7 @@ import 'package:iris/shared/network/nyaa_dio_factory.dart';
 import 'package:iris/shared/network/shikimori_graph_ql_client.dart';
 import 'package:iris/shared/storage/stream_cache_storage.dart';
 import 'package:iris/shared/torrent/torrent_activity_registry.dart';
+import 'package:iris/shared/window/windows_fullscreen.dart';
 
 final serviceLocator = GetIt.instance;
 
@@ -354,9 +356,15 @@ Future<void> configureDependencies({
 
     if (!serviceLocator.isRegistered<PlayerViewportFactory>()) {
       serviceLocator.registerLazySingleton<PlayerViewportFactory>(
-        () => MediaKitPlayerViewportFactory(
-          repository: serviceLocator<PlayerRepository>(),
-        ),
+        () => defaultTargetPlatform == TargetPlatform.windows && !kIsWeb
+            ? MediaKitPlayerViewportFactory(
+                repository: serviceLocator<PlayerRepository>(),
+                enterNativeFullscreen: WindowsFullscreen.enter,
+                exitNativeFullscreen: WindowsFullscreen.exit,
+              )
+            : MediaKitPlayerViewportFactory(
+                repository: serviceLocator<PlayerRepository>(),
+              ),
       );
     }
 
