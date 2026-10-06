@@ -40,8 +40,8 @@ void main() {
           },
         ),
         GoRoute(
-          path: '/anime/:id/watch/player',
-          name: 'anime-player',
+          path: '/player',
+          name: 'player',
           builder: (context, state) {
             return const Scaffold(body: Text('Player Route'));
           },
@@ -162,6 +162,9 @@ class _TestPlayerSourceCubit extends PlayerSourceCubit {
 }
 
 class _UnusedPlayerRepository implements PlayerRepository {
+  @override
+  Future<void> stopPlayback({required String sessionId}) async {}
+
   @override
   Future<void> disposePlayback({required String sessionId}) async {}
 

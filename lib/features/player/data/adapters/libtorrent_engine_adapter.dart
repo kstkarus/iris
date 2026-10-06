@@ -10,6 +10,7 @@ import 'package:iris/features/player/data/models/playback_launch_progress_model.
 import 'package:iris/features/player/data/models/playback_runtime_stats_model.dart';
 import 'package:iris/features/player/data/models/playback_stream_descriptor.dart';
 import 'package:iris/features/player/data/models/torrent_file_descriptor.dart';
+import 'package:iris/shared/storage/stream_cache_storage.dart';
 import 'package:iris/shared/utils/playback_runtime_initializer.dart';
 
 const torrentStreamCacheBytes = 256 * 1024 * 1024;
@@ -39,11 +40,13 @@ abstract interface class LibtorrentEngineAdapter {
 
   PlaybackRuntimeStatsModel? getPlaybackRuntimeStats(int streamId);
 
+  void stopStream(int streamId);
+
   Future<void> disposeTorrent(int torrentId);
 }
 
 abstract interface class LibtorrentEngineClient {
-  int addMagnet(String magnet);
+  int addMagnet(String magnet, {String? savePath});
 
   bool disposeTorrent(int torrentId);
 
@@ -57,6 +60,8 @@ abstract interface class LibtorrentEngineClient {
 
   StreamInfo? getStreamInfo(int streamId);
 
+  void stopStream(int streamId);
+
   Map<int, TorrentInfo> get torrents;
 
   Stream<Map<int, TorrentInfo>> get torrentUpdates;
@@ -69,7 +74,9 @@ class LibtorrentEngineAdapterImpl implements LibtorrentEngineAdapter {
     Duration metadataWaitTimeout = const Duration(seconds: 90),
     LibtorrentEngineClient? engineClient,
     Future<void> Function()? runtimeInitializer,
+    StreamCacheStorage? streamCache,
   }) : _metadataWaitTimeout = metadataWaitTimeout,
+       _streamCache = streamCache,
        _engineClient = engineClient ?? const _DefaultLibtorrentEngineClient(),
        _runtimeInitializer =
            runtimeInitializer ?? PlaybackRuntimeInitializer.ensureInitialized;
@@ -77,16 +84,32 @@ class LibtorrentEngineAdapterImpl implements LibtorrentEngineAdapter {
   final Duration _metadataWaitTimeout;
   final LibtorrentEngineClient _engineClient;
   final Future<void> Function() _runtimeInitializer;
+
+  /// Where streamed pieces are written; the engine default (system temp)
+  /// when null.
+  final StreamCacheStorage? _streamCache;
   bool _sessionConfigured = false;
 
   @override
   int addMagnet(String magnet) {
-    final torrentId = _engineClient.addMagnet(magnet);
+    final torrentId = _engineClient.addMagnet(
+      magnet,
+      savePath: _streamCache?.directory.path,
+    );
     developer.log(
       'Magnet added to libtorrent. torrentId=$torrentId',
       name: 'iris.player.libtorrent',
     );
     return torrentId;
+  }
+
+  @override
+  void stopStream(int streamId) {
+    developer.log(
+      'Stopping torrent stream. streamId=$streamId',
+      name: 'iris.player.libtorrent',
+    );
+    _engineClient.stopStream(streamId);
   }
 
   @override
@@ -123,6 +146,7 @@ class LibtorrentEngineAdapterImpl implements LibtorrentEngineAdapter {
       name: 'iris.player.libtorrent',
     );
     await _runtimeInitializer();
+    await _streamCache?.prepare();
     if (_sessionConfigured) {
       return;
     }
@@ -133,6 +157,9 @@ class LibtorrentEngineAdapterImpl implements LibtorrentEngineAdapter {
         readerReadAhead: _torrentSessionReadAheadPercent,
         preloadCache: _torrentSessionPreloadPercent,
         responsiveMode: true,
+        // With IPv6 disabled the native bridge rebinds the session to
+        // 0.0.0.0:6881, overriding torrentListenInterfaces.
+        enableIpv6: true,
       ),
     );
     _sessionConfigured = true;
@@ -294,7 +321,8 @@ class _DefaultLibtorrentEngineClient implements LibtorrentEngineClient {
   LibtorrentFlutter get _engine => LibtorrentFlutter.instance;
 
   @override
-  int addMagnet(String magnet) => _engine.addMagnet(magnet);
+  int addMagnet(String magnet, {String? savePath}) =>
+      _engine.addMagnet(magnet, savePath);
 
   @override
   void configureSession(BtConfig config) {
@@ -309,6 +337,9 @@ class _DefaultLibtorrentEngineClient implements LibtorrentEngineClient {
 
   @override
   StreamInfo? getStreamInfo(int streamId) => _engine.getStreamInfo(streamId);
+
+  @override
+  void stopStream(int streamId) => _engine.stopStream(streamId);
 
   @override
   Stream<Map<int, TorrentInfo>> get torrentUpdates => _engine.torrentUpdates;

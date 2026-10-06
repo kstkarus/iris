@@ -1,0 +1,67 @@
+import 'dart:async';
+
+import 'package:iris/features/downloads/domain/repositories/downloads_repository.dart';
+import 'package:iris/features/player/data/adapters/player_runtime_memory_adapter.dart';
+import 'package:iris/features/player/domain/entities/player_launch_failure.dart';
+import 'package:iris/features/player/domain/entities/player_launch_update.dart';
+import 'package:iris/features/player/domain/entities/player_playback_stats.dart';
+import 'package:iris/features/player/domain/entities/player_session.dart';
+import 'package:iris/features/player/domain/entities/prepared_player_source.dart';
+import 'package:iris/features/player/domain/repositories/player_repository.dart';
+
+class LocalPlayerRepository implements PlayerRepository {
+  @override
+  Future<void> stopPlayback({required String sessionId}) async {}
+
+  const LocalPlayerRepository({
+    required DownloadsRepository downloadsRepository,
+    required PlayerRuntimeMemoryAdapter memoryAdapter,
+  }) : _downloadsRepository = downloadsRepository,
+       _memoryAdapter = memoryAdapter;
+
+  final DownloadsRepository _downloadsRepository;
+  final PlayerRuntimeMemoryAdapter _memoryAdapter;
+
+  @override
+  Future<void> disposePlayback({required String sessionId}) async {}
+
+  @override
+  Future<PreparedPlayerSource> prepareSource({required String magnet}) {
+    throw UnsupportedError('Online playback sources are disabled.');
+  }
+
+  @override
+  Stream<PlayerLaunchUpdate> startPlayback({
+    required String sessionId,
+    required int fileIndex,
+  }) async* {
+    final download = await _downloadsRepository.findCompletedById(
+      id: sessionId,
+    );
+    if (download == null) {
+      yield const PlayerLaunchFailureUpdate(PlayerLaunchFailure.unableToStart);
+      return;
+    }
+    yield PlayerLaunchReadyUpdate(
+      PlayerSession(sessionId: sessionId, streamUrl: download.localPath),
+    );
+  }
+
+  @override
+  Stream<PlayerPlaybackStats> watchPlaybackStats({
+    required String sessionId,
+  }) async* {
+    while (true) {
+      final appMemoryBytes = await _memoryAdapter.getAppMemoryBytes();
+      yield PlayerPlaybackStats(
+        downloadRateBytesPerSecond: 0,
+        appMemoryBytes: appMemoryBytes,
+        activePeers: 0,
+        bufferSeconds: 0,
+        bufferPieces: 0,
+        readaheadWindow: 0,
+      );
+      await Future<void>.delayed(const Duration(seconds: 2));
+    }
+  }
+}

@@ -110,6 +110,192 @@ abstract class AppLocalizations {
   /// **'Try Again'**
   String get commonRetry;
 
+  /// No description provided for @navigationCatalog.
+  ///
+  /// In en, this message translates to:
+  /// **'Catalog'**
+  String get navigationCatalog;
+
+  /// No description provided for @navigationDownloads.
+  ///
+  /// In en, this message translates to:
+  /// **'Downloads'**
+  String get navigationDownloads;
+
+  /// No description provided for @downloadsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Downloads'**
+  String get downloadsTitle;
+
+  /// No description provided for @downloadsOpenButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Download'**
+  String get downloadsOpenButton;
+
+  /// No description provided for @downloadsEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'Downloaded episodes will appear here.'**
+  String get downloadsEmpty;
+
+  /// No description provided for @downloadSelectionTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Download a file'**
+  String get downloadSelectionTitle;
+
+  /// No description provided for @downloadSelectionPreparing.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading torrent file list...'**
+  String get downloadSelectionPreparing;
+
+  /// No description provided for @downloadSelectionUnsupported.
+  ///
+  /// In en, this message translates to:
+  /// **'This source has no supported video files.'**
+  String get downloadSelectionUnsupported;
+
+  /// No description provided for @downloadSelectionUnableToPrepare.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to load files from this source.'**
+  String get downloadSelectionUnableToPrepare;
+
+  /// No description provided for @downloadUnableToQueue.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to add this file to the download queue.'**
+  String get downloadUnableToQueue;
+
+  /// No description provided for @downloadFileButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Download'**
+  String get downloadFileButton;
+
+  /// No description provided for @downloadAddingToQueue.
+  ///
+  /// In en, this message translates to:
+  /// **'Adding to queue...'**
+  String get downloadAddingToQueue;
+
+  /// No description provided for @downloadManagerUnableToLoad.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to load downloads.'**
+  String get downloadManagerUnableToLoad;
+
+  /// No description provided for @downloadStorageTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'App storage'**
+  String get downloadStorageTitle;
+
+  /// No description provided for @downloadStorageTotal.
+  ///
+  /// In en, this message translates to:
+  /// **'Total used by app'**
+  String get downloadStorageTotal;
+
+  /// No description provided for @downloadStorageContent.
+  ///
+  /// In en, this message translates to:
+  /// **'Offline content'**
+  String get downloadStorageContent;
+
+  /// No description provided for @downloadStorageCache.
+  ///
+  /// In en, this message translates to:
+  /// **'Cache'**
+  String get downloadStorageCache;
+
+  /// No description provided for @downloadStatusQueued.
+  ///
+  /// In en, this message translates to:
+  /// **'Queued'**
+  String get downloadStatusQueued;
+
+  /// No description provided for @downloadStatusDownloading.
+  ///
+  /// In en, this message translates to:
+  /// **'Downloading'**
+  String get downloadStatusDownloading;
+
+  /// No description provided for @downloadStatusPaused.
+  ///
+  /// In en, this message translates to:
+  /// **'Paused'**
+  String get downloadStatusPaused;
+
+  /// No description provided for @downloadStatusCompleted.
+  ///
+  /// In en, this message translates to:
+  /// **'Downloaded'**
+  String get downloadStatusCompleted;
+
+  /// No description provided for @downloadStatusFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed'**
+  String get downloadStatusFailed;
+
+  /// No description provided for @downloadPeers.
+  ///
+  /// In en, this message translates to:
+  /// **'Peers: {count}'**
+  String downloadPeers(int count);
+
+  /// No description provided for @downloadFailedMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'The download stopped with an error.'**
+  String get downloadFailedMessage;
+
+  /// No description provided for @downloadWatchButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Watch'**
+  String get downloadWatchButton;
+
+  /// No description provided for @downloadPauseButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Pause'**
+  String get downloadPauseButton;
+
+  /// No description provided for @downloadResumeButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Resume'**
+  String get downloadResumeButton;
+
+  /// No description provided for @downloadDeleteButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete'**
+  String get downloadDeleteButton;
+
+  /// No description provided for @downloadCancelButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get downloadCancelButton;
+
+  /// No description provided for @downloadDeleteTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete download?'**
+  String get downloadDeleteTitle;
+
+  /// No description provided for @downloadDeleteMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'The file “{name}” will be removed from the device.'**
+  String downloadDeleteMessage(String name);
+
   /// No description provided for @animeKindTv.
   ///
   /// In en, this message translates to:
@@ -163,12 +349,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{aired}/{total} {count, plural, =1{episode} other{episodes}}'**
   String animeEpisodeProgress(String aired, String total, int count);
-
-  /// No description provided for @animeListTitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Anime List'**
-  String get animeListTitle;
 
   /// No description provided for @animeListLoading.
   ///
@@ -272,12 +452,6 @@ abstract class AppLocalizations {
   /// **'Nothing found for selected criteria.'**
   String get animeListCriteriaEmpty;
 
-  /// No description provided for @animeDetailsTitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Anime Details'**
-  String get animeDetailsTitle;
-
   /// No description provided for @animeDetailsLoading.
   ///
   /// In en, this message translates to:
@@ -293,7 +467,7 @@ abstract class AppLocalizations {
   /// No description provided for @watchSourcesTitle.
   ///
   /// In en, this message translates to:
-  /// **'Watch Sources'**
+  /// **'Watch sources'**
   String get watchSourcesTitle;
 
   /// No description provided for @watchSourcesOpenButton.
@@ -305,19 +479,19 @@ abstract class AppLocalizations {
   /// No description provided for @watchSourcesLoading.
   ///
   /// In en, this message translates to:
-  /// **'Loading watch sources...'**
+  /// **'Loading sources...'**
   String get watchSourcesLoading;
 
   /// No description provided for @watchSourcesLoadError.
   ///
   /// In en, this message translates to:
-  /// **'Unable to load watch sources.'**
+  /// **'Unable to load sources.'**
   String get watchSourcesLoadError;
 
   /// No description provided for @watchSourcesEmpty.
   ///
   /// In en, this message translates to:
-  /// **'No watch sources found.'**
+  /// **'No sources found.'**
   String get watchSourcesEmpty;
 
   /// No description provided for @watchSourcesSearchHint.
@@ -329,7 +503,7 @@ abstract class AppLocalizations {
   /// No description provided for @watchSourcesSearchEmpty.
   ///
   /// In en, this message translates to:
-  /// **'No watch sources match your search.'**
+  /// **'No sources match your search.'**
   String get watchSourcesSearchEmpty;
 
   /// No description provided for @watchSourcesSortButton.
@@ -373,36 +547,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Title'**
   String get watchSourcesSortTitle;
-
-  /// No description provided for @watchSourcesSizeLabel.
-  ///
-  /// In en, this message translates to:
-  /// **'Size'**
-  String get watchSourcesSizeLabel;
-
-  /// No description provided for @watchSourcesTimeLabel.
-  ///
-  /// In en, this message translates to:
-  /// **'Time'**
-  String get watchSourcesTimeLabel;
-
-  /// No description provided for @watchSourcesSeedersLabel.
-  ///
-  /// In en, this message translates to:
-  /// **'Seeders'**
-  String get watchSourcesSeedersLabel;
-
-  /// No description provided for @watchSourcesLeechersLabel.
-  ///
-  /// In en, this message translates to:
-  /// **'Leechers'**
-  String get watchSourcesLeechersLabel;
-
-  /// No description provided for @watchSourcesDownloadsLabel.
-  ///
-  /// In en, this message translates to:
-  /// **'Downloads'**
-  String get watchSourcesDownloadsLabel;
 
   /// No description provided for @watchSourcesPageLinkLabel.
   ///
@@ -457,24 +601,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Unable to prepare this source.'**
   String get playerSourceUnableToPrepare;
-
-  /// No description provided for @playerWatchFileButton.
-  ///
-  /// In en, this message translates to:
-  /// **'Watch File'**
-  String get playerWatchFileButton;
-
-  /// No description provided for @playerFileSizeLabel.
-  ///
-  /// In en, this message translates to:
-  /// **'Size'**
-  String get playerFileSizeLabel;
-
-  /// No description provided for @playerFileTypeLabel.
-  ///
-  /// In en, this message translates to:
-  /// **'Type'**
-  String get playerFileTypeLabel;
 
   /// No description provided for @playerPreparing.
   ///
@@ -583,6 +709,48 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Subtitles'**
   String get playerSubtitleTracksTitle;
+
+  /// No description provided for @playerSettingsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Player Settings'**
+  String get playerSettingsTitle;
+
+  /// No description provided for @playerDecoderSettingsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Decoder'**
+  String get playerDecoderSettingsTitle;
+
+  /// No description provided for @playerDecoderSettingsDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Change this only if video stutters or shows green frames on your device. The current decoder is visible in the player overlay stats.'**
+  String get playerDecoderSettingsDescription;
+
+  /// No description provided for @playerDecoderAutoSafe.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto (recommended)'**
+  String get playerDecoderAutoSafe;
+
+  /// No description provided for @playerDecoderMediacodec.
+  ///
+  /// In en, this message translates to:
+  /// **'MediaCodec'**
+  String get playerDecoderMediacodec;
+
+  /// No description provided for @playerDecoderMediacodecCopy.
+  ///
+  /// In en, this message translates to:
+  /// **'MediaCodec (zero-copy)'**
+  String get playerDecoderMediacodecCopy;
+
+  /// No description provided for @playerDecoderSoftwareOnly.
+  ///
+  /// In en, this message translates to:
+  /// **'Software only'**
+  String get playerDecoderSoftwareOnly;
 
   /// No description provided for @playerSubtitleAppearanceTitle.
   ///
@@ -727,6 +895,342 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Pause'**
   String get playerPauseButton;
+
+  /// No description provided for @navigationSavedTorrents.
+  ///
+  /// In en, this message translates to:
+  /// **'Torrents'**
+  String get navigationSavedTorrents;
+
+  /// No description provided for @savedTorrentsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Torrents'**
+  String get savedTorrentsTitle;
+
+  /// No description provided for @savedTorrentsAddButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Add magnet'**
+  String get savedTorrentsAddButton;
+
+  /// No description provided for @savedTorrentsEmptyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'No saved torrents yet'**
+  String get savedTorrentsEmptyTitle;
+
+  /// No description provided for @savedTorrentsEmptyMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Paste a magnet link to stream or download it. Saved links stay here for later.'**
+  String get savedTorrentsEmptyMessage;
+
+  /// No description provided for @savedTorrentsAddTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Add magnet link'**
+  String get savedTorrentsAddTitle;
+
+  /// No description provided for @savedTorrentsMagnetLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Magnet link'**
+  String get savedTorrentsMagnetLabel;
+
+  /// No description provided for @savedTorrentsPasteTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Paste from clipboard'**
+  String get savedTorrentsPasteTooltip;
+
+  /// No description provided for @savedTorrentsNameLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Name'**
+  String get savedTorrentsNameLabel;
+
+  /// No description provided for @savedTorrentsNameHelper.
+  ///
+  /// In en, this message translates to:
+  /// **'Taken from the link if left empty'**
+  String get savedTorrentsNameHelper;
+
+  /// No description provided for @savedTorrentsInvalidMagnet.
+  ///
+  /// In en, this message translates to:
+  /// **'Not a magnet link with a torrent hash (xt=urn:btih:…).'**
+  String get savedTorrentsInvalidMagnet;
+
+  /// No description provided for @savedTorrentsSaveButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Save'**
+  String get savedTorrentsSaveButton;
+
+  /// No description provided for @savedTorrentsAdded.
+  ///
+  /// In en, this message translates to:
+  /// **'Torrent saved'**
+  String get savedTorrentsAdded;
+
+  /// No description provided for @savedTorrentsDuplicate.
+  ///
+  /// In en, this message translates to:
+  /// **'Already saved as “{title}”'**
+  String savedTorrentsDuplicate(String title);
+
+  /// No description provided for @savedTorrentsMoreTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'More actions'**
+  String get savedTorrentsMoreTooltip;
+
+  /// No description provided for @savedTorrentsRename.
+  ///
+  /// In en, this message translates to:
+  /// **'Rename'**
+  String get savedTorrentsRename;
+
+  /// No description provided for @savedTorrentsCopyLink.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy link'**
+  String get savedTorrentsCopyLink;
+
+  /// No description provided for @savedTorrentsLinkCopied.
+  ///
+  /// In en, this message translates to:
+  /// **'Link copied'**
+  String get savedTorrentsLinkCopied;
+
+  /// No description provided for @savedTorrentsDelete.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete'**
+  String get savedTorrentsDelete;
+
+  /// No description provided for @savedTorrentsDeleteTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete “{title}”?'**
+  String savedTorrentsDeleteTitle(String title);
+
+  /// No description provided for @savedTorrentsDeleteMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Only the saved link is removed. Downloaded files stay in Downloads.'**
+  String get savedTorrentsDeleteMessage;
+
+  /// No description provided for @savedTorrentsAddedOn.
+  ///
+  /// In en, this message translates to:
+  /// **'Added {date}'**
+  String savedTorrentsAddedOn(String date);
+
+  /// No description provided for @savedTorrentsOpenedOn.
+  ///
+  /// In en, this message translates to:
+  /// **'Opened {date}'**
+  String savedTorrentsOpenedOn(String date);
+
+  /// No description provided for @downloadStorageClearCache.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear'**
+  String get downloadStorageClearCache;
+
+  /// No description provided for @downloadStorageCacheCleared.
+  ///
+  /// In en, this message translates to:
+  /// **'Cache cleared'**
+  String get downloadStorageCacheCleared;
+
+  /// No description provided for @downloadStorageCacheBusy.
+  ///
+  /// In en, this message translates to:
+  /// **'The cache is in use while a video is playing'**
+  String get downloadStorageCacheBusy;
+
+  /// No description provided for @playerResumedFrom.
+  ///
+  /// In en, this message translates to:
+  /// **'Resumed from {position}'**
+  String playerResumedFrom(String position);
+
+  /// No description provided for @playerStartOver.
+  ///
+  /// In en, this message translates to:
+  /// **'Start over'**
+  String get playerStartOver;
+
+  /// No description provided for @playerPlayNext.
+  ///
+  /// In en, this message translates to:
+  /// **'Next episode'**
+  String get playerPlayNext;
+
+  /// No description provided for @playerSkipOpening.
+  ///
+  /// In en, this message translates to:
+  /// **'Skip opening'**
+  String get playerSkipOpening;
+
+  /// No description provided for @playerSkipRecap.
+  ///
+  /// In en, this message translates to:
+  /// **'Skip recap'**
+  String get playerSkipRecap;
+
+  /// No description provided for @playerSkipForward.
+  ///
+  /// In en, this message translates to:
+  /// **'+{seconds} s'**
+  String playerSkipForward(int seconds);
+
+  /// No description provided for @playerSkipForwardTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Skip {seconds} seconds'**
+  String playerSkipForwardTooltip(int seconds);
+
+  /// No description provided for @watchProgressWatched.
+  ///
+  /// In en, this message translates to:
+  /// **'Watched'**
+  String get watchProgressWatched;
+
+  /// No description provided for @watchProgressStoppedAt.
+  ///
+  /// In en, this message translates to:
+  /// **'Stopped at {position} of {duration}'**
+  String watchProgressStoppedAt(String position, String duration);
+
+  /// No description provided for @watchProgressContinueFile.
+  ///
+  /// In en, this message translates to:
+  /// **'Continue: {fileName}'**
+  String watchProgressContinueFile(String fileName);
+
+  /// No description provided for @watchProgressNextFile.
+  ///
+  /// In en, this message translates to:
+  /// **'Up next: {fileName}'**
+  String watchProgressNextFile(String fileName);
+
+  /// No description provided for @watchProgressContinueButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Continue'**
+  String get watchProgressContinueButton;
+
+  /// No description provided for @watchProgressPlayNextButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Play next'**
+  String get watchProgressPlayNextButton;
+
+  /// No description provided for @watchProgressLastFile.
+  ///
+  /// In en, this message translates to:
+  /// **'Last watched: {fileName}'**
+  String watchProgressLastFile(String fileName);
+
+  /// No description provided for @continueWatchingTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Continue watching'**
+  String get continueWatchingTitle;
+
+  /// No description provided for @continueWatchingRemove.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove from list'**
+  String get continueWatchingRemove;
+
+  /// No description provided for @recentlyWatchedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Recently watched'**
+  String get recentlyWatchedTitle;
+
+  /// No description provided for @watchSourceUsedBadge.
+  ///
+  /// In en, this message translates to:
+  /// **'You watched this'**
+  String get watchSourceUsedBadge;
+
+  /// No description provided for @playerEpisodesTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Episodes'**
+  String get playerEpisodesTitle;
+
+  /// No description provided for @playerShowEpisodes.
+  ///
+  /// In en, this message translates to:
+  /// **'Show episodes'**
+  String get playerShowEpisodes;
+
+  /// No description provided for @playerHideEpisodes.
+  ///
+  /// In en, this message translates to:
+  /// **'Hide episodes'**
+  String get playerHideEpisodes;
+
+  /// No description provided for @playerNowPlaying.
+  ///
+  /// In en, this message translates to:
+  /// **'Now playing'**
+  String get playerNowPlaying;
+
+  /// No description provided for @playerDetailedStats.
+  ///
+  /// In en, this message translates to:
+  /// **'Technical details'**
+  String get playerDetailedStats;
+
+  /// No description provided for @playerDetailedStatsHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Peers, decoder and codecs over the video'**
+  String get playerDetailedStatsHint;
+
+  /// No description provided for @animeDetailsChooseSourceButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose source'**
+  String get animeDetailsChooseSourceButton;
+
+  /// No description provided for @animeEpisodeCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{value} {count, plural, =1{episode} other{episodes}}'**
+  String animeEpisodeCount(String value, int count);
+
+  /// No description provided for @watchSourceSeeders.
+  ///
+  /// In en, this message translates to:
+  /// **'{value} {count, plural, =1{seeder} other{seeders}}'**
+  String watchSourceSeeders(String value, int count);
+
+  /// No description provided for @watchSourceLeechers.
+  ///
+  /// In en, this message translates to:
+  /// **'{value} {count, plural, =1{leecher} other{leechers}}'**
+  String watchSourceLeechers(String value, int count);
+
+  /// No description provided for @watchSourceDownloads.
+  ///
+  /// In en, this message translates to:
+  /// **'{value} {count, plural, =1{download} other{downloads}}'**
+  String watchSourceDownloads(String value, int count);
+
+  /// No description provided for @searchClearTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear'**
+  String get searchClearTooltip;
 }
 
 class _AppLocalizationsDelegate

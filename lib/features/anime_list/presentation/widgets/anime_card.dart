@@ -67,60 +67,25 @@ class AnimeCard extends StatelessWidget {
                         ),
                       ),
                     ],
-                    const SizedBox(height: 10),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        _MetaChip(
-                          label: formatAnimeKindAndStatus(
-                            l10n,
-                            item.kind,
-                            item.status,
-                          ),
-                        ),
-                        _MetaChip(label: formatAnimeScore(l10n, item.score)),
-                        _MetaChip(
-                          label: formatEpisodeProgress(
-                            l10n,
-                            item.episodesAired,
-                            item.episodes,
-                          ),
-                        ),
-                        _MetaChip(label: formatAiredOn(l10n, item.airedOn)),
-                      ],
+                    const SizedBox(height: 8),
+                    Text(
+                      formatAnimeMeta(
+                        l10n,
+                        kind: item.kind,
+                        status: item.status,
+                        score: item.score,
+                        episodes: item.episodes,
+                        episodesAired: item.episodesAired,
+                        airedOn: item.airedOn,
+                      ),
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
                     ),
                   ],
                 ),
               ),
             ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _MetaChip extends StatelessWidget {
-  const _MetaChip({required this.label});
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        child: Text(
-          label,
-          style: theme.textTheme.labelLarge?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
           ),
         ),
       ),

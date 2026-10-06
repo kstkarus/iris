@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:media_kit/media_kit.dart';
 
+import 'package:iris/features/player/presentation/widgets/player_overlay_preferences.dart';
 import 'package:iris/features/player/presentation/widgets/player_track_option_formatter.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 
@@ -84,6 +85,18 @@ class PlayerTrackSelectorSheet extends StatelessWidget {
                 title: Text(l10n.playerSubtitleAppearanceTitle),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: onSubtitleAppearancePressed,
+              ),
+              ValueListenableBuilder<bool>(
+                valueListenable: playerDetailedStatsEnabled,
+                builder: (context, enabled, _) => SwitchListTile(
+                  key: const Key('player_detailed_stats_switch'),
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(l10n.playerDetailedStats),
+                  subtitle: Text(l10n.playerDetailedStatsHint),
+                  value: enabled,
+                  onChanged: (value) =>
+                      playerDetailedStatsEnabled.value = value,
+                ),
               ),
             ],
           ),

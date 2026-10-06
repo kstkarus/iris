@@ -6,6 +6,9 @@ import 'package:iris/features/player/domain/entities/prepared_player_source.dart
 import 'package:iris/features/player/domain/repositories/player_repository.dart';
 
 class MockPlayerRepository implements PlayerRepository {
+  @override
+  Future<void> stopPlayback({required String sessionId}) async {}
+
   const MockPlayerRepository();
 
   @override

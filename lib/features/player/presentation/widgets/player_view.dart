@@ -7,6 +7,7 @@ import 'package:iris/features/player/presentation/cubit/player_cubit.dart';
 import 'package:iris/features/player/presentation/cubit/player_state.dart';
 import 'package:iris/features/player/presentation/widgets/player_viewport_factory.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
+import 'package:iris/shared/utils/file_display_name.dart';
 
 class PlayerView extends StatelessWidget {
   const PlayerView({required this.viewportFactory, super.key});
@@ -15,21 +16,25 @@ class PlayerView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final source = context.read<PlayerCubit>().source;
-
     return BlocBuilder<PlayerCubit, PlayerState>(
       builder: (context, state) {
+        final cubit = context.read<PlayerCubit>();
         return switch (state) {
+          PlayerReady() ||
+          PlayerPreparing(keepsPlayer: true) => viewportFactory.build(
+            engine: cubit.engine,
+            next: switch (cubit.source.nextFile) {
+              final next? => PlayerNextFile(
+                title: fileDisplayName(next.name),
+                play: () => cubit.playFile(next),
+              ),
+              null => null,
+            },
+          ),
           PlayerInitial() => _LoadingState(
             progress: const PlayerLaunchProgress.initial(),
           ),
-          PlayerPreparing(:final progress) => _LoadingState(
-            progress: progress,
-          ),
-          PlayerReady(:final session) => viewportFactory.build(
-            source: source,
-            session: session,
-          ),
+          PlayerPreparing(:final progress) => _LoadingState(progress: progress),
           PlayerFailure(:final type) => _FailureState(type: type),
         };
       },

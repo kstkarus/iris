@@ -1,16 +1,14 @@
 import 'package:iris/features/player/data/models/playback_launch_progress_model.dart';
 import 'package:iris/features/player/data/models/prepared_playback_model.dart';
 
-enum PlaybackLaunchFailureModel {
-  unableToStart,
-  unableToPrepareStartupBuffer,
-}
+enum PlaybackLaunchFailureModel { unableToStart, unableToPrepareStartupBuffer }
 
 sealed class PlaybackLaunchUpdateModel {
   const PlaybackLaunchUpdateModel();
 }
 
-final class PlaybackLaunchProgressUpdateModel extends PlaybackLaunchUpdateModel {
+final class PlaybackLaunchProgressUpdateModel
+    extends PlaybackLaunchUpdateModel {
   const PlaybackLaunchProgressUpdateModel(this.progress);
 
   final PlaybackLaunchProgressModel progress;

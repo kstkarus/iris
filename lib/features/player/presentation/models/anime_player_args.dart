@@ -1,3 +1,5 @@
+import 'package:iris/features/player/domain/entities/player_video_file.dart';
+
 class AnimePlayerArgs {
   const AnimePlayerArgs({
     required this.animeId,
@@ -6,6 +8,8 @@ class AnimePlayerArgs {
     required this.sessionId,
     required this.fileIndex,
     required this.fileName,
+    this.magnet = '',
+    this.files = const [],
   });
 
   final String animeId;
@@ -14,4 +18,6 @@ class AnimePlayerArgs {
   final String sessionId;
   final int fileIndex;
   final String fileName;
+  final String magnet;
+  final List<PlayerVideoFile> files;
 }

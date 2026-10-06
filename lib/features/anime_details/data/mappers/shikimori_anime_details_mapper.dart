@@ -23,6 +23,8 @@ AnimeDetails mapShikimoriAnimeDetailsToDomain(ShikimoriAnimeDetailsDto dto) {
 }
 
 String sanitizeShikimoriDescription(String input) {
+  // Wiki links: [[Page]] or [[Page|shown text]].
+  final wikiLinkPattern = RegExp(r'\[\[([^\]|]+)(?:\|([^\]]+))?\]\]');
   final linkedTagPattern = RegExp(
     r'\[(\w+)(=[^\]]+)?\](.*?)\[/\1\]',
     dotAll: true,
@@ -30,8 +32,13 @@ String sanitizeShikimoriDescription(String input) {
   final remainingTagPattern = RegExp(r'\[/?[^\]]+\]');
   final extraSpacesBeforeNewlinePattern = RegExp(r'[ \t]+\n');
   final excessiveNewLinesPattern = RegExp(r'\n{3,}');
+  final repeatedSpacesPattern = RegExp(r'[ \t]{2,}');
 
-  final withoutLinkedTags = input.replaceAllMapped(
+  final withoutWikiLinks = input.replaceAllMapped(
+    wikiLinkPattern,
+    (match) => match.group(2) ?? match.group(1) ?? '',
+  );
+  final withoutLinkedTags = withoutWikiLinks.replaceAllMapped(
     linkedTagPattern,
     (match) => match.group(3) ?? '',
   );
@@ -40,10 +47,9 @@ String sanitizeShikimoriDescription(String input) {
     '',
   );
   final normalizedLineEndings = withoutRemainingTags.replaceAll('\r\n', '\n');
-  final withoutTrailingSpaces = normalizedLineEndings.replaceAll(
-    extraSpacesBeforeNewlinePattern,
-    '\n',
-  );
+  final withoutTrailingSpaces = normalizedLineEndings
+      .replaceAll(repeatedSpacesPattern, ' ')
+      .replaceAll(extraSpacesBeforeNewlinePattern, '\n');
 
   return withoutTrailingSpaces
       .replaceAll(excessiveNewLinesPattern, '\n\n')

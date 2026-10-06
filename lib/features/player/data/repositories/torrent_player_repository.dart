@@ -22,6 +22,11 @@ class TorrentPlayerRepository implements PlayerRepository {
   final LibtorrentPlayerDataSource dataSource;
 
   @override
+  Future<void> stopPlayback({required String sessionId}) {
+    return dataSource.stopPlayback(sessionId: sessionId);
+  }
+
+  @override
   Future<void> disposePlayback({required String sessionId}) {
     return dataSource.disposePlayback(sessionId: sessionId);
   }

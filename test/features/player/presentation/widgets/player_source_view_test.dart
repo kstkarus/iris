@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:iris/entities/watch_progress/domain/watch_progress.dart';
 import 'package:iris/features/player/domain/entities/player_launch_update.dart';
 import 'package:iris/features/player/domain/entities/player_playback_stats.dart';
 import 'package:iris/features/player/domain/entities/player_video_file.dart';
@@ -23,7 +24,7 @@ void main() {
     expect(find.text('Preparing torrent files...'), findsOneWidget);
   });
 
-  testWidgets('shows file cards when source preparation succeeds', (
+  testWidgets('lists files with sizes and opens the tapped one', (
     tester,
   ) async {
     final cubit = _FakePlayerSourceCubit(
@@ -48,11 +49,58 @@ void main() {
       ),
     );
 
-    await tester.pumpWidget(_wrap(cubit: cubit));
+    final selected = <int>[];
+    await tester.pumpWidget(
+      _wrap(cubit: cubit, onFileSelected: (file) => selected.add(file.index)),
+    );
 
-    expect(find.text('episode-01.mkv'), findsOneWidget);
-    expect(find.text('episode-02.mp4'), findsOneWidget);
-    expect(find.text('Watch File'), findsNWidgets(2));
+    expect(find.text('episode-01'), findsOneWidget);
+    expect(find.text('700.0 MB'), findsOneWidget);
+    expect(find.text('episode-02'), findsOneWidget);
+    expect(find.text('500.0 MB'), findsOneWidget);
+    expect(find.byType(FilledButton), findsNothing);
+
+    await tester.tap(find.text('episode-02'));
+    expect(selected, [2]);
+  });
+
+  testWidgets('marks progress and continues the last unfinished file', (
+    tester,
+  ) async {
+    final selected = <int>[];
+    await tester.pumpWidget(
+      _wrap(
+        cubit: _FakePlayerSourceCubit(
+          const PlayerSourceReady(
+            PreparedPlayerSource(sessionId: '42', files: _episodes),
+          ),
+        ),
+        progressByFile: {2: _progress(2, 300)},
+        onFileSelected: (file) => selected.add(file.index),
+      ),
+    );
+
+    expect(find.text('Continue: episode-02'), findsOneWidget);
+    expect(find.text('Stopped at 5:00 of 24:00'), findsOneWidget);
+
+    await tester.tap(find.byKey(PlayerSourceView.continueButtonKey));
+    expect(selected, [2]);
+  });
+
+  testWidgets('offers the next file after a finished one', (tester) async {
+    await tester.pumpWidget(
+      _wrap(
+        cubit: _FakePlayerSourceCubit(
+          const PlayerSourceReady(
+            PreparedPlayerSource(sessionId: '42', files: _episodes),
+          ),
+        ),
+        progressByFile: {1: _progress(1, 1400)},
+      ),
+    );
+
+    expect(find.text('Up next: episode-02'), findsOneWidget);
+    expect(find.text('Watched'), findsOneWidget);
   });
 
   testWidgets('shows unsupported-source failure state', (tester) async {
@@ -69,15 +117,42 @@ void main() {
   });
 }
 
-Widget _wrap({required _FakePlayerSourceCubit cubit}) {
+Widget _wrap({
+  required _FakePlayerSourceCubit cubit,
+  Map<int, WatchProgress> progressByFile = const {},
+  ValueChanged<PlayerVideoFile>? onFileSelected,
+}) {
   return MaterialApp(
     locale: const Locale('en'),
     localizationsDelegates: AppLocalizations.localizationsDelegates,
     supportedLocales: AppLocalizations.supportedLocales,
     home: BlocProvider<PlayerSourceCubit>.value(
       value: cubit,
-      child: Scaffold(body: PlayerSourceView(onFileSelected: (_) {})),
+      child: Scaffold(
+        body: PlayerSourceView(
+          progressByFile: progressByFile,
+          onFileSelected: onFileSelected ?? (_) {},
+        ),
+      ),
     ),
+  );
+}
+
+const _episodes = [
+  PlayerVideoFile(index: 1, name: 'episode-01.mkv', size: 1, extension: 'mkv'),
+  PlayerVideoFile(index: 2, name: 'episode-02.mkv', size: 1, extension: 'mkv'),
+];
+
+WatchProgress _progress(int fileIndex, int seconds, {int minute = 0}) {
+  return WatchProgress(
+    torrentKey: 'abc',
+    fileIndex: fileIndex,
+    fileName: 'episode-0$fileIndex.mkv',
+    magnet: 'magnet:?xt=urn:btih:abc',
+    sourceTitle: 'Release',
+    position: Duration(seconds: seconds),
+    duration: const Duration(minutes: 24),
+    updatedAt: DateTime.utc(2026, 10, 4, 12, minute),
   );
 }
 
@@ -92,6 +167,9 @@ class _FakePlayerSourceCubit extends PlayerSourceCubit {
 }
 
 class _UnusedPlayerRepository implements PlayerRepository {
+  @override
+  Future<void> stopPlayback({required String sessionId}) async {}
+
   @override
   Future<void> disposePlayback({required String sessionId}) async {}
 

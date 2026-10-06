@@ -1,15 +1,25 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
-import 'package:iris/features/anime_list/domain/entities/anime_list_query.dart';
+import 'package:iris/entities/watch_progress/domain/watch_progress.dart';
+import 'package:iris/entities/watch_progress/presentation/watch_progress_cubit.dart';
 import 'package:iris/features/anime_list/presentation/bloc/anime_list_bloc.dart';
 import 'package:iris/features/anime_list/presentation/bloc/anime_list_event.dart';
 import 'package:iris/features/anime_list/presentation/bloc/anime_list_state.dart';
 import 'package:iris/features/anime_list/presentation/widgets/anime_card.dart';
+import 'package:iris/features/anime_list/presentation/widgets/anime_list_criteria_sheet.dart';
+import 'package:iris/features/anime_list/presentation/widgets/continue_watching_row.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
+import 'package:iris/shared/widgets/adaptive/adaptive_grid_row.dart';
+import 'package:iris/shared/widgets/adaptive/window_size_class.dart';
+import 'package:iris/shared/widgets/search_field.dart';
+import 'package:iris/shared/widgets/search_toolbar.dart';
+
+const _gridSpacing = 16.0;
 
 class AnimeListView extends StatefulWidget {
   const AnimeListView({super.key});
@@ -20,11 +30,13 @@ class AnimeListView extends StatefulWidget {
 
 class _AnimeListViewState extends State<AnimeListView> {
   static const _loadMoreThreshold = 600.0;
+  static const _minCardWidth = 320.0;
   static const _searchDebounceDuration = Duration(milliseconds: 400);
 
   late final ScrollController _scrollController;
   late final TextEditingController _searchController;
   Timer? _searchDebounceTimer;
+  bool _viewportFillCheckScheduled = false;
 
   @override
   void initState() {
@@ -70,243 +82,164 @@ class _AnimeListViewState extends State<AnimeListView> {
     });
   }
 
+  void _scheduleViewportFillCheck(AnimeListState state) {
+    if (_viewportFillCheckScheduled ||
+        !state.hasMore ||
+        state.isLoadingMore ||
+        state.errorType != AnimeListErrorType.none) {
+      return;
+    }
+
+    // Wide windows can fit a whole page without scrolling, which would never
+    // trigger the scroll listener; request the next page in that case.
+    _viewportFillCheckScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _viewportFillCheckScheduled = false;
+      if (!mounted || !_scrollController.hasClients) {
+        return;
+      }
+
+      final position = _scrollController.position;
+      if (position.hasContentDimensions && position.maxScrollExtent <= 0) {
+        context.read<AnimeListBloc>().add(const AnimeListNextPageRequested());
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final columns = adaptiveColumnCount(
+          availableWidth: constraints.maxWidth,
+          minItemWidth: _minCardWidth,
+          spacing: _gridSpacing,
+        );
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _SearchControls(
+              controller: _searchController,
+              onChanged: _onSearchChanged,
+              isWide: constraints.maxWidth >= WindowSizeClass.mediumMinWidth,
+            ),
+            const SizedBox(height: 16),
+            Expanded(
+              child: BlocBuilder<AnimeListBloc, AnimeListState>(
+                builder: (context, state) {
+                  if (state.isInitialLoading) {
+                    return const _LoadingState();
+                  }
+
+                  if (state.errorType == AnimeListErrorType.initial &&
+                      !state.hasLoadedOnce) {
+                    return const _FailureState();
+                  }
+
+                  if (state.hasLoadedOnce && state.items.isEmpty) {
+                    return _EmptyState(query: state.query);
+                  }
+
+                  _scheduleViewportFillCheck(state);
+                  return _AnimeGrid(
+                    state: state,
+                    columns: columns,
+                    controller: _scrollController,
+                  );
+                },
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _SearchControls extends StatelessWidget {
+  const _SearchControls({
+    required this.controller,
+    required this.onChanged,
+    required this.isWide,
+  });
+
+  final TextEditingController controller;
+  final ValueChanged<String> onChanged;
+  final bool isWide;
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        TextField(
-          controller: _searchController,
-          onChanged: _onSearchChanged,
-          textInputAction: TextInputAction.search,
-          decoration: InputDecoration(
-            hintText: l10n.animeListSearchHint,
-            prefixIcon: const Icon(Icons.search),
-            border: const OutlineInputBorder(),
-          ),
-        ),
-        const SizedBox(height: 12),
-        Align(
-          alignment: Alignment.centerLeft,
-          child: OutlinedButton.icon(
-            onPressed: () => _openCriteriaSheet(context),
-            icon: const Icon(Icons.tune),
-            label: Text(l10n.animeListFilterSortButton),
-          ),
-        ),
-        const SizedBox(height: 16),
-        Expanded(
-          child: BlocBuilder<AnimeListBloc, AnimeListState>(
-            builder: (context, state) {
-              if (state.isInitialLoading) {
-                return const _LoadingState();
-              }
-
-              if (state.errorType == AnimeListErrorType.initial &&
-                  !state.hasLoadedOnce) {
-                return const _FailureState();
-              }
-
-              if (state.hasLoadedOnce && state.items.isEmpty) {
-                return _EmptyState(query: state.query);
-              }
-
-              return ListView.separated(
-                controller: _scrollController,
-                padding: EdgeInsets.zero,
-                itemCount: _itemCount(state),
-                separatorBuilder: (context, index) =>
-                    const SizedBox(height: 16),
-                itemBuilder: (context, index) {
-                  if (index >= state.items.length) {
-                    return _ListFooter(state: state);
-                  }
-
-                  final item = state.items[index];
-
-                  return AnimeCard(
-                    item: item,
-                    onTap: () => context.pushNamed(
-                      'anime-details',
-                      pathParameters: {'id': item.id},
-                    ),
-                  );
-                },
-              );
-            },
-          ),
-        ),
-      ],
+    return SearchToolbar(
+      searchField: SearchField(
+        controller: controller,
+        hintText: l10n.animeListSearchHint,
+        onChanged: onChanged,
+      ),
+      actionIcon: Icons.tune,
+      actionLabel: l10n.animeListFilterSortButton,
+      onAction: () => showAnimeListCriteriaSheet(context),
+      isWide: isWide,
     );
   }
+}
 
-  int _itemCount(AnimeListState state) {
-    if (state.isLoadingMore || state.errorType == AnimeListErrorType.loadMore) {
-      return state.items.length + 1;
-    }
+class _AnimeGrid extends StatelessWidget {
+  const _AnimeGrid({
+    required this.state,
+    required this.columns,
+    required this.controller,
+  });
 
-    return state.items.length;
-  }
+  final AnimeListState state;
+  final int columns;
+  final ScrollController controller;
 
-  Future<void> _openCriteriaSheet(BuildContext context) async {
-    final bloc = context.read<AnimeListBloc>();
-    final state = bloc.state;
-    var draftSort = state.sort;
-    var draftKinds = Set<AnimeKindFilter>.from(state.filters.kinds);
-    var draftStatuses = Set<AnimeStatusFilter>.from(state.filters.statuses);
-    final l10n = AppLocalizations.of(context);
+  bool get _hasFooter =>
+      state.isLoadingMore || state.errorType == AnimeListErrorType.loadMore;
 
-    await showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setModalState) {
-            return FractionallySizedBox(
-              heightFactor: 0.9,
-              child: SafeArea(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        l10n.animeListFilterSortTitle,
-                        style: Theme.of(context).textTheme.titleLarge,
-                      ),
-                      const SizedBox(height: 20),
-                      Expanded(
-                        child: SingleChildScrollView(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                l10n.animeListSortSectionTitle,
-                                style: Theme.of(context).textTheme.titleMedium,
-                              ),
-                              const SizedBox(height: 12),
-                              Wrap(
-                                spacing: 8,
-                                runSpacing: 8,
-                                children: AnimeListSortOption.values
-                                    .map(
-                                      (sort) => ChoiceChip(
-                                        label: Text(
-                                          _formatSortLabel(l10n, sort),
-                                        ),
-                                        selected: draftSort == sort,
-                                        onSelected: (_) {
-                                          setModalState(() {
-                                            draftSort = sort;
-                                          });
-                                        },
-                                      ),
-                                    )
-                                    .toList(growable: false),
-                              ),
-                              const SizedBox(height: 20),
-                              Text(
-                                l10n.animeListTypeSectionTitle,
-                                style: Theme.of(context).textTheme.titleMedium,
-                              ),
-                              const SizedBox(height: 12),
-                              Wrap(
-                                spacing: 8,
-                                runSpacing: 8,
-                                children: AnimeKindFilter.values
-                                    .map(
-                                      (kind) => FilterChip(
-                                        label: Text(
-                                          _formatKindLabel(l10n, kind),
-                                        ),
-                                        selected: draftKinds.contains(kind),
-                                        onSelected: (selected) {
-                                          setModalState(() {
-                                            if (selected) {
-                                              draftKinds.add(kind);
-                                            } else {
-                                              draftKinds.remove(kind);
-                                            }
-                                          });
-                                        },
-                                      ),
-                                    )
-                                    .toList(growable: false),
-                              ),
-                              const SizedBox(height: 20),
-                              Text(
-                                l10n.animeListStatusSectionTitle,
-                                style: Theme.of(context).textTheme.titleMedium,
-                              ),
-                              const SizedBox(height: 12),
-                              Wrap(
-                                spacing: 8,
-                                runSpacing: 8,
-                                children: AnimeStatusFilter.values
-                                    .map(
-                                      (status) => FilterChip(
-                                        label: Text(
-                                          _formatStatusLabel(l10n, status),
-                                        ),
-                                        selected: draftStatuses.contains(
-                                          status,
-                                        ),
-                                        onSelected: (selected) {
-                                          setModalState(() {
-                                            if (selected) {
-                                              draftStatuses.add(status);
-                                            } else {
-                                              draftStatuses.remove(status);
-                                            }
-                                          });
-                                        },
-                                      ),
-                                    )
-                                    .toList(growable: false),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      Row(
-                        children: [
-                          OutlinedButton(
-                            onPressed: () {
-                              setModalState(() {
-                                draftSort = AnimeListSortOption.popularity;
-                                draftKinds = <AnimeKindFilter>{};
-                                draftStatuses = <AnimeStatusFilter>{};
-                              });
-                            },
-                            child: Text(l10n.animeListResetButton),
-                          ),
-                          const Spacer(),
-                          FilledButton(
-                            onPressed: () {
-                              bloc.add(
-                                AnimeListCriteriaApplied(
-                                  sort: draftSort,
-                                  filters: AnimeListFilters(
-                                    kinds: draftKinds,
-                                    statuses: draftStatuses,
-                                  ),
-                                ),
-                              );
-                              Navigator.of(context).pop();
-                            },
-                            child: Text(l10n.animeListApplyButton),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
+  @override
+  Widget build(BuildContext context) {
+    final items = state.items;
+    final rowCount = (items.length / columns).ceil();
+    // The catalog's own results take over while searching.
+    final continueItems = state.query.isEmpty
+        ? continueWatchingItems(context.watchWatchProgress())
+        : const <WatchProgress>[];
+    final headerCount = continueItems.isEmpty ? 0 : 1;
+
+    return ListView.separated(
+      controller: controller,
+      padding: const EdgeInsets.only(bottom: 16),
+      itemCount: headerCount + rowCount + (_hasFooter ? 1 : 0),
+      separatorBuilder: (context, index) =>
+          const SizedBox(height: _gridSpacing),
+      itemBuilder: (context, index) {
+        if (index < headerCount) {
+          return ContinueWatchingRow(items: continueItems);
+        }
+        index -= headerCount;
+        if (index >= rowCount) {
+          return _ListFooter(state: state);
+        }
+
+        final start = index * columns;
+        final end = math.min(start + columns, items.length);
+
+        return AdaptiveGridRow(
+          columns: columns,
+          spacing: _gridSpacing,
+          children: [
+            for (final item in items.sublist(start, end))
+              AnimeCard(
+                item: item,
+                onTap: () => context.pushNamed(
+                  'anime-details',
+                  pathParameters: {'id': item.id},
                 ),
               ),
-            );
-          },
+          ],
         );
       },
     );
@@ -386,41 +319,6 @@ class _EmptyState extends StatelessWidget {
         child: Text(message, textAlign: TextAlign.center),
       ),
     );
-  }
-}
-
-String _formatSortLabel(AppLocalizations l10n, AnimeListSortOption sort) {
-  switch (sort) {
-    case AnimeListSortOption.popularity:
-      return l10n.animeListSortPopularity;
-    case AnimeListSortOption.score:
-      return l10n.animeListSortScore;
-    case AnimeListSortOption.airedOn:
-      return l10n.animeListSortAiredOn;
-  }
-}
-
-String _formatKindLabel(AppLocalizations l10n, AnimeKindFilter kind) {
-  switch (kind) {
-    case AnimeKindFilter.tv:
-      return l10n.animeKindTv;
-    case AnimeKindFilter.movie:
-      return l10n.animeKindMovie;
-    case AnimeKindFilter.ova:
-      return l10n.animeKindOva;
-    case AnimeKindFilter.ona:
-      return l10n.animeKindOna;
-  }
-}
-
-String _formatStatusLabel(AppLocalizations l10n, AnimeStatusFilter status) {
-  switch (status) {
-    case AnimeStatusFilter.released:
-      return l10n.animeStatusReleased;
-    case AnimeStatusFilter.ongoing:
-      return l10n.animeStatusOngoing;
-    case AnimeStatusFilter.announced:
-      return l10n.animeStatusAnnounced;
   }
 }
 

@@ -2,6 +2,51 @@
   "@@locale": "en",
   "appName": "Iris",
   "commonRetry": "Try Again",
+  "navigationCatalog": "Catalog",
+  "navigationDownloads": "Downloads",
+  "downloadsTitle": "Downloads",
+  "downloadsOpenButton": "Download",
+  "downloadsEmpty": "Downloaded episodes will appear here.",
+  "downloadSelectionTitle": "Download a file",
+  "downloadSelectionPreparing": "Loading torrent file list...",
+  "downloadSelectionUnsupported": "This source has no supported video files.",
+  "downloadSelectionUnableToPrepare": "Unable to load files from this source.",
+  "downloadUnableToQueue": "Unable to add this file to the download queue.",
+  "downloadFileButton": "Download",
+  "downloadAddingToQueue": "Adding to queue...",
+  "downloadManagerUnableToLoad": "Unable to load downloads.",
+  "downloadStorageTitle": "App storage",
+  "downloadStorageTotal": "Total used by app",
+  "downloadStorageContent": "Offline content",
+  "downloadStorageCache": "Cache",
+  "downloadStatusQueued": "Queued",
+  "downloadStatusDownloading": "Downloading",
+  "downloadStatusPaused": "Paused",
+  "downloadStatusCompleted": "Downloaded",
+  "downloadStatusFailed": "Failed",
+  "downloadPeers": "Peers: {count}",
+  "@downloadPeers": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "downloadFailedMessage": "The download stopped with an error.",
+  "downloadWatchButton": "Watch",
+  "downloadPauseButton": "Pause",
+  "downloadResumeButton": "Resume",
+  "downloadDeleteButton": "Delete",
+  "downloadCancelButton": "Cancel",
+  "downloadDeleteTitle": "Delete download?",
+  "downloadDeleteMessage": "The file “{name}” will be removed from the device.",
+  "@downloadDeleteMessage": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
   "animeKindTv": "TV",
   "animeKindMovie": "Movie",
   "animeKindOva": "OVA",
@@ -31,7 +76,6 @@
       }
     }
   },
-  "animeListTitle": "Anime List",
   "animeListLoading": "Loading anime list...",
   "animeListLoadError": "Unable to load anime list.",
   "animeListLoadMoreError": "Unable to load more anime.",
@@ -49,16 +93,15 @@
   "animeListEmpty": "No anime available right now.",
   "animeListSearchEmpty": "No anime found for your search.",
   "animeListCriteriaEmpty": "Nothing found for selected criteria.",
-  "animeDetailsTitle": "Anime Details",
   "animeDetailsLoading": "Loading anime details...",
   "animeDetailsLoadError": "Unable to load anime details.",
-  "watchSourcesTitle": "Watch Sources",
+  "watchSourcesTitle": "Watch sources",
   "watchSourcesOpenButton": "Watch",
-  "watchSourcesLoading": "Loading watch sources...",
-  "watchSourcesLoadError": "Unable to load watch sources.",
-  "watchSourcesEmpty": "No watch sources found.",
+  "watchSourcesLoading": "Loading sources...",
+  "watchSourcesLoadError": "Unable to load sources.",
+  "watchSourcesEmpty": "No sources found.",
   "watchSourcesSearchHint": "Search sources",
-  "watchSourcesSearchEmpty": "No watch sources match your search.",
+  "watchSourcesSearchEmpty": "No sources match your search.",
   "watchSourcesSortButton": "Sort",
   "watchSourcesSortSheetTitle": "Sort",
   "watchSourcesSortApplyButton": "Apply",
@@ -66,11 +109,6 @@
   "watchSourcesSortPublishedAt": "Date",
   "watchSourcesSortDownloads": "Downloads",
   "watchSourcesSortTitle": "Title",
-  "watchSourcesSizeLabel": "Size",
-  "watchSourcesTimeLabel": "Time",
-  "watchSourcesSeedersLabel": "Seeders",
-  "watchSourcesLeechersLabel": "Leechers",
-  "watchSourcesDownloadsLabel": "Downloads",
   "watchSourcesPageLinkLabel": "Page Link",
   "watchSourcesTorrentLinkLabel": "Torrent Link",
   "watchSourcesMagnetLinkLabel": "Magnet Link",
@@ -80,9 +118,6 @@
   "playerSourcePreparing": "Preparing torrent files...",
   "playerSourceUnsupported": "This source is not suitable for playback.",
   "playerSourceUnableToPrepare": "Unable to prepare this source.",
-  "playerWatchFileButton": "Watch File",
-  "playerFileSizeLabel": "Size",
-  "playerFileTypeLabel": "Type",
   "playerPreparing": "Preparing video...",
   "playerWaitingMetadata": "Looking for torrent metadata...",
   "playerBuffering": "Buffering...",
@@ -150,6 +185,13 @@
   "playerTracksTitle": "Playback Tracks",
   "playerAudioTracksTitle": "Audio",
   "playerSubtitleTracksTitle": "Subtitles",
+  "playerSettingsTitle": "Player Settings",
+  "playerDecoderSettingsTitle": "Decoder",
+  "playerDecoderSettingsDescription": "Change this only if video stutters or shows green frames on your device. The current decoder is visible in the player overlay stats.",
+  "playerDecoderAutoSafe": "Auto (recommended)",
+  "playerDecoderMediacodec": "MediaCodec",
+  "playerDecoderMediacodecCopy": "MediaCodec (zero-copy)",
+  "playerDecoderSoftwareOnly": "Software only",
   "playerSubtitleAppearanceTitle": "Subtitle Appearance",
   "playerSubtitleVisibilityLabel": "Show subtitles",
   "playerSubtitleLibassLabel": "Improved ASS/SSA rendering",
@@ -173,5 +215,181 @@
   "playerTracksUnavailable": "Not available",
   "invalidRouteArgumentsMessage": "This screen was opened with invalid navigation data.",
   "playerPlayButton": "Play",
-  "playerPauseButton": "Pause"
+  "playerPauseButton": "Pause",
+  "navigationSavedTorrents": "Torrents",
+  "savedTorrentsTitle": "Torrents",
+  "savedTorrentsAddButton": "Add magnet",
+  "savedTorrentsEmptyTitle": "No saved torrents yet",
+  "savedTorrentsEmptyMessage": "Paste a magnet link to stream or download it. Saved links stay here for later.",
+  "savedTorrentsAddTitle": "Add magnet link",
+  "savedTorrentsMagnetLabel": "Magnet link",
+  "savedTorrentsPasteTooltip": "Paste from clipboard",
+  "savedTorrentsNameLabel": "Name",
+  "savedTorrentsNameHelper": "Taken from the link if left empty",
+  "savedTorrentsInvalidMagnet": "Not a magnet link with a torrent hash (xt=urn:btih:…).",
+  "savedTorrentsSaveButton": "Save",
+  "savedTorrentsAdded": "Torrent saved",
+  "savedTorrentsDuplicate": "Already saved as “{title}”",
+  "@savedTorrentsDuplicate": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "savedTorrentsMoreTooltip": "More actions",
+  "savedTorrentsRename": "Rename",
+  "savedTorrentsCopyLink": "Copy link",
+  "savedTorrentsLinkCopied": "Link copied",
+  "savedTorrentsDelete": "Delete",
+  "savedTorrentsDeleteTitle": "Delete “{title}”?",
+  "@savedTorrentsDeleteTitle": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "savedTorrentsDeleteMessage": "Only the saved link is removed. Downloaded files stay in Downloads.",
+  "savedTorrentsAddedOn": "Added {date}",
+  "@savedTorrentsAddedOn": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "savedTorrentsOpenedOn": "Opened {date}",
+  "@savedTorrentsOpenedOn": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "downloadStorageClearCache": "Clear",
+  "downloadStorageCacheCleared": "Cache cleared",
+  "downloadStorageCacheBusy": "The cache is in use while a video is playing",
+  "playerResumedFrom": "Resumed from {position}",
+  "@playerResumedFrom": {
+    "placeholders": {
+      "position": {
+        "type": "String"
+      }
+    }
+  },
+  "playerStartOver": "Start over",
+  "playerPlayNext": "Next episode",
+  "playerSkipOpening": "Skip opening",
+  "playerSkipRecap": "Skip recap",
+  "playerSkipForward": "+{seconds} s",
+  "@playerSkipForward": {
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "playerSkipForwardTooltip": "Skip {seconds} seconds",
+  "@playerSkipForwardTooltip": {
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "watchProgressWatched": "Watched",
+  "watchProgressStoppedAt": "Stopped at {position} of {duration}",
+  "@watchProgressStoppedAt": {
+    "placeholders": {
+      "position": {
+        "type": "String"
+      },
+      "duration": {
+        "type": "String"
+      }
+    }
+  },
+  "watchProgressContinueFile": "Continue: {fileName}",
+  "@watchProgressContinueFile": {
+    "placeholders": {
+      "fileName": {
+        "type": "String"
+      }
+    }
+  },
+  "watchProgressNextFile": "Up next: {fileName}",
+  "@watchProgressNextFile": {
+    "placeholders": {
+      "fileName": {
+        "type": "String"
+      }
+    }
+  },
+  "watchProgressContinueButton": "Continue",
+  "watchProgressPlayNextButton": "Play next",
+  "watchProgressLastFile": "Last watched: {fileName}",
+  "@watchProgressLastFile": {
+    "placeholders": {
+      "fileName": {
+        "type": "String"
+      }
+    }
+  },
+  "continueWatchingTitle": "Continue watching",
+  "continueWatchingRemove": "Remove from list",
+  "recentlyWatchedTitle": "Recently watched",
+  "watchSourceUsedBadge": "You watched this",
+  "playerEpisodesTitle": "Episodes",
+  "playerShowEpisodes": "Show episodes",
+  "playerHideEpisodes": "Hide episodes",
+  "playerNowPlaying": "Now playing",
+  "playerDetailedStats": "Technical details",
+  "playerDetailedStatsHint": "Peers, decoder and codecs over the video",
+  "animeDetailsChooseSourceButton": "Choose source",
+  "animeEpisodeCount": "{value} {count, plural, =1{episode} other{episodes}}",
+  "@animeEpisodeCount": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "watchSourceSeeders": "{value} {count, plural, =1{seeder} other{seeders}}",
+  "@watchSourceSeeders": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "watchSourceLeechers": "{value} {count, plural, =1{leecher} other{leechers}}",
+  "@watchSourceLeechers": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "watchSourceDownloads": "{value} {count, plural, =1{download} other{downloads}}",
+  "@watchSourceDownloads": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "searchClearTooltip": "Clear"
 }

@@ -1,7 +1,9 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 
+import 'package:iris/features/player/domain/entities/player_decoding_preferences.dart';
 import 'package:iris/features/player/domain/entities/subtitle_preferences.dart';
 
 const subtitleLibassFontAssetPath = 'assets/fonts/NotoSansCJKjp-Regular.otf';
@@ -13,17 +15,21 @@ class PlayerRenderingConfiguration {
   const PlayerRenderingConfiguration({
     required this.playerConfiguration,
     required this.subtitleViewConfiguration,
+    required this.videoControllerConfiguration,
     required this.mpvProperties,
   });
 
   final PlayerConfiguration playerConfiguration;
   final SubtitleViewConfiguration subtitleViewConfiguration;
+  final VideoControllerConfiguration videoControllerConfiguration;
   final Map<String, String> mpvProperties;
 }
 
 PlayerRenderingConfiguration buildPlayerRenderingConfiguration(
   SubtitlePreferences preferences,
-) {
+  PlayerDecodingPreferences decodingPreferences, {
+  TargetPlatform? platform,
+}) {
   return PlayerRenderingConfiguration(
     playerConfiguration: PlayerConfiguration(
       bufferSize: torrentPlayerBufferSizeBytes,
@@ -32,8 +38,55 @@ PlayerRenderingConfiguration buildPlayerRenderingConfiguration(
       libassAndroidFontName: subtitleLibassFontFamilyName,
     ),
     subtitleViewConfiguration: buildSubtitleViewConfiguration(preferences),
+    videoControllerConfiguration: buildVideoControllerConfiguration(
+      decodingPreferences,
+      platform: platform,
+    ),
     mpvProperties: buildSubtitleMpvProperties(preferences),
   );
+}
+
+VideoControllerConfiguration buildVideoControllerConfiguration(
+  PlayerDecodingPreferences preferences, {
+  TargetPlatform? platform,
+}) {
+  final hwdecMode = resolveSupportedHwdecMode(
+    preferences.hwdecMode,
+    platform: platform,
+  );
+  return VideoControllerConfiguration(
+    hwdec: _hwdecMode(hwdecMode),
+    enableHardwareAcceleration: hwdecMode != PlayerHwdecModePreset.softwareOnly,
+  );
+}
+
+/// Decoding presets that are valid for mpv on [platform].
+///
+/// `mediacodec` and `mediacodec-copy` exist only on Android.
+List<PlayerHwdecModePreset> supportedHwdecModes({TargetPlatform? platform}) {
+  if (_supportsMediacodec(platform)) {
+    return PlayerHwdecModePreset.values;
+  }
+  return const [
+    PlayerHwdecModePreset.autoSafe,
+    PlayerHwdecModePreset.softwareOnly,
+  ];
+}
+
+/// Maps a stored preset to one supported on [platform], falling back to the
+/// `auto-safe` default when the preset is Android-only.
+PlayerHwdecModePreset resolveSupportedHwdecMode(
+  PlayerHwdecModePreset preset, {
+  TargetPlatform? platform,
+}) {
+  if (supportedHwdecModes(platform: platform).contains(preset)) {
+    return preset;
+  }
+  return const PlayerDecodingPreferences.defaults().hwdecMode;
+}
+
+bool _supportsMediacodec(TargetPlatform? platform) {
+  return (platform ?? defaultTargetPlatform) == TargetPlatform.android;
 }
 
 SubtitleViewConfiguration buildSubtitleViewConfiguration(
@@ -64,9 +117,13 @@ Map<String, String> buildSubtitleMpvProperties(
     'cache': 'yes',
     'cache-pause': 'yes',
     'cache-pause-initial': 'yes',
-    'cache-pause-wait': '5',
+    'cache-pause-wait': '3',
+    'cache-secs': '30',
     'demuxer-max-bytes': torrentPlayerBufferSizeBytes.toString(),
     'demuxer-max-back-bytes': torrentPlayerBackBufferSizeBytes.toString(),
+    'demuxer-readahead-secs': '20',
+    'network-timeout': '60',
+    'vd-lavc-threads': '0',
     'sub-visibility': preferences.visible ? 'yes' : 'no',
     'sub-scale': _textScale(preferences.textScale).toString(),
     'sub-color': _mpvColor(_textColor(preferences.textColor)),
@@ -78,11 +135,32 @@ Map<String, String> buildSubtitleMpvProperties(
   };
 }
 
-bool requiresPlaybackRecreation(
-  SubtitlePreferences previous,
-  SubtitlePreferences next,
-) {
-  return previous.libassEnabled != next.libassEnabled;
+bool requiresPlaybackRecreation({
+  required SubtitlePreferences previousSubtitlePreferences,
+  required SubtitlePreferences nextSubtitlePreferences,
+  required PlayerDecodingPreferences previousDecodingPreferences,
+  required PlayerDecodingPreferences nextDecodingPreferences,
+  TargetPlatform? platform,
+}) {
+  return previousSubtitlePreferences.libassEnabled !=
+          nextSubtitlePreferences.libassEnabled ||
+      resolveSupportedHwdecMode(
+            previousDecodingPreferences.hwdecMode,
+            platform: platform,
+          ) !=
+          resolveSupportedHwdecMode(
+            nextDecodingPreferences.hwdecMode,
+            platform: platform,
+          );
+}
+
+String _hwdecMode(PlayerHwdecModePreset preset) {
+  return switch (preset) {
+    PlayerHwdecModePreset.autoSafe => 'auto-safe',
+    PlayerHwdecModePreset.mediacodec => 'mediacodec',
+    PlayerHwdecModePreset.mediacodecCopy => 'mediacodec-copy',
+    PlayerHwdecModePreset.softwareOnly => 'no',
+  };
 }
 
 double _textScale(SubtitleTextScalePreset preset) {

@@ -1,8 +1,11 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:libtorrent_flutter/libtorrent_flutter.dart';
 
 import 'package:iris/features/player/data/adapters/libtorrent_engine_adapter.dart';
 import 'package:iris/features/player/data/models/playback_runtime_stats_model.dart';
+import 'package:iris/shared/storage/stream_cache_storage.dart';
 
 void main() {
   test(
@@ -25,6 +28,26 @@ void main() {
       expect(engine.lastConfig!.responsiveMode, isTrue);
     },
   );
+
+  test('adds magnets into the prepared stream cache folder', () async {
+    final root = await Directory.systemTemp.createTemp('iris_engine_test_');
+    addTearDown(() => root.delete(recursive: true));
+    final cacheDirectory = Directory('${root.path}/stream');
+    final leftover = File('${cacheDirectory.path}/old.mkv');
+    await leftover.create(recursive: true);
+    final engine = _FakeEngineClient();
+    final adapter = LibtorrentEngineAdapterImpl(
+      engineClient: engine,
+      runtimeInitializer: () async {},
+      streamCache: StreamCacheStorage(directory: cacheDirectory),
+    );
+
+    await adapter.initialize();
+    adapter.addMagnet('magnet:?xt=urn:btih:abc');
+
+    expect(await leftover.exists(), isFalse);
+    expect(engine.lastSavePath, cacheDirectory.path);
+  });
 
   test('starts stream with explicit cache size override', () {
     final engine = _FakeEngineClient();
@@ -73,7 +96,11 @@ void main() {
 }
 
 class _FakeEngineClient implements LibtorrentEngineClient {
+  @override
+  void stopStream(int streamId) {}
+
   BtConfig? lastConfig;
+  String? lastSavePath;
   int configureSessionCallCount = 0;
   int? startStreamTorrentId;
   int? startStreamFileIndex;
@@ -83,7 +110,10 @@ class _FakeEngineClient implements LibtorrentEngineClient {
   _FakeEngineClient({this.streamInfo});
 
   @override
-  int addMagnet(String magnet) => 42;
+  int addMagnet(String magnet, {String? savePath}) {
+    lastSavePath = savePath;
+    return 42;
+  }
 
   @override
   void configureSession(BtConfig config) {

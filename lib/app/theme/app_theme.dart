@@ -1,25 +1,26 @@
 import 'package:flutter/material.dart';
 
-ThemeData buildAppTheme() {
-  const seedColor = Color(0xFF3D63FF);
+const _seedColor = Color(0xFF3D63FF);
+
+/// Material 3 theme generated from a single seed color.
+///
+/// All surfaces and text colors come from the generated [ColorScheme], so the
+/// light and dark variants stay consistent and a dynamic scheme can be
+/// swapped in later without touching widgets.
+ThemeData buildAppTheme({Brightness brightness = Brightness.light}) {
+  final colorScheme = ColorScheme.fromSeed(
+    seedColor: _seedColor,
+    brightness: brightness,
+  );
 
   return ThemeData(
     useMaterial3: true,
-    colorScheme: ColorScheme.fromSeed(seedColor: seedColor),
-    scaffoldBackgroundColor: const Color(0xFFF7F8FC),
-    appBarTheme: const AppBarTheme(
-      centerTitle: false,
-      elevation: 0,
-      backgroundColor: Colors.transparent,
-      foregroundColor: Color(0xFF111827),
-    ),
+    colorScheme: colorScheme,
+    visualDensity: VisualDensity.adaptivePlatformDensity,
+    appBarTheme: const AppBarTheme(centerTitle: false, elevation: 0),
     textTheme: const TextTheme(
-      headlineMedium: TextStyle(
-        fontSize: 28,
-        fontWeight: FontWeight.w700,
-        color: Color(0xFF111827),
-      ),
-      bodyLarge: TextStyle(fontSize: 16, height: 1.5, color: Color(0xFF4B5563)),
+      headlineMedium: TextStyle(fontWeight: FontWeight.w700),
+      bodyLarge: TextStyle(height: 1.5),
     ),
   );
 }

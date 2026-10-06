@@ -12,9 +12,14 @@ import 'package:iris/features/player/domain/entities/prepared_player_source.dart
 import 'package:iris/features/player/domain/repositories/player_repository.dart';
 import 'package:iris/features/player/presentation/cubit/player_cubit.dart';
 import 'package:iris/features/player/presentation/cubit/player_state.dart';
+import 'package:iris/features/player/presentation/cubit/player_decoding_preferences_cubit.dart';
+import 'package:iris/features/player/presentation/cubit/player_subtitle_preferences_cubit.dart';
+import 'package:iris/features/player/presentation/playback/player_engine.dart';
 import 'package:iris/features/player/presentation/widgets/player_view.dart';
 import 'package:iris/features/player/presentation/widgets/player_viewport_factory.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
+
+import '../../../../helpers/fake_player_engine.dart';
 
 void main() {
   testWidgets('shows detailed preparation state', (tester) async {
@@ -52,6 +57,23 @@ void main() {
     );
 
     expect(find.byKey(const Key('player_video_surface')), findsOneWidget);
+  });
+
+  testWidgets('keeps the player on screen while the next file starts', (
+    tester,
+  ) async {
+    final cubit = _FakePlayerCubit(
+      const PlayerPreparing(
+        progress: PlayerLaunchProgress.initial(),
+        keepsPlayer: true,
+      ),
+      source: _source,
+    );
+
+    await tester.pumpWidget(_wrap(cubit: cubit));
+
+    expect(find.byKey(const Key('player_video_surface')), findsOneWidget);
+    expect(find.text('Preparing video...'), findsNothing);
   });
 
   testWidgets('shows retry action on generic failure', (tester) async {
@@ -101,7 +123,7 @@ Widget _wrap({
 
 class _FakePlayerCubit extends PlayerCubit {
   _FakePlayerCubit(PlayerState initialState, {required super.source})
-    : super(repository: _UnusedPlayerRepository()) {
+    : super(repository: _UnusedPlayerRepository(), engine: FakePlayerEngine()) {
     emit(initialState);
   }
 
@@ -114,6 +136,9 @@ class _FakePlayerCubit extends PlayerCubit {
 }
 
 class _UnusedPlayerRepository implements PlayerRepository {
+  @override
+  Future<void> stopPlayback({required String sessionId}) async {}
+
   @override
   Future<void> disposePlayback({required String sessionId}) async {}
 
@@ -140,10 +165,15 @@ class _FakeViewportFactory implements PlayerViewportFactory {
   const _FakeViewportFactory();
 
   @override
-  Widget build({
-    required AnimePlayerSource source,
-    required PlayerSession session,
+  PlayerEngine createEngine({
+    required PlayerSubtitlePreferencesCubit subtitlePreferences,
+    required PlayerDecodingPreferencesCubit decodingPreferences,
   }) {
+    return FakePlayerEngine();
+  }
+
+  @override
+  Widget build({required PlayerEngine engine, PlayerNextFile? next}) {
     return const ColoredBox(
       key: Key('player_video_surface'),
       color: Colors.black,

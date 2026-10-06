@@ -1,9 +1,16 @@
+import 'dart:async';
+import 'dart:io';
+
 import 'package:dio/dio.dart';
 import 'package:get_it/get_it.dart';
 import 'package:go_router/go_router.dart';
+import 'package:path/path.dart' as path;
+import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:iris/app/router/app_router.dart';
+import 'package:iris/entities/watch_progress/data/shared_preferences_watch_progress_repository.dart';
+import 'package:iris/entities/watch_progress/domain/watch_progress_repository.dart';
 import 'package:iris/features/anime_details/data/datasources/mock_anime_details_data_source.dart';
 import 'package:iris/features/anime_details/data/datasources/remote_anime_details_data_source.dart';
 import 'package:iris/features/anime_details/data/repositories/mock_anime_details_repository.dart';
@@ -15,26 +22,48 @@ import 'package:iris/features/anime_list/data/repositories/mock_anime_list_repos
 import 'package:iris/features/anime_list/data/repositories/remote_anime_list_repository.dart';
 import 'package:iris/features/anime_list/domain/repositories/anime_list_repository.dart';
 import 'package:iris/features/anime_list/presentation/bloc/anime_list_bloc.dart';
+import 'package:iris/features/downloads/data/adapters/app_storage_usage_adapter.dart';
+import 'package:iris/features/downloads/data/adapters/download_foreground_service_adapter.dart';
+import 'package:iris/features/downloads/data/adapters/libtorrent_download_engine_adapter.dart';
+import 'package:iris/features/downloads/data/datasources/download_registry_data_source.dart';
+import 'package:iris/features/downloads/data/repositories/downloads_repository_impl.dart';
+import 'package:iris/features/downloads/data/repositories/mock_downloads_repository.dart';
+import 'package:iris/features/downloads/domain/repositories/downloads_repository.dart';
 import 'package:iris/features/player/data/adapters/libtorrent_engine_adapter.dart';
 import 'package:iris/features/player/data/adapters/player_runtime_memory_adapter.dart';
 import 'package:iris/features/player/data/datasources/libtorrent_player_data_source.dart';
+import 'package:iris/features/player/data/repositories/aniskip_skip_times_repository.dart';
 import 'package:iris/features/player/data/repositories/mock_player_repository.dart';
+import 'package:iris/features/player/data/repositories/mock_player_skip_times_repository.dart';
+import 'package:iris/features/player/data/repositories/local_player_repository.dart';
+import 'package:iris/features/player/data/repositories/player_decoding_preferences_repository_impl.dart';
 import 'package:iris/features/player/data/repositories/shared_preferences_subtitle_preferences_repository.dart';
+import 'package:iris/features/player/data/repositories/shared_preferences_track_preferences_repository.dart';
+import 'package:iris/features/player/data/repositories/streaming_or_local_player_repository.dart';
 import 'package:iris/features/player/data/repositories/torrent_player_repository.dart';
+import 'package:iris/features/player/domain/repositories/player_decoding_preferences_repository.dart';
 import 'package:iris/features/player/domain/repositories/player_repository.dart';
+import 'package:iris/features/player/domain/repositories/player_skip_times_repository.dart';
+import 'package:iris/features/player/domain/repositories/player_track_preferences_repository.dart';
 import 'package:iris/features/player/domain/repositories/subtitle_preferences_repository.dart';
 import 'package:iris/features/player/presentation/widgets/media_kit_player_viewport_factory.dart';
 import 'package:iris/features/player/presentation/widgets/mock_player_viewport_factory.dart';
 import 'package:iris/features/player/presentation/widgets/player_viewport_factory.dart';
+import 'package:iris/features/saved_torrents/data/repositories/shared_preferences_saved_torrents_repository.dart';
+import 'package:iris/features/saved_torrents/domain/repositories/saved_torrents_repository.dart';
 import 'package:iris/features/watch_sources/data/datasources/mock_watch_sources_data_source.dart';
 import 'package:iris/features/watch_sources/data/datasources/remote_watch_sources_data_source.dart';
 import 'package:iris/features/watch_sources/data/repositories/mock_watch_sources_repository.dart';
 import 'package:iris/features/watch_sources/data/repositories/remote_watch_sources_repository.dart';
 import 'package:iris/features/watch_sources/domain/repositories/watch_sources_repository.dart';
 import 'package:iris/shared/network/dio_factory.dart';
+import 'package:iris/shared/network/aniskip_api_client.dart';
+import 'package:iris/shared/network/aniskip_dio_factory.dart';
 import 'package:iris/shared/network/nyaa_api_client.dart';
 import 'package:iris/shared/network/nyaa_dio_factory.dart';
 import 'package:iris/shared/network/shikimori_graph_ql_client.dart';
+import 'package:iris/shared/storage/stream_cache_storage.dart';
+import 'package:iris/shared/torrent/torrent_activity_registry.dart';
 
 final serviceLocator = GetIt.instance;
 
@@ -59,6 +88,12 @@ Future<void> configureDependencies({
   if (!serviceLocator.isRegistered<NyaaApiClient>()) {
     serviceLocator.registerLazySingleton<NyaaApiClient>(
       () => NyaaApiClient(dio: createNyaaDio()),
+    );
+  }
+
+  if (!serviceLocator.isRegistered<AniSkipApiClient>()) {
+    serviceLocator.registerLazySingleton<AniSkipApiClient>(
+      () => AniSkipApiClient(dio: createAniSkipDio()),
     );
   }
 
@@ -115,9 +150,21 @@ Future<void> configureDependencies({
       );
     }
 
+    if (!serviceLocator.isRegistered<DownloadsRepository>()) {
+      serviceLocator.registerLazySingleton<DownloadsRepository>(
+        MockDownloadsRepository.new,
+      );
+    }
+
     if (!serviceLocator.isRegistered<PlayerRepository>()) {
       serviceLocator.registerLazySingleton<PlayerRepository>(
         MockPlayerRepository.new,
+      );
+    }
+
+    if (!serviceLocator.isRegistered<PlayerSkipTimesRepository>()) {
+      serviceLocator.registerLazySingleton<PlayerSkipTimesRepository>(
+        MockPlayerSkipTimesRepository.new,
       );
     }
 
@@ -134,7 +181,38 @@ Future<void> configureDependencies({
         ),
       );
     }
+
+    if (!serviceLocator.isRegistered<PlayerDecodingPreferencesRepository>()) {
+      serviceLocator.registerLazySingleton<PlayerDecodingPreferencesRepository>(
+        () => PlayerDecodingPreferencesRepositoryImpl(
+          serviceLocator<SharedPreferences>(),
+        ),
+      );
+    }
   } else {
+    final supportDirectory = await getApplicationSupportDirectory();
+    final downloadsDirectory = Directory(
+      path.join(supportDirectory.path, 'offline_downloads'),
+    );
+    final temporaryDirectory = await getTemporaryDirectory();
+
+    if (!serviceLocator.isRegistered<StreamCacheStorage>()) {
+      final streamCache = StreamCacheStorage(
+        directory: Directory(
+          path.join(temporaryDirectory.path, 'iris', 'stream'),
+        ),
+      );
+      serviceLocator.registerSingleton<StreamCacheStorage>(streamCache);
+      // Leftovers of a crashed or killed session are useless after restart.
+      unawaited(streamCache.prepare());
+    }
+
+    if (!serviceLocator.isRegistered<TorrentActivityRegistry>()) {
+      serviceLocator.registerLazySingleton<TorrentActivityRegistry>(
+        TorrentActivityRegistry.new,
+      );
+    }
+
     if (!serviceLocator.isRegistered<RemoteAnimeListDataSource>()) {
       serviceLocator.registerLazySingleton<RemoteAnimeListDataSource>(
         () => RemoteAnimeListDataSource(
@@ -161,7 +239,9 @@ Future<void> configureDependencies({
 
     if (!serviceLocator.isRegistered<LibtorrentEngineAdapter>()) {
       serviceLocator.registerLazySingleton<LibtorrentEngineAdapter>(
-        LibtorrentEngineAdapterImpl.new,
+        () => LibtorrentEngineAdapterImpl(
+          streamCache: serviceLocator<StreamCacheStorage>(),
+        ),
       );
     }
 
@@ -171,11 +251,57 @@ Future<void> configureDependencies({
       );
     }
 
+    if (!serviceLocator.isRegistered<LibtorrentDownloadEngineAdapter>()) {
+      serviceLocator.registerLazySingleton<LibtorrentDownloadEngineAdapter>(
+        LibtorrentDownloadEngineAdapterImpl.new,
+      );
+    }
+
+    if (!serviceLocator.isRegistered<DownloadForegroundServiceAdapter>()) {
+      serviceLocator.registerLazySingleton<DownloadForegroundServiceAdapter>(
+        MethodChannelDownloadForegroundServiceAdapter.new,
+      );
+    }
+
+    if (!serviceLocator.isRegistered<AppStorageUsageAdapter>()) {
+      serviceLocator.registerLazySingleton<AppStorageUsageAdapter>(
+        MethodChannelAppStorageUsageAdapter.new,
+      );
+    }
+
+    if (!serviceLocator.isRegistered<DownloadRegistryDataSource>()) {
+      serviceLocator.registerLazySingleton<DownloadRegistryDataSource>(
+        () => DownloadRegistryDataSource(
+          registryFile: File(
+            path.join(supportDirectory.path, 'downloads_registry.json'),
+          ),
+        ),
+      );
+    }
+
+    if (!serviceLocator.isRegistered<DownloadsRepository>()) {
+      final repository = DownloadsRepositoryImpl(
+        engine: serviceLocator<LibtorrentDownloadEngineAdapter>(),
+        registry: serviceLocator<DownloadRegistryDataSource>(),
+        downloadsDirectory: downloadsDirectory,
+        foregroundService: serviceLocator<DownloadForegroundServiceAdapter>(),
+        storageUsageAdapter: serviceLocator<AppStorageUsageAdapter>(),
+        streamCache: serviceLocator<StreamCacheStorage>(),
+        activityRegistry: serviceLocator<TorrentActivityRegistry>(),
+      );
+      serviceLocator.registerSingleton<DownloadsRepository>(
+        repository,
+        dispose: (_) => repository.close(),
+      );
+      await repository.restore();
+    }
+
     if (!serviceLocator.isRegistered<LibtorrentPlayerDataSource>()) {
       serviceLocator.registerLazySingleton<LibtorrentPlayerDataSource>(
         () => LibtorrentPlayerDataSource(
           engine: serviceLocator<LibtorrentEngineAdapter>(),
           memoryAdapter: serviceLocator<PlayerRuntimeMemoryAdapter>(),
+          activityRegistry: serviceLocator<TorrentActivityRegistry>(),
         ),
       );
     }
@@ -206,8 +332,22 @@ Future<void> configureDependencies({
 
     if (!serviceLocator.isRegistered<PlayerRepository>()) {
       serviceLocator.registerLazySingleton<PlayerRepository>(
-        () => TorrentPlayerRepository(
-          dataSource: serviceLocator<LibtorrentPlayerDataSource>(),
+        () => StreamingOrLocalPlayerRepository(
+          streaming: TorrentPlayerRepository(
+            dataSource: serviceLocator<LibtorrentPlayerDataSource>(),
+          ),
+          local: LocalPlayerRepository(
+            downloadsRepository: serviceLocator<DownloadsRepository>(),
+            memoryAdapter: serviceLocator<PlayerRuntimeMemoryAdapter>(),
+          ),
+        ),
+      );
+    }
+
+    if (!serviceLocator.isRegistered<PlayerSkipTimesRepository>()) {
+      serviceLocator.registerLazySingleton<PlayerSkipTimesRepository>(
+        () => AniSkipSkipTimesRepository(
+          client: serviceLocator<AniSkipApiClient>(),
         ),
       );
     }
@@ -227,6 +367,38 @@ Future<void> configureDependencies({
         ),
       );
     }
+
+    if (!serviceLocator.isRegistered<PlayerDecodingPreferencesRepository>()) {
+      serviceLocator.registerLazySingleton<PlayerDecodingPreferencesRepository>(
+        () => PlayerDecodingPreferencesRepositoryImpl(
+          serviceLocator<SharedPreferences>(),
+        ),
+      );
+    }
+  }
+
+  if (!serviceLocator.isRegistered<WatchProgressRepository>()) {
+    serviceLocator.registerLazySingleton<WatchProgressRepository>(
+      () => SharedPreferencesWatchProgressRepository(
+        serviceLocator<SharedPreferences>(),
+      ),
+    );
+  }
+
+  if (!serviceLocator.isRegistered<PlayerTrackPreferencesRepository>()) {
+    serviceLocator.registerLazySingleton<PlayerTrackPreferencesRepository>(
+      () => SharedPreferencesTrackPreferencesRepository(
+        serviceLocator<SharedPreferences>(),
+      ),
+    );
+  }
+
+  if (!serviceLocator.isRegistered<SavedTorrentsRepository>()) {
+    serviceLocator.registerLazySingleton<SavedTorrentsRepository>(
+      () => SharedPreferencesSavedTorrentsRepository(
+        serviceLocator<SharedPreferences>(),
+      ),
+    );
   }
 
   if (!serviceLocator.isRegistered<AnimeListBloc>()) {

@@ -11,6 +11,9 @@ class RemoteWatchSourcesRepository implements WatchSourcesRepository {
   @override
   Future<List<WatchSourceItem>> fetchSources(String animeEnglishTitle) async {
     final items = await dataSource.fetchSources(animeEnglishTitle);
-    return items.map(mapNyaaWatchSourceToDomain).toList();
+    return items
+        .where((item) => isWatchableNyaaCategory(item.category))
+        .map(mapNyaaWatchSourceToDomain)
+        .toList();
   }
 }

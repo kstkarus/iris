@@ -3,6 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:iris/features/watch_sources/presentation/models/anime_watch_sources_args.dart';
 import 'package:iris/features/watch_sources/presentation/widgets/watch_sources_view.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
+import 'package:iris/shared/widgets/adaptive/adaptive_content_width.dart';
+import 'package:iris/shared/widgets/adaptive/window_size_class.dart';
+import 'package:iris/shared/widgets/page_title.dart';
 
 class WatchSourcesPage extends StatelessWidget {
   const WatchSourcesPage({required this.args, super.key});
@@ -11,27 +14,21 @@ class WatchSourcesPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final l10n = AppLocalizations.of(context);
+    final margin = WindowSizeClass.of(context).pageMargin;
 
     return Scaffold(
-      appBar: AppBar(title: Text(l10n.appName)),
+      appBar: AppBar(
+        title: PageTitle(
+          title: l10n.watchSourcesTitle,
+          subtitle: args.animeEnglishTitle,
+        ),
+      ),
       body: Padding(
-        padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(l10n.watchSourcesTitle, style: theme.textTheme.headlineMedium),
-            const SizedBox(height: 8),
-            Text(
-              args.animeEnglishTitle,
-              style: theme.textTheme.titleMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-            const SizedBox(height: 20),
-            const Expanded(child: WatchSourcesView()),
-          ],
+        padding: EdgeInsets.fromLTRB(margin, 16, margin, 24),
+        child: const MaxWidthBox(
+          maxWidth: AdaptiveContentWidth.page,
+          child: WatchSourcesView(),
         ),
       ),
     );

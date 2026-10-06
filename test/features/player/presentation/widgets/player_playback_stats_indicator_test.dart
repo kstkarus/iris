@@ -85,24 +85,37 @@ void main() {
   ) async {
     await tester.pumpWidget(
       _wrap(
-        child: const PlayerPlaybackStatsIndicator(
-          stats: PlayerPlaybackStats(
-            downloadRateBytesPerSecond: 1048576,
-            appMemoryBytes: 134217728,
-            activePeers: 24,
-            bufferSeconds: 12,
-            bufferPieces: 18,
-            readaheadWindow: 30,
+        child: const SizedBox(
+          width: 900,
+          child: PlayerPlaybackStatsIndicator(
+            stats: PlayerPlaybackStats(
+              downloadRateBytesPerSecond: 1048576,
+              appMemoryBytes: 134217728,
+              activePeers: 24,
+              bufferSeconds: 12,
+              bufferPieces: 18,
+              readaheadWindow: 30,
+            ),
+            videoCodec: 'AV1',
+            audioCodec: 'Opus',
+            diagnostics: PlayerPlaybackDiagnostics(
+              hwdecCurrent: 'mediacodec-copy',
+              currentVo: 'gpu',
+              videoCodec: 'av1',
+              videoDecoder: 'av1_mediacodec',
+              videoDecoderDescription: 'Android AV1 hardware decoder',
+            ),
+            isBuffering: true,
           ),
-          videoCodec: 'AV1',
-          audioCodec: 'Opus',
-          isBuffering: true,
         ),
       ),
     );
 
     expect(find.text('AV1'), findsOneWidget);
     expect(find.text('Opus'), findsOneWidget);
+    expect(find.text('mediacodec-copy'), findsOneWidget);
+    expect(find.text('gpu'), findsOneWidget);
+    expect(find.text('av1_mediacodec'), findsOneWidget);
     expect(find.text('Buffering...'), findsOneWidget);
   });
 

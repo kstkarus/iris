@@ -12,7 +12,7 @@ class NyaaApiClient {
     try {
       final response = await _dio.get<dynamic>(
         NyaaApi.searchPath,
-        queryParameters: {'q': query},
+        queryParameters: {'q': query, 'category': NyaaApi.animeCategory},
       );
 
       final payload = response.data;
@@ -34,6 +34,7 @@ Exception _mapDioException(DioException error) {
     case DioExceptionType.connectionTimeout:
     case DioExceptionType.sendTimeout:
     case DioExceptionType.receiveTimeout:
+    case DioExceptionType.transformTimeout:
     case DioExceptionType.connectionError:
       return NetworkRequestException(
         error.message ?? 'Unable to reach the remote service.',

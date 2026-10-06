@@ -10,9 +10,12 @@ import 'package:iris/features/anime_list/domain/entities/anime_list_query.dart';
 import 'package:iris/features/anime_list/domain/repositories/anime_list_repository.dart';
 import 'package:iris/features/anime_list/presentation/bloc/anime_list_bloc.dart';
 import 'package:iris/features/anime_list/presentation/bloc/anime_list_event.dart';
+import 'package:iris/features/anime_list/presentation/pages/anime_list_page.dart';
 import 'package:iris/features/anime_list/presentation/widgets/anime_card.dart';
 import 'package:iris/features/anime_list/presentation/widgets/anime_list_view.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
+
+import '../../../../helpers/test_window.dart';
 
 void main() {
   testWidgets('shows a loader while anime are loading', (tester) async {
@@ -54,7 +57,7 @@ void main() {
     expect(find.text('Search anime'), findsOneWidget);
     expect(find.text('Filter & Sort'), findsOneWidget);
     expect(find.text('Solo Leveling'), findsOneWidget);
-    expect(find.text('TV / Released'), findsWidgets);
+    expect(find.textContaining('TV · Released'), findsWidgets);
   });
 
   testWidgets('starts a new search after debounce', (tester) async {
@@ -256,6 +259,66 @@ void main() {
     expect(find.byType(AnimeCard), findsWidgets);
     expect(find.text('Unable to load more anime.'), findsOneWidget);
     expect(find.text('Try Again'), findsOneWidget);
+  });
+
+  for (final entry in TestWindowSizes.all.entries) {
+    testWidgets('lays out the catalog without overflow on ${entry.key}', (
+      tester,
+    ) async {
+      setTestWindowSize(tester, entry.value);
+      final bloc = AnimeListBloc(
+        repository: _SuccessAnimeListRepository(
+          initialResult: _pageOneResult.copyWith(hasMore: false),
+        ),
+      );
+
+      await tester.pumpWidget(
+        _wrapWithApp(
+          BlocProvider.value(
+            value: bloc..add(const AnimeListStarted()),
+            child: const AnimeListPage(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final first = tester.getTopLeft(find.text('Solo Leveling'));
+      final second = tester.getTopLeft(
+        find.text("Frieren: Beyond Journey's End"),
+      );
+      final search = tester.getRect(find.byType(TextField));
+      if (entry.value.width < 600) {
+        expect(second.dy, greaterThan(first.dy));
+      } else {
+        expect(second.dy, first.dy);
+        expect(search.width, lessThanOrEqualTo(560));
+      }
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  testWidgets('requests the next page when a wide grid fits on screen', (
+    tester,
+  ) async {
+    setTestWindowSize(tester, TestWindowSizes.desktop);
+    final repository = _TrackingAnimeListRepository(
+      resultsByQuery: {'': _singleItemResult},
+      pagedResults: {2: _pageTwoResult},
+    );
+    final bloc = AnimeListBloc(repository: repository);
+
+    await tester.pumpWidget(
+      _wrapWithApp(
+        BlocProvider.value(
+          value: bloc..add(const AnimeListStarted()),
+          child: const Scaffold(body: AnimeListView()),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(repository.calls.map((call) => call.query.page), [1, 2]);
+    expect(find.text('Steins;Gate'), findsOneWidget);
   });
 }
 

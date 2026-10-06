@@ -1,41 +1,104 @@
 import 'dart:async';
-import 'dart:developer' as developer;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 
-import 'package:iris/features/player/domain/entities/anime_player_source.dart';
 import 'package:iris/features/player/domain/entities/player_playback_stats.dart';
-import 'package:iris/features/player/domain/entities/player_session.dart';
-import 'package:iris/features/player/domain/player_buffer_policy.dart';
-import 'package:iris/features/player/domain/entities/subtitle_preferences.dart';
+import 'package:iris/features/player/domain/entities/player_skip_segment.dart';
 import 'package:iris/features/player/domain/repositories/player_repository.dart';
+import 'package:iris/features/player/presentation/cubit/player_decoding_preferences_cubit.dart';
 import 'package:iris/features/player/presentation/cubit/player_subtitle_preferences_cubit.dart';
-import 'package:iris/features/player/presentation/widgets/player_audio_fallback_resolver.dart';
+import 'package:iris/features/player/presentation/playback/media_kit_player_engine.dart';
+import 'package:iris/features/player/presentation/playback/player_engine.dart';
+import 'package:iris/features/player/presentation/widgets/player_adaptive_layout.dart';
 import 'package:iris/features/player/presentation/widgets/player_buffer_health_tracker.dart';
+import 'package:iris/features/player/presentation/widgets/player_overlay_preferences.dart';
 import 'package:iris/features/player/presentation/widgets/player_playback_stats_indicator.dart';
-import 'package:iris/features/player/presentation/widgets/player_subtitle_preferences_mapper.dart';
 import 'package:iris/features/player/presentation/widgets/player_subtitle_settings_sheet.dart';
 import 'package:iris/features/player/presentation/widgets/player_track_selector_sheet.dart';
 import 'package:iris/features/player/presentation/widgets/player_viewport_factory.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 
-typedef MediaKitPlayerBuilder =
-    Player Function(PlayerConfiguration configuration);
-typedef MediaKitVideoControllerBuilder =
-    VideoController Function(Player player);
-typedef MediaKitFirstFrameAwaiter =
-    Future<void> Function(VideoController controller);
+export 'package:iris/features/player/presentation/playback/media_kit_player_engine.dart'
+    show
+        MediaKitFirstFrameAwaiter,
+        MediaKitPlayerBuilder,
+        MediaKitVideoControllerBuilder;
+
 typedef MediaKitVideoSurfaceBuilder =
     Widget Function({
       required VideoController controller,
       required SubtitleViewConfiguration subtitleViewConfiguration,
-      required MaterialVideoControlsThemeData normalTheme,
-      required MaterialVideoControlsThemeData fullscreenTheme,
+      required MediaKitVideoControlsThemes controlsThemes,
     });
+
+/// Wraps the built controls, in the page and in full screen.
+typedef MediaKitControlsDecorator =
+    Widget Function(VideoState state, Widget controls);
+
+/// Video controls flavour and its themes, chosen per platform.
+///
+/// Touch platforms use [MaterialVideoControls]; desktop platforms use
+/// [MaterialDesktopVideoControls] (mouse hover, keyboard shortcuts).
+sealed class MediaKitVideoControlsThemes {
+  const MediaKitVideoControlsThemes();
+
+  List<Widget> get topButtonBar;
+
+  VideoControlsBuilder get controlsBuilder;
+
+  MediaKitControlsDecorator? get decorateControls;
+
+  /// [controlsBuilder] wrapped by [decorateControls].
+  VideoControlsBuilder get controls => (state) {
+    final controls = controlsBuilder(state);
+    return decorateControls?.call(state, controls) ?? controls;
+  };
+}
+
+final class MediaKitMobileVideoControlsThemes
+    extends MediaKitVideoControlsThemes {
+  const MediaKitMobileVideoControlsThemes({
+    required this.normal,
+    required this.fullscreen,
+    this.decorateControls,
+  });
+
+  final MaterialVideoControlsThemeData normal;
+  final MaterialVideoControlsThemeData fullscreen;
+
+  @override
+  final MediaKitControlsDecorator? decorateControls;
+
+  @override
+  List<Widget> get topButtonBar => normal.topButtonBar;
+
+  @override
+  VideoControlsBuilder get controlsBuilder => MaterialVideoControls;
+}
+
+final class MediaKitDesktopVideoControlsThemes
+    extends MediaKitVideoControlsThemes {
+  const MediaKitDesktopVideoControlsThemes({
+    required this.normal,
+    required this.fullscreen,
+    this.decorateControls,
+  });
+
+  final MaterialDesktopVideoControlsThemeData normal;
+  final MaterialDesktopVideoControlsThemeData fullscreen;
+
+  @override
+  final MediaKitControlsDecorator? decorateControls;
+
+  @override
+  List<Widget> get topButtonBar => normal.topButtonBar;
+
+  @override
+  VideoControlsBuilder get controlsBuilder => MaterialDesktopVideoControls;
+}
 
 class MediaKitPlayerViewportFactory implements PlayerViewportFactory {
   MediaKitPlayerViewportFactory({
@@ -46,59 +109,56 @@ class MediaKitPlayerViewportFactory implements PlayerViewportFactory {
     MediaKitVideoSurfaceBuilder? videoSurfaceBuilder,
     Duration mediaKitStartupTimeout = const Duration(seconds: 45),
   }) : _repository = repository,
-       _playerBuilder = playerBuilder ?? _defaultPlayerBuilder,
-       _videoControllerBuilder =
-           videoControllerBuilder ?? _defaultVideoControllerBuilder,
-       _firstFrameAwaiter = firstFrameAwaiter ?? _defaultFirstFrameAwaiter,
+       _playerBuilder = playerBuilder,
+       _videoControllerBuilder = videoControllerBuilder,
+       _firstFrameAwaiter = firstFrameAwaiter,
        _videoSurfaceBuilder =
            videoSurfaceBuilder ?? _defaultVideoSurfaceBuilder,
        _mediaKitStartupTimeout = mediaKitStartupTimeout;
 
   final PlayerRepository _repository;
-  final MediaKitPlayerBuilder _playerBuilder;
-  final MediaKitVideoControllerBuilder _videoControllerBuilder;
-  final MediaKitFirstFrameAwaiter _firstFrameAwaiter;
+  final MediaKitPlayerBuilder? _playerBuilder;
+  final MediaKitVideoControllerBuilder? _videoControllerBuilder;
+  final MediaKitFirstFrameAwaiter? _firstFrameAwaiter;
   final MediaKitVideoSurfaceBuilder _videoSurfaceBuilder;
   final Duration _mediaKitStartupTimeout;
 
   @override
-  Widget build({
-    required AnimePlayerSource source,
-    required PlayerSession session,
+  MediaKitPlayerEngine createEngine({
+    required PlayerSubtitlePreferencesCubit subtitlePreferences,
+    required PlayerDecodingPreferencesCubit decodingPreferences,
   }) {
-    return _MediaKitPlayerViewport(
-      source: source,
-      session: session,
+    return MediaKitPlayerEngine(
       repository: _repository,
+      subtitlePreferences: subtitlePreferences,
+      decodingPreferences: decodingPreferences,
       playerBuilder: _playerBuilder,
       videoControllerBuilder: _videoControllerBuilder,
       firstFrameAwaiter: _firstFrameAwaiter,
+      startupTimeout: _mediaKitStartupTimeout,
+    );
+  }
+
+  @override
+  Widget build({required PlayerEngine engine, PlayerNextFile? next}) {
+    return _MediaKitPlayerViewport(
+      engine: engine as MediaKitPlayerEngine,
+      next: next,
       videoSurfaceBuilder: _videoSurfaceBuilder,
-      mediaKitStartupTimeout: _mediaKitStartupTimeout,
     );
   }
 }
 
 class _MediaKitPlayerViewport extends StatefulWidget {
   const _MediaKitPlayerViewport({
-    required this.source,
-    required this.session,
-    required this.repository,
-    required this.playerBuilder,
-    required this.videoControllerBuilder,
-    required this.firstFrameAwaiter,
+    required this.engine,
+    required this.next,
     required this.videoSurfaceBuilder,
-    required this.mediaKitStartupTimeout,
   });
 
-  final AnimePlayerSource source;
-  final PlayerSession session;
-  final PlayerRepository repository;
-  final MediaKitPlayerBuilder playerBuilder;
-  final MediaKitVideoControllerBuilder videoControllerBuilder;
-  final MediaKitFirstFrameAwaiter firstFrameAwaiter;
+  final MediaKitPlayerEngine engine;
+  final PlayerNextFile? next;
   final MediaKitVideoSurfaceBuilder videoSurfaceBuilder;
-  final Duration mediaKitStartupTimeout;
 
   @override
   State<_MediaKitPlayerViewport> createState() =>
@@ -106,740 +166,119 @@ class _MediaKitPlayerViewport extends StatefulWidget {
 }
 
 class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
-  late SubtitlePreferences _subtitlePreferences;
-  late Player _player;
-  late VideoController _videoController;
+  late VideoController _controller = widget.engine.videoController;
 
-  StreamSubscription<bool>? _bufferingSubscription;
-  StreamSubscription<bool>? _playingSubscription;
-  StreamSubscription<bool>? _completedSubscription;
-  StreamSubscription<String>? _errorSubscription;
-  StreamSubscription<Duration>? _durationSubscription;
-  StreamSubscription<Track>? _trackSubscription;
-  StreamSubscription<Tracks>? _tracksSubscription;
-  StreamSubscription<PlayerPlaybackStats>? _playbackStatsSubscription;
-  StreamSubscription<SubtitlePreferences>? _subtitlePreferencesSubscription;
+  /// The full-screen route keeps the controls it was opened with, so they
+  /// read the next file's title from here.
+  late final _nextTitle = ValueNotifier<String?>(widget.next?.title);
 
-  bool _recoveringAudioTrack = false;
-  bool _reconfiguringPlayback = false;
-  bool _recreatePlayerQueued = false;
-  bool _isPlayerBuffering = false;
-  bool _isDisposing = false;
-  Track _selectedTrack = const Track();
-  PlayerBufferMarginState _bufferMarginState =
-      PlayerBufferMarginState.insufficient;
-  final PlayerRebufferCycleTracker _rebufferCycleTracker =
-      PlayerRebufferCycleTracker();
-  final ValueNotifier<PlayerPlaybackStats?> _playbackStatsNotifier =
-      ValueNotifier<PlayerPlaybackStats?>(null);
-  final ValueNotifier<_MediaKitViewportPhase> _startupPhaseNotifier =
-      ValueNotifier<_MediaKitViewportPhase>(
-        _MediaKitViewportPhase.openingSource,
-      );
-  final ValueNotifier<Track> _selectedTrackNotifier = ValueNotifier<Track>(
-    const Track(),
-  );
-  final ValueNotifier<bool> _playerBufferingNotifier = ValueNotifier<bool>(
-    false,
-  );
-  final ValueNotifier<PlayerBufferMarginState> _bufferMarginStateNotifier =
-      ValueNotifier<PlayerBufferMarginState>(
-        PlayerBufferMarginState.insufficient,
-      );
-  _MediaKitViewportStartupState _startupState =
-      const _MediaKitViewportStartupState.openingSource();
-  Timer? _startupTimeoutTimer;
-  Timer? _startupNetworkWatchdogTimer;
-  Duration? _startupNetworkMonitoringElapsed;
-  Duration? _lastStartupNetworkActivityAt;
-  int _startupGeneration = 0;
+  /// The full-screen route showing this player, while it is open.
+  ModalRoute<Object?>? _fullscreenRoute;
+
+  /// Full screen closed for a replaced native player, to reopen with the
+  /// new one.
+  bool _reenterFullscreen = false;
 
   @override
   void initState() {
     super.initState();
-    _subtitlePreferences = context.read<PlayerSubtitlePreferencesCubit>().state;
-    developer.log(
-      'Creating media_kit viewport. sessionId=${widget.session.sessionId} source=${widget.source.sourceTitle}',
-      name: 'iris.player.media',
-    );
-    _createPlayer();
-    _subtitlePreferencesSubscription = context
-        .read<PlayerSubtitlePreferencesCubit>()
-        .stream
-        .listen((preferences) {
-          unawaited(_handleSubtitlePreferencesChanged(preferences));
-        });
-    _playbackStatsSubscription = widget.repository
-        .watchPlaybackStats(sessionId: widget.session.sessionId)
-        .listen((stats) {
-          if (_isDisposing) {
-            return;
-          }
-          _playbackStatsNotifier.value = stats;
-          _updateBufferMarginState(stats);
-          _trackStartupNetworkActivity(stats);
-        });
-    _openPlayback();
+    widget.engine.addListener(_onEngineChanged);
   }
 
-  Future<void> _handleSubtitlePreferencesChanged(
-    SubtitlePreferences next,
-  ) async {
-    if (_isDisposing) {
-      return;
-    }
-    final previous = _subtitlePreferences;
-    _subtitlePreferences = next;
-
-    if (requiresPlaybackRecreation(previous, next)) {
-      await _recreatePlayer();
-      return;
-    }
-
-    if (mounted) {
-      setState(() {});
-    }
-
-    await _applyNativePlayerProperties();
-  }
-
-  void _createPlayer() {
-    final configuration = buildPlayerRenderingConfiguration(
-      _subtitlePreferences,
-    );
-    _player = widget.playerBuilder(configuration.playerConfiguration);
-    _videoController = widget.videoControllerBuilder(_player);
-    _selectedTrack = _player.state.track;
-    _isPlayerBuffering = _player.state.buffering;
-    _selectedTrackNotifier.value = _selectedTrack;
-    _playerBufferingNotifier.value = _isPlayerBuffering;
-    _attachDebugListeners();
-  }
-
-  Future<void> _openPlayback() async {
-    if (_isDisposing) {
-      return;
-    }
-    final startupGeneration = ++_startupGeneration;
-    _rebufferCycleTracker.reset();
-    _cancelStartupTimeout();
-    _cancelStartupNetworkWatchdog();
-    if (mounted) {
-      setState(() {
-        _startupState = const _MediaKitViewportStartupState.openingSource();
+  @override
+  void didUpdateWidget(covariant _MediaKitPlayerViewport oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final nextTitle = widget.next?.title;
+    if (nextTitle != _nextTitle.value) {
+      // The full-screen controls are not below this widget; they must not be
+      // marked dirty while it builds.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _nextTitle.value = widget.next?.title;
       });
-    } else {
-      _startupState = const _MediaKitViewportStartupState.openingSource();
     }
-
-    developer.log(
-      'Opening media source in media_kit. url=${widget.session.streamUrl}',
-      name: 'iris.player.media',
-    );
-    try {
-      await _applyNativePlayerProperties();
-      await _player.open(Media(widget.session.streamUrl));
-
-      if (!mounted || startupGeneration != _startupGeneration) {
-        return;
-      }
-
-      developer.log(
-        'media_kit opened the stream successfully. Waiting for first frame or timeline metadata.',
-        name: 'iris.player.media',
-      );
-      setState(() {});
-      _transitionToWaitingForFirstFrame(startupGeneration);
-    } catch (error, stackTrace) {
-      developer.log(
-        'media_kit failed to open the stream.',
-        name: 'iris.player.media',
-        error: error,
-        stackTrace: stackTrace,
-      );
-      if (!mounted || startupGeneration != _startupGeneration) {
-        return;
-      }
-
-      _failViewport(_ViewportFailureType.generic);
+    if (oldWidget.engine != widget.engine) {
+      oldWidget.engine.removeListener(_onEngineChanged);
+      widget.engine.addListener(_onEngineChanged);
+      _controller = widget.engine.videoController;
     }
-  }
-
-  Future<void> _applyNativePlayerProperties() async {
-    final platform = _player.platform;
-    if (platform == null) {
-      return;
-    }
-
-    final properties = buildPlayerRenderingConfiguration(
-      _subtitlePreferences,
-    ).mpvProperties;
-
-    try {
-      for (final entry in properties.entries) {
-        await (platform as dynamic).setProperty(entry.key, entry.value);
-      }
-    } catch (error, stackTrace) {
-      developer.log(
-        'Failed to apply native player properties.',
-        name: 'iris.player.media',
-        error: error,
-        stackTrace: stackTrace,
-      );
-    }
-  }
-
-  Future<void> _recreatePlayer() async {
-    if (_isDisposing || _reconfiguringPlayback) {
-      _recreatePlayerQueued = true;
-      return;
-    }
-
-    do {
-      _recreatePlayerQueued = false;
-      developer.log(
-        'Recreating media_kit player because subtitle renderer changed. sessionId=${widget.session.sessionId} libass=${_subtitlePreferences.libassEnabled}',
-        name: 'iris.player.media',
-      );
-
-      setState(() {
-        _reconfiguringPlayback = true;
-        _startupState = const _MediaKitViewportStartupState.openingSource();
-      });
-
-      await _disposePlayerResources();
-      if (_isDisposing) {
-        break;
-      }
-      _createPlayer();
-
-      if (mounted) {
-        setState(() {});
-      }
-
-      await _openPlayback();
-    } while (_recreatePlayerQueued && !_isDisposing);
-
-    if (mounted) {
-      setState(() {
-        _reconfiguringPlayback = false;
-      });
-    } else {
-      _reconfiguringPlayback = false;
-    }
-  }
-
-  void _attachDebugListeners() {
-    _bufferingSubscription = _player.stream.buffering.listen((buffering) {
-      if (_isDisposing) {
-        return;
-      }
-      developer.log(
-        'media_kit buffering changed: $buffering',
-        name: 'iris.player.media',
-      );
-      if (buffering &&
-          _startupState.phase == _MediaKitViewportPhase.ready &&
-          _rebufferCycleTracker.markBufferingStarted()) {
-        developer.log(
-          'Rebuffer cycle detected. count=${_rebufferCycleTracker.rebufferCount} window=${playerRebufferWindow.inSeconds}s',
-          name: 'iris.player.media',
-        );
-      } else if (!buffering &&
-          _startupState.phase == _MediaKitViewportPhase.ready &&
-          _player.state.playing) {
-        _rebufferCycleTracker.markPlaybackStable();
-      }
-      if (_isPlayerBuffering != buffering) {
-        if (mounted) {
-          setState(() {
-            _isPlayerBuffering = buffering;
-          });
-        } else {
-          _isPlayerBuffering = buffering;
-        }
-        _playerBufferingNotifier.value = buffering;
-      }
-      unawaited(_logCacheBufferingState('buffering changed'));
-    });
-    _playingSubscription = _player.stream.playing.listen((playing) {
-      if (_isDisposing) {
-        return;
-      }
-      developer.log(
-        'media_kit playing changed: $playing',
-        name: 'iris.player.media',
-      );
-      if (_startupState.phase != _MediaKitViewportPhase.ready) {
-        return;
-      }
-      if (playing && !_isPlayerBuffering) {
-        _rebufferCycleTracker.markPlaybackStable();
-        return;
-      }
-      if (!playing) {
-        _rebufferCycleTracker.clearStablePlayback();
-      }
-    });
-    _completedSubscription = _player.stream.completed.listen((completed) {
-      if (_isDisposing) {
-        return;
-      }
-      developer.log(
-        'media_kit completed changed: $completed',
-        name: 'iris.player.media',
-      );
-    });
-    _durationSubscription = _player.stream.duration.listen((duration) {
-      if (_isDisposing) {
-        return;
-      }
-      final hasDuration = duration > Duration.zero;
-      if (_startupState.hasDuration == hasDuration) {
-        return;
-      }
-
-      developer.log(
-        'media_kit duration metadata changed. duration=$duration hasDuration=$hasDuration',
-        name: 'iris.player.media',
-      );
-      _updateStartupState(hasDuration: hasDuration);
-      _markViewportReadyIfPrepared();
-    });
-    _trackSubscription = _player.stream.track.listen((track) {
-      if (_isDisposing) {
-        return;
-      }
-      if (_selectedTrack == track) {
-        return;
-      }
-
-      developer.log(
-        'media_kit selected tracks changed. video=${track.video.codec} audio=${track.audio.codec} subtitle=${track.subtitle.codec}',
-        name: 'iris.player.media',
-      );
-      if (mounted) {
-        setState(() {
-          _selectedTrack = track;
-        });
-      } else {
-        _selectedTrack = track;
-      }
-      _selectedTrackNotifier.value = track;
-    });
-    _tracksSubscription = _player.stream.tracks.listen((tracks) {
-      if (_isDisposing) {
-        return;
-      }
-      final hasVideoTrack = _hasRealVideoTrack(tracks);
-      if (_startupState.hasVideoTrack == hasVideoTrack) {
-        return;
-      }
-
-      developer.log(
-        'media_kit available video tracks changed. count=${tracks.video.length} hasVideoTrack=$hasVideoTrack',
-        name: 'iris.player.media',
-      );
-      _updateStartupState(hasVideoTrack: hasVideoTrack);
-      _markViewportReadyIfPrepared();
-    });
-    _errorSubscription = _player.stream.error.listen((error) {
-      if (_isDisposing) {
-        return;
-      }
-      developer.log(
-        'media_kit emitted player error: $error',
-        name: 'iris.player.media',
-      );
-      final fallback = resolveAudioFallbackTrack(
-        errorMessage: error,
-        audioTracks: _player.state.tracks.audio,
-        selectedAudioTrack: _player.state.track.audio,
-      );
-      if (fallback != null && !_recoveringAudioTrack) {
-        developer.log(
-          'Attempting audio fallback after decoder error. selected=${_player.state.track.audio.codec} fallback=${fallback.codec} fallbackId=${fallback.id}',
-          name: 'iris.player.media',
-        );
-        unawaited(_recoverFromUnsupportedAudio(fallback));
-        return;
-      }
-      if (!mounted) {
-        return;
-      }
-
-      _failViewport(_ViewportFailureType.generic);
-    });
-  }
-
-  Future<void> _recoverFromUnsupportedAudio(AudioTrack fallbackTrack) async {
-    if (_isDisposing) {
-      return;
-    }
-    _recoveringAudioTrack = true;
-    try {
-      await _player.setAudioTrack(fallbackTrack);
-      await _player.play();
-      developer.log(
-        'Audio fallback applied successfully. codec=${fallbackTrack.codec} trackId=${fallbackTrack.id}',
-        name: 'iris.player.media',
-      );
-    } catch (error, stackTrace) {
-      developer.log(
-        'Audio fallback failed.',
-        name: 'iris.player.media',
-        error: error,
-        stackTrace: stackTrace,
-      );
-      if (!mounted) {
-        return;
-      }
-      _failViewport(_ViewportFailureType.generic);
-    } finally {
-      _recoveringAudioTrack = false;
-    }
-  }
-
-  void _transitionToWaitingForFirstFrame(int startupGeneration) {
-    if (!mounted || startupGeneration != _startupGeneration) {
-      return;
-    }
-
-    _updateStartupState(phase: _MediaKitViewportPhase.waitingForFirstFrame);
-    _startStartupNetworkWatchdog(startupGeneration);
-    _startupTimeoutTimer = Timer(widget.mediaKitStartupTimeout, () {
-      unawaited(_handleViewportStartupTimeout(startupGeneration));
-    });
-    unawaited(_awaitFirstFrame(startupGeneration));
-    _markViewportReadyIfPrepared();
-  }
-
-  Future<void> _awaitFirstFrame(int startupGeneration) async {
-    try {
-      await widget.firstFrameAwaiter(_videoController);
-      if (!mounted || startupGeneration != _startupGeneration) {
-        return;
-      }
-
-      developer.log(
-        'media_kit rendered the first frame successfully.',
-        name: 'iris.player.media',
-      );
-      _updateStartupState(firstFrameRendered: true);
-      _markViewportReadyIfPrepared();
-    } catch (error, stackTrace) {
-      if (!mounted || startupGeneration != _startupGeneration) {
-        return;
-      }
-
-      developer.log(
-        'media_kit failed while waiting for the first frame.',
-        name: 'iris.player.media',
-        error: error,
-        stackTrace: stackTrace,
-      );
-      _failViewport(_ViewportFailureType.generic);
-    }
-  }
-
-  Future<void> _handleViewportStartupTimeout(int startupGeneration) async {
-    if (_isDisposing ||
-        !mounted ||
-        startupGeneration != _startupGeneration ||
-        _startupState.phase != _MediaKitViewportPhase.waitingForFirstFrame) {
-      return;
-    }
-
-    await _logCacheBufferingState('first frame timeout');
-    developer.log(
-      'media_kit startup timed out before the first frame was ready. hasDuration=${_startupState.hasDuration} hasVideoTrack=${_startupState.hasVideoTrack} firstFrameRendered=${_startupState.firstFrameRendered}',
-      name: 'iris.player.media',
-    );
-    _failViewport(_ViewportFailureType.firstFrameTimeout);
-  }
-
-  void _markViewportReadyIfPrepared() {
-    if (_startupState.phase != _MediaKitViewportPhase.waitingForFirstFrame) {
-      return;
-    }
-
-    final hasFallbackReadiness =
-        _startupState.hasDuration && _startupState.hasVideoTrack;
-    if (!_startupState.firstFrameRendered && !hasFallbackReadiness) {
-      return;
-    }
-
-    final readinessReason = _startupState.firstFrameRendered
-        ? 'first-frame'
-        : 'timeline-fallback';
-
-    developer.log(
-      'media_kit viewport is ready. reason=$readinessReason firstFrameRendered=${_startupState.firstFrameRendered} hasDuration=${_startupState.hasDuration} hasVideoTrack=${_startupState.hasVideoTrack}',
-      name: 'iris.player.media',
-    );
-    _cancelStartupTimeout();
-    _cancelStartupNetworkWatchdog();
-    _updateStartupState(phase: _MediaKitViewportPhase.ready);
-    if (_player.state.playing && !_isPlayerBuffering) {
-      _rebufferCycleTracker.markPlaybackStable();
-    }
-  }
-
-  void _failViewport(_ViewportFailureType failureType) {
-    _cancelStartupTimeout();
-    _cancelStartupNetworkWatchdog();
-    if (!mounted) {
-      _startupState = _startupState.copyWith(
-        phase: _MediaKitViewportPhase.failed,
-        failureType: failureType,
-      );
-      return;
-    }
-
-    setState(() {
-      _startupState = _startupState.copyWith(
-        phase: _MediaKitViewportPhase.failed,
-        failureType: failureType,
-      );
-    });
-  }
-
-  void _updateStartupState({
-    _MediaKitViewportPhase? phase,
-    bool? hasDuration,
-    bool? hasVideoTrack,
-    bool? firstFrameRendered,
-    _ViewportFailureType? failureType,
-  }) {
-    final nextState = _startupState.copyWith(
-      phase: phase,
-      hasDuration: hasDuration,
-      hasVideoTrack: hasVideoTrack,
-      firstFrameRendered: firstFrameRendered,
-      failureType: failureType,
-    );
-    if (nextState == _startupState) {
-      return;
-    }
-
-    if (!mounted) {
-      _startupState = nextState;
-      _startupPhaseNotifier.value = nextState.phase;
-      return;
-    }
-
-    setState(() {
-      _startupState = nextState;
-    });
-    _startupPhaseNotifier.value = nextState.phase;
-  }
-
-  void _cancelStartupTimeout() {
-    _startupTimeoutTimer?.cancel();
-    _startupTimeoutTimer = null;
-  }
-
-  void _trackStartupNetworkActivity(PlayerPlaybackStats stats) {
-    if (_startupState.phase == _MediaKitViewportPhase.ready ||
-        _startupState.phase == _MediaKitViewportPhase.failed) {
-      return;
-    }
-
-    _startupNetworkMonitoringElapsed ??= Duration.zero;
-    if (stats.downloadRateBytesPerSecond > 0 || stats.activePeers > 0) {
-      _lastStartupNetworkActivityAt = _startupNetworkMonitoringElapsed;
-    }
-  }
-
-  void _startStartupNetworkWatchdog(int startupGeneration) {
-    if (_startupNetworkWatchdogTimer != null) {
-      return;
-    }
-
-    _startupNetworkWatchdogTimer = Timer.periodic(const Duration(seconds: 1), (
-      _,
-    ) {
-      if (_isDisposing ||
-          !mounted ||
-          startupGeneration != _startupGeneration ||
-          _startupState.phase == _MediaKitViewportPhase.ready ||
-          _startupState.phase == _MediaKitViewportPhase.failed) {
-        _cancelStartupNetworkWatchdog();
-        return;
-      }
-
-      final monitoringElapsed = _startupNetworkMonitoringElapsed;
-      if (monitoringElapsed == null) {
-        return;
-      }
-
-      final nextElapsed = monitoringElapsed + const Duration(seconds: 1);
-      _startupNetworkMonitoringElapsed = nextElapsed;
-
-      final lastActivityAt = _lastStartupNetworkActivityAt ?? Duration.zero;
-      if (nextElapsed - lastActivityAt < const Duration(seconds: 15)) {
-        return;
-      }
-
-      developer.log(
-        'media_kit startup failed because torrent stream never showed network activity.',
-        name: 'iris.player.media',
-      );
-      _failViewport(_ViewportFailureType.transportStartupTimeout);
-    });
-  }
-
-  void _cancelStartupNetworkWatchdog() {
-    _startupNetworkWatchdogTimer?.cancel();
-    _startupNetworkWatchdogTimer = null;
-    _startupNetworkMonitoringElapsed = null;
-    _lastStartupNetworkActivityAt = null;
-  }
-
-  void _updateBufferMarginState(PlayerPlaybackStats stats) {
-    final nextState = resolvePlayerBufferMargin(stats);
-    if (nextState == _bufferMarginState) {
-      return;
-    }
-
-    if (!mounted) {
-      _bufferMarginState = nextState;
-      _bufferMarginStateNotifier.value = nextState;
-      return;
-    }
-
-    setState(() {
-      _bufferMarginState = nextState;
-    });
-    _bufferMarginStateNotifier.value = nextState;
-  }
-
-  Future<void> _logCacheBufferingState(String reason) async {
-    final platform = _player.platform;
-    if (platform == null) {
-      return;
-    }
-
-    try {
-      final cacheBufferingState = await (platform as dynamic).getProperty(
-        'cache-buffering-state',
-        waitForInitialization: false,
-      );
-      developer.log(
-        'media_kit cache buffering state. reason=$reason value=$cacheBufferingState',
-        name: 'iris.player.media',
-      );
-    } catch (_) {}
-  }
-
-  Future<void> _showTrackSelectorSheet() async {
-    final tracks = _player.state.tracks;
-    final selectedTrack = _player.state.track;
-
-    await showModalBottomSheet<void>(
-      context: context,
-      showDragHandle: true,
-      builder: (sheetContext) {
-        return PlayerTrackSelectorSheet(
-          audioTracks: tracks.audio,
-          selectedAudioTrack: selectedTrack.audio,
-          subtitleTracks: tracks.subtitle,
-          selectedSubtitleTrack: selectedTrack.subtitle,
-          onAudioTrackSelected: (track) async {
-            await _player.setAudioTrack(track);
-            if (!sheetContext.mounted) {
-              return;
-            }
-            Navigator.of(sheetContext).pop();
-          },
-          onSubtitleTrackSelected: (track) async {
-            await _player.setSubtitleTrack(track);
-            if (!sheetContext.mounted) {
-              return;
-            }
-            Navigator.of(sheetContext).pop();
-          },
-          onSubtitleAppearancePressed: () {
-            Navigator.of(sheetContext).pop();
-            unawaited(_showSubtitleSettingsSheet());
-          },
-        );
-      },
-    );
-  }
-
-  Future<void> _showSubtitleSettingsSheet() async {
-    await showPlayerSubtitleSettingsSheet(context);
-  }
-
-  Future<void> _disposePlayerResources() async {
-    _cancelStartupTimeout();
-    _cancelStartupNetworkWatchdog();
-    final bufferingSubscription = _bufferingSubscription;
-    final playingSubscription = _playingSubscription;
-    final completedSubscription = _completedSubscription;
-    final errorSubscription = _errorSubscription;
-    final durationSubscription = _durationSubscription;
-    final trackSubscription = _trackSubscription;
-    final tracksSubscription = _tracksSubscription;
-    _bufferingSubscription = null;
-    _playingSubscription = null;
-    _completedSubscription = null;
-    _errorSubscription = null;
-    _durationSubscription = null;
-    _trackSubscription = null;
-    _tracksSubscription = null;
-
-    await bufferingSubscription?.cancel();
-    await playingSubscription?.cancel();
-    await completedSubscription?.cancel();
-    await errorSubscription?.cancel();
-    await durationSubscription?.cancel();
-    await trackSubscription?.cancel();
-    await tracksSubscription?.cancel();
-    await _player.dispose();
   }
 
   @override
   void dispose() {
-    developer.log(
-      'Disposing media_kit viewport. sessionId=${widget.session.sessionId}',
-      name: 'iris.player.media',
-    );
-    _isDisposing = true;
-    _startupGeneration++;
-    _cancelStartupTimeout();
-    _cancelStartupNetworkWatchdog();
-
-    final subtitlePreferencesSubscription = _subtitlePreferencesSubscription;
-    final playbackStatsSubscription = _playbackStatsSubscription;
-    _subtitlePreferencesSubscription = null;
-    _playbackStatsSubscription = null;
-
-    unawaited(() async {
-      await subtitlePreferencesSubscription?.cancel();
-      await playbackStatsSubscription?.cancel();
-      await _disposePlayerResources();
-      _playbackStatsNotifier.dispose();
-      _startupPhaseNotifier.dispose();
-      _selectedTrackNotifier.dispose();
-      _playerBufferingNotifier.dispose();
-      _bufferMarginStateNotifier.dispose();
-    }());
+    widget.engine.removeListener(_onEngineChanged);
+    _closeFullscreen();
+    _nextTitle.dispose();
     super.dispose();
+  }
+
+  void _onEngineChanged() {
+    if (!mounted) return;
+    final controller = widget.engine.videoController;
+    if (!identical(controller, _controller)) {
+      // Full screen renders the controller it was opened with; a new native
+      // player (changed decoding preferences) needs it reopened.
+      if (_closeFullscreen()) _reenterFullscreen = true;
+      _controller = controller;
+    }
+    setState(() {});
+  }
+
+  /// Closes a full-screen route left open by this player. Returns whether
+  /// there was one.
+  bool _closeFullscreen() {
+    final route = _fullscreenRoute;
+    _fullscreenRoute = null;
+    if (route == null || !route.isActive) return false;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (route.isCurrent) {
+        // A pop (unlike removeRoute) also leaves native full screen.
+        unawaited(route.navigator?.maybePop());
+      } else if (route.isActive) {
+        route.navigator?.removeRoute(route);
+      }
+    });
+    return true;
+  }
+
+  void _onInlineControlsShown(VideoState video) {
+    if (!_reenterFullscreen) return;
+    _reenterFullscreen = false;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && video.mounted && !video.isFullscreen()) {
+        unawaited(video.enterFullscreen());
+      }
+    });
+  }
+
+  void _playNext() => widget.next?.play();
+
+  Widget _decorateControls(VideoState video, Widget controls) {
+    return _PlayerControlsFrame(
+      phase: widget.engine.phase,
+      finishing: widget.engine.finishing,
+      completed: widget.engine.completed,
+      nextTitle: _nextTitle,
+      onPlayNext: _playNext,
+      skipSegment: widget.engine.skipSegment,
+      onSkip: () => unawaited(widget.engine.skipCurrentSegment()),
+      openingLabel: AppLocalizations.of(context).playerPreparing,
+      bufferingLabel: AppLocalizations.of(context).playerBuffering,
+      onFullscreenRoute: (route) => _fullscreenRoute = route,
+      onInlineShown: () => _onInlineControlsShown(video),
+      child: controls,
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final theme = Theme.of(context);
-    final renderingConfiguration = buildPlayerRenderingConfiguration(
-      _subtitlePreferences,
-    );
+    final engine = widget.engine;
+    final startupState = engine.startupState;
 
-    if (_startupState.phase == _MediaKitViewportPhase.failed) {
+    if (startupState.phase == PlayerEnginePhase.failed) {
       final errorMessage =
-          _startupState.failureType == _ViewportFailureType.firstFrameTimeout
+          startupState.failure == PlayerEngineFailure.firstFrameTimeout
           ? l10n.playerUnableToPrepareFirstFrame
           : l10n.playerUnableToStart;
       return Center(
@@ -853,9 +292,7 @@ class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
               Text(errorMessage, textAlign: TextAlign.center),
               const SizedBox(height: 16),
               FilledButton(
-                onPressed: () {
-                  _openPlayback();
-                },
+                onPressed: () => unawaited(engine.retry()),
                 child: Text(l10n.commonRetry),
               ),
             ],
@@ -864,182 +301,524 @@ class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
       );
     }
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          widget.source.fileName,
-          style: theme.textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.w700,
-          ),
+    final videoFrame = AspectRatio(
+      aspectRatio: 16 / 9,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(16),
         ),
-        const SizedBox(height: 6),
-        Text(
-          widget.source.sourceTitle,
-          style: theme.textTheme.bodyMedium?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
-        ),
-        const SizedBox(height: 16),
-        AspectRatio(
-          aspectRatio: 16 / 9,
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: theme.colorScheme.surfaceContainerHighest,
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(16),
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  widget.videoSurfaceBuilder(
-                    controller: _videoController,
-                    subtitleViewConfiguration:
-                        renderingConfiguration.subtitleViewConfiguration,
-                    normalTheme: _buildControlsTheme(l10n),
-                    fullscreenTheme: _buildControlsTheme(l10n),
-                  ),
-                  if (_reconfiguringPlayback ||
-                      _startupState.phase != _MediaKitViewportPhase.ready)
-                    _PlayerStartupOverlay(
-                      key: const Key('player_viewport_loading_overlay'),
-                      label:
-                          _startupState.phase ==
-                              _MediaKitViewportPhase.openingSource
-                          ? l10n.playerPreparing
-                          : l10n.playerBuffering,
-                    ),
-                ],
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              widget.videoSurfaceBuilder(
+                controller: _controller,
+                subtitleViewConfiguration: engine.subtitleViewConfiguration,
+                controlsThemes: _buildControlsThemes(l10n, theme.colorScheme),
               ),
-            ),
+              if (engine.reconfiguring ||
+                  startupState.phase != PlayerEnginePhase.ready)
+                _PlayerStartupOverlay(
+                  key: const Key('player_viewport_loading_overlay'),
+                  label: startupState.phase == PlayerEnginePhase.openingSource
+                      ? l10n.playerPreparing
+                      : l10n.playerBuffering,
+                ),
+            ],
           ),
+        ),
+      ),
+    );
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (!constraints.hasBoundedHeight) return videoFrame;
+
+        // The 16:9 frame fills the available space; mpv letterboxes
+        // non-16:9 content inside it. The title lives in the app bar.
+        // Top-aligned so the video lines up with the page and the episodes
+        // pane headings.
+        return Align(alignment: Alignment.topCenter, child: videoFrame);
+      },
+    );
+  }
+
+  MediaKitVideoControlsThemes _buildControlsThemes(
+    AppLocalizations l10n,
+    ColorScheme colorScheme,
+  ) {
+    if (isDesktopPlayerPlatform()) {
+      final desktopTheme = _buildDesktopControlsTheme(l10n, colorScheme);
+      return MediaKitDesktopVideoControlsThemes(
+        normal: desktopTheme,
+        fullscreen: desktopTheme,
+        decorateControls: _decorateControls,
+      );
+    }
+
+    return MediaKitMobileVideoControlsThemes(
+      normal: _buildControlsTheme(l10n),
+      fullscreen: _buildControlsTheme(l10n),
+      decorateControls: _decorateControls,
+    );
+  }
+
+  Widget _buildStatsPanel() {
+    final engine = widget.engine;
+    return Flexible(
+      fit: FlexFit.loose,
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 280),
+          child: _PlayerControlsStatsPanel(
+            listenable: engine.playbackStats,
+            diagnosticsListenable: engine.diagnostics,
+            startupPhaseListenable: engine.phase,
+            trackListenable: engine.selectedTrack,
+            bufferMarginStateListenable: engine.bufferMargin,
+            isBufferingListenable: engine.buffering,
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Desktop controls: hover shows/hides the bars, double-click toggles
+  /// fullscreen, mouse wheel changes volume. The package default keyboard
+  /// shortcuts stay active: Space play/pause, Left/Right seek, Up/Down volume,
+  /// F fullscreen, Esc exit fullscreen.
+  MaterialDesktopVideoControlsThemeData _buildDesktopControlsTheme(
+    AppLocalizations l10n,
+    ColorScheme colorScheme,
+  ) {
+    return MaterialDesktopVideoControlsThemeData(
+      topButtonBar: [
+        _buildStatsPanel(),
+        const SizedBox(width: 8),
+        MaterialDesktopCustomButton(
+          icon: const Icon(Icons.tune),
+          iconSize: 24,
+          onPressed: _showTrackSelectorSheet,
         ),
       ],
+      bottomButtonBar: [
+        const MaterialDesktopPlayOrPauseButton(),
+        if (widget.next != null)
+          MaterialDesktopCustomButton(
+            key: const Key('player_next_file_button'),
+            icon: Tooltip(
+              message: l10n.playerPlayNext,
+              child: const Icon(Icons.skip_next),
+            ),
+            iconSize: 24,
+            onPressed: _playNext,
+          ),
+        const MaterialDesktopVolumeButton(),
+        const MaterialDesktopPositionIndicator(),
+        const Spacer(),
+        _skipForwardButton(l10n),
+        const MaterialDesktopFullscreenButton(),
+      ],
+      toggleFullscreenOnDoublePress: true,
+      modifyVolumeOnScroll: true,
+      hideMouseOnControlsRemoval: true,
+      buttonBarButtonSize: 24,
+      seekBarPositionColor: colorScheme.primary,
+      seekBarThumbColor: colorScheme.primary,
+      bufferingIndicatorBuilder: (context) => _PlayerControlsBufferingOverlay(
+        startupPhaseListenable: widget.engine.phase,
+        label: l10n.playerBuffering,
+      ),
+    );
+  }
+
+  /// "+85 s" while the opening is unknown and the file has just started;
+  /// part of the controls, so it hides with them.
+  Widget _skipForwardButton(AppLocalizations l10n) {
+    final seconds = MediaKitPlayerEngine.skipForwardStep.inSeconds;
+    return ValueListenableBuilder<bool>(
+      valueListenable: widget.engine.skipForwardOffered,
+      builder: (context, offered, _) {
+        if (!offered) return const SizedBox.shrink();
+        return Tooltip(
+          message: l10n.playerSkipForwardTooltip(seconds),
+          child: TextButton.icon(
+            key: const Key('player_skip_forward_button'),
+            onPressed: () => unawaited(widget.engine.skipForward()),
+            style: TextButton.styleFrom(foregroundColor: Colors.white),
+            icon: const Icon(Icons.fast_forward),
+            label: Text(l10n.playerSkipForward(seconds)),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget? _nextButton(AppLocalizations l10n, {Key? key}) {
+    if (widget.next == null) return null;
+    return MaterialCustomButton(
+      key: key,
+      icon: Tooltip(
+        message: l10n.playerPlayNext,
+        child: const Icon(Icons.skip_next),
+      ),
+      iconSize: 36,
+      onPressed: _playNext,
     );
   }
 
   MaterialVideoControlsThemeData _buildControlsTheme(AppLocalizations l10n) {
     return MaterialVideoControlsThemeData(
-      primaryButtonBar: const [Spacer(), MaterialPlayOrPauseButton(), Spacer()],
-      topButtonBar: [
-        Flexible(
-          fit: FlexFit.loose,
-          child: Align(
-            alignment: Alignment.centerLeft,
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 280),
-              child: _PlayerControlsStatsPanel(
-                listenable: _playbackStatsNotifier,
-                startupPhaseListenable: _startupPhaseNotifier,
-                trackListenable: _selectedTrackNotifier,
-                bufferMarginStateListenable: _bufferMarginStateNotifier,
-                isBufferingListenable: _playerBufferingNotifier,
-              ),
-            ),
+      primaryButtonBar: [
+        const Spacer(),
+        // An invisible twin keeps play/pause centred.
+        if (_nextButton(l10n) case final next?)
+          Visibility(
+            visible: false,
+            maintainSize: true,
+            maintainAnimation: true,
+            maintainState: true,
+            child: next,
           ),
-        ),
+        const MaterialPlayOrPauseButton(),
+        ?_nextButton(l10n, key: const Key('player_next_file_button')),
+        const Spacer(),
+      ],
+      topButtonBar: [
+        _buildStatsPanel(),
         const SizedBox(width: 8),
         MaterialCustomButton(
           icon: const Icon(Icons.tune),
           onPressed: _showTrackSelectorSheet,
         ),
       ],
-      bottomButtonBar: const [
-        MaterialPositionIndicator(),
-        Spacer(),
-        MaterialFullscreenButton(),
+      bottomButtonBar: [
+        const MaterialPositionIndicator(),
+        const Spacer(),
+        _skipForwardButton(l10n),
+        const MaterialFullscreenButton(),
       ],
       volumeGesture: true,
       brightnessGesture: true,
       seekGesture: true,
       seekOnDoubleTap: true,
       bufferingIndicatorBuilder: (context) => _PlayerControlsBufferingOverlay(
-        startupPhaseListenable: _startupPhaseNotifier,
+        startupPhaseListenable: widget.engine.phase,
         label: l10n.playerBuffering,
+      ),
+    );
+  }
+
+  Future<void> _showTrackSelectorSheet() async {
+    final engine = widget.engine;
+    if (!engine.hasPlayer) return;
+    final tracks = engine.player.state.tracks;
+    final selectedTrack = engine.player.state.track;
+
+    await showPlayerAdaptiveSheet<void>(
+      context: context,
+      builder: (sheetContext) {
+        return PlayerTrackSelectorSheet(
+          audioTracks: tracks.audio,
+          selectedAudioTrack: selectedTrack.audio,
+          subtitleTracks: tracks.subtitle,
+          selectedSubtitleTrack: selectedTrack.subtitle,
+          onAudioTrackSelected: (track) async {
+            await engine.selectAudioTrack(track);
+            if (sheetContext.mounted) Navigator.of(sheetContext).pop();
+          },
+          onSubtitleTrackSelected: (track) async {
+            await engine.selectSubtitleTrack(track);
+            if (sheetContext.mounted) Navigator.of(sheetContext).pop();
+          },
+          onSubtitleAppearancePressed: () {
+            Navigator.of(sheetContext).pop();
+            unawaited(showPlayerSubtitleSettingsSheet(context));
+          },
+        );
+      },
+    );
+  }
+}
+
+/// Sits on top of the media_kit controls, in the page and in full screen:
+/// offers to skip the opening and to play the next file, shows startup
+/// progress in full screen (where the page's overlays are hidden) and
+/// reports the full-screen route.
+class _PlayerControlsFrame extends StatefulWidget {
+  const _PlayerControlsFrame({
+    required this.phase,
+    required this.finishing,
+    required this.completed,
+    required this.nextTitle,
+    required this.onPlayNext,
+    required this.skipSegment,
+    required this.onSkip,
+    required this.openingLabel,
+    required this.bufferingLabel,
+    required this.onFullscreenRoute,
+    required this.onInlineShown,
+    required this.child,
+  });
+
+  final ValueListenable<PlayerEnginePhase> phase;
+  final ValueListenable<bool> finishing;
+  final ValueListenable<bool> completed;
+  final ValueListenable<String?> nextTitle;
+  final VoidCallback onPlayNext;
+  final ValueListenable<PlayerSkipSegment?> skipSegment;
+  final VoidCallback onSkip;
+  final String openingLabel;
+  final String bufferingLabel;
+  final ValueChanged<ModalRoute<Object?>> onFullscreenRoute;
+  final VoidCallback onInlineShown;
+  final Widget child;
+
+  @override
+  State<_PlayerControlsFrame> createState() => _PlayerControlsFrameState();
+}
+
+class _PlayerControlsFrameState extends State<_PlayerControlsFrame> {
+  final _activity = _PointerActivity();
+  late final _nextState = Listenable.merge([
+    widget.finishing,
+    widget.completed,
+    widget.nextTitle,
+  ]);
+
+  @override
+  void dispose() {
+    _activity.dispose();
+    super.dispose();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (isFullscreen(context)) {
+      final route = ModalRoute.of(context);
+      if (route != null) widget.onFullscreenRoute(route);
+    } else {
+      widget.onInlineShown();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final fullscreen = isFullscreen(context);
+    return Listener(
+      behavior: HitTestBehavior.translucent,
+      onPointerHover: (_) => _activity.ping(),
+      onPointerDown: (_) => _activity.ping(),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          widget.child,
+          ValueListenableBuilder<PlayerSkipSegment?>(
+            valueListenable: widget.skipSegment,
+            builder: (context, segment, _) {
+              if (segment == null) return const SizedBox.shrink();
+              return _AutoHidingOffer(
+                key: ValueKey(segment),
+                activity: _activity,
+                child: _PlayerActionPill(
+                  actionKey: const Key('player_skip_segment_button'),
+                  icon: Icons.fast_forward,
+                  label: segment.kind == PlayerSkipKind.recap
+                      ? l10n.playerSkipRecap
+                      : l10n.playerSkipOpening,
+                  onPressed: widget.onSkip,
+                ),
+              );
+            },
+          ),
+          ListenableBuilder(
+            listenable: _nextState,
+            builder: (context, _) {
+              final title = widget.nextTitle.value;
+              final completed = widget.completed.value;
+              if (title == null || !(widget.finishing.value || completed)) {
+                return const SizedBox.shrink();
+              }
+              return _AutoHidingOffer(
+                activity: _activity,
+                // Once the file has ended there is nothing left to cover.
+                pinned: completed,
+                child: _PlayerActionPill(
+                  actionKey: const Key('player_next_file_prompt'),
+                  icon: Icons.skip_next,
+                  label: l10n.playerPlayNext,
+                  detail: title,
+                  onPressed: widget.onPlayNext,
+                ),
+              );
+            },
+          ),
+          if (fullscreen)
+            // Progress only: the controls (exit full screen, volume) stay
+            // usable.
+            IgnorePointer(
+              child: ValueListenableBuilder<PlayerEnginePhase>(
+                valueListenable: widget.phase,
+                builder: (context, phase, _) => switch (phase) {
+                  PlayerEnginePhase.openingSource => _PlayerStartupOverlay(
+                    label: widget.openingLabel,
+                  ),
+                  PlayerEnginePhase.waitingForFirstFrame =>
+                    _PlayerStartupOverlay(label: widget.bufferingLabel),
+                  PlayerEnginePhase.ready ||
+                  PlayerEnginePhase.failed => const SizedBox.shrink(),
+                },
+              ),
+            ),
+        ],
       ),
     );
   }
 }
 
-enum _MediaKitViewportPhase {
-  openingSource,
-  waitingForFirstFrame,
-  ready,
-  failed,
+/// Pointer movement or a tap over the player.
+class _PointerActivity extends ChangeNotifier {
+  void ping() => notifyListeners();
 }
 
-enum _ViewportFailureType {
-  generic,
-  firstFrameTimeout,
-  transportStartupTimeout,
-}
-
-class _MediaKitViewportStartupState {
-  const _MediaKitViewportStartupState({
-    required this.phase,
-    required this.hasDuration,
-    required this.hasVideoTrack,
-    required this.firstFrameRendered,
-    required this.failureType,
+/// Shows [child] for a while when it appears, then again briefly after
+/// pointer activity, like the player controls; [pinned] keeps it shown.
+class _AutoHidingOffer extends StatefulWidget {
+  const _AutoHidingOffer({
+    required this.activity,
+    required this.child,
+    this.pinned = false,
+    super.key,
   });
 
-  const _MediaKitViewportStartupState.openingSource()
-    : this(
-        phase: _MediaKitViewportPhase.openingSource,
-        hasDuration: false,
-        hasVideoTrack: false,
-        firstFrameRendered: false,
-        failureType: _ViewportFailureType.generic,
-      );
+  static const shownAtStart = Duration(seconds: 8);
+  static const shownOnActivity = Duration(seconds: 3);
 
-  final _MediaKitViewportPhase phase;
-  final bool hasDuration;
-  final bool hasVideoTrack;
-  final bool firstFrameRendered;
-  final _ViewportFailureType failureType;
-
-  _MediaKitViewportStartupState copyWith({
-    _MediaKitViewportPhase? phase,
-    bool? hasDuration,
-    bool? hasVideoTrack,
-    bool? firstFrameRendered,
-    _ViewportFailureType? failureType,
-  }) {
-    return _MediaKitViewportStartupState(
-      phase: phase ?? this.phase,
-      hasDuration: hasDuration ?? this.hasDuration,
-      hasVideoTrack: hasVideoTrack ?? this.hasVideoTrack,
-      firstFrameRendered: firstFrameRendered ?? this.firstFrameRendered,
-      failureType: failureType ?? this.failureType,
-    );
-  }
+  final Listenable activity;
+  final bool pinned;
+  final Widget child;
 
   @override
-  bool operator ==(Object other) {
-    if (identical(this, other)) {
-      return true;
-    }
-    return other is _MediaKitViewportStartupState &&
-        other.phase == phase &&
-        other.hasDuration == hasDuration &&
-        other.hasVideoTrack == hasVideoTrack &&
-        other.firstFrameRendered == firstFrameRendered &&
-        other.failureType == failureType;
-  }
-
-  @override
-  int get hashCode => Object.hash(
-    phase,
-    hasDuration,
-    hasVideoTrack,
-    firstFrameRendered,
-    failureType,
-  );
+  State<_AutoHidingOffer> createState() => _AutoHidingOfferState();
 }
 
-bool _hasRealVideoTrack(Tracks tracks) {
-  return tracks.video.any((track) => track.id != 'auto' && track.id != 'no');
+class _AutoHidingOfferState extends State<_AutoHidingOffer> {
+  bool _shown = true;
+  bool _holdingAtStart = true;
+  Timer? _hideTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.activity.addListener(_onActivity);
+    _hideAfter(_AutoHidingOffer.shownAtStart);
+  }
+
+  @override
+  void dispose() {
+    widget.activity.removeListener(_onActivity);
+    _hideTimer?.cancel();
+    super.dispose();
+  }
+
+  void _onActivity() {
+    // Activity must not cut the first, longer showing short.
+    if (_holdingAtStart) return;
+    setState(() => _shown = true);
+    _hideAfter(_AutoHidingOffer.shownOnActivity);
+  }
+
+  void _hideAfter(Duration duration) {
+    _hideTimer?.cancel();
+    _hideTimer = Timer(duration, () {
+      _holdingAtStart = false;
+      if (mounted) setState(() => _shown = false);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final visible = _shown || widget.pinned;
+    return IgnorePointer(
+      ignoring: !visible,
+      child: AnimatedOpacity(
+        opacity: visible ? 1 : 0,
+        duration: const Duration(milliseconds: 200),
+        child: widget.child,
+      ),
+    );
+  }
+}
+
+/// One action over the video, as in streaming apps; playback never moves
+/// on by itself.
+class _PlayerActionPill extends StatelessWidget {
+  const _PlayerActionPill({
+    required this.actionKey,
+    required this.icon,
+    required this.label,
+    required this.onPressed,
+    this.detail,
+  });
+
+  final Key actionKey;
+  final IconData icon;
+  final String label;
+  final String? detail;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final detail = this.detail;
+    return Align(
+      alignment: AlignmentDirectional.bottomEnd,
+      child: Padding(
+        // Clear of the bottom button bar and the seek bar.
+        padding: const EdgeInsetsDirectional.fromSTEB(16, 16, 16, 72),
+        child: FilledButton(
+          key: actionKey,
+          onPressed: onPressed,
+          style: FilledButton.styleFrom(
+            padding: const EdgeInsetsDirectional.fromSTEB(16, 10, 20, 10),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon),
+              const SizedBox(width: 8),
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 220),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(label),
+                    if (detail != null)
+                      // Inherits the button's colour.
+                      Text(
+                        detail,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: theme.textTheme.labelSmall?.fontSize,
+                          fontWeight: FontWeight.w400,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _BufferingIndicator extends StatelessWidget {
@@ -1072,14 +851,7 @@ class _PlayerStartupOverlay extends StatelessWidget {
       child: Center(
         child: Padding(
           padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const CircularProgressIndicator(),
-              const SizedBox(height: 12),
-              Text(label, style: const TextStyle(color: Colors.white)),
-            ],
-          ),
+          child: _BufferingIndicator(label: label),
         ),
       ),
     );
@@ -1089,6 +861,7 @@ class _PlayerStartupOverlay extends StatelessWidget {
 class _PlayerControlsStatsPanel extends StatelessWidget {
   const _PlayerControlsStatsPanel({
     required this.listenable,
+    required this.diagnosticsListenable,
     required this.startupPhaseListenable,
     required this.trackListenable,
     required this.bufferMarginStateListenable,
@@ -1096,7 +869,8 @@ class _PlayerControlsStatsPanel extends StatelessWidget {
   });
 
   final ValueListenable<PlayerPlaybackStats?> listenable;
-  final ValueListenable<_MediaKitViewportPhase> startupPhaseListenable;
+  final ValueListenable<PlayerPlaybackDiagnostics?> diagnosticsListenable;
+  final ValueListenable<PlayerEnginePhase> startupPhaseListenable;
   final ValueListenable<Track> trackListenable;
   final ValueListenable<PlayerBufferMarginState> bufferMarginStateListenable;
   final ValueListenable<bool> isBufferingListenable;
@@ -1109,9 +883,10 @@ class _PlayerControlsStatsPanel extends StatelessWidget {
         trackListenable,
         bufferMarginStateListenable,
         isBufferingListenable,
+        playerDetailedStatsEnabled,
       ]),
       builder: (context, child) {
-        if (startupPhaseListenable.value != _MediaKitViewportPhase.ready) {
+        if (startupPhaseListenable.value != PlayerEnginePhase.ready) {
           return const SizedBox.shrink();
         }
 
@@ -1120,8 +895,10 @@ class _PlayerControlsStatsPanel extends StatelessWidget {
           listenable: listenable,
           videoCodec: track.video.codec,
           audioCodec: track.audio.codec,
+          diagnosticsListenable: diagnosticsListenable,
           bufferMarginState: bufferMarginStateListenable.value,
           isBuffering: isBufferingListenable.value,
+          detailed: playerDetailedStatsEnabled.value,
         );
       },
     );
@@ -1134,15 +911,15 @@ class _PlayerControlsBufferingOverlay extends StatelessWidget {
     required this.label,
   });
 
-  final ValueListenable<_MediaKitViewportPhase> startupPhaseListenable;
+  final ValueListenable<PlayerEnginePhase> startupPhaseListenable;
   final String label;
 
   @override
   Widget build(BuildContext context) {
-    return ValueListenableBuilder<_MediaKitViewportPhase>(
+    return ValueListenableBuilder<PlayerEnginePhase>(
       valueListenable: startupPhaseListenable,
       builder: (context, phase, child) {
-        if (phase != _MediaKitViewportPhase.ready) {
+        if (phase != PlayerEnginePhase.ready) {
           return const SizedBox.shrink();
         }
 
@@ -1152,32 +929,30 @@ class _PlayerControlsBufferingOverlay extends StatelessWidget {
   }
 }
 
-Player _defaultPlayerBuilder(PlayerConfiguration configuration) {
-  return Player(configuration: configuration);
-}
-
-VideoController _defaultVideoControllerBuilder(Player player) {
-  return VideoController(player);
-}
-
-Future<void> _defaultFirstFrameAwaiter(VideoController controller) {
-  return controller.waitUntilFirstFrameRendered;
-}
-
 Widget _defaultVideoSurfaceBuilder({
   required VideoController controller,
   required SubtitleViewConfiguration subtitleViewConfiguration,
-  required MaterialVideoControlsThemeData normalTheme,
-  required MaterialVideoControlsThemeData fullscreenTheme,
+  required MediaKitVideoControlsThemes controlsThemes,
 }) {
-  return MaterialVideoControlsTheme(
-    normal: normalTheme,
-    fullscreen: fullscreenTheme,
-    child: Video(
-      key: const Key('player_video_surface'),
-      controller: controller,
-      controls: MaterialVideoControls,
-      subtitleViewConfiguration: subtitleViewConfiguration,
-    ),
+  final video = Video(
+    key: const Key('player_video_surface'),
+    controller: controller,
+    controls: controlsThemes.controls,
+    subtitleViewConfiguration: subtitleViewConfiguration,
   );
+
+  return switch (controlsThemes) {
+    MediaKitMobileVideoControlsThemes(:final normal, :final fullscreen) =>
+      MaterialVideoControlsTheme(
+        normal: normal,
+        fullscreen: fullscreen,
+        child: video,
+      ),
+    MediaKitDesktopVideoControlsThemes(:final normal, :final fullscreen) =>
+      MaterialDesktopVideoControlsTheme(
+        normal: normal,
+        fullscreen: fullscreen,
+        child: video,
+      ),
+  };
 }

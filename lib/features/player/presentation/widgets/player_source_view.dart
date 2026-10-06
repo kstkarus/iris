@@ -1,15 +1,27 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import 'package:iris/entities/watch_progress/domain/watch_progress.dart';
 import 'package:iris/features/player/domain/entities/player_video_file.dart';
 import 'package:iris/features/player/presentation/cubit/player_source_cubit.dart';
 import 'package:iris/features/player/presentation/cubit/player_source_state.dart';
+import 'package:iris/features/player/presentation/widgets/player_episodes_list.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
+import 'package:iris/shared/utils/file_display_name.dart';
 
 class PlayerSourceView extends StatelessWidget {
-  const PlayerSourceView({required this.onFileSelected, super.key});
+  const PlayerSourceView({
+    required this.onFileSelected,
+    this.progressByFile = const {},
+    super.key,
+  });
+
+  static const continueButtonKey = Key('player_source_continue_button');
 
   final ValueChanged<PlayerVideoFile> onFileSelected;
+
+  /// Watch progress of this torrent's files, keyed by file index.
+  final Map<int, WatchProgress> progressByFile;
 
   @override
   Widget build(BuildContext context) {
@@ -21,6 +33,7 @@ class PlayerSourceView extends StatelessWidget {
           ),
           PlayerSourceReady(:final preparedSource) => _SuccessState(
             files: preparedSource.files,
+            progressByFile: progressByFile,
             onFileSelected: onFileSelected,
           ),
           PlayerSourceFailure(:final type) => _FailureState(type: type),
@@ -51,54 +64,118 @@ class _LoadingState extends StatelessWidget {
 }
 
 class _SuccessState extends StatelessWidget {
-  const _SuccessState({required this.files, required this.onFileSelected});
+  const _SuccessState({
+    required this.files,
+    required this.progressByFile,
+    required this.onFileSelected,
+  });
 
   final List<PlayerVideoFile> files;
+  final Map<int, WatchProgress> progressByFile;
   final ValueChanged<PlayerVideoFile> onFileSelected;
+
+  /// The file to continue with: the last one watched, or the one after it
+  /// when that was finished.
+  ({PlayerVideoFile file, bool isNext})? _continueTarget() {
+    WatchProgress? latest;
+    for (final progress in progressByFile.values) {
+      if (latest == null || progress.updatedAt.isAfter(latest.updatedAt)) {
+        latest = progress;
+      }
+    }
+    if (latest == null) return null;
+    final position = files.indexWhere(
+      (file) => file.index == latest!.fileIndex,
+    );
+    if (position < 0) return null;
+    if (!latest.isFinished) return (file: files[position], isNext: false);
+    if (position + 1 >= files.length) return null;
+    return (file: files[position + 1], isNext: true);
+  }
 
   @override
   Widget build(BuildContext context) {
-    return ListView.separated(
-      itemCount: files.length,
-      separatorBuilder: (_, _) => const SizedBox(height: 12),
-      itemBuilder: (context, index) {
-        final file = files[index];
-
-        return Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  file.name,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  '${AppLocalizations.of(context).playerFileSizeLabel}: ${_formatFileSize(file.size)}',
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '${AppLocalizations.of(context).playerFileTypeLabel}: ${file.extension.toUpperCase()}',
-                ),
-                const SizedBox(height: 16),
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton(
-                    onPressed: () => onFileSelected(file),
-                    child: Text(
-                      AppLocalizations.of(context).playerWatchFileButton,
-                    ),
-                  ),
-                ),
-              ],
-            ),
+    final continueTarget = files.length > 1 ? _continueTarget() : null;
+    // Text rows instead of a card and a button per file: the whole row
+    // starts the file, so 24 episodes stay scannable.
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (continueTarget != null) ...[
+          _ContinueCard(
+            file: continueTarget.file,
+            isNext: continueTarget.isNext,
+            onPressed: () => onFileSelected(continueTarget.file),
           ),
-        );
-      },
+          const SizedBox(height: 8),
+        ],
+        Expanded(
+          child: PlayerEpisodesList(
+            files: files,
+            currentFileIndex: null,
+            progressByFile: progressByFile,
+            onSelected: onFileSelected,
+            showSizes: true,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ContinueCard extends StatelessWidget {
+  const _ContinueCard({
+    required this.file,
+    required this.isNext,
+    required this.onPressed,
+  });
+
+  final PlayerVideoFile file;
+  final bool isNext;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final theme = Theme.of(context);
+    return Card(
+      color: theme.colorScheme.secondaryContainer,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            Icon(
+              isNext ? Icons.skip_next : Icons.play_circle_outline,
+              color: theme.colorScheme.onSecondaryContainer,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                isNext
+                    ? l10n.watchProgressNextFile(fileDisplayName(file.name))
+                    : l10n.watchProgressContinueFile(
+                        fileDisplayName(file.name),
+                      ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.titleSmall?.copyWith(
+                  color: theme.colorScheme.onSecondaryContainer,
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            FilledButton(
+              key: PlayerSourceView.continueButtonKey,
+              onPressed: onPressed,
+              child: Text(
+                isNext
+                    ? l10n.watchProgressPlayNextButton
+                    : l10n.watchProgressContinueButton,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -134,18 +211,4 @@ class _FailureState extends StatelessWidget {
       ),
     );
   }
-}
-
-String _formatFileSize(int size) {
-  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
-  var value = size.toDouble();
-  var unitIndex = 0;
-
-  while (value >= 1024 && unitIndex < units.length - 1) {
-    value /= 1024;
-    unitIndex++;
-  }
-
-  final fractionDigits = unitIndex == 0 ? 0 : 1;
-  return '${value.toStringAsFixed(fractionDigits)} ${units[unitIndex]}';
 }

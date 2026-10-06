@@ -13,8 +13,9 @@ void main() {
       routes: [
         GoRoute(
           path: '/',
-          builder: (context, state) =>
-              Scaffold(body: Text(AppLocalizations.of(context).animeListTitle)),
+          builder: (context, state) => Scaffold(
+            body: Text(AppLocalizations.of(context).navigationCatalog),
+          ),
         ),
       ],
     );
@@ -24,6 +25,6 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Список аниме'), findsOneWidget);
+    expect(find.text('Каталог'), findsOneWidget);
   });
 }

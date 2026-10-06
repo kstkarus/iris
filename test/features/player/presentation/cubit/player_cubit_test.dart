@@ -13,12 +13,15 @@ import 'package:iris/features/player/domain/repositories/player_repository.dart'
 import 'package:iris/features/player/presentation/cubit/player_cubit.dart';
 import 'package:iris/features/player/presentation/cubit/player_state.dart';
 
+import '../../../../helpers/fake_player_engine.dart';
+
 void main() {
   test(
     'emits preparation progress then ready when playback starts for selected file',
     () async {
       final cubit = PlayerCubit(
         source: _source,
+        engine: FakePlayerEngine(),
         repository: _SuccessPlayerRepository(
           const PlayerSession(
             sessionId: '42',
@@ -53,7 +56,11 @@ void main() {
 
   test('emits generic failure when repository throws', () async {
     final repository = _FailingPlayerRepository();
-    final cubit = PlayerCubit(source: _source, repository: repository);
+    final cubit = PlayerCubit(
+      source: _source,
+      repository: repository,
+      engine: FakePlayerEngine(),
+    );
 
     expectLater(
       cubit.stream,
@@ -72,7 +79,11 @@ void main() {
     'emits startup buffer failure when repository reports stalled buffer',
     () async {
       final repository = _StartupBufferFailingPlayerRepository();
-      final cubit = PlayerCubit(source: _source, repository: repository);
+      final cubit = PlayerCubit(
+        source: _source,
+        repository: repository,
+        engine: FakePlayerEngine(),
+      );
 
       expectLater(
         cubit.stream,
@@ -102,7 +113,11 @@ void main() {
         streamUrl: 'http://127.0.0.1:8080/stream/2',
       ),
     );
-    final cubit = PlayerCubit(source: _source, repository: repository);
+    final cubit = PlayerCubit(
+      source: _source,
+      repository: repository,
+      engine: FakePlayerEngine(),
+    );
 
     await cubit.loadPlayback();
     await cubit.close();
@@ -116,7 +131,11 @@ void main() {
     'ignores repeated loadPlayback while launch is already active',
     () async {
       final repository = _ControlledPlayerRepository();
-      final cubit = PlayerCubit(source: _source, repository: repository);
+      final cubit = PlayerCubit(
+        source: _source,
+        repository: repository,
+        engine: FakePlayerEngine(),
+      );
 
       final firstLaunch = cubit.loadPlayback();
       await Future<void>.delayed(Duration.zero);
@@ -139,7 +158,11 @@ void main() {
 
   test('cancels active launch subscription when cubit closes', () async {
     final repository = _ControlledPlayerRepository();
-    final cubit = PlayerCubit(source: _source, repository: repository);
+    final cubit = PlayerCubit(
+      source: _source,
+      repository: repository,
+      engine: FakePlayerEngine(),
+    );
 
     cubit.loadPlayback();
     await Future<void>.delayed(Duration.zero);
@@ -149,9 +172,78 @@ void main() {
     expect(repository.cancelledLaunchCount, 1);
     expect(repository.disposedSessionIds, ['42']);
   });
+
+  test('opens the media player for the ready stream', () async {
+    final engine = FakePlayerEngine();
+    final cubit = PlayerCubit(
+      source: _source,
+      engine: engine,
+      repository: _SuccessPlayerRepository(
+        const PlayerSession(
+          sessionId: '42',
+          streamUrl: 'http://127.0.0.1:8080/stream/2',
+        ),
+      ),
+    );
+    addTearDown(cubit.close);
+
+    await cubit.loadPlayback();
+
+    expect(engine.calls, ['open http://127.0.0.1:8080/stream/2']);
+  });
+
+  test(
+    'disposes the session only after the media player released the stream',
+    () async {
+      final repository = _SuccessPlayerRepository(
+        const PlayerSession(
+          sessionId: '42',
+          streamUrl: 'http://127.0.0.1:8080/stream/2',
+        ),
+      );
+      final engine = FakePlayerEngine()..closeGate = Completer<void>();
+      final cubit = PlayerCubit(
+        source: _source,
+        repository: repository,
+        engine: engine,
+      );
+      await cubit.loadPlayback();
+
+      final closing = cubit.close();
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      expect(repository.disposedSessionIds, isEmpty);
+
+      engine.closeGate!.complete();
+      await closing;
+      expect(repository.disposedSessionIds, ['42']);
+    },
+  );
+
+  test('disposes the session anyway when the release times out', () async {
+    final repository = _SuccessPlayerRepository(
+      const PlayerSession(
+        sessionId: '42',
+        streamUrl: 'http://127.0.0.1:8080/stream/2',
+      ),
+    );
+    final cubit = PlayerCubit(
+      source: _source,
+      repository: repository,
+      engine: FakePlayerEngine()..closeGate = Completer<void>(),
+      engineReleaseTimeout: const Duration(milliseconds: 50),
+    );
+    await cubit.loadPlayback();
+
+    await cubit.close();
+
+    expect(repository.disposedSessionIds, ['42']);
+  });
 }
 
 class _SuccessPlayerRepository implements PlayerRepository {
+  @override
+  Future<void> stopPlayback({required String sessionId}) async {}
+
   _SuccessPlayerRepository(this.session);
 
   final PlayerSession session;
@@ -193,6 +285,9 @@ class _SuccessPlayerRepository implements PlayerRepository {
 }
 
 class _FailingPlayerRepository implements PlayerRepository {
+  @override
+  Future<void> stopPlayback({required String sessionId}) async {}
+
   final List<String> disposedSessionIds = [];
 
   @override
@@ -220,6 +315,9 @@ class _FailingPlayerRepository implements PlayerRepository {
 }
 
 class _StartupBufferFailingPlayerRepository implements PlayerRepository {
+  @override
+  Future<void> stopPlayback({required String sessionId}) async {}
+
   final List<String> disposedSessionIds = [];
 
   @override
@@ -256,6 +354,9 @@ class _StartupBufferFailingPlayerRepository implements PlayerRepository {
 }
 
 class _ControlledPlayerRepository implements PlayerRepository {
+  @override
+  Future<void> stopPlayback({required String sessionId}) async {}
+
   final List<String> startedSessionIds = [];
   final List<int> startedFileIndices = [];
   final List<String> disposedSessionIds = [];

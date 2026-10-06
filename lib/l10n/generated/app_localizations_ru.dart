@@ -15,6 +15,107 @@ class AppLocalizationsRu extends AppLocalizations {
   String get commonRetry => 'Повторить';
 
   @override
+  String get navigationCatalog => 'Каталог';
+
+  @override
+  String get navigationDownloads => 'Загрузки';
+
+  @override
+  String get downloadsTitle => 'Загрузки';
+
+  @override
+  String get downloadsOpenButton => 'Скачать';
+
+  @override
+  String get downloadsEmpty => 'Загруженные серии появятся здесь.';
+
+  @override
+  String get downloadSelectionTitle => 'Скачать файл';
+
+  @override
+  String get downloadSelectionPreparing => 'Получаем список файлов торрента...';
+
+  @override
+  String get downloadSelectionUnsupported =>
+      'В этом источнике нет поддерживаемых видеофайлов.';
+
+  @override
+  String get downloadSelectionUnableToPrepare =>
+      'Не удалось получить файлы из этого источника.';
+
+  @override
+  String get downloadUnableToQueue =>
+      'Не удалось добавить файл в очередь загрузок.';
+
+  @override
+  String get downloadFileButton => 'Скачать';
+
+  @override
+  String get downloadAddingToQueue => 'Добавляем в очередь...';
+
+  @override
+  String get downloadManagerUnableToLoad =>
+      'Не удалось открыть список загрузок.';
+
+  @override
+  String get downloadStorageTitle => 'Память приложения';
+
+  @override
+  String get downloadStorageTotal => 'Всего занято приложением';
+
+  @override
+  String get downloadStorageContent => 'Офлайн-контент';
+
+  @override
+  String get downloadStorageCache => 'Кэш';
+
+  @override
+  String get downloadStatusQueued => 'В очереди';
+
+  @override
+  String get downloadStatusDownloading => 'Загружается';
+
+  @override
+  String get downloadStatusPaused => 'На паузе';
+
+  @override
+  String get downloadStatusCompleted => 'Загружено';
+
+  @override
+  String get downloadStatusFailed => 'Ошибка';
+
+  @override
+  String downloadPeers(int count) {
+    return 'Пиры: $count';
+  }
+
+  @override
+  String get downloadFailedMessage => 'Загрузка остановилась из-за ошибки.';
+
+  @override
+  String get downloadWatchButton => 'Смотреть';
+
+  @override
+  String get downloadPauseButton => 'Пауза';
+
+  @override
+  String get downloadResumeButton => 'Продолжить';
+
+  @override
+  String get downloadDeleteButton => 'Удалить';
+
+  @override
+  String get downloadCancelButton => 'Отмена';
+
+  @override
+  String get downloadDeleteTitle => 'Удалить загрузку?';
+
+  @override
+  String downloadDeleteMessage(String name) {
+    return 'Файл «$name» будет удалён с устройства.';
+  }
+
+  @override
   String get animeKindTv => 'ТВ';
 
   @override
@@ -52,9 +153,6 @@ class AppLocalizationsRu extends AppLocalizations {
     );
     return '$aired/$total $_temp0';
   }
-
-  @override
-  String get animeListTitle => 'Список аниме';
 
   @override
   String get animeListLoading => 'Загрузка списка аниме...';
@@ -109,29 +207,25 @@ class AppLocalizationsRu extends AppLocalizations {
       'Ничего не найдено для выбранных критериев.';
 
   @override
-  String get animeDetailsTitle => 'Детали аниме';
-
-  @override
   String get animeDetailsLoading => 'Загрузка деталей аниме...';
 
   @override
   String get animeDetailsLoadError => 'Не удалось загрузить детали аниме.';
 
   @override
-  String get watchSourcesTitle => 'Источники просмотра';
+  String get watchSourcesTitle => 'Источники';
 
   @override
   String get watchSourcesOpenButton => 'Смотреть';
 
   @override
-  String get watchSourcesLoading => 'Загружаем источники просмотра...';
+  String get watchSourcesLoading => 'Загружаем источники...';
 
   @override
-  String get watchSourcesLoadError =>
-      'Не удалось загрузить источники просмотра.';
+  String get watchSourcesLoadError => 'Не удалось загрузить источники.';
 
   @override
-  String get watchSourcesEmpty => 'Источники просмотра не найдены.';
+  String get watchSourcesEmpty => 'Источники не найдены.';
 
   @override
   String get watchSourcesSearchHint => 'Поиск источников';
@@ -161,21 +255,6 @@ class AppLocalizationsRu extends AppLocalizations {
   String get watchSourcesSortTitle => 'По названию';
 
   @override
-  String get watchSourcesSizeLabel => 'Размер';
-
-  @override
-  String get watchSourcesTimeLabel => 'Время';
-
-  @override
-  String get watchSourcesSeedersLabel => 'Сиды';
-
-  @override
-  String get watchSourcesLeechersLabel => 'Личи';
-
-  @override
-  String get watchSourcesDownloadsLabel => 'Загрузки';
-
-  @override
   String get watchSourcesPageLinkLabel => 'Ссылка на страницу';
 
   @override
@@ -203,15 +282,6 @@ class AppLocalizationsRu extends AppLocalizations {
   @override
   String get playerSourceUnableToPrepare =>
       'Не удалось подготовить этот источник.';
-
-  @override
-  String get playerWatchFileButton => 'Смотреть файл';
-
-  @override
-  String get playerFileSizeLabel => 'Размер';
-
-  @override
-  String get playerFileTypeLabel => 'Тип';
 
   @override
   String get playerPreparing => 'Подготавливаем видео...';
@@ -283,6 +353,28 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get playerSubtitleTracksTitle => 'Субтитры';
+
+  @override
+  String get playerSettingsTitle => 'Настройки плеера';
+
+  @override
+  String get playerDecoderSettingsTitle => 'Декодер';
+
+  @override
+  String get playerDecoderSettingsDescription =>
+      'Меняйте это, только если видео тормозит или показывает зелёные кадры на вашем устройстве. Текущий декодер виден в overlay-статистике плеера.';
+
+  @override
+  String get playerDecoderAutoSafe => 'Авто (рекомендуется)';
+
+  @override
+  String get playerDecoderMediacodec => 'MediaCodec';
+
+  @override
+  String get playerDecoderMediacodecCopy => 'MediaCodec (zero-copy)';
+
+  @override
+  String get playerDecoderSoftwareOnly => 'Только программный';
 
   @override
   String get playerSubtitleAppearanceTitle => 'Вид субтитров';
@@ -357,4 +449,238 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get playerPauseButton => 'Пауза';
+
+  @override
+  String get navigationSavedTorrents => 'Раздачи';
+
+  @override
+  String get savedTorrentsTitle => 'Раздачи';
+
+  @override
+  String get savedTorrentsAddButton => 'Добавить magnet';
+
+  @override
+  String get savedTorrentsEmptyTitle => 'Пока нет сохранённых раздач';
+
+  @override
+  String get savedTorrentsEmptyMessage =>
+      'Вставьте magnet-ссылку, чтобы смотреть или скачать. Сохранённые ссылки останутся здесь.';
+
+  @override
+  String get savedTorrentsAddTitle => 'Добавить magnet-ссылку';
+
+  @override
+  String get savedTorrentsMagnetLabel => 'Magnet-ссылка';
+
+  @override
+  String get savedTorrentsPasteTooltip => 'Вставить из буфера';
+
+  @override
+  String get savedTorrentsNameLabel => 'Название';
+
+  @override
+  String get savedTorrentsNameHelper =>
+      'Если оставить пустым, возьмём из ссылки';
+
+  @override
+  String get savedTorrentsInvalidMagnet =>
+      'Это не magnet-ссылка с хэшем раздачи (xt=urn:btih:…).';
+
+  @override
+  String get savedTorrentsSaveButton => 'Сохранить';
+
+  @override
+  String get savedTorrentsAdded => 'Раздача сохранена';
+
+  @override
+  String savedTorrentsDuplicate(String title) {
+    return 'Уже сохранена как «$title»';
+  }
+
+  @override
+  String get savedTorrentsMoreTooltip => 'Ещё';
+
+  @override
+  String get savedTorrentsRename => 'Переименовать';
+
+  @override
+  String get savedTorrentsCopyLink => 'Копировать ссылку';
+
+  @override
+  String get savedTorrentsLinkCopied => 'Ссылка скопирована';
+
+  @override
+  String get savedTorrentsDelete => 'Удалить';
+
+  @override
+  String savedTorrentsDeleteTitle(String title) {
+    return 'Удалить «$title»?';
+  }
+
+  @override
+  String get savedTorrentsDeleteMessage =>
+      'Удалится только сохранённая ссылка. Скачанные файлы останутся в «Загрузках».';
+
+  @override
+  String savedTorrentsAddedOn(String date) {
+    return 'Добавлена $date';
+  }
+
+  @override
+  String savedTorrentsOpenedOn(String date) {
+    return 'Открывали $date';
+  }
+
+  @override
+  String get downloadStorageClearCache => 'Очистить';
+
+  @override
+  String get downloadStorageCacheCleared => 'Кэш очищен';
+
+  @override
+  String get downloadStorageCacheBusy => 'Кэш занят: сейчас идёт просмотр';
+
+  @override
+  String playerResumedFrom(String position) {
+    return 'Продолжаем с $position';
+  }
+
+  @override
+  String get playerStartOver => 'С начала';
+
+  @override
+  String get playerPlayNext => 'Следующая серия';
+
+  @override
+  String get playerSkipOpening => 'Пропустить опенинг';
+
+  @override
+  String get playerSkipRecap => 'Пропустить пересказ';
+
+  @override
+  String playerSkipForward(int seconds) {
+    return '+$seconds с';
+  }
+
+  @override
+  String playerSkipForwardTooltip(int seconds) {
+    return 'Вперёд на $seconds с';
+  }
+
+  @override
+  String get watchProgressWatched => 'Просмотрено';
+
+  @override
+  String watchProgressStoppedAt(String position, String duration) {
+    return 'Остановились на $position из $duration';
+  }
+
+  @override
+  String watchProgressContinueFile(String fileName) {
+    return 'Продолжить: $fileName';
+  }
+
+  @override
+  String watchProgressNextFile(String fileName) {
+    return 'Дальше: $fileName';
+  }
+
+  @override
+  String get watchProgressContinueButton => 'Продолжить';
+
+  @override
+  String get watchProgressPlayNextButton => 'Смотреть дальше';
+
+  @override
+  String watchProgressLastFile(String fileName) {
+    return 'Последняя: $fileName';
+  }
+
+  @override
+  String get continueWatchingTitle => 'Продолжить просмотр';
+
+  @override
+  String get continueWatchingRemove => 'Убрать из списка';
+
+  @override
+  String get recentlyWatchedTitle => 'Недавно смотрели';
+
+  @override
+  String get watchSourceUsedBadge => 'Вы смотрели';
+
+  @override
+  String get playerEpisodesTitle => 'Серии';
+
+  @override
+  String get playerShowEpisodes => 'Показать серии';
+
+  @override
+  String get playerHideEpisodes => 'Скрыть серии';
+
+  @override
+  String get playerNowPlaying => 'Сейчас';
+
+  @override
+  String get playerDetailedStats => 'Технические подробности';
+
+  @override
+  String get playerDetailedStatsHint => 'Пиры, декодер и кодеки поверх видео';
+
+  @override
+  String get animeDetailsChooseSourceButton => 'Выбрать источник';
+
+  @override
+  String animeEpisodeCount(String value, int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'серии',
+      many: 'серий',
+      few: 'серии',
+      one: 'серия',
+    );
+    return '$value $_temp0';
+  }
+
+  @override
+  String watchSourceSeeders(String value, int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'сида',
+      many: 'сидов',
+      few: 'сида',
+      one: 'сид',
+    );
+    return '$value $_temp0';
+  }
+
+  @override
+  String watchSourceLeechers(String value, int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'личера',
+      many: 'личеров',
+      few: 'личера',
+      one: 'личер',
+    );
+    return '$value $_temp0';
+  }
+
+  @override
+  String watchSourceDownloads(String value, int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'загрузки',
+      many: 'загрузок',
+      few: 'загрузки',
+      one: 'загрузка',
+    );
+    return '$value $_temp0';
+  }
+
+  @override
+  String get searchClearTooltip => 'Очистить';
 }

@@ -14,6 +14,7 @@ import 'package:iris/features/player/data/models/playback_stream_descriptor.dart
 import 'package:iris/features/player/data/models/prepared_playback_model.dart';
 import 'package:iris/features/player/data/models/torrent_file_descriptor.dart';
 import 'package:iris/features/player/data/utils/playback_stream_probe.dart';
+import 'package:iris/shared/torrent/torrent_activity_registry.dart';
 
 void main() {
   test(
@@ -81,6 +82,60 @@ void main() {
     },
   );
 
+  test('marks the torrent as streaming before adding it and releases it on '
+      'dispose', () async {
+    final registry = TorrentActivityRegistry();
+    final engine = _FakeLibtorrentEngineAdapter(
+      files: const [
+        TorrentFileDescriptor(
+          index: 0,
+          name: 'episode-01.mkv',
+          size: 900,
+          isStreamable: true,
+        ),
+      ],
+      streamUrl: 'http://127.0.0.1:8080/stream/0',
+    );
+    final streamingAtAdd = <bool>[];
+    registry.streamingStarted.listen(
+      (_) => streamingAtAdd.add(engine.lastMagnet == null),
+    );
+    final dataSource = LibtorrentPlayerDataSource(
+      engine: engine,
+      activityRegistry: registry,
+    );
+
+    final prepared = await dataSource.prepareSource(
+      magnet: 'magnet:?xt=urn:btih:ABCDEF',
+    );
+
+    expect(streamingAtAdd, [true]);
+    expect(registry.isStreaming('abcdef'), isTrue);
+
+    await dataSource.disposePlayback(sessionId: prepared.sessionId);
+    expect(registry.isStreaming('abcdef'), isFalse);
+  });
+
+  test('releases the streaming mark when metadata fails', () async {
+    final registry = TorrentActivityRegistry();
+    final engine = _FakeLibtorrentEngineAdapter(
+      files: const [],
+      streamUrl: 'http://127.0.0.1:8080/stream/0',
+      waitForMetadataError: StateError('engine failure'),
+    );
+    final dataSource = LibtorrentPlayerDataSource(
+      engine: engine,
+      activityRegistry: registry,
+    );
+
+    await expectLater(
+      () => dataSource.prepareSource(magnet: 'magnet:?xt=urn:btih:ABCDEF'),
+      throwsA(isA<StateError>()),
+    );
+    expect(registry.isStreaming('abcdef'), isFalse);
+    expect(engine.disposedTorrentIds, hasLength(1));
+  });
+
   test('disposes torrent session when metadata loading times out', () async {
     final engine = _FakeLibtorrentEngineAdapter(
       files: const [],
@@ -135,7 +190,7 @@ void main() {
   );
 
   test(
-    'emits startup failure when HTTP probe cannot confirm a playable stream',
+    'does not fail startup when HTTP probe cannot confirm a playable stream',
     () async {
       final probe = _FakePlaybackStreamProbe(
         result: const PlaybackProbeResult(
@@ -160,12 +215,48 @@ void main() {
           .toList();
 
       expect(updates, [
-        const PlaybackLaunchFailureUpdateModel(
-          PlaybackLaunchFailureModel.unableToStart,
+        const PlaybackLaunchReadyUpdateModel(
+          PreparedPlaybackModel(
+            sessionId: '42',
+            streamUrl: 'http://127.0.0.1:8080/stream/8',
+          ),
         ),
       ]);
     },
   );
+
+  test('emits ready before a blocking HTTP probe completes', () async {
+    final probe = _BlockingPlaybackStreamProbe();
+    final engine = _FakeLibtorrentEngineAdapter(
+      files: const [],
+      streamUrl: 'http://127.0.0.1:8080/stream/8',
+    );
+    final dataSource = LibtorrentPlayerDataSource(engine: engine, probe: probe);
+
+    final updates = await dataSource
+        .startPlayback(sessionId: '42', fileIndex: 8)
+        .toList();
+
+    expect(updates, [
+      const PlaybackLaunchReadyUpdateModel(
+        PreparedPlaybackModel(
+          sessionId: '42',
+          streamUrl: 'http://127.0.0.1:8080/stream/8',
+        ),
+      ),
+    ]);
+    expect(probe.probedUrls, ['http://127.0.0.1:8080/stream/8']);
+
+    probe.release(
+      const PlaybackProbeResult(
+        statusCode: 206,
+        contentType: null,
+        contentLength: 64,
+        acceptRanges: 'bytes',
+        firstBytes: [0x1A, 0x45, 0xDF, 0xA3],
+      ),
+    );
+  });
 
   test('disposes torrent session by torrent id', () async {
     final engine = _FakeLibtorrentEngineAdapter(
@@ -214,6 +305,28 @@ void main() {
         readaheadWindow: 30,
       ),
     );
+  });
+
+  test('stops the stream but keeps the torrent for the next file', () async {
+    final engine = _FakeLibtorrentEngineAdapter(
+      files: const [],
+      streamUrl: 'http://127.0.0.1:8080/stream/8',
+    );
+    final dataSource = LibtorrentPlayerDataSource(
+      engine: engine,
+      probe: _FakePlaybackStreamProbe(),
+    );
+
+    await dataSource.startPlayback(sessionId: '42', fileIndex: 8).last;
+    await dataSource.stopPlayback(sessionId: '42');
+    final next = await dataSource
+        .startPlayback(sessionId: '42', fileIndex: 9)
+        .last;
+
+    expect(engine.stoppedStreamIds, [77]);
+    expect(engine.disposedTorrentIds, isEmpty);
+    expect(engine.startedStreamFileIndex, 9);
+    expect(next, isA<PlaybackLaunchReadyUpdateModel>());
   });
 
   test('does not start a second stream for the same active session', () async {
@@ -279,13 +392,66 @@ void main() {
       await done.future.timeout(const Duration(seconds: 2));
       await subscription.cancel();
 
-      expect(updates, isEmpty);
+      expect(updates, [
+        const PlaybackLaunchReadyUpdateModel(
+          PreparedPlaybackModel(
+            sessionId: '42',
+            streamUrl: 'http://127.0.0.1:8080/stream/8',
+          ),
+        ),
+      ]);
       expect(probe.probedUrls.length, 1);
+    },
+  );
+
+  test(
+    'ignores probe errors that arrive after playback was disposed',
+    () async {
+      final probe = _BlockingPlaybackStreamProbe();
+      final engine = _FakeLibtorrentEngineAdapter(
+        files: const [],
+        streamUrl: 'http://127.0.0.1:8080/stream/8',
+      );
+      final dataSource = LibtorrentPlayerDataSource(
+        engine: engine,
+        probe: probe,
+      );
+
+      final updates = <PlaybackLaunchUpdateModel>[];
+      final done = Completer<void>();
+      final subscription = dataSource
+          .startPlayback(sessionId: '42', fileIndex: 8)
+          .listen(
+            updates.add,
+            onDone: () {
+              if (!done.isCompleted) {
+                done.complete();
+              }
+            },
+          );
+
+      await probe.started.future;
+      await dataSource.disposePlayback(sessionId: '42');
+      probe.releaseError(StateError('probe failed'));
+      await done.future.timeout(const Duration(seconds: 2));
+      await subscription.cancel();
+
+      expect(updates, [
+        const PlaybackLaunchReadyUpdateModel(
+          PreparedPlaybackModel(
+            sessionId: '42',
+            streamUrl: 'http://127.0.0.1:8080/stream/8',
+          ),
+        ),
+      ]);
     },
   );
 }
 
 class _FakeLibtorrentEngineAdapter implements LibtorrentEngineAdapter {
+  @override
+  void stopStream(int streamId) => stoppedStreamIds.add(streamId);
+
   _FakeLibtorrentEngineAdapter({
     required this.files,
     required this.streamUrl,
@@ -309,6 +475,7 @@ class _FakeLibtorrentEngineAdapter implements LibtorrentEngineAdapter {
   int startStreamCallCount = 0;
   bool waitForStreamReadyWasCancelled = false;
   final List<int> disposedTorrentIds = [];
+  final List<int> stoppedStreamIds = [];
 
   @override
   int addMagnet(String magnet) {
@@ -401,6 +568,12 @@ class _BlockingPlaybackStreamProbe implements PlaybackStreamProbe {
   void release(PlaybackProbeResult result) {
     if (!_result.isCompleted) {
       _result.complete(result);
+    }
+  }
+
+  void releaseError(Object error) {
+    if (!_result.isCompleted) {
+      _result.completeError(error);
     }
   }
 

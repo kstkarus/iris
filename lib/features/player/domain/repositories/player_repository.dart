@@ -12,5 +12,9 @@ abstract interface class PlayerRepository {
 
   Stream<PlayerPlaybackStats> watchPlaybackStats({required String sessionId});
 
+  /// Stops the current file's stream but keeps the torrent, so another
+  /// file of it can be played next.
+  Future<void> stopPlayback({required String sessionId});
+
   Future<void> disposePlayback({required String sessionId});
 }

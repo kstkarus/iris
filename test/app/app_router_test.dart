@@ -31,16 +31,48 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    router.goNamed(
-      'anime-player',
-      pathParameters: {'id': '5114'},
-      extra: 'bad',
-    );
+    router.goNamed('player', extra: 'bad');
     await tester.pumpAndSettle();
 
     expect(
       find.text('This screen was opened with invalid navigation data.'),
       findsOneWidget,
     );
+  });
+
+  testWidgets(
+    'shows route error when streaming file route receives invalid args',
+    (tester) async {
+      final router = AppRouter.createRouter();
+      addTearDown(router.dispose);
+
+      await tester.pumpWidget(
+        MaterialApp.router(
+          locale: const Locale('en'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          routerConfig: router,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      router.goNamed('torrent-stream-files', extra: 'bad');
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('This screen was opened with invalid navigation data.'),
+        findsOneWidget,
+      );
+    },
+  );
+
+  test('torrent and player routes do not depend on a catalog title', () {
+    final router = AppRouter.createRouter();
+    addTearDown(router.dispose);
+
+    expect(router.namedLocation('player'), '/player');
+    expect(router.namedLocation('torrent-stream-files'), '/torrent/watch');
+    expect(router.namedLocation('torrent-download-files'), '/torrent/download');
+    expect(router.namedLocation('saved-torrents'), '/torrents');
   });
 }

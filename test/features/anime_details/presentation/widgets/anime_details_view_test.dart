@@ -7,8 +7,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:iris/features/anime_details/domain/entities/anime_details.dart';
 import 'package:iris/features/anime_details/domain/repositories/anime_details_repository.dart';
 import 'package:iris/features/anime_details/presentation/cubit/anime_details_cubit.dart';
+import 'package:iris/features/anime_details/presentation/pages/anime_details_page.dart';
 import 'package:iris/features/anime_details/presentation/widgets/anime_details_view.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
+
+import '../../../../helpers/test_window.dart';
 
 void main() {
   testWidgets('shows a loader while details are loading', (tester) async {
@@ -54,12 +57,12 @@ void main() {
 
     await tester.pumpAndSettle();
 
-    expect(find.text('TV / Released'), findsOneWidget);
     expect(find.text('Fullmetal Alchemist: Brotherhood'), findsOneWidget);
-    expect(find.text('Watch'), findsOneWidget);
-    expect(find.text('Score 9.12'), findsOneWidget);
-    expect(find.text('64/64 episodes'), findsOneWidget);
-    expect(find.text('Apr 5, 2009'), findsOneWidget);
+    expect(find.text('Choose source'), findsOneWidget);
+    expect(
+      find.text('TV · Released · Score 9.12 · 64 episodes · Apr 5, 2009'),
+      findsOneWidget,
+    );
     expect(
       find.text(
         'Two brothers search for a Philosopher\'s Stone after a failed ritual.',
@@ -90,10 +93,10 @@ void main() {
 
     await tester.pumpAndSettle();
 
-    expect(find.text('ТВ / Вышло'), findsOneWidget);
-    expect(find.text('Оценка 9,12'), findsOneWidget);
-    expect(find.text('64/64 серии'), findsOneWidget);
-    expect(find.text('5 апр. 2009 г.'), findsOneWidget);
+    expect(
+      find.text('ТВ · Вышло · Оценка 9,12 · 64 серии · 5 апр. 2009 г.'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('shows error state and retries loading', (tester) async {
@@ -124,6 +127,40 @@ void main() {
 
     expect(find.text('Fullmetal Alchemist: Brotherhood'), findsOneWidget);
   });
+
+  for (final entry in TestWindowSizes.all.entries) {
+    testWidgets('adapts the details layout on ${entry.key}', (tester) async {
+      setTestWindowSize(tester, entry.value);
+      final cubit = AnimeDetailsCubit(
+        animeId: '5114',
+        repository: _SuccessAnimeDetailsRepository(_longDetails),
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          locale: const Locale('en'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: BlocProvider.value(
+            value: cubit..loadAnime(),
+            child: const AnimeDetailsPage(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final title = tester.getRect(find.text(_longDetails.name));
+      final poster = tester.getRect(find.byType(Image).first);
+      final description = tester.getRect(find.text(_longDetails.description));
+      if (entry.value.width < 840) {
+        expect(description.left, title.left);
+      } else {
+        expect(description.left, greaterThan(poster.right));
+        expect(description.width, lessThanOrEqualTo(720));
+      }
+      expect(tester.takeException(), isNull);
+    });
+  }
 }
 
 class _PendingAnimeDetailsRepository implements AnimeDetailsRepository {
@@ -168,4 +205,18 @@ const _details = AnimeDetails(
   episodesAired: 64,
   airedOn: '2009-04-05',
   posterOriginalUrl: 'https://shikimori.one/posters/5114/original.jpg',
+);
+
+final _longDetails = AnimeDetails(
+  id: _details.id,
+  name: _details.name,
+  russian: _details.russian,
+  description: List.filled(40, _details.description).join(' '),
+  kind: _details.kind,
+  score: _details.score,
+  status: _details.status,
+  episodes: _details.episodes,
+  episodesAired: _details.episodesAired,
+  airedOn: _details.airedOn,
+  posterOriginalUrl: _details.posterOriginalUrl,
 );

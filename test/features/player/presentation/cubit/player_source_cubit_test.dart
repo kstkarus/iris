@@ -218,6 +218,9 @@ void main() {
 }
 
 class _PreparedSourceRepository implements PlayerRepository {
+  @override
+  Future<void> stopPlayback({required String sessionId}) async {}
+
   _PreparedSourceRepository(this.preparedSource);
 
   final PreparedPlayerSource preparedSource;
@@ -249,6 +252,9 @@ class _PreparedSourceRepository implements PlayerRepository {
 
 class _UnsupportedSourceRepository implements PlayerRepository {
   @override
+  Future<void> stopPlayback({required String sessionId}) async {}
+
+  @override
   Future<void> disposePlayback({required String sessionId}) async {}
 
   @override
@@ -271,6 +277,9 @@ class _UnsupportedSourceRepository implements PlayerRepository {
 }
 
 class _DeferredSourceRepository implements PlayerRepository {
+  @override
+  Future<void> stopPlayback({required String sessionId}) async {}
+
   final Completer<PreparedPlayerSource> _prepareCompleter =
       Completer<PreparedPlayerSource>();
   final List<String> disposedSessionIds = [];

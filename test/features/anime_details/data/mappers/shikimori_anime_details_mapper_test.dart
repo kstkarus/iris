@@ -50,4 +50,16 @@ void main() {
       ),
     );
   });
+
+  test('description keeps the text of wiki links and BBCode tags', () {
+    expect(
+      sanitizeShikimoriDescription(
+        'Изнывающий от скуки [[Бог смерти|бог смерти]] '
+        '[character=71]Рюк[/character]  бросает тетрадь. '
+        'Убийцу окрещают [[Кира]].',
+      ),
+      'Изнывающий от скуки бог смерти Рюк бросает тетрадь. '
+      'Убийцу окрещают Кира.',
+    );
+  });
 }

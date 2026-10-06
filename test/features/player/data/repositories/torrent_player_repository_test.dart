@@ -178,6 +178,9 @@ class _FakePlayerDataSource extends LibtorrentPlayerDataSource {
 
 class _UnusedLibtorrentEngineAdapter implements LibtorrentEngineAdapter {
   @override
+  void stopStream(int streamId) {}
+
+  @override
   int addMagnet(String magnet) {
     throw UnimplementedError();
   }

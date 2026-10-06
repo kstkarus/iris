@@ -151,6 +151,58 @@ lib/
 - Preserve screen wake state only during active video playback.
 - Treat player lifecycle carefully: pause/resume/dispose explicitly.
 
+### Playback startup contract (torrent -> mpv)
+This contract is binding. Reference implementations: peerflix, WebTorrent, libtorrent
+streaming docs (`https://www.libtorrent.org/streaming.html`). Rationale: format-sniffing
+in the Dart layer duplicates mpv's own probe, adds latency, competes with mpv for the
+single local libtorrent HTTP connection, and produces false negatives on legitimate
+containers (WebM, non-standard `ftyp` brands, FLV, OGG, MOV variants).
+
+1. **Never gate playback startup on a Dart-side format probe.**
+   The HTTP probe (`PlaybackStreamProbe` / `looksLikePlayableMedia`) is **diagnostics-only**:
+   run it in the background, log the result, never block `PlaybackLaunchReadyUpdateModel`
+   on it, never fail startup because of it.
+2. **Stream-readiness is the torrent engine and local HTTP server's responsibility.**
+   Startup may emit the local stream URL immediately after `startStream`; the local
+   HTTP server must hold byte-range responses until requested pieces are available.
+   Do not paper over missing piece readiness with a Dart-side buffer% heuristic.
+3. **Fast-fail for a broken URL is a separate concern from format detection.**
+   If we need it, implement it as a short connectivity check (single attempt, ~1-2s,
+   HTTP status only, no body sniffing). Format heuristics are not a substitute.
+4. **Buffering is delegated to mpv via media_kit.**
+   Configure `--cache=yes`, `--cache-secs`, `--demuxer-readahead-secs`,
+   `--network-timeout` rather than implementing wait loops in Dart.
+5. **UI buffering state comes from `Player.stream.buffering`** (plus optional torrent
+   progress from the adapter), never from the probe.
+6. **Probe lifecycle must follow the session.** Cancel the background probe on
+   `disposePlayback` and on launch cancellation; ignore late results from disposed
+   sessions (covered by tests in `libtorrent_player_data_source_test.dart`).
+
+### Decoding & rendering performance
+This contract is binding for the in-app player.
+
+1. **Hardware decoding is the default.** Create `VideoController` with an explicit
+   `VideoControllerConfiguration(hwdec: 'auto-safe', enableHardwareAcceleration: true)`.
+   This matches the current `media_kit_video` Android default, but keeps our behavior
+   stable across package upgrades.
+2. **Expose a user override for decoding mode.** Supported modes are `auto-safe`,
+   `mediacodec`, `mediacodec-copy`, and `no`. Users should change this only for
+   device-specific playback problems.
+3. **Do not force decoders globally through `vd`.** Keep software fallback thread
+   usage explicit with `vd-lavc-threads=0`, but do not add a global AV1 decoder chain
+   without a separate measured iteration.
+4. **Buffering is configured at mpv level.** Keep `cache=yes`, `cache-pause=yes`,
+   `cache-pause-initial=yes`, `demuxer-max-bytes`, and `demuxer-max-back-bytes`.
+   Also set `cache-secs=30`, `demuxer-readahead-secs=20`, `network-timeout=60`,
+   and `cache-pause-wait=3`.
+5. **Torrent streaming is deadline/priority-driven, not sequential-only.** The
+   `libtorrent_flutter` integration relies on piece deadlines and critical startup
+   pieces; do not reintroduce a sequential-only requirement.
+6. **Overlay diagnostics must show real decoder state.** Surface `hwdec-current`,
+   `current-vo`, `current-tracks/video/codec`, `current-tracks/video/decoder`, and
+   `current-tracks/video/decoder-desc`. Missing or invalid diagnostic values must be
+   ignored without breaking playback UI.
+
 ## Error handling rules
 - Convert low-level exceptions into app-specific failures.
 - UI should react to user-meaningful states, not `DioException` or raw stack traces.

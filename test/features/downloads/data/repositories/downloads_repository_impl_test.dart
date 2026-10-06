@@ -1,0 +1,684 @@
+import 'dart:async';
+import 'dart:io';
+
+import 'package:flutter_test/flutter_test.dart';
+
+import 'package:iris/features/downloads/data/adapters/app_storage_usage_adapter.dart';
+import 'package:iris/features/downloads/data/adapters/download_foreground_service_adapter.dart';
+import 'package:iris/features/downloads/data/adapters/libtorrent_download_engine_adapter.dart';
+import 'package:iris/features/downloads/data/datasources/download_registry_data_source.dart';
+import 'package:iris/features/downloads/data/repositories/downloads_repository_impl.dart';
+import 'package:iris/features/downloads/domain/entities/download_status.dart';
+import 'package:iris/shared/storage/stream_cache_storage.dart';
+import 'package:iris/shared/torrent/torrent_activity_registry.dart';
+
+void main() {
+  late Directory temporaryDirectory;
+  late Directory downloadsDirectory;
+  late _FakeDownloadEngine engine;
+  late _FakeForegroundService foregroundService;
+  late TorrentActivityRegistry activityRegistry;
+  late DownloadsRepositoryImpl repository;
+
+  setUp(() async {
+    temporaryDirectory = await Directory.systemTemp.createTemp(
+      'iris_download_repository_test_',
+    );
+    downloadsDirectory = Directory(
+      '${temporaryDirectory.path}${Platform.pathSeparator}downloads',
+    );
+    engine = _FakeDownloadEngine();
+    foregroundService = _FakeForegroundService();
+    activityRegistry = TorrentActivityRegistry();
+    repository = DownloadsRepositoryImpl(
+      engine: engine,
+      registry: DownloadRegistryDataSource(
+        registryFile: File(
+          '${temporaryDirectory.path}${Platform.pathSeparator}registry.json',
+        ),
+      ),
+      downloadsDirectory: downloadsDirectory,
+      foregroundService: foregroundService,
+      storageUsageAdapter: const _FakeStorageUsageAdapter(),
+      activityRegistry: activityRegistry,
+      now: () => DateTime.utc(2026, 7, 11, 12),
+    );
+  });
+
+  tearDown(() async {
+    await repository.close();
+    await engine.close();
+    if (await temporaryDirectory.exists()) {
+      await temporaryDirectory.delete(recursive: true);
+    }
+  });
+
+  test('prepares only supported video files and disposes metadata', () async {
+    final source = await repository.prepareSource(magnet: _magnet);
+
+    expect(source.files, hasLength(2));
+    expect(source.files.map((file) => file.name), [
+      'episode-01.mkv',
+      'episode-02.mp4',
+    ]);
+    expect(engine.addCalls.single.metadataOnly, isTrue);
+
+    await repository.disposePreparedSource(sourceToken: source.sourceToken);
+
+    expect(engine.removeCalls.single.deleteFiles, isTrue);
+  });
+
+  test(
+    'queues one selected file and gives all other files zero priority',
+    () async {
+      final source = await repository.prepareSource(magnet: _magnet);
+      final item = await repository.enqueueDownload(
+        source: source,
+        file: source.files[1],
+        animeId: '154587',
+        animeTitle: 'Sousou no Frieren',
+        sourceTitle: 'Release',
+      );
+
+      await _waitFor(() => engine.priorityCalls.isNotEmpty);
+      final downloads = await repository.currentDownloads();
+
+      expect(item.fileIndex, 2);
+      expect(downloads.single.status, DownloadStatus.downloading);
+      expect(engine.addCalls.last.metadataOnly, isFalse);
+      expect(engine.priorityCalls.single.priorities, [0, 0, 7, 0]);
+      expect(engine.resumedTorrentIds, [engine.addCalls.last.id]);
+      expect(foregroundService.startCount, 1);
+    },
+  );
+
+  test('marks a finished file completed without deleting it', () async {
+    final source = await repository.prepareSource(magnet: _magnet);
+    final item = await repository.enqueueDownload(
+      source: source,
+      file: source.files.first,
+      animeId: '154587',
+      animeTitle: 'Sousou no Frieren',
+      sourceTitle: 'Release',
+    );
+    await _waitFor(() => engine.priorityCalls.isNotEmpty);
+    await File(item.localPath).parent.create(recursive: true);
+    await File(item.localPath).writeAsBytes(List.filled(item.totalBytes, 1));
+
+    final completed = repository.watchDownloads().firstWhere(
+      (items) => items.any(
+        (download) =>
+            download.id == item.id &&
+            download.status == DownloadStatus.completed,
+      ),
+    );
+    final activeTorrentId = engine.addCalls.last.id;
+    engine.emit({
+      activeTorrentId: _torrent(
+        activeTorrentId,
+        downloadedBytes: item.totalBytes,
+        isFinished: true,
+      ),
+    });
+    await completed.timeout(const Duration(seconds: 2));
+
+    final restored = await repository.findCompletedById(id: item.id);
+    expect(restored, isNotNull);
+    expect(await File(item.localPath).exists(), isTrue);
+    expect(
+      engine.removeCalls.last,
+      _RemoveCall(activeTorrentId, deleteFiles: false),
+    );
+    expect(foregroundService.stopCount, greaterThan(0));
+  });
+
+  test(
+    'pause preserves partial files and resume starts the item again',
+    () async {
+      final source = await repository.prepareSource(magnet: _magnet);
+      final item = await repository.enqueueDownload(
+        source: source,
+        file: source.files.first,
+        animeId: '154587',
+        animeTitle: 'Sousou no Frieren',
+        sourceTitle: 'Release',
+      );
+      await _waitFor(() => engine.priorityCalls.isNotEmpty);
+      final firstTorrentId = engine.addCalls.last.id;
+
+      await repository.pause(id: item.id);
+      expect(
+        (await repository.currentDownloads()).single.status,
+        DownloadStatus.paused,
+      );
+      expect(engine.pausedTorrentIds, [firstTorrentId]);
+      expect(
+        engine.removeCalls.last,
+        _RemoveCall(firstTorrentId, deleteFiles: false),
+      );
+
+      await repository.resume(id: item.id);
+      await _waitFor(() => engine.priorityCalls.length == 2);
+      expect(
+        (await repository.currentDownloads()).single.status,
+        DownloadStatus.downloading,
+      );
+      expect(engine.addCalls.last.id, isNot(firstTorrentId));
+    },
+  );
+
+  test('reports offline and Android app storage usage', () async {
+    await downloadsDirectory.create(recursive: true);
+    await File(
+      '${downloadsDirectory.path}${Platform.pathSeparator}video.mkv',
+    ).writeAsBytes(List.filled(128, 0));
+
+    final usage = await repository.calculateStorageUsage();
+
+    expect(usage.downloadsBytes, 128);
+    expect(usage.cacheBytes, 25);
+    expect(usage.totalBytes, 300);
+  });
+
+  group('without system storage stats', () {
+    late Directory streamCacheDirectory;
+    late DownloadsRepositoryImpl desktopRepository;
+
+    setUp(() {
+      streamCacheDirectory = Directory(
+        '${temporaryDirectory.path}${Platform.pathSeparator}stream',
+      );
+      desktopRepository = DownloadsRepositoryImpl(
+        engine: engine,
+        registry: DownloadRegistryDataSource(
+          registryFile: File(
+            '${temporaryDirectory.path}${Platform.pathSeparator}desktop.json',
+          ),
+        ),
+        downloadsDirectory: downloadsDirectory,
+        foregroundService: foregroundService,
+        storageUsageAdapter: const _FakeStorageUsageAdapter(usage: null),
+        streamCache: StreamCacheStorage(directory: streamCacheDirectory),
+        activityRegistry: activityRegistry,
+      );
+    });
+
+    tearDown(() => desktopRepository.close());
+
+    Future<void> writeStreamLeftover() async {
+      final file = File(
+        '${streamCacheDirectory.path}${Platform.pathSeparator}'
+        'Show${Platform.pathSeparator}episode.mkv',
+      );
+      await file.parent.create(recursive: true);
+      await file.writeAsBytes(List.filled(64, 0));
+    }
+
+    test('counts the stream cache and sums the total', () async {
+      await downloadsDirectory.create(recursive: true);
+      await File(
+        '${downloadsDirectory.path}${Platform.pathSeparator}video.mkv',
+      ).writeAsBytes(List.filled(128, 0));
+      await writeStreamLeftover();
+
+      final usage = await desktopRepository.calculateStorageUsage();
+
+      expect(usage.downloadsBytes, 128);
+      expect(usage.cacheBytes, 64);
+      expect(usage.totalBytes, 192);
+    });
+
+    test('clears the stream cache but not while streaming', () async {
+      await writeStreamLeftover();
+      activityRegistry.acquireStreaming('abc');
+
+      expect(await desktopRepository.clearCache(), isFalse);
+      expect((await desktopRepository.calculateStorageUsage()).cacheBytes, 64);
+
+      activityRegistry.releaseStreaming('abc');
+      expect(await desktopRepository.clearCache(), isTrue);
+      expect((await desktopRepository.calculateStorageUsage()).cacheBytes, 0);
+      expect(await streamCacheDirectory.exists(), isTrue);
+    });
+  });
+
+  test('does not complete while wanted pieces are still missing even if raw '
+      'done-bytes reach the file size', () async {
+    final source = await repository.prepareSource(magnet: _magnet);
+    final item = await repository.enqueueDownload(
+      source: source,
+      file: source.files.first,
+      animeId: '154587',
+      animeTitle: 'Sousou no Frieren',
+      sourceTitle: 'Release',
+    );
+    await _waitFor(() => engine.priorityCalls.isNotEmpty);
+    final activeTorrentId = engine.addCalls.last.id;
+
+    engine.emit({
+      activeTorrentId: _torrent(
+        activeTorrentId,
+        // Boundary pieces of neighbouring files inflate raw done-bytes.
+        downloadedBytes: item.totalBytes + 10,
+        isFinished: false,
+        progress: 0.5,
+      ),
+    });
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+    final items = await repository.currentDownloads();
+
+    expect(items.single.status, DownloadStatus.downloading);
+    expect(items.single.downloadedBytes, item.totalBytes ~/ 2);
+  });
+
+  test('ignores engine state until the selected file is prioritized', () async {
+    final source = await repository.prepareSource(magnet: _magnet);
+    engine.metadataGate = Completer<void>();
+    await repository.enqueueDownload(
+      source: source,
+      file: source.files.first,
+      animeId: '154587',
+      animeTitle: 'Sousou no Frieren',
+      sourceTitle: 'Release',
+    );
+    await _waitFor(() => engine.addCalls.length == 2);
+    final activeTorrentId = engine.addCalls.last.id;
+
+    // Whole-torrent state before priorities are applied must not finish or
+    // fail the download.
+    engine.emit({
+      activeTorrentId: _torrent(
+        activeTorrentId,
+        downloadedBytes: 0,
+        isFinished: true,
+      ),
+    });
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+    expect(
+      (await repository.currentDownloads()).single.status,
+      DownloadStatus.downloading,
+    );
+
+    engine.metadataGate!.complete();
+    await _waitFor(() => engine.priorityCalls.isNotEmpty);
+    expect(
+      (await repository.currentDownloads()).single.status,
+      DownloadStatus.downloading,
+    );
+  });
+
+  test(
+    'pausing during the metadata wait starts the next queued item',
+    () async {
+      const otherMagnet = 'magnet:?xt=urn:btih:0011223344556677';
+      final first = await repository.prepareSource(magnet: _magnet);
+      final second = await repository.prepareSource(magnet: otherMagnet);
+      engine.metadataGate = Completer<void>();
+      final firstItem = await repository.enqueueDownload(
+        source: first,
+        file: first.files.first,
+        animeId: '1',
+        animeTitle: 'First',
+        sourceTitle: 'Release',
+      );
+      await repository.enqueueDownload(
+        source: second,
+        file: second.files.first,
+        animeId: '2',
+        animeTitle: 'Second',
+        sourceTitle: 'Release',
+      );
+      await _waitFor(() => engine.addCalls.length == 3);
+
+      // Metadata for the first torrent never arrives; pausing must not leave
+      // the queue blocked until the metadata timeout.
+      engine.metadataGate = null;
+      await repository.pause(id: firstItem.id);
+
+      await _waitFor(() => engine.priorityCalls.isNotEmpty);
+      expect(engine.addCalls.last.magnet, otherMagnet);
+      final downloads = await repository.currentDownloads();
+      expect(downloads.map((item) => item.status), [
+        DownloadStatus.paused,
+        DownloadStatus.downloading,
+      ]);
+    },
+  );
+
+  test('selection for a torrent that is downloading borrows it instead of '
+      'adding a duplicate that would delete the download on dispose', () async {
+    final source = await repository.prepareSource(magnet: _magnet);
+    await repository.enqueueDownload(
+      source: source,
+      file: source.files.first,
+      animeId: '154587',
+      animeTitle: 'Sousou no Frieren',
+      sourceTitle: 'Release',
+    );
+    await _waitFor(() => engine.priorityCalls.isNotEmpty);
+    final activeTorrentId = engine.addCalls.last.id;
+    final addCountBefore = engine.addCalls.length;
+    final removeCountBefore = engine.removeCalls.length;
+
+    final again = await repository.prepareSource(magnet: _magnet);
+    expect(again.files, hasLength(2));
+    expect(engine.addCalls, hasLength(addCountBefore));
+
+    await repository.disposePreparedSource(sourceToken: again.sourceToken);
+    expect(engine.removeCalls, hasLength(removeCountBefore));
+    expect(
+      engine.removeCalls,
+      isNot(contains(_RemoveCall(activeTorrentId, deleteFiles: true))),
+    );
+  });
+
+  test(
+    'a queued download waits while a selection owns the same torrent',
+    () async {
+      final source = await repository.prepareSource(magnet: _magnet);
+      final item = await repository.enqueueDownload(
+        source: source,
+        file: source.files.first,
+        animeId: '154587',
+        animeTitle: 'Sousou no Frieren',
+        sourceTitle: 'Release',
+      );
+      await _waitFor(() => engine.priorityCalls.isNotEmpty);
+      await repository.pause(id: item.id);
+
+      final selection = await repository.prepareSource(magnet: _magnet);
+      final selectionTorrentId = engine.addCalls.last.id;
+      await repository.resume(id: item.id);
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+
+      expect(engine.addCalls.last.id, selectionTorrentId);
+      expect(
+        (await repository.currentDownloads()).single.status,
+        DownloadStatus.queued,
+      );
+
+      await repository.disposePreparedSource(
+        sourceToken: selection.sourceToken,
+      );
+      await _waitFor(() => engine.priorityCalls.length == 2);
+      expect(engine.addCalls.last.id, isNot(selectionTorrentId));
+      expect(
+        (await repository.currentDownloads()).single.status,
+        DownloadStatus.downloading,
+      );
+    },
+  );
+
+  test('streaming the same torrent sends the active download back to the queue '
+      'and resumes it afterwards', () async {
+    final source = await repository.prepareSource(magnet: _magnet);
+    await repository.enqueueDownload(
+      source: source,
+      file: source.files.first,
+      animeId: '154587',
+      animeTitle: 'Sousou no Frieren',
+      sourceTitle: 'Release',
+    );
+    await _waitFor(() => engine.priorityCalls.isNotEmpty);
+    final downloadTorrentId = engine.addCalls.last.id;
+
+    activityRegistry.acquireStreaming('abcdef1234567890');
+
+    // Released synchronously, without deleting partial files.
+    expect(
+      engine.removeCalls.last,
+      _RemoveCall(downloadTorrentId, deleteFiles: false),
+    );
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+    expect(
+      (await repository.currentDownloads()).single.status,
+      DownloadStatus.queued,
+    );
+    expect(engine.addCalls.last.id, downloadTorrentId);
+
+    activityRegistry.releaseStreaming('abcdef1234567890');
+    await _waitFor(() => engine.priorityCalls.length == 2);
+    expect(engine.addCalls.last.id, isNot(downloadTorrentId));
+    expect(
+      (await repository.currentDownloads()).single.status,
+      DownloadStatus.downloading,
+    );
+  });
+
+  test(
+    'streaming another torrent does not touch the active download',
+    () async {
+      final source = await repository.prepareSource(magnet: _magnet);
+      await repository.enqueueDownload(
+        source: source,
+        file: source.files.first,
+        animeId: '154587',
+        animeTitle: 'Sousou no Frieren',
+        sourceTitle: 'Release',
+      );
+      await _waitFor(() => engine.priorityCalls.isNotEmpty);
+      final removeCount = engine.removeCalls.length;
+
+      activityRegistry.acquireStreaming('ffffffffffffffff');
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+
+      expect(engine.removeCalls, hasLength(removeCount));
+      expect(
+        (await repository.currentDownloads()).single.status,
+        DownloadStatus.downloading,
+      );
+    },
+  );
+}
+
+const _magnet = 'magnet:?xt=urn:btih:ABCDEF1234567890';
+
+class _FakeDownloadEngine implements LibtorrentDownloadEngineAdapter {
+  final StreamController<Map<int, DownloadEngineTorrent>> _controller =
+      StreamController<Map<int, DownloadEngineTorrent>>.broadcast();
+  final List<_AddCall> addCalls = [];
+  final List<_RemoveCall> removeCalls = [];
+  final List<_PriorityCall> priorityCalls = [];
+  final List<int> pausedTorrentIds = [];
+  final List<int> resumedTorrentIds = [];
+  int _nextId = 0;
+
+  static const files = [
+    DownloadEngineFile(
+      index: 0,
+      name: 'episode-01.mkv',
+      relativePath: 'release/episode-01.mkv',
+      size: 64,
+      isStreamable: true,
+    ),
+    DownloadEngineFile(
+      index: 1,
+      name: 'cover.jpg',
+      relativePath: 'release/cover.jpg',
+      size: 10,
+      isStreamable: false,
+    ),
+    DownloadEngineFile(
+      index: 2,
+      name: 'episode-02.mp4',
+      relativePath: 'release/episode-02.mp4',
+      size: 80,
+      isStreamable: true,
+    ),
+    DownloadEngineFile(
+      index: 3,
+      name: 'notes.txt',
+      relativePath: 'release/notes.txt',
+      size: 5,
+      isStreamable: false,
+    ),
+  ];
+
+  @override
+  int addMagnet({
+    required String magnet,
+    required String savePath,
+    required bool metadataOnly,
+  }) {
+    final id = ++_nextId;
+    addCalls.add(
+      _AddCall(
+        id: id,
+        magnet: magnet,
+        savePath: savePath,
+        metadataOnly: metadataOnly,
+      ),
+    );
+    return id;
+  }
+
+  @override
+  DownloadEngineTorrent? getTorrent(int torrentId) => null;
+
+  @override
+  List<DownloadEngineFile> getFiles(int torrentId) => files;
+
+  @override
+  Future<void> initialize() async {}
+
+  @override
+  void pause(int torrentId) => pausedTorrentIds.add(torrentId);
+
+  @override
+  void remove(int torrentId, {required bool deleteFiles}) {
+    removeCalls.add(_RemoveCall(torrentId, deleteFiles: deleteFiles));
+  }
+
+  @override
+  void resume(int torrentId) => resumedTorrentIds.add(torrentId);
+
+  @override
+  void setFilePriorities(int torrentId, List<int> priorities) {
+    priorityCalls.add(_PriorityCall(torrentId, List.of(priorities)));
+  }
+
+  @override
+  Stream<Map<int, DownloadEngineTorrent>> get torrentUpdates =>
+      _controller.stream;
+
+  /// When set, metadata waits block until it completes.
+  Completer<void>? metadataGate;
+
+  @override
+  Future<void> waitForMetadata(
+    int torrentId, {
+    Duration timeout = const Duration(seconds: 90),
+  }) async {
+    await metadataGate?.future;
+  }
+
+  void emit(Map<int, DownloadEngineTorrent> torrents) {
+    _controller.add(torrents);
+  }
+
+  Future<void> close() => _controller.close();
+}
+
+class _FakeForegroundService implements DownloadForegroundServiceAdapter {
+  int startCount = 0;
+  int updateCount = 0;
+  int stopCount = 0;
+
+  @override
+  Future<void> start({required String title, required String text}) async {
+    startCount++;
+  }
+
+  @override
+  Future<void> stop() async {
+    stopCount++;
+  }
+
+  @override
+  Future<void> update({required String title, required String text}) async {
+    updateCount++;
+  }
+}
+
+class _FakeStorageUsageAdapter implements AppStorageUsageAdapter {
+  const _FakeStorageUsageAdapter({this.usage = _androidUsage});
+
+  static const _androidUsage = AppStorageUsage(
+    appBytes: 100,
+    dataBytes: 200,
+    cacheBytes: 25,
+    totalBytes: 300,
+  );
+
+  final AppStorageUsage? usage;
+
+  @override
+  Future<AppStorageUsage?> getUsage() async => usage;
+}
+
+class _AddCall {
+  const _AddCall({
+    required this.id,
+    required this.magnet,
+    required this.savePath,
+    required this.metadataOnly,
+  });
+
+  final int id;
+  final String magnet;
+  final String savePath;
+  final bool metadataOnly;
+}
+
+class _PriorityCall {
+  const _PriorityCall(this.torrentId, this.priorities);
+
+  final int torrentId;
+  final List<int> priorities;
+}
+
+class _RemoveCall {
+  const _RemoveCall(this.torrentId, {required this.deleteFiles});
+
+  final int torrentId;
+  final bool deleteFiles;
+
+  @override
+  bool operator ==(Object other) {
+    return other is _RemoveCall &&
+        other.torrentId == torrentId &&
+        other.deleteFiles == deleteFiles;
+  }
+
+  @override
+  int get hashCode => Object.hash(torrentId, deleteFiles);
+}
+
+DownloadEngineTorrent _torrent(
+  int id, {
+  required int downloadedBytes,
+  required bool isFinished,
+  double? progress,
+}) {
+  return DownloadEngineTorrent(
+    id: id,
+    progress: progress ?? (isFinished ? 1 : 0.5),
+    downloadRateBytesPerSecond: isFinished ? 0 : 1024,
+    downloadedBytes: downloadedBytes,
+    wantedBytes: downloadedBytes,
+    peers: 4,
+    hasMetadata: true,
+    isPaused: false,
+    isFinished: isFinished,
+    hasError: false,
+    errorMessage: '',
+  );
+}
+
+Future<void> _waitFor(bool Function() condition) async {
+  for (var attempt = 0; attempt < 100; attempt++) {
+    if (condition()) return;
+    await Future<void>.delayed(const Duration(milliseconds: 5));
+  }
+  throw TimeoutException('Condition was not met.');
+}

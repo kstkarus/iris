@@ -12,22 +12,31 @@ class PlayerPlaybackStatsListenable extends StatelessWidget {
     required this.listenable,
     this.videoCodec,
     this.audioCodec,
+    this.diagnostics,
+    this.diagnosticsListenable,
     this.isBuffering = false,
     this.bufferMarginState,
+    this.detailed = true,
     super.key,
   });
 
   final ValueListenable<PlayerPlaybackStats?> listenable;
+  final bool detailed;
   final String? videoCodec;
   final String? audioCodec;
+  final PlayerPlaybackDiagnostics? diagnostics;
+  final ValueListenable<PlayerPlaybackDiagnostics?>? diagnosticsListenable;
   final bool isBuffering;
   final PlayerBufferMarginState? bufferMarginState;
 
   @override
   Widget build(BuildContext context) {
-    return ValueListenableBuilder<PlayerPlaybackStats?>(
-      valueListenable: listenable,
-      builder: (context, stats, child) {
+    return ListenableBuilder(
+      listenable: diagnosticsListenable == null
+          ? listenable
+          : Listenable.merge([listenable, diagnosticsListenable!]),
+      builder: (context, child) {
+        final stats = listenable.value;
         if (stats == null) {
           return const SizedBox.shrink();
         }
@@ -35,8 +44,10 @@ class PlayerPlaybackStatsListenable extends StatelessWidget {
           stats: stats,
           videoCodec: videoCodec,
           audioCodec: audioCodec,
+          diagnostics: diagnosticsListenable?.value ?? diagnostics,
           isBuffering: isBuffering,
           bufferMarginState: bufferMarginState,
+          detailed: detailed,
         );
       },
     );
@@ -48,16 +59,26 @@ class PlayerPlaybackStatsIndicator extends StatelessWidget {
     required this.stats,
     this.videoCodec,
     this.audioCodec,
+    this.diagnostics,
     this.isBuffering = false,
     this.bufferMarginState,
+    this.detailed = true,
     super.key,
   });
+
+  /// Metrics shown when technical details are off: what a viewer needs to
+  /// understand stalls (speed, buffer, buffering).
+  static const _essentialPriorities = {0, 2, 9};
 
   final PlayerPlaybackStats stats;
   final String? videoCodec;
   final String? audioCodec;
+  final PlayerPlaybackDiagnostics? diagnostics;
   final bool isBuffering;
   final PlayerBufferMarginState? bufferMarginState;
+
+  /// Also show peers, decoder, output, codecs and memory.
+  final bool detailed;
 
   @override
   Widget build(BuildContext context) {
@@ -75,7 +96,12 @@ class PlayerPlaybackStatsIndicator extends StatelessWidget {
           height: 1.1,
         );
 
-    final metrics = _buildMetrics(l10n);
+    final metrics = _buildMetrics(l10n)
+        .where(
+          (metric) =>
+              detailed || _essentialPriorities.contains(metric.priority),
+        )
+        .toList();
     if (metrics.isEmpty) {
       return const SizedBox.shrink();
     }
@@ -152,13 +178,49 @@ class PlayerPlaybackStatsIndicator extends StatelessWidget {
       );
     }
 
-    final shortVideoCodec = _shortCodec(videoCodec);
+    final hwdec = _nonBlank(diagnostics?.hwdecCurrent);
+    if (hwdec != null) {
+      items.add(
+        _PlayerOverlayMetricItem(
+          value: hwdec,
+          icon: Icons.memory_rounded,
+          priority: 3,
+          tooltip: 'hwdec $hwdec',
+        ),
+      );
+    }
+
+    final currentVo = _nonBlank(diagnostics?.currentVo);
+    if (currentVo != null) {
+      items.add(
+        _PlayerOverlayMetricItem(
+          value: currentVo,
+          icon: Icons.output_rounded,
+          priority: 4,
+          tooltip: 'vo $currentVo',
+        ),
+      );
+    }
+
+    final videoDecoder = _nonBlank(diagnostics?.videoDecoder);
+    if (videoDecoder != null) {
+      items.add(
+        _PlayerOverlayMetricItem(
+          value: videoDecoder,
+          icon: Icons.developer_board_rounded,
+          priority: 5,
+          tooltip: _decoderTooltip(diagnostics),
+        ),
+      );
+    }
+
+    final shortVideoCodec = _shortCodec(diagnostics?.videoCodec ?? videoCodec);
     if (shortVideoCodec != null) {
       items.add(
         _PlayerOverlayMetricItem(
           value: shortVideoCodec,
           icon: Icons.movie_outlined,
-          priority: 3,
+          priority: 6,
           tooltip: l10n.playerRuntimeStatsVideoCodec(shortVideoCodec),
         ),
       );
@@ -170,7 +232,7 @@ class PlayerPlaybackStatsIndicator extends StatelessWidget {
         _PlayerOverlayMetricItem(
           value: shortAudioCodec,
           icon: Icons.audiotrack_rounded,
-          priority: 4,
+          priority: 7,
           tooltip: l10n.playerRuntimeStatsAudioCodec(shortAudioCodec),
         ),
       );
@@ -183,7 +245,7 @@ class PlayerPlaybackStatsIndicator extends StatelessWidget {
         _PlayerOverlayMetricItem(
           value: formattedMemory,
           icon: Icons.memory_rounded,
-          priority: 5,
+          priority: 8,
           tooltip: l10n.playerRuntimeStatsMemory(formattedMemory),
         ),
       );
@@ -194,7 +256,7 @@ class PlayerPlaybackStatsIndicator extends StatelessWidget {
         _PlayerOverlayMetricItem(
           value: l10n.playerBuffering,
           icon: Icons.hourglass_top_rounded,
-          priority: 6,
+          priority: 9,
           tooltip: l10n.playerBuffering,
         ),
       );
@@ -203,6 +265,52 @@ class PlayerPlaybackStatsIndicator extends StatelessWidget {
     items.sort((left, right) => left.priority.compareTo(right.priority));
     return items;
   }
+}
+
+class PlayerPlaybackDiagnostics {
+  const PlayerPlaybackDiagnostics({
+    this.hwdecCurrent,
+    this.currentVo,
+    this.videoCodec,
+    this.videoDecoder,
+    this.videoDecoderDescription,
+  });
+
+  final String? hwdecCurrent;
+  final String? currentVo;
+  final String? videoCodec;
+  final String? videoDecoder;
+  final String? videoDecoderDescription;
+
+  bool get isEmpty =>
+      _nonBlank(hwdecCurrent) == null &&
+      _nonBlank(currentVo) == null &&
+      _nonBlank(videoCodec) == null &&
+      _nonBlank(videoDecoder) == null &&
+      _nonBlank(videoDecoderDescription) == null;
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) {
+      return true;
+    }
+
+    return other is PlayerPlaybackDiagnostics &&
+        other.hwdecCurrent == hwdecCurrent &&
+        other.currentVo == currentVo &&
+        other.videoCodec == videoCodec &&
+        other.videoDecoder == videoDecoder &&
+        other.videoDecoderDescription == videoDecoderDescription;
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    hwdecCurrent,
+    currentVo,
+    videoCodec,
+    videoDecoder,
+    videoDecoderDescription,
+  );
 }
 
 class _MetricChip extends StatelessWidget {
@@ -417,6 +525,30 @@ String? _shortCodec(String? codec) {
   }
 
   return trimmed;
+}
+
+String? _nonBlank(String? value) {
+  final trimmed = value?.trim();
+  if (trimmed == null || trimmed.isEmpty) {
+    return null;
+  }
+  return trimmed;
+}
+
+String? _decoderTooltip(PlayerPlaybackDiagnostics? diagnostics) {
+  if (diagnostics == null) {
+    return null;
+  }
+
+  final description = _nonBlank(diagnostics.videoDecoderDescription);
+  final decoder = _nonBlank(diagnostics.videoDecoder);
+  if (description == null) {
+    return decoder == null ? null : 'decoder $decoder';
+  }
+  if (decoder == null) {
+    return description;
+  }
+  return '$decoder: $description';
 }
 
 const _chipSpacing = 6.0;

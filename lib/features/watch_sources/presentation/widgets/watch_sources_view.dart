@@ -1,13 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 
+import 'package:iris/entities/watch_progress/presentation/watch_progress_cubit.dart';
+import 'package:iris/features/downloads/presentation/models/download_selection_args.dart';
 import 'package:iris/features/player/presentation/models/anime_player_source_args.dart';
 import 'package:iris/features/watch_sources/domain/entities/watch_source_item.dart';
 import 'package:iris/features/watch_sources/presentation/cubit/watch_sources_cubit.dart';
 import 'package:iris/features/watch_sources/presentation/cubit/watch_sources_state.dart';
 import 'package:iris/features/watch_sources/presentation/models/watch_sources_sort_option.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
+import 'package:iris/shared/torrent/torrent_key.dart';
+import 'package:iris/shared/widgets/adaptive/adaptive_content_width.dart';
+import 'package:iris/shared/widgets/adaptive/show_adaptive_sheet.dart';
+import 'package:iris/shared/widgets/adaptive/window_size_class.dart';
+import 'package:iris/shared/widgets/search_field.dart';
+import 'package:iris/shared/widgets/search_toolbar.dart';
 
 class WatchSourcesView extends StatelessWidget {
   const WatchSourcesView({super.key});
@@ -55,132 +64,204 @@ class _LoadedState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        TextField(
-          controller: TextEditingController.fromValue(
-            TextEditingValue(
-              text: state.searchQuery,
-              selection: TextSelection.collapsed(
-                offset: state.searchQuery.length,
-              ),
+    final watchedKeys = {
+      for (final progress in context.watchWatchProgress()) progress.torrentKey,
+    };
+    final items = _watchedFirst(state.visibleItems, watchedKeys);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _SearchControls(
+              initialQuery: state.searchQuery,
+              isWide: constraints.maxWidth >= WindowSizeClass.mediumMinWidth,
+              onSort: () => _openSortSheet(context),
             ),
-          ),
-          onChanged: context.read<WatchSourcesCubit>().updateSearchQuery,
-          textInputAction: TextInputAction.search,
-          decoration: InputDecoration(
-            hintText: l10n.watchSourcesSearchHint,
-            prefixIcon: const Icon(Icons.search),
-            border: const OutlineInputBorder(),
-          ),
-        ),
-        const SizedBox(height: 12),
-        Align(
-          alignment: Alignment.centerLeft,
-          child: OutlinedButton.icon(
-            onPressed: () => _openSortSheet(context),
-            icon: const Icon(Icons.sort),
-            label: Text(l10n.watchSourcesSortButton),
-          ),
-        ),
-        const SizedBox(height: 16),
-        Expanded(
-          child: state.visibleItems.isEmpty
-              ? const _SearchEmptyState()
-              : ListView.separated(
-                  itemCount: state.visibleItems.length,
-                  separatorBuilder: (_, _) => const SizedBox(height: 12),
-                  itemBuilder: (context, index) {
-                    return _WatchSourceCard(
-                      item: state.visibleItems[index],
-                      animeId: context.read<WatchSourcesCubit>().animeId,
-                      animeEnglishTitle: context
-                          .read<WatchSourcesCubit>()
-                          .animeEnglishTitle,
-                    );
-                  },
-                ),
-        ),
-      ],
+            const SizedBox(height: 8),
+            Expanded(
+              child: items.isEmpty
+                  ? const _SearchEmptyState()
+                  : _SourcesList(items: items, watchedKeys: watchedKeys),
+            ),
+          ],
+        );
+      },
     );
   }
 
-  Future<void> _openSortSheet(BuildContext context) async {
-    final l10n = AppLocalizations.of(context);
+  Future<void> _openSortSheet(BuildContext context) {
     final cubit = context.read<WatchSourcesCubit>();
-    var selectedOption = state.sortOption;
 
-    await showModalBottomSheet<void>(
+    return showAdaptiveSheet<void>(
       context: context,
-      isScrollControlled: true,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setModalState) {
-            return SafeArea(
-              child: ConstrainedBox(
-                constraints: BoxConstraints(
-                  maxHeight: MediaQuery.of(context).size.height * 0.75,
-                ),
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        l10n.watchSourcesSortSheetTitle,
-                        style: Theme.of(context).textTheme.titleLarge,
-                      ),
-                      const SizedBox(height: 16),
-                      RadioGroup<WatchSourcesSortOption>(
-                        groupValue: selectedOption,
-                        onChanged: (value) {
-                          if (value == null) {
-                            return;
-                          }
+      builder: (_) => _SortSheet(
+        initialOption: state.sortOption,
+        onApply: cubit.updateSortOption,
+      ),
+    );
+  }
+}
 
-                          setModalState(() {
-                            selectedOption = value;
-                          });
-                        },
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: WatchSourcesSortOption.values
-                              .map(
-                                (option) =>
-                                    RadioListTile<WatchSourcesSortOption>(
-                                      contentPadding: EdgeInsets.zero,
-                                      value: option,
-                                      title: Text(
-                                        _formatSortLabel(l10n, option),
-                                      ),
-                                    ),
-                              )
-                              .toList(growable: false),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      SizedBox(
-                        width: double.infinity,
-                        child: FilledButton(
-                          onPressed: () {
-                            cubit.updateSortOption(selectedOption);
-                            Navigator.of(context).pop();
-                          },
-                          child: Text(l10n.watchSourcesSortApplyButton),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+class _SearchControls extends StatefulWidget {
+  const _SearchControls({
+    required this.initialQuery,
+    required this.isWide,
+    required this.onSort,
+  });
+
+  final String initialQuery;
+  final bool isWide;
+  final VoidCallback onSort;
+
+  @override
+  State<_SearchControls> createState() => _SearchControlsState();
+}
+
+class _SearchControlsState extends State<_SearchControls> {
+  // Owned here: recreating it on every rebuild would move the caret to the
+  // end while people edit the middle of the query.
+  late final _controller = TextEditingController(text: widget.initialQuery);
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return SearchToolbar(
+      searchField: SearchField(
+        controller: _controller,
+        hintText: l10n.watchSourcesSearchHint,
+        onChanged: context.read<WatchSourcesCubit>().updateSearchQuery,
+      ),
+      actionIcon: Icons.sort,
+      actionLabel: l10n.watchSourcesSortButton,
+      onAction: widget.onSort,
+      isWide: widget.isWide,
+    );
+  }
+}
+
+class _SortSheet extends StatefulWidget {
+  const _SortSheet({required this.initialOption, required this.onApply});
+
+  final WatchSourcesSortOption initialOption;
+  final ValueChanged<WatchSourcesSortOption> onApply;
+
+  @override
+  State<_SortSheet> createState() => _SortSheetState();
+}
+
+class _SortSheetState extends State<_SortSheet> {
+  late WatchSourcesSortOption _selectedOption = widget.initialOption;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+
+    return SafeArea(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(24, 24, 24, 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              l10n.watchSourcesSortSheetTitle,
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            const SizedBox(height: 16),
+            RadioGroup<WatchSourcesSortOption>(
+              groupValue: _selectedOption,
+              onChanged: (value) {
+                if (value == null) {
+                  return;
+                }
+
+                setState(() {
+                  _selectedOption = value;
+                });
+              },
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  for (final option in WatchSourcesSortOption.values)
+                    RadioListTile<WatchSourcesSortOption>(
+                      contentPadding: EdgeInsets.zero,
+                      value: option,
+                      title: Text(_formatSortLabel(l10n, option)),
+                    ),
+                ],
               ),
+            ),
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                onPressed: () {
+                  widget.onApply(_selectedOption);
+                  Navigator.of(context).pop();
+                },
+                child: Text(l10n.watchSourcesSortApplyButton),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Releases the user already streamed come first, keeping the chosen sort
+/// order inside both groups.
+List<WatchSourceItem> _watchedFirst(
+  List<WatchSourceItem> items,
+  Set<String> watchedKeys,
+) {
+  if (watchedKeys.isEmpty) return items;
+  bool isWatched(WatchSourceItem item) =>
+      watchedKeys.contains(torrentKeyFromMagnet(item.magnet));
+  return [
+    ...items.where(isWatched),
+    ...items.where((item) => !isWatched(item)),
+  ];
+}
+
+/// Releases are text, so they read best as a list: tapping a row streams
+/// it, the trailing button downloads it.
+class _SourcesList extends StatelessWidget {
+  const _SourcesList({required this.items, required this.watchedKeys});
+
+  final List<WatchSourceItem> items;
+  final Set<String> watchedKeys;
+
+  @override
+  Widget build(BuildContext context) {
+    final cubit = context.read<WatchSourcesCubit>();
+    return Align(
+      alignment: AlignmentDirectional.topStart,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: AdaptiveContentWidth.list),
+        child: ListView.separated(
+          padding: const EdgeInsets.only(bottom: 16),
+          itemCount: items.length,
+          separatorBuilder: (_, _) =>
+              const Divider(height: 1, indent: 16, endIndent: 16),
+          itemBuilder: (context, index) {
+            final item = items[index];
+            return _WatchSourceRow(
+              item: item,
+              watched: watchedKeys.contains(torrentKeyFromMagnet(item.magnet)),
+              animeId: cubit.animeId,
+              animeEnglishTitle: cubit.animeEnglishTitle,
             );
           },
-        );
-      },
+        ),
+      ),
     );
   }
 }
@@ -245,14 +326,18 @@ class _FailureState extends StatelessWidget {
   }
 }
 
-class _WatchSourceCard extends StatelessWidget {
-  const _WatchSourceCard({
+class _WatchSourceRow extends StatelessWidget {
+  const _WatchSourceRow({
     required this.item,
+    required this.watched,
     required this.animeId,
     required this.animeEnglishTitle,
   });
 
   final WatchSourceItem item;
+
+  /// The user streamed this release before.
+  final bool watched;
   final String animeId;
   final String animeEnglishTitle;
 
@@ -261,136 +346,93 @@ class _WatchSourceCard extends StatelessWidget {
     final theme = Theme.of(context);
     final l10n = AppLocalizations.of(context);
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              item.title,
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              item.category,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                _InfoChip(label: '${l10n.watchSourcesSizeLabel}: ${item.size}'),
-                _InfoChip(label: '${l10n.watchSourcesTimeLabel}: ${item.time}'),
-                _InfoChip(
-                  label: '${l10n.watchSourcesSeedersLabel}: ${item.seeders}',
-                ),
-                _InfoChip(
-                  label: '${l10n.watchSourcesLeechersLabel}: ${item.leechers}',
-                ),
-                _InfoChip(
-                  label:
-                      '${l10n.watchSourcesDownloadsLabel}: ${item.downloads}',
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            _LinkBlock(label: l10n.watchSourcesPageLinkLabel, value: item.link),
-            const SizedBox(height: 12),
-            _LinkBlock(
-              label: l10n.watchSourcesTorrentLinkLabel,
-              value: item.torrent,
-            ),
-            const SizedBox(height: 12),
-            _LinkBlock(
-              label: l10n.watchSourcesMagnetLinkLabel,
-              value: item.magnet,
-            ),
-            const SizedBox(height: 16),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton(
-                onPressed: () {
-                  context.pushNamed(
-                    'anime-player-files',
-                    pathParameters: {'id': animeId},
-                    extra: AnimePlayerSourceArgs(
-                      animeId: animeId,
-                      animeTitle: animeEnglishTitle,
-                      sourceTitle: item.title,
-                      magnet: item.magnet,
-                    ),
-                  );
-                },
-                child: Text(l10n.playerOpenButton),
-              ),
-            ),
-          ],
+    return ListTile(
+      key: const Key('watch_source_watch_button'),
+      contentPadding: const EdgeInsetsDirectional.only(start: 16, end: 8),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      title: Text(
+        item.title,
+        maxLines: 3,
+        overflow: TextOverflow.ellipsis,
+        style: theme.textTheme.titleMedium?.copyWith(
+          fontWeight: FontWeight.w600,
         ),
       ),
-    );
-  }
-}
-
-class _InfoChip extends StatelessWidget {
-  const _InfoChip({required this.label});
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        child: Text(
-          label,
-          style: theme.textTheme.labelLarge?.copyWith(
+      subtitle: Padding(
+        padding: const EdgeInsets.only(top: 4),
+        child: Text.rich(
+          key: watched ? const Key('watch_source_used_badge') : null,
+          TextSpan(
+            children: [
+              if (watched) ...[
+                TextSpan(
+                  text: l10n.watchSourceUsedBadge,
+                  style: TextStyle(
+                    color: theme.colorScheme.primary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const TextSpan(text: ' · '),
+              ],
+              TextSpan(text: _formatSourceMeta(l10n, item)),
+            ],
+          ),
+          style: theme.textTheme.bodyMedium?.copyWith(
             color: theme.colorScheme.onSurfaceVariant,
           ),
         ),
       ),
+      trailing: IconButton(
+        key: const Key('watch_source_download_button'),
+        tooltip: l10n.downloadsOpenButton,
+        icon: const Icon(Icons.download_outlined),
+        onPressed: () => _openDownload(context),
+      ),
+      onTap: () => _openStreaming(context),
+    );
+  }
+
+  void _openStreaming(BuildContext context) {
+    context.pushNamed(
+      'torrent-stream-files',
+      extra: AnimePlayerSourceArgs(
+        animeId: animeId,
+        animeTitle: animeEnglishTitle,
+        sourceTitle: item.title,
+        magnet: item.magnet,
+      ),
+    );
+  }
+
+  void _openDownload(BuildContext context) {
+    context.pushNamed(
+      'torrent-download-files',
+      extra: DownloadSelectionArgs(
+        animeId: animeId,
+        animeTitle: animeEnglishTitle,
+        sourceTitle: item.title,
+        magnet: item.magnet,
+      ),
     );
   }
 }
 
-class _LinkBlock extends StatelessWidget {
-  const _LinkBlock({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: theme.textTheme.labelLarge?.copyWith(
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        const SizedBox(height: 4),
-        SelectableText(
-          value,
-          style: theme.textTheme.bodySmall?.copyWith(height: 1.35),
-        ),
-      ],
-    );
-  }
+/// Size, swarm, popularity, date and category in one secondary line.
+String _formatSourceMeta(AppLocalizations l10n, WatchSourceItem item) {
+  final numbers = NumberFormat.decimalPattern(l10n.localeName);
+  final published = DateTime.tryParse(item.time);
+  final category = item.category.replaceFirst(RegExp(r'^Anime\s*-\s*'), '');
+  return [
+    if (item.size.isNotEmpty) item.size,
+    l10n.watchSourceSeeders(numbers.format(item.seeders), item.seeders),
+    l10n.watchSourceLeechers(numbers.format(item.leechers), item.leechers),
+    l10n.watchSourceDownloads(numbers.format(item.downloads), item.downloads),
+    if (published != null)
+      DateFormat.yMMMd(l10n.localeName).format(published)
+    else if (item.time.isNotEmpty)
+      item.time,
+    if (category.isNotEmpty) category,
+  ].join(' · ');
 }
 
 String _formatSortLabel(AppLocalizations l10n, WatchSourcesSortOption option) {
