@@ -11,14 +11,15 @@ import 'package:iris/features/player/presentation/cubit/player_decoding_preferen
 import 'package:iris/features/player/presentation/cubit/player_subtitle_preferences_cubit.dart';
 import 'package:iris/features/player/presentation/widgets/player_subtitle_settings_sheet.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
+import 'package:iris/shared/widgets/option_toggle.dart';
 
 void main() {
   testWidgets('renders subtitle settings controls', (tester) async {
     await tester.pumpWidget(_wrap(child: const PlayerSubtitleSettingsSheet()));
 
     expect(find.text('Player Settings'), findsOneWidget);
-    expect(find.text('Subtitle Appearance'), findsOneWidget);
-    expect(find.text('Decoder'), findsOneWidget);
+    expect(find.text('SUBTITLE APPEARANCE'), findsOneWidget);
+    expect(find.text('DECODER'), findsOneWidget);
     expect(find.text('Auto (recommended)'), findsOneWidget);
     expect(find.text('Software only'), findsOneWidget);
     expect(find.text('Show subtitles'), findsOneWidget);
@@ -186,10 +187,10 @@ void main() {
           ),
         );
 
-        final autoChip = tester.widget<ChoiceChip>(
+        final autoChip = tester.widget<OptionToggle>(
           find.ancestor(
             of: find.text('Auto (recommended)'),
-            matching: find.byType(ChoiceChip),
+            matching: find.byType(OptionToggle),
           ),
         );
         expect(autoChip.selected, isTrue);

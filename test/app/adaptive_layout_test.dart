@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:iris/app/router/app_shell_page.dart';
 import 'package:iris/main.dart';
+import 'package:iris/shared/widgets/dithered_image.dart';
 
 import '../helpers/test_window.dart';
 
@@ -61,7 +62,6 @@ void main() {
     final sizeName = entry.key;
     final size = entry.value;
     final isPhone = size.width < 600;
-    final isDesktop = size.width >= 1200;
 
     testWidgets('shell uses the right navigation on $sizeName', (tester) async {
       await _pumpMockApp(tester, size);
@@ -74,17 +74,11 @@ void main() {
         find.byKey(AppShellPage.navigationRailKey),
         isPhone ? findsNothing : findsOneWidget,
       );
-      if (!isPhone) {
-        final rail = tester.widget<NavigationRail>(
-          find.byKey(AppShellPage.navigationRailKey),
-        );
-        expect(rail.extended, isDesktop);
-      }
 
       await tester.tap(find.text('Downloads').first);
       await tester.pumpAndSettle();
 
-      expect(find.text('App storage'), findsOneWidget);
+      expect(find.text('APP STORAGE'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
 
@@ -93,16 +87,15 @@ void main() {
     ) async {
       await _pumpMockApp(tester, size);
 
+      // Covers sit side by side even on phones.
       final firstCard = tester.getTopLeft(find.text(_firstTitle));
       final secondCard = tester.getTopLeft(find.text(_secondTitle));
-      if (isPhone) {
-        expect(secondCard.dy, greaterThan(firstCard.dy));
-      } else {
-        expect(secondCard.dy, firstCard.dy, reason: 'cards share a row');
-        expect(secondCard.dx, greaterThan(firstCard.dx));
-      }
+      expect(secondCard.dy, firstCard.dy, reason: 'cards share a row');
+      expect(secondCard.dx, greaterThan(firstCard.dx));
       expect(tester.takeException(), isNull);
 
+      await tester.ensureVisible(find.text(_firstTitle));
+      await tester.pump();
       await tester.tap(find.text(_firstTitle));
       await _pumpUntilVisible(
         tester,
@@ -110,7 +103,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      final poster = tester.getRect(find.byType(Image).first);
+      final poster = tester.getRect(find.byType(DitheredImage).first);
       final title = tester.getRect(find.text(_firstTitle));
       final description = tester.getRect(find.text(_description));
       if (isPhone) {
@@ -133,15 +126,17 @@ void main() {
       expect(tester.takeException(), isNull);
 
       await _tapAndSettle(tester, find.byTooltip('Download').first);
-      await _pumpUntilVisible(tester, find.text('Watch'));
+      await _pumpUntilVisible(tester, find.byTooltip('Watch'));
       await tester.pumpAndSettle();
 
-      final storage = tester.getRect(find.text('App storage'));
-      final watch = tester.getRect(find.text('Watch'));
-      if (size.width >= 840) {
+      final storage = tester.getRect(find.text('APP STORAGE'));
+      final watch = tester.getRect(find.byTooltip('Watch'));
+      // Content of 840 dp and up gets a side pane; narrower stacks the
+      // panes, files first.
+      if (size.width >= 900) {
         expect(storage.left, greaterThan(watch.right), reason: 'side pane');
       } else {
-        expect(storage.top, lessThan(watch.top), reason: 'storage on top');
+        expect(storage.top, greaterThan(watch.top), reason: 'files first');
       }
       expect(tester.takeException(), isNull);
     });
@@ -151,6 +146,8 @@ void main() {
     testWidgets('catalog to streaming player flow has no overflow on '
         '${entry.key}', (tester) async {
       await _pumpMockApp(tester, entry.value);
+      await tester.ensureVisible(find.text(_firstTitle));
+      await tester.pump();
       await tester.tap(find.text(_firstTitle));
       await _pumpUntilVisible(
         tester,
@@ -174,12 +171,7 @@ void main() {
 
       expect(find.text('Choose File'), findsOneWidget);
       final fileCard = tester.getRect(
-        find
-            .ancestor(
-              of: find.text('episode-01'),
-              matching: find.byType(ListTile),
-            )
-            .first,
+        find.byKey(const ValueKey('player_episode_0')),
       );
       expect(
         fileCard.width,
@@ -211,7 +203,8 @@ void main() {
   testWidgets('filters open in a bottom sheet on phones', (tester) async {
     await _pumpMockApp(tester, TestWindowSizes.phone);
 
-    await tester.tap(find.text('Filter & Sort'));
+    // Narrow windows show the action as an icon, named by its tooltip.
+    await tester.tap(find.byTooltip('Filter & Sort'));
     await tester.pumpAndSettle();
 
     expect(find.byType(BottomSheet), findsOneWidget);

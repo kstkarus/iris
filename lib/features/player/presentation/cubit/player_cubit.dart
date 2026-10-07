@@ -161,6 +161,11 @@ class PlayerCubit extends Cubit<PlayerState> {
       case PlayerEngineProgress(:final position, :final duration, :final flush):
         _requestSkipTimes(duration);
         reportProgress(position, duration, flush: flush);
+      case PlayerEnginePlaybackStarted():
+        final current = state;
+        if (current is PlayerReady && !current.started) {
+          _emitIfOpen(current.copyWith(started: true));
+        }
       case PlayerEngineCompleted():
         markCompleted();
       case PlayerEngineTracksChosen(:final preferences):
@@ -227,9 +232,26 @@ class PlayerCubit extends Cubit<PlayerState> {
     }
   }
 
-  void restartFromBeginning() {
-    unawaited(_engine.seek(Duration.zero));
-    dismissResumeNotice();
+  /// Plays the file from the beginning instead of the saved position.
+  /// Chosen before the file has started, the notice stays up so the choice
+  /// can still be taken back.
+  void restartFromBeginning() => _chooseStart(startOver: true);
+
+  /// Takes back [restartFromBeginning]: plays from the saved position.
+  void resumeSavedPosition() => _chooseStart(startOver: false);
+
+  void _chooseStart({required bool startOver}) {
+    final current = state;
+    if (current is! PlayerReady) return;
+    final position = startOver ? Duration.zero : current.startPosition;
+    if (position == null) return;
+    unawaited(_engine.seek(position));
+    _emitIfOpen(
+      current.copyWith(
+        startsOver: startOver,
+        showResumeNotice: current.showResumeNotice && !current.started,
+      ),
+    );
   }
 
   void dismissResumeNotice() {

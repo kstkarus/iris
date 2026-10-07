@@ -159,6 +159,12 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
   /// from here.
   Duration? _lastKnownPosition;
 
+  /// A seek asked for before the file could take one, done once it can.
+  Duration? _pendingSeek;
+
+  /// Whether [PlayerEnginePlaybackStarted] went out for the open file.
+  bool _startAnnounced = false;
+
   final List<StreamSubscription<Object?>> _playerSubscriptions = [];
   StreamSubscription<SubtitlePreferences>? _subtitlePreferencesSubscription;
   StreamSubscription<PlayerDecodingPreferences>?
@@ -264,6 +270,8 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
     _preferredTracks = preferredTracks;
     _preferredTracksApplied = false;
     _lastKnownPosition = null;
+    _pendingSeek = null;
+    _startAnnounced = false;
     completed.value = false;
     _resetPositionOffers();
     _watchPlaybackStats(session.sessionId);
@@ -281,7 +289,27 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
     _lastKnownPosition = position;
     final player = _player;
     if (player == null || _closed) return;
+    // Until the file is loaded mpv drops seeks and then goes to the
+    // position the file was opened at; keep this one until it can be done.
+    if (!_canSeek) {
+      _pendingSeek = position;
+      return;
+    }
     await player.seek(position);
+  }
+
+  bool get _canSeek => _startupState.hasDuration || _isReady;
+
+  void _applyPendingSeek() {
+    final position = _pendingSeek;
+    final player = _player;
+    if (position == null || player == null || _closed || !_canSeek) return;
+    _pendingSeek = null;
+    developer.log(
+      'Applying a seek asked for during startup. position=$position',
+      name: 'iris.player.media',
+    );
+    unawaited(player.seek(position));
   }
 
   @override
@@ -788,6 +816,7 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
       name: 'iris.player.media',
     );
     _updateStartupState(_startupState.copyWith(hasDuration: hasDuration));
+    _applyPendingSeek();
     _markReadyIfPrepared();
   }
 
@@ -975,6 +1004,7 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
     _cancelStartupTimeout();
     _cancelStartupNetworkWatchdog();
     _updateStartupState(_startupState.copyWith(phase: PlayerEnginePhase.ready));
+    _applyPendingSeek();
     if (player.state.playing && !buffering.value) {
       _rebufferCycleTracker.markPlaybackStable();
     }
@@ -994,6 +1024,13 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
     _startupState = next;
     if (!_closed) phase.value = next.phase;
     notifyListeners();
+    // A picture on screen is when the file has started for the viewer.
+    if (!_startAnnounced &&
+        next.phase == PlayerEnginePhase.ready &&
+        next.firstFrameRendered) {
+      _startAnnounced = true;
+      _emit(const PlayerEnginePlaybackStarted());
+    }
   }
 
   void _cancelStartupTimeout() {

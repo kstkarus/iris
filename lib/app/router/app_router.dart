@@ -9,8 +9,10 @@ import 'package:iris/app/router/app_shell_page.dart';
 import 'package:iris/entities/watch_progress/domain/watch_progress_repository.dart';
 import 'package:iris/features/anime_details/domain/repositories/anime_details_repository.dart';
 import 'package:iris/features/anime_details/presentation/cubit/anime_details_cubit.dart';
+import 'package:iris/features/anime_details/presentation/models/anime_details_preview.dart';
 import 'package:iris/features/anime_details/presentation/pages/anime_details_page.dart';
 import 'package:iris/features/anime_list/presentation/bloc/anime_list_bloc.dart';
+import 'package:iris/features/anime_list/presentation/bloc/anime_search_bloc.dart';
 import 'package:iris/features/anime_list/presentation/bloc/anime_list_event.dart';
 import 'package:iris/features/anime_list/presentation/pages/anime_list_page.dart';
 import 'package:iris/features/downloads/domain/repositories/downloads_repository.dart';
@@ -59,10 +61,17 @@ abstract final class AppRouter {
                   path: '/',
                   name: 'anime-list',
                   builder: (context, state) {
-                    return BlocProvider(
-                      create: (_) =>
-                          serviceLocator<AnimeListBloc>()
-                            ..add(const AnimeListStarted()),
+                    return MultiBlocProvider(
+                      providers: [
+                        BlocProvider(
+                          create: (_) =>
+                              serviceLocator<AnimeListBloc>()
+                                ..add(const AnimeListStarted()),
+                        ),
+                        BlocProvider(
+                          create: (_) => serviceLocator<AnimeSearchBloc>(),
+                        ),
+                      ],
                       child: const AnimeListPage(),
                     );
                   },
@@ -146,13 +155,19 @@ abstract final class AppRouter {
           name: 'anime-details',
           builder: (context, state) {
             final animeId = state.pathParameters['id'] ?? '';
+            // Optional: a deep link opens the page without a preview.
+            final preview = switch (state.extra) {
+              final AnimeDetailsPreview preview when preview.id == animeId =>
+                preview,
+              _ => null,
+            };
 
             return BlocProvider(
               create: (_) => AnimeDetailsCubit(
                 animeId: animeId,
                 repository: serviceLocator<AnimeDetailsRepository>(),
               )..loadAnime(),
-              child: const AnimeDetailsPage(),
+              child: AnimeDetailsPage(preview: preview),
             );
           },
         ),
@@ -318,8 +333,6 @@ class _InvalidRoutePage extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.error_outline, size: 40),
-              const SizedBox(height: 12),
               Text(
                 l10n.invalidRouteArgumentsMessage,
                 textAlign: TextAlign.center,

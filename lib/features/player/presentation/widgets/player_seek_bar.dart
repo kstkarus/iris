@@ -144,7 +144,7 @@ class _PlayerSeekBarState extends State<PlayerSeekBar> {
                     top: _trackTop - trackHeight / 2,
                     height: trackHeight,
                     child: ClipRRect(
-                      borderRadius: BorderRadius.circular(trackHeight),
+                      borderRadius: BorderRadius.zero,
                       child: Stack(
                         fit: StackFit.expand,
                         children: [
@@ -178,7 +178,6 @@ class _PlayerSeekBarState extends State<PlayerSeekBar> {
                       height: thumbSize,
                       decoration: BoxDecoration(
                         color: widget.color,
-                        shape: BoxShape.circle,
                         boxShadow: const [
                           BoxShadow(color: Colors.black45, blurRadius: 6),
                         ],

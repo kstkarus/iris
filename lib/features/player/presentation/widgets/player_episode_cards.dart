@@ -7,6 +7,8 @@ import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/utils/duration_formatter.dart';
 import 'package:iris/shared/utils/episode_number.dart';
 import 'package:iris/shared/utils/file_display_name.dart';
+import 'package:iris/shared/widgets/segmented_bar.dart';
+import 'package:iris/shared/widgets/pixel_icon.dart';
 
 /// The torrent's files as cards for the immersive player's drawer: the
 /// episode, its own name when the file has one, and how much is left. The
@@ -202,7 +204,7 @@ class _EpisodeCardState extends State<_EpisodeCard> {
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
             decoration: BoxDecoration(
               color: background,
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.zero,
             ),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -218,7 +220,7 @@ class _EpisodeCardState extends State<_EpisodeCard> {
                           color: widget.isCurrent
                               ? Colors.white
                               : Colors.white60,
-                          fontWeight: FontWeight.w700,
+                          fontWeight: FontWeight.w500,
                         ),
                       ),
                     ),
@@ -234,7 +236,7 @@ class _EpisodeCardState extends State<_EpisodeCard> {
                             overflow: TextOverflow.ellipsis,
                             style: theme.textTheme.titleMedium?.copyWith(
                               color: Colors.white,
-                              fontWeight: FontWeight.w600,
+                              fontWeight: FontWeight.w500,
                             ),
                           ),
                           if (name != null && episode != null)
@@ -262,14 +264,12 @@ class _EpisodeCardState extends State<_EpisodeCard> {
                 ),
                 if (partial) ...[
                   const SizedBox(height: 10),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(2),
-                    child: LinearProgressIndicator(
-                      value: progress.fraction,
-                      minHeight: 3,
-                      color: accent,
-                      backgroundColor: Colors.white24,
-                    ),
+                  SegmentedBar(
+                    value: progress.fraction,
+                    height: 3,
+                    segment: 6,
+                    color: accent,
+                    trackColor: Colors.white24,
                   ),
                 ],
               ],
@@ -300,24 +300,19 @@ class _Status extends StatelessWidget {
     final l10n = AppLocalizations.of(context);
     final theme = Theme.of(context);
     final left = this.left;
+    // "Now playing" says it in words; the signal colour marks it live.
     if (isCurrent) {
-      return Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.play_arrow_rounded, size: 18, color: accent),
-          const SizedBox(width: 2),
-          Text(
-            l10n.playerNowPlaying,
-            style: theme.textTheme.labelLarge?.copyWith(color: accent),
-          ),
-        ],
+      return Text(
+        l10n.playerNowPlaying.toUpperCase(),
+        style: theme.textTheme.labelSmall?.copyWith(color: accent),
       );
     }
+    // Watched is done, not live: a quiet check, not the signal colour.
     if (finished) {
-      return Icon(
-        Icons.check_circle_rounded,
-        size: 20,
-        color: accent,
+      return PixelIcon(
+        PixelGlyph.check,
+        size: 18,
+        color: Colors.white70,
         semanticLabel: l10n.watchProgressWatched,
       );
     }

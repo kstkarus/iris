@@ -23,6 +23,7 @@ import 'package:iris/features/anime_list/data/repositories/mock_anime_list_repos
 import 'package:iris/features/anime_list/data/repositories/remote_anime_list_repository.dart';
 import 'package:iris/features/anime_list/domain/repositories/anime_list_repository.dart';
 import 'package:iris/features/anime_list/presentation/bloc/anime_list_bloc.dart';
+import 'package:iris/features/anime_list/presentation/bloc/anime_search_bloc.dart';
 import 'package:iris/features/downloads/data/adapters/app_storage_usage_adapter.dart';
 import 'package:iris/features/downloads/data/adapters/download_foreground_service_adapter.dart';
 import 'package:iris/features/downloads/data/adapters/libtorrent_download_engine_adapter.dart';
@@ -412,6 +413,12 @@ Future<void> configureDependencies({
   if (!serviceLocator.isRegistered<AnimeListBloc>()) {
     serviceLocator.registerFactory<AnimeListBloc>(
       () => AnimeListBloc(repository: serviceLocator<AnimeListRepository>()),
+    );
+  }
+
+  if (!serviceLocator.isRegistered<AnimeSearchBloc>()) {
+    serviceLocator.registerFactory<AnimeSearchBloc>(
+      () => AnimeSearchBloc(repository: serviceLocator<AnimeListRepository>()),
     );
   }
 }

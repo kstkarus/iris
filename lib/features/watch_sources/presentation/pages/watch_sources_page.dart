@@ -25,9 +25,9 @@ class WatchSourcesPage extends StatelessWidget {
         ),
       ),
       body: Padding(
-        padding: EdgeInsets.fromLTRB(margin, 16, margin, 24),
+        padding: EdgeInsets.fromLTRB(margin, 24, margin, 0),
         child: const MaxWidthBox(
-          maxWidth: AdaptiveContentWidth.page,
+          maxWidth: AdaptiveContentWidth.subpage,
           child: WatchSourcesView(),
         ),
       ),

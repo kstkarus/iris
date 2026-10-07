@@ -1,5 +1,3 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -9,16 +7,20 @@ import 'package:iris/features/downloads/domain/entities/download_storage_usage.d
 import 'package:iris/features/downloads/presentation/cubit/download_manager_cubit.dart';
 import 'package:iris/features/downloads/presentation/cubit/download_manager_state.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
-import 'package:iris/shared/widgets/adaptive/adaptive_grid_row.dart';
+import 'package:iris/shared/utils/byte_size_formatter.dart';
+import 'package:iris/shared/utils/file_display_name.dart';
 import 'package:iris/shared/widgets/adaptive/window_size_class.dart';
+import 'package:iris/shared/widgets/pixel_icon.dart';
+import 'package:iris/shared/widgets/section_label.dart';
+import 'package:iris/shared/widgets/segmented_bar.dart';
+import 'package:iris/shared/widgets/spec_table.dart';
+import 'package:iris/shared/widgets/status_views.dart';
 
 class DownloadManagerView extends StatelessWidget {
   const DownloadManagerView({required this.onWatch, super.key});
 
-  static const _supportingPaneWidth = 360.0;
-  static const _paneGap = 24.0;
-  static const _minCardWidth = 420.0;
-  static const _cardSpacing = 12.0;
+  static const _storagePaneWidth = 360.0;
+  static const _paneGap = 40.0;
 
   final ValueChanged<DownloadItem> onWatch;
 
@@ -27,28 +29,59 @@ class DownloadManagerView extends StatelessWidget {
     return BlocBuilder<DownloadManagerCubit, DownloadManagerState>(
       builder: (context, state) {
         if (state.isLoading && state.downloads.isEmpty) {
-          return const Center(child: CircularProgressIndicator());
+          return const LoadingView();
         }
         if (state.hasError && state.downloads.isEmpty) {
-          return _ManagerFailure(
-            onRetry: context.read<DownloadManagerCubit>().load,
+          final l10n = AppLocalizations.of(context);
+          return MessageView(
+            message: l10n.downloadManagerUnableToLoad,
+            action: FilledButton(
+              onPressed: context.read<DownloadManagerCubit>().load,
+              child: Text(l10n.commonRetry),
+            ),
           );
         }
+        final refresh = context.read<DownloadManagerCubit>().refreshStorage;
         return LayoutBuilder(
           builder: (context, constraints) {
+            final storage = _Storage(usage: state.storageUsage);
+            final downloads = _orderedDownloads(state.downloads);
             if (constraints.maxWidth < WindowSizeClass.expandedMinWidth) {
-              return _SinglePaneLayout(state: state, onWatch: onWatch);
+              return RefreshIndicator(
+                onRefresh: refresh,
+                child: ListView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.only(bottom: 24),
+                  // The files come first: they are what the page is for.
+                  children: [
+                    _Downloads(downloads: downloads, onWatch: onWatch),
+                    const SizedBox(height: 40),
+                    storage,
+                  ],
+                ),
+              );
             }
-            return _SupportingPaneLayout(
-              state: state,
-              onWatch: onWatch,
-              columns: adaptiveColumnCount(
-                availableWidth:
-                    constraints.maxWidth - _supportingPaneWidth - _paneGap,
-                minItemWidth: _minCardWidth,
-                spacing: _cardSpacing,
-                maxColumns: 2,
-              ),
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: RefreshIndicator(
+                    onRefresh: refresh,
+                    child: ListView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: const EdgeInsets.only(bottom: 24),
+                      children: [
+                        _Downloads(downloads: downloads, onWatch: onWatch),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(width: _paneGap),
+                SizedBox(
+                  width: _storagePaneWidth,
+                  child: SingleChildScrollView(primary: false, child: storage),
+                ),
+              ],
             );
           },
         );
@@ -57,149 +90,30 @@ class DownloadManagerView extends StatelessWidget {
   }
 }
 
-/// Compact and medium: storage summary on top of the downloads list.
-class _SinglePaneLayout extends StatelessWidget {
-  const _SinglePaneLayout({required this.state, required this.onWatch});
-
-  final DownloadManagerState state;
-  final ValueChanged<DownloadItem> onWatch;
-
-  @override
-  Widget build(BuildContext context) {
-    return RefreshIndicator(
-      onRefresh: context.read<DownloadManagerCubit>().refreshStorage,
-      child: ListView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.only(bottom: 24),
-        children: [
-          _StorageCard(usage: state.storageUsage),
-          const SizedBox(height: 18),
-          if (state.downloads.isEmpty)
-            const _EmptyState()
-          else
-            ..._orderedDownloads(state.downloads).map(
-              (item) => Padding(
-                padding: const EdgeInsets.only(
-                  bottom: DownloadManagerView._cardSpacing,
-                ),
-                child: _DownloadCard(item: item, onWatch: onWatch),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Expanded and wider: downloads in the main pane, storage summary in a
-/// supporting pane at the end.
-class _SupportingPaneLayout extends StatelessWidget {
-  const _SupportingPaneLayout({
-    required this.state,
-    required this.onWatch,
-    required this.columns,
-  });
-
-  final DownloadManagerState state;
-  final ValueChanged<DownloadItem> onWatch;
-  final int columns;
-
-  @override
-  Widget build(BuildContext context) {
-    final downloads = _orderedDownloads(state.downloads);
-    final rowCount = (downloads.length / columns).ceil();
-    const spacing = DownloadManagerView._cardSpacing;
-
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(
-          child: RefreshIndicator(
-            onRefresh: context.read<DownloadManagerCubit>().refreshStorage,
-            child: downloads.isEmpty
-                ? ListView(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    children: const [_EmptyState()],
-                  )
-                : ListView.separated(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    padding: const EdgeInsets.only(bottom: 24),
-                    itemCount: rowCount,
-                    separatorBuilder: (_, _) => const SizedBox(height: spacing),
-                    itemBuilder: (context, index) {
-                      final start = index * columns;
-                      final end = math.min(start + columns, downloads.length);
-                      return AdaptiveGridRow(
-                        columns: columns,
-                        spacing: spacing,
-                        children: [
-                          for (final item in downloads.sublist(start, end))
-                            _DownloadCard(item: item, onWatch: onWatch),
-                        ],
-                      );
-                    },
-                  ),
-          ),
-        ),
-        const SizedBox(width: DownloadManagerView._paneGap),
-        SizedBox(
-          width: DownloadManagerView._supportingPaneWidth,
-          child: SingleChildScrollView(
-            primary: false,
-            padding: const EdgeInsets.only(bottom: 24),
-            child: _StorageCard(usage: state.storageUsage),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _StorageCard extends StatelessWidget {
-  const _StorageCard({required this.usage});
+class _Storage extends StatelessWidget {
+  const _Storage({required this.usage});
 
   final DownloadStorageUsage? usage;
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final theme = Theme.of(context);
-    return Card(
-      color: theme.colorScheme.surfaceContainerHighest,
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(Icons.storage_rounded, color: theme.colorScheme.primary),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    l10n.downloadStorageTitle,
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 14),
-            _StorageRow(
-              label: l10n.downloadStorageTotal,
-              value: usage?.totalBytes,
-            ),
-            const SizedBox(height: 7),
-            _StorageRow(
-              label: l10n.downloadStorageContent,
-              value: usage?.downloadsBytes,
-            ),
-            const SizedBox(height: 7),
-            _StorageRow(
-              label: l10n.downloadStorageCache,
-              value: usage?.cacheBytes,
-              action: (usage?.cacheBytes ?? 0) > 0
+    String size(int? bytes) =>
+        bytes == null ? '—' : formatByteSize(l10n, bytes);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SectionLabel(l10n.downloadStorageTitle),
+        const SizedBox(height: 12),
+        SpecTable(
+          labelWidth: 196,
+          rows: [
+            SpecRow(l10n.downloadStorageTotal, size(usage?.totalBytes)),
+            SpecRow(l10n.downloadStorageContent, size(usage?.downloadsBytes)),
+            SpecRow(
+              l10n.downloadStorageCache,
+              size(usage?.cacheBytes),
+              trailing: (usage?.cacheBytes ?? 0) > 0
                   ? TextButton(
                       key: const Key('download_storage_clear_cache_button'),
                       onPressed: () => _clearCache(context),
@@ -209,7 +123,7 @@ class _StorageCard extends StatelessWidget {
             ),
           ],
         ),
-      ),
+      ],
     );
   }
 }
@@ -229,31 +143,43 @@ Future<void> _clearCache(BuildContext context) async {
   );
 }
 
-class _StorageRow extends StatelessWidget {
-  const _StorageRow({required this.label, required this.value, this.action});
+class _Downloads extends StatelessWidget {
+  const _Downloads({required this.downloads, required this.onWatch});
 
-  final String label;
-  final int? value;
-  final Widget? action;
+  final List<DownloadItem> downloads;
+  final ValueChanged<DownloadItem> onWatch;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
+    final l10n = AppLocalizations.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Expanded(child: Text(label)),
-        const SizedBox(width: 12),
-        if (action != null) ...[action!, const SizedBox(width: 4)],
-        Text(
-          value == null ? '—' : _formatBytes(value!),
-          style: const TextStyle(fontWeight: FontWeight.w700),
-        ),
+        SectionLabel(l10n.downloadsFilesTitle),
+        const SizedBox(height: 8),
+        if (downloads.isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 48),
+            child: Text(
+              l10n.downloadsEmpty,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+          )
+        else
+          for (final (index, item) in downloads.indexed) ...[
+            if (index > 0) const SegmentedRule(),
+            _DownloadRow(item: item, onWatch: onWatch),
+          ],
       ],
     );
   }
 }
 
-class _DownloadCard extends StatelessWidget {
-  const _DownloadCard({required this.item, required this.onWatch});
+class _DownloadRow extends StatelessWidget {
+  const _DownloadRow({required this.item, required this.onWatch});
 
   final DownloadItem item;
   final ValueChanged<DownloadItem> onWatch;
@@ -261,98 +187,134 @@ class _DownloadCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     final l10n = AppLocalizations.of(context);
     final cubit = context.read<DownloadManagerCubit>();
+    final status = item.status;
+    final completed = status == DownloadStatus.completed;
     final progress = item.totalBytes <= 0
         ? 0.0
         : (item.downloadedBytes / item.totalBytes).clamp(0.0, 1.0);
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              item.animeTitle,
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              item.fileName,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-            const SizedBox(height: 14),
-            LinearProgressIndicator(
-              value: item.status == DownloadStatus.completed ? 1 : progress,
-              minHeight: 7,
-              borderRadius: BorderRadius.circular(999),
-            ),
-            const SizedBox(height: 9),
-            Wrap(
-              spacing: 12,
-              runSpacing: 5,
-              children: [
-                Text(_statusLabel(l10n, item.status)),
-                Text(
-                  '${_formatBytes(item.downloadedBytes)} / ${_formatBytes(item.totalBytes)}',
+    final facts = [
+      if (completed)
+        formatByteSize(l10n, item.totalBytes)
+      else
+        '${formatByteSize(l10n, item.downloadedBytes)} / '
+            '${formatByteSize(l10n, item.totalBytes)}',
+      if (status == DownloadStatus.downloading) ...[
+        l10n.playerRate(formatByteSize(l10n, item.downloadRateBytesPerSecond)),
+        l10n.downloadPeers(item.peers),
+      ],
+    ].join(' · ');
+
+    final (actionIcon, actionLabel, onAction) = switch (status) {
+      DownloadStatus.completed => (
+        PixelGlyph.play,
+        l10n.downloadWatchButton,
+        () => onWatch(item),
+      ),
+      DownloadStatus.downloading || DownloadStatus.queued => (
+        PixelGlyph.pause,
+        l10n.downloadPauseButton,
+        () => cubit.pause(item.id),
+      ),
+      DownloadStatus.paused => (
+        PixelGlyph.play,
+        l10n.downloadResumeButton,
+        () => cubit.resume(item.id),
+      ),
+      DownloadStatus.failed => (
+        PixelGlyph.refresh,
+        l10n.commonRetry,
+        () => cubit.retry(item.id),
+      ),
+    };
+
+    return Material(
+      // Ink paints on the nearest Material: this one scrolls with the row,
+      // so the list's edge clips the highlight.
+      type: MaterialType.transparency,
+      child: InkWell(
+        onTap: completed ? () => onWatch(item) : null,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 14, 0, 14),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      item.animeTitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.titleSmall,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      fileDisplayName(item.fileName),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodySmall,
+                    ),
+                    if (!completed) ...[
+                      const SizedBox(height: 10),
+                      ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 480),
+                        child: SegmentedBar(
+                          value: progress,
+                          color: switch (status) {
+                            DownloadStatus.downloading => scheme.tertiary,
+                            DownloadStatus.failed => scheme.error,
+                            _ => scheme.onSurfaceVariant,
+                          },
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 8),
+                    Text.rich(
+                      TextSpan(
+                        children: [
+                          TextSpan(
+                            text: _statusLabel(l10n, status).toUpperCase(),
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: switch (status) {
+                                DownloadStatus.downloading => scheme.tertiary,
+                                DownloadStatus.failed => scheme.error,
+                                _ => scheme.onSurface,
+                              },
+                            ),
+                          ),
+                          TextSpan(text: '   $facts'),
+                        ],
+                      ),
+                      style: theme.textTheme.bodySmall,
+                    ),
+                    if (item.errorMessage != null) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        l10n.downloadFailedMessage,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: scheme.error,
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
-                if (item.status == DownloadStatus.downloading)
-                  Text('${_formatBytes(item.downloadRateBytesPerSecond)}/с'),
-                if (item.status == DownloadStatus.downloading)
-                  Text(l10n.downloadPeers(item.peers)),
-              ],
-            ),
-            if (item.errorMessage != null) ...[
-              const SizedBox(height: 8),
-              Text(
-                l10n.downloadFailedMessage,
-                style: TextStyle(color: theme.colorScheme.error),
+              ),
+              const SizedBox(width: 8),
+              IconButton(
+                tooltip: actionLabel,
+                icon: PixelIcon(actionIcon, size: 18),
+                onPressed: onAction,
+              ),
+              IconButton(
+                tooltip: l10n.downloadDeleteButton,
+                icon: const PixelIcon(PixelGlyph.delete, size: 18),
+                onPressed: () => _confirmDelete(context, item),
               ),
             ],
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                if (item.status == DownloadStatus.completed)
-                  FilledButton.icon(
-                    onPressed: () => onWatch(item),
-                    icon: const Icon(Icons.play_arrow_rounded),
-                    label: Text(l10n.downloadWatchButton),
-                  ),
-                if (item.status == DownloadStatus.downloading ||
-                    item.status == DownloadStatus.queued)
-                  OutlinedButton.icon(
-                    onPressed: () => cubit.pause(item.id),
-                    icon: const Icon(Icons.pause_rounded),
-                    label: Text(l10n.downloadPauseButton),
-                  ),
-                if (item.status == DownloadStatus.paused)
-                  OutlinedButton.icon(
-                    onPressed: () => cubit.resume(item.id),
-                    icon: const Icon(Icons.play_arrow_rounded),
-                    label: Text(l10n.downloadResumeButton),
-                  ),
-                if (item.status == DownloadStatus.failed)
-                  OutlinedButton.icon(
-                    onPressed: () => cubit.retry(item.id),
-                    icon: const Icon(Icons.refresh_rounded),
-                    label: Text(l10n.commonRetry),
-                  ),
-                TextButton.icon(
-                  onPressed: () => _confirmDelete(context, item),
-                  icon: const Icon(Icons.delete_outline_rounded),
-                  label: Text(l10n.downloadDeleteButton),
-                ),
-              ],
-            ),
-          ],
+          ),
         ),
       ),
     );
@@ -380,50 +342,6 @@ class _DownloadCard extends StatelessWidget {
     if (shouldDelete == true && context.mounted) {
       await context.read<DownloadManagerCubit>().delete(item.id);
     }
-  }
-}
-
-class _EmptyState extends StatelessWidget {
-  const _EmptyState();
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 54, horizontal: 20),
-      child: Column(
-        children: [
-          const Icon(Icons.download_done_rounded, size: 52),
-          const SizedBox(height: 14),
-          Text(
-            AppLocalizations.of(context).downloadsEmpty,
-            textAlign: TextAlign.center,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ManagerFailure extends StatelessWidget {
-  const _ManagerFailure({required this.onRetry});
-
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.error_outline_rounded, size: 42),
-          const SizedBox(height: 12),
-          Text(l10n.downloadManagerUnableToLoad),
-          const SizedBox(height: 16),
-          FilledButton(onPressed: onRetry, child: Text(l10n.commonRetry)),
-        ],
-      ),
-    );
   }
 }
 
@@ -457,15 +375,4 @@ int _statusPriority(DownloadStatus status) {
     DownloadStatus.failed => 3,
     DownloadStatus.completed => 4,
   };
-}
-
-String _formatBytes(int bytes) {
-  const units = ['Б', 'КБ', 'МБ', 'ГБ', 'ТБ'];
-  var value = bytes.toDouble();
-  var unit = 0;
-  while (value >= 1024 && unit < units.length - 1) {
-    value /= 1024;
-    unit++;
-  }
-  return '${value.toStringAsFixed(unit == 0 ? 0 : 1)} ${units[unit]}';
 }

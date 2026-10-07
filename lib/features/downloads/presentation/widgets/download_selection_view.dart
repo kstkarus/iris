@@ -7,17 +7,24 @@ import 'package:iris/features/downloads/presentation/cubit/download_selection_st
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/utils/byte_size_formatter.dart';
 import 'package:iris/shared/utils/file_display_name.dart';
+import 'package:iris/shared/widgets/pixel_icon.dart';
+import 'package:iris/shared/widgets/segmented_bar.dart';
+import 'package:iris/shared/widgets/status_views.dart';
 
 class DownloadSelectionView extends StatelessWidget {
   const DownloadSelectionView({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return BlocBuilder<DownloadSelectionCubit, DownloadSelectionState>(
       builder: (context, state) {
         return switch (state) {
           DownloadSelectionInitial() ||
-          DownloadSelectionLoading() => const _LoadingState(),
+          DownloadSelectionLoading() ||
+          DownloadSelectionQueued() => LoadingView(
+            label: l10n.downloadSelectionPreparing,
+          ),
           DownloadSelectionReady(:final source) => _FileList(
             files: source.files,
           ),
@@ -25,31 +32,9 @@ class DownloadSelectionView extends StatelessWidget {
             files: source.files,
             enqueuingFile: file,
           ),
-          DownloadSelectionQueued() => const _LoadingState(),
           DownloadSelectionFailure(:final type) => _FailureState(type: type),
         };
       },
-    );
-  }
-}
-
-class _LoadingState extends StatelessWidget {
-  const _LoadingState();
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const CircularProgressIndicator(),
-          const SizedBox(height: 16),
-          Text(
-            AppLocalizations.of(context).downloadSelectionPreparing,
-            textAlign: TextAlign.center,
-          ),
-        ],
-      ),
     );
   }
 }
@@ -68,45 +53,63 @@ class _FileList extends StatelessWidget {
     final idle = enqueuingFile == null;
     return ListView.separated(
       itemCount: files.length,
-      separatorBuilder: (_, _) =>
-          const Divider(height: 1, indent: 16, endIndent: 16),
+      separatorBuilder: (_, _) => const SegmentedRule(),
       itemBuilder: (context, index) {
         final file = files[index];
         final isEnqueuing = enqueuingFile == file;
         final enqueue = idle ? () => cubit.enqueue(file) : null;
-        return ListTile(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          contentPadding: const EdgeInsetsDirectional.only(start: 16, end: 8),
-          title: Text(
-            fileDisplayName(file.name),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-          ),
-          subtitle: Text(
-            isEnqueuing
-                ? l10n.downloadAddingToQueue
-                : formatByteSize(file.size),
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
+        return Material(
+          // Ink paints on the nearest Material: this one scrolls with the row,
+          // so the list's edge clips the highlight.
+          type: MaterialType.transparency,
+          child: InkWell(
+            onTap: enqueue,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(12, 8, 0, 8),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          fileDisplayName(file.name),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodyMedium,
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          isEnqueuing
+                              ? l10n.downloadAddingToQueue
+                              : formatByteSize(l10n, file.size),
+                          style: theme.textTheme.bodySmall,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  if (isEnqueuing)
+                    const SizedBox(
+                      width: 44,
+                      child: Center(
+                        child: SizedBox(
+                          width: 28,
+                          child: BlockSpinner(height: 4),
+                        ),
+                      ),
+                    )
+                  else
+                    IconButton(
+                      key: ValueKey('download_file_button_${file.index}'),
+                      tooltip: l10n.downloadFileButton,
+                      icon: const PixelIcon(PixelGlyph.download, size: 18),
+                      onPressed: enqueue,
+                    ),
+                ],
+              ),
             ),
           ),
-          trailing: isEnqueuing
-              ? const Padding(
-                  padding: EdgeInsets.all(12),
-                  child: SizedBox.square(
-                    dimension: 24,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  ),
-                )
-              : IconButton(
-                  key: ValueKey('download_file_button_${file.index}'),
-                  tooltip: l10n.downloadFileButton,
-                  icon: const Icon(Icons.download_outlined),
-                  onPressed: enqueue,
-                ),
-          onTap: enqueue,
         );
       },
     );
@@ -128,22 +131,11 @@ class _FailureState extends StatelessWidget {
       DownloadSelectionFailureType.unableToPrepare =>
         l10n.downloadSelectionUnableToPrepare,
     };
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.error_outline_rounded, size: 42),
-            const SizedBox(height: 12),
-            Text(message, textAlign: TextAlign.center),
-            const SizedBox(height: 16),
-            FilledButton(
-              onPressed: context.read<DownloadSelectionCubit>().load,
-              child: Text(l10n.commonRetry),
-            ),
-          ],
-        ),
+    return MessageView(
+      message: message,
+      action: FilledButton(
+        onPressed: context.read<DownloadSelectionCubit>().load,
+        child: Text(l10n.commonRetry),
       ),
     );
   }

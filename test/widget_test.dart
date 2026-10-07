@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:iris/app/router/app_shell_page.dart';
 import 'package:iris/main.dart';
 
 Future<void> _pumpUntilVisible(
@@ -28,7 +29,10 @@ Future<void> _pumpUntilVisible(
 Future<void> _pumpMockApp(WidgetTester tester) async {
   SharedPreferences.setMockInitialValues({});
   await tester.pumpWidget(await createApp(useMocks: true));
-  await _pumpUntilVisible(tester, find.widgetWithText(AppBar, 'Catalog'));
+  await _pumpUntilVisible(
+    tester,
+    find.text('Fullmetal Alchemist: Brotherhood'),
+  );
 }
 
 void main() {
@@ -36,10 +40,19 @@ void main() {
     await _pumpMockApp(tester);
 
     expect(find.text('Iris'), findsNothing);
-    expect(find.widgetWithText(AppBar, 'Catalog'), findsOneWidget);
+    // The navigation names the section; the page does not repeat it.
+    expect(find.byType(AppBar), findsNothing);
+    expect(
+      find.descendant(
+        of: find.byKey(AppShellPage.navigationRailKey),
+        matching: find.text('Catalog'),
+      ),
+      findsOneWidget,
+    );
     expect(find.text('Fullmetal Alchemist: Brotherhood'), findsOneWidget);
 
-    await tester.tap(find.text('Fullmetal Alchemist: Brotherhood'));
+    // Covers start under the catalog's heading.
+    await _tapVisible(tester, find.text('Fullmetal Alchemist: Brotherhood'));
     await tester.pump();
     await _pumpUntilVisible(
       tester,
@@ -112,10 +125,10 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.tap(find.byTooltip('Download').first);
-    await _pumpUntilVisible(tester, find.text('Watch'));
+    await _pumpUntilVisible(tester, find.byTooltip('Watch'));
     // Let the route transition back to the shell finish before tapping.
     await tester.pumpAndSettle();
-    await _tapVisible(tester, find.text('Watch'));
+    await _tapVisible(tester, find.byTooltip('Watch'));
     await _pumpUntilVisible(tester, _playerSurface);
 
     expect(find.byKey(const Key('mock_player_surface')), findsOneWidget);
@@ -158,12 +171,14 @@ void main() {
     await tester.pumpAndSettle();
     await tester.pageBack();
     await tester.pumpAndSettle();
-    expect(find.text('Last watched: episode-01'), findsOneWidget);
+    expect(find.textContaining('Last watched: episode-01'), findsOneWidget);
     expect(find.text('Stopped at 5:00 of 24:00'), findsOneWidget);
+    // The default test window is too narrow for the row's verb label; the
+    // progress itself sits inside the tappable row.
     expect(
       find.descendant(
         of: find.byKey(const Key('saved_torrent_watch_button')),
-        matching: find.text('Continue'),
+        matching: find.text('Stopped at 5:00 of 24:00'),
       ),
       findsOneWidget,
     );
@@ -172,7 +187,9 @@ void main() {
       tester,
       find.descendant(
         of: find.byWidgetPredicate(
-          (widget) => widget is NavigationBar || widget is NavigationRail,
+          (widget) =>
+              widget.key == AppShellPage.navigationBarKey ||
+              widget.key == AppShellPage.navigationRailKey,
         ),
         matching: find.text('Catalog'),
       ),
@@ -185,7 +202,13 @@ void main() {
     expect(continueCard, findsOneWidget);
 
     // Continue skips the file picker and resumes the saved position.
-    await _tapVisible(tester, continueCard);
+    await _tapVisible(
+      tester,
+      find.descendant(
+        of: find.byKey(const Key('continue_watching_row')),
+        matching: find.widgetWithText(FilledButton, 'Continue'),
+      ),
+    );
     await _pumpUntilVisible(tester, _playerSurface);
     await tester.pumpAndSettle();
     expect(find.text('Resumed from 5:00'), findsOneWidget);
@@ -196,7 +219,7 @@ void main() {
     final episodes = find.byKey(const Key('player_episodes_pane'));
     expect(episodes, findsOneWidget);
     expect(
-      find.descendant(of: episodes, matching: find.text('Now playing')),
+      find.descendant(of: episodes, matching: find.text('NOW PLAYING')),
       findsOneWidget,
     );
     await _tapVisible(tester, find.byKey(const ValueKey('player_episode_1')));
@@ -224,7 +247,8 @@ Future<void> _tapVisible(WidgetTester tester, Finder finder) async {
 }
 
 Future<void> _openWatchSources(WidgetTester tester) async {
-  await tester.tap(find.text('Fullmetal Alchemist: Brotherhood'));
+  // Covers start under the catalog's heading.
+  await _tapVisible(tester, find.text('Fullmetal Alchemist: Brotherhood'));
   await _pumpUntilVisible(
     tester,
     find.widgetWithText(FilledButton, 'Choose source'),

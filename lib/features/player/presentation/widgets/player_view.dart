@@ -8,6 +8,8 @@ import 'package:iris/features/player/presentation/cubit/player_state.dart';
 import 'package:iris/features/player/presentation/widgets/player_viewport_factory.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/utils/file_display_name.dart';
+import 'package:iris/shared/widgets/status_views.dart';
+import 'package:iris/shared/widgets/pixel_icon.dart';
 
 class PlayerView extends StatelessWidget {
   const PlayerView({required this.viewportFactory, this.chrome, super.key});
@@ -59,7 +61,7 @@ class PlayerView extends StatelessWidget {
                 key: const Key('player_back_button'),
                 tooltip: AppLocalizations.of(context).playerBack,
                 iconSize: 28,
-                icon: const Icon(Icons.arrow_back),
+                icon: const PixelIcon(PixelGlyph.arrowLeft),
                 onPressed: immersive.onBack,
               ),
             ),
@@ -84,25 +86,15 @@ class _LoadingState extends StatelessWidget {
         ? l10n.playerPreparingMoreBuffer
         : l10n.playerPreparing;
 
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          CircularProgressIndicator(
-            value: clampedProgress > 0 ? clampedProgress : null,
-          ),
-          const SizedBox(height: 16),
-          Text(message, textAlign: TextAlign.center),
-          const SizedBox(height: 8),
-          Text(l10n.playerStreamPreparationProgress(percent)),
-          const SizedBox(height: 4),
-          Text(
-            l10n.playerStreamPreparationSpeed(
-              _formatTransferRate(progress.downloadRateBytesPerSecond),
-            ),
-          ),
-        ],
-      ),
+    return LoadingView(
+      label: message,
+      value: clampedProgress > 0 ? clampedProgress : null,
+      details: [
+        l10n.playerStreamPreparationProgress(percent),
+        l10n.playerStreamPreparationSpeed(
+          _formatTransferRate(progress.downloadRateBytesPerSecond),
+        ),
+      ],
     );
   }
 }
@@ -119,22 +111,11 @@ class _FailureState extends StatelessWidget {
         ? l10n.playerUnableToBufferForStart
         : l10n.playerUnableToStart;
 
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.error_outline, size: 40),
-            const SizedBox(height: 12),
-            Text(message, textAlign: TextAlign.center),
-            const SizedBox(height: 16),
-            FilledButton(
-              onPressed: () => context.read<PlayerCubit>().loadPlayback(),
-              child: Text(l10n.commonRetry),
-            ),
-          ],
-        ),
+    return MessageView(
+      message: message,
+      action: FilledButton(
+        onPressed: () => context.read<PlayerCubit>().loadPlayback(),
+        child: Text(l10n.commonRetry),
       ),
     );
   }

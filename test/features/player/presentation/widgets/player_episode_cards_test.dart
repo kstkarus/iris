@@ -6,6 +6,8 @@ import 'package:iris/features/player/domain/entities/player_video_file.dart';
 import 'package:iris/features/player/presentation/widgets/player_episode_cards.dart';
 import 'package:iris/features/player/presentation/widgets/player_episodes_drawer.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
+import 'package:iris/shared/widgets/pixel_icon.dart';
+import 'package:iris/shared/widgets/segmented_bar.dart';
 
 PlayerVideoFile _file(int index, String name) =>
     PlayerVideoFile(index: index, name: name, size: 1, extension: 'mkv');
@@ -79,10 +81,15 @@ void main() {
     );
     await tester.pump();
 
-    expect(find.text('Now playing'), findsOneWidget);
-    expect(find.byIcon(Icons.check_circle_rounded), findsOneWidget);
+    expect(find.text('NOW PLAYING'), findsOneWidget);
+    expect(
+      find.byWidgetPredicate(
+        (widget) => widget is PixelIcon && widget.glyph == PixelGlyph.check,
+      ),
+      findsOneWidget,
+    );
     expect(find.text('20:00 left'), findsOneWidget);
-    expect(find.byType(LinearProgressIndicator), findsOneWidget);
+    expect(find.byType(SegmentedBar), findsOneWidget);
 
     await tester.tap(find.byKey(const ValueKey('player_episode_card_1')));
     expect(selected, isNull, reason: 'the playing file is not picked again');

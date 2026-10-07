@@ -6,6 +6,8 @@ import 'package:iris/features/anime_list/presentation/bloc/anime_list_bloc.dart'
 import 'package:iris/features/anime_list/presentation/bloc/anime_list_event.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/widgets/adaptive/show_adaptive_sheet.dart';
+import 'package:iris/shared/widgets/option_toggle.dart';
+import 'package:iris/shared/widgets/section_label.dart';
 
 /// Opens sort and filter controls: a bottom sheet on phones, a dialog on
 /// wider windows.
@@ -60,6 +62,10 @@ class _AnimeListCriteriaSheetState extends State<_AnimeListCriteriaSheet> {
     Navigator.of(context).pop();
   }
 
+  void _toggle<T>(Set<T> set, T value, bool selected) {
+    setState(() => selected ? set.add(value) : set.remove(value));
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
@@ -73,7 +79,7 @@ class _AnimeListCriteriaSheetState extends State<_AnimeListCriteriaSheet> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(l10n.animeListFilterSortTitle, style: textTheme.titleLarge),
-            const SizedBox(height: 20),
+            const SizedBox(height: 24),
             Flexible(
               child: SingleChildScrollView(
                 child: Column(
@@ -81,48 +87,39 @@ class _AnimeListCriteriaSheetState extends State<_AnimeListCriteriaSheet> {
                   children: [
                     _CriteriaSection(
                       title: l10n.animeListSortSectionTitle,
-                      chips: [
+                      options: [
                         for (final sort in AnimeListSortOption.values)
-                          ChoiceChip(
-                            label: Text(_formatSortLabel(l10n, sort)),
+                          OptionToggle(
+                            label: animeListSortLabel(l10n, sort),
                             selected: _sort == sort,
-                            onSelected: (_) => setState(() => _sort = sort),
+                            exclusive: true,
+                            onChanged: (_) => setState(() => _sort = sort),
                           ),
                       ],
                     ),
                     const SizedBox(height: 20),
                     _CriteriaSection(
                       title: l10n.animeListTypeSectionTitle,
-                      chips: [
+                      options: [
                         for (final kind in AnimeKindFilter.values)
-                          FilterChip(
-                            label: Text(_formatKindLabel(l10n, kind)),
+                          OptionToggle(
+                            label: animeKindFilterLabel(l10n, kind),
                             selected: _kinds.contains(kind),
-                            onSelected: (selected) => setState(() {
-                              if (selected) {
-                                _kinds.add(kind);
-                              } else {
-                                _kinds.remove(kind);
-                              }
-                            }),
+                            onChanged: (selected) =>
+                                _toggle(_kinds, kind, selected),
                           ),
                       ],
                     ),
                     const SizedBox(height: 20),
                     _CriteriaSection(
                       title: l10n.animeListStatusSectionTitle,
-                      chips: [
+                      options: [
                         for (final status in AnimeStatusFilter.values)
-                          FilterChip(
-                            label: Text(_formatStatusLabel(l10n, status)),
+                          OptionToggle(
+                            label: animeStatusFilterLabel(l10n, status),
                             selected: _statuses.contains(status),
-                            onSelected: (selected) => setState(() {
-                              if (selected) {
-                                _statuses.add(status);
-                              } else {
-                                _statuses.remove(status);
-                              }
-                            }),
+                            onChanged: (selected) =>
+                                _toggle(_statuses, status, selected),
                           ),
                       ],
                     ),
@@ -130,10 +127,10 @@ class _AnimeListCriteriaSheetState extends State<_AnimeListCriteriaSheet> {
                 ),
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 24),
             Row(
               children: [
-                OutlinedButton(
+                TextButton(
                   onPressed: _reset,
                   child: Text(l10n.animeListResetButton),
                 ),
@@ -152,25 +149,31 @@ class _AnimeListCriteriaSheetState extends State<_AnimeListCriteriaSheet> {
 }
 
 class _CriteriaSection extends StatelessWidget {
-  const _CriteriaSection({required this.title, required this.chips});
+  const _CriteriaSection({required this.title, required this.options});
 
   final String title;
-  final List<Widget> chips;
+  final List<Widget> options;
 
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(title, style: Theme.of(context).textTheme.titleMedium),
-        const SizedBox(height: 12),
-        Wrap(spacing: 8, runSpacing: 8, children: chips),
+        SectionLabel(title),
+        const SizedBox(height: 4),
+        // The boxes line up with the label above them.
+        Transform.translate(
+          offset: const Offset(-8, 0),
+          child: Wrap(spacing: 8, children: options),
+        ),
       ],
     );
   }
 }
 
-String _formatSortLabel(AppLocalizations l10n, AnimeListSortOption sort) {
+/// How the catalog is ordered, as the sort control and the catalog's
+/// section label name it.
+String animeListSortLabel(AppLocalizations l10n, AnimeListSortOption sort) {
   switch (sort) {
     case AnimeListSortOption.popularity:
       return l10n.animeListSortPopularity;
@@ -181,7 +184,7 @@ String _formatSortLabel(AppLocalizations l10n, AnimeListSortOption sort) {
   }
 }
 
-String _formatKindLabel(AppLocalizations l10n, AnimeKindFilter kind) {
+String animeKindFilterLabel(AppLocalizations l10n, AnimeKindFilter kind) {
   switch (kind) {
     case AnimeKindFilter.tv:
       return l10n.animeKindTv;
@@ -194,7 +197,7 @@ String _formatKindLabel(AppLocalizations l10n, AnimeKindFilter kind) {
   }
 }
 
-String _formatStatusLabel(AppLocalizations l10n, AnimeStatusFilter status) {
+String animeStatusFilterLabel(AppLocalizations l10n, AnimeStatusFilter status) {
   switch (status) {
     case AnimeStatusFilter.released:
       return l10n.animeStatusReleased;

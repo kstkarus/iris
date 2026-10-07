@@ -7,34 +7,73 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:iris/features/anime_details/domain/entities/anime_details.dart';
 import 'package:iris/features/anime_details/domain/repositories/anime_details_repository.dart';
 import 'package:iris/features/anime_details/presentation/cubit/anime_details_cubit.dart';
+import 'package:iris/features/anime_details/presentation/models/anime_details_preview.dart';
 import 'package:iris/features/anime_details/presentation/pages/anime_details_page.dart';
 import 'package:iris/features/anime_details/presentation/widgets/anime_details_view.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
+import 'package:iris/shared/widgets/app_skeleton.dart';
+import 'package:iris/shared/widgets/dither_transition.dart';
+import 'package:iris/shared/widgets/dithered_image.dart';
 
 import '../../../../helpers/test_window.dart';
 
 void main() {
-  testWidgets('shows a loader while details are loading', (tester) async {
+  testWidgets('without a preview the whole page is noise while loading', (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
     final cubit = AnimeDetailsCubit(
       animeId: '5114',
       repository: _PendingAnimeDetailsRepository(),
     );
 
-    await tester.pumpWidget(
-      MaterialApp(
-        locale: const Locale('en'),
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        home: BlocProvider.value(
-          value: cubit..loadAnime(),
-          child: const Scaffold(body: AnimeDetailsView()),
-        ),
-      ),
-    );
-
+    await tester.pumpWidget(_app(cubit..loadAnime()));
     await tester.pump();
 
-    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    expect(_skeletonAround(tester, find.text('Choose source')).enabled, isTrue);
+    expect(find.bySemanticsLabel('Loading anime details...'), findsOneWidget);
+    expect(find.bySemanticsLabel(RegExp('anime title')), findsNothing);
+    semantics.dispose();
+  });
+
+  testWidgets('a preview shows at once; only the description waits', (
+    tester,
+  ) async {
+    final cubit = AnimeDetailsCubit(
+      animeId: '5114',
+      repository: _PendingAnimeDetailsRepository(),
+    );
+
+    await tester.pumpWidget(_app(cubit..loadAnime(), preview: _preview));
+    await tester.pump();
+
+    expect(find.text(_details.name), findsOneWidget);
+    expect(find.text('64'), findsOneWidget);
+    expect(_skeletonAround(tester, find.text(_details.name)).enabled, isFalse);
+    final button = find.widgetWithText(FilledButton, 'Choose source');
+    expect(tester.widget<FilledButton>(button).onPressed, isNotNull);
+    expect(_skeletonAround(tester, _standIn).enabled, isTrue);
+  });
+
+  testWidgets('the description develops out of the noise', (tester) async {
+    final details = Completer<AnimeDetails>();
+    final cubit = AnimeDetailsCubit(
+      animeId: '5114',
+      repository: _CompleterAnimeDetailsRepository(details),
+    );
+
+    await tester.pumpWidget(_app(cubit..loadAnime(), preview: _preview));
+    await tester.pump();
+
+    details.complete(_details);
+    await tester.pump();
+    await tester.pump(DitherTransition.duration ~/ 2);
+    expect(find.text(_details.description), findsOneWidget);
+    expect(_standIn, findsOneWidget, reason: 'still leaving');
+
+    await tester.pump(DitherTransition.duration);
+    expect(_standIn, findsNothing);
+    expect(find.text(_details.name), findsOneWidget);
   });
 
   testWidgets('shows anime details when loading succeeds', (tester) async {
@@ -59,10 +98,18 @@ void main() {
 
     expect(find.text('Fullmetal Alchemist: Brotherhood'), findsOneWidget);
     expect(find.text('Choose source'), findsOneWidget);
-    expect(
-      find.text('TV · Released · Score 9.12 · 64 episodes · Apr 5, 2009'),
-      findsOneWidget,
-    );
+    for (final fact in [
+      'Type',
+      'TV',
+      'Released',
+      'Episodes',
+      '64',
+      'Score',
+      '9.12',
+      'Apr 5, 2009',
+    ]) {
+      expect(find.text(fact), findsOneWidget, reason: fact);
+    }
     expect(
       find.text(
         'Two brothers search for a Philosopher\'s Stone after a failed ritual.',
@@ -93,10 +140,15 @@ void main() {
 
     await tester.pumpAndSettle();
 
-    expect(
-      find.text('ТВ · Вышло · Оценка 9,12 · 64 серии · 5 апр. 2009 г.'),
-      findsOneWidget,
-    );
+    for (final fact in [
+      'Статус',
+      'Вышло',
+      'Оценка',
+      '9,12',
+      '5 апр. 2009 г.',
+    ]) {
+      expect(find.text(fact), findsOneWidget, reason: fact);
+    }
   });
 
   testWidgets('shows error state and retries loading', (tester) async {
@@ -150,7 +202,7 @@ void main() {
       await tester.pumpAndSettle();
 
       final title = tester.getRect(find.text(_longDetails.name));
-      final poster = tester.getRect(find.byType(Image).first);
+      final poster = tester.getRect(find.byType(DitheredImage).first);
       final description = tester.getRect(find.text(_longDetails.description));
       if (entry.value.width < 840) {
         expect(description.left, title.left);
@@ -161,6 +213,36 @@ void main() {
       expect(tester.takeException(), isNull);
     });
   }
+}
+
+Widget _app(AnimeDetailsCubit cubit, {AnimeDetailsPreview? preview}) {
+  return MaterialApp(
+    locale: const Locale('en'),
+    localizationsDelegates: AppLocalizations.localizationsDelegates,
+    supportedLocales: AppLocalizations.supportedLocales,
+    home: BlocProvider.value(
+      value: cubit,
+      child: Scaffold(body: AnimeDetailsView(preview: preview)),
+    ),
+  );
+}
+
+/// The closest skeleton holding [finder].
+AppSkeleton _skeletonAround(WidgetTester tester, Finder finder) =>
+    tester.widget<AppSkeleton>(
+      find.ancestor(of: finder, matching: find.byType(AppSkeleton)).first,
+    );
+
+/// How the stand-in description begins.
+final _standIn = find.textContaining('A few sentences');
+
+class _CompleterAnimeDetailsRepository implements AnimeDetailsRepository {
+  const _CompleterAnimeDetailsRepository(this.details);
+
+  final Completer<AnimeDetails> details;
+
+  @override
+  Future<AnimeDetails> fetchAnimeDetails(String id) => details.future;
 }
 
 class _PendingAnimeDetailsRepository implements AnimeDetailsRepository {
@@ -205,6 +287,19 @@ const _details = AnimeDetails(
   episodesAired: 64,
   airedOn: '2009-04-05',
   posterOriginalUrl: 'https://shikimori.one/posters/5114/original.jpg',
+);
+
+final _preview = AnimeDetailsPreview(
+  id: _details.id,
+  name: _details.name,
+  russian: _details.russian,
+  kind: _details.kind,
+  score: _details.score,
+  status: _details.status,
+  episodes: _details.episodes,
+  episodesAired: _details.episodesAired,
+  airedOn: _details.airedOn,
+  posterUrl: 'https://shikimori.one/posters/5114/main.jpg',
 );
 
 final _longDetails = AnimeDetails(

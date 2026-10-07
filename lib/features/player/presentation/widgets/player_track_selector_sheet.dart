@@ -4,6 +4,8 @@ import 'package:media_kit/media_kit.dart';
 import 'package:iris/features/player/presentation/widgets/player_overlay_preferences.dart';
 import 'package:iris/features/player/presentation/widgets/player_track_option_formatter.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
+import 'package:iris/shared/widgets/pixel_icon.dart';
+import 'package:iris/shared/widgets/section_label.dart';
 
 class PlayerTrackSelectorSheet extends StatelessWidget {
   const PlayerTrackSelectorSheet({
@@ -43,62 +45,68 @@ class PlayerTrackSelectorSheet extends StatelessWidget {
             20,
             20 + mediaQuery.viewInsets.bottom,
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                l10n.playerTracksTitle,
-                style: theme.textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w700,
+          child: Material(
+            // Ink paints on the nearest Material: this one scrolls with the list,
+            // so the sheet's edge clips the highlight.
+            type: MaterialType.transparency,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  l10n.playerTracksTitle,
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 16),
-              _TrackSection<AudioTrack>(
-                title: l10n.playerAudioTracksTitle,
-                tracks: audioOptions,
-                selectedTrack: selectedAudioTrack,
-                labelBuilder: (track) => formatAudioTrackLabel(
-                  track,
-                  autoLabel: l10n.playerTrackAuto,
-                  offLabel: l10n.playerTrackOff,
+                const SizedBox(height: 16),
+                _TrackSection<AudioTrack>(
+                  title: l10n.playerAudioTracksTitle,
+                  tracks: audioOptions,
+                  selectedTrack: selectedAudioTrack,
+                  labelBuilder: (track) => formatAudioTrackLabel(
+                    track,
+                    autoLabel: l10n.playerTrackAuto,
+                    offLabel: l10n.playerTrackOff,
+                  ),
+                  emptyLabel: l10n.playerTracksUnavailable,
+                  onSelected: onAudioTrackSelected,
                 ),
-                emptyLabel: l10n.playerTracksUnavailable,
-                onSelected: onAudioTrackSelected,
-              ),
-              const SizedBox(height: 20),
-              _TrackSection<SubtitleTrack>(
-                title: l10n.playerSubtitleTracksTitle,
-                tracks: subtitleOptions,
-                selectedTrack: selectedSubtitleTrack,
-                labelBuilder: (track) => formatSubtitleTrackLabel(
-                  track,
-                  autoLabel: l10n.playerTrackAuto,
-                  offLabel: l10n.playerTrackOff,
+                const SizedBox(height: 20),
+                _TrackSection<SubtitleTrack>(
+                  title: l10n.playerSubtitleTracksTitle,
+                  tracks: subtitleOptions,
+                  selectedTrack: selectedSubtitleTrack,
+                  labelBuilder: (track) => formatSubtitleTrackLabel(
+                    track,
+                    autoLabel: l10n.playerTrackAuto,
+                    offLabel: l10n.playerTrackOff,
+                  ),
+                  emptyLabel: l10n.playerTracksUnavailable,
+                  onSelected: onSubtitleTrackSelected,
                 ),
-                emptyLabel: l10n.playerTracksUnavailable,
-                onSelected: onSubtitleTrackSelected,
-              ),
-              const SizedBox(height: 12),
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                title: Text(l10n.playerSubtitleAppearanceTitle),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: onSubtitleAppearancePressed,
-              ),
-              ValueListenableBuilder<bool>(
-                valueListenable: playerDetailedStatsEnabled,
-                builder: (context, enabled, _) => SwitchListTile(
-                  key: const Key('player_detailed_stats_switch'),
+                const SizedBox(height: 12),
+                ListTile(
                   contentPadding: EdgeInsets.zero,
-                  title: Text(l10n.playerDetailedStats),
-                  subtitle: Text(l10n.playerDetailedStatsHint),
-                  value: enabled,
-                  onChanged: (value) =>
-                      playerDetailedStatsEnabled.value = value,
+                  title: Text(l10n.playerSubtitleAppearanceTitle),
+                  // Opens a sheet of its own; the arrow says so.
+                  trailing: const PixelIcon(PixelGlyph.arrowRight, size: 16),
+                  onTap: onSubtitleAppearancePressed,
                 ),
-              ),
-            ],
+                ValueListenableBuilder<bool>(
+                  valueListenable: playerDetailedStatsEnabled,
+                  builder: (context, enabled, _) => SwitchListTile(
+                    key: const Key('player_detailed_stats_switch'),
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(l10n.playerDetailedStats),
+                    subtitle: Text(l10n.playerDetailedStatsHint),
+                    value: enabled,
+                    onChanged: (value) =>
+                        playerDetailedStatsEnabled.value = value,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -130,13 +138,8 @@ class _TrackSection<T> extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          title,
-          style: theme.textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-        const SizedBox(height: 8),
+        SectionLabel(title),
+        const SizedBox(height: 4),
         if (tracks.isEmpty)
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 12),
@@ -153,7 +156,11 @@ class _TrackSection<T> extends StatelessWidget {
               contentPadding: EdgeInsets.zero,
               title: Text(labelBuilder(track)),
               trailing: selectedTrack == track
-                  ? Icon(Icons.check, color: theme.colorScheme.primary)
+                  ? PixelIcon(
+                      PixelGlyph.check,
+                      size: 18,
+                      color: theme.colorScheme.onSurface,
+                    )
                   : null,
               onTap: () => onSelected(track),
             ),

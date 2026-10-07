@@ -21,7 +21,7 @@ void main() {
 
     await tester.pumpWidget(_wrap(cubit: cubit));
 
-    expect(find.text('Preparing torrent files...'), findsOneWidget);
+    expect(find.text('Preparing torrent files'), findsOneWidget);
   });
 
   testWidgets('lists files with sizes and opens the tapped one', (
@@ -80,8 +80,11 @@ void main() {
       ),
     );
 
-    expect(find.text('Continue: episode-02'), findsOneWidget);
-    expect(find.text('Stopped at 5:00 of 24:00'), findsOneWidget);
+    // The card above the list and the file's own row both show where it
+    // stopped; the card's button is the only "Continue".
+    expect(find.widgetWithText(FilledButton, 'Continue'), findsOneWidget);
+    expect(find.text('Continue'), findsOneWidget);
+    expect(find.text('Stopped at 5:00 of 24:00'), findsNWidgets(2));
 
     await tester.tap(find.byKey(PlayerSourceView.continueButtonKey));
     expect(selected, [2]);
@@ -99,7 +102,11 @@ void main() {
       ),
     );
 
-    expect(find.text('Up next: episode-02'), findsOneWidget);
+    expect(find.widgetWithText(FilledButton, 'Play next'), findsOneWidget);
+    expect(
+      find.descendant(of: find.byType(Card), matching: find.text('episode-02')),
+      findsOneWidget,
+    );
     expect(find.text('Watched'), findsOneWidget);
   });
 

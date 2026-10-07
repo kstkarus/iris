@@ -99,6 +99,44 @@ void main() {
     await Future<void>.delayed(Duration.zero);
 
     expect(engine.calls.last, 'seek ${Duration.zero}');
+    final restarted = cubit.state as PlayerReady;
+    expect(restarted.startsOver, isTrue);
+    // Chosen while the file starts: the notice stays so it can be undone.
+    expect(restarted.showResumeNotice, isTrue);
+
+    cubit.resumeSavedPosition();
+    await Future<void>.delayed(Duration.zero);
+
+    expect(engine.calls.last, 'seek ${const Duration(seconds: 600)}');
+    expect((cubit.state as PlayerReady).startsOver, isFalse);
+    expect((cubit.state as PlayerReady).showResumeNotice, isTrue);
+  });
+
+  test('marks the file started on its first frame', () async {
+    progress.seed(saved());
+    final cubit = createCubit();
+    addTearDown(cubit.close);
+    await cubit.loadPlayback();
+    expect((cubit.state as PlayerReady).started, isFalse);
+
+    engine.emit(const PlayerEnginePlaybackStarted());
+    await Future<void>.delayed(Duration.zero);
+
+    expect((cubit.state as PlayerReady).started, isTrue);
+  });
+
+  test('starting over once the file plays closes the notice', () async {
+    progress.seed(saved());
+    final cubit = createCubit();
+    addTearDown(cubit.close);
+    await cubit.loadPlayback();
+    engine.emit(const PlayerEnginePlaybackStarted());
+    await Future<void>.delayed(Duration.zero);
+
+    cubit.restartFromBeginning();
+    await Future<void>.delayed(Duration.zero);
+
+    expect(engine.calls.last, 'seek ${Duration.zero}');
     expect((cubit.state as PlayerReady).showResumeNotice, isFalse);
   });
 

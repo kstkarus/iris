@@ -72,10 +72,7 @@ class _RenameDialogState extends State<_RenameDialog> {
         controller: _controller,
         autofocus: true,
         onSubmitted: (_) => _submit(),
-        decoration: InputDecoration(
-          labelText: l10n.savedTorrentsNameLabel,
-          border: const OutlineInputBorder(),
-        ),
+        decoration: InputDecoration(labelText: l10n.savedTorrentsNameLabel),
       ),
       actions: [
         TextButton(

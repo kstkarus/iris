@@ -32,8 +32,8 @@ void main() {
       ),
     );
 
-    expect(find.text('Audio'), findsOneWidget);
-    expect(find.text('Subtitles'), findsOneWidget);
+    expect(find.text('AUDIO'), findsOneWidget);
+    expect(find.text('SUBTITLES'), findsOneWidget);
     expect(find.text('Japanese'), findsOneWidget);
     expect(find.text('English Signs'), findsOneWidget);
     expect(find.text('Auto'), findsNWidgets(2));

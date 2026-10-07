@@ -273,7 +273,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get playerSourceTitle => 'Выбор файла';
 
   @override
-  String get playerSourcePreparing => 'Подготавливаем файлы torrent...';
+  String get playerSourcePreparing => 'Подготавливаем файлы torrent';
 
   @override
   String get playerSourceUnsupported =>
@@ -284,17 +284,29 @@ class AppLocalizationsRu extends AppLocalizations {
       'Не удалось подготовить этот источник.';
 
   @override
-  String get playerPreparing => 'Подготавливаем видео...';
+  String get playerPreparing => 'Подготавливаем видео';
 
   @override
-  String get playerWaitingMetadata => 'Ищем метаданные торрента...';
+  String get playerWaitingMetadata => 'Ищем метаданные торрента';
 
   @override
-  String get playerBuffering => 'Буферизация...';
+  String get playerBuffering => 'Буферизация';
 
   @override
-  String get playerPreparingMoreBuffer =>
-      'Собираем больше данных для старта...';
+  String get playerPreparingMoreBuffer => 'Собираем больше данных для старта';
+
+  @override
+  String playerWaitPeers(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count пира',
+      many: '$count пиров',
+      few: '$count пира',
+      one: '$count пир',
+    );
+    return '$_temp0';
+  }
 
   @override
   String playerStreamPreparationProgress(int percent) {
@@ -549,6 +561,22 @@ class AppLocalizationsRu extends AppLocalizations {
   String get playerStartOver => 'С начала';
 
   @override
+  String playerResumingFrom(String position) {
+    return 'Продолжим с $position';
+  }
+
+  @override
+  String get playerStartingOver => 'Начнём с начала';
+
+  @override
+  String get playerStartedOver => 'Смотрим с начала';
+
+  @override
+  String playerResumeFromAction(String position) {
+    return 'С $position';
+  }
+
+  @override
   String get playerPlayNext => 'Следующая серия';
 
   @override
@@ -601,6 +629,21 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get continueWatchingRemove => 'Убрать из списка';
+
+  @override
+  String get continueWatchingStoppedAtLabel => 'Остановились на';
+
+  @override
+  String get continueWatchingFinishedLabel => 'Досмотрено';
+
+  @override
+  String get animeListHeadingPopularity => 'Популярное';
+
+  @override
+  String get animeListHeadingScore => 'Высокий рейтинг';
+
+  @override
+  String get animeListHeadingAiredOn => 'Новинки';
 
   @override
   String get recentlyWatchedTitle => 'Недавно смотрели';
@@ -756,4 +799,58 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get searchClearTooltip => 'Очистить';
+
+  @override
+  String get searchCancelButton => 'Отмена';
+
+  @override
+  String get animeDetailsFactKind => 'Тип';
+
+  @override
+  String get animeDetailsFactStatus => 'Статус';
+
+  @override
+  String get animeDetailsFactEpisodes => 'Эпизоды';
+
+  @override
+  String get animeDetailsFactScore => 'Оценка';
+
+  @override
+  String get animeDetailsFactAired => 'Выход';
+
+  @override
+  String animeDetailsEpisodesAired(String aired, String total) {
+    return '$aired из $total';
+  }
+
+  @override
+  String get animeDetailsDescriptionTitle => 'Описание';
+
+  @override
+  String get animeDetailsShowCover => 'Показать оригинал обложки';
+
+  @override
+  String get animeDetailsShowHalftone => 'Показать растр';
+
+  @override
+  String get watchSourcesColumnRelease => 'Релиз';
+
+  @override
+  String get watchSourcesColumnSize => 'Размер';
+
+  @override
+  String get watchSourcesColumnSeeders => 'Сиды';
+
+  @override
+  String get watchSourcesColumnDownloads => 'Загрузки';
+
+  @override
+  String get watchSourcesColumnDate => 'Дата';
+
+  @override
+  String get savedTorrentsPasteHint =>
+      'Ctrl+V — добавить magnet-ссылку из буфера';
+
+  @override
+  String get downloadsFilesTitle => 'Файлы';
 }

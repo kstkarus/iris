@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import 'package:iris/features/player/presentation/widgets/player_viewport_factory.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
+import 'package:iris/shared/widgets/pixel_icon.dart';
 
 /// The episodes over the right side of the immersive player; a click beside
 /// it closes it.
@@ -89,7 +90,7 @@ class _Panel extends StatelessWidget {
     final l10n = AppLocalizations.of(context);
     final theme = Theme.of(context);
     final caption = this.caption;
-    final radius = BorderRadius.circular(16);
+    final radius = BorderRadius.zero;
     return ClipRRect(
       borderRadius: radius,
       child: BackdropFilter(
@@ -118,7 +119,7 @@ class _Panel extends StatelessWidget {
                               l10n.playerEpisodesTitle,
                               style: theme.textTheme.titleLarge?.copyWith(
                                 color: Colors.white,
-                                fontWeight: FontWeight.w700,
+                                fontWeight: FontWeight.w500,
                               ),
                             ),
                             if (caption != null && caption.isNotEmpty)
@@ -138,8 +139,9 @@ class _Panel extends StatelessWidget {
                     IconButton(
                       key: const Key('player_episodes_close_button'),
                       color: Colors.white,
-                      icon: Icon(
-                        Icons.close_rounded,
+                      icon: PixelIcon(
+                        PixelGlyph.close,
+                        size: 18,
                         semanticLabel: l10n.playerCloseEpisodes,
                       ),
                       onPressed: onClose,

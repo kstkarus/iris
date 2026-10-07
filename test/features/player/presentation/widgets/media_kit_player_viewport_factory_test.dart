@@ -26,6 +26,7 @@ import 'package:iris/features/player/presentation/widgets/media_kit_player_viewp
 import 'package:iris/features/player/presentation/widgets/player_viewport_factory.dart';
 import 'package:iris/features/player/presentation/widgets/player_overlay_preferences.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
+import 'package:iris/features/player/presentation/widgets/player_wait_indicator.dart';
 
 void main() {
   testWidgets(
@@ -63,12 +64,18 @@ void main() {
       );
       await tester.pump();
 
-      expect(find.byIcon(Icons.tune), findsOneWidget);
+      expect(
+        find.byKey(const Key('player_track_selector_button')),
+        findsOneWidget,
+      );
 
       firstFrameCompleter.complete();
       await tester.pump();
 
-      expect(find.byIcon(Icons.tune), findsOneWidget);
+      expect(
+        find.byKey(const Key('player_track_selector_button')),
+        findsOneWidget,
+      );
     },
   );
 
@@ -88,14 +95,14 @@ void main() {
       );
       await tester.pump();
 
-      expect(find.text('Buffering...'), findsAtLeastNWidgets(1));
+      expect(find.text('Buffering'), findsAtLeastNWidgets(1));
       expect(find.byKey(const Key('player_video_surface')), findsOneWidget);
-      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      expect(find.byType(BlockRunner), findsOneWidget);
 
       firstFrameCompleter.complete();
       await tester.pump();
 
-      expect(find.text('Buffering...'), findsNothing);
+      expect(find.text('Buffering'), findsNothing);
     },
   );
 
@@ -127,7 +134,7 @@ void main() {
       );
       await tester.pump();
 
-      expect(find.text('Buffering...'), findsNothing);
+      expect(find.text('Buffering'), findsNothing);
     },
   );
 
@@ -188,7 +195,7 @@ void main() {
       );
       await tester.pump();
 
-      expect(find.text('Buffering...'), findsOneWidget);
+      expect(find.text('Buffering'), findsOneWidget);
       expect(find.text('3.0 MB/s'), findsNothing);
       expect(find.text('8'), findsNothing);
       expect(find.text('53%'), findsNothing);
@@ -236,7 +243,10 @@ void main() {
       );
       await tester.pump();
 
-      expect(find.byIcon(Icons.tune), findsOneWidget);
+      expect(
+        find.byKey(const Key('player_track_selector_button')),
+        findsOneWidget,
+      );
       expect(find.text('0 B/s'), findsOneWidget);
       // Peers are a technical detail, hidden until the user turns it on.
       expect(find.text('0'), findsNothing);
@@ -457,11 +467,11 @@ void main() {
       ),
     );
     await tester.pump();
-    expect(find.text('Buffering...'), findsNothing);
+    expect(find.text('Buffering'), findsNothing);
 
     await tester.runAsync(engine.stop);
     await tester.pump();
-    expect(find.text('Preparing video...'), findsAtLeastNWidgets(1));
+    expect(find.text('Preparing video'), findsAtLeastNWidgets(1));
     expect(find.byKey(const Key('player_video_surface')), findsOneWidget);
 
     unawaited(
@@ -478,7 +488,7 @@ void main() {
     expect(createdPlayers, hasLength(1));
     expect(createdPlayers.single.openCount, 2);
     expect(controllers, hasLength(1));
-    expect(find.text('Buffering...'), findsNothing);
+    expect(find.text('Buffering'), findsNothing);
   });
 
   testWidgets('offers the next file in the credits until the controls '
@@ -608,6 +618,33 @@ void main() {
     expect(find.byKey(_nextPrompt), findsOneWidget, reason: 'the ending began');
   });
 
+  testWidgets('holds a seek asked for before the file loads until it can '
+      'take it', (tester) async {
+    late _FakePlatformPlayer platformPlayer;
+    late MediaKitPlayerEngine engine;
+
+    await tester.pumpWidget(
+      _wrapViewport(
+        playerBuilder: (configuration) {
+          platformPlayer = _FakePlatformPlayer(configuration: configuration);
+          return Player(platformPlayer: platformPlayer);
+        },
+        // No picture yet: the file is still loading.
+        firstFrameFuture: Completer<void>().future,
+        onEngine: (value) => engine = value,
+      ),
+    );
+    await tester.pump();
+
+    // mpv would drop it and go to the position the file was opened at.
+    await tester.runAsync(() => engine.seek(Duration.zero));
+    expect(platformPlayer.seeks, isEmpty);
+
+    platformPlayer.emitDuration(const Duration(minutes: 24));
+    await _deliverPlayerEvent(tester);
+    expect(platformPlayer.seeks, [Duration.zero]);
+  });
+
   testWidgets('offers a fixed skip early in a file with no known opening', (
     tester,
   ) async {
@@ -723,7 +760,10 @@ void main() {
             .whereType<MaterialDesktopFullscreenButton>(),
         isNotEmpty,
       );
-      expect(find.byIcon(Icons.tune), findsOneWidget);
+      expect(
+        find.byKey(const Key('player_track_selector_button')),
+        findsOneWidget,
+      );
       expect(find.byType(MaterialDesktopCustomButton), findsOneWidget);
     } finally {
       debugDefaultTargetPlatformOverride = null;
@@ -785,7 +825,7 @@ void main() {
       );
       await tester.pump();
 
-      await tester.tap(find.byIcon(Icons.tune));
+      await tester.tap(find.byKey(const Key('player_track_selector_button')));
       await tester.pumpAndSettle();
 
       expect(
@@ -820,7 +860,7 @@ void main() {
     );
     await tester.pump();
 
-    await tester.tap(find.byIcon(Icons.tune));
+    await tester.tap(find.byKey(const Key('player_track_selector_button')));
     await tester.pumpAndSettle();
 
     expect(find.byType(BottomSheet), findsOneWidget);
@@ -983,7 +1023,7 @@ void main() {
       await tester.sendKeyEvent(LogicalKeyboardKey.keyF);
       await tester.pump();
       expect(entered, 1);
-      expect(find.byIcon(Icons.fullscreen_exit_rounded), findsOneWidget);
+      expect(find.bySemanticsLabel('Exit full screen'), findsOneWidget);
 
       await tester.sendKeyEvent(LogicalKeyboardKey.escape);
       await tester.pump();
@@ -1107,7 +1147,7 @@ void main() {
       );
       await tester.pump();
 
-      expect(find.text('Buffering...'), findsOneWidget);
+      expect(find.text('Buffering'), findsOneWidget);
       final spinner = tester.getCenter(
         find.byKey(const Key('player_buffering_spinner')),
       );
@@ -1120,7 +1160,7 @@ void main() {
       expect(spinner.dy, closeTo(backward.dy, 0.5));
       expect(spinner.dx, closeTo((backward.dx + forward.dx) / 2, 0.5));
       expect(
-        tester.getTopLeft(find.text('Buffering...')).dy,
+        tester.getTopLeft(find.text('Buffering')).dy,
         greaterThan(backward.dy + 48),
       );
       expect(find.byKey(const Key('player_play_pause_button')), findsNothing);

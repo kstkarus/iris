@@ -21,6 +21,11 @@ final class PlayerEngineProgress extends PlayerEngineEvent {
   final bool flush;
 }
 
+/// The opened file started playing: its first frame is on screen.
+final class PlayerEnginePlaybackStarted extends PlayerEngineEvent {
+  const PlayerEnginePlaybackStarted();
+}
+
 /// The file played to its end.
 final class PlayerEngineCompleted extends PlayerEngineEvent {
   const PlayerEngineCompleted();
@@ -45,6 +50,8 @@ abstract interface class PlayerEngine {
     PlayerTrackPreferences? preferredTracks,
   });
 
+  /// Goes to [position]; asked before the file has loaded, it is done as
+  /// soon as the file can take it, in place of the start position.
   Future<void> seek(Duration position);
 
   /// Opening/ending times looked up for the opened file. The file's own

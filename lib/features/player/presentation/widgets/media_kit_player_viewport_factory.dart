@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 
+import 'package:iris/features/player/presentation/widgets/media_kit_pixel_buttons.dart';
 import 'package:iris/features/player/domain/entities/player_playback_stats.dart';
 import 'package:iris/features/player/domain/entities/player_skip_segment.dart';
 import 'package:iris/features/player/domain/repositories/player_repository.dart';
@@ -21,7 +22,9 @@ import 'package:iris/features/player/presentation/widgets/player_playback_stats_
 import 'package:iris/features/player/presentation/widgets/player_subtitle_settings_sheet.dart';
 import 'package:iris/features/player/presentation/widgets/player_track_selector_sheet.dart';
 import 'package:iris/features/player/presentation/widgets/player_viewport_factory.dart';
+import 'package:iris/features/player/presentation/widgets/player_wait_indicator.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
+import 'package:iris/shared/widgets/pixel_icon.dart';
 
 export 'package:iris/features/player/presentation/playback/media_kit_player_engine.dart'
     show
@@ -349,6 +352,7 @@ class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
       onSkip: () => unawaited(widget.engine.skipCurrentSegment()),
       openingLabel: AppLocalizations.of(context).playerPreparing,
       bufferingLabel: AppLocalizations.of(context).playerBuffering,
+      stats: widget.engine.playbackStats,
       onFullscreenRoute: (route) => _fullscreenRoute = route,
       onInlineShown: () => _onInlineControlsShown(video),
       child: controls,
@@ -373,10 +377,10 @@ class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
       child: DecoratedBox(
         decoration: BoxDecoration(
           color: theme.colorScheme.surfaceContainerHighest,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.zero,
         ),
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.zero,
           child: Stack(
             fit: StackFit.expand,
             children: [
@@ -392,6 +396,7 @@ class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
                   label: startupState.phase == PlayerEnginePhase.openingSource
                       ? l10n.playerPreparing
                       : l10n.playerBuffering,
+                  stats: engine.playbackStats,
                 ),
             ],
           ),
@@ -424,8 +429,6 @@ class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.error_outline, size: 40),
-            const SizedBox(height: 12),
             Text(errorMessage, textAlign: TextAlign.center),
             const SizedBox(height: 16),
             FilledButton(
@@ -498,8 +501,8 @@ class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
     }
 
     return MediaKitMobileVideoControlsThemes(
-      normal: _buildControlsTheme(l10n),
-      fullscreen: _buildControlsTheme(l10n),
+      normal: _buildControlsTheme(l10n, colorScheme),
+      fullscreen: _buildControlsTheme(l10n, colorScheme),
       decorateControls: _decorateControls,
     );
   }
@@ -542,7 +545,8 @@ class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
         _buildStatsPanel(),
         const SizedBox(width: 8),
         MaterialDesktopCustomButton(
-          icon: const Icon(Icons.tune),
+          key: _trackSelectorButtonKey,
+          icon: _trackSelectorGlyph(l10n),
           iconSize: 24,
           onPressed: _showTrackSelectorSheet,
         ),
@@ -554,7 +558,7 @@ class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
             key: const Key('player_next_file_button'),
             icon: Tooltip(
               message: l10n.playerPlayNext,
-              child: const Icon(Icons.skip_next),
+              child: const PixelIcon(PixelGlyph.skipNext, size: 21),
             ),
             iconSize: 24,
             onPressed: _playNext,
@@ -569,8 +573,8 @@ class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
       modifyVolumeOnScroll: true,
       hideMouseOnControlsRemoval: true,
       buttonBarButtonSize: 24,
-      seekBarPositionColor: colorScheme.primary,
-      seekBarThumbColor: colorScheme.primary,
+      seekBarPositionColor: playerAccentColor(colorScheme),
+      seekBarThumbColor: playerAccentColor(colorScheme),
       bufferingIndicatorBuilder: (context) => _PlayerControlsBufferingOverlay(
         startupPhaseListenable: widget.engine.phase,
         label: l10n.playerBuffering,
@@ -588,12 +592,12 @@ class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
         if (!offered) return const SizedBox.shrink();
         return Tooltip(
           message: l10n.playerSkipForwardTooltip(seconds),
-          child: TextButton.icon(
+          // "+85 s" names the action; no glyph needed beside it.
+          child: TextButton(
             key: const Key('player_skip_forward_button'),
             onPressed: () => unawaited(widget.engine.skipForward()),
             style: TextButton.styleFrom(foregroundColor: Colors.white),
-            icon: const Icon(Icons.fast_forward),
-            label: Text(l10n.playerSkipForward(seconds)),
+            child: Text(l10n.playerSkipForward(seconds)),
           ),
         );
       },
@@ -606,14 +610,17 @@ class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
       key: key,
       icon: Tooltip(
         message: l10n.playerPlayNext,
-        child: const Icon(Icons.skip_next),
+        child: const PixelIcon(PixelGlyph.skipNext, size: 28),
       ),
       iconSize: 36,
       onPressed: _playNext,
     );
   }
 
-  MaterialVideoControlsThemeData _buildControlsTheme(AppLocalizations l10n) {
+  MaterialVideoControlsThemeData _buildControlsTheme(
+    AppLocalizations l10n,
+    ColorScheme colorScheme,
+  ) {
     return MaterialVideoControlsThemeData(
       primaryButtonBar: [
         const Spacer(),
@@ -626,7 +633,7 @@ class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
             maintainState: true,
             child: next,
           ),
-        const MaterialPlayOrPauseButton(),
+        const PixelPlayOrPauseButton(),
         ?_nextButton(l10n, key: const Key('player_next_file_button')),
         const Spacer(),
       ],
@@ -634,7 +641,8 @@ class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
         _buildStatsPanel(),
         const SizedBox(width: 8),
         MaterialCustomButton(
-          icon: const Icon(Icons.tune),
+          key: _trackSelectorButtonKey,
+          icon: _trackSelectorGlyph(l10n),
           onPressed: _showTrackSelectorSheet,
         ),
       ],
@@ -642,8 +650,10 @@ class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
         const MaterialPositionIndicator(),
         const Spacer(),
         _skipForwardButton(l10n),
-        const MaterialFullscreenButton(),
+        const PixelFullscreenButton(),
       ],
+      seekBarPositionColor: playerAccentColor(colorScheme),
+      seekBarThumbColor: playerAccentColor(colorScheme),
       volumeGesture: true,
       brightnessGesture: true,
       seekGesture: true,
@@ -654,6 +664,14 @@ class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
       ),
     );
   }
+
+  static const _trackSelectorButtonKey = Key('player_track_selector_button');
+
+  /// The tracks button of the package's control bars, named by its tooltip.
+  Widget _trackSelectorGlyph(AppLocalizations l10n) => Tooltip(
+    message: l10n.playerAudioAndSubtitles,
+    child: const PixelIcon(PixelGlyph.tune, size: 21),
+  );
 
   Future<void> _showTrackSelectorSheet() async {
     final engine = widget.engine;
@@ -702,6 +720,7 @@ class _PlayerControlsFrame extends StatefulWidget {
     required this.onSkip,
     required this.openingLabel,
     required this.bufferingLabel,
+    required this.stats,
     required this.onFullscreenRoute,
     required this.onInlineShown,
     required this.child,
@@ -716,6 +735,7 @@ class _PlayerControlsFrame extends StatefulWidget {
   final VoidCallback onSkip;
   final String openingLabel;
   final String bufferingLabel;
+  final ValueListenable<PlayerPlaybackStats?> stats;
   final ValueChanged<ModalRoute<Object?>> onFullscreenRoute;
   final VoidCallback onInlineShown;
   final Widget child;
@@ -770,7 +790,6 @@ class _PlayerControlsFrameState extends State<_PlayerControlsFrame> {
                 activity: _activity,
                 child: _PlayerActionPill(
                   actionKey: const Key('player_skip_segment_button'),
-                  icon: Icons.fast_forward,
                   label: segment.kind == PlayerSkipKind.recap
                       ? l10n.playerSkipRecap
                       : l10n.playerSkipOpening,
@@ -793,7 +812,6 @@ class _PlayerControlsFrameState extends State<_PlayerControlsFrame> {
                 pinned: completed,
                 child: _PlayerActionPill(
                   actionKey: const Key('player_next_file_prompt'),
-                  icon: Icons.skip_next,
                   label: l10n.playerPlayNext,
                   detail: title,
                   onPressed: widget.onPlayNext,
@@ -810,9 +828,13 @@ class _PlayerControlsFrameState extends State<_PlayerControlsFrame> {
                 builder: (context, phase, _) => switch (phase) {
                   PlayerEnginePhase.openingSource => _PlayerStartupOverlay(
                     label: widget.openingLabel,
+                    stats: widget.stats,
                   ),
                   PlayerEnginePhase.waitingForFirstFrame =>
-                    _PlayerStartupOverlay(label: widget.bufferingLabel),
+                    _PlayerStartupOverlay(
+                      label: widget.bufferingLabel,
+                      stats: widget.stats,
+                    ),
                   PlayerEnginePhase.ready ||
                   PlayerEnginePhase.failed => const SizedBox.shrink(),
                 },
@@ -825,18 +847,16 @@ class _PlayerControlsFrameState extends State<_PlayerControlsFrame> {
 }
 
 /// One action over the video, as in streaming apps; playback never moves
-/// on by itself.
+/// on by itself. The label says what it does, so it carries no glyph.
 class _PlayerActionPill extends StatelessWidget {
   const _PlayerActionPill({
     required this.actionKey,
-    required this.icon,
     required this.label,
     required this.onPressed,
     this.detail,
   });
 
   final Key actionKey;
-  final IconData icon;
   final String label;
   final String? detail;
   final VoidCallback onPressed;
@@ -854,35 +874,28 @@ class _PlayerActionPill extends StatelessWidget {
           key: actionKey,
           onPressed: onPressed,
           style: FilledButton.styleFrom(
-            padding: const EdgeInsetsDirectional.fromSTEB(16, 10, 20, 10),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
           ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon),
-              const SizedBox(width: 8),
-              ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 220),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(label),
-                    if (detail != null)
-                      // Inherits the button's colour.
-                      Text(
-                        detail,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: theme.textTheme.labelSmall?.fontSize,
-                          fontWeight: FontWeight.w400,
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            ],
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 220),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label),
+                if (detail != null)
+                  // Inherits the button's colour.
+                  Text(
+                    detail,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: theme.textTheme.labelSmall?.fontSize,
+                      fontWeight: FontWeight.w400,
+                    ),
+                  ),
+              ],
+            ),
           ),
         ),
       ),
@@ -939,27 +952,40 @@ class _SubtitleLiftState extends State<_SubtitleLift> {
 }
 
 class _BufferingIndicator extends StatelessWidget {
-  const _BufferingIndicator({required this.label});
+  const _BufferingIndicator({required this.label, this.stats});
 
   final String label;
+  final ValueListenable<PlayerPlaybackStats?>? stats;
 
   @override
   Widget build(BuildContext context) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        const CircularProgressIndicator(),
+        BlockRunner(
+          color: playerAccentColor(Theme.of(context).colorScheme),
+          trackColor: Colors.white24,
+        ),
         const SizedBox(height: 12),
-        Text(label, style: const TextStyle(color: Colors.white)),
+        PlayerWaitLabel(
+          label: label,
+          stats: stats,
+          style: const TextStyle(color: Colors.white),
+        ),
       ],
     );
   }
 }
 
 class _PlayerStartupOverlay extends StatelessWidget {
-  const _PlayerStartupOverlay({required this.label, super.key});
+  const _PlayerStartupOverlay({
+    required this.label,
+    required this.stats,
+    super.key,
+  });
 
   final String label;
+  final ValueListenable<PlayerPlaybackStats?> stats;
 
   @override
   Widget build(BuildContext context) {
@@ -968,7 +994,7 @@ class _PlayerStartupOverlay extends StatelessWidget {
       child: Center(
         child: Padding(
           padding: const EdgeInsets.all(20),
-          child: _BufferingIndicator(label: label),
+          child: _BufferingIndicator(label: label, stats: stats),
         ),
       ),
     );

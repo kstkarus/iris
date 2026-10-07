@@ -9,6 +9,7 @@ import 'package:iris/features/player/presentation/cubit/player_decoding_preferen
 import 'package:iris/features/player/presentation/cubit/player_subtitle_preferences_cubit.dart';
 import 'package:iris/features/player/presentation/playback/player_engine.dart';
 import 'package:iris/features/player/presentation/widgets/player_viewport_factory.dart';
+import 'package:iris/shared/widgets/pixel_icon.dart';
 
 class MockPlayerViewportFactory implements PlayerViewportFactory {
   const MockPlayerViewportFactory();
@@ -56,7 +57,7 @@ class MockPlayerViewportFactory implements PlayerViewportFactory {
           child: IconButton(
             key: const Key('player_back_button'),
             color: Colors.white,
-            icon: const Icon(Icons.arrow_back),
+            icon: const PixelIcon(PixelGlyph.arrowLeft),
             onPressed: chrome.onBack,
           ),
         ),
@@ -86,6 +87,7 @@ class MockPlayerEngine implements PlayerEngine {
         flush: true,
       ),
     );
+    _events.add(const PlayerEnginePlaybackStarted());
   }
 
   @override

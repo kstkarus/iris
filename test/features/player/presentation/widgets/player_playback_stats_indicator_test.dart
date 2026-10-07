@@ -5,6 +5,7 @@ import 'package:iris/features/player/domain/entities/player_playback_stats.dart'
 import 'package:iris/features/player/presentation/widgets/player_buffer_health_tracker.dart';
 import 'package:iris/features/player/presentation/widgets/player_playback_stats_indicator.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
+import 'package:iris/shared/widgets/segmented_bar.dart';
 
 void main() {
   testWidgets('renders speed and memory when both are available', (
@@ -32,7 +33,7 @@ void main() {
   });
 
   testWidgets('draws one readout over the immersive player, with the '
-      'buffer state in its icon', (tester) async {
+      'buffer state in its bar', (tester) async {
     const stats = PlayerPlaybackStats(
       downloadRateBytesPerSecond: 524288,
       appMemoryBytes: null,
@@ -57,7 +58,11 @@ void main() {
     expect(find.text('30%'), findsOneWidget);
     expect(find.text('11'), findsNothing, reason: 'peers are a detail');
     expect(
-      tester.widget<Icon>(find.byIcon(Icons.timelapse_rounded)).color,
+      tester
+          .widget<SegmentedBar>(
+            find.byKey(const Key('player_stats_buffer_bar')),
+          )
+          .color,
       const Color(0xFFF59E0B),
     );
     expect(find.byType(Tooltip), findsNothing);
@@ -82,7 +87,7 @@ void main() {
     expect(find.text('512 KB/s'), findsOneWidget);
     expect(find.text('11'), findsOneWidget);
     expect(find.text('30%'), findsOneWidget);
-    expect(find.text('Buffering...'), findsNothing);
+    expect(find.text('Buffering'), findsNothing);
   });
 
   testWidgets('renders stats when they appear after the first build', (
@@ -149,7 +154,7 @@ void main() {
     expect(find.text('mediacodec-copy'), findsOneWidget);
     expect(find.text('gpu'), findsOneWidget);
     expect(find.text('av1_mediacodec'), findsOneWidget);
-    expect(find.text('Buffering...'), findsOneWidget);
+    expect(find.text('Buffering'), findsOneWidget);
   });
 
   testWidgets('does not overflow on narrow widths', (tester) async {

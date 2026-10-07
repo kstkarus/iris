@@ -3,7 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:iris/features/anime_list/domain/entities/anime_list_item.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/utils/anime_metadata_formatter.dart';
+import 'package:iris/shared/widgets/poster_image.dart';
 
+/// A catalog title: the cover first, then the names and one short line of
+/// facts. Airing titles carry the signal mark.
 class AnimeCard extends StatelessWidget {
   const AnimeCard({required this.item, this.onTap, super.key});
 
@@ -13,77 +16,75 @@ class AnimeCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     final l10n = AppLocalizations.of(context);
+    final airing = item.status == 'ongoing';
+    final year = DateTime.tryParse(item.airedOn)?.year;
+    final facts = [
+      formatAnimeKind(l10n, item.kind),
+      if (airing)
+        formatAnimeStatus(l10n, item.status)
+      else if (year != null)
+        '$year',
+    ].join(' · ');
+    final factStyle = theme.textTheme.labelMedium?.copyWith(
+      color: scheme.onSurfaceVariant,
+      fontWeight: FontWeight.w400,
+    );
 
-    return Card(
-      clipBehavior: Clip.antiAlias,
-      margin: EdgeInsets.zero,
+    return Material(
+      // Ink paints on the nearest Material: this one scrolls with the row,
+      // so the list's edge clips the highlight.
+      type: MaterialType.transparency,
       child: InkWell(
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          padding: const EdgeInsets.all(4),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: SizedBox(
-                  width: 84,
-                  height: 116,
-                  child: Image.network(
-                    item.posterMainUrl,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) {
-                      return DecoratedBox(
-                        decoration: BoxDecoration(
-                          color: theme.colorScheme.surfaceContainerHighest,
-                        ),
-                        child: Icon(
-                          Icons.movie_outlined,
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                      );
-                    },
-                  ),
-                ),
+              PosterImage(url: item.posterMainUrl),
+              const SizedBox(height: 10),
+              Text(
+                item.name,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.titleSmall,
               ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      item.name,
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    if (item.russian.isNotEmpty) ...[
-                      const SizedBox(height: 4),
-                      Text(
-                        item.russian,
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
-                    const SizedBox(height: 8),
-                    Text(
-                      formatAnimeMeta(
-                        l10n,
-                        kind: item.kind,
-                        status: item.status,
-                        score: item.score,
-                        episodes: item.episodes,
-                        episodesAired: item.episodesAired,
-                        airedOn: item.airedOn,
-                      ),
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
+              if (item.russian.isNotEmpty) ...[
+                const SizedBox(height: 2),
+                Text(
+                  item.russian,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodySmall,
                 ),
+              ],
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  if (airing) ...[
+                    SizedBox.square(
+                      dimension: 6,
+                      child: ColoredBox(color: scheme.tertiary),
+                    ),
+                    const SizedBox(width: 6),
+                  ],
+                  Expanded(
+                    child: Text(
+                      facts,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: factStyle,
+                    ),
+                  ),
+                  if (item.score > 0)
+                    Text(
+                      formatAnimeScoreValue(l10n, item.score),
+                      semanticsLabel: formatAnimeScore(l10n, item.score),
+                      style: factStyle?.copyWith(color: scheme.onSurface),
+                    ),
+                ],
               ),
             ],
           ),

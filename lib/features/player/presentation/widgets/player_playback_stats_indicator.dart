@@ -7,6 +7,7 @@ import 'package:intl/intl.dart' show NumberFormat;
 import 'package:iris/features/player/domain/entities/player_playback_stats.dart';
 import 'package:iris/features/player/presentation/widgets/player_buffer_health_tracker.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
+import 'package:iris/shared/widgets/segmented_bar.dart';
 
 class PlayerPlaybackStatsListenable extends StatelessWidget {
   const PlayerPlaybackStatsListenable({
@@ -87,8 +88,8 @@ class PlayerPlaybackStatsIndicator extends StatelessWidget {
   /// Also show peers, decoder, output, codecs and memory.
   final bool detailed;
 
-  /// One dark glass readout like the immersive player's buttons, with the
-  /// buffer state in its icon's colour, instead of coloured chips.
+  /// One caption-like readout over the video, with the buffer state in its
+  /// bar's colour, instead of chips.
   final bool immersive;
 
   @override
@@ -97,13 +98,13 @@ class PlayerPlaybackStatsIndicator extends StatelessWidget {
     final textStyle =
         Theme.of(context).textTheme.labelSmall?.copyWith(
           color: Colors.white,
-          fontWeight: FontWeight.w600,
+          fontWeight: FontWeight.w500,
           height: 1.1,
         ) ??
         const TextStyle(
           color: Colors.white,
           fontSize: 11,
-          fontWeight: FontWeight.w600,
+          fontWeight: FontWeight.w500,
           height: 1.1,
         );
 
@@ -120,10 +121,7 @@ class PlayerPlaybackStatsIndicator extends StatelessWidget {
 
     return IgnorePointer(
       child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: Colors.black54,
-          borderRadius: BorderRadius.circular(12),
-        ),
+        decoration: BoxDecoration(color: Colors.black54),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
           child: LayoutBuilder(
@@ -159,16 +157,15 @@ class PlayerPlaybackStatsIndicator extends StatelessWidget {
     // should stay visible in the player.
     final items = <_PlayerOverlayMetricItem>[
       _PlayerOverlayMetricItem(
-        value: _formatTransferRate(l10n, stats.downloadRateBytesPerSecond),
-        icon: Icons.download_rounded,
+        value: formatTransferRate(l10n, stats.downloadRateBytesPerSecond),
         priority: 0,
         tooltip: l10n.playerRuntimeStatsSpeed(
-          _formatTransferRate(l10n, stats.downloadRateBytesPerSecond),
+          formatTransferRate(l10n, stats.downloadRateBytesPerSecond),
         ),
       ),
       _PlayerOverlayMetricItem(
         value: stats.activePeers.toString(),
-        icon: Icons.hub_outlined,
+        label: _labelOf(l10n.playerRuntimeStatsPeers('')),
         priority: 1,
         tooltip: l10n.playerRuntimeStatsPeers(stats.activePeers.toString()),
       ),
@@ -182,14 +179,9 @@ class PlayerPlaybackStatsIndicator extends StatelessWidget {
       items.add(
         _PlayerOverlayMetricItem(
           value: _formatBufferedWindowProgress(bufferedWindowProgress),
-          icon: Icons.timelapse_rounded,
           priority: 2,
-          backgroundColor: bufferSufficient
-              ? const Color(0x4032D583)
-              : const Color(0x40F59E0B),
-          accentColor: bufferSufficient
-              ? const Color(0xFF32D583)
-              : const Color(0xFFF59E0B),
+          buffer: bufferedWindowProgress,
+          warning: !bufferSufficient,
         ),
       );
     }
@@ -199,7 +191,7 @@ class PlayerPlaybackStatsIndicator extends StatelessWidget {
       items.add(
         _PlayerOverlayMetricItem(
           value: hwdec,
-          icon: Icons.memory_rounded,
+          label: 'hwdec',
           priority: 3,
           tooltip: 'hwdec $hwdec',
         ),
@@ -211,7 +203,7 @@ class PlayerPlaybackStatsIndicator extends StatelessWidget {
       items.add(
         _PlayerOverlayMetricItem(
           value: currentVo,
-          icon: Icons.output_rounded,
+          label: 'vo',
           priority: 4,
           tooltip: 'vo $currentVo',
         ),
@@ -223,7 +215,7 @@ class PlayerPlaybackStatsIndicator extends StatelessWidget {
       items.add(
         _PlayerOverlayMetricItem(
           value: videoDecoder,
-          icon: Icons.developer_board_rounded,
+          label: 'dec',
           priority: 5,
           tooltip: _decoderTooltip(diagnostics),
         ),
@@ -235,7 +227,7 @@ class PlayerPlaybackStatsIndicator extends StatelessWidget {
       items.add(
         _PlayerOverlayMetricItem(
           value: shortVideoCodec,
-          icon: Icons.movie_outlined,
+          label: _labelOf(l10n.playerRuntimeStatsVideoCodec('')),
           priority: 6,
           tooltip: l10n.playerRuntimeStatsVideoCodec(shortVideoCodec),
         ),
@@ -247,7 +239,7 @@ class PlayerPlaybackStatsIndicator extends StatelessWidget {
       items.add(
         _PlayerOverlayMetricItem(
           value: shortAudioCodec,
-          icon: Icons.audiotrack_rounded,
+          label: _labelOf(l10n.playerRuntimeStatsAudioCodec('')),
           priority: 7,
           tooltip: l10n.playerRuntimeStatsAudioCodec(shortAudioCodec),
         ),
@@ -260,7 +252,7 @@ class PlayerPlaybackStatsIndicator extends StatelessWidget {
       items.add(
         _PlayerOverlayMetricItem(
           value: formattedMemory,
-          icon: Icons.memory_rounded,
+          label: _labelOf(l10n.playerRuntimeStatsMemory('')),
           priority: 8,
           tooltip: l10n.playerRuntimeStatsMemory(formattedMemory),
         ),
@@ -271,7 +263,6 @@ class PlayerPlaybackStatsIndicator extends StatelessWidget {
       items.add(
         _PlayerOverlayMetricItem(
           value: l10n.playerBuffering,
-          icon: Icons.hourglass_top_rounded,
           priority: 9,
           tooltip: l10n.playerBuffering,
         ),
@@ -346,16 +337,20 @@ class _MetricChip extends StatelessWidget {
       constraints: BoxConstraints(maxWidth: maxWidth),
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: metric.backgroundColor ?? Colors.white.withAlpha(31),
-          borderRadius: BorderRadius.circular(999),
+          color: metric.warning
+              ? _warningColor.withAlpha(0x40)
+              : Colors.white.withAlpha(31),
         ),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 5),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(metric.icon, size: 12, color: Colors.white),
-              const SizedBox(width: 4),
+              _MetricKey(
+                metric: metric,
+                style: textStyle,
+                muted: Colors.white60,
+              ),
               Flexible(
                 child: Text(
                   metric.value,
@@ -382,22 +377,81 @@ class _MetricChip extends StatelessWidget {
 class _PlayerOverlayMetricItem {
   const _PlayerOverlayMetricItem({
     required this.value,
-    required this.icon,
     required this.priority,
+    this.label,
+    this.buffer,
+    this.warning = false,
     this.tooltip,
-    this.backgroundColor,
-    this.accentColor,
   });
 
   final String value;
-  final IconData icon;
   final int priority;
-  final String? tooltip;
-  final Color? backgroundColor;
 
-  /// The icon's colour in the immersive readout, for states.
-  final Color? accentColor;
+  /// A short key before the value, for values that do not name
+  /// themselves ("42" peers, "gpu" output). Speed carries its unit and
+  /// needs none.
+  final String? label;
+
+  /// Fill of the read-ahead window, drawn as a small block bar before the
+  /// percentage: it says "buffer" without a word.
+  final double? buffer;
+
+  /// The buffer is running short.
+  final bool warning;
+  final String? tooltip;
 }
+
+/// What a metric is: its [label] in muted type, or for the buffer a small
+/// block bar, amber when it runs short.
+class _MetricKey extends StatelessWidget {
+  const _MetricKey({
+    required this.metric,
+    required this.style,
+    required this.muted,
+  });
+
+  static const barWidth = 28.0;
+  static const gap = 6.0;
+
+  final _PlayerOverlayMetricItem metric;
+  final TextStyle? style;
+  final Color muted;
+
+  @override
+  Widget build(BuildContext context) {
+    final buffer = metric.buffer;
+    final label = metric.label;
+    if (buffer != null) {
+      return Padding(
+        padding: const EdgeInsets.only(right: gap),
+        child: SizedBox(
+          width: barWidth,
+          child: SegmentedBar(
+            key: const Key('player_stats_buffer_bar'),
+            value: buffer,
+            height: 6,
+            segment: 4,
+            gap: 1,
+            color: metric.warning ? _warningColor : Colors.white,
+            trackColor: Colors.white24,
+          ),
+        ),
+      );
+    }
+    if (label == null) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(right: gap),
+      child: Text(label, style: style?.copyWith(color: muted)),
+    );
+  }
+}
+
+/// Amber for a buffer running short: a warning, not the signal colour.
+const _warningColor = Color(0xFFF59E0B);
+
+/// The key of a localised "Key {value}" string, read by formatting it with
+/// an empty value, so the key and its tooltip share one translation.
+String _labelOf(String formattedWithoutValue) => formattedWithoutValue.trim();
 
 /// Metrics as a quiet caption over the video: no box, so it reads as
 /// information next to the buttons rather than as one more button.
@@ -431,13 +485,11 @@ class _ImmersiveReadout extends StatelessWidget {
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(
-                    metric.icon,
-                    size: 16,
-                    color: metric.accentColor ?? Colors.white54,
-                    shadows: _shadows,
+                  _MetricKey(
+                    metric: metric,
+                    style: textStyle,
+                    muted: Colors.white54,
                   ),
-                  const SizedBox(width: 6),
                   ConstrainedBox(
                     constraints: const BoxConstraints(maxWidth: _maxValueWidth),
                     child: Text(
@@ -512,9 +564,21 @@ double _measureChipWidth({
     textDirection: TextDirection.ltr,
     maxLines: 1,
   )..layout(maxWidth: maxChipWidth);
+  final label = metric.label;
+  final keyPainter = TextPainter(
+    text: TextSpan(text: label ?? '', style: textStyle),
+    textDirection: TextDirection.ltr,
+    maxLines: 1,
+  )..layout();
+  final keyWidth = metric.buffer != null
+      ? _MetricKey.barWidth + _MetricKey.gap
+      : label == null
+      ? 0.0
+      : keyPainter.width + _MetricKey.gap;
 
-  final measuredWidth =
-      painter.width + _chipHorizontalPadding + _chipIconWidth + _chipIconGap;
+  final measuredWidth = painter.width + _chipHorizontalPadding + keyWidth;
+  painter.dispose();
+  keyPainter.dispose();
   return measuredWidth.clamp(_chipMinimumWidth, maxChipWidth);
 }
 
@@ -523,7 +587,8 @@ double _resolveMaxChipWidth(double maxWidth) {
   return math.max(_chipMinimumWidth, math.min(target, _chipMaximumWidth));
 }
 
-String _formatTransferRate(AppLocalizations l10n, int bytesPerSecond) {
+/// "2.4 MB/s", in the app's byte units.
+String formatTransferRate(AppLocalizations l10n, int bytesPerSecond) {
   return l10n.playerRate(_formatBytes(l10n, bytesPerSecond));
 }
 
@@ -641,7 +706,5 @@ String? _decoderTooltip(PlayerPlaybackDiagnostics? diagnostics) {
 const _chipSpacing = 6.0;
 const _chipRunSpacing = 6.0;
 const _chipHorizontalPadding = 14.0;
-const _chipIconWidth = 12.0;
-const _chipIconGap = 4.0;
 const _chipMinimumWidth = 58.0;
 const _chipMaximumWidth = 132.0;

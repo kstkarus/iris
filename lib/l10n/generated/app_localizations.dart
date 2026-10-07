@@ -587,7 +587,7 @@ abstract class AppLocalizations {
   /// No description provided for @playerSourcePreparing.
   ///
   /// In en, this message translates to:
-  /// **'Preparing torrent files...'**
+  /// **'Preparing torrent files'**
   String get playerSourcePreparing;
 
   /// No description provided for @playerSourceUnsupported.
@@ -605,26 +605,32 @@ abstract class AppLocalizations {
   /// No description provided for @playerPreparing.
   ///
   /// In en, this message translates to:
-  /// **'Preparing video...'**
+  /// **'Preparing video'**
   String get playerPreparing;
 
   /// No description provided for @playerWaitingMetadata.
   ///
   /// In en, this message translates to:
-  /// **'Looking for torrent metadata...'**
+  /// **'Looking for torrent metadata'**
   String get playerWaitingMetadata;
 
   /// No description provided for @playerBuffering.
   ///
   /// In en, this message translates to:
-  /// **'Buffering...'**
+  /// **'Buffering'**
   String get playerBuffering;
 
   /// No description provided for @playerPreparingMoreBuffer.
   ///
   /// In en, this message translates to:
-  /// **'Collecting more buffered data...'**
+  /// **'Collecting more buffered data'**
   String get playerPreparingMoreBuffer;
+
+  /// No description provided for @playerWaitPeers.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 peer} other{{count} peers}}'**
+  String playerWaitPeers(int count);
 
   /// No description provided for @playerStreamPreparationProgress.
   ///
@@ -1064,6 +1070,30 @@ abstract class AppLocalizations {
   /// **'Start over'**
   String get playerStartOver;
 
+  /// No description provided for @playerResumingFrom.
+  ///
+  /// In en, this message translates to:
+  /// **'Picking up at {position}'**
+  String playerResumingFrom(String position);
+
+  /// No description provided for @playerStartingOver.
+  ///
+  /// In en, this message translates to:
+  /// **'Starting from the beginning'**
+  String get playerStartingOver;
+
+  /// No description provided for @playerStartedOver.
+  ///
+  /// In en, this message translates to:
+  /// **'Playing from the beginning'**
+  String get playerStartedOver;
+
+  /// No description provided for @playerResumeFromAction.
+  ///
+  /// In en, this message translates to:
+  /// **'From {position}'**
+  String playerResumeFromAction(String position);
+
   /// No description provided for @playerPlayNext.
   ///
   /// In en, this message translates to:
@@ -1147,6 +1177,36 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Remove from list'**
   String get continueWatchingRemove;
+
+  /// No description provided for @continueWatchingStoppedAtLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Stopped at'**
+  String get continueWatchingStoppedAtLabel;
+
+  /// No description provided for @continueWatchingFinishedLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Watched to the end'**
+  String get continueWatchingFinishedLabel;
+
+  /// No description provided for @animeListHeadingPopularity.
+  ///
+  /// In en, this message translates to:
+  /// **'Popular'**
+  String get animeListHeadingPopularity;
+
+  /// No description provided for @animeListHeadingScore.
+  ///
+  /// In en, this message translates to:
+  /// **'Top rated'**
+  String get animeListHeadingScore;
+
+  /// No description provided for @animeListHeadingAiredOn.
+  ///
+  /// In en, this message translates to:
+  /// **'Latest'**
+  String get animeListHeadingAiredOn;
 
   /// No description provided for @recentlyWatchedTitle.
   ///
@@ -1345,6 +1405,108 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Clear'**
   String get searchClearTooltip;
+
+  /// No description provided for @searchCancelButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get searchCancelButton;
+
+  /// No description provided for @animeDetailsFactKind.
+  ///
+  /// In en, this message translates to:
+  /// **'Type'**
+  String get animeDetailsFactKind;
+
+  /// No description provided for @animeDetailsFactStatus.
+  ///
+  /// In en, this message translates to:
+  /// **'Status'**
+  String get animeDetailsFactStatus;
+
+  /// No description provided for @animeDetailsFactEpisodes.
+  ///
+  /// In en, this message translates to:
+  /// **'Episodes'**
+  String get animeDetailsFactEpisodes;
+
+  /// No description provided for @animeDetailsFactScore.
+  ///
+  /// In en, this message translates to:
+  /// **'Score'**
+  String get animeDetailsFactScore;
+
+  /// No description provided for @animeDetailsFactAired.
+  ///
+  /// In en, this message translates to:
+  /// **'Aired'**
+  String get animeDetailsFactAired;
+
+  /// No description provided for @animeDetailsEpisodesAired.
+  ///
+  /// In en, this message translates to:
+  /// **'{aired} of {total}'**
+  String animeDetailsEpisodesAired(String aired, String total);
+
+  /// No description provided for @animeDetailsDescriptionTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Synopsis'**
+  String get animeDetailsDescriptionTitle;
+
+  /// No description provided for @animeDetailsShowCover.
+  ///
+  /// In en, this message translates to:
+  /// **'Show the original cover'**
+  String get animeDetailsShowCover;
+
+  /// No description provided for @animeDetailsShowHalftone.
+  ///
+  /// In en, this message translates to:
+  /// **'Show the halftone'**
+  String get animeDetailsShowHalftone;
+
+  /// No description provided for @watchSourcesColumnRelease.
+  ///
+  /// In en, this message translates to:
+  /// **'Release'**
+  String get watchSourcesColumnRelease;
+
+  /// No description provided for @watchSourcesColumnSize.
+  ///
+  /// In en, this message translates to:
+  /// **'Size'**
+  String get watchSourcesColumnSize;
+
+  /// No description provided for @watchSourcesColumnSeeders.
+  ///
+  /// In en, this message translates to:
+  /// **'Seeders'**
+  String get watchSourcesColumnSeeders;
+
+  /// No description provided for @watchSourcesColumnDownloads.
+  ///
+  /// In en, this message translates to:
+  /// **'Downloads'**
+  String get watchSourcesColumnDownloads;
+
+  /// No description provided for @watchSourcesColumnDate.
+  ///
+  /// In en, this message translates to:
+  /// **'Date'**
+  String get watchSourcesColumnDate;
+
+  /// No description provided for @savedTorrentsPasteHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Ctrl+V adds a magnet link from the clipboard'**
+  String get savedTorrentsPasteHint;
+
+  /// No description provided for @downloadsFilesTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Files'**
+  String get downloadsFilesTitle;
 }
 
 class _AppLocalizationsDelegate

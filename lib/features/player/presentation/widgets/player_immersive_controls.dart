@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
@@ -13,16 +14,14 @@ import 'package:iris/features/player/presentation/widgets/player_auto_hiding_off
 import 'package:iris/features/player/presentation/widgets/player_episodes_drawer.dart';
 import 'package:iris/features/player/presentation/widgets/player_seek_bar.dart';
 import 'package:iris/features/player/presentation/widgets/player_viewport_factory.dart';
+import 'package:iris/features/player/presentation/widgets/player_wait_indicator.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/utils/duration_formatter.dart';
+import 'package:iris/shared/widgets/pixel_icon.dart';
 
-/// The player's accent over video: the theme's primary as it reads on a
-/// dark surface.
-Color playerAccentColor(ColorScheme scheme) {
-  return scheme.brightness == Brightness.dark
-      ? scheme.primary
-      : scheme.inversePrimary;
-}
+/// The player's accent over video: the app's signal, which reads the same
+/// on a dark frame in both themes.
+Color playerAccentColor(ColorScheme scheme) => scheme.tertiaryFixed;
 
 /// Streaming-app controls drawn over a full-bleed video: the way back and
 /// the episodes at the top, play and ±10 s in the middle, the titles and
@@ -526,7 +525,6 @@ class _PlayerImmersiveControlsState extends State<PlayerImmersiveControls> {
                 activity: _activity,
                 child: _OfferButton.outlined(
                   key: const Key('player_skip_segment_button'),
-                  icon: Icons.fast_forward_rounded,
                   label: segment.kind == PlayerSkipKind.recap
                       ? l10n.playerSkipRecap
                       : l10n.playerSkipOpening,
@@ -552,7 +550,6 @@ class _PlayerImmersiveControlsState extends State<PlayerImmersiveControls> {
                   pinned: completed,
                   child: _OfferButton.filled(
                     key: const Key('player_next_file_prompt'),
-                    icon: Icons.skip_next_rounded,
                     label: l10n.playerPlayNext,
                     detail: next.title,
                     onPressed: next.play,
@@ -631,7 +628,7 @@ class _TopBar extends StatelessWidget {
         children: [
           _GlyphButton(
             key: const Key('player_back_button'),
-            icon: Icons.arrow_back_rounded,
+            glyph: const PixelIcon(PixelGlyph.arrowLeft),
             iconSize: 28,
             size: const Size.square(44),
             label: l10n.playerBack,
@@ -645,8 +642,60 @@ class _TopBar extends StatelessWidget {
   }
 }
 
-/// Keeps white glyphs readable over a bright frame.
-const _glyphShadows = [Shadow(color: Colors.black54, blurRadius: 12)];
+/// A state glyph (play/pause, mute, full screen) cross-fades this fast, or
+/// swaps at once when the system asks for less motion.
+Duration _glyphSwapDuration(BuildContext context) =>
+    MediaQuery.disableAnimationsOf(context)
+    ? Duration.zero
+    : const Duration(milliseconds: 150);
+
+/// [glyph] over a soft dark copy of itself, so a white glyph stays
+/// readable over a bright frame.
+class _ShadowedGlyph extends StatelessWidget {
+  const _ShadowedGlyph({required this.glyph, super.key});
+
+  final Widget glyph;
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        ImageFiltered(
+          imageFilter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+          child: IconTheme.merge(
+            data: const IconThemeData(color: Colors.black54),
+            child: DefaultTextStyle.merge(
+              style: const TextStyle(color: Colors.black54),
+              child: glyph,
+            ),
+          ),
+        ),
+        glyph,
+      ],
+    );
+  }
+}
+
+/// "−10" / "+10": the seek step as a figure, which says more than any
+/// arrow could.
+class _SeekFigure extends StatelessWidget {
+  const _SeekFigure(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      text,
+      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+        color: Colors.white,
+        fontWeight: FontWeight.w500,
+        fontFeatures: const [FontFeature.tabularFigures()],
+      ),
+    );
+  }
+}
 
 class _CenterButtons extends StatelessWidget {
   const _CenterButtons({
@@ -674,7 +723,7 @@ class _CenterButtons extends StatelessWidget {
       children: [
         _GlyphButton(
           key: const Key('player_seek_backward_button'),
-          icon: Icons.replay_10_rounded,
+          glyph: _SeekFigure('\u2212$seconds'),
           iconSize: 44,
           size: const Size.square(60),
           label: l10n.playerSeekBackward(seconds),
@@ -709,7 +758,7 @@ class _CenterButtons extends StatelessWidget {
         const SizedBox(width: 48),
         _GlyphButton(
           key: const Key('player_seek_forward_button'),
-          icon: Icons.forward_10_rounded,
+          glyph: _SeekFigure('+$seconds'),
           iconSize: 44,
           size: const Size.square(60),
           label: l10n.playerSeekForward(seconds),
@@ -757,14 +806,19 @@ class _PlayPauseButtonState extends State<_PlayPauseButton> {
               width: 96,
               height: 96,
               decoration: BoxDecoration(
-                shape: BoxShape.circle,
                 color: _hovered ? Colors.white12 : Colors.black38,
                 border: Border.all(color: Colors.white, width: 3),
               ),
-              child: Icon(
-                widget.playing ? Icons.pause_rounded : Icons.play_arrow_rounded,
-                color: Colors.white,
-                size: 60,
+              child: Center(
+                child: AnimatedSwitcher(
+                  duration: _glyphSwapDuration(context),
+                  child: PixelIcon(
+                    widget.playing ? PixelGlyph.pause : PixelGlyph.play,
+                    key: ValueKey(widget.playing),
+                    size: 42,
+                    color: Colors.white,
+                  ),
+                ),
               ),
             ),
           ),
@@ -1009,7 +1063,7 @@ class _TitleBlock extends StatelessWidget {
           overflow: TextOverflow.ellipsis,
           style: titleStyle?.copyWith(
             color: Colors.white,
-            fontWeight: FontWeight.w700,
+            fontWeight: FontWeight.w500,
             height: 1.1,
           ),
         ),
@@ -1173,16 +1227,14 @@ class _BarButtons extends StatelessWidget {
       if (next != null)
         _BarButton(
           key: const Key('player_next_file_button'),
-          icon: Icons.skip_next_rounded,
-          iconSize: 36,
+          glyph: const PixelIcon(PixelGlyph.skipNext),
           label: '${l10n.playerPlayNext}: ${next.title}',
           onPressed: next.play,
         ),
       if (onEpisodes != null)
         _BarButton(
           key: const Key('player_episodes_button'),
-          icon: Icons.video_library_rounded,
-          iconSize: 26,
+          glyph: const PixelIcon(PixelGlyph.episodes),
           label: l10n.playerEpisodesTitle,
           onPressed: onEpisodes,
         ),
@@ -1190,15 +1242,13 @@ class _BarButtons extends StatelessWidget {
     final view = [
       _BarButton(
         key: const Key('player_tracks_button'),
-        icon: Icons.subtitles_rounded,
-        iconSize: 26,
+        glyph: const PixelIcon(PixelGlyph.subtitles),
         label: l10n.playerAudioAndSubtitles,
         onPressed: onShowTracks,
       ),
       _BarButton(
         key: const Key('player_settings_button'),
-        icon: Icons.settings_rounded,
-        iconSize: 26,
+        glyph: const PixelIcon(PixelGlyph.settings),
         label: l10n.playerSettingsTitle,
         onPressed: onShowSettings,
       ),
@@ -1206,10 +1256,10 @@ class _BarButtons extends StatelessWidget {
         valueListenable: fullscreen,
         builder: (context, isFullscreen, _) => _BarButton(
           key: const Key('player_fullscreen_button'),
-          icon: isFullscreen
-              ? Icons.fullscreen_exit_rounded
-              : Icons.fullscreen_rounded,
-          iconSize: 34,
+          glyph: PixelIcon(
+            isFullscreen ? PixelGlyph.fullscreenExit : PixelGlyph.fullscreen,
+            key: ValueKey(isFullscreen),
+          ),
           label: isFullscreen
               ? l10n.playerExitFullscreen
               : l10n.playerEnterFullscreen,
@@ -1243,27 +1293,27 @@ class _BarButtons extends StatelessWidget {
 
 const _barGroupGap = 20.0;
 
-/// The bar's glyphs differ in how much of their box they fill; each gets
-/// the size that makes them look alike.
+/// A button of the bottom bar. Pixel glyphs all fill their 7×7 grid, so
+/// one size fits every button.
 class _BarButton extends StatelessWidget {
   const _BarButton({
-    required this.icon,
+    required this.glyph,
     required this.label,
     required this.onPressed,
-    this.iconSize = 28,
     super.key,
   });
 
-  final IconData icon;
-  final double iconSize;
+  static const glyphSize = 24.0;
+
+  final Widget glyph;
   final String label;
   final VoidCallback onPressed;
 
   @override
   Widget build(BuildContext context) {
     return _GlyphButton(
-      icon: icon,
-      iconSize: iconSize,
+      glyph: glyph,
+      iconSize: glyphSize,
       size: const Size(_barButtonSize + 4, _barButtonSize),
       label: label,
       onPressed: onPressed,
@@ -1277,7 +1327,7 @@ class _BarButton extends StatelessWidget {
 /// moved it here.
 class _GlyphButton extends StatefulWidget {
   const _GlyphButton({
-    required this.icon,
+    required this.glyph,
     required this.iconSize,
     required this.size,
     required this.label,
@@ -1287,7 +1337,9 @@ class _GlyphButton extends StatefulWidget {
 
   static const restOpacity = 0.85;
 
-  final IconData icon;
+  /// A [PixelIcon] or a short figure; give it a key that changes with the
+  /// state it shows, and it cross-fades when the state flips.
+  final Widget glyph;
   final double iconSize;
   final Size size;
 
@@ -1333,7 +1385,7 @@ class _GlyphButtonState extends State<_GlyphButton> {
               width: widget.size.width,
               height: widget.size.height,
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.zero,
                 border: Border.all(
                   color: _focused ? Colors.white70 : Colors.transparent,
                   width: 2,
@@ -1346,11 +1398,22 @@ class _GlyphButtonState extends State<_GlyphButton> {
                   child: AnimatedOpacity(
                     opacity: active ? 1 : _GlyphButton.restOpacity,
                     duration: _animation,
-                    child: Icon(
-                      widget.icon,
-                      size: widget.iconSize,
-                      color: Colors.white,
-                      shadows: _glyphShadows,
+                    child: IconTheme.merge(
+                      data: IconThemeData(
+                        size: widget.iconSize,
+                        color: Colors.white,
+                      ),
+                      // The button's label speaks for it; a figure such
+                      // as "+10" must not be read out on top of it.
+                      child: ExcludeSemantics(
+                        child: AnimatedSwitcher(
+                          duration: _glyphSwapDuration(context),
+                          child: _ShadowedGlyph(
+                            key: widget.glyph.key,
+                            glyph: widget.glyph,
+                          ),
+                        ),
+                      ),
                     ),
                   ),
                 ),
@@ -1426,11 +1489,14 @@ class _VolumeControlState extends State<_VolumeControl> {
               ),
               _BarButton(
                 key: const Key('player_mute_button'),
-                icon: muted
-                    ? Icons.volume_off_rounded
-                    : volume < 50
-                    ? Icons.volume_down_rounded
-                    : Icons.volume_up_rounded,
+                glyph: () {
+                  final glyph = muted
+                      ? PixelGlyph.volumeOff
+                      : volume < 50
+                      ? PixelGlyph.volumeDown
+                      : PixelGlyph.volumeUp;
+                  return PixelIcon(glyph, key: ValueKey(glyph));
+                }(),
                 label: muted ? l10n.playerUnmute : l10n.playerMute,
                 onPressed: widget.onToggleMute,
               ),
@@ -1443,7 +1509,7 @@ class _VolumeControlState extends State<_VolumeControl> {
 }
 
 /// Sits where the play button is, so it lines up with ±10 s; the startup
-/// label goes below it.
+/// label goes below it, with the torrent's numbers if the start drags on.
 class _BufferingSpinner extends StatelessWidget {
   const _BufferingSpinner({
     required this.engine,
@@ -1471,13 +1537,10 @@ class _BufferingSpinner extends StatelessWidget {
             fit: StackFit.expand,
             children: [
               Center(
-                child: SizedBox.square(
+                child: BlockRunner(
                   key: const Key('player_buffering_spinner'),
-                  dimension: 72,
-                  child: CircularProgressIndicator(
-                    color: color,
-                    strokeWidth: 4,
-                  ),
+                  color: color,
+                  trackColor: Colors.white24,
                 ),
               ),
               if (label != null)
@@ -1485,9 +1548,9 @@ class _BufferingSpinner extends StatelessWidget {
                   child: Padding(
                     // Below the 96 px play button's place.
                     padding: const EdgeInsets.only(top: 148),
-                    child: Text(
-                      label,
-                      key: const Key('player_startup_label'),
+                    child: PlayerWaitLabel(
+                      label: label,
+                      stats: engine.playbackStats,
                       style: theme.textTheme.titleMedium?.copyWith(
                         color: Colors.white,
                       ),
@@ -1505,8 +1568,8 @@ class _BufferingSpinner extends StatelessWidget {
 /// Secondary buttons over the video: a dark glass with a light outline.
 ButtonStyle _overVideoButtonStyle(ThemeData theme) {
   return OutlinedButton.styleFrom(
-    padding: const EdgeInsetsDirectional.fromSTEB(18, 14, 22, 14),
-    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+    shape: const RoundedRectangleBorder(),
     foregroundColor: Colors.white,
     backgroundColor: Colors.black54,
     side: const BorderSide(color: Colors.white70, width: 1.5),
@@ -1532,7 +1595,6 @@ class _NoticeCard extends StatelessWidget {
         key: const Key('player_notice'),
         decoration: BoxDecoration(
           color: Colors.black54,
-          borderRadius: BorderRadius.circular(8),
           border: Border.all(color: Colors.white24),
         ),
         child: Padding(
@@ -1587,7 +1649,6 @@ class _SkipForwardOffer extends StatelessWidget {
               label: l10n.playerSkipForwardTooltip(seconds),
               child: _OfferButton.outlined(
                 key: const Key('player_skip_forward_button'),
-                icon: Icons.fast_forward_rounded,
                 label: l10n.playerSkipForward(seconds),
                 onPressed: () => unawaited(engine.skipForward()),
               ),
@@ -1599,9 +1660,10 @@ class _SkipForwardOffer extends StatelessWidget {
   }
 }
 
+/// An action offered over the video ("Skip opening", "Play next"). Its
+/// label names the action, so it carries no glyph.
 class _OfferButton extends StatelessWidget {
   const _OfferButton.outlined({
-    required this.icon,
     required this.label,
     required this.onPressed,
     super.key,
@@ -1609,7 +1671,6 @@ class _OfferButton extends StatelessWidget {
        detail = null;
 
   const _OfferButton.filled({
-    required this.icon,
     required this.label,
     required this.onPressed,
     this.detail,
@@ -1617,7 +1678,6 @@ class _OfferButton extends StatelessWidget {
   }) : filled = true;
 
   final bool filled;
-  final IconData icon;
   final String label;
   final String? detail;
   final VoidCallback onPressed;
@@ -1626,37 +1686,28 @@ class _OfferButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final detail = this.detail;
-    final content = Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 22),
-        const SizedBox(width: 10),
-        ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 240),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(label),
-              if (detail != null)
-                Text(
-                  detail,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: theme.textTheme.labelSmall?.fontSize,
-                    fontWeight: FontWeight.w400,
-                  ),
-                ),
-            ],
-          ),
-        ),
-      ],
+    final content = ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 240),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label),
+          if (detail != null)
+            Text(
+              detail,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: theme.textTheme.labelSmall?.fontSize,
+                fontWeight: FontWeight.w400,
+              ),
+            ),
+        ],
+      ),
     );
-    const padding = EdgeInsetsDirectional.fromSTEB(18, 14, 22, 14);
-    final shape = RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(8),
-    );
+    const padding = EdgeInsets.symmetric(horizontal: 20, vertical: 14);
+    const shape = RoundedRectangleBorder();
     return Padding(
       padding: const EdgeInsets.only(top: 12),
       child: filled
@@ -1689,19 +1740,15 @@ class _VolumeHud extends StatelessWidget {
       child: Align(
         alignment: const Alignment(0, -0.6),
         child: DecoratedBox(
-          decoration: BoxDecoration(
-            color: Colors.black54,
-            borderRadius: BorderRadius.circular(24),
-          ),
+          decoration: const BoxDecoration(color: Colors.black54),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(
-                  volume <= 0
-                      ? Icons.volume_off_rounded
-                      : Icons.volume_up_rounded,
+                PixelIcon(
+                  volume <= 0 ? PixelGlyph.volumeOff : PixelGlyph.volumeUp,
+                  size: 21,
                   color: Colors.white,
                 ),
                 const SizedBox(width: 10),
@@ -1710,7 +1757,7 @@ class _VolumeHud extends StatelessWidget {
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 16,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
               ],

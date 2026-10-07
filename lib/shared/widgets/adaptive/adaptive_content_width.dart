@@ -12,6 +12,10 @@ abstract final class AdaptiveContentWidth {
   /// Single-column lists of cards.
   static const double list = 840;
 
+  /// Pages opened from a section (an anime, its releases, a torrent's
+  /// files): no navigation beside them, so their rows stay this wide.
+  static const double subpage = 1200;
+
   /// Multi-pane pages and grids.
   static const double page = 1600;
 }

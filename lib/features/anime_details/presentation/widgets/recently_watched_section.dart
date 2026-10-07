@@ -7,15 +7,24 @@ import 'package:iris/entities/watch_progress/presentation/watch_progress_line.da
 import 'package:iris/features/player/presentation/models/anime_player_source_args.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/utils/file_display_name.dart';
+import 'package:iris/shared/widgets/labeled_section.dart';
+import 'package:iris/shared/widgets/segmented_bar.dart';
 
 /// Sources the user actually streamed from this anime's page, most recent
 /// first. Nothing is matched by title: only playback started here counts.
 class RecentlyWatchedSection extends StatelessWidget {
-  const RecentlyWatchedSection({required this.animeId, super.key});
+  const RecentlyWatchedSection({
+    required this.animeId,
+    this.labelWidth,
+    super.key,
+  });
 
   static const maxSources = 3;
 
   final String animeId;
+
+  /// Width of the label column; null puts the label above the rows.
+  final double? labelWidth;
 
   @override
   Widget build(BuildContext context) {
@@ -25,33 +34,32 @@ class RecentlyWatchedSection extends StatelessWidget {
     ).take(maxSources).toList();
     if (recent.isEmpty) return const SizedBox.shrink();
 
-    final theme = Theme.of(context);
     return Padding(
-      padding: const EdgeInsets.only(top: 24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            AppLocalizations.of(context).recentlyWatchedTitle,
-            style: theme.textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 12),
-          for (final progress in recent) ...[
-            _RecentSourceCard(progress: progress),
-            const SizedBox(height: 8),
+      padding: const EdgeInsets.only(top: 40),
+      child: LabeledSection(
+        label: AppLocalizations.of(context).recentlyWatchedTitle,
+        labelWidth: labelWidth,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            for (final (index, progress) in recent.indexed) ...[
+              if (index > 0) const SegmentedRule(),
+              _RecentSource(progress: progress, first: index == 0),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }
 }
 
-class _RecentSourceCard extends StatelessWidget {
-  const _RecentSourceCard({required this.progress});
+class _RecentSource extends StatelessWidget {
+  const _RecentSource({required this.progress, required this.first});
 
   final WatchProgress progress;
+
+  /// The first row starts level with the section label.
+  final bool first;
 
   void _continue(BuildContext context) {
     context.pushNamed(
@@ -71,41 +79,43 @@ class _RecentSourceCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final theme = Theme.of(context);
-    return Card(
+    return Padding(
       key: ValueKey('recently_watched_${progress.torrentKey}'),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              progress.sourceTitle,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.titleSmall?.copyWith(
-                fontWeight: FontWeight.w700,
-              ),
+      padding: EdgeInsets.only(top: first ? 0 : 14, bottom: 14),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  progress.sourceTitle,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.titleSmall,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  l10n.watchProgressLastFile(
+                    fileDisplayName(progress.fileName),
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodySmall,
+                ),
+                const SizedBox(height: 10),
+                WatchProgressLine(progress: progress),
+              ],
             ),
-            const SizedBox(height: 4),
-            Text(
-              l10n.watchProgressLastFile(fileDisplayName(progress.fileName)),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-            const SizedBox(height: 8),
-            WatchProgressLine(progress: progress),
-            const SizedBox(height: 12),
-            Align(
-              alignment: AlignmentDirectional.centerEnd,
-              child: FilledButton.tonalIcon(
-                key: const Key('recently_watched_continue_button'),
-                onPressed: () => _continue(context),
-                icon: const Icon(Icons.play_arrow),
-                label: Text(l10n.watchProgressContinueButton),
-              ),
-            ),
-          ],
-        ),
+          ),
+          const SizedBox(width: 16),
+          OutlinedButton(
+            key: const Key('recently_watched_continue_button'),
+            onPressed: () => _continue(context),
+            child: Text(l10n.watchProgressContinueButton),
+          ),
+        ],
       ),
     );
   }

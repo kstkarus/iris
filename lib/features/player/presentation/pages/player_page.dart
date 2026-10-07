@@ -18,9 +18,11 @@ import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/utils/duration_formatter.dart';
 import 'package:iris/shared/utils/episode_number.dart';
 import 'package:iris/shared/utils/file_display_name.dart';
+import 'package:iris/shared/theme/over_video_theme.dart';
 import 'package:iris/shared/utils/release_title.dart';
 import 'package:iris/shared/widgets/adaptive/window_size_class.dart';
 import 'package:iris/shared/widgets/page_title.dart';
+import 'package:iris/shared/widgets/pixel_icon.dart';
 
 /// Video with the torrent's episodes as a supporting pane: beside the video
 /// on expanded and landscape windows (about 70/30, can be hidden), below it
@@ -54,6 +56,9 @@ class _PlayerPageState extends State<PlayerPage> {
 
   /// The immersive player's own resume message, instead of a snackbar.
   PlayerNotice? _notice;
+
+  /// Counts the notice down once the file plays; until then it stays, so
+  /// the choice it offers is there for the whole startup.
   Timer? _noticeTimer;
 
   static const _noticeDuration = Duration(seconds: 8);
@@ -65,32 +70,42 @@ class _PlayerPageState extends State<PlayerPage> {
     super.dispose();
   }
 
-  void _showNotice(PlayerNotice notice) {
-    _noticeTimer?.cancel();
-    setState(() => _notice = notice);
-    _noticeTimer = Timer(_noticeDuration, _hideNotice);
-  }
-
   void _hideNotice() {
     _noticeTimer?.cancel();
+    _noticeTimer = null;
     if (mounted && _notice != null) setState(() => _notice = null);
   }
 
   void _closePlaybackSnackBar() {
-    _playbackSnackBar?.close();
+    // Cleared first, so the closed callback knows the page closed it.
+    final controller = _playbackSnackBar;
     _playbackSnackBar = null;
+    controller?.close();
   }
 
-  void _showPlaybackSnackBar(BuildContext context, SnackBar snackBar) {
+  void _showResumeSnackBar(BuildContext context, PlayerCubit cubit) {
     _closePlaybackSnackBar();
+    final behavior = _snackBarPlacement(context);
     // One snackbar at a time: this replaces whatever is showing instead of
     // queueing behind it.
-    final controller = (ScaffoldMessenger.of(
-      context,
-    )..hideCurrentSnackBar()).showSnackBar(snackBar);
+    final controller = (ScaffoldMessenger.of(context)..hideCurrentSnackBar())
+        .showSnackBar(
+          SnackBar(
+            key: const Key('player_resume_snackbar'),
+            content: _ResumeSnackBarContent(cubit: cubit),
+            // Closed by the page: it waits for the file to start, then
+            // counts down like the immersive notice.
+            duration: const Duration(days: 1),
+            behavior: behavior.behavior,
+            width: behavior.width,
+          ),
+        );
     _playbackSnackBar = controller;
     controller.closed.then((_) {
-      if (identical(_playbackSnackBar, controller)) _playbackSnackBar = null;
+      if (!identical(_playbackSnackBar, controller)) return;
+      // Swiped away by the viewer.
+      _playbackSnackBar = null;
+      cubit.dismissResumeNotice();
     });
   }
 
@@ -136,8 +151,7 @@ class _PlayerPageState extends State<PlayerPage> {
                           ? l10n.playerHideEpisodes
                           : l10n.playerShowEpisodes,
                       isSelected: _sidePaneVisible,
-                      icon: const Icon(Icons.playlist_play_outlined),
-                      selectedIcon: const Icon(Icons.playlist_play),
+                      icon: const PixelIcon(PixelGlyph.episodes, size: 21),
                       onPressed: () =>
                           setState(() => _sidePaneVisible = !_sidePaneVisible),
                     ),
@@ -242,54 +256,96 @@ class _PlayerPageState extends State<PlayerPage> {
   }
 
   /// The automatic resume, with "Start over"; it does not interrupt
-  /// playback. The next file is offered inside the player (also in full
-  /// screen) when a file ends.
+  /// playback. It stays while the file starts, saying where playback will
+  /// pick up, and counts down once the file plays. The next file is
+  /// offered inside the player (also in full screen) when a file ends.
   void _showPlaybackMessages(BuildContext context, PlayerState state) {
-    if (state is! PlayerReady) {
+    final cubit = context.read<PlayerCubit>();
+    if (state is! PlayerReady ||
+        !state.showResumeNotice ||
+        state.startPosition == null) {
       _closePlaybackSnackBar();
       _hideNotice();
       return;
     }
-    final l10n = AppLocalizations.of(context);
-    final cubit = context.read<PlayerCubit>();
-    final behavior = _snackBarPlacement(context);
 
-    final startPosition = state.startPosition;
-    if (state.showResumeNotice &&
-        startPosition != null &&
-        isDesktopPlayerPlatform()) {
-      cubit.dismissResumeNotice();
-      _showNotice(
-        PlayerNotice(
-          message: l10n.playerResumedFrom(
-            formatPlaybackPosition(startPosition),
-          ),
-          actionLabel: l10n.playerStartOver,
-          onAction: () {
-            _hideNotice();
-            cubit.restartFromBeginning();
-          },
-        ),
-      );
-    } else if (state.showResumeNotice && startPosition != null) {
-      cubit.dismissResumeNotice();
-      _showPlaybackSnackBar(
-        context,
-        SnackBar(
-          key: const Key('player_resume_snackbar'),
-          content: Text(
-            l10n.playerResumedFrom(formatPlaybackPosition(startPosition)),
-          ),
-          action: SnackBarAction(
-            label: l10n.playerStartOver,
-            onPressed: cubit.restartFromBeginning,
-          ),
-          duration: const Duration(seconds: 8),
-          behavior: behavior.behavior,
-          width: behavior.width,
-        ),
-      );
+    if (state.started) {
+      _noticeTimer ??= Timer(_noticeDuration, cubit.dismissResumeNotice);
     }
+    if (isDesktopPlayerPlatform()) {
+      final choice = resumeChoice(AppLocalizations.of(context), cubit, state);
+      setState(
+        () => _notice = PlayerNotice(
+          message: choice.message,
+          actionLabel: choice.actionLabel,
+          onAction: choice.onAction,
+        ),
+      );
+    } else if (_playbackSnackBar == null) {
+      _showResumeSnackBar(context, cubit);
+    }
+  }
+}
+
+/// What the resume notice says for [state] and what its action does:
+/// where playback picks up (or will, while the file starts), and the other
+/// choice.
+@visibleForTesting
+({String message, String actionLabel, VoidCallback onAction}) resumeChoice(
+  AppLocalizations l10n,
+  PlayerCubit cubit,
+  PlayerReady state,
+) {
+  final position = formatPlaybackPosition(state.startPosition!);
+  if (state.startsOver) {
+    return (
+      message: state.started ? l10n.playerStartedOver : l10n.playerStartingOver,
+      actionLabel: l10n.playerResumeFromAction(position),
+      onAction: cubit.resumeSavedPosition,
+    );
+  }
+  return (
+    message: state.started
+        ? l10n.playerResumedFrom(position)
+        : l10n.playerResumingFrom(position),
+    actionLabel: l10n.playerStartOver,
+    onAction: cubit.restartFromBeginning,
+  );
+}
+
+/// The resume notice as a snackbar, kept current with the player's state.
+class _ResumeSnackBarContent extends StatelessWidget {
+  const _ResumeSnackBarContent({required this.cubit});
+
+  final PlayerCubit cubit;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final theme = Theme.of(context);
+    final actionColor =
+        theme.snackBarTheme.actionTextColor ?? theme.colorScheme.inversePrimary;
+    return BlocBuilder<PlayerCubit, PlayerState>(
+      bloc: cubit,
+      builder: (context, state) {
+        if (state is! PlayerReady || state.startPosition == null) {
+          return const SizedBox.shrink();
+        }
+        final choice = resumeChoice(l10n, cubit, state);
+        return Row(
+          children: [
+            Expanded(child: Text(choice.message)),
+            const SizedBox(width: 8),
+            TextButton(
+              key: const Key('player_resume_action'),
+              onPressed: choice.onAction,
+              style: TextButton.styleFrom(foregroundColor: actionColor),
+              child: Text(choice.actionLabel),
+            ),
+          ],
+        );
+      },
+    );
   }
 }
 
@@ -305,19 +361,9 @@ class _PlayerPageState extends State<PlayerPage> {
   return (behavior: SnackBarBehavior.floating, width: 480);
 }
 
-/// The app's colours as they read over video: a dark theme from the same
-/// primary, so dialogs and progress opened from the player match it.
-ThemeData immersivePlayerTheme(ThemeData base) {
-  if (base.brightness == Brightness.dark) return base;
-  return ThemeData(
-    useMaterial3: true,
-    colorScheme: ColorScheme.fromSeed(
-      seedColor: base.colorScheme.primary,
-      brightness: Brightness.dark,
-    ),
-    visualDensity: base.visualDensity,
-  );
-}
+/// The app's colours as they read over video: its dark theme, so dialogs
+/// and progress opened from the player match it.
+ThemeData immersivePlayerTheme(ThemeData base) => OverVideoTheme.of(base);
 
 class _SideBySideLayout extends StatelessWidget {
   const _SideBySideLayout({

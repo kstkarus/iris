@@ -50,6 +50,14 @@ enum WindowSizeClass {
 
   bool isAtLeast(WindowSizeClass other) => index >= other.index;
 
-  /// Horizontal page margin recommended by Material 3 for this size class.
-  double get pageMargin => isCompact ? 16 : 24;
+  /// Horizontal page margin: Material 3's on phones and tablets, a little
+  /// more on desktop windows.
+  double get pageMargin => switch (this) {
+    compact => 16,
+    medium || expanded => 24,
+    large || extraLarge => 32,
+  };
+
+  /// Space above the first row of a top-level page, which has no app bar.
+  double get pageTop => isCompact ? 12 : 28;
 }

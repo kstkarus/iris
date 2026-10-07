@@ -16,7 +16,9 @@ import '../../../../helpers/test_window.dart';
 
 void main() {
   for (final entry in TestWindowSizes.all.entries) {
-    final isWide = entry.value.width >= 840;
+    // The sidebar takes its share, so only desktop windows fit both panes.
+    // Content of 840 dp and up puts storage in a side pane.
+    final isWide = entry.value.width >= 900;
 
     testWidgets('download manager adapts panes on ${entry.key}', (
       tester,
@@ -33,14 +35,15 @@ void main() {
         ),
       );
 
-      final storage = tester.getRect(find.text('App storage'));
-      final firstFile = tester.getRect(find.text('episode-00.mkv'));
+      final storage = tester.getRect(find.text('APP STORAGE'));
+      final firstFile = tester.getRect(find.text('episode-00'));
       if (isWide) {
         expect(storage.left, greaterThan(firstFile.right));
       } else {
-        expect(storage.bottom, lessThan(firstFile.top));
+        // The files come first; storage follows them.
+        expect(storage.top, greaterThan(firstFile.bottom));
       }
-      expect(find.text('Paused'), findsOneWidget);
+      expect(find.textContaining('PAUSED', findRichText: true), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
 
@@ -88,7 +91,12 @@ void main() {
         ),
       );
 
-      final row = tester.getRect(find.byType(ListTile).first);
+      final row = tester.getRect(
+        find.ancestor(
+          of: find.text('episode-01'),
+          matching: find.byType(InkWell),
+        ),
+      );
       expect(find.text('episode-01'), findsOneWidget);
       expect(row.width, lessThanOrEqualTo(840));
       expect(tester.takeException(), isNull);

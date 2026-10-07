@@ -18,12 +18,17 @@ import 'package:iris/features/watch_sources/presentation/models/anime_watch_sour
 import 'package:iris/features/watch_sources/presentation/pages/watch_sources_page.dart';
 import 'package:iris/features/watch_sources/presentation/widgets/watch_sources_view.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
+import 'package:iris/shared/widgets/app_skeleton.dart';
+import 'package:iris/shared/widgets/dither_transition.dart';
 import 'package:iris/shared/widgets/search_field.dart';
 
 import '../../../../helpers/test_window.dart';
 
 void main() {
-  testWidgets('shows a loader while sources are loading', (tester) async {
+  testWidgets('shows table-shaped noise while sources are loading', (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
     final cubit = WatchSourcesCubit(
       animeId: '52991',
       animeEnglishTitle: 'Frieren: Beyond Journey\'s End',
@@ -33,7 +38,31 @@ void main() {
     await _pumpView(tester, cubit: cubit..loadSources());
     await tester.pump();
 
-    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    expect(tester.widget<AppSkeleton>(find.byType(AppSkeleton)).enabled, true);
+    expect(find.bySemanticsLabel('Loading sources...'), findsOneWidget);
+    expect(find.bySemanticsLabel(RegExp('Anime Title')), findsNothing);
+    semantics.dispose();
+  });
+
+  testWidgets('the releases develop out of the noise', (tester) async {
+    final sources = Completer<List<WatchSourceItem>>();
+    final cubit = WatchSourcesCubit(
+      animeId: '52991',
+      animeEnglishTitle: 'Frieren: Beyond Journey\'s End',
+      repository: _CompleterWatchSourcesRepository(sources),
+    );
+
+    await _pumpView(tester, cubit: cubit..loadSources());
+    await tester.pump();
+
+    sources.complete(_items);
+    await tester.pump();
+    await tester.pump(DitherTransition.duration ~/ 2);
+    expect(find.text('[SubsPlease] Frieren - 28 (1080p)'), findsOneWidget);
+    expect(find.textContaining('Anime Title'), findsWidgets);
+
+    await tester.pump(DitherTransition.duration);
+    expect(find.textContaining('Anime Title'), findsNothing);
   });
 
   testWidgets('shows search, sorting and source cards when loading succeeds', (
@@ -52,10 +81,11 @@ void main() {
     expect(find.text('Sort'), findsOneWidget);
     expect(find.text('[SubsPlease] Frieren - 28 (1080p)'), findsOneWidget);
     expect(find.text('[Judas] Frieren Season Pack Dual-Audio'), findsOneWidget);
+    // Below the table breakpoint the numbers follow the name in one line.
     expect(
       find.text(
-        '1.4 GiB · 33 seeders · 4 leechers · 269 downloads · Apr 14, 2026 · '
-        'English-translated',
+        '1.4 GiB · 33 seeders · 269 downloads · Apr 14, 2026',
+        findRichText: true,
       ),
       findsOneWidget,
     );
@@ -83,7 +113,7 @@ void main() {
     );
     expect(row, findsNWidgets(3));
     expect(downloadButton, findsNWidgets(3));
-    expect(tester.widget<ListTile>(row.first).onTap, isNotNull);
+    expect(tester.widget<InkWell>(row.first).onTap, isNotNull);
     expect(
       find.descendant(of: row.first, matching: downloadButton),
       findsOneWidget,
@@ -186,7 +216,9 @@ void main() {
       find.widgetWithText(TextField, 'Search sources'),
       'dual',
     );
-    await tester.pumpAndSettle();
+    // Filtering while typing updates the list without a transition.
+    await tester.pump();
+    expect(find.byType(ListView), findsOneWidget);
 
     expect(find.text('[Judas] Frieren Season Pack Dual-Audio'), findsOneWidget);
     expect(find.text('[SubsPlease] Frieren - 28 (1080p)'), findsNothing);
@@ -285,8 +317,13 @@ void main() {
     await tester.ensureVisible(find.text('Apply'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Apply'));
+    await tester.pump();
+    await tester.pump(DitherTransition.duration ~/ 2);
+    // The new order dissolves in over the old one.
+    expect(find.byType(ListView), findsNWidgets(2));
     await tester.pumpAndSettle();
 
+    expect(find.byType(ListView), findsOneWidget);
     expect(_topTitle(tester), '[ASW] Frieren - 27');
   });
 
@@ -421,7 +458,10 @@ void main() {
       );
       expect(tester.takeException(), isNull);
 
-      await tester.tap(find.text('Sort'));
+      // Narrow windows show the action as an icon, named by its tooltip.
+      await tester.tap(
+        entry.value.width < 600 ? find.byTooltip('Sort') : find.text('Sort'),
+      );
       await tester.pumpAndSettle();
 
       expect(
@@ -528,6 +568,16 @@ class _PendingWatchSourcesRepository implements WatchSourcesRepository {
   Future<List<WatchSourceItem>> fetchSources(String animeEnglishTitle) {
     return Completer<List<WatchSourceItem>>().future;
   }
+}
+
+class _CompleterWatchSourcesRepository implements WatchSourcesRepository {
+  const _CompleterWatchSourcesRepository(this.sources);
+
+  final Completer<List<WatchSourceItem>> sources;
+
+  @override
+  Future<List<WatchSourceItem>> fetchSources(String animeEnglishTitle) =>
+      sources.future;
 }
 
 class _SuccessWatchSourcesRepository implements WatchSourcesRepository {

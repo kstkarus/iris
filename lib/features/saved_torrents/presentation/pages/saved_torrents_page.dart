@@ -26,35 +26,10 @@ class SavedTorrentsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
     final sizeClass = WindowSizeClass.of(context);
     final margin = sizeClass.pageMargin;
-    final useFab = sizeClass.isCompact;
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(l10n.savedTorrentsTitle),
-        actions: [
-          if (!useFab)
-            Padding(
-              padding: EdgeInsets.only(right: margin),
-              child: FilledButton.icon(
-                key: addButtonKey,
-                onPressed: () => _add(context),
-                icon: const Icon(Icons.add_link),
-                label: Text(l10n.savedTorrentsAddButton),
-              ),
-            ),
-        ],
-      ),
-      floatingActionButton: useFab
-          ? FloatingActionButton.extended(
-              key: addButtonKey,
-              onPressed: () => _add(context),
-              icon: const Icon(Icons.add_link),
-              label: Text(l10n.savedTorrentsAddButton),
-            )
-          : null,
       body: CallbackShortcuts(
         bindings: {
           const SingleActivator(LogicalKeyboardKey.keyV, control: true): () =>
@@ -66,10 +41,17 @@ class SavedTorrentsPage extends StatelessWidget {
           autofocus: true,
           child: SafeArea(
             child: Padding(
-              padding: EdgeInsets.fromLTRB(margin, 16, margin, 0),
+              padding: EdgeInsets.fromLTRB(
+                margin,
+                sizeClass.pageTop,
+                margin,
+                0,
+              ),
               child: MaxWidthBox(
-                maxWidth: AdaptiveContentWidth.page,
+                maxWidth: AdaptiveContentWidth.subpage,
+                alignment: Alignment.topLeft,
                 child: SavedTorrentsView(
+                  addButtonKey: addButtonKey,
                   onAdd: () => _add(context),
                   onWatch: (torrent, {autoOpenFileIndex}) => _open(
                     context,
@@ -78,7 +60,6 @@ class SavedTorrentsPage extends StatelessWidget {
                         onWatch(torrent, autoOpenFileIndex: autoOpenFileIndex),
                   ),
                   onDownload: (torrent) => _open(context, torrent, onDownload),
-                  bottomPadding: useFab ? 80 : 0,
                 ),
               ),
             ),

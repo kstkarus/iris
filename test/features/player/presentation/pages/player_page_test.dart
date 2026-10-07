@@ -59,8 +59,8 @@ void main() {
     final pane = tester.getRect(find.byKey(PlayerPage.episodesPaneKey));
     expect(pane.top, greaterThanOrEqualTo(video.bottom));
     expect(find.byKey(PlayerPage.episodesToggleKey), findsNothing);
-    expect(find.byIcon(Icons.close), findsNothing);
-    expect(find.text('Now playing'), findsOneWidget);
+    expect(find.byKey(const Key('player_episodes_close_button')), findsNothing);
+    expect(find.text('NOW PLAYING'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -75,10 +75,11 @@ void main() {
     expect(pane.left, greaterThanOrEqualTo(video.right));
     expect(pane.width, inInclusiveRange(280, 420));
     expect(
-      tester
-          .widget<ListTile>(find.byKey(const ValueKey('player_episode_2')))
-          .selected,
-      isTrue,
+      find.descendant(
+        of: find.byKey(const ValueKey('player_episode_2')),
+        matching: find.text('NOW PLAYING'),
+      ),
+      findsOneWidget,
     );
 
     await tester.tap(find.byKey(PlayerPage.episodesToggleKey));
@@ -125,8 +126,31 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
 
+    // Said in the future while the file starts; the snackbar waits for it.
+    expect(find.text('Picking up at 12:34'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 20));
+    expect(find.text('Picking up at 12:34'), findsOneWidget);
+
+    // The choice can be taken back before the file plays.
+    await tester.tap(find.widgetWithText(TextButton, 'Start over'));
+    await tester.pump();
+    expect(find.text('Starting from the beginning'), findsOneWidget);
+    await tester.tap(find.widgetWithText(TextButton, 'From 12:34'));
+    await tester.pump();
+    expect(find.text('Picking up at 12:34'), findsOneWidget);
+
+    (tester.element(find.byType(PlayerPage)).read<PlayerCubit>()
+            as _FakePlayerCubit)
+        .push(
+          const PlayerReady(
+            PlayerSession(sessionId: '42', streamUrl: 'http://127.0.0.1/2'),
+            startPosition: Duration(minutes: 12, seconds: 34),
+            showResumeNotice: true,
+            started: true,
+          ),
+        );
+    await tester.pump();
     expect(find.text('Resumed from 12:34'), findsOneWidget);
-    expect(find.widgetWithText(SnackBarAction, 'Start over'), findsOneWidget);
 
     // Its action belongs to that file: switching files closes it.
     (tester.element(find.byType(PlayerPage)).read<PlayerCubit>()
@@ -259,7 +283,7 @@ void main() {
 
       await tester.pumpWidget(_wrap(source: _seriesSource));
 
-      expect(find.text('Now playing'), findsOneWidget);
+      expect(find.text('NOW PLAYING'), findsOneWidget);
       await tester.tap(find.byKey(const ValueKey('player_episode_card_3')));
       await tester.pump();
       final cubit =
@@ -291,11 +315,31 @@ void main() {
 
       expect(find.byType(SnackBar), findsNothing);
       expect(
-        find.text('notice: Resumed from 2:22 / Start over'),
+        find.text('notice: Picking up at 2:22 / Start over'),
         findsOneWidget,
       );
 
-      await tester.pump(const Duration(seconds: 8));
+      // Pinned while the file starts, with a choice that can be undone.
+      await tester.pump(const Duration(seconds: 20));
+      cubit.restartFromBeginning();
+      await tester.pump();
+      await tester.pump();
+      expect(
+        find.text('notice: Starting from the beginning / From 2:22'),
+        findsOneWidget,
+      );
+
+      // Counted down from the first frame.
+      cubit.push((cubit.state as PlayerReady).copyWith(started: true));
+      await tester.pump();
+      await tester.pump();
+      expect(
+        find.text('notice: Playing from the beginning / From 2:22'),
+        findsOneWidget,
+      );
+      await tester.pump(const Duration(seconds: 7));
+      expect(find.textContaining('notice:'), findsOneWidget);
+      await tester.pump(const Duration(seconds: 1));
       expect(find.textContaining('notice:'), findsNothing);
     }, variant: desktop);
 

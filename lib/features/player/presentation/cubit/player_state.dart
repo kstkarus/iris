@@ -45,6 +45,8 @@ final class PlayerReady extends PlayerState {
     this.session, {
     this.startPosition,
     this.showResumeNotice = false,
+    this.startsOver = false,
+    this.started = false,
     this.completed = false,
   });
 
@@ -52,16 +54,32 @@ final class PlayerReady extends PlayerState {
 
   /// Where the file was opened (resume); null when it starts from zero.
   final Duration? startPosition;
+
+  /// The resume notice is up: where playback picks up, and the way to
+  /// start over instead.
   final bool showResumeNotice;
+
+  /// The viewer chose to start from the beginning over [startPosition].
+  final bool startsOver;
+
+  /// The file is playing: its first frame was on screen.
+  final bool started;
 
   /// The file played to its end.
   final bool completed;
 
-  PlayerReady copyWith({bool? showResumeNotice, bool? completed}) {
+  PlayerReady copyWith({
+    bool? showResumeNotice,
+    bool? startsOver,
+    bool? started,
+    bool? completed,
+  }) {
     return PlayerReady(
       session,
       startPosition: startPosition,
       showResumeNotice: showResumeNotice ?? this.showResumeNotice,
+      startsOver: startsOver ?? this.startsOver,
+      started: started ?? this.started,
       completed: completed ?? this.completed,
     );
   }
@@ -76,12 +94,20 @@ final class PlayerReady extends PlayerState {
         other.session == session &&
         other.startPosition == startPosition &&
         other.showResumeNotice == showResumeNotice &&
+        other.startsOver == startsOver &&
+        other.started == started &&
         other.completed == completed;
   }
 
   @override
-  int get hashCode =>
-      Object.hash(session, startPosition, showResumeNotice, completed);
+  int get hashCode => Object.hash(
+    session,
+    startPosition,
+    showResumeNotice,
+    startsOver,
+    started,
+    completed,
+  );
 }
 
 final class PlayerFailure extends PlayerState {

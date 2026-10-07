@@ -39,7 +39,7 @@ class DownloadSelectionPage extends StatelessWidget {
         ),
         body: SafeArea(
           child: Padding(
-            padding: EdgeInsets.fromLTRB(margin, 16, margin, 20),
+            padding: EdgeInsets.fromLTRB(margin, 24, margin, 0),
             child: MaxWidthBox(
               maxWidth: AdaptiveContentWidth.list,
               child: Column(

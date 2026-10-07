@@ -36,7 +36,7 @@ void main() {
 
     await tester.pumpWidget(_wrap(cubit: cubit));
 
-    expect(find.text('Preparing video...'), findsOneWidget);
+    expect(find.text('Preparing video'), findsOneWidget);
     expect(find.text('38% ready for playback'), findsOneWidget);
     expect(find.text('Current speed: 1.5 MB/s'), findsOneWidget);
   });
@@ -73,7 +73,7 @@ void main() {
     await tester.pumpWidget(_wrap(cubit: cubit));
 
     expect(find.byKey(const Key('player_video_surface')), findsOneWidget);
-    expect(find.text('Preparing video...'), findsNothing);
+    expect(find.text('Preparing video'), findsNothing);
   });
 
   testWidgets('shows retry action on generic failure', (tester) async {

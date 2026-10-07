@@ -7,7 +7,10 @@ import 'package:iris/features/player/presentation/cubit/player_source_cubit.dart
 import 'package:iris/features/player/presentation/cubit/player_source_state.dart';
 import 'package:iris/features/player/presentation/widgets/player_episodes_list.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
+import 'package:iris/entities/watch_progress/presentation/watch_progress_line.dart';
+import 'package:iris/shared/utils/episode_number.dart';
 import 'package:iris/shared/utils/file_display_name.dart';
+import 'package:iris/shared/widgets/status_views.dart';
 
 class PlayerSourceView extends StatelessWidget {
   const PlayerSourceView({
@@ -28,8 +31,8 @@ class PlayerSourceView extends StatelessWidget {
     return BlocBuilder<PlayerSourceCubit, PlayerSourceState>(
       builder: (context, state) {
         return switch (state) {
-          PlayerSourceInitial() || PlayerSourceLoading() => _LoadingState(
-            message: AppLocalizations.of(context).playerSourcePreparing,
+          PlayerSourceInitial() || PlayerSourceLoading() => LoadingView(
+            label: AppLocalizations.of(context).playerSourcePreparing,
           ),
           PlayerSourceReady(:final preparedSource) => _SuccessState(
             files: preparedSource.files,
@@ -39,26 +42,6 @@ class PlayerSourceView extends StatelessWidget {
           PlayerSourceFailure(:final type) => _FailureState(type: type),
         };
       },
-    );
-  }
-}
-
-class _LoadingState extends StatelessWidget {
-  const _LoadingState({required this.message});
-
-  final String message;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const CircularProgressIndicator(),
-          const SizedBox(height: 16),
-          Text(message, textAlign: TextAlign.center),
-        ],
-      ),
     );
   }
 }
@@ -104,10 +87,16 @@ class _SuccessState extends StatelessWidget {
         if (continueTarget != null) ...[
           _ContinueCard(
             file: continueTarget.file,
+            number:
+                episodeNumberFromFileName(continueTarget.file.name) ??
+                files.indexOf(continueTarget.file) + 1,
+            progress: continueTarget.isNext
+                ? null
+                : progressByFile[continueTarget.file.index],
             isNext: continueTarget.isNext,
             onPressed: () => onFileSelected(continueTarget.file),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 16),
         ],
         Expanded(
           child: PlayerEpisodesList(
@@ -123,14 +112,22 @@ class _SuccessState extends StatelessWidget {
   }
 }
 
+/// The file to go on with, set like a row of the list below it, with the
+/// action itself as the only verb.
 class _ContinueCard extends StatelessWidget {
   const _ContinueCard({
     required this.file,
+    required this.number,
+    required this.progress,
     required this.isNext,
     required this.onPressed,
   });
 
   final PlayerVideoFile file;
+  final int number;
+
+  /// Where the file stopped; null for the next, unwatched file.
+  final WatchProgress? progress;
   final bool isNext;
   final VoidCallback onPressed;
 
@@ -138,42 +135,68 @@ class _ContinueCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final theme = Theme.of(context);
+    final progress = this.progress;
+    final details = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          fileDisplayName(file.name),
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: theme.textTheme.bodyMedium,
+        ),
+        // The file's own row below carries the bar.
+        if (progress != null) ...[
+          const SizedBox(height: 4),
+          WatchProgressLine(progress: progress, showBar: false),
+        ],
+      ],
+    );
+    final button = FilledButton(
+      key: PlayerSourceView.continueButtonKey,
+      onPressed: onPressed,
+      child: Text(
+        isNext
+            ? l10n.watchProgressPlayNextButton
+            : l10n.watchProgressContinueButton,
+      ),
+    );
+    final number = SizedBox(
+      width: 44,
+      child: Text(
+        this.number.toString().padLeft(2, '0'),
+        style: theme.textTheme.titleMedium,
+      ),
+    );
     return Card(
-      color: theme.colorScheme.secondaryContainer,
       child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          children: [
-            Icon(
-              isNext ? Icons.skip_next : Icons.play_circle_outline,
-              color: theme.colorScheme.onSecondaryContainer,
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                isNext
-                    ? l10n.watchProgressNextFile(fileDisplayName(file.name))
-                    : l10n.watchProgressContinueFile(
-                        fileDisplayName(file.name),
-                      ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.titleSmall?.copyWith(
-                  color: theme.colorScheme.onSecondaryContainer,
+        padding: const EdgeInsets.fromLTRB(12, 14, 12, 14),
+        child: LayoutBuilder(
+          // Narrow cards put the button under the text, so neither the
+          // name nor the position gets cut short.
+          builder: (context, constraints) => constraints.maxWidth < 480
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        number,
+                        Expanded(child: details),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    button,
+                  ],
+                )
+              : Row(
+                  children: [
+                    number,
+                    Expanded(child: details),
+                    const SizedBox(width: 16),
+                    button,
+                  ],
                 ),
-              ),
-            ),
-            const SizedBox(width: 12),
-            FilledButton(
-              key: PlayerSourceView.continueButtonKey,
-              onPressed: onPressed,
-              child: Text(
-                isNext
-                    ? l10n.watchProgressPlayNextButton
-                    : l10n.watchProgressContinueButton,
-              ),
-            ),
-          ],
         ),
       ),
     );
@@ -192,22 +215,11 @@ class _FailureState extends StatelessWidget {
         ? l10n.playerSourceUnsupported
         : l10n.playerSourceUnableToPrepare;
 
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.error_outline, size: 40),
-            const SizedBox(height: 12),
-            Text(message, textAlign: TextAlign.center),
-            const SizedBox(height: 16),
-            FilledButton(
-              onPressed: () => context.read<PlayerSourceCubit>().loadSource(),
-              child: Text(l10n.commonRetry),
-            ),
-          ],
-        ),
+    return MessageView(
+      message: message,
+      action: FilledButton(
+        onPressed: () => context.read<PlayerSourceCubit>().loadSource(),
+        child: Text(l10n.commonRetry),
       ),
     );
   }

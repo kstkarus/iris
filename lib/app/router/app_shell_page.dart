@@ -1,14 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/widgets/adaptive/window_size_class.dart';
+import 'package:iris/shared/widgets/pixel_icon.dart';
 
 /// Top-level shell with adaptive navigation.
 ///
-/// * compact: bottom [NavigationBar];
-/// * medium / expanded: [NavigationRail] with labels under icons;
-/// * large / extra-large: extended [NavigationRail] with labels beside icons.
+/// * compact: a row of text tabs along the bottom edge;
+/// * medium and wider: a top bar with the app's mark and the sections in
+///   small text, which Ctrl+1…3 also switch.
+///
+/// The navigation stays small on purpose: each page brings its own large
+/// headline, and the contrast between the two carries the hierarchy.
 class AppShellPage extends StatelessWidget {
   const AppShellPage({required this.navigationShell, super.key});
 
@@ -17,7 +22,7 @@ class AppShellPage extends StatelessWidget {
 
   final StatefulNavigationShell navigationShell;
 
-  void _onDestinationSelected(int index) {
+  void _select(int index) {
     navigationShell.goBranch(
       index,
       initialLocation: index == navigationShell.currentIndex,
@@ -26,89 +31,295 @@ class AppShellPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final destinations = _destinations(AppLocalizations.of(context));
-    final sizeClass = WindowSizeClass.of(context);
+    final l10n = AppLocalizations.of(context);
+    final labels = [
+      l10n.navigationCatalog,
+      l10n.navigationSavedTorrents,
+      l10n.navigationDownloads,
+    ];
 
-    if (sizeClass.isCompact) {
+    if (WindowSizeClass.of(context).isCompact) {
       return Scaffold(
         body: navigationShell,
-        bottomNavigationBar: NavigationBar(
+        bottomNavigationBar: _BottomTabs(
           key: navigationBarKey,
+          labels: labels,
           selectedIndex: navigationShell.currentIndex,
-          onDestinationSelected: _onDestinationSelected,
-          destinations: [
-            for (final destination in destinations)
-              NavigationDestination(
-                icon: Icon(destination.icon),
-                selectedIcon: Icon(destination.selectedIcon),
-                label: destination.label,
-              ),
-          ],
+          onSelected: _select,
         ),
       );
     }
 
-    final isExtended = sizeClass.isAtLeast(WindowSizeClass.large);
-
-    return Scaffold(
-      body: Row(
-        children: [
-          SafeArea(
-            right: false,
-            child: NavigationRail(
+    return CallbackShortcuts(
+      bindings: {
+        for (final (index, key) in _sectionKeys.indexed)
+          SingleActivator(key, control: true): () => _select(index),
+      },
+      child: Scaffold(
+        body: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _TopBar(
               key: navigationRailKey,
-              extended: isExtended,
-              labelType: isExtended
-                  ? NavigationRailLabelType.none
-                  : NavigationRailLabelType.all,
-              groupAlignment: -1,
+              appName: l10n.appName,
+              labels: labels,
               selectedIndex: navigationShell.currentIndex,
-              onDestinationSelected: _onDestinationSelected,
-              destinations: [
-                for (final destination in destinations)
-                  NavigationRailDestination(
-                    icon: Icon(destination.icon),
-                    selectedIcon: Icon(destination.selectedIcon),
-                    label: Text(destination.label),
-                  ),
-              ],
+              onSelected: _select,
             ),
-          ),
-          Expanded(child: navigationShell),
-        ],
+            Expanded(child: navigationShell),
+          ],
+        ),
       ),
     );
   }
 }
 
-List<_ShellDestination> _destinations(AppLocalizations l10n) {
-  return [
-    _ShellDestination(
-      icon: Icons.explore_outlined,
-      selectedIcon: Icons.explore_rounded,
-      label: l10n.navigationCatalog,
-    ),
-    _ShellDestination(
-      icon: Icons.bookmarks_outlined,
-      selectedIcon: Icons.bookmarks,
-      label: l10n.navigationSavedTorrents,
-    ),
-    _ShellDestination(
-      icon: Icons.download_outlined,
-      selectedIcon: Icons.download_rounded,
-      label: l10n.navigationDownloads,
-    ),
-  ];
-}
+const _sectionKeys = [
+  LogicalKeyboardKey.digit1,
+  LogicalKeyboardKey.digit2,
+  LogicalKeyboardKey.digit3,
+];
 
-class _ShellDestination {
-  const _ShellDestination({
-    required this.icon,
-    required this.selectedIcon,
-    required this.label,
+class _TopBar extends StatelessWidget {
+  const _TopBar({
+    required this.appName,
+    required this.labels,
+    required this.selectedIndex,
+    required this.onSelected,
+    super.key,
   });
 
-  final IconData icon;
-  final IconData selectedIcon;
-  final String label;
+  static const height = 64.0;
+
+  final String appName;
+  final List<String> labels;
+  final int selectedIndex;
+  final ValueChanged<int> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final margin = WindowSizeClass.of(context).pageMargin;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(color: theme.colorScheme.outlineVariant),
+        ),
+      ),
+      child: SafeArea(
+        bottom: false,
+        child: SizedBox(
+          height: height,
+          child: Padding(
+            padding: EdgeInsets.symmetric(horizontal: margin),
+            child: LayoutBuilder(
+              builder: (context, constraints) => Row(
+                children: [
+                  // The sections start a third of the way in, on the
+                  // page grid rather than straight after the mark.
+                  SizedBox(
+                    width: constraints.maxWidth / 3,
+                    child: _Wordmark(appName: appName),
+                  ),
+                  for (var index = 0; index < labels.length; index++)
+                    _TopBarItem(
+                      label: labels[index],
+                      selected: index == selectedIndex,
+                      onTap: () => onSelected(index),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
+
+class _Wordmark extends StatelessWidget {
+  const _Wordmark({required this.appName});
+
+  final String appName;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Semantics(
+      label: appName,
+      child: ExcludeSemantics(
+        child: Row(
+          children: [
+            PixelIcon(
+              PixelGlyph.iris,
+              size: 21,
+              color: theme.colorScheme.onSurface,
+            ),
+            const SizedBox(width: 12),
+            Text(
+              appName.toLowerCase(),
+              style: theme.textTheme.titleLarge?.copyWith(letterSpacing: 3),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _TopBarItem extends StatelessWidget {
+  const _TopBarItem({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return Semantics(
+      selected: selected,
+      button: true,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+          child: Row(
+            children: [
+              // The current section is marked, not boxed.
+              AnimatedContainer(
+                duration: _markerDuration(context),
+                width: 6,
+                height: 6,
+                color: selected ? scheme.onSurface : Colors.transparent,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                label,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: selected ? scheme.onSurface : scheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _BottomTabs extends StatelessWidget {
+  const _BottomTabs({
+    required this.labels,
+    required this.selectedIndex,
+    required this.onSelected,
+    super.key,
+  });
+
+  final List<String> labels;
+  final int selectedIndex;
+  final ValueChanged<int> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: scheme.surface,
+        border: Border(top: BorderSide(color: scheme.outlineVariant)),
+      ),
+      child: SafeArea(
+        top: false,
+        child: SizedBox(
+          height: 56,
+          child: Stack(
+            children: [
+              Row(
+                children: [
+                  for (var index = 0; index < labels.length; index++)
+                    Expanded(
+                      child: _BottomTab(
+                        label: labels[index],
+                        selected: index == selectedIndex,
+                        onTap: () => onSelected(index),
+                      ),
+                    ),
+                ],
+              ),
+              // One indicator that travels to the chosen tab.
+              AnimatedAlign(
+                duration: _markerDuration(context),
+                curve: Curves.easeOutCubic,
+                alignment: Alignment(
+                  labels.length < 2
+                      ? 0
+                      : -1 + 2 * selectedIndex / (labels.length - 1),
+                  -1,
+                ),
+                child: FractionallySizedBox(
+                  widthFactor: 1 / labels.length,
+                  child: Container(height: 2, color: scheme.onSurface),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _BottomTab extends StatelessWidget {
+  const _BottomTab({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return Semantics(
+      selected: selected,
+      button: true,
+      child: InkWell(
+        onTap: onTap,
+        child: Column(
+          children: [
+            const SizedBox(height: 2),
+            Expanded(
+              child: Center(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    color: selected
+                        ? scheme.onSurface
+                        : scheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+Duration _markerDuration(BuildContext context) =>
+    MediaQuery.disableAnimationsOf(context)
+    ? Duration.zero
+    : const Duration(milliseconds: 220);

@@ -115,13 +115,21 @@
   "playerTitle": "Player",
   "playerOpenButton": "Play",
   "playerSourceTitle": "Choose File",
-  "playerSourcePreparing": "Preparing torrent files...",
+  "playerSourcePreparing": "Preparing torrent files",
   "playerSourceUnsupported": "This source is not suitable for playback.",
   "playerSourceUnableToPrepare": "Unable to prepare this source.",
-  "playerPreparing": "Preparing video...",
-  "playerWaitingMetadata": "Looking for torrent metadata...",
-  "playerBuffering": "Buffering...",
-  "playerPreparingMoreBuffer": "Collecting more buffered data...",
+  "playerPreparing": "Preparing video",
+  "playerWaitingMetadata": "Looking for torrent metadata",
+  "playerBuffering": "Buffering",
+  "playerPreparingMoreBuffer": "Collecting more buffered data",
+  "playerWaitPeers": "{count, plural, =1{1 peer} other{{count} peers}}",
+  "@playerWaitPeers": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "playerStreamPreparationProgress": "{percent}% ready for playback",
   "@playerStreamPreparationProgress": {
     "placeholders": {
@@ -279,6 +287,24 @@
     }
   },
   "playerStartOver": "Start over",
+  "playerResumingFrom": "Picking up at {position}",
+  "@playerResumingFrom": {
+    "placeholders": {
+      "position": {
+        "type": "String"
+      }
+    }
+  },
+  "playerStartingOver": "Starting from the beginning",
+  "playerStartedOver": "Playing from the beginning",
+  "playerResumeFromAction": "From {position}",
+  "@playerResumeFromAction": {
+    "placeholders": {
+      "position": {
+        "type": "String"
+      }
+    }
+  },
   "playerPlayNext": "Next episode",
   "playerSkipOpening": "Skip opening",
   "playerSkipRecap": "Skip recap",
@@ -338,6 +364,11 @@
   },
   "continueWatchingTitle": "Continue watching",
   "continueWatchingRemove": "Remove from list",
+  "continueWatchingStoppedAtLabel": "Stopped at",
+  "continueWatchingFinishedLabel": "Watched to the end",
+  "animeListHeadingPopularity": "Popular",
+  "animeListHeadingScore": "Top rated",
+  "animeListHeadingAiredOn": "Latest",
   "recentlyWatchedTitle": "Recently watched",
   "watchSourceUsedBadge": "You watched this",
   "playerEpisodesTitle": "Episodes",
@@ -472,5 +503,32 @@
       }
     }
   },
-  "searchClearTooltip": "Clear"
+  "searchClearTooltip": "Clear",
+  "searchCancelButton": "Cancel",
+  "animeDetailsFactKind": "Type",
+  "animeDetailsFactStatus": "Status",
+  "animeDetailsFactEpisodes": "Episodes",
+  "animeDetailsFactScore": "Score",
+  "animeDetailsFactAired": "Aired",
+  "animeDetailsEpisodesAired": "{aired} of {total}",
+  "@animeDetailsEpisodesAired": {
+    "placeholders": {
+      "aired": {
+        "type": "String"
+      },
+      "total": {
+        "type": "String"
+      }
+    }
+  },
+  "animeDetailsDescriptionTitle": "Synopsis",
+  "animeDetailsShowCover": "Show the original cover",
+  "animeDetailsShowHalftone": "Show the halftone",
+  "watchSourcesColumnRelease": "Release",
+  "watchSourcesColumnSize": "Size",
+  "watchSourcesColumnSeeders": "Seeders",
+  "watchSourcesColumnDownloads": "Downloads",
+  "watchSourcesColumnDate": "Date",
+  "savedTorrentsPasteHint": "Ctrl+V adds a magnet link from the clipboard",
+  "downloadsFilesTitle": "Files"
 }

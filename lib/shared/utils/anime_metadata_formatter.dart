@@ -31,12 +31,15 @@ String formatAnimeStatus(AppLocalizations l10n, String status) {
 }
 
 String formatAnimeScore(AppLocalizations l10n, double score) {
-  final value = NumberFormat.decimalPatternDigits(
+  return l10n.animeScoreLabel(formatAnimeScoreValue(l10n, score));
+}
+
+/// The bare number, for places that already say it is a score.
+String formatAnimeScoreValue(AppLocalizations l10n, double score) {
+  return NumberFormat.decimalPatternDigits(
     locale: l10n.localeName,
     decimalDigits: 2,
   ).format(score);
-
-  return l10n.animeScoreLabel(value);
 }
 
 String formatEpisodeProgress(

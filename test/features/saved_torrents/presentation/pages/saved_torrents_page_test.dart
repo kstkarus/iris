@@ -209,10 +209,8 @@ void main() {
 
       expect(tester.takeException(), isNull);
       final isCompact = entry.value.width < 600;
-      expect(
-        find.byType(FloatingActionButton),
-        isCompact ? findsOneWidget : findsNothing,
-      );
+      // One add button in the page header on every size; no floating copy.
+      expect(find.byType(FloatingActionButton), findsNothing);
       expect(find.byKey(SavedTorrentsPage.addButtonKey), findsOneWidget);
 
       await openAddSheet(tester);

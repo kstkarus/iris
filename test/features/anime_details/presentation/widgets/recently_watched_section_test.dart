@@ -62,7 +62,7 @@ void main() {
       _progress('ccc', animeId: '999', minute: 4),
     ]);
 
-    expect(find.text('Recently watched'), findsOneWidget);
+    expect(find.text('RECENTLY WATCHED'), findsOneWidget);
     expect(find.text('Release aaa'), findsOneWidget);
     expect(find.text('Last watched: ep-02'), findsOneWidget);
     expect(find.text('Release bbb'), findsOneWidget);
@@ -72,7 +72,7 @@ void main() {
   testWidgets('stays hidden without history for this anime', (tester) async {
     await pump(tester, [_progress('ccc', animeId: '999')]);
 
-    expect(find.text('Recently watched'), findsNothing);
+    expect(find.text('RECENTLY WATCHED'), findsNothing);
   });
 }
 

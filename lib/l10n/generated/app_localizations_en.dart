@@ -269,7 +269,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get playerSourceTitle => 'Choose File';
 
   @override
-  String get playerSourcePreparing => 'Preparing torrent files...';
+  String get playerSourcePreparing => 'Preparing torrent files';
 
   @override
   String get playerSourceUnsupported =>
@@ -279,16 +279,27 @@ class AppLocalizationsEn extends AppLocalizations {
   String get playerSourceUnableToPrepare => 'Unable to prepare this source.';
 
   @override
-  String get playerPreparing => 'Preparing video...';
+  String get playerPreparing => 'Preparing video';
 
   @override
-  String get playerWaitingMetadata => 'Looking for torrent metadata...';
+  String get playerWaitingMetadata => 'Looking for torrent metadata';
 
   @override
-  String get playerBuffering => 'Buffering...';
+  String get playerBuffering => 'Buffering';
 
   @override
-  String get playerPreparingMoreBuffer => 'Collecting more buffered data...';
+  String get playerPreparingMoreBuffer => 'Collecting more buffered data';
+
+  @override
+  String playerWaitPeers(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count peers',
+      one: '1 peer',
+    );
+    return '$_temp0';
+  }
 
   @override
   String playerStreamPreparationProgress(int percent) {
@@ -543,6 +554,22 @@ class AppLocalizationsEn extends AppLocalizations {
   String get playerStartOver => 'Start over';
 
   @override
+  String playerResumingFrom(String position) {
+    return 'Picking up at $position';
+  }
+
+  @override
+  String get playerStartingOver => 'Starting from the beginning';
+
+  @override
+  String get playerStartedOver => 'Playing from the beginning';
+
+  @override
+  String playerResumeFromAction(String position) {
+    return 'From $position';
+  }
+
+  @override
   String get playerPlayNext => 'Next episode';
 
   @override
@@ -595,6 +622,21 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get continueWatchingRemove => 'Remove from list';
+
+  @override
+  String get continueWatchingStoppedAtLabel => 'Stopped at';
+
+  @override
+  String get continueWatchingFinishedLabel => 'Watched to the end';
+
+  @override
+  String get animeListHeadingPopularity => 'Popular';
+
+  @override
+  String get animeListHeadingScore => 'Top rated';
+
+  @override
+  String get animeListHeadingAiredOn => 'Latest';
 
   @override
   String get recentlyWatchedTitle => 'Recently watched';
@@ -743,4 +785,58 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get searchClearTooltip => 'Clear';
+
+  @override
+  String get searchCancelButton => 'Cancel';
+
+  @override
+  String get animeDetailsFactKind => 'Type';
+
+  @override
+  String get animeDetailsFactStatus => 'Status';
+
+  @override
+  String get animeDetailsFactEpisodes => 'Episodes';
+
+  @override
+  String get animeDetailsFactScore => 'Score';
+
+  @override
+  String get animeDetailsFactAired => 'Aired';
+
+  @override
+  String animeDetailsEpisodesAired(String aired, String total) {
+    return '$aired of $total';
+  }
+
+  @override
+  String get animeDetailsDescriptionTitle => 'Synopsis';
+
+  @override
+  String get animeDetailsShowCover => 'Show the original cover';
+
+  @override
+  String get animeDetailsShowHalftone => 'Show the halftone';
+
+  @override
+  String get watchSourcesColumnRelease => 'Release';
+
+  @override
+  String get watchSourcesColumnSize => 'Size';
+
+  @override
+  String get watchSourcesColumnSeeders => 'Seeders';
+
+  @override
+  String get watchSourcesColumnDownloads => 'Downloads';
+
+  @override
+  String get watchSourcesColumnDate => 'Date';
+
+  @override
+  String get savedTorrentsPasteHint =>
+      'Ctrl+V adds a magnet link from the clipboard';
+
+  @override
+  String get downloadsFilesTitle => 'Files';
 }

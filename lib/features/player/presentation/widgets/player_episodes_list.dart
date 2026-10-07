@@ -3,13 +3,16 @@ import 'package:flutter/material.dart';
 import 'package:iris/entities/watch_progress/domain/watch_progress.dart';
 import 'package:iris/entities/watch_progress/presentation/watch_progress_line.dart';
 import 'package:iris/features/player/domain/entities/player_video_file.dart';
+import 'package:iris/features/player/presentation/widgets/player_episode_cards.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/utils/byte_size_formatter.dart';
+import 'package:iris/shared/utils/episode_number.dart';
 import 'package:iris/shared/utils/file_display_name.dart';
+import 'package:iris/shared/widgets/segmented_bar.dart';
 
-/// The torrent's video files with watch progress; the playing one stays
-/// highlighted and scrolled into view so the list and the player read as
-/// one place.
+/// The torrent's video files as numbered rows with watch progress; the
+/// playing one stays marked and scrolled into view so the list and the
+/// player read as one place.
 class PlayerEpisodesList extends StatefulWidget {
   const PlayerEpisodesList({
     required this.files,
@@ -68,6 +71,7 @@ class _PlayerEpisodesListState extends State<PlayerEpisodesList> {
 
   @override
   Widget build(BuildContext context) {
+    final names = distinctEpisodeNames(widget.files);
     // Episode lists are short enough to build eagerly, which lets the
     // current item be scrolled to directly.
     return SingleChildScrollView(
@@ -75,24 +79,30 @@ class _PlayerEpisodesListState extends State<PlayerEpisodesList> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          for (final file in widget.files)
-            _EpisodeTile(
+          for (final (position, file) in widget.files.indexed) ...[
+            if (position > 0) const SegmentedRule(),
+            _EpisodeRow(
               key: file.index == widget.currentFileIndex ? _currentKey : null,
               file: file,
+              number: episodeNumberFromFileName(file.name) ?? position + 1,
+              ownName: names[file.index],
               isCurrent: file.index == widget.currentFileIndex,
               progress: widget.progressByFile[file.index],
               showSize: widget.showSizes,
               onTap: () => widget.onSelected(file),
             ),
+          ],
         ],
       ),
     );
   }
 }
 
-class _EpisodeTile extends StatelessWidget {
-  const _EpisodeTile({
+class _EpisodeRow extends StatelessWidget {
+  const _EpisodeRow({
     required this.file,
+    required this.number,
+    required this.ownName,
     required this.isCurrent,
     required this.progress,
     required this.showSize,
@@ -101,6 +111,12 @@ class _EpisodeTile extends StatelessWidget {
   });
 
   final PlayerVideoFile file;
+
+  /// The episode number from the name, or the file's place in the torrent.
+  final int number;
+
+  /// The episode's own title, when the file name carries one.
+  final String? ownName;
   final bool isCurrent;
   final WatchProgress? progress;
   final bool showSize;
@@ -110,47 +126,82 @@ class _EpisodeTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     final progress = this.progress;
-    final Widget? subtitle = isCurrent
-        ? Text(l10n.playerNowPlaying)
-        : progress == null
-        ? null
-        : Padding(
-            padding: const EdgeInsets.only(top: 6),
-            child: WatchProgressLine(progress: progress),
-          );
+    final finished = progress?.isFinished ?? false;
+    final fileName = fileDisplayName(file.name);
+    final ownName = this.ownName;
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
-      child: ListTile(
+    return Material(
+      color: isCurrent ? scheme.surfaceContainer : Colors.transparent,
+      child: InkWell(
         key: ValueKey('player_episode_${file.index}'),
-        selected: isCurrent,
-        selectedTileColor: theme.colorScheme.secondaryContainer,
-        selectedColor: theme.colorScheme.onSecondaryContainer,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        leading: Icon(
-          isCurrent
-              ? Icons.play_arrow
-              : progress?.isFinished == true
-              ? Icons.check_circle_outline
-              : Icons.movie_outlined,
-        ),
-        title: Text(
-          fileDisplayName(file.name),
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-        ),
-        subtitle: subtitle,
-        trailing: showSize
-            ? Text(
-                formatByteSize(file.size),
-                style: theme.textTheme.labelMedium?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-              )
-            : null,
         // The current file is already playing.
         onTap: isCurrent ? null : onTap,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 14, 12, 14),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(
+                width: 44,
+                child: Text(
+                  number.toString().padLeft(2, '0'),
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    color: isCurrent
+                        ? scheme.tertiary
+                        : finished
+                        ? scheme.onSurfaceVariant
+                        : scheme.onSurface,
+                  ),
+                ),
+              ),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      ownName ?? fileName,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: finished && !isCurrent
+                            ? scheme.onSurfaceVariant
+                            : scheme.onSurface,
+                      ),
+                    ),
+                    if (ownName != null)
+                      Text(
+                        fileName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodySmall,
+                      ),
+                    if (isCurrent) ...[
+                      const SizedBox(height: 6),
+                      Text(
+                        l10n.playerNowPlaying.toUpperCase(),
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: scheme.tertiary,
+                        ),
+                      ),
+                    ] else if (progress != null) ...[
+                      const SizedBox(height: 10),
+                      WatchProgressLine(progress: progress),
+                    ],
+                  ],
+                ),
+              ),
+              if (showSize) ...[
+                const SizedBox(width: 16),
+                Text(
+                  formatByteSize(l10n, file.size),
+                  style: theme.textTheme.bodySmall,
+                ),
+              ],
+            ],
+          ),
+        ),
       ),
     );
   }

@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:iris/features/anime_list/domain/entities/anime_list_query.dart';
@@ -27,6 +28,11 @@ class AnimeListBloc extends Bloc<AnimeListEvent, AnimeListState> {
 
   final AnimeListRepository _repository;
   int _requestSessionId = 0;
+
+  /// Whether a list without a search query is fetched; when not, it stays
+  /// empty and idle until there is a query.
+  @protected
+  bool get fetchesWithoutQuery => true;
 
   void _onStarted(AnimeListStarted event, Emitter<AnimeListState> emit) {
     _restartList(
@@ -210,6 +216,11 @@ class AnimeListBloc extends Bloc<AnimeListEvent, AnimeListState> {
     required AnimeListFilters filters,
   }) {
     final sessionId = ++_requestSessionId;
+
+    if (query.isEmpty && !fetchesWithoutQuery) {
+      emit(AnimeListState(sort: sort, filters: filters, hasMore: false));
+      return;
+    }
 
     emit(
       AnimeListState(

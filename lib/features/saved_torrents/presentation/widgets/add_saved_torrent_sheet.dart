@@ -5,6 +5,7 @@ import 'package:iris/features/saved_torrents/domain/repositories/saved_torrents_
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/torrent/magnet_link.dart';
 import 'package:iris/shared/widgets/adaptive/show_adaptive_sheet.dart';
+import 'package:iris/shared/widgets/pixel_icon.dart';
 
 typedef SaveTorrentCallback =
     Future<SaveTorrentResult> Function({required String magnet, String? title});
@@ -150,10 +151,9 @@ class _AddSavedTorrentFormState extends State<AddSavedTorrentForm> {
                           ? l10n.savedTorrentsInvalidMagnet
                           : null,
                       errorMaxLines: 3,
-                      border: const OutlineInputBorder(),
                       suffixIcon: IconButton(
                         tooltip: l10n.savedTorrentsPasteTooltip,
-                        icon: const Icon(Icons.content_paste),
+                        icon: const PixelIcon(PixelGlyph.paste, size: 18),
                         onPressed: _paste,
                       ),
                     ),
@@ -167,7 +167,6 @@ class _AddSavedTorrentFormState extends State<AddSavedTorrentForm> {
                     decoration: InputDecoration(
                       labelText: l10n.savedTorrentsNameLabel,
                       helperText: l10n.savedTorrentsNameHelper,
-                      border: const OutlineInputBorder(),
                     ),
                   ),
                 ],
