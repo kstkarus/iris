@@ -442,7 +442,9 @@ const _lightScheme = ColorScheme(
   onSecondary: Color(0xFFF1EDEB),
   secondaryContainer: Color(0xFFE2DEDA),
   onSecondaryContainer: Color(0xFF161616),
-  tertiary: Color(0xFF2C8A0C),
+  // Dark enough for small status text: at least 4.5:1 on the surfaces up
+  // to surfaceContainerHigh.
+  tertiary: Color(0xFF237009),
   onTertiary: Color(0xFFFFFFFF),
   tertiaryContainer: Color(0xFFD6F2C4),
   onTertiaryContainer: Color(0xFF123C02),
