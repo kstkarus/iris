@@ -344,10 +344,29 @@ class _CatalogPane extends StatelessWidget {
       builder: (context, state) {
         final l10n = AppLocalizations.of(context);
         final bloc = context.read<AnimeListBloc>();
+        // Local history: it stays when the catalog cannot load.
+        final continueItems = continueWatchingItems(
+          context.watchWatchProgress(),
+        );
         if (!state.isInitialLoading) {
           if (state.errorType == AnimeListErrorType.initial &&
               !state.hasLoadedOnce) {
-            return _FailureState(bloc: bloc);
+            if (continueItems.isEmpty) return _FailureState(bloc: bloc);
+            return CustomScrollView(
+              controller: controller,
+              slivers: [
+                SliverToBoxAdapter(
+                  child: KeyedSubtree(
+                    key: headerKey,
+                    child: ContinueWatchingRow(items: continueItems),
+                  ),
+                ),
+                SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: _FailureState(bloc: bloc),
+                ),
+              ],
+            );
           }
           if (state.hasLoadedOnce && state.items.isEmpty) {
             return MessageView(
@@ -358,9 +377,6 @@ class _CatalogPane extends StatelessWidget {
           }
         }
 
-        final continueItems = continueWatchingItems(
-          context.watchWatchProgress(),
-        );
         return AnimeGrid(
           bloc: bloc,
           state: state,

@@ -5,6 +5,9 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:iris/entities/watch_progress/domain/watch_progress.dart';
+import 'package:iris/entities/watch_progress/domain/watch_progress_repository.dart';
+import 'package:iris/entities/watch_progress/presentation/watch_progress_cubit.dart';
 import 'package:iris/features/anime_list/domain/entities/anime_list_item.dart';
 import 'package:iris/features/anime_list/domain/entities/anime_list_page_result.dart';
 import 'package:iris/features/anime_list/domain/entities/anime_list_query.dart';
@@ -417,6 +420,56 @@ void main() {
     expect(repository.calls.any((call) => call.query.page == 2), isTrue);
   });
 
+  for (final watched in const [false, true]) {
+    testWidgets(
+      watched
+          ? 'a failed catalog keeps Continue watching above the error'
+          : 'a failed catalog without history is only the error',
+      (tester) async {
+        final history = WatchProgressCubit(
+          repository: _StubWatchProgressRepository([
+            if (watched) _watchProgress,
+          ]),
+        )..load();
+        addTearDown(history.close);
+        final bloc = AnimeListBloc(repository: _FailingAnimeListRepository())
+          ..add(const AnimeListStarted());
+        addTearDown(bloc.close);
+
+        await tester.pumpWidget(
+          _wrapWithApp(
+            MultiBlocProvider(
+              providers: [
+                BlocProvider.value(value: history),
+                BlocProvider.value(value: bloc),
+              ],
+              child: const Scaffold(body: AnimeListView()),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('Unable to load anime list.'), findsOneWidget);
+        expect(find.text('Try Again'), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('continue_watching_abc')),
+          watched ? findsOneWidget : findsNothing,
+        );
+        if (watched) {
+          expect(
+            tester.getRect(find.text('Unable to load anime list.')).top,
+            greaterThan(
+              tester
+                  .getRect(find.byKey(const ValueKey('continue_watching_abc')))
+                  .bottom,
+            ),
+          );
+        }
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
   testWidgets('shows load more error and keeps loaded items', (tester) async {
     final repository = _LoadMoreFailureAnimeListRepository(
       initialResult: _singleItemResult,
@@ -780,4 +833,47 @@ const _searchResult = AnimeListPageResult(
   page: 1,
   hasMore: false,
   query: 'fullmetal',
+);
+
+class _FailingAnimeListRepository implements AnimeListRepository {
+  @override
+  Future<AnimeListPageResult> fetchAnimePage({
+    required AnimeListQuery query,
+  }) async {
+    throw Exception('offline');
+  }
+}
+
+class _StubWatchProgressRepository implements WatchProgressRepository {
+  const _StubWatchProgressRepository(this.items);
+
+  final List<WatchProgress> items;
+
+  @override
+  Stream<List<WatchProgress>> watchAll() => Stream.value(items);
+
+  @override
+  Future<WatchProgress?> find({
+    required String torrentKey,
+    required int fileIndex,
+  }) async => null;
+
+  @override
+  Future<void> save(WatchProgress progress) async {}
+
+  @override
+  Future<void> removeTorrent({required String torrentKey}) async {}
+}
+
+final _watchProgress = WatchProgress(
+  torrentKey: 'abc',
+  fileIndex: 0,
+  fileName: 'Episode 1.mkv',
+  magnet: 'magnet:?xt=urn:btih:abc',
+  sourceTitle: 'Release',
+  position: const Duration(minutes: 10),
+  duration: const Duration(minutes: 24),
+  updatedAt: DateTime.utc(2026, 10, 8, 12),
+  animeId: '5114',
+  animeTitle: 'Fullmetal Alchemist: Brotherhood',
 );

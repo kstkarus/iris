@@ -38,6 +38,8 @@ class AnimeDetailsView extends StatelessWidget {
     return BlocBuilder<AnimeDetailsCubit, AnimeDetailsState>(
       builder: (context, state) {
         final l10n = AppLocalizations.of(context);
+        final preview = this.preview;
+        void retry() => context.read<AnimeDetailsCubit>().loadAnime();
         return switch (state) {
           AnimeDetailsInitial() ||
           AnimeDetailsLoading() => _Content(head: preview),
@@ -46,10 +48,15 @@ class AnimeDetailsView extends StatelessWidget {
             description: details.description,
             related: details.related,
           ),
+          // What the list already knew stays, with its way to the sources.
+          AnimeDetailsFailure() when preview != null => _Content(
+            head: preview,
+            onRetry: retry,
+          ),
           AnimeDetailsFailure() => MessageView(
             message: l10n.animeDetailsLoadError,
             action: FilledButton(
-              onPressed: () => context.read<AnimeDetailsCubit>().loadAnime(),
+              onPressed: retry,
               child: Text(l10n.commonRetry),
             ),
           ),
@@ -78,16 +85,18 @@ final _standInDescription = List.filled(
 ).join(' ');
 
 /// The page from what is known so far: a null [head] or [description] is
-/// still loading.
+/// still loading, unless [onRetry] says the details failed to load.
 class _Content extends StatelessWidget {
   const _Content({
     required this.head,
     this.description,
     this.related = const [],
+    this.onRetry,
   });
 
   final AnimeDetailsPreview? head;
   final String? description;
+  final VoidCallback? onRetry;
 
   /// Empty while loading: the list appears with the details rather than
   /// as noise of a guessed length.
@@ -108,11 +117,13 @@ class _Content extends StatelessWidget {
               head: head,
               description: description,
               related: related,
+              onRetry: onRetry,
             ),
             _ => _TwoPaneLayout(
               head: head,
               description: description,
               related: related,
+              onRetry: onRetry,
               posterWidth: sizeClass.isAtLeast(WindowSizeClass.large)
                   ? 320
                   : sizeClass == WindowSizeClass.expanded
@@ -159,11 +170,13 @@ class _CompactLayout extends StatelessWidget {
     required this.head,
     required this.description,
     required this.related,
+    required this.onRetry,
   });
 
   final AnimeDetailsPreview head;
   final String? description;
   final List<RelatedAnime> related;
+  final VoidCallback? onRetry;
 
   @override
   Widget build(BuildContext context) {
@@ -185,7 +198,7 @@ class _CompactLayout extends StatelessWidget {
           const SizedBox(height: 40),
           const Skeleton.keep(child: BlockRule(height: 10)),
           RecentlyWatchedSection(animeId: head.id),
-          _Description(description: description),
+          _Description(description: description, onRetry: onRetry),
           RelatedAnimeSection(related: related),
         ],
       ),
@@ -203,6 +216,7 @@ class _TwoPaneLayout extends StatelessWidget {
     required this.related,
     required this.posterWidth,
     required this.titleSize,
+    required this.onRetry,
   });
 
   static const _gap = 40.0;
@@ -215,6 +229,7 @@ class _TwoPaneLayout extends StatelessWidget {
   final List<RelatedAnime> related;
   final double posterWidth;
   final double titleSize;
+  final VoidCallback? onRetry;
 
   @override
   Widget build(BuildContext context) {
@@ -274,7 +289,11 @@ class _TwoPaneLayout extends StatelessWidget {
           const SizedBox(height: 48),
           const Skeleton.keep(child: BlockRule()),
           RecentlyWatchedSection(animeId: head.id, labelWidth: labelWidth),
-          _Description(description: description, labelWidth: labelWidth),
+          _Description(
+            description: description,
+            labelWidth: labelWidth,
+            onRetry: onRetry,
+          ),
           RelatedAnimeSection(related: related, labelWidth: labelWidth),
         ],
       ),
@@ -402,17 +421,24 @@ class _WatchSourcesButton extends StatelessWidget {
   }
 }
 
-/// The description, as noise while it loads.
+/// The description, as noise while it loads; with [onRetry], the failure
+/// to load it in its place.
 class _Description extends StatelessWidget {
-  const _Description({required this.description, this.labelWidth});
+  const _Description({
+    required this.description,
+    this.labelWidth,
+    this.onRetry,
+  });
 
   final String? description;
   final double? labelWidth;
+  final VoidCallback? onRetry;
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final description = this.description?.trim();
+    final onRetry = this.onRetry;
     if (description != null && description.isEmpty) {
       return const SizedBox.shrink();
     }
@@ -427,17 +453,43 @@ class _Description extends StatelessWidget {
             constraints: const BoxConstraints(
               maxWidth: AdaptiveContentWidth.reading,
             ),
-            child: AppSkeleton(
-              enabled: description == null,
-              semanticLabel: l10n.animeDetailsLoading,
-              child: Text(
-                description ?? _standInDescription,
-                style: Theme.of(context).textTheme.bodyLarge,
-              ),
-            ),
+            child: onRetry == null
+                ? AppSkeleton(
+                    enabled: description == null,
+                    semanticLabel: l10n.animeDetailsLoading,
+                    child: Text(
+                      description ?? _standInDescription,
+                      style: Theme.of(context).textTheme.bodyLarge,
+                    ),
+                  )
+                : _LoadFailure(onRetry: onRetry),
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Why a section is missing, with a way to load it again.
+class _LoadFailure extends StatelessWidget {
+  const _LoadFailure({required this.onRetry});
+
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            l10n.animeDetailsLoadError,
+            style: Theme.of(context).textTheme.bodyLarge,
+          ),
+        ),
+        const SizedBox(width: 12),
+        TextButton(onPressed: onRetry, child: Text(l10n.commonRetry)),
+      ],
     );
   }
 }

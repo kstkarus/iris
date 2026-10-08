@@ -211,6 +211,29 @@ void main() {
     expect(find.text('Fullmetal Alchemist: Brotherhood'), findsOneWidget);
   });
 
+  testWidgets('a failure keeps what the preview knew and the way to sources', (
+    tester,
+  ) async {
+    final repository = _ToggleAnimeDetailsRepository();
+    final cubit = AnimeDetailsCubit(animeId: '5114', repository: repository);
+
+    await tester.pumpWidget(_app(cubit..loadAnime(), preview: _preview));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Fullmetal Alchemist: Brotherhood'), findsOneWidget);
+    expect(find.text('Choose source'), findsOneWidget);
+    expect(find.text('Unable to load anime details.'), findsOneWidget);
+    expect(_standIn, findsNothing);
+
+    repository.shouldFail = false;
+    await tester.ensureVisible(find.text('Try Again'));
+    await tester.tap(find.text('Try Again'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Unable to load anime details.'), findsNothing);
+    expect(find.text(_details.description), findsOneWidget);
+  });
+
   for (final entry in TestWindowSizes.all.entries) {
     testWidgets('adapts the details layout on ${entry.key}', (tester) async {
       setTestWindowSize(tester, entry.value);

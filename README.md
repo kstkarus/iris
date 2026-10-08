@@ -41,6 +41,7 @@ The watch sources screen currently uses the public `nyaaapi` service:
 - the service returns a single page of 75 per query, requested most-seeded first (`sort=seeders&order=desc`)
 - only Nyaa's anime section is requested (`category=anime`), and anime music videos are dropped, so soundtracks, manga and AMVs never show up as sources
 - when no name finds anything and a search failed, the screen shows an error with Retry instead of an empty list
+- a catalog that cannot load keeps Continue watching above its error; an anime page that cannot load keeps what the list already knew (title, cover, facts and Choose source) and shows the error with Retry in place of the description
 
 ### Saved Torrents
 
