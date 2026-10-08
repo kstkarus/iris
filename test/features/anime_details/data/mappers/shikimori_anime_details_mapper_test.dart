@@ -130,4 +130,38 @@ void main() {
       ),
     ]);
   });
+
+  test('a date known only by its year stays a year', () {
+    // Shikimori fills `date` with the first of January in that case.
+    final dto = ShikimoriAnimeDetailsDto.fromJson({
+      'id': '53529',
+      'name': 'Upcoming',
+      'airedOn': {
+        'year': 2028,
+        'month': null,
+        'day': null,
+        'date': '2028-01-01',
+      },
+      'related': [
+        {
+          'relationKind': 'sequel',
+          'anime': {
+            'id': '2',
+            'name': 'Next',
+            'airedOn': {
+              'year': 2029,
+              'month': 4,
+              'day': null,
+              'date': '2029-04-01',
+            },
+          },
+        },
+      ],
+    });
+
+    final details = mapShikimoriAnimeDetailsToDomain(dto);
+
+    expect(details.airedOn, '2028');
+    expect(details.related.single.airedOn, '2029-04');
+  });
 }

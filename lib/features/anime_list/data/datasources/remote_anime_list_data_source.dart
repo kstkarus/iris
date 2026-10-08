@@ -60,6 +60,9 @@ query AnimePage(
     episodes
     episodesAired
     airedOn {
+      year
+      month
+      day
       date
     }
     poster {

@@ -5,6 +5,7 @@ import 'package:iris/features/anime_details/domain/entities/related_anime.dart';
 import 'package:iris/features/anime_details/presentation/models/anime_details_preview.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/utils/anime_metadata_formatter.dart';
+import 'package:iris/shared/utils/incomplete_date.dart';
 import 'package:iris/shared/widgets/adaptive/adaptive_content_width.dart';
 import 'package:iris/shared/widgets/fold_row.dart';
 import 'package:iris/shared/widgets/labeled_section.dart';
@@ -165,7 +166,7 @@ class _RelatedRow extends StatelessWidget {
     final l10n = AppLocalizations.of(context);
     final theme = Theme.of(context);
     final muted = theme.colorScheme.onSurfaceVariant;
-    final year = anime.airedOn.length >= 4 ? anime.airedOn.substring(0, 4) : '';
+    final year = yearOfIsoDate(anime.airedOn)?.toString() ?? '';
     final caption = [
       formatAnimeRelation(l10n, anime.relation),
       if (anime.kind.isNotEmpty) formatAnimeKind(l10n, anime.kind),

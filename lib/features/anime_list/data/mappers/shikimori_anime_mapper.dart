@@ -1,5 +1,6 @@
 import 'package:iris/features/anime_list/data/models/shikimori_anime_dto.dart';
 import 'package:iris/features/anime_list/domain/entities/anime_list_item.dart';
+import 'package:iris/shared/utils/incomplete_date.dart';
 
 AnimeListItem mapShikimoriAnimeToDomain(ShikimoriAnimeDto dto) {
   return AnimeListItem(
@@ -12,7 +13,12 @@ AnimeListItem mapShikimoriAnimeToDomain(ShikimoriAnimeDto dto) {
     status: dto.status,
     episodes: dto.episodes,
     episodesAired: dto.episodesAired,
-    airedOn: dto.airedOn.date,
+    airedOn: incompleteIsoDate(
+      year: dto.airedOn.year,
+      month: dto.airedOn.month,
+      day: dto.airedOn.day,
+      date: dto.airedOn.date,
+    ),
     posterMainUrl: dto.poster.mainUrl,
   );
 }

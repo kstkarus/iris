@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:iris/features/anime_list/domain/entities/anime_list_item.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/utils/anime_metadata_formatter.dart';
+import 'package:iris/shared/utils/incomplete_date.dart';
 import 'package:iris/shared/widgets/poster_image.dart';
 
 /// A catalog title: the cover first, then the names and one short line of
@@ -19,7 +20,7 @@ class AnimeCard extends StatelessWidget {
     final scheme = theme.colorScheme;
     final l10n = AppLocalizations.of(context);
     final airing = item.status == 'ongoing';
-    final year = DateTime.tryParse(item.airedOn)?.year;
+    final year = yearOfIsoDate(item.airedOn);
     final facts = [
       formatAnimeKind(l10n, item.kind),
       if (airing)

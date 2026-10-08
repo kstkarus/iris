@@ -88,7 +88,7 @@ class ShikimoriRelatedAnimeDto {
   final String status;
   final int episodes;
   final int episodesAired;
-  final String airedOn;
+  final ShikimoriDetailsAiredOnDto airedOn;
   final String posterMainUrl;
 
   factory ShikimoriRelatedAnimeDto.fromJson(Map<String, dynamic> json) {
@@ -106,7 +106,7 @@ class ShikimoriRelatedAnimeDto {
       status: anime['status']?.toString() ?? '',
       episodes: (anime['episodes'] as num?)?.toInt() ?? 0,
       episodesAired: (anime['episodesAired'] as num?)?.toInt() ?? 0,
-      airedOn: airedOn['date']?.toString() ?? '',
+      airedOn: ShikimoriDetailsAiredOnDto.fromJson(airedOn),
       posterMainUrl: poster['mainUrl']?.toString() ?? '',
     );
   }

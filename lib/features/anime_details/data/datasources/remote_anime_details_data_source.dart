@@ -51,6 +51,9 @@ query AnimeDetails($id: String!) {
     episodes
     episodesAired
     airedOn {
+      year
+      month
+      day
       date
     }
     poster {
@@ -69,6 +72,9 @@ query AnimeDetails($id: String!) {
         episodes
         episodesAired
         airedOn {
+          year
+          month
+          day
           date
         }
         poster {

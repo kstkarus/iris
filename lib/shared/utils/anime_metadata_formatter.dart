@@ -84,12 +84,22 @@ String? formatEpisodes(
   return null;
 }
 
+/// Shows as much of the date as is known: the year, the month and year, or
+/// the full date (see `incompleteIsoDate`).
 String formatAiredOn(AppLocalizations l10n, String rawDate) {
-  final parsedDate = DateTime.tryParse(rawDate);
-
-  if (parsedDate == null) {
+  final parts = rawDate.split('-').map(int.tryParse).toList();
+  if (parts.isEmpty || parts.length > 3 || parts.contains(null)) {
     return rawDate;
   }
-
-  return DateFormat.yMMMd(l10n.localeName).format(parsedDate);
+  final [year!, ...rest] = parts;
+  return switch (rest) {
+    [] => '$year',
+    [final month!] => DateFormat.yMMMM(
+      l10n.localeName,
+    ).format(DateTime(year, month)),
+    [final month!, final day!] => DateFormat.yMMMd(
+      l10n.localeName,
+    ).format(DateTime(year, month, day)),
+    _ => rawDate,
+  };
 }

@@ -1,6 +1,7 @@
 import 'package:iris/features/anime_details/data/models/shikimori_anime_details_dto.dart';
 import 'package:iris/features/anime_details/domain/entities/anime_details.dart';
 import 'package:iris/features/anime_details/domain/entities/related_anime.dart';
+import 'package:iris/shared/utils/incomplete_date.dart';
 
 AnimeDetails mapShikimoriAnimeDetailsToDomain(ShikimoriAnimeDetailsDto dto) {
   final normalizedEpisodesAired =
@@ -19,7 +20,7 @@ AnimeDetails mapShikimoriAnimeDetailsToDomain(ShikimoriAnimeDetailsDto dto) {
     status: dto.status,
     episodes: dto.episodes,
     episodesAired: normalizedEpisodesAired,
-    airedOn: dto.airedOn.date,
+    airedOn: _airedOn(dto.airedOn),
     posterOriginalUrl: dto.poster.originalUrl,
     related: [for (final item in dto.related) _mapRelated(item)],
   );
@@ -36,8 +37,15 @@ RelatedAnime _mapRelated(ShikimoriRelatedAnimeDto dto) => RelatedAnime(
   status: dto.status,
   episodes: dto.episodes,
   episodesAired: dto.episodesAired,
-  airedOn: dto.airedOn,
+  airedOn: _airedOn(dto.airedOn),
   posterUrl: dto.posterMainUrl,
+);
+
+String _airedOn(ShikimoriDetailsAiredOnDto date) => incompleteIsoDate(
+  year: date.year,
+  month: date.month,
+  day: date.day,
+  date: date.date,
 );
 
 /// Kinds this app does not know yet read as [AnimeRelation.other].
