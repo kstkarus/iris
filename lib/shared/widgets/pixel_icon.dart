@@ -131,16 +131,6 @@ class PixelGlyph {
     '#######',
   ]);
 
-  static const plus = PixelGlyph._([
-    '...#...',
-    '...#...',
-    '...#...',
-    '#######',
-    '...#...',
-    '...#...',
-    '...#...',
-  ]);
-
   static const delete = PixelGlyph._([
     '..###..',
     '#######',

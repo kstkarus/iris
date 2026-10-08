@@ -60,26 +60,6 @@ String formatEpisodeProgress(
   );
 }
 
-/// One secondary line instead of chip-like labels: kind, status, score,
-/// episodes and air date joined with a middle dot.
-String formatAnimeMeta(
-  AppLocalizations l10n, {
-  required String kind,
-  required String status,
-  required double score,
-  required int episodes,
-  required int episodesAired,
-  required String airedOn,
-}) {
-  return [
-    formatAnimeKind(l10n, kind),
-    formatAnimeStatus(l10n, status),
-    if (score > 0) formatAnimeScore(l10n, score),
-    ?formatEpisodes(l10n, status, episodes, episodesAired),
-    if (airedOn.isNotEmpty) formatAiredOn(l10n, airedOn),
-  ].join(' · ');
-}
-
 /// The total for finished titles (the catalog reports 0 aired episodes for
 /// some of them), aired/total while a title is airing.
 String? formatEpisodes(

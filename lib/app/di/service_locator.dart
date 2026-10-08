@@ -262,7 +262,9 @@ Future<void> configureDependencies({
 
     if (!serviceLocator.isRegistered<DownloadForegroundServiceAdapter>()) {
       serviceLocator.registerLazySingleton<DownloadForegroundServiceAdapter>(
-        MethodChannelDownloadForegroundServiceAdapter.new,
+        () => defaultTargetPlatform == TargetPlatform.android && !kIsWeb
+            ? const MethodChannelDownloadForegroundServiceAdapter()
+            : const NoopDownloadForegroundServiceAdapter(),
       );
     }
 

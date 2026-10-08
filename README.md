@@ -39,12 +39,14 @@ The watch sources screen currently uses the public `nyaaapi` service:
 - read-only lookup by every name of the anime (its main romaji name and its English title, without repeats): the service has no "or" and a release is found only by the name its group used, so each name is searched separately and the results are merged, each release once by its link; one failed name does not hide what the others found
 - the service returns a single page of 75 per query, requested most-seeded first (`sort=seeders&order=desc`)
 - only Nyaa's anime section is requested (`category=anime`), and anime music videos are dropped, so soundtracks, manga and AMVs never show up as sources
+- when no name finds anything and a search failed, the screen shows an error with Retry instead of an empty list
 
 ### Saved Torrents
 
 The Torrents tab keeps magnet links the user pasted, independent of the catalog: a saved magnet is never matched to a Shikimori title.
 
-- a link is accepted only when it has a BitTorrent info-hash (`xt=urn:btih:`, hex or base32); duplicates are detected by info-hash
+- a link is accepted only when it has a BitTorrent info-hash (`xt=urn:btih:`, hex or base32) and no malformed percent-encoding; duplicates are detected by info-hash
+- the hex and base32 spellings of one info-hash are one torrent (keys use the 40-character hex form)
 - the name defaults to the magnet's `dn` and can be renamed later
 - the list is stored locally in `shared_preferences` and sorted by last use
 - on desktop, `Ctrl+V` on the tab opens the add form prefilled from the clipboard
@@ -62,9 +64,11 @@ Current behavior:
 - streaming sessions are temporary; streamed pieces live in `<temp>/iris/stream`, are removed when the player closes, and the folder is wiped on every app start
 - the Downloads tab shows one Cache total on every platform (Android: system app cache, which contains the stream folder; elsewhere: the stream folder) with a Clear action
 - watch progress is stored per torrent info-hash and file index (`shared_preferences`), so streaming and a downloaded copy share it; playback resumes from the saved position with a Start over action, and a file counts as watched at 90%
+- progress saved under a base32 key by an earlier version is not matched
 - the file picker marks watched files and offers Continue / Up next; the Torrents tab, the anime page (Recently watched), the source list (You watched this) and the catalog (Continue watching) use the same history; Continue watching leaves out files watched for less than a minute (a look at a release, not watching it), shows the latest title large and one more row, and folds the rest under a toggle (a single extra row is shown instead) so the catalog still starts on the first screen; an anime link is recorded only when playback was started from that anime's page
 - the player can switch to the next file of the same torrent without re-adding it, and remembers the audio/subtitle choice per torrent
 - player sessions of the same torrent share one native torrent (libtorrent keeps one per info-hash): reopening a release while the previous player is still closing reuses it, a newer stream stops the older session's stream, and the torrent with its stream cache is removed only when its last session ends
+- a failed start keeps the prepared torrent, so Retry starts again without re-adding it
 - one mpv player lives as long as the player page (`PlayerEngine`, owned by `PlayerCubit`); the video widget only renders it, so layout changes, full screen and switching files never recreate the player, and full screen survives a file switch. Before the next file opens the engine waits for mpv to go idle (and recreates the player if it does not) so the old stream connection is closed before libtorrent stops that stream
 - on phones and tablets the player page shows the torrent's files as a supporting pane (Material canonical layout): beside the video on expanded and landscape windows (about 70/30, hidden with the app bar toggle), below a 16:9 video on portrait ones; the app bar shows the episode name and the release
 - on desktop the player is immersive, in the spirit of streaming apps: the video fills the window, the controls lie over it and hide with the cursor after 3 s of playback (they stay while paused or hovered); while paused the frame dims and the anime (or the release's title without its tags), the episode and its place in the release are shown above the timeline; the time beside it counts down and a click switches it to the position and the file's length (the time above the bar shows only where hovering or dragging would seek); the episodes open from the buttons beside the timeline as a drawer on the right, headed by the full release name; the speed and buffer show at the top only while the stream stalls or its buffer runs thin, or always with "Technical details" on; full screen only switches the window
@@ -162,10 +166,10 @@ Search in the catalog is a mode entered by focusing the field, so the page chang
 
 The visual language is a monochrome terminal style set at editorial scale (`lib/app/theme/app_theme.dart`): ink and bone surfaces, Geist Mono for text and figures and Geist for small chrome such as button labels (both bundled in `assets/fonts` under the OFL), square corners and a bevelled primary button. Each page has one large voice (`DisplayTitle`, sized to the space it has) against small text, with `>> LABEL` section headings, heavy block rules and block progress bars (`lib/shared/widgets/`); in a large bar the block where progress stops fills in Bayer order by its own share and the rest of the bar is a neutral checkerboard, all on whole device pixels. Icons are 7×7 pixel glyphs (`PixelIcon`), the anime cover on its page is a colour halftone (ordered dither, 5 levels per channel) that develops cell by cell into the original on tap (`DitheredImage`), and sheets, dialogs and menus open in the inverse theme. The only colour, a green signal (`ColorScheme.tertiary`), marks live state: playback and download progress, ongoing titles, the playing file. The player keeps the dark theme over video in both brightnesses (`OverVideoTheme`). Content that is still loading is faint pixel noise in the shape of the real layout (`AppSkeleton` over [skeletonizer](https://pub.dev/packages/skeletonizer), with the app's own `PixelNoiseEffect`); it shows only after a short delay and the content develops out of it in the same Bayer order as the halftone. A title opened from the catalog shows what the catalog already knows at once (`AnimeDetailsPreview`), so only its description waits. The same cell-by-cell dissolve (`DitherSwitcher`) swaps content that changes in place on purpose: catalog results and the catalog, the catalog heading when the order or filters change, the release list when it is re-sorted. It is not used for updates while typing, for local lists that appear at once (Torrents, Downloads), or for waits of unknown length that need words (preparing a torrent, buffering), which keep a spinner and a label. In the player the spinner is a 3×3 block loop (`BlockRunner`) in the play button's place, so it never reads as a level or a share loaded; the startup label names the stage, and if the start takes more than 5 s it adds the torrent's speed and peers (nothing for a source that moves no data, such as a downloaded file). No noise or dissolve is used in the player: before the first frame its shape is unknown, and full-screen noise reads as a lost signal. Motion is kept to state changes: halftones and covers develop in, progress bars move to new values, navigation markers travel, pages fade forward; all of it is instant when the system asks for reduced motion, and the noise holds still.
 
-Refresh generated files when needed:
+Regenerate localizations after editing `lib/l10n/*.arb` (output in `lib/l10n/generated`):
 
 ```bash
-dart run build_runner build --delete-conflicting-outputs
+flutter gen-l10n
 ```
 
 ## Status

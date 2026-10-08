@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 
+import 'package:iris/shared/network/dio_exception_mapper.dart';
 import 'package:iris/shared/network/network_exceptions.dart';
 import 'package:iris/shared/network/shikimori_api.dart';
 
@@ -47,31 +48,7 @@ class ShikimoriGraphQlClient {
 
       return data;
     } on DioException catch (error) {
-      throw _mapDioException(error);
+      throw mapDioException(error);
     }
-  }
-}
-
-Exception _mapDioException(DioException error) {
-  switch (error.type) {
-    case DioExceptionType.connectionTimeout:
-    case DioExceptionType.sendTimeout:
-    case DioExceptionType.receiveTimeout:
-    case DioExceptionType.transformTimeout:
-    case DioExceptionType.connectionError:
-      return NetworkRequestException(
-        error.message ?? 'Unable to reach the remote service.',
-      );
-    case DioExceptionType.badResponse:
-      return RemoteResponseException(
-        'Remote service responded with ${error.response?.statusCode ?? 'an invalid status'}.',
-      );
-    case DioExceptionType.cancel:
-      return const NetworkRequestException('The request was cancelled.');
-    case DioExceptionType.badCertificate:
-    case DioExceptionType.unknown:
-      return NetworkRequestException(
-        error.message ?? 'Unexpected network error.',
-      );
   }
 }
