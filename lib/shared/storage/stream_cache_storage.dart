@@ -9,30 +9,54 @@ import 'package:iris/shared/storage/directory_size.dart';
 /// survives a crash or a killed process is garbage by the next launch, so the
 /// folder is wiped once per process before the first torrent is added.
 class StreamCacheStorage {
-  StreamCacheStorage({required this.directory});
+  StreamCacheStorage({
+    required this.directory,
+    Future<void> Function(FileSystemEntity entity)? delete,
+  }) : _delete = delete ?? _deleteRecursively;
 
   final Directory directory;
-  Future<void>? _preparation;
+  final Future<void> Function(FileSystemEntity entity) _delete;
+  bool _prepared = false;
+  // Operations run one after another, so prepare() returns only once a clear
+  // that is still deleting has finished.
+  Future<void> _operations = Future<void>.value();
 
-  /// Wipes leftovers from previous runs. Safe to call repeatedly.
-  Future<void> prepare() => _preparation ??= _wipe();
+  /// Wipes leftovers from previous runs, once. Safe to call repeatedly; waits
+  /// for a clear that is still deleting.
+  Future<void> prepare() {
+    return _enqueue(() async {
+      if (_prepared) return;
+      _prepared = true;
+      await _wipe();
+    });
+  }
 
-  /// Deletes everything in the folder. Files still held open by the engine
-  /// (Windows) are skipped.
-  Future<void> clear() async {
-    await prepare();
-    await _wipe();
+  /// Deletes everything in the folder. Returns false when some entry could not
+  /// be deleted, for example a file still held open on Windows.
+  Future<bool> clear() {
+    return _enqueue(() {
+      _prepared = true;
+      return _wipe();
+    });
   }
 
   Future<int> sizeBytes() => directorySize(directory);
 
-  Future<void> _wipe() async {
+  Future<T> _enqueue<T>(Future<T> Function() operation) {
+    final result = _operations.then((_) => operation());
+    _operations = result.then<void>((_) {}, onError: (_, _) {});
+    return result;
+  }
+
+  Future<bool> _wipe() async {
+    var complete = true;
     try {
       if (await directory.exists()) {
         await for (final entity in directory.list(followLinks: false)) {
           try {
-            await entity.delete(recursive: true);
+            await _delete(entity);
           } on FileSystemException catch (error) {
+            complete = false;
             developer.log(
               'Skipping stream cache entry that is still in use: ${entity.path}',
               name: 'iris.storage.stream_cache',
@@ -49,6 +73,12 @@ class StreamCacheStorage {
         error: error,
         stackTrace: stackTrace,
       );
+      return false;
     }
+    return complete;
   }
+}
+
+Future<void> _deleteRecursively(FileSystemEntity entity) async {
+  await entity.delete(recursive: true);
 }

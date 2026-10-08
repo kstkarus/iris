@@ -4,7 +4,12 @@ import 'package:iris/features/downloads/domain/entities/downloadable_file.dart';
 import 'package:iris/features/downloads/domain/entities/prepared_download_source.dart';
 
 abstract interface class DownloadsRepository {
-  Future<PreparedDownloadSource> prepareSource({required String magnet});
+  /// [cancelled] completes when the caller no longer wants the source; the
+  /// preparation then stops and releases what it holds.
+  Future<PreparedDownloadSource> prepareSource({
+    required String magnet,
+    Future<void>? cancelled,
+  });
 
   Future<void> disposePreparedSource({required String sourceToken});
 

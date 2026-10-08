@@ -80,7 +80,10 @@ class MockDownloadsRepository implements DownloadsRepository {
       _setStatus(id, DownloadStatus.paused);
 
   @override
-  Future<PreparedDownloadSource> prepareSource({required String magnet}) async {
+  Future<PreparedDownloadSource> prepareSource({
+    required String magnet,
+    Future<void>? cancelled,
+  }) async {
     return const PreparedDownloadSource(
       sourceToken: 'mock-source',
       files: [

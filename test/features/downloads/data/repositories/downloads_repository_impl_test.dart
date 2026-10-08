@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:path/path.dart' as path;
 
 import 'package:iris/features/downloads/data/adapters/app_storage_usage_adapter.dart';
 import 'package:iris/features/downloads/data/adapters/download_foreground_service_adapter.dart';
@@ -10,6 +11,7 @@ import 'package:iris/features/downloads/data/datasources/download_registry_data_
 import 'package:iris/features/downloads/data/repositories/downloads_repository_impl.dart';
 import 'package:iris/features/downloads/domain/entities/download_status.dart';
 import 'package:iris/shared/storage/stream_cache_storage.dart';
+import 'package:iris/shared/torrent/preparation_cancelled_exception.dart';
 import 'package:iris/shared/torrent/torrent_activity_registry.dart';
 
 void main() {
@@ -19,6 +21,8 @@ void main() {
   late _FakeForegroundService foregroundService;
   late TorrentActivityRegistry activityRegistry;
   late DownloadsRepositoryImpl repository;
+  // Holds the create of a metadata folder while a test needs it open.
+  Completer<void>? metadataFolderGate;
 
   setUp(() async {
     temporaryDirectory = await Directory.systemTemp.createTemp(
@@ -30,6 +34,7 @@ void main() {
     engine = _FakeDownloadEngine();
     foregroundService = _FakeForegroundService();
     activityRegistry = TorrentActivityRegistry();
+    metadataFolderGate = null;
     repository = DownloadsRepositoryImpl(
       engine: engine,
       registry: DownloadRegistryDataSource(
@@ -42,6 +47,10 @@ void main() {
       storageUsageAdapter: const _FakeStorageUsageAdapter(),
       activityRegistry: activityRegistry,
       now: () => DateTime.utc(2026, 7, 11, 12),
+      createMetadataFolder: (folder) async {
+        await metadataFolderGate?.future;
+        await folder.create(recursive: true);
+      },
     );
   });
 
@@ -239,6 +248,31 @@ void main() {
       expect(await desktopRepository.clearCache(), isTrue);
       expect((await desktopRepository.calculateStorageUsage()).cacheBytes, 0);
       expect(await streamCacheDirectory.exists(), isTrue);
+    });
+
+    test('reports a cache that could not be fully cleared', () async {
+      final stuckRepository = DownloadsRepositoryImpl(
+        engine: engine,
+        registry: DownloadRegistryDataSource(
+          registryFile: File(
+            '${temporaryDirectory.path}${Platform.pathSeparator}stuck.json',
+          ),
+        ),
+        downloadsDirectory: downloadsDirectory,
+        foregroundService: foregroundService,
+        storageUsageAdapter: const _FakeStorageUsageAdapter(usage: null),
+        streamCache: StreamCacheStorage(
+          directory: streamCacheDirectory,
+          delete: (entity) => Future<void>.error(
+            FileSystemException('Still in use.', entity.path),
+          ),
+        ),
+        activityRegistry: activityRegistry,
+      );
+      addTearDown(stuckRepository.close);
+      await writeStreamLeftover();
+
+      expect(await stuckRepository.clearCache(), isFalse);
     });
   });
 
@@ -469,6 +503,472 @@ void main() {
       );
     },
   );
+
+  test('a completion awaiting its notification does not overwrite a pause or '
+      'the next download', () async {
+    final firstSource = await repository.prepareSource(magnet: _magnet);
+    final first = await repository.enqueueDownload(
+      source: firstSource,
+      file: firstSource.files.first,
+      animeId: '1',
+      animeTitle: 'First',
+      sourceTitle: 'Release',
+    );
+    await _waitFor(() => engine.priorityCalls.isNotEmpty);
+    final firstTorrentId = engine.addCalls.last.id;
+
+    const otherMagnet = 'magnet:?xt=urn:btih:0011223344556677';
+    final secondSource = await repository.prepareSource(magnet: otherMagnet);
+    final second = await repository.enqueueDownload(
+      source: secondSource,
+      file: secondSource.files.first,
+      animeId: '2',
+      animeTitle: 'Second',
+      sourceTitle: 'Release',
+    );
+
+    // The completion is still inside the notification update when the user
+    // pauses; the queued item becomes active meanwhile.
+    await File(first.localPath).parent.create(recursive: true);
+    await File(first.localPath).writeAsBytes(List.filled(first.totalBytes, 1));
+    foregroundService.updateGate = Completer<void>();
+    engine.emit({
+      firstTorrentId: _torrent(
+        firstTorrentId,
+        downloadedBytes: first.totalBytes,
+        isFinished: true,
+      ),
+    });
+    await _waitFor(() => foregroundService.updateCount == 1);
+    await repository.pause(id: first.id);
+    await _waitFor(() => engine.priorityCalls.length == 2);
+    final secondTorrentId = engine.addCalls.last.id;
+    final stopCount = foregroundService.stopCount;
+
+    foregroundService.updateGate!.complete();
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+
+    final downloads = await repository.currentDownloads();
+    expect(downloads.map((item) => item.status), [
+      DownloadStatus.paused,
+      DownloadStatus.downloading,
+    ]);
+    expect(foregroundService.stopCount, stopCount);
+    expect(
+      engine.removeCalls.where((call) => call.torrentId == secondTorrentId),
+      isEmpty,
+    );
+
+    engine.emit({
+      secondTorrentId: _torrent(
+        secondTorrentId,
+        downloadedBytes: 0,
+        isFinished: false,
+        progress: 0.5,
+      ),
+    });
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+    expect(
+      (await repository.currentDownloads()).last.downloadedBytes,
+      second.totalBytes ~/ 2,
+    );
+  });
+
+  test('pausing while the start is creating the directory keeps the item '
+      'paused', () async {
+    final source = await repository.prepareSource(magnet: _magnet);
+    final item = await repository.enqueueDownload(
+      source: source,
+      file: source.files.first,
+      animeId: '154587',
+      animeTitle: 'Sousou no Frieren',
+      sourceTitle: 'Release',
+    );
+
+    await repository.pause(id: item.id);
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+
+    expect(
+      (await repository.currentDownloads()).single.status,
+      DownloadStatus.paused,
+    );
+    expect(engine.addCalls.where((call) => !call.metadataOnly), isEmpty);
+    expect(engine.liveTorrentIds, isEmpty);
+  });
+
+  test(
+    'deleting while the start is creating the directory adds no torrent',
+    () async {
+      final source = await repository.prepareSource(magnet: _magnet);
+      final item = await repository.enqueueDownload(
+        source: source,
+        file: source.files.first,
+        animeId: '154587',
+        animeTitle: 'Sousou no Frieren',
+        sourceTitle: 'Release',
+      );
+
+      await repository.delete(id: item.id);
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+
+      expect(await repository.currentDownloads(), isEmpty);
+      expect(engine.addCalls.where((call) => !call.metadataOnly), isEmpty);
+      expect(engine.liveTorrentIds, isEmpty);
+    },
+  );
+
+  test('streaming the same torrent while the start is creating the directory '
+      'keeps the item queued', () async {
+    final source = await repository.prepareSource(magnet: _magnet);
+    await repository.enqueueDownload(
+      source: source,
+      file: source.files.first,
+      animeId: '154587',
+      animeTitle: 'Sousou no Frieren',
+      sourceTitle: 'Release',
+    );
+
+    activityRegistry.acquireStreaming('abcdef1234567890');
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+
+    expect(engine.addCalls.where((call) => !call.metadataOnly), isEmpty);
+    expect(
+      (await repository.currentDownloads()).single.status,
+      DownloadStatus.queued,
+    );
+
+    activityRegistry.releaseStreaming('abcdef1234567890');
+    await _waitFor(() => engine.priorityCalls.isNotEmpty);
+    expect(
+      (await repository.currentDownloads()).single.status,
+      DownloadStatus.downloading,
+    );
+  });
+
+  test(
+    'pausing while the foreground service starts keeps the torrent stopped',
+    () async {
+      final source = await repository.prepareSource(magnet: _magnet);
+      foregroundService.startGate = Completer<void>();
+      final item = await repository.enqueueDownload(
+        source: source,
+        file: source.files.first,
+        animeId: '154587',
+        animeTitle: 'Sousou no Frieren',
+        sourceTitle: 'Release',
+      );
+      await _waitFor(() => foregroundService.startCount == 1);
+
+      await repository.pause(id: item.id);
+      foregroundService.startGate!.complete();
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+
+      expect(
+        (await repository.currentDownloads()).single.status,
+        DownloadStatus.paused,
+      );
+      expect(engine.priorityCalls, isEmpty);
+      expect(engine.liveTorrentIds, isEmpty);
+    },
+  );
+
+  test(
+    'a folder that cannot be deleted leaves the record failed, not downloading',
+    () async {
+      final source = await repository.prepareSource(magnet: _magnet);
+      final item = await repository.enqueueDownload(
+        source: source,
+        file: source.files.first,
+        animeId: '154587',
+        animeTitle: 'Sousou no Frieren',
+        sourceTitle: 'Release',
+      );
+      await _waitFor(() => engine.priorityCalls.isNotEmpty);
+      await File(item.localPath).parent.create(recursive: true);
+      // An open handle keeps Windows from removing the folder.
+      final lock = await File(item.localPath).open(mode: FileMode.write);
+      try {
+        await repository.delete(id: item.id);
+
+        final downloads = await repository.currentDownloads();
+        expect(downloads.single.status, DownloadStatus.failed);
+        expect(
+          downloads.single.errorMessage,
+          'Unable to delete downloaded files.',
+        );
+        expect(downloads.single.downloadRateBytesPerSecond, 0);
+      } finally {
+        await lock.close();
+      }
+
+      await repository.delete(id: item.id);
+      expect(await repository.currentDownloads(), isEmpty);
+    },
+    skip: Platform.isWindows
+        ? false
+        : 'Needs a Windows file lock to keep the folder undeletable.',
+  );
+
+  test('cancelling the metadata wait removes its torrent and folder', () async {
+    engine.metadataGate = Completer<void>();
+    final cancelled = Completer<void>();
+    final pending = repository.prepareSource(
+      magnet: _magnet,
+      cancelled: cancelled.future,
+    );
+    await _waitFor(() => engine.addCalls.isNotEmpty);
+    final added = engine.addCalls.single;
+    expect(added.metadataOnly, isTrue);
+
+    cancelled.complete();
+
+    await expectLater(pending, throwsA(isA<PreparationCancelledException>()));
+    expect(engine.removeCalls.single, _RemoveCall(added.id, deleteFiles: true));
+    expect(engine.liveTorrentIds, isEmpty);
+    expect(await Directory(added.savePath).exists(), isFalse);
+  });
+
+  test('cancelling the wait for a borrowed torrent removes nothing', () async {
+    final source = await repository.prepareSource(magnet: _magnet);
+    await repository.enqueueDownload(
+      source: source,
+      file: source.files.first,
+      animeId: '154587',
+      animeTitle: 'Sousou no Frieren',
+      sourceTitle: 'Release',
+    );
+    await _waitFor(() => engine.priorityCalls.isNotEmpty);
+    final activeTorrentId = engine.addCalls.last.id;
+    final removeCount = engine.removeCalls.length;
+    engine.metadataGate = Completer<void>();
+    final cancelled = Completer<void>();
+
+    final pending = repository.prepareSource(
+      magnet: _magnet,
+      cancelled: cancelled.future,
+    );
+    cancelled.complete();
+
+    await expectLater(pending, throwsA(isA<PreparationCancelledException>()));
+    expect(engine.removeCalls, hasLength(removeCount));
+    expect(engine.liveTorrentIds, contains(activeTorrentId));
+    expect(
+      (await repository.currentDownloads()).single.status,
+      DownloadStatus.downloading,
+    );
+  });
+
+  test(
+    'a queued download of a torrent waits for a source still preparing it',
+    () async {
+      const otherMagnet = 'magnet:?xt=urn:btih:0011223344556677';
+      final active = await repository.prepareSource(magnet: otherMagnet);
+      final activeItem = await repository.enqueueDownload(
+        source: active,
+        file: active.files.first,
+        animeId: '1',
+        animeTitle: 'Active',
+        sourceTitle: 'Release',
+      );
+      await _waitFor(() => engine.priorityCalls.isNotEmpty);
+      final queued = await repository.prepareSource(magnet: _magnet);
+      await repository.enqueueDownload(
+        source: queued,
+        file: queued.files.first,
+        animeId: '2',
+        animeTitle: 'Queued',
+        sourceTitle: 'Release',
+      );
+
+      // The other download holds the queue, so the item waits for it.
+      engine.metadataGate = Completer<void>();
+      final cancelled = Completer<void>();
+      final addCountBefore = engine.addCalls.length;
+      final pending = repository.prepareSource(
+        magnet: _magnet,
+        cancelled: cancelled.future,
+      );
+      await _waitFor(() => engine.addCalls.length == addCountBefore + 1);
+
+      await repository.pause(id: activeItem.id);
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+
+      expect(
+        engine.addCalls.where(
+          (call) => call.magnet == _magnet && !call.metadataOnly,
+        ),
+        isEmpty,
+      );
+      expect((await repository.currentDownloads()).map((item) => item.status), [
+        DownloadStatus.paused,
+        DownloadStatus.queued,
+      ]);
+
+      engine.metadataGate = null;
+      cancelled.complete();
+      await expectLater(pending, throwsA(isA<PreparationCancelledException>()));
+      await _waitFor(() => engine.priorityCalls.length == 2);
+      expect((await repository.currentDownloads()).map((item) => item.status), [
+        DownloadStatus.paused,
+        DownloadStatus.downloading,
+      ]);
+    },
+  );
+
+  test(
+    'a metadata folder that cannot be removed does not stop the queue',
+    () async {
+      const otherMagnet = 'magnet:?xt=urn:btih:0011223344556677';
+      final active = await repository.prepareSource(magnet: otherMagnet);
+      final activeItem = await repository.enqueueDownload(
+        source: active,
+        file: active.files.first,
+        animeId: '1',
+        animeTitle: 'Active',
+        sourceTitle: 'Release',
+      );
+      await _waitFor(() => engine.priorityCalls.isNotEmpty);
+      final queued = await repository.prepareSource(magnet: _magnet);
+      await repository.enqueueDownload(
+        source: queued,
+        file: queued.files.first,
+        animeId: '2',
+        animeTitle: 'Queued',
+        sourceTitle: 'Release',
+      );
+      final selection = await repository.prepareSource(magnet: _magnet);
+      final selectionFolder = engine.addCalls.last.savePath;
+      await repository.pause(id: activeItem.id);
+
+      // An open handle keeps Windows from removing the folder.
+      final lock = await File(
+        path.join(selectionFolder, 'lock'),
+      ).open(mode: FileMode.write);
+      try {
+        await repository.disposePreparedSource(
+          sourceToken: selection.sourceToken,
+        );
+        expect(await Directory(selectionFolder).exists(), isTrue);
+        await _waitFor(() => engine.priorityCalls.length == 2);
+      } finally {
+        await lock.close();
+      }
+
+      expect((await repository.currentDownloads()).map((item) => item.status), [
+        DownloadStatus.paused,
+        DownloadStatus.downloading,
+      ]);
+    },
+    skip: Platform.isWindows
+        ? false
+        : 'Needs a Windows file lock to keep the folder undeletable.',
+  );
+
+  test('a queued download whose folder cannot be created fails and the queue '
+      'moves on', () async {
+    const otherMagnet = 'magnet:?xt=urn:btih:0011223344556677';
+    const nextMagnet = 'magnet:?xt=urn:btih:8899AABBCCDDEEFF';
+    final active = await repository.prepareSource(magnet: otherMagnet);
+    final activeItem = await repository.enqueueDownload(
+      source: active,
+      file: active.files.first,
+      animeId: '1',
+      animeTitle: 'Active',
+      sourceTitle: 'Release',
+    );
+    await _waitFor(() => engine.priorityCalls.isNotEmpty);
+    final blocked = await repository.prepareSource(magnet: _magnet);
+    final blockedItem = await repository.enqueueDownload(
+      source: blocked,
+      file: blocked.files.first,
+      animeId: '2',
+      animeTitle: 'Blocked',
+      sourceTitle: 'Release',
+    );
+    final next = await repository.prepareSource(magnet: nextMagnet);
+    await repository.enqueueDownload(
+      source: next,
+      file: next.files.first,
+      animeId: '3',
+      animeTitle: 'Next',
+      sourceTitle: 'Release',
+    );
+
+    // A file where the folder of the blocked item must be created.
+    final blockedFolder = path.join(
+      downloadsDirectory.path,
+      'content',
+      blockedItem.id,
+    );
+    await Directory(blockedFolder).delete(recursive: true);
+    await File(blockedFolder).writeAsString('not a folder');
+
+    await repository.pause(id: activeItem.id);
+    await _waitFor(() => engine.priorityCalls.length == 2);
+
+    final downloads = await repository.currentDownloads();
+    expect(downloads.map((item) => item.status), [
+      DownloadStatus.paused,
+      DownloadStatus.failed,
+      DownloadStatus.downloading,
+    ]);
+    expect(downloads[1].errorMessage, 'Unable to start the download.');
+  });
+
+  test('a download that starts while a selection creates its folder is '
+      'borrowed, not added twice', () async {
+    const otherMagnet = 'magnet:?xt=urn:btih:0011223344556677';
+    final active = await repository.prepareSource(magnet: otherMagnet);
+    final activeItem = await repository.enqueueDownload(
+      source: active,
+      file: active.files.first,
+      animeId: '1',
+      animeTitle: 'Active',
+      sourceTitle: 'Release',
+    );
+    await _waitFor(() => engine.priorityCalls.isNotEmpty);
+    final queued = await repository.prepareSource(magnet: _magnet);
+    await repository.enqueueDownload(
+      source: queued,
+      file: queued.files.first,
+      animeId: '2',
+      animeTitle: 'Queued',
+      sourceTitle: 'Release',
+    );
+
+    // The selection's folder is created only after the queued download has
+    // started, which is when a second add would meet the download's torrent.
+    metadataFolderGate = Completer<void>();
+    final addCountBefore = engine.addCalls.length;
+    final selection = repository.prepareSource(magnet: _magnet);
+    await repository.pause(id: activeItem.id);
+    await _waitFor(() => engine.priorityCalls.length == 2);
+    metadataFolderGate!.complete();
+    final source = await selection;
+
+    final addedForKey = engine.addCalls
+        .skip(addCountBefore)
+        .where((call) => call.magnet == _magnet)
+        .toList();
+    expect(addedForKey.map((call) => call.metadataOnly), [false]);
+    expect(source.files, hasLength(2));
+
+    final removeCount = engine.removeCalls.length;
+    await repository.disposePreparedSource(sourceToken: source.sourceToken);
+    expect(engine.removeCalls.skip(removeCount), isEmpty);
+    expect(engine.liveTorrentIds, contains(addedForKey.single.id));
+    expect((await repository.currentDownloads()).map((item) => item.status), [
+      DownloadStatus.paused,
+      DownloadStatus.downloading,
+    ]);
+    final metadataFolder = Directory(
+      path.join(downloadsDirectory.path, '.metadata'),
+    );
+    final leftovers = await metadataFolder.exists()
+        ? await metadataFolder.list().toList()
+        : <FileSystemEntity>[];
+    expect(leftovers, isEmpty);
+  });
 }
 
 const _magnet = 'magnet:?xt=urn:btih:ABCDEF1234567890';
@@ -481,6 +981,7 @@ class _FakeDownloadEngine implements LibtorrentDownloadEngineAdapter {
   final List<_PriorityCall> priorityCalls = [];
   final List<int> pausedTorrentIds = [];
   final List<int> resumedTorrentIds = [];
+  final Set<int> liveTorrentIds = {};
   int _nextId = 0;
 
   static const files = [
@@ -529,6 +1030,7 @@ class _FakeDownloadEngine implements LibtorrentDownloadEngineAdapter {
         metadataOnly: metadataOnly,
       ),
     );
+    liveTorrentIds.add(id);
     return id;
   }
 
@@ -547,6 +1049,7 @@ class _FakeDownloadEngine implements LibtorrentDownloadEngineAdapter {
   @override
   void remove(int torrentId, {required bool deleteFiles}) {
     removeCalls.add(_RemoveCall(torrentId, deleteFiles: deleteFiles));
+    liveTorrentIds.remove(torrentId);
   }
 
   @override
@@ -584,9 +1087,14 @@ class _FakeForegroundService implements DownloadForegroundServiceAdapter {
   int updateCount = 0;
   int stopCount = 0;
 
+  /// When set, start and update calls wait for it.
+  Completer<void>? startGate;
+  Completer<void>? updateGate;
+
   @override
   Future<void> start({required String title, required String text}) async {
     startCount++;
+    await startGate?.future;
   }
 
   @override
@@ -597,6 +1105,7 @@ class _FakeForegroundService implements DownloadForegroundServiceAdapter {
   @override
   Future<void> update({required String title, required String text}) async {
     updateCount++;
+    await updateGate?.future;
   }
 }
 

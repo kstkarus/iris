@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:developer' as developer;
 
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -19,12 +20,19 @@ class DownloadSelectionCubit extends Cubit<DownloadSelectionState> {
   final DownloadsRepository _repository;
   PreparedDownloadSource? _source;
   int _attempt = 0;
+  Completer<void>? _preparationCancel;
 
   Future<void> load() async {
     final attempt = ++_attempt;
+    _cancelPreparation();
+    final preparationCancel = Completer<void>();
+    _preparationCancel = preparationCancel;
     emit(const DownloadSelectionLoading());
     try {
-      final source = await _repository.prepareSource(magnet: args.magnet);
+      final source = await _repository.prepareSource(
+        magnet: args.magnet,
+        cancelled: preparationCancel.future,
+      );
       if (!_isCurrent(attempt)) {
         await _repository.disposePreparedSource(
           sourceToken: source.sourceToken,
@@ -42,6 +50,8 @@ class DownloadSelectionCubit extends Cubit<DownloadSelectionState> {
         );
       }
     } catch (error, stackTrace) {
+      // A superseded or closed attempt was cancelled on purpose; not a failure.
+      if (!_isCurrent(attempt)) return;
       developer.log(
         'Unable to prepare torrent files for download.',
         name: 'iris.downloads.selection',
@@ -92,6 +102,7 @@ class DownloadSelectionCubit extends Cubit<DownloadSelectionState> {
   @override
   Future<void> close() async {
     _attempt++;
+    _cancelPreparation();
     final source = _source;
     _source = null;
     if (source != null) {
@@ -101,4 +112,10 @@ class DownloadSelectionCubit extends Cubit<DownloadSelectionState> {
   }
 
   bool _isCurrent(int attempt) => !isClosed && attempt == _attempt;
+
+  /// Tells a running preparation that nobody waits for its result any more.
+  void _cancelPreparation() {
+    _preparationCancel?.complete();
+    _preparationCancel = null;
+  }
 }

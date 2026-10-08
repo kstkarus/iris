@@ -16,8 +16,14 @@ class DownloadManagerCubit extends Cubit<DownloadManagerState> {
   StreamSubscription<List<DownloadItem>>? _subscription;
 
   Future<void> load() async {
-    if (_subscription != null) return;
+    if (_subscription != null && !state.hasError) return;
     emit(state.copyWith(isLoading: true, hasError: false));
+    final failed = _subscription;
+    if (failed != null) {
+      await failed.cancel();
+      if (isClosed) return;
+      _subscription = null;
+    }
     try {
       _subscription = _repository.watchDownloads().listen(
         (downloads) {
@@ -33,6 +39,9 @@ class DownloadManagerCubit extends Cubit<DownloadManagerState> {
         },
         onError: (Object error, StackTrace stackTrace) {
           _report(error, stackTrace);
+        },
+        onDone: () {
+          _subscription = null;
         },
       );
       await refreshStorage();
@@ -103,7 +112,9 @@ class DownloadManagerCubit extends Cubit<DownloadManagerState> {
 
   @override
   Future<void> close() async {
-    await _subscription?.cancel();
-    return super.close();
+    final subscription = _subscription;
+    // Closing first keeps a load() waiting on a cancel from subscribing.
+    await super.close();
+    await subscription?.cancel();
   }
 }

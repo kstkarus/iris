@@ -16,8 +16,10 @@ import 'package:iris/features/downloads/domain/entities/prepared_download_source
 import 'package:iris/features/downloads/domain/repositories/downloads_repository.dart';
 import 'package:iris/shared/storage/directory_size.dart';
 import 'package:iris/shared/storage/stream_cache_storage.dart';
+import 'package:iris/shared/torrent/preparation_cancelled_exception.dart';
 import 'package:iris/shared/torrent/torrent_activity_registry.dart';
 import 'package:iris/shared/torrent/torrent_key.dart';
+import 'package:iris/shared/torrent/video_file_extensions.dart';
 
 class DownloadsRepositoryImpl implements DownloadsRepository {
   DownloadsRepositoryImpl({
@@ -29,6 +31,7 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
     StreamCacheStorage? streamCache,
     TorrentActivityRegistry? activityRegistry,
     DateTime Function() now = DateTime.now,
+    Future<void> Function(Directory folder)? createMetadataFolder,
   }) : _engine = engine,
        _streamCache = streamCache,
        _activityRegistry = activityRegistry ?? TorrentActivityRegistry(),
@@ -36,18 +39,8 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
        _downloadsDirectory = downloadsDirectory,
        _foregroundService = foregroundService,
        _storageUsageAdapter = storageUsageAdapter,
+       _createMetadataFolder = createMetadataFolder ?? _createFolder,
        _now = now;
-
-  static const _supportedVideoExtensions = {
-    'mkv',
-    'mp4',
-    'webm',
-    'avi',
-    'mov',
-    'm4v',
-    'ts',
-    'm2ts',
-  };
 
   final LibtorrentDownloadEngineAdapter _engine;
   final DownloadRegistryDataSource _registry;
@@ -57,11 +50,14 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
   final StreamCacheStorage? _streamCache;
   final TorrentActivityRegistry _activityRegistry;
   final DateTime Function() _now;
+  // Creates the folder of a metadata-only torrent; a seam for tests.
+  final Future<void> Function(Directory folder) _createMetadataFolder;
   final StreamController<List<DownloadItem>> _downloadsController =
       StreamController<List<DownloadItem>>.broadcast();
   final Map<String, _PreparedRuntime> _preparedSources = {};
   final Map<String, int> _torrentIdByDownloadId = {};
-  final Map<int, String> _downloadIdByTorrentId = {};
+  // Downloads whose files are being removed; a queued start must skip them.
+  final Set<String> _deletingIds = {};
 
   List<DownloadItem> _downloads = const [];
   StreamSubscription<Map<int, DownloadEngineTorrent>>? _engineSubscription;
@@ -101,8 +97,7 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
     if (streamCache == null || _activityRegistry.hasActiveStreaming) {
       return false;
     }
-    await streamCache.clear();
-    return true;
+    return streamCache.clear();
   }
 
   @override
@@ -115,23 +110,45 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
   Future<void> delete({required String id}) async {
     await restore();
     final item = _find(id);
-    if (item == null) return;
+    if (item == null || _deletingIds.contains(id)) return;
 
-    final torrentId = _torrentIdByDownloadId.remove(id);
-    if (torrentId != null) {
-      _downloadIdByTorrentId.remove(torrentId);
-      _engine.remove(torrentId, deleteFiles: true);
-    }
-    if (_activeDownloadId == id) {
-      _clearActiveDownload();
-      await _foregroundService.stop();
-    }
+    // Set before any await of the removal, so a queued start cannot pick the
+    // item up while its files are going away.
+    _deletingIds.add(id);
+    try {
+      final torrentId = _torrentIdByDownloadId.remove(id);
+      if (torrentId != null) {
+        _engine.remove(torrentId, deleteFiles: true);
+      }
+      if (_activeDownloadId == id) {
+        _clearActiveDownload();
+        await _foregroundService.stop();
+      }
 
-    final directory = _downloadDirectory(id);
-    if (await directory.exists() && _isInsideDownloadsRoot(directory.path)) {
-      await directory.delete(recursive: true);
+      final directory = _downloadDirectory(id);
+      if (await directory.exists() && _isInsideDownloadsRoot(directory.path)) {
+        await directory.delete(recursive: true);
+      }
+      _downloads = _downloads.where((download) => download.id != id).toList();
+    } on FileSystemException catch (error, stackTrace) {
+      developer.log(
+        'Unable to delete downloaded files.',
+        name: 'iris.downloads.repository',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      final current = _find(id) ?? item;
+      _replace(
+        current.copyWith(
+          status: DownloadStatus.failed,
+          errorMessage: 'Unable to delete downloaded files.',
+          downloadRateBytesPerSecond: 0,
+          peers: 0,
+        ),
+      );
+    } finally {
+      _deletingIds.remove(id);
     }
-    _downloads = _downloads.where((download) => download.id != id).toList();
     await _commit();
     unawaited(_pumpQueue());
   }
@@ -144,9 +161,7 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
     // A borrowed torrent belongs to the active download; leave it running.
     if (directory == null) return;
     _engine.remove(runtime.torrentId, deleteFiles: true);
-    if (await directory.exists() && _isInsideDownloadsRoot(directory.path)) {
-      await directory.delete(recursive: true);
-    }
+    await _deleteMetadataFolder(directory);
     // A queued download of the same torrent may have been waiting for this.
     unawaited(_pumpQueue());
   }
@@ -233,7 +248,6 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
 
     final torrentId = _torrentIdByDownloadId.remove(id);
     if (torrentId != null) {
-      _downloadIdByTorrentId.remove(torrentId);
       _engine.pause(torrentId);
       _engine.remove(torrentId, deleteFiles: false);
     }
@@ -253,7 +267,10 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
   }
 
   @override
-  Future<PreparedDownloadSource> prepareSource({required String magnet}) async {
+  Future<PreparedDownloadSource> prepareSource({
+    required String magnet,
+    Future<void>? cancelled,
+  }) async {
     if (magnet.trim().isEmpty) {
       throw ArgumentError.value(magnet, 'magnet', 'Magnet must not be empty.');
     }
@@ -263,41 +280,56 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
     final torrentKey = torrentKeyFromMagnet(magnet);
     // libtorrent maps a second add of the same info-hash onto the existing
     // torrent, so removing it later would kill the running download too.
-    final sharedTorrentId = _sharedTorrentId(torrentKey);
-    if (sharedTorrentId != null) {
-      await _engine.waitForMetadata(sharedTorrentId);
-      final files = _downloadableFiles(sharedTorrentId);
-      _preparedSources[token] = _PreparedRuntime(
-        torrentId: sharedTorrentId,
+    final heldTorrentId = _sharedTorrentId(torrentKey);
+    final _PreparedRuntime runtime;
+    if (heldTorrentId != null) {
+      runtime = _PreparedRuntime.borrowed(
+        torrentId: heldTorrentId,
         magnet: magnet,
         torrentKey: torrentKey,
-        metadataDirectory: null,
       );
-      return PreparedDownloadSource(sourceToken: token, files: files);
+    } else {
+      final directory = Directory(
+        path.join(_downloadsDirectory.path, '.metadata', token),
+      );
+      await _createMetadataFolder(directory);
+      // The create is an await: a download of the same torrent may have
+      // started meanwhile. Nothing is awaited between this check and addMagnet.
+      final lateHeldTorrentId = _sharedTorrentId(torrentKey);
+      if (lateHeldTorrentId != null) {
+        await _deleteMetadataFolder(directory);
+        runtime = _PreparedRuntime.borrowed(
+          torrentId: lateHeldTorrentId,
+          magnet: magnet,
+          torrentKey: torrentKey,
+        );
+      } else {
+        final torrentId = _engine.addMagnet(
+          magnet: magnet,
+          savePath: directory.path,
+          metadataOnly: true,
+        );
+        runtime = _PreparedRuntime(
+          torrentId: torrentId,
+          magnet: magnet,
+          torrentKey: torrentKey,
+          metadataDirectory: directory,
+        );
+      }
     }
-
-    final directory = Directory(
-      path.join(_downloadsDirectory.path, '.metadata', token),
-    );
-    await directory.create(recursive: true);
-    final torrentId = _engine.addMagnet(
-      magnet: magnet,
-      savePath: directory.path,
-      metadataOnly: true,
-    );
+    // Registered before the wait: a queued download of the same torrent must
+    // not start while the metadata is still pending.
+    _preparedSources[token] = runtime;
     try {
-      await _engine.waitForMetadata(torrentId);
-      final files = _downloadableFiles(torrentId);
-      _preparedSources[token] = _PreparedRuntime(
-        torrentId: torrentId,
-        magnet: magnet,
-        torrentKey: torrentKey,
-        metadataDirectory: directory,
-      );
+      await _waitForMetadata(runtime.torrentId, cancelled);
+      // close() disposes the sources that are still pending.
+      if (!_preparedSources.containsKey(token)) {
+        throw const PreparationCancelledException();
+      }
+      final files = _downloadableFiles(runtime.torrentId);
       return PreparedDownloadSource(sourceToken: token, files: files);
     } catch (_) {
-      _engine.remove(torrentId, deleteFiles: true);
-      if (await directory.exists()) await directory.delete(recursive: true);
+      await disposePreparedSource(sourceToken: token);
       rethrow;
     }
   }
@@ -413,7 +445,8 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
     final activeId = _activeDownloadId;
     if (activeId == null) return;
     final torrentId = _torrentIdByDownloadId[activeId];
-    final torrent = torrentId == null ? null : torrents[torrentId];
+    if (torrentId == null) return;
+    final torrent = torrents[torrentId];
     final item = _find(activeId);
     if (torrent == null || item == null) return;
 
@@ -452,17 +485,23 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
         title: 'Загрузка',
         text: '${item.fileName}: $percent%',
       );
+      // Pause, delete or a streaming yield may have happened during the await.
+      if (_activeItemOnTorrent(activeId, torrentId) == null) return;
     }
 
     if (torrent.isFinished) {
-      final file = File(item.localPath);
-      if (!await file.exists()) {
-        await _failActive(item, 'Downloaded file was not created.');
+      final fileExists = await File(item.localPath).exists();
+      // Re-read after the await: the active slot may now belong to the next
+      // download, and the item may have changed.
+      final current = _activeItemOnTorrent(activeId, torrentId);
+      if (current == null) return;
+      if (!fileExists) {
+        await _failActive(current, 'Downloaded file was not created.');
         return;
       }
       _replace(
-        updated.copyWith(
-          downloadedBytes: item.totalBytes,
+        current.copyWith(
+          downloadedBytes: current.totalBytes,
           downloadRateBytesPerSecond: 0,
           peers: 0,
           status: DownloadStatus.completed,
@@ -470,9 +509,7 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
           errorMessage: null,
         ),
       );
-      _engine.remove(torrentId!, deleteFiles: false);
-      _torrentIdByDownloadId.remove(activeId);
-      _downloadIdByTorrentId.remove(torrentId);
+      _engine.remove(torrentId, deleteFiles: false);
       _clearActiveDownload();
       await _foregroundService.stop();
       await _commit();
@@ -483,7 +520,6 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
   Future<void> _failActive(DownloadItem item, String message) async {
     final torrentId = _torrentIdByDownloadId.remove(item.id);
     if (torrentId != null) {
-      _downloadIdByTorrentId.remove(torrentId);
       _engine.remove(torrentId, deleteFiles: false);
     }
     _replace(
@@ -513,7 +549,6 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
     }
     final torrentId = _torrentIdByDownloadId.remove(activeId);
     if (torrentId != null) {
-      _downloadIdByTorrentId.remove(torrentId);
       _engine.remove(torrentId, deleteFiles: false);
     }
     _clearActiveDownload();
@@ -527,6 +562,17 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
     unawaited(_foregroundService.stop());
     unawaited(_commit());
     unawaited(_pumpQueue());
+  }
+
+  /// The active item while it still runs [torrentId]. Call this after every
+  /// await: a pause, delete or streaming yield may have cleared the slot, and
+  /// the next queued download may own it by now.
+  DownloadItem? _activeItemOnTorrent(String activeId, int torrentId) {
+    if (_activeDownloadId != activeId ||
+        _torrentIdByDownloadId[activeId] != torrentId) {
+      return null;
+    }
+    return _find(activeId);
   }
 
   void _clearActiveDownload() {
@@ -553,10 +599,40 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
     if (_activeDownloadId != null) return;
     _pumping = true;
     try {
-      final item = _nextStartableDownload();
-      if (item == null) return;
-      final directory = _downloadDirectory(item.id);
-      await directory.create(recursive: true);
+      final candidate = _nextStartableDownload();
+      if (candidate == null) return;
+      final directory = _downloadDirectory(candidate.id);
+      try {
+        await directory.create(recursive: true);
+      } on FileSystemException catch (error, stackTrace) {
+        developer.log(
+          'Unable to create the folder of a queued download.',
+          name: 'iris.downloads.repository',
+          error: error,
+          stackTrace: stackTrace,
+        );
+        // Only a still queued item fails: a pause or delete during the create
+        // has already moved it on.
+        final failed = _find(candidate.id);
+        if (failed != null && failed.status == DownloadStatus.queued) {
+          _replace(
+            failed.copyWith(
+              status: DownloadStatus.failed,
+              errorMessage: 'Unable to start the download.',
+            ),
+          );
+          await _commit();
+        }
+        _pumpRequested = true;
+        return;
+      }
+      // The create above is an await: pause, delete, streaming or a selection
+      // may have changed the item. Skip the start; the finally pumps again.
+      final item = _find(candidate.id);
+      if (item == null || !_isStartable(item)) {
+        _pumpRequested = true;
+        return;
+      }
       final int torrentId;
       try {
         // Not metadata-only: that mode makes the native layer zero all file
@@ -588,9 +664,10 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
       _activeDownloadId = item.id;
       _activeFilePrioritized = false;
       _torrentIdByDownloadId[item.id] = torrentId;
-      _downloadIdByTorrentId[torrentId] = item.id;
       _replace(item.copyWith(status: DownloadStatus.downloading));
       await _commit();
+      // A pause or delete during the commit has already stopped the service.
+      if (startCancellation.isCompleted) return;
       await _foregroundService.start(title: 'Загрузка', text: item.fileName);
 
       try {
@@ -652,15 +729,19 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
 
   DownloadItem? _nextStartableDownload() {
     for (final item in _downloads) {
-      if (item.status != DownloadStatus.queued) continue;
-      final torrentKey = torrentKeyFromMagnet(item.magnet);
-      // Wait until a selection screen or the player holding the same torrent
-      // is closed.
-      if (_ownedPreparedTorrentId(torrentKey) != null) continue;
-      if (_activityRegistry.isStreaming(torrentKey)) continue;
-      return item;
+      if (_isStartable(item)) return item;
     }
     return null;
+  }
+
+  bool _isStartable(DownloadItem item) {
+    if (item.status != DownloadStatus.queued) return false;
+    if (_deletingIds.contains(item.id)) return false;
+    final torrentKey = torrentKeyFromMagnet(item.magnet);
+    // Wait until a selection screen or the player holding the same torrent
+    // is closed.
+    if (_ownedPreparedTorrentId(torrentKey) != null) return false;
+    return !_activityRegistry.isStreaming(torrentKey);
   }
 
   int? _sharedTorrentId(String torrentKey) {
@@ -685,6 +766,17 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
       }
     }
     return null;
+  }
+
+  /// Waits for the metadata of [torrentId], or gives up when [cancelled]
+  /// completes first.
+  Future<void> _waitForMetadata(int torrentId, Future<void>? cancelled) {
+    final metadata = _engine.waitForMetadata(torrentId);
+    if (cancelled == null) return metadata;
+    return Future.any<void>([
+      metadata,
+      cancelled.then<void>((_) => throw const PreparationCancelledException()),
+    ]);
   }
 
   List<DownloadableFile> _downloadableFiles(int torrentId) {
@@ -746,6 +838,23 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
     return Directory(path.join(_downloadsDirectory.path, 'content', id));
   }
 
+  /// Removes a metadata folder. One that cannot be removed is logged and left
+  /// behind: its source is gone either way.
+  Future<void> _deleteMetadataFolder(Directory directory) async {
+    try {
+      if (await directory.exists() && _isInsideDownloadsRoot(directory.path)) {
+        await directory.delete(recursive: true);
+      }
+    } on FileSystemException catch (error, stackTrace) {
+      developer.log(
+        'Unable to delete a metadata folder.',
+        name: 'iris.downloads.repository',
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
+  }
+
   bool _isInsideDownloadsRoot(String candidate) {
     return _isWithin(_downloadsDirectory.path, candidate);
   }
@@ -766,6 +875,13 @@ class _PreparedRuntime {
     required this.metadataDirectory,
   });
 
+  /// A torrent held by the active download or another source.
+  const _PreparedRuntime.borrowed({
+    required this.torrentId,
+    required this.magnet,
+    required this.torrentKey,
+  }) : metadataDirectory = null;
+
   final int torrentId;
   final String magnet;
   final String torrentKey;
@@ -776,9 +892,7 @@ class _PreparedRuntime {
 }
 
 bool _isSupportedVideo(String name) {
-  return DownloadsRepositoryImpl._supportedVideoExtensions.contains(
-    _extension(name),
-  );
+  return isVideoExtension(_extension(name));
 }
 
 String _extension(String name) {
@@ -787,4 +901,8 @@ String _extension(String name) {
 
 String _createDownloadId(String magnet, int fileIndex) {
   return '${torrentKeyFromMagnet(magnet)}-$fileIndex';
+}
+
+Future<void> _createFolder(Directory folder) {
+  return folder.create(recursive: true);
 }
