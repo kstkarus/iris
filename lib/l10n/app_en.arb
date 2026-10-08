@@ -459,6 +459,7 @@
       }
     }
   },
+  "playerSeekBarLabel": "Playback position",
   "animeDetailsChooseSourceButton": "Choose source",
   "animeEpisodeCount": "{value} {count, plural, =1{episode} other{episodes}}",
   "@animeEpisodeCount": {

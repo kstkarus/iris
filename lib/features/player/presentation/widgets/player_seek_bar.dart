@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/utils/duration_formatter.dart';
 
 /// Times over the video: beside the timeline and above its thumb.
@@ -22,6 +23,7 @@ class PlayerSeekBar extends StatefulWidget {
     required this.onSeek,
     required this.color,
     this.onActiveChanged,
+    this.step = const Duration(seconds: 10),
     super.key,
   });
 
@@ -38,6 +40,9 @@ class PlayerSeekBar extends StatefulWidget {
   /// Whether the pointer hovers or drags the bar, so the controls around it
   /// stay visible meanwhile.
   final ValueChanged<bool>? onActiveChanged;
+
+  /// How far a screen reader's increase or decrease moves the position.
+  final Duration step;
 
   @override
   State<PlayerSeekBar> createState() => _PlayerSeekBarState();
@@ -70,6 +75,14 @@ class _PlayerSeekBarState extends State<PlayerSeekBar> {
     );
   }
 
+  /// The position [delta] away from the current one, kept within the video.
+  Duration _positionBy(Duration delta) {
+    final target = widget.position + delta;
+    if (target < Duration.zero) return Duration.zero;
+    if (target > widget.duration) return widget.duration;
+    return target;
+  }
+
   double _fractionAt(double dx, double width) {
     if (width <= 0) return 0;
     return (dx / width).clamp(0.0, 1.0);
@@ -88,108 +101,129 @@ class _PlayerSeekBarState extends State<PlayerSeekBar> {
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final width = constraints.maxWidth;
-        final played = _dragFraction ?? _fractionOf(widget.position);
-        final buffered = _fractionOf(widget.buffered);
-        final hover = _dragFraction == null ? _hoverFraction : null;
-        final trackHeight = _active ? 6.0 : 4.0;
-        final thumbSize = _active ? 18.0 : 14.0;
+    final seekable = widget.duration > Duration.zero;
+    return Semantics(
+      slider: true,
+      label: AppLocalizations.of(context).playerSeekBarLabel,
+      value: formatPlaybackPosition(widget.position),
+      increasedValue: formatPlaybackPosition(_positionBy(widget.step)),
+      decreasedValue: formatPlaybackPosition(_positionBy(-widget.step)),
+      onIncrease: seekable
+          ? () => widget.onSeek(_positionBy(widget.step))
+          : null,
+      onDecrease: seekable
+          ? () => widget.onSeek(_positionBy(-widget.step))
+          : null,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final width = constraints.maxWidth;
+          final played = _dragFraction ?? _fractionOf(widget.position);
+          final buffered = _fractionOf(widget.buffered);
+          final hover = _dragFraction == null ? _hoverFraction : null;
+          final trackHeight = _active ? 6.0 : 4.0;
+          final thumbSize = _active ? 18.0 : 14.0;
 
-        return MouseRegion(
-          cursor: SystemMouseCursors.click,
-          onHover: (event) => _update(
-            () => _hoverFraction = _fractionAt(event.localPosition.dx, width),
-          ),
-          onExit: (_) => _update(() => _hoverFraction = null),
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTapUp: (details) =>
-                _seekTo(_fractionAt(details.localPosition.dx, width)),
-            onHorizontalDragStart: (details) => _update(
-              () =>
-                  _dragFraction = _fractionAt(details.localPosition.dx, width),
+          return MouseRegion(
+            cursor: SystemMouseCursors.click,
+            onHover: (event) => _update(
+              () => _hoverFraction = _fractionAt(event.localPosition.dx, width),
             ),
-            onHorizontalDragUpdate: (details) => _update(
-              () =>
-                  _dragFraction = _fractionAt(details.localPosition.dx, width),
-            ),
-            onHorizontalDragEnd: (_) {
-              final fraction = _dragFraction;
-              _update(() => _dragFraction = null);
-              if (fraction != null) _seekTo(fraction);
-            },
-            onHorizontalDragCancel: () => _update(() => _dragFraction = null),
-            child: SizedBox(
-              key: const Key('player_seek_bar'),
-              height: PlayerSeekBar.height,
-              child: Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  // The time shows where a click or the drag would go;
-                  // at rest the readout beside the bar has it.
-                  if (_active)
-                    _timeLabel(
-                      width: width,
-                      fraction: hover ?? played,
-                      text: formatPlaybackPosition(
-                        _durationAt(hover ?? played),
+            onExit: (_) => _update(() => _hoverFraction = null),
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              // Screen readers use the slider above; a tap action here would
+              // seek to the middle of the bar.
+              excludeFromSemantics: true,
+              onTapUp: (details) =>
+                  _seekTo(_fractionAt(details.localPosition.dx, width)),
+              onHorizontalDragStart: (details) => _update(
+                () => _dragFraction = _fractionAt(
+                  details.localPosition.dx,
+                  width,
+                ),
+              ),
+              onHorizontalDragUpdate: (details) => _update(
+                () => _dragFraction = _fractionAt(
+                  details.localPosition.dx,
+                  width,
+                ),
+              ),
+              onHorizontalDragEnd: (_) {
+                final fraction = _dragFraction;
+                _update(() => _dragFraction = null);
+                if (fraction != null) _seekTo(fraction);
+              },
+              onHorizontalDragCancel: () => _update(() => _dragFraction = null),
+              child: SizedBox(
+                key: const Key('player_seek_bar'),
+                height: PlayerSeekBar.height,
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    // The time shows where a click or the drag would go;
+                    // at rest the readout beside the bar has it.
+                    if (_active)
+                      _timeLabel(
+                        width: width,
+                        fraction: hover ?? played,
+                        text: formatPlaybackPosition(
+                          _durationAt(hover ?? played),
+                        ),
+                        key: const Key('player_seek_bar_time'),
                       ),
-                      key: const Key('player_seek_bar_time'),
-                    ),
-                  Positioned(
-                    left: 0,
-                    right: 0,
-                    top: _trackTop - trackHeight / 2,
-                    height: trackHeight,
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.zero,
-                      child: Stack(
-                        fit: StackFit.expand,
-                        children: [
-                          const ColoredBox(color: _unplayedColor),
-                          FractionallySizedBox(
-                            alignment: Alignment.centerLeft,
-                            widthFactor: buffered,
-                            child: const ColoredBox(color: _bufferedColor),
-                          ),
-                          if (hover != null)
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      top: _trackTop - trackHeight / 2,
+                      height: trackHeight,
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.zero,
+                        child: Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            const ColoredBox(color: _unplayedColor),
                             FractionallySizedBox(
                               alignment: Alignment.centerLeft,
-                              widthFactor: hover,
-                              child: const ColoredBox(color: Colors.white24),
+                              widthFactor: buffered,
+                              child: const ColoredBox(color: _bufferedColor),
                             ),
-                          FractionallySizedBox(
-                            alignment: Alignment.centerLeft,
-                            widthFactor: played,
-                            child: ColoredBox(color: widget.color),
-                          ),
-                        ],
+                            if (hover != null)
+                              FractionallySizedBox(
+                                alignment: Alignment.centerLeft,
+                                widthFactor: hover,
+                                child: const ColoredBox(color: Colors.white24),
+                              ),
+                            FractionallySizedBox(
+                              alignment: Alignment.centerLeft,
+                              widthFactor: played,
+                              child: ColoredBox(color: widget.color),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
-                  ),
-                  Positioned(
-                    left: played * width - thumbSize / 2,
-                    top: _trackTop - thumbSize / 2,
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 120),
-                      width: thumbSize,
-                      height: thumbSize,
-                      decoration: BoxDecoration(
-                        color: widget.color,
-                        boxShadow: const [
-                          BoxShadow(color: Colors.black45, blurRadius: 6),
-                        ],
+                    Positioned(
+                      left: played * width - thumbSize / 2,
+                      top: _trackTop - thumbSize / 2,
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 120),
+                        width: thumbSize,
+                        height: thumbSize,
+                        decoration: BoxDecoration(
+                          color: widget.color,
+                          boxShadow: const [
+                            BoxShadow(color: Colors.black45, blurRadius: 6),
+                          ],
+                        ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
-          ),
-        );
-      },
+          );
+        },
+      ),
     );
   }
 
@@ -207,11 +241,14 @@ class _PlayerSeekBarState extends State<PlayerSeekBar> {
       left: left,
       top: 0,
       width: _labelWidth,
-      child: Text(
-        text,
-        key: key,
-        textAlign: TextAlign.center,
-        style: playerTimeStyle,
+      // A pointer preview; the slider's value is where playback is.
+      child: ExcludeSemantics(
+        child: Text(
+          text,
+          key: key,
+          textAlign: TextAlign.center,
+          style: playerTimeStyle,
+        ),
       ),
     );
   }

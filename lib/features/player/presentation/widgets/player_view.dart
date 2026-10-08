@@ -5,6 +5,7 @@ import 'package:iris/features/player/domain/entities/player_launch_failure.dart'
 import 'package:iris/features/player/domain/entities/player_launch_progress.dart';
 import 'package:iris/features/player/presentation/cubit/player_cubit.dart';
 import 'package:iris/features/player/presentation/cubit/player_state.dart';
+import 'package:iris/features/player/presentation/widgets/player_playback_stats_indicator.dart';
 import 'package:iris/features/player/presentation/widgets/player_viewport_factory.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/utils/file_display_name.dart';
@@ -92,7 +93,7 @@ class _LoadingState extends StatelessWidget {
       details: [
         l10n.playerStreamPreparationProgress(percent),
         l10n.playerStreamPreparationSpeed(
-          _formatTransferRate(progress.downloadRateBytesPerSecond),
+          formatTransferRate(l10n, progress.downloadRateBytesPerSecond),
         ),
       ],
     );
@@ -119,18 +120,4 @@ class _FailureState extends StatelessWidget {
       ),
     );
   }
-}
-
-String _formatTransferRate(int bytesPerSecond) {
-  const units = ['B/s', 'KB/s', 'MB/s', 'GB/s'];
-  var value = bytesPerSecond.toDouble();
-  var unitIndex = 0;
-
-  while (value >= 1024 && unitIndex < units.length - 1) {
-    value /= 1024;
-    unitIndex++;
-  }
-
-  final fractionDigits = unitIndex == 0 ? 0 : 1;
-  return '${value.toStringAsFixed(fractionDigits)} ${units[unitIndex]}';
 }

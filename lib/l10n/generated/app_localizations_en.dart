@@ -740,6 +740,9 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get playerSeekBarLabel => 'Playback position';
+
+  @override
   String get animeDetailsChooseSourceButton => 'Choose source';
 
   @override

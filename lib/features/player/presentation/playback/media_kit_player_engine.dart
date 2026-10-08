@@ -342,6 +342,7 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
     _session = null;
     completed.value = false;
     _resetPositionOffers();
+    _stopWatchingPlaybackStats();
     _cancelStartupTimeout();
     _cancelStartupNetworkWatchdog();
     _updateStartupState(const PlayerEngineStartupState.openingSource());
@@ -467,6 +468,15 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
           unawaited(_logStartupProgress(stats));
           unawaited(_refreshPlaybackDiagnostics());
         });
+  }
+
+  /// A stopped file's stats stream ends with the file. The next [open] watches
+  /// again, also when it belongs to the same session.
+  void _stopWatchingPlaybackStats() {
+    unawaited(_playbackStatsSubscription?.cancel());
+    _playbackStatsSubscription = null;
+    _statsSessionId = null;
+    playbackStats.value = null;
   }
 
   Future<void> _handleSubtitlePreferencesChanged(

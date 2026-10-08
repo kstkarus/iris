@@ -92,6 +92,66 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  group('in short windows', () {
+    testWidgets('gives the video the full height of a compact landscape '
+        'window, with the episodes behind the toggle', (tester) async {
+      setWindow(tester, const Size(500, 300));
+
+      await tester.pumpWidget(_wrap(source: _seriesSource));
+
+      expect(tester.takeException(), isNull);
+      // The window less the app bar and the video's own margins.
+      final video = tester.getRect(
+        find.byKey(const Key('player_video_surface')),
+      );
+      expect(video.height, closeTo(220, 0.5));
+      expect(find.byKey(PlayerPage.episodesPaneKey), findsNothing);
+
+      await tester.tap(find.byKey(PlayerPage.episodesToggleKey));
+      await tester.pumpAndSettle();
+
+      final shownVideo = tester.getRect(
+        find.byKey(const Key('player_video_surface')),
+      );
+      final pane = tester.getRect(find.byKey(PlayerPage.episodesPaneKey));
+      expect(pane.left, greaterThanOrEqualTo(shownVideo.right));
+      expect(find.text('NOW PLAYING'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('keeps the episodes beside the video on a 640x360 phone', (
+      tester,
+    ) async {
+      setWindow(tester, const Size(640, 360));
+
+      await tester.pumpWidget(_wrap(source: _seriesSource));
+
+      final video = tester.getRect(
+        find.byKey(const Key('player_video_surface')),
+      );
+      final pane = tester.getRect(find.byKey(PlayerPage.episodesPaneKey));
+      expect(pane.left, greaterThanOrEqualTo(video.right));
+      expect(video.height, closeTo(272, 0.5));
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('keeps a 16:9 video full width on a 360x640 phone, with the '
+        'episodes below', (tester) async {
+      setWindow(tester, const Size(360, 640));
+
+      await tester.pumpWidget(_wrap(source: _seriesSource));
+
+      final video = tester.getRect(
+        find.byKey(const Key('player_video_surface')),
+      );
+      final pane = tester.getRect(find.byKey(PlayerPage.episodesPaneKey));
+      expect(video.width, closeTo(328, 0.5));
+      expect(video.height, closeTo(328 * 9 / 16, 0.5));
+      expect(pane.top, greaterThanOrEqualTo(video.bottom));
+      expect(tester.takeException(), isNull);
+    });
+  });
+
   testWidgets('keeps the video alive when the layout switches', (tester) async {
     setWindow(tester, const Size(1280, 720));
     await tester.pumpWidget(_wrap(source: _seriesSource));
@@ -437,7 +497,10 @@ class _UnusedPlayerRepository implements PlayerRepository {
   Future<void> disposePlayback({required String sessionId}) async {}
 
   @override
-  Future<PreparedPlayerSource> prepareSource({required String magnet}) {
+  Future<PreparedPlayerSource> prepareSource({
+    required String magnet,
+    Future<void>? cancelled,
+  }) {
     throw UnimplementedError();
   }
 

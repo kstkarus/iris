@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:iris/features/player/data/repositories/streaming_or_local_player_repository.dart';
@@ -25,6 +27,17 @@ void main() {
 
     expect(streaming.calls, ['prepare']);
     expect(local.calls, isEmpty);
+  });
+
+  test('passes the cancellation of a preparation on to streaming', () async {
+    final cancelled = Completer<void>();
+
+    await repository.prepareSource(
+      magnet: 'magnet:?xt=urn:btih:abc',
+      cancelled: cancelled.future,
+    );
+
+    expect(streaming.cancellations.single, same(cancelled.future));
   });
 
   test('routes numeric torrent sessions to streaming', () async {
@@ -56,6 +69,7 @@ class _RecordingPlayerRepository implements PlayerRepository {
 
   final String name;
   final List<String> calls = [];
+  final List<Future<void>?> cancellations = [];
 
   @override
   Future<void> disposePlayback({required String sessionId}) async {
@@ -63,8 +77,12 @@ class _RecordingPlayerRepository implements PlayerRepository {
   }
 
   @override
-  Future<PreparedPlayerSource> prepareSource({required String magnet}) async {
+  Future<PreparedPlayerSource> prepareSource({
+    required String magnet,
+    Future<void>? cancelled,
+  }) async {
     calls.add('prepare');
+    cancellations.add(cancelled);
     return const PreparedPlayerSource(sessionId: '1', files: []);
   }
 

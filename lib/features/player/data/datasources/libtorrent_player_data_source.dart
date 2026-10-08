@@ -6,10 +6,12 @@ import 'package:iris/features/player/data/adapters/player_runtime_memory_adapter
 import 'package:iris/features/player/data/exceptions/no_playable_video_exception.dart';
 import 'package:iris/features/player/data/models/playback_launch_update_model.dart';
 import 'package:iris/features/player/data/models/playback_runtime_stats_model.dart';
+import 'package:iris/features/player/data/models/playback_stream_descriptor.dart';
 import 'package:iris/features/player/data/models/prepared_playback_model.dart';
 import 'package:iris/features/player/data/models/prepared_player_source_model.dart';
 import 'package:iris/features/player/data/utils/playback_stream_probe.dart';
 import 'package:iris/features/player/data/utils/player_debug_formatter.dart';
+import 'package:iris/shared/torrent/preparation_cancelled_exception.dart';
 import 'package:iris/shared/torrent/torrent_activity_registry.dart';
 import 'package:iris/shared/torrent/torrent_key.dart';
 
@@ -50,6 +52,7 @@ class LibtorrentPlayerDataSource {
 
   Future<PreparedPlayerSourceModel> prepareSource({
     required String magnet,
+    Future<void>? cancelled,
   }) async {
     developer.log(
       'Preparing playback for magnet=${redactMagnet(magnet)}',
@@ -63,7 +66,7 @@ class LibtorrentPlayerDataSource {
     torrent.sessionIds.add(sessionId);
     final torrentId = torrent.torrentId;
     try {
-      await torrent.metadata;
+      await _awaitMetadata(torrent.metadata, cancelled);
     } catch (_) {
       await disposePlayback(sessionId: sessionId);
       rethrow;
@@ -132,6 +135,16 @@ class LibtorrentPlayerDataSource {
     return torrent;
   }
 
+  /// Waits for [metadata] unless [cancelled] completes first. The torrent
+  /// itself is left to the caller, which releases its session.
+  Future<void> _awaitMetadata(Future<void> metadata, Future<void>? cancelled) {
+    if (cancelled == null) return metadata;
+    return Future.any<void>([
+      metadata,
+      cancelled.then<void>((_) => throw const PreparationCancelledException()),
+    ]);
+  }
+
   Stream<PlaybackLaunchUpdateModel> startPlayback({
     required String sessionId,
     required int fileIndex,
@@ -170,11 +183,29 @@ class LibtorrentPlayerDataSource {
     _stopOtherStreamsOnTorrent(torrent, sessionId: sessionId);
     final cancellation = _PlaybackLaunchCancellation();
     _launchCancellationBySessionId[sessionId] = cancellation;
-    final stream = _engine.startStream(
-      torrentId,
-      fileIndex: fileIndex,
-      maxCacheBytes: torrentStreamCacheBytes,
-    );
+    final PlaybackStreamDescriptor stream;
+    try {
+      stream = _engine.startStream(
+        torrentId,
+        fileIndex: fileIndex,
+        maxCacheBytes: torrentStreamCacheBytes,
+      );
+    } catch (error, stackTrace) {
+      developer.log(
+        'Starting the torrent stream failed. sessionId=$sessionId torrentId=$torrentId fileIndex=$fileIndex',
+        name: 'iris.player.datasource',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      // Cleaned up before the failure is yielded: a subscriber that stops at
+      // the failure ends this generator at the yield, so code after it may
+      // not run. The session must stay startable for a retry.
+      _completeLaunch(sessionId);
+      yield const PlaybackLaunchFailureUpdateModel(
+        PlaybackLaunchFailureModel.unableToStart,
+      );
+      return;
+    }
     _streamIdsBySessionId[sessionId] = stream.streamId;
 
     try {
@@ -202,10 +233,12 @@ class LibtorrentPlayerDataSource {
         error: error,
         stackTrace: stackTrace,
       );
+      // The stream is already running: stop it along with its bookkeeping.
+      final streamId = _releaseStream(sessionId);
+      if (streamId != null) _engine.stopStream(streamId);
       yield const PlaybackLaunchFailureUpdateModel(
         PlaybackLaunchFailureModel.unableToStart,
       );
-      _completeLaunch(sessionId);
     }
   }
 

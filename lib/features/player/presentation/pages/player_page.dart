@@ -25,8 +25,8 @@ import 'package:iris/shared/widgets/page_title.dart';
 import 'package:iris/shared/widgets/pixel_icon.dart';
 
 /// Video with the torrent's episodes as a supporting pane: beside the video
-/// on expanded and landscape windows (about 70/30, can be hidden), below it
-/// on portrait ones.
+/// on expanded and landscape windows (about 70/30, can be hidden; compact
+/// landscape windows start with it hidden), below it on portrait ones.
 ///
 /// On desktop the video fills the window instead, with streaming-app
 /// controls over it and the episodes in a drawer.
@@ -43,7 +43,9 @@ class PlayerPage extends StatefulWidget {
 }
 
 class _PlayerPageState extends State<PlayerPage> {
-  bool _sidePaneVisible = true;
+  /// The viewer's choice for the pane beside the video. Until they make one,
+  /// the pane is shown unless the window is compact (see [build]).
+  bool? _sidePaneChoice;
 
   /// Moves the player view, with the full-screen route it tracks, between
   /// the side-by-side and stacked layouts (rotation, window resize).
@@ -130,8 +132,11 @@ class _PlayerPageState extends State<PlayerPage> {
             final isLandscape = constraints.maxWidth > constraints.maxHeight;
             final sideBySide =
                 hasEpisodes &&
-                (sizeClass.isAtLeast(WindowSizeClass.expanded) ||
-                    (!sizeClass.isCompact && isLandscape));
+                (sizeClass.isAtLeast(WindowSizeClass.expanded) || isLandscape);
+            // Compact landscape has too little width for both the video and
+            // the pane, so the pane starts behind the toggle there and the
+            // video keeps the height.
+            final sidePaneVisible = _sidePaneChoice ?? !sizeClass.isCompact;
             final margin = sizeClass.pageMargin;
 
             return Scaffold(
@@ -147,13 +152,13 @@ class _PlayerPageState extends State<PlayerPage> {
                   if (sideBySide)
                     IconButton(
                       key: PlayerPage.episodesToggleKey,
-                      tooltip: _sidePaneVisible
+                      tooltip: sidePaneVisible
                           ? l10n.playerHideEpisodes
                           : l10n.playerShowEpisodes,
-                      isSelected: _sidePaneVisible,
+                      isSelected: sidePaneVisible,
                       icon: const PixelIcon(PixelGlyph.episodes, size: 21),
                       onPressed: () =>
-                          setState(() => _sidePaneVisible = !_sidePaneVisible),
+                          setState(() => _sidePaneChoice = !sidePaneVisible),
                     ),
                   const SizedBox(width: 8),
                 ],
@@ -162,7 +167,7 @@ class _PlayerPageState extends State<PlayerPage> {
                 child: sideBySide
                     ? _SideBySideLayout(
                         margin: margin,
-                        showPane: _sidePaneVisible,
+                        showPane: sidePaneVisible,
                         player: PlayerView(
                           key: _playerKey,
                           viewportFactory: widget.viewportFactory,

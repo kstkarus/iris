@@ -7,13 +7,13 @@ import 'package:iris/features/player/data/adapters/player_runtime_memory_adapter
 import 'package:iris/features/player/data/datasources/libtorrent_player_data_source.dart';
 import 'package:iris/features/player/data/exceptions/no_playable_video_exception.dart';
 import 'package:iris/features/player/data/exceptions/torrent_metadata_unavailable_exception.dart';
-import 'package:iris/features/player/data/models/playback_launch_progress_model.dart';
 import 'package:iris/features/player/data/models/playback_runtime_stats_model.dart';
 import 'package:iris/features/player/data/models/playback_launch_update_model.dart';
 import 'package:iris/features/player/data/models/playback_stream_descriptor.dart';
 import 'package:iris/features/player/data/models/prepared_playback_model.dart';
 import 'package:iris/features/player/data/models/torrent_file_descriptor.dart';
 import 'package:iris/features/player/data/utils/playback_stream_probe.dart';
+import 'package:iris/shared/torrent/preparation_cancelled_exception.dart';
 import 'package:iris/shared/torrent/torrent_activity_registry.dart';
 
 const _magnet = 'magnet:?xt=urn:btih:ABCDEF';
@@ -164,6 +164,70 @@ void main() {
     expect(engine.disposedTorrentIds, hasLength(1));
   });
 
+  test(
+    'cancelling the wait frees the torrent without waiting for its metadata',
+    () async {
+      final registry = TorrentActivityRegistry();
+      final engine = _videoEngine(metadataGate: Completer<void>());
+      final dataSource = LibtorrentPlayerDataSource(
+        engine: engine,
+        activityRegistry: registry,
+      );
+      final cancelled = Completer<void>();
+
+      final prepared = dataSource.prepareSource(
+        magnet: _magnet,
+        cancelled: cancelled.future,
+      );
+      await Future<void>.delayed(Duration.zero);
+      expect(registry.isStreaming('abcdef'), isTrue);
+
+      cancelled.complete();
+
+      await expectLater(
+        prepared,
+        throwsA(isA<PreparationCancelledException>()),
+      );
+      expect(engine.disposedTorrentIds, [42]);
+      expect(registry.isStreaming('abcdef'), isFalse);
+    },
+  );
+
+  test(
+    'cancelling one of two sessions keeps the torrent for the other',
+    () async {
+      final registry = TorrentActivityRegistry();
+      final gate = Completer<void>();
+      final engine = _videoEngine(metadataGate: gate);
+      final dataSource = LibtorrentPlayerDataSource(
+        engine: engine,
+        activityRegistry: registry,
+      );
+      final cancelled = Completer<void>();
+
+      final cancelledPrepare = dataSource.prepareSource(
+        magnet: _magnet,
+        cancelled: cancelled.future,
+      );
+      final keptPrepare = dataSource.prepareSource(magnet: _magnet);
+      await Future<void>.delayed(Duration.zero);
+      cancelled.complete();
+
+      await expectLater(
+        cancelledPrepare,
+        throwsA(isA<PreparationCancelledException>()),
+      );
+      expect(engine.disposedTorrentIds, isEmpty);
+      expect(registry.isStreaming('abcdef'), isTrue);
+
+      gate.complete();
+      final sessionId = (await keptPrepare).sessionId;
+      await dataSource.disposePlayback(sessionId: sessionId);
+      expect(engine.disposedTorrentIds, [42]);
+      expect(registry.isStreaming('abcdef'), isFalse);
+    },
+  );
+
   test('disposes torrent session when metadata loading times out', () async {
     final engine = _FakeLibtorrentEngineAdapter(
       files: const [],
@@ -201,7 +265,6 @@ void main() {
       expect(engine.startedStreamTorrentId, 42);
       expect(engine.startedStreamFileIndex, 8);
       expect(engine.startedStreamMaxCacheBytes, 256 * 1024 * 1024);
-      expect(engine.waitedForStreamReadyId, isNull);
       expect(probe.probedUrls, ['http://127.0.0.1:8080/stream/8']);
       expect(updates, [
         PlaybackLaunchReadyUpdateModel(
@@ -358,6 +421,45 @@ void main() {
       ),
     ]);
   });
+
+  test(
+    'a start that the engine refuses leaves the session startable again',
+    () async {
+      final engine = _videoEngine()
+        ..startStreamError = StateError('native start failed');
+      final dataSource = LibtorrentPlayerDataSource(
+        engine: engine,
+        probe: _FakePlaybackStreamProbe(),
+      );
+      final sessionId = await _prepare(dataSource);
+
+      final failed = await dataSource
+          .startPlayback(sessionId: sessionId, fileIndex: 8)
+          .toList();
+      final retried = await dataSource
+          .startPlayback(sessionId: sessionId, fileIndex: 8)
+          .toList();
+
+      expect(failed, const [
+        PlaybackLaunchFailureUpdateModel(
+          PlaybackLaunchFailureModel.unableToStart,
+        ),
+      ]);
+      expect(retried, [
+        PlaybackLaunchReadyUpdateModel(
+          PreparedPlaybackModel(
+            sessionId: sessionId,
+            streamUrl: 'http://127.0.0.1:8080/stream/8',
+          ),
+        ),
+      ]);
+      expect(engine.startStreamCallCount, 2);
+      expect(engine.stoppedStreamIds, isEmpty);
+
+      await dataSource.disposePlayback(sessionId: sessionId);
+      expect(engine.disposedTorrentIds, [42]);
+    },
+  );
 
   test(
     'stops HTTP probing quietly when playback is disposed mid-probe',
@@ -671,16 +773,17 @@ class _FakeLibtorrentEngineAdapter implements LibtorrentEngineAdapter {
   /// Holds metadata back until completed, when set.
   final Completer<void>? metadataGate;
 
+  /// Thrown by the next [startStream] call only.
+  Object? startStreamError;
+
   bool initialized = false;
   String? lastMagnet;
   int? waitedForMetadataTorrentId;
   int? startedStreamTorrentId;
   int? startedStreamFileIndex;
   int? startedStreamMaxCacheBytes;
-  int? waitedForStreamReadyId;
   int? runtimeStatsStreamId;
   int startStreamCallCount = 0;
-  bool waitForStreamReadyWasCancelled = false;
   final List<int> disposedTorrentIds = [];
   final List<int> stoppedStreamIds = [];
 
@@ -724,6 +827,11 @@ class _FakeLibtorrentEngineAdapter implements LibtorrentEngineAdapter {
     int maxCacheBytes = 0,
   }) {
     startStreamCallCount++;
+    final error = startStreamError;
+    if (error != null) {
+      startStreamError = null;
+      throw error;
+    }
     startedStreamTorrentId = torrentId;
     startedStreamFileIndex = fileIndex;
     startedStreamMaxCacheBytes = maxCacheBytes;
@@ -739,20 +847,6 @@ class _FakeLibtorrentEngineAdapter implements LibtorrentEngineAdapter {
       throw waitForMetadataError!;
     }
     waitedForMetadataTorrentId = torrentId;
-  }
-
-  @override
-  Stream<PlaybackLaunchProgressModel> waitForStreamReady(
-    int streamId, {
-    required bool Function() isCancelled,
-  }) async* {
-    waitedForStreamReadyId = streamId;
-    waitForStreamReadyWasCancelled = isCancelled();
-    yield const PlaybackLaunchProgressModel(
-      bufferProgress: 0.25,
-      downloadRateBytesPerSecond: 2048,
-      stage: PlaybackLaunchStageModel.buffering,
-    );
   }
 
   @override

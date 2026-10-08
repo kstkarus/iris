@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:iris/features/player/data/adapters/libtorrent_engine_adapter.dart';
@@ -134,6 +136,23 @@ void main() {
       ),
     );
   });
+
+  test(
+    'passes the cancellation of a preparation on to the data source',
+    () async {
+      final dataSource = _FakePlayerDataSource();
+      final repository = TorrentPlayerRepository(dataSource: dataSource);
+      final cancelled = Completer<void>();
+
+      final prepared = await repository.prepareSource(
+        magnet: 'magnet:?xt=urn:btih:abc',
+        cancelled: cancelled.future,
+      );
+
+      expect(prepared.sessionId, '42');
+      expect(dataSource.preparedCancellations.single, same(cancelled.future));
+    },
+  );
 }
 
 class _FakePlayerDataSource extends LibtorrentPlayerDataSource {
@@ -146,10 +165,25 @@ class _FakePlayerDataSource extends LibtorrentPlayerDataSource {
   final List<PlaybackLaunchUpdateModel> launchUpdates;
   final bool throwOnStartPlayback;
   final List<PlaybackRuntimeStatsModel> runtimeStats;
+  final List<Future<void>?> preparedCancellations = [];
 
   @override
-  Future<PreparedPlayerSourceModel> prepareSource({required String magnet}) {
-    throw UnimplementedError();
+  Future<PreparedPlayerSourceModel> prepareSource({
+    required String magnet,
+    Future<void>? cancelled,
+  }) async {
+    preparedCancellations.add(cancelled);
+    return const PreparedPlayerSourceModel(
+      sessionId: '42',
+      files: [
+        TorrentFileDescriptor(
+          index: 0,
+          name: 'episode-01.mkv',
+          size: 1,
+          isStreamable: true,
+        ),
+      ],
+    );
   }
 
   @override
@@ -211,14 +245,6 @@ class _UnusedLibtorrentEngineAdapter implements LibtorrentEngineAdapter {
 
   @override
   Future<void> waitForMetadata(int torrentId) async {
-    throw UnimplementedError();
-  }
-
-  @override
-  Stream<PlaybackLaunchProgressModel> waitForStreamReady(
-    int streamId, {
-    required bool Function() isCancelled,
-  }) {
     throw UnimplementedError();
   }
 

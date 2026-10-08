@@ -169,7 +169,10 @@ class _UnusedPlayerRepository implements PlayerRepository {
   Future<void> disposePlayback({required String sessionId}) async {}
 
   @override
-  Future<PreparedPlayerSource> prepareSource({required String magnet}) {
+  Future<PreparedPlayerSource> prepareSource({
+    required String magnet,
+    Future<void>? cancelled,
+  }) {
     throw UnimplementedError();
   }
 

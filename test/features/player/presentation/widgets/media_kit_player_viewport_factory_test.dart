@@ -904,6 +904,46 @@ void main() {
     expect(videoSize.height, closeTo(400 * 9 / 16, 0.01));
   });
 
+  testWidgets('keep the playback stats coming when the next file opens on the '
+      'same session', (tester) async {
+    final repository = _SwitchingStatsPlayerRepository();
+    addTearDown(repository.close);
+    late MediaKitPlayerEngine engine;
+    await tester.pumpWidget(
+      _wrapViewport(
+        repository: repository,
+        onEngine: (created) => engine = created,
+      ),
+    );
+    await tester.pump();
+
+    repository.emit(0, _playbackStats(downloadRate: 1024));
+    await tester.pump();
+    expect(engine.playbackStats.value, _playbackStats(downloadRate: 1024));
+
+    await engine.stop();
+    expect(engine.playbackStats.value, isNull);
+    repository.emit(0, _playbackStats(downloadRate: 2048));
+    await tester.pump();
+    expect(
+      engine.playbackStats.value,
+      isNull,
+      reason: 'the stopped file no longer feeds the stats',
+    );
+
+    await engine.open(
+      const PlayerSession(
+        sessionId: '42',
+        streamUrl: 'http://127.0.0.1:8080/stream/3',
+      ),
+    );
+    expect(repository.watchedSessionIds, ['42', '42']);
+
+    repository.emit(1, _playbackStats(downloadRate: 4096));
+    await tester.pump();
+    expect(engine.playbackStats.value, _playbackStats(downloadRate: 4096));
+  });
+
   group('immersive controls', () {
     PlayerChrome chrome({
       VoidCallback? onBack,
@@ -963,6 +1003,43 @@ void main() {
 
       await tester.tap(find.byKey(const Key('player_back_button')));
       expect(backs, 1);
+    });
+
+    for (final size in const [Size(800, 400), Size(800, 300)]) {
+      testWidgets('fit the scrims in a ${size.height.toInt()} dp window', (
+        tester,
+      ) async {
+        tester.view.physicalSize = size;
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+
+        await tester.pumpWidget(_wrapViewport(chrome: chrome()));
+        await tester.pump();
+
+        expect(find.text('Frieren'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      });
+    }
+
+    testWidgets('keep both scrims at full size in a 600 dp window', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(800, 600);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(_wrapViewport(chrome: chrome()));
+      await tester.pump();
+
+      expect(
+        tester.getSize(find.byKey(const Key('player_scrim_top'))).height,
+        160,
+      );
+      expect(
+        tester.getSize(find.byKey(const Key('player_scrim_bottom'))).height,
+        320,
+      );
+      expect(tester.takeException(), isNull);
     });
 
     testWidgets('play, seek and change the volume from the keyboard', (
@@ -1536,6 +1613,73 @@ void main() {
       await tester.pump(const Duration(milliseconds: 250));
       expect(platformPlayer.nativeProperties['sub-pos'], '100');
     });
+
+    testWidgets('retry a failed start over visible controls, with no centre '
+        'buttons, and the back button still works', (tester) async {
+      tester.view.physicalSize = const Size(1280, 720);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final firstFrame = Completer<void>();
+      late _FakePlatformPlayer platformPlayer;
+      var backs = 0;
+      await tester.pumpWidget(
+        _wrapViewport(
+          playerBuilder: (configuration) {
+            platformPlayer = _FakePlatformPlayer(configuration: configuration);
+            return Player(platformPlayer: platformPlayer);
+          },
+          firstFrameFuture: firstFrame.future,
+          chrome: chrome(onBack: () => backs++),
+        ),
+      );
+      await tester.pump();
+      // Playing hides the controls after a few seconds; the pointer brings
+      // them back over the failure.
+      platformPlayer.emitPlaying(true);
+      await _deliverPlayerEvent(tester);
+      await tester.pump(const Duration(seconds: 4));
+      firstFrame.completeError(StateError('no first frame'));
+      await tester.pump();
+
+      double controlsOpacity() => tester
+          .widget<AnimatedOpacity>(
+            find.byKey(const Key('player_immersive_controls')),
+          )
+          .opacity;
+      expect(find.text('Unable to start playback.'), findsOneWidget);
+      expect(controlsOpacity(), 0);
+
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      addTearDown(mouse.removePointer);
+      await mouse.addPointer(location: const Offset(400, 300));
+      await mouse.moveTo(const Offset(410, 300));
+      await tester.pump();
+      expect(controlsOpacity(), 1);
+
+      expect(
+        find.byKey(const Key('player_seek_backward_button')),
+        findsNothing,
+      );
+      expect(find.byKey(const Key('player_play_pause_button')), findsNothing);
+      expect(find.byKey(const Key('player_immersive_tap_layer')), findsNothing);
+      expect(find.byKey(const Key('player_buffering_spinner')), findsNothing);
+
+      expect(
+        FocusManager.instance.primaryFocus?.debugLabel,
+        'player_immersive_controls',
+      );
+      await tester.sendKeyEvent(LogicalKeyboardKey.space);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyK);
+      expect(platformPlayer.playOrPauseCount, 0);
+
+      expect(platformPlayer.openCount, 1);
+      await tester.tap(find.widgetWithText(FilledButton, 'Try Again'));
+      await tester.pump();
+      expect(platformPlayer.openCount, 2, reason: 'retry opens the stream');
+
+      await tester.tap(find.byKey(const Key('player_back_button')));
+      expect(backs, 1);
+    });
   });
 }
 
@@ -1747,7 +1891,10 @@ class _FakePlayerRepository implements PlayerRepository {
   Future<void> disposePlayback({required String sessionId}) async {}
 
   @override
-  Future<PreparedPlayerSource> prepareSource({required String magnet}) {
+  Future<PreparedPlayerSource> prepareSource({
+    required String magnet,
+    Future<void>? cancelled,
+  }) {
     throw UnimplementedError();
   }
 
@@ -1791,7 +1938,10 @@ class _LateStatsPlayerRepository implements PlayerRepository {
   Future<void> disposePlayback({required String sessionId}) async {}
 
   @override
-  Future<PreparedPlayerSource> prepareSource({required String magnet}) {
+  Future<PreparedPlayerSource> prepareSource({
+    required String magnet,
+    Future<void>? cancelled,
+  }) {
     throw UnimplementedError();
   }
 
@@ -1806,6 +1956,64 @@ class _LateStatsPlayerRepository implements PlayerRepository {
   @override
   Stream<PlayerPlaybackStats> watchPlaybackStats({required String sessionId}) {
     return _controller.stream;
+  }
+}
+
+PlayerPlaybackStats _playbackStats({required int downloadRate}) {
+  return PlayerPlaybackStats(
+    downloadRateBytesPerSecond: downloadRate,
+    appMemoryBytes: null,
+    activePeers: 4,
+    bufferSeconds: 10,
+    bufferPieces: 12,
+    readaheadWindow: 30,
+  );
+}
+
+/// Hands out one stats stream per watch, as the data source does per stream
+/// of a session.
+class _SwitchingStatsPlayerRepository implements PlayerRepository {
+  final watchedSessionIds = <String>[];
+  final _streams = <StreamController<PlayerPlaybackStats>>[];
+
+  void emit(int watch, PlayerPlaybackStats stats) {
+    _streams[watch].add(stats);
+  }
+
+  Future<void> close() async {
+    for (final stream in _streams) {
+      await stream.close();
+    }
+  }
+
+  @override
+  Stream<PlayerPlaybackStats> watchPlaybackStats({required String sessionId}) {
+    watchedSessionIds.add(sessionId);
+    final controller = StreamController<PlayerPlaybackStats>();
+    _streams.add(controller);
+    return controller.stream;
+  }
+
+  @override
+  Future<void> stopPlayback({required String sessionId}) async {}
+
+  @override
+  Future<void> disposePlayback({required String sessionId}) async {}
+
+  @override
+  Future<PreparedPlayerSource> prepareSource({
+    required String magnet,
+    Future<void>? cancelled,
+  }) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Stream<PlayerLaunchUpdate> startPlayback({
+    required String sessionId,
+    required int fileIndex,
+  }) {
+    throw UnimplementedError();
   }
 }
 

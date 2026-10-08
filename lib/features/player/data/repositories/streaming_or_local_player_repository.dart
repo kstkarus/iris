@@ -18,8 +18,11 @@ class StreamingOrLocalPlayerRepository implements PlayerRepository {
   final PlayerRepository _local;
 
   @override
-  Future<PreparedPlayerSource> prepareSource({required String magnet}) {
-    return _streaming.prepareSource(magnet: magnet);
+  Future<PreparedPlayerSource> prepareSource({
+    required String magnet,
+    Future<void>? cancelled,
+  }) {
+    return _streaming.prepareSource(magnet: magnet, cancelled: cancelled);
   }
 
   @override

@@ -746,6 +746,9 @@ class AppLocalizationsRu extends AppLocalizations {
   }
 
   @override
+  String get playerSeekBarLabel => 'Позиция воспроизведения';
+
+  @override
   String get animeDetailsChooseSourceButton => 'Выбрать источник';
 
   @override

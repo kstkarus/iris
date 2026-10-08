@@ -3,10 +3,7 @@ import 'dart:developer' as developer;
 
 import 'package:libtorrent_flutter/libtorrent_flutter.dart';
 
-import 'package:iris/features/player/data/adapters/stream_startup_monitor.dart';
-import 'package:iris/features/player/data/exceptions/startup_buffer_unavailable_exception.dart';
 import 'package:iris/features/player/data/exceptions/torrent_metadata_unavailable_exception.dart';
-import 'package:iris/features/player/data/models/playback_launch_progress_model.dart';
 import 'package:iris/features/player/data/models/playback_runtime_stats_model.dart';
 import 'package:iris/features/player/data/models/playback_stream_descriptor.dart';
 import 'package:iris/features/player/data/models/torrent_file_descriptor.dart';
@@ -31,11 +28,6 @@ abstract interface class LibtorrentEngineAdapter {
     int torrentId, {
     required int fileIndex,
     int maxCacheBytes = torrentStreamCacheBytes,
-  });
-
-  Stream<PlaybackLaunchProgressModel> waitForStreamReady(
-    int streamId, {
-    required bool Function() isCancelled,
   });
 
   PlaybackRuntimeStatsModel? getPlaybackRuntimeStats(int streamId);
@@ -181,82 +173,6 @@ class LibtorrentEngineAdapterImpl implements LibtorrentEngineAdapter {
       name: 'iris.player.libtorrent',
     );
     return PlaybackStreamDescriptor(streamId: stream.id, url: stream.url);
-  }
-
-  @override
-  Stream<PlaybackLaunchProgressModel> waitForStreamReady(
-    int streamId, {
-    required bool Function() isCancelled,
-  }) async* {
-    developer.log(
-      'Waiting for torrent stream readiness. streamId=$streamId',
-      name: 'iris.player.libtorrent',
-    );
-    final monitor = StreamStartupMonitor();
-    final stopwatch = Stopwatch()..start();
-    PlaybackLaunchProgressModel? lastReportedProgress;
-
-    while (true) {
-      if (isCancelled()) {
-        developer.log(
-          'Stopping torrent stream readiness wait because launch was cancelled. streamId=$streamId',
-          name: 'iris.player.libtorrent',
-        );
-        return;
-      }
-
-      final current = _engineClient.getStreamInfo(streamId);
-      if (current != null) {
-        developer.log(
-          'Observed stream status. streamId=$streamId state=${current.streamState} bufferPct=${current.bufferPct} bufferSeconds=${current.bufferSeconds} activePeers=${current.activePeers} downloadRate=${current.downloadRate} readHead=${current.readHead}',
-          name: 'iris.player.libtorrent',
-        );
-        if (current.streamState == StreamState.error) {
-          throw StateError(
-            'Stream entered error state while waiting for readiness.',
-          );
-        }
-
-        final decision = monitor.evaluate(
-          bufferProgress: current.bufferPct,
-          bufferSeconds: current.bufferSeconds,
-          downloadRateBytesPerSecond: current.downloadRate,
-          activePeers: current.activePeers,
-          isReady: current.isReady,
-          elapsed: stopwatch.elapsed,
-        );
-
-        if (decision.progress != lastReportedProgress) {
-          lastReportedProgress = decision.progress;
-          yield decision.progress;
-        }
-
-        if (decision.stageChanged) {
-          developer.log(
-            'Torrent stream wait stage changed. streamId=$streamId from=${decision.previousStage} to=${decision.progress.stage} bufferPct=${decision.progress.bufferProgress} downloadRate=${decision.progress.downloadRateBytesPerSecond}',
-            name: 'iris.player.libtorrent',
-          );
-        }
-
-        if (decision.type == StreamStartupDecisionType.ready) {
-          developer.log(
-            'Torrent stream became ready for local probing. streamId=$streamId isReady=${current.isReady} bufferPct=${current.bufferPct} bufferSeconds=${current.bufferSeconds}',
-            name: 'iris.player.libtorrent',
-          );
-          return;
-        }
-
-        if (decision.type == StreamStartupDecisionType.failed) {
-          developer.log(
-            'Torrent stream could not gather enough startup buffer. streamId=$streamId bufferPct=${decision.progress.bufferProgress} downloadRate=${decision.progress.downloadRateBytesPerSecond}',
-            name: 'iris.player.libtorrent',
-          );
-          throw StartupBufferUnavailableException(progress: decision.progress);
-        }
-      }
-
-      await Future<void>.delayed(const Duration(seconds: 1));
-    }
   }
 
   @override

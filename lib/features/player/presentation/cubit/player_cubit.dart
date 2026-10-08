@@ -81,6 +81,8 @@ class PlayerCubit extends Cubit<PlayerState> {
   /// Remembered audio/subtitle choice for this release.
   PlayerTrackPreferences? get trackPreferences => _trackPreferences;
 
+  /// The prepared session of this page. A failed launch keeps it, so Retry
+  /// starts the same torrent again; [close] disposes it.
   String? _ownedSessionId;
   StreamSubscription<PlayerLaunchUpdate>? _launchSubscription;
   Completer<void>? _launchCompleter;
@@ -150,7 +152,6 @@ class PlayerCubit extends Cubit<PlayerState> {
         error: error,
         stackTrace: stackTrace,
       );
-      await _disposeOwnedSession();
       _emitIfOpen(const PlayerFailure(PlayerLaunchFailure.unableToStart));
       await _finishLaunchAttempt(attemptId);
     }
@@ -476,10 +477,6 @@ class PlayerCubit extends Cubit<PlayerState> {
           'Playback launch completed with domain failure. failure=$failure',
           name: 'iris.player.cubit',
         );
-        await _disposeOwnedSession();
-        if (!_isCurrentAttempt(attemptId)) {
-          return;
-        }
         _emitIfOpen(PlayerFailure(failure));
         await _finishLaunchAttempt(attemptId, cancelSubscription: true);
     }
@@ -490,10 +487,7 @@ class PlayerCubit extends Cubit<PlayerState> {
       return;
     }
     if (!_receivedTerminalLaunchUpdate) {
-      await _disposeOwnedSession();
-      if (_isCurrentAttempt(attemptId)) {
-        _emitIfOpen(const PlayerFailure(PlayerLaunchFailure.unableToStart));
-      }
+      _emitIfOpen(const PlayerFailure(PlayerLaunchFailure.unableToStart));
     }
     await _finishLaunchAttempt(attemptId);
   }
@@ -513,10 +507,7 @@ class PlayerCubit extends Cubit<PlayerState> {
       error: error,
       stackTrace: stackTrace,
     );
-    await _disposeOwnedSession();
-    if (_isCurrentAttempt(attemptId)) {
-      _emitIfOpen(const PlayerFailure(PlayerLaunchFailure.unableToStart));
-    }
+    _emitIfOpen(const PlayerFailure(PlayerLaunchFailure.unableToStart));
     await _finishLaunchAttempt(attemptId, cancelSubscription: true);
   }
 

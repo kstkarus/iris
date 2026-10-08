@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/foundation.dart';
@@ -42,6 +43,7 @@ class PlayerImmersiveControls extends StatefulWidget {
     required this.video,
     required this.statsPanel,
     this.startupLabel,
+    this.failure,
     required this.fullscreen,
     required this.onToggleFullscreen,
     required this.onShowTracks,
@@ -58,12 +60,17 @@ class PlayerImmersiveControls extends StatefulWidget {
   final MediaKitPlayerEngine engine;
   final PlayerChrome chrome;
 
-  /// The video, or the failure in its place.
+  /// The video, drawn on black.
   final Widget video;
 
   /// While the stream starts: what it waits for. A spinner takes the play
   /// button's place meanwhile.
   final String? startupLabel;
+
+  /// Shown above the controls when playback failed, in place of the tap layer
+  /// and the spinner. The centre buttons go too: they would drive a player
+  /// that failed.
+  final Widget? failure;
   final Widget statsPanel;
   final ValueListenable<bool> fullscreen;
   final VoidCallback onToggleFullscreen;
@@ -333,6 +340,7 @@ class _PlayerImmersiveControlsState extends State<PlayerImmersiveControls> {
       return KeyEventResult.ignored;
     } else if (key == LogicalKeyboardKey.space ||
         key == LogicalKeyboardKey.keyK) {
+      if (widget.failure != null) return KeyEventResult.ignored;
       _togglePlay();
       _showControls();
     } else if (key == LogicalKeyboardKey.keyF) {
@@ -389,17 +397,19 @@ class _PlayerImmersiveControlsState extends State<PlayerImmersiveControls> {
                   child: const ColoredBox(color: Color(0x59000000)),
                 ),
               ),
-              GestureDetector(
-                key: const Key('player_immersive_tap_layer'),
-                behavior: HitTestBehavior.opaque,
-                onTap: _togglePlay,
-                onDoubleTap: widget.onToggleFullscreen,
-              ),
-              _BufferingSpinner(
-                engine: widget.engine,
-                color: accent,
-                startupLabel: widget.startupLabel,
-              ),
+              if (widget.failure == null) ...[
+                GestureDetector(
+                  key: const Key('player_immersive_tap_layer'),
+                  behavior: HitTestBehavior.opaque,
+                  onTap: _togglePlay,
+                  onDoubleTap: widget.onToggleFullscreen,
+                ),
+                _BufferingSpinner(
+                  engine: widget.engine,
+                  color: accent,
+                  startupLabel: widget.startupLabel,
+                ),
+              ],
               IgnorePointer(
                 ignoring: !visible,
                 child: AnimatedOpacity(
@@ -411,6 +421,9 @@ class _PlayerImmersiveControlsState extends State<PlayerImmersiveControls> {
                       : _buildControls(context, player, accent),
                 ),
               ),
+              // Above the controls: the message and its retry take the taps
+              // where they are, and the controls keep the rest of the screen.
+              ?widget.failure,
               _buildOffers(context),
               if (widget.chrome.notice case final notice?)
                 Positioned(
@@ -459,16 +472,18 @@ class _PlayerImmersiveControlsState extends State<PlayerImmersiveControls> {
             ),
           ),
         ),
-        Center(
-          child: _CenterButtons(
-            player: player,
-            engine: widget.engine,
-            starting: widget.startupLabel != null,
-            onPlayPause: _togglePlay,
-            onBackward: () => _seekBy(-PlayerImmersiveControls.seekStep),
-            onForward: () => _seekBy(PlayerImmersiveControls.seekStep),
+        // A failed player has nothing to play or seek; the failure stands here.
+        if (widget.failure == null)
+          Center(
+            child: _CenterButtons(
+              player: player,
+              engine: widget.engine,
+              starting: widget.startupLabel != null,
+              onPlayPause: _togglePlay,
+              onBackward: () => _seekBy(-PlayerImmersiveControls.seekStep),
+              onForward: () => _seekBy(PlayerImmersiveControls.seekStep),
+            ),
           ),
-        ),
         Align(
           alignment: Alignment.bottomCenter,
           child: MouseRegion(
@@ -566,44 +581,59 @@ class _PlayerImmersiveControlsState extends State<PlayerImmersiveControls> {
 class _Scrims extends StatelessWidget {
   const _Scrims();
 
+  static const _topScrimHeight = 160.0;
+  static const _bottomScrimHeight = 320.0;
+
   @override
   Widget build(BuildContext context) {
-    return const IgnorePointer(
-      child: Column(
-        children: [
-          SizedBox(
-            height: 160,
-            width: double.infinity,
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [Color(0xB3000000), Color(0x00000000)],
+    return IgnorePointer(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          // Both keep their full sizes while the window fits them, and shrink
+          // together below their sum.
+          final scale = math.min(
+            1.0,
+            constraints.maxHeight / (_topScrimHeight + _bottomScrimHeight),
+          );
+          return Column(
+            children: [
+              SizedBox(
+                key: const Key('player_scrim_top'),
+                height: _topScrimHeight * scale,
+                width: double.infinity,
+                child: const DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [Color(0xB3000000), Color(0x00000000)],
+                    ),
+                  ),
                 ),
               ),
-            ),
-          ),
-          Spacer(),
-          SizedBox(
-            height: 320,
-            width: double.infinity,
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Color(0x00000000),
-                    Color(0x99000000),
-                    Color(0xE6000000),
-                  ],
-                  stops: [0, 0.55, 1],
+              const Spacer(),
+              SizedBox(
+                key: const Key('player_scrim_bottom'),
+                height: _bottomScrimHeight * scale,
+                width: double.infinity,
+                child: const DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Color(0x00000000),
+                        Color(0x99000000),
+                        Color(0xE6000000),
+                      ],
+                      stops: [0, 0.55, 1],
+                    ),
+                  ),
                 ),
               ),
-            ),
-          ),
-        ],
+            ],
+          );
+        },
       ),
     );
   }

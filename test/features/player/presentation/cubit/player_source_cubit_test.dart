@@ -215,6 +215,44 @@ void main() {
       expect(repository.disposedSessionIds, isEmpty);
     },
   );
+
+  test('closing during a preparation cancels it', () async {
+    final repository = _DeferredSourceRepository();
+    final cubit = PlayerSourceCubit(
+      magnet: 'magnet:?xt=urn:btih:test-source',
+      repository: repository,
+    );
+
+    unawaited(cubit.loadSource());
+    var isCancelled = false;
+    unawaited(repository.cancellations.single!.then((_) => isCancelled = true));
+
+    await cubit.close();
+    await Future<void>.delayed(Duration.zero);
+
+    expect(isCancelled, isTrue);
+  });
+
+  test('loading again cancels the preparation it replaces', () async {
+    final repository = _DeferredSourceRepository();
+    final cubit = PlayerSourceCubit(
+      magnet: 'magnet:?xt=urn:btih:test-source',
+      repository: repository,
+    );
+
+    unawaited(cubit.loadSource());
+    var firstCancelled = false;
+    unawaited(
+      repository.cancellations.single!.then((_) => firstCancelled = true),
+    );
+
+    unawaited(cubit.loadSource());
+    await Future<void>.delayed(Duration.zero);
+
+    expect(firstCancelled, isTrue);
+    expect(repository.cancellations, hasLength(2));
+    await cubit.close();
+  });
 }
 
 class _PreparedSourceRepository implements PlayerRepository {
@@ -232,7 +270,10 @@ class _PreparedSourceRepository implements PlayerRepository {
   }
 
   @override
-  Future<PreparedPlayerSource> prepareSource({required String magnet}) async {
+  Future<PreparedPlayerSource> prepareSource({
+    required String magnet,
+    Future<void>? cancelled,
+  }) async {
     return preparedSource;
   }
 
@@ -258,7 +299,10 @@ class _UnsupportedSourceRepository implements PlayerRepository {
   Future<void> disposePlayback({required String sessionId}) async {}
 
   @override
-  Future<PreparedPlayerSource> prepareSource({required String magnet}) async {
+  Future<PreparedPlayerSource> prepareSource({
+    required String magnet,
+    Future<void>? cancelled,
+  }) async {
     throw const NoPlayableVideoException();
   }
 
@@ -283,6 +327,7 @@ class _DeferredSourceRepository implements PlayerRepository {
   final Completer<PreparedPlayerSource> _prepareCompleter =
       Completer<PreparedPlayerSource>();
   final List<String> disposedSessionIds = [];
+  final List<Future<void>?> cancellations = [];
 
   void completeWith(PreparedPlayerSource preparedSource) {
     if (!_prepareCompleter.isCompleted) {
@@ -302,7 +347,11 @@ class _DeferredSourceRepository implements PlayerRepository {
   }
 
   @override
-  Future<PreparedPlayerSource> prepareSource({required String magnet}) {
+  Future<PreparedPlayerSource> prepareSource({
+    required String magnet,
+    Future<void>? cancelled,
+  }) {
+    cancellations.add(cancelled);
     return _prepareCompleter.future;
   }
 

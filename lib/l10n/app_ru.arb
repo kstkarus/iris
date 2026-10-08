@@ -296,6 +296,7 @@
   "byteUnitMB": "МБ",
   "byteUnitGB": "ГБ",
   "playerTimePosition": "{position} из {duration}",
+  "playerSeekBarLabel": "Позиция воспроизведения",
   "animeDetailsChooseSourceButton": "Выбрать источник",
   "animeEpisodeCount": "{value} {count, plural, one{серия} few{серии} many{серий} other{серии}}",
   "watchSourceSeeders": "{value} {count, plural, one{сид} few{сида} many{сидов} other{сида}}",

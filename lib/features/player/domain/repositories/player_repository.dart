@@ -3,7 +3,12 @@ import 'package:iris/features/player/domain/entities/player_launch_update.dart';
 import 'package:iris/features/player/domain/entities/prepared_player_source.dart';
 
 abstract interface class PlayerRepository {
-  Future<PreparedPlayerSource> prepareSource({required String magnet});
+  /// [cancelled] completes when the caller no longer wants the source; the
+  /// preparation then stops and releases what it holds.
+  Future<PreparedPlayerSource> prepareSource({
+    required String magnet,
+    Future<void>? cancelled,
+  });
 
   Stream<PlayerLaunchUpdate> startPlayback({
     required String sessionId,

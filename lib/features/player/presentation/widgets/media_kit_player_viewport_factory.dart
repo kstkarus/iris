@@ -446,8 +446,10 @@ class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
     final engine = widget.engine;
     final startupState = engine.startupState;
     final Widget video;
+    final Widget? failure;
     if (startupState.phase == PlayerEnginePhase.failed) {
-      video = _buildFailure(l10n);
+      video = const SizedBox.expand();
+      failure = _buildFailure(l10n);
     } else {
       video = widget.videoSurfaceBuilder(
         controller: _controller,
@@ -456,6 +458,7 @@ class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
           subtitleLift: _subtitleLift,
         ),
       );
+      failure = null;
     }
     final String? startupLabel;
     if (startupState.phase == PlayerEnginePhase.failed) {
@@ -477,6 +480,7 @@ class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
       chrome: chrome,
       next: widget.next,
       video: video,
+      failure: failure,
       startupLabel: startupLabel,
       statsPanel: _buildStatsPanel(immersive: true),
       fullscreen: _windowFullscreen,

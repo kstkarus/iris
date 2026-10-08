@@ -1376,6 +1376,12 @@ abstract class AppLocalizations {
   /// **'{position} of {duration}'**
   String playerTimePosition(String position, String duration);
 
+  /// No description provided for @playerSeekBarLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Playback position'**
+  String get playerSeekBarLabel;
+
   /// No description provided for @animeDetailsChooseSourceButton.
   ///
   /// In en, this message translates to:

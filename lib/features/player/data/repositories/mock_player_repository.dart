@@ -15,7 +15,10 @@ class MockPlayerRepository implements PlayerRepository {
   Future<void> disposePlayback({required String sessionId}) async {}
 
   @override
-  Future<PreparedPlayerSource> prepareSource({required String magnet}) async {
+  Future<PreparedPlayerSource> prepareSource({
+    required String magnet,
+    Future<void>? cancelled,
+  }) async {
     return const PreparedPlayerSource(
       sessionId: 'mock-session',
       files: [

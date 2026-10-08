@@ -72,7 +72,7 @@ void main() {
 
     await cubit.loadPlayback();
 
-    expect(repository.disposedSessionIds, ['42']);
+    expect(repository.disposedSessionIds, isEmpty);
   });
 
   test(
@@ -102,6 +102,72 @@ void main() {
 
       await cubit.loadPlayback();
 
+      expect(repository.disposedSessionIds, isEmpty);
+    },
+  );
+
+  test(
+    'keeps the session after a failed launch, so retry starts it again',
+    () async {
+      final repository = _ScriptedPlayerRepository([
+        Stream.value(
+          const PlayerLaunchFailureUpdate(PlayerLaunchFailure.unableToStart),
+        ),
+        Stream.value(const PlayerLaunchReadyUpdate(_playerSession)),
+      ]);
+      final engine = FakePlayerEngine();
+      final cubit = PlayerCubit(
+        source: _source,
+        repository: repository,
+        engine: engine,
+      );
+
+      await cubit.loadPlayback();
+
+      expect(
+        cubit.state,
+        const PlayerFailure(PlayerLaunchFailure.unableToStart),
+      );
+      expect(repository.disposedSessionIds, isEmpty);
+
+      await cubit.loadPlayback();
+
+      expect(repository.startedSessionIds, ['42', '42']);
+      expect(cubit.state, const PlayerReady(_playerSession));
+      expect(engine.calls, ['open http://127.0.0.1:8080/stream/2']);
+      expect(repository.disposedSessionIds, isEmpty);
+
+      await cubit.close();
+      expect(repository.disposedSessionIds, ['42']);
+    },
+  );
+
+  test(
+    'keeps the session when the launch stream fails, so retry starts it again',
+    () async {
+      final repository = _ScriptedPlayerRepository([
+        Stream.error(StateError('stream broke')),
+        Stream.value(const PlayerLaunchReadyUpdate(_playerSession)),
+      ]);
+      final cubit = PlayerCubit(
+        source: _source,
+        repository: repository,
+        engine: FakePlayerEngine(),
+      );
+
+      await cubit.loadPlayback();
+
+      expect(
+        cubit.state,
+        const PlayerFailure(PlayerLaunchFailure.unableToStart),
+      );
+      expect(repository.disposedSessionIds, isEmpty);
+
+      await cubit.loadPlayback();
+
+      expect(repository.startedSessionIds, ['42', '42']);
+      expect(cubit.state, const PlayerReady(_playerSession));
+      await cubit.close();
       expect(repository.disposedSessionIds, ['42']);
     },
   );
@@ -257,7 +323,10 @@ class _SuccessPlayerRepository implements PlayerRepository {
   }
 
   @override
-  Future<PreparedPlayerSource> prepareSource({required String magnet}) {
+  Future<PreparedPlayerSource> prepareSource({
+    required String magnet,
+    Future<void>? cancelled,
+  }) {
     throw UnimplementedError();
   }
 
@@ -296,7 +365,10 @@ class _FailingPlayerRepository implements PlayerRepository {
   }
 
   @override
-  Future<PreparedPlayerSource> prepareSource({required String magnet}) {
+  Future<PreparedPlayerSource> prepareSource({
+    required String magnet,
+    Future<void>? cancelled,
+  }) {
     throw UnimplementedError();
   }
 
@@ -326,7 +398,10 @@ class _StartupBufferFailingPlayerRepository implements PlayerRepository {
   }
 
   @override
-  Future<PreparedPlayerSource> prepareSource({required String magnet}) {
+  Future<PreparedPlayerSource> prepareSource({
+    required String magnet,
+    Future<void>? cancelled,
+  }) {
     throw UnimplementedError();
   }
 
@@ -373,7 +448,10 @@ class _ControlledPlayerRepository implements PlayerRepository {
   }
 
   @override
-  Future<PreparedPlayerSource> prepareSource({required String magnet}) {
+  Future<PreparedPlayerSource> prepareSource({
+    required String magnet,
+    Future<void>? cancelled,
+  }) {
     throw UnimplementedError();
   }
 
@@ -398,6 +476,50 @@ class _ControlledPlayerRepository implements PlayerRepository {
     return const Stream.empty();
   }
 }
+
+/// Answers each start with the next scripted stream.
+class _ScriptedPlayerRepository implements PlayerRepository {
+  _ScriptedPlayerRepository(this._launches);
+
+  final List<Stream<PlayerLaunchUpdate>> _launches;
+  final List<String> startedSessionIds = [];
+  final List<String> disposedSessionIds = [];
+
+  @override
+  Future<void> stopPlayback({required String sessionId}) async {}
+
+  @override
+  Future<void> disposePlayback({required String sessionId}) async {
+    disposedSessionIds.add(sessionId);
+  }
+
+  @override
+  Future<PreparedPlayerSource> prepareSource({
+    required String magnet,
+    Future<void>? cancelled,
+  }) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Stream<PlayerLaunchUpdate> startPlayback({
+    required String sessionId,
+    required int fileIndex,
+  }) {
+    startedSessionIds.add(sessionId);
+    return _launches.removeAt(0);
+  }
+
+  @override
+  Stream<PlayerPlaybackStats> watchPlaybackStats({required String sessionId}) {
+    return const Stream.empty();
+  }
+}
+
+const _playerSession = PlayerSession(
+  sessionId: '42',
+  streamUrl: 'http://127.0.0.1:8080/stream/2',
+);
 
 const _source = AnimePlayerSource(
   animeId: '5114',

@@ -15,6 +15,7 @@ import 'package:iris/features/player/domain/player_buffer_policy.dart';
 import 'package:iris/features/player/domain/entities/player_session.dart';
 import 'package:iris/features/player/domain/entities/prepared_player_source.dart';
 import 'package:iris/features/player/domain/repositories/player_repository.dart';
+import 'package:iris/shared/torrent/video_file_extensions.dart';
 
 class TorrentPlayerRepository implements PlayerRepository {
   const TorrentPlayerRepository({required this.dataSource});
@@ -52,8 +53,14 @@ class TorrentPlayerRepository implements PlayerRepository {
   }
 
   @override
-  Future<PreparedPlayerSource> prepareSource({required String magnet}) async {
-    final preparedSource = await dataSource.prepareSource(magnet: magnet);
+  Future<PreparedPlayerSource> prepareSource({
+    required String magnet,
+    Future<void>? cancelled,
+  }) async {
+    final preparedSource = await dataSource.prepareSource(
+      magnet: magnet,
+      cancelled: cancelled,
+    );
     final files =
         preparedSource.files
             .where(_isSupportedVideoFile)
@@ -152,20 +159,8 @@ PlayerLaunchFailure _mapLaunchFailure(PlaybackLaunchFailureModel failure) {
   };
 }
 
-const _supportedVideoExtensions = {
-  'mkv',
-  'mp4',
-  'webm',
-  'avi',
-  'mov',
-  'm4v',
-  'ts',
-  'm2ts',
-};
-
 bool _isSupportedVideoFile(TorrentFileDescriptor file) {
-  return file.isStreamable &&
-      _supportedVideoExtensions.contains(_extractExtension(file.name));
+  return file.isStreamable && isVideoExtension(_extractExtension(file.name));
 }
 
 String _extractExtension(String name) {

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:developer' as developer;
 
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -21,9 +22,11 @@ class PlayerSourceCubit extends Cubit<PlayerSourceState> {
   bool _sessionOwnershipTransferred = false;
   int _loadAttemptId = 0;
   bool _isClosing = false;
+  Completer<void>? _preparationCancel;
 
   Future<void> loadSource() async {
     final attemptId = ++_loadAttemptId;
+    _cancelPreparation();
     developer.log(
       'Starting source preparation flow.',
       name: 'iris.player.source_cubit',
@@ -45,8 +48,13 @@ class PlayerSourceCubit extends Cubit<PlayerSourceState> {
       return;
     }
 
+    final preparationCancel = Completer<void>();
+    _preparationCancel = preparationCancel;
     try {
-      final preparedSource = await _repository.prepareSource(magnet: magnet);
+      final preparedSource = await _repository.prepareSource(
+        magnet: magnet,
+        cancelled: preparationCancel.future,
+      );
       if (!_isAttemptCurrent(attemptId)) {
         developer.log(
           'Prepared source arrived after source cubit became stale. Disposing sessionId=${preparedSource.sessionId}',
@@ -104,6 +112,7 @@ class PlayerSourceCubit extends Cubit<PlayerSourceState> {
   Future<void> close() async {
     _isClosing = true;
     _loadAttemptId++;
+    _cancelPreparation();
     final preparedSource = _preparedSource;
     if (!_sessionOwnershipTransferred && preparedSource != null) {
       developer.log(
@@ -118,5 +127,11 @@ class PlayerSourceCubit extends Cubit<PlayerSourceState> {
 
   bool _isAttemptCurrent(int attemptId) {
     return !_isClosing && !isClosed && attemptId == _loadAttemptId;
+  }
+
+  /// Tells a running preparation that nobody waits for its result any more.
+  void _cancelPreparation() {
+    _preparationCancel?.complete();
+    _preparationCancel = null;
   }
 }

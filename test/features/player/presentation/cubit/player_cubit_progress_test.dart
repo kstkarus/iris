@@ -427,7 +427,10 @@ class _RecordingPlayerRepository implements PlayerRepository {
   final List<String> events = [];
 
   @override
-  Future<PreparedPlayerSource> prepareSource({required String magnet}) {
+  Future<PreparedPlayerSource> prepareSource({
+    required String magnet,
+    Future<void>? cancelled,
+  }) {
     throw UnimplementedError();
   }
 
