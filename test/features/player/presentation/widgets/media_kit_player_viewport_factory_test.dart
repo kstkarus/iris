@@ -1221,6 +1221,60 @@ void main() {
       expect(find.text('Episode list'), findsNothing);
     });
 
+    testWidgets('keep focus and screen readers inside the open episodes', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(1280, 720);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final semantics = tester.ensureSemantics();
+
+      await tester.pumpWidget(
+        _wrapViewport(
+          chrome: chrome(
+            episodes: (context, close) => Column(
+              children: [
+                TextButton(onPressed: () {}, child: const Text('Episode 1')),
+                TextButton(onPressed: () {}, child: const Text('Episode 2')),
+              ],
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      // What a screen reader can move through.
+      Iterable<String> readable() => tester.semantics
+          .simulatedAccessibilityTraversal()
+          .map((node) => node.label);
+      expect(readable(), contains('Audio & subtitles'));
+
+      await tester.tap(find.byKey(const Key('player_episodes_button')));
+      await tester.pumpAndSettle();
+      final drawer = find.byKey(const Key('player_episodes_drawer'));
+      bool focusInDrawer() {
+        final focused = FocusManager.instance.primaryFocus?.context;
+        return focused != null &&
+            find
+                .ancestor(of: find.byWidget(focused.widget), matching: drawer)
+                .evaluate()
+                .isNotEmpty;
+      }
+
+      expect(readable(), isNot(contains('Audio & subtitles')));
+      expect(readable(), contains('Episode 1'));
+      for (var press = 0; press < 6; press++) {
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pump();
+        expect(focusInDrawer(), isTrue, reason: 'Tab press ${press + 1}');
+      }
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      expect(drawer, findsNothing);
+      expect(readable(), contains('Audio & subtitles'));
+      semantics.dispose();
+    });
+
     testWidgets('offer to skip the opening above the timeline', (tester) async {
       final platformPlayer = _FakePlatformPlayer(
         configuration: const PlayerConfiguration(),

@@ -7,7 +7,8 @@ import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/widgets/pixel_icon.dart';
 
 /// The episodes over the right side of the immersive player; a click beside
-/// it closes it.
+/// it closes it. While open it is modal: focus moves into it, Tab stays in
+/// it, and screen readers see only it.
 class PlayerEpisodesDrawer extends StatelessWidget {
   const PlayerEpisodesDrawer({
     required this.onClose,
@@ -33,7 +34,7 @@ class PlayerEpisodesDrawer extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final width = (constraints.maxWidth * 0.32).clamp(_minWidth, _maxWidth);
-        return Stack(
+        final drawer = Stack(
           fit: StackFit.expand,
           children: [
             GestureDetector(
@@ -68,6 +69,11 @@ class PlayerEpisodesDrawer extends StatelessWidget {
               ),
             ),
           ],
+        );
+        // Keys the drawer leaves alone, such as Escape, still reach the
+        // player's shortcuts above this scope.
+        return BlockSemantics(
+          child: FocusScope(autofocus: true, child: drawer),
         );
       },
     );
