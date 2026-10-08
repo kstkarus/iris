@@ -14,6 +14,7 @@ import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/widgets/app_skeleton.dart';
 import 'package:iris/shared/widgets/dither_transition.dart';
 import 'package:iris/shared/widgets/dithered_image.dart';
+import 'package:iris/shared/widgets/spec_table.dart';
 
 import '../../../../helpers/test_window.dart';
 
@@ -53,6 +54,36 @@ void main() {
     final button = find.widgetWithText(FilledButton, 'Choose source');
     expect(tester.widget<FilledButton>(button).onPressed, isNotNull);
     expect(_skeletonAround(tester, _standIn).enabled, isTrue);
+  });
+
+  testWidgets('a long title sets smaller to keep the facts beside the cover', (
+    tester,
+  ) async {
+    setTestWindowSize(tester, const Size(1536, 800));
+    final cubit = AnimeDetailsCubit(
+      animeId: '5114',
+      repository: _PendingAnimeDetailsRepository(),
+    );
+    final preview = AnimeDetailsPreview(
+      id: _preview.id,
+      name: 'Re:Zero kara Hajimeru Isekai Seikatsu 4th Season',
+      russian: _preview.russian,
+      kind: _preview.kind,
+      score: _preview.score,
+      status: _preview.status,
+      episodes: _preview.episodes,
+      episodesAired: _preview.episodesAired,
+      airedOn: _preview.airedOn,
+      posterUrl: _preview.posterUrl,
+    );
+
+    await tester.pumpWidget(_app(cubit..loadAnime(), preview: preview));
+    await tester.pump();
+
+    final poster = tester.getRect(find.byType(DitheredImage).first);
+    final facts = tester.getRect(find.byType(SpecTable));
+    expect(facts.bottom, lessThanOrEqualTo(poster.bottom));
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('the description develops out of the noise', (tester) async {

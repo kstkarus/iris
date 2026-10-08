@@ -313,7 +313,7 @@ class _SourcesTable extends StatelessWidget {
               tabular: tabular,
               watched: watchedKeys.contains(torrentKeyFromMagnet(item.magnet)),
               animeId: cubit.animeId,
-              animeEnglishTitle: cubit.animeEnglishTitle,
+              animeTitle: cubit.animeTitle,
             ),
           ],
         );
@@ -365,7 +365,7 @@ class _WatchSourceRow extends StatelessWidget {
     required this.tabular,
     required this.watched,
     required this.animeId,
-    required this.animeEnglishTitle,
+    required this.animeTitle,
   });
 
   final WatchSourceItem item;
@@ -374,7 +374,7 @@ class _WatchSourceRow extends StatelessWidget {
   /// The user streamed this release before.
   final bool watched;
   final String animeId;
-  final String animeEnglishTitle;
+  final String animeTitle;
 
   @override
   Widget build(BuildContext context) {
@@ -466,7 +466,7 @@ class _WatchSourceRow extends StatelessWidget {
       'torrent-stream-files',
       extra: AnimePlayerSourceArgs(
         animeId: animeId,
-        animeTitle: animeEnglishTitle,
+        animeTitle: animeTitle,
         sourceTitle: item.title,
         magnet: item.magnet,
       ),
@@ -478,7 +478,7 @@ class _WatchSourceRow extends StatelessWidget {
       'torrent-download-files',
       extra: DownloadSelectionArgs(
         animeId: animeId,
-        animeTitle: animeEnglishTitle,
+        animeTitle: animeTitle,
         sourceTitle: item.title,
         magnet: item.magnet,
       ),

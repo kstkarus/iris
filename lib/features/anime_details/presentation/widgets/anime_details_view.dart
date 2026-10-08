@@ -4,10 +4,13 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 
+import 'package:iris/features/anime_details/domain/entities/related_anime.dart';
 import 'package:iris/features/anime_details/presentation/cubit/anime_details_cubit.dart';
 import 'package:iris/features/anime_details/presentation/cubit/anime_details_state.dart';
 import 'package:iris/features/anime_details/presentation/models/anime_details_preview.dart';
+import 'package:iris/features/anime_details/presentation/widgets/headline_column.dart';
 import 'package:iris/features/anime_details/presentation/widgets/recently_watched_section.dart';
+import 'package:iris/features/anime_details/presentation/widgets/related_anime_section.dart';
 import 'package:iris/features/watch_sources/presentation/models/anime_watch_sources_args.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/utils/anime_metadata_formatter.dart';
@@ -41,6 +44,7 @@ class AnimeDetailsView extends StatelessWidget {
           AnimeDetailsSuccess(:final details) => _Content(
             head: AnimeDetailsPreview.fromDetails(details),
             description: details.description,
+            related: details.related,
           ),
           AnimeDetailsFailure() => MessageView(
             message: l10n.animeDetailsLoadError,
@@ -76,10 +80,18 @@ final _standInDescription = List.filled(
 /// The page from what is known so far: a null [head] or [description] is
 /// still loading.
 class _Content extends StatelessWidget {
-  const _Content({required this.head, this.description});
+  const _Content({
+    required this.head,
+    this.description,
+    this.related = const [],
+  });
 
   final AnimeDetailsPreview? head;
   final String? description;
+
+  /// Empty while loading: the list appears with the details rather than
+  /// as noise of a guessed length.
+  final List<RelatedAnime> related;
 
   @override
   Widget build(BuildContext context) {
@@ -95,10 +107,12 @@ class _Content extends StatelessWidget {
             WindowSizeClass.compact => _CompactLayout(
               head: head,
               description: description,
+              related: related,
             ),
             _ => _TwoPaneLayout(
               head: head,
               description: description,
+              related: related,
               posterWidth: sizeClass.isAtLeast(WindowSizeClass.large)
                   ? 320
                   : sizeClass == WindowSizeClass.expanded
@@ -141,10 +155,15 @@ class _Halftone extends StatelessWidget {
 /// Phones: a band of the cover, the title under it as large as it fits,
 /// the action right after it, then the facts and the sections.
 class _CompactLayout extends StatelessWidget {
-  const _CompactLayout({required this.head, required this.description});
+  const _CompactLayout({
+    required this.head,
+    required this.description,
+    required this.related,
+  });
 
   final AnimeDetailsPreview head;
   final String? description;
+  final List<RelatedAnime> related;
 
   @override
   Widget build(BuildContext context) {
@@ -167,6 +186,7 @@ class _CompactLayout extends StatelessWidget {
           const Skeleton.keep(child: BlockRule(height: 10)),
           RecentlyWatchedSection(animeId: head.id),
           _Description(description: description),
+          RelatedAnimeSection(related: related),
         ],
       ),
     );
@@ -180,14 +200,19 @@ class _TwoPaneLayout extends StatelessWidget {
   const _TwoPaneLayout({
     required this.head,
     required this.description,
+    required this.related,
     required this.posterWidth,
     required this.titleSize,
   });
 
   static const _gap = 40.0;
 
+  /// Long titles shrink to fit beside the cover, down to this.
+  static const _minTitleSize = 36.0;
+
   final AnimeDetailsPreview head;
   final String? description;
+  final List<RelatedAnime> related;
   final double posterWidth;
   final double titleSize;
 
@@ -211,18 +236,37 @@ class _TwoPaneLayout extends StatelessWidget {
               ),
               const SizedBox(width: _gap),
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _Titles(head: head, maxSize: titleSize),
-                    const SizedBox(height: 32),
-                    _WatchSourcesButton(head: head),
-                    const SizedBox(height: 40),
-                    ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 520),
-                      child: _Facts(head: head, labelWidth: 120),
+                // The column keeps to the cover's height: a long title
+                // sets smaller rather than pushing the facts below it.
+                child: LayoutBuilder(
+                  builder: (context, constraints) => HeadlineColumn(
+                    height: posterWidth / PosterImage.aspectRatio,
+                    minHeadlineHeight: displayTitleHeight(
+                      head.name,
+                      base: Theme.of(context).textTheme.displayLarge!,
+                      size: _minTitleSize,
+                      width: constraints.maxWidth,
+                      textScaler: MediaQuery.textScalerOf(context),
                     ),
-                  ],
+                    headline: DisplayTitle(
+                      head.name,
+                      maxSize: titleSize,
+                      minSize: _minTitleSize,
+                    ),
+                    rest: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _RussianTitle(head: head),
+                        const SizedBox(height: 32),
+                        _WatchSourcesButton(head: head),
+                        const SizedBox(height: 40),
+                        ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 520),
+                          child: _Facts(head: head, labelWidth: 120),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
             ],
@@ -231,6 +275,7 @@ class _TwoPaneLayout extends StatelessWidget {
           const Skeleton.keep(child: BlockRule()),
           RecentlyWatchedSection(animeId: head.id, labelWidth: labelWidth),
           _Description(description: description, labelWidth: labelWidth),
+          RelatedAnimeSection(related: related, labelWidth: labelWidth),
         ],
       ),
     );
@@ -245,22 +290,35 @@ class _Titles extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         DisplayTitle(head.name, maxSize: maxSize, maxLines: 4),
-        if (head.russian.isNotEmpty) ...[
-          const SizedBox(height: 14),
-          Text(
-            head.russian,
-            style: theme.textTheme.titleMedium?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-              fontWeight: FontWeight.w400,
-            ),
-          ),
-        ],
+        _RussianTitle(head: head),
       ],
+    );
+  }
+}
+
+/// The Russian title under the main one, when it has one.
+class _RussianTitle extends StatelessWidget {
+  const _RussianTitle({required this.head});
+
+  final AnimeDetailsPreview head;
+
+  @override
+  Widget build(BuildContext context) {
+    if (head.russian.isEmpty) return const SizedBox.shrink();
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(top: 14),
+      child: Text(
+        head.russian,
+        style: theme.textTheme.titleMedium?.copyWith(
+          color: theme.colorScheme.onSurfaceVariant,
+          fontWeight: FontWeight.w400,
+        ),
+      ),
     );
   }
 }
@@ -330,9 +388,10 @@ class _WatchSourcesButton extends StatelessWidget {
         onPressed: () => context.pushNamed(
           'anime-watch-sources',
           pathParameters: {'id': head.id},
-          extra: AnimeWatchSourcesArgs(
+          extra: AnimeWatchSourcesArgs.forAnime(
             animeId: head.id,
-            animeEnglishTitle: head.name,
+            name: head.name,
+            english: head.english,
           ),
         ),
         child: Text(

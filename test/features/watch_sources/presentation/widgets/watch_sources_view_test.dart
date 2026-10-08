@@ -31,7 +31,8 @@ void main() {
     final semantics = tester.ensureSemantics();
     final cubit = WatchSourcesCubit(
       animeId: '52991',
-      animeEnglishTitle: 'Frieren: Beyond Journey\'s End',
+      animeTitle: 'Frieren: Beyond Journey\'s End',
+      searchTitles: ['Frieren: Beyond Journey\'s End'],
       repository: _PendingWatchSourcesRepository(),
     );
 
@@ -48,7 +49,8 @@ void main() {
     final sources = Completer<List<WatchSourceItem>>();
     final cubit = WatchSourcesCubit(
       animeId: '52991',
-      animeEnglishTitle: 'Frieren: Beyond Journey\'s End',
+      animeTitle: 'Frieren: Beyond Journey\'s End',
+      searchTitles: ['Frieren: Beyond Journey\'s End'],
       repository: _CompleterWatchSourcesRepository(sources),
     );
 
@@ -70,7 +72,8 @@ void main() {
   ) async {
     final cubit = WatchSourcesCubit(
       animeId: '52991',
-      animeEnglishTitle: 'Frieren: Beyond Journey\'s End',
+      animeTitle: 'Frieren: Beyond Journey\'s End',
+      searchTitles: ['Frieren: Beyond Journey\'s End'],
       repository: const _SuccessWatchSourcesRepository(_items),
     );
 
@@ -100,7 +103,8 @@ void main() {
       'trailing button', (tester) async {
     final cubit = WatchSourcesCubit(
       animeId: '52991',
-      animeEnglishTitle: "Frieren: Beyond Journey's End",
+      animeTitle: "Frieren: Beyond Journey's End",
+      searchTitles: ["Frieren: Beyond Journey's End"],
       repository: const _SuccessWatchSourcesRepository(_items),
     );
 
@@ -166,7 +170,8 @@ void main() {
     setTestWindowSize(tester, const Size(320, 640));
     final cubit = WatchSourcesCubit(
       animeId: '52991',
-      animeEnglishTitle: "Frieren: Beyond Journey's End",
+      animeTitle: "Frieren: Beyond Journey's End",
+      searchTitles: ["Frieren: Beyond Journey's End"],
       repository: const _SuccessWatchSourcesRepository(_items),
     );
 
@@ -180,7 +185,8 @@ void main() {
           child: const WatchSourcesPage(
             args: AnimeWatchSourcesArgs(
               animeId: '52991',
-              animeEnglishTitle: "Frieren: Beyond Journey's End",
+              animeTitle: "Frieren: Beyond Journey's End",
+              searchTitles: ["Frieren: Beyond Journey's End"],
             ),
           ),
         ),
@@ -205,7 +211,8 @@ void main() {
   testWidgets('filters cards by local title search', (tester) async {
     final cubit = WatchSourcesCubit(
       animeId: '52991',
-      animeEnglishTitle: 'Frieren: Beyond Journey\'s End',
+      animeTitle: 'Frieren: Beyond Journey\'s End',
+      searchTitles: ['Frieren: Beyond Journey\'s End'],
       repository: const _SuccessWatchSourcesRepository(_items),
     );
 
@@ -230,7 +237,8 @@ void main() {
   ) async {
     final cubit = WatchSourcesCubit(
       animeId: '52991',
-      animeEnglishTitle: 'Frieren: Beyond Journey\'s End',
+      animeTitle: 'Frieren: Beyond Journey\'s End',
+      searchTitles: ['Frieren: Beyond Journey\'s End'],
       repository: const _SuccessWatchSourcesRepository(_items),
     );
 
@@ -252,7 +260,8 @@ void main() {
   testWidgets('clears the source search with the Clear button', (tester) async {
     final cubit = WatchSourcesCubit(
       animeId: '52991',
-      animeEnglishTitle: 'Frieren: Beyond Journey\'s End',
+      animeTitle: 'Frieren: Beyond Journey\'s End',
+      searchTitles: ['Frieren: Beyond Journey\'s End'],
       repository: const _SuccessWatchSourcesRepository(_items),
     );
 
@@ -279,7 +288,8 @@ void main() {
   ) async {
     final cubit = WatchSourcesCubit(
       animeId: '52991',
-      animeEnglishTitle: 'Frieren: Beyond Journey\'s End',
+      animeTitle: 'Frieren: Beyond Journey\'s End',
+      searchTitles: ['Frieren: Beyond Journey\'s End'],
       repository: const _SuccessWatchSourcesRepository(_items),
     );
 
@@ -301,7 +311,8 @@ void main() {
   ) async {
     final cubit = WatchSourcesCubit(
       animeId: '52991',
-      animeEnglishTitle: 'Frieren: Beyond Journey\'s End',
+      animeTitle: 'Frieren: Beyond Journey\'s End',
+      searchTitles: ['Frieren: Beyond Journey\'s End'],
       repository: const _SuccessWatchSourcesRepository(_items),
     );
 
@@ -332,7 +343,8 @@ void main() {
   ) async {
     final cubit = WatchSourcesCubit(
       animeId: '52991',
-      animeEnglishTitle: 'Frieren: Beyond Journey\'s End',
+      animeTitle: 'Frieren: Beyond Journey\'s End',
+      searchTitles: ['Frieren: Beyond Journey\'s End'],
       repository: const _SuccessWatchSourcesRepository(_items),
     );
     final history = WatchProgressCubit(
@@ -377,7 +389,8 @@ void main() {
   ) async {
     final cubit = WatchSourcesCubit(
       animeId: '52991',
-      animeEnglishTitle: 'Unknown Title',
+      animeTitle: 'Unknown Title',
+      searchTitles: ['Unknown Title'],
       repository: const _SuccessWatchSourcesRepository([]),
     );
 
@@ -391,7 +404,8 @@ void main() {
     final repository = _ToggleWatchSourcesRepository();
     final cubit = WatchSourcesCubit(
       animeId: '52991',
-      animeEnglishTitle: 'Frieren: Beyond Journey\'s End',
+      animeTitle: 'Frieren: Beyond Journey\'s End',
+      searchTitles: ['Frieren: Beyond Journey\'s End'],
       repository: repository,
     );
 
@@ -416,7 +430,8 @@ void main() {
       setTestWindowSize(tester, entry.value);
       final cubit = WatchSourcesCubit(
         animeId: '52991',
-        animeEnglishTitle: "Frieren: Beyond Journey's End",
+        animeTitle: "Frieren: Beyond Journey's End",
+        searchTitles: ["Frieren: Beyond Journey's End"],
         repository: const _SuccessWatchSourcesRepository(_items),
       );
 
@@ -430,7 +445,8 @@ void main() {
             child: const WatchSourcesPage(
               args: AnimeWatchSourcesArgs(
                 animeId: '52991',
-                animeEnglishTitle: "Frieren: Beyond Journey's End",
+                animeTitle: "Frieren: Beyond Journey's End",
+                searchTitles: ["Frieren: Beyond Journey's End"],
               ),
             ),
           ),
@@ -499,7 +515,8 @@ Future<_RecordedNavigation> _pumpRoutedView(WidgetTester tester) async {
   final navigation = _RecordedNavigation();
   final cubit = WatchSourcesCubit(
     animeId: '52991',
-    animeEnglishTitle: "Frieren: Beyond Journey's End",
+    animeTitle: "Frieren: Beyond Journey's End",
+    searchTitles: ["Frieren: Beyond Journey's End"],
     repository: const _SuccessWatchSourcesRepository(_items),
   )..loadSources();
   addTearDown(cubit.close);
@@ -565,7 +582,7 @@ String _topTitle(WidgetTester tester) {
 
 class _PendingWatchSourcesRepository implements WatchSourcesRepository {
   @override
-  Future<List<WatchSourceItem>> fetchSources(String animeEnglishTitle) {
+  Future<List<WatchSourceItem>> fetchSources(List<String> titles) {
     return Completer<List<WatchSourceItem>>().future;
   }
 }
@@ -576,7 +593,7 @@ class _CompleterWatchSourcesRepository implements WatchSourcesRepository {
   final Completer<List<WatchSourceItem>> sources;
 
   @override
-  Future<List<WatchSourceItem>> fetchSources(String animeEnglishTitle) =>
+  Future<List<WatchSourceItem>> fetchSources(List<String> titles) =>
       sources.future;
 }
 
@@ -586,7 +603,7 @@ class _SuccessWatchSourcesRepository implements WatchSourcesRepository {
   final List<WatchSourceItem> items;
 
   @override
-  Future<List<WatchSourceItem>> fetchSources(String animeEnglishTitle) async {
+  Future<List<WatchSourceItem>> fetchSources(List<String> titles) async {
     return items;
   }
 }
@@ -616,7 +633,7 @@ class _ToggleWatchSourcesRepository implements WatchSourcesRepository {
   bool shouldFail = true;
 
   @override
-  Future<List<WatchSourceItem>> fetchSources(String animeEnglishTitle) async {
+  Future<List<WatchSourceItem>> fetchSources(List<String> titles) async {
     if (shouldFail) {
       throw Exception('First call fails');
     }

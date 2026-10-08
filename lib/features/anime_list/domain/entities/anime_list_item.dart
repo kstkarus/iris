@@ -3,6 +3,7 @@ class AnimeListItem {
     required this.id,
     required this.name,
     required this.russian,
+    this.english = '',
     required this.kind,
     required this.score,
     required this.status,
@@ -15,6 +16,9 @@ class AnimeListItem {
   final String id;
   final String name;
   final String russian;
+
+  /// The licensed English title; empty when there is none.
+  final String english;
   final String kind;
   final double score;
   final String status;
@@ -33,6 +37,7 @@ class AnimeListItem {
         other.id == id &&
         other.name == name &&
         other.russian == russian &&
+        other.english == english &&
         other.kind == kind &&
         other.score == score &&
         other.status == status &&
@@ -47,6 +52,7 @@ class AnimeListItem {
     id,
     name,
     russian,
+    english,
     kind,
     score,
     status,

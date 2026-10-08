@@ -354,6 +354,7 @@
   },
   "watchProgressContinueButton": "Continue",
   "watchProgressPlayNextButton": "Play next",
+  "watchProgressWatchButton": "Watch",
   "watchProgressLastFile": "Last watched: {fileName}",
   "@watchProgressLastFile": {
     "placeholders": {
@@ -530,5 +531,29 @@
   "watchSourcesColumnDownloads": "Downloads",
   "watchSourcesColumnDate": "Date",
   "savedTorrentsPasteHint": "Ctrl+V adds a magnet link from the clipboard",
-  "downloadsFilesTitle": "Files"
+  "downloadsFilesTitle": "Files",
+  "commonShowMore": "{count} more",
+  "@commonShowMore": {
+    "description": "Unfolds the rest of a list.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "commonShowLess": "Show less",
+  "animeKindSpecial": "Special",
+  "animeKindTvSpecial": "TV special",
+  "animeDetailsRelatedTitle": "Related",
+  "animeRelationPrequel": "Prequel",
+  "animeRelationSequel": "Sequel",
+  "animeRelationParentStory": "Parent story",
+  "animeRelationFullStory": "Full story",
+  "animeRelationSideStory": "Side story",
+  "animeRelationAlternativeSetting": "Alternative setting",
+  "animeRelationAlternativeVersion": "Alternative version",
+  "animeRelationSpinOff": "Spin-off",
+  "animeRelationSummary": "Summary",
+  "animeRelationCharacter": "Shared characters",
+  "animeRelationOther": "Other"
 }

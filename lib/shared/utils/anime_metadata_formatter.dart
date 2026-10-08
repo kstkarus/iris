@@ -12,6 +12,10 @@ String formatAnimeKind(AppLocalizations l10n, String kind) {
       return l10n.animeKindOva;
     case 'ona':
       return l10n.animeKindOna;
+    case 'special':
+      return l10n.animeKindSpecial;
+    case 'tv_special':
+      return l10n.animeKindTvSpecial;
     default:
       return kind.toUpperCase();
   }

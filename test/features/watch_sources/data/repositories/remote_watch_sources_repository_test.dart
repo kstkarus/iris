@@ -18,7 +18,7 @@ void main() {
       ]),
     );
 
-    final items = await repository.fetchSources('Frieren');
+    final items = await repository.fetchSources(['Frieren']);
 
     expect(items.map((item) => item.title), [
       'Subbed',
@@ -27,13 +27,57 @@ void main() {
       'Unknown section',
     ]);
   });
+
+  test('searches every name and lists each release once', () async {
+    final dataSource = _PerTitleDataSource({
+      'Sousou no Frieren': [_dto(_subbed, 'SubsPlease'), _dto(_subbed, 'Both')],
+      "Frieren: Beyond Journey's End": [
+        _dto(_subbed, 'Both'),
+        _dto(_subbed, 'Judas'),
+      ],
+    });
+    final repository = RemoteWatchSourcesRepository(dataSource: dataSource);
+
+    final items = await repository.fetchSources([
+      'Sousou no Frieren',
+      "Frieren: Beyond Journey's End",
+    ]);
+
+    expect(dataSource.asked, hasLength(2));
+    expect(items.map((item) => item.title), ['SubsPlease', 'Both', 'Judas']);
+  });
+
+  test('shows what one name found when the other search fails', () async {
+    final repository = RemoteWatchSourcesRepository(
+      dataSource: _PerTitleDataSource({
+        'Sousou no Frieren': [_dto(_subbed, 'SubsPlease')],
+      }),
+    );
+
+    final items = await repository.fetchSources([
+      'Sousou no Frieren',
+      'Unreachable',
+    ]);
+
+    expect(items.map((item) => item.title), ['SubsPlease']);
+  });
+
+  test('fails when every search fails', () async {
+    final repository = RemoteWatchSourcesRepository(
+      dataSource: _PerTitleDataSource({}),
+    );
+
+    await expectLater(repository.fetchSources(['One', 'Two']), throwsException);
+  });
 }
+
+const _subbed = 'Anime - English-translated';
 
 NyaaWatchSourceDto _dto(String category, String title) {
   return NyaaWatchSourceDto(
     category: category,
     title: title,
-    link: 'https://nyaa.si/view/1',
+    link: 'https://nyaa.si/view/$title',
     torrent: 'https://nyaa.si/download/1.torrent',
     magnet: 'magnet:?xt=urn:btih:test',
     size: '1.0 GiB',
@@ -50,9 +94,24 @@ class _FakeDataSource implements RemoteWatchSourcesDataSource {
   final List<NyaaWatchSourceDto> items;
 
   @override
-  Future<List<NyaaWatchSourceDto>> fetchSources(
-    String animeEnglishTitle,
-  ) async {
+  Future<List<NyaaWatchSourceDto>> fetchSources(String title) async {
+    return items;
+  }
+}
+
+/// Answers each title with its own releases; a title without an entry
+/// fails like an unreachable service.
+class _PerTitleDataSource implements RemoteWatchSourcesDataSource {
+  _PerTitleDataSource(this.byTitle);
+
+  final Map<String, List<NyaaWatchSourceDto>> byTitle;
+  final asked = <String>[];
+
+  @override
+  Future<List<NyaaWatchSourceDto>> fetchSources(String title) async {
+    asked.add(title);
+    final items = byTitle[title];
+    if (items == null) throw Exception('unreachable');
     return items;
   }
 }

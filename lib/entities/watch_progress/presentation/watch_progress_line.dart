@@ -13,6 +13,7 @@ class WatchProgressLine extends StatelessWidget {
   const WatchProgressLine({
     required this.progress,
     this.showBar = true,
+    this.timesOnly = false,
     super.key,
   });
 
@@ -24,6 +25,10 @@ class WatchProgressLine extends StatelessWidget {
   /// False where the same file's bar is already on screen, so the text is
   /// all that is left to say.
   final bool showBar;
+
+  /// "12:34 / 24:00" without "Stopped at", where the list's heading already
+  /// says what the times are.
+  final bool timesOnly;
 
   @override
   Widget build(BuildContext context) {
@@ -63,13 +68,18 @@ class WatchProgressLine extends StatelessWidget {
             const SizedBox(height: 6),
           ],
           Text(
-            l10n.watchProgressStoppedAt(
-              formatPlaybackPosition(progress.position),
-              formatPlaybackPosition(progress.duration),
-            ),
+            timesOnly
+                ? '${formatPlaybackPosition(progress.position)} / '
+                      '${formatPlaybackPosition(progress.duration)}'
+                : l10n.watchProgressStoppedAt(
+                    formatPlaybackPosition(progress.position),
+                    formatPlaybackPosition(progress.duration),
+                  ),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: style,
+            style: style?.copyWith(
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
           ),
         ],
       ),

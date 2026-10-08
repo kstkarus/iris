@@ -1,5 +1,6 @@
 import 'package:iris/features/watch_sources/data/datasources/remote_watch_sources_data_source.dart';
 import 'package:iris/features/watch_sources/data/mappers/nyaa_watch_source_mapper.dart';
+import 'package:iris/features/watch_sources/data/models/nyaa_watch_source_dto.dart';
 import 'package:iris/features/watch_sources/domain/entities/watch_source_item.dart';
 import 'package:iris/features/watch_sources/domain/repositories/watch_sources_repository.dart';
 
@@ -8,12 +9,32 @@ class RemoteWatchSourcesRepository implements WatchSourcesRepository {
 
   final RemoteWatchSourcesDataSource dataSource;
 
+  /// One search per title, together: nyaa has no "or", and a release is
+  /// found only by the name its group used. A title that fails does not
+  /// hide what the others found.
   @override
-  Future<List<WatchSourceItem>> fetchSources(String animeEnglishTitle) async {
-    final items = await dataSource.fetchSources(animeEnglishTitle);
-    return items
-        .where((item) => isWatchableNyaaCategory(item.category))
-        .map(mapNyaaWatchSourceToDomain)
-        .toList();
+  Future<List<WatchSourceItem>> fetchSources(List<String> titles) async {
+    final results = await Future.wait(
+      titles.map((title) async {
+        try {
+          return (items: await dataSource.fetchSources(title), error: null);
+        } on Object catch (error) {
+          return (items: const <NyaaWatchSourceDto>[], error: error);
+        }
+      }),
+    );
+    final failure = results.where((result) => result.error != null);
+    if (results.isNotEmpty && failure.length == results.length) {
+      throw failure.first.error!;
+    }
+
+    final seen = <String>{};
+    return [
+      for (final result in results)
+        for (final item in result.items)
+          if (isWatchableNyaaCategory(item.category) &&
+              seen.add(item.link.isEmpty ? item.magnet : item.link))
+            mapNyaaWatchSourceToDomain(item),
+    ];
   }
 }

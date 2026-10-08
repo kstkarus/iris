@@ -17,6 +17,7 @@ import 'package:iris/shared/torrent/torrent_key.dart';
 import 'package:iris/shared/widgets/adaptive/adaptive_content_width.dart';
 import 'package:iris/shared/widgets/adaptive/window_size_class.dart';
 import 'package:iris/shared/widgets/page_title.dart';
+import 'package:iris/shared/widgets/adaptive/framed_app_bar.dart';
 
 class PlayerSourcePage extends StatelessWidget {
   const PlayerSourcePage({required this.args, super.key});
@@ -43,7 +44,7 @@ class PlayerSourcePage extends StatelessWidget {
         );
       },
       child: Scaffold(
-        appBar: AppBar(
+        appBar: FramedAppBar(
           title: PageTitle(
             title: l10n.playerSourceTitle,
             subtitle: args.sourceTitle,
@@ -53,7 +54,7 @@ class PlayerSourcePage extends StatelessWidget {
           child: Padding(
             padding: EdgeInsets.fromLTRB(margin, 24, margin, 0),
             child: MaxWidthBox(
-              maxWidth: AdaptiveContentWidth.list,
+              maxWidth: AdaptiveContentWidth.page,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [

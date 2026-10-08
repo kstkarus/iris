@@ -6,6 +6,7 @@ import 'package:iris/entities/watch_progress/presentation/watch_progress_cubit.d
 import 'package:iris/entities/watch_progress/presentation/watch_progress_line.dart';
 import 'package:iris/features/player/presentation/models/anime_player_source_args.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
+import 'package:iris/shared/widgets/adaptive/adaptive_content_width.dart';
 import 'package:iris/shared/utils/file_display_name.dart';
 import 'package:iris/shared/widgets/labeled_section.dart';
 import 'package:iris/shared/widgets/segmented_bar.dart';
@@ -39,14 +40,24 @@ class RecentlyWatchedSection extends StatelessWidget {
       child: LabeledSection(
         label: AppLocalizations.of(context).recentlyWatchedTitle,
         labelWidth: labelWidth,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            for (final (index, progress) in recent.indexed) ...[
-              if (index > 0) const SegmentedRule(),
-              _RecentSource(progress: progress, first: index == 0),
-            ],
-          ],
+        // The description's measure: the action stays by its row
+        // instead of at the far edge of a wide window.
+        child: Align(
+          alignment: AlignmentDirectional.topStart,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(
+              maxWidth: AdaptiveContentWidth.reading,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                for (final (index, progress) in recent.indexed) ...[
+                  if (index > 0) const SegmentedRule(),
+                  _RecentSource(progress: progress, first: index == 0),
+                ],
+              ],
+            ),
+          ),
         ),
       ),
     );
@@ -73,6 +84,14 @@ class _RecentSource extends StatelessWidget {
         autoOpenFileIndex: progress.isFinished ? null : progress.fileIndex,
       ),
     );
+  }
+
+  /// Says what the button will do: a file only looked at starts from the
+  /// beginning, a finished one leads to the next.
+  String _actionLabel(AppLocalizations l10n) {
+    if (progress.isFinished) return l10n.watchProgressPlayNextButton;
+    if (progress.resumePosition == null) return l10n.watchProgressWatchButton;
+    return l10n.watchProgressContinueButton;
   }
 
   @override
@@ -113,7 +132,7 @@ class _RecentSource extends StatelessWidget {
           OutlinedButton(
             key: const Key('recently_watched_continue_button'),
             onPressed: () => _continue(context),
-            child: Text(l10n.watchProgressContinueButton),
+            child: Text(_actionLabel(l10n)),
           ),
         ],
       ),

@@ -53,6 +53,8 @@ void main() {
     expect(capturedOptions?.queryParameters, {
       'q': 'Frieren: Beyond Journey\'s End',
       'category': 'anime',
+      'sort': 'seeders',
+      'order': 'desc',
     });
     expect(items, hasLength(1));
     expect(items.first.title, '[Mock] Frieren Batch');

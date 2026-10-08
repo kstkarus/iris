@@ -258,6 +258,7 @@ AnimeDetailsPreview _preview(AnimeListItem item) => AnimeDetailsPreview(
   id: item.id,
   name: item.name,
   russian: item.russian,
+  english: item.english,
   kind: item.kind,
   score: item.score,
   status: item.status,

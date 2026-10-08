@@ -13,6 +13,7 @@ WatchProgress _progress(
   String animeId = '5114',
   int fileIndex = 0,
   int minute = 0,
+  int seconds = 300,
 }) {
   return WatchProgress(
     torrentKey: torrentKey,
@@ -20,7 +21,7 @@ WatchProgress _progress(
     fileName: 'ep-0${fileIndex + 1}.mkv',
     magnet: 'magnet:?xt=urn:btih:$torrentKey',
     sourceTitle: 'Release $torrentKey',
-    position: const Duration(minutes: 5),
+    position: Duration(seconds: seconds),
     duration: const Duration(minutes: 24),
     updatedAt: DateTime.utc(2026, 10, 4, 12, minute),
     animeId: animeId,
@@ -67,6 +68,41 @@ void main() {
     expect(find.text('Last watched: ep-02'), findsOneWidget);
     expect(find.text('Release bbb'), findsOneWidget);
     expect(find.text('Release ccc'), findsNothing);
+  });
+
+  testWidgets('the button says what it will do', (tester) async {
+    await pump(tester, [
+      _progress('aaa', minute: 3),
+      // Opened for a few seconds: playback starts from the beginning.
+      _progress('bbb', minute: 2, seconds: 4),
+      _progress('ccc', minute: 1, seconds: 23 * 60),
+    ]);
+
+    String label(String torrent) => tester
+        .widget<Text>(
+          find.descendant(
+            of: find.byKey(ValueKey('recently_watched_$torrent')),
+            matching: find.descendant(
+              of: find.byType(OutlinedButton),
+              matching: find.byType(Text),
+            ),
+          ),
+        )
+        .data!;
+    expect(label('aaa'), 'Continue');
+    expect(label('bbb'), 'Watch');
+    expect(label('ccc'), 'Play next');
+  });
+
+  testWidgets('keeps the button by its row on a wide window', (tester) async {
+    tester.view.physicalSize = const Size(1800, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await pump(tester, [_progress('aaa')]);
+
+    final button = tester.getRect(find.byType(OutlinedButton));
+    final section = tester.getRect(find.byType(RecentlyWatchedSection));
+    expect(button.right - section.left, lessThanOrEqualTo(800));
   });
 
   testWidgets('stays hidden without history for this anime', (tester) async {

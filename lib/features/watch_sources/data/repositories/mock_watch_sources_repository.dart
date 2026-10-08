@@ -9,8 +9,12 @@ class MockWatchSourcesRepository implements WatchSourcesRepository {
   final MockWatchSourcesDataSource dataSource;
 
   @override
-  Future<List<WatchSourceItem>> fetchSources(String animeEnglishTitle) async {
-    final items = await dataSource.fetchSources(animeEnglishTitle);
-    return items.map(mapNyaaWatchSourceToDomain).toList();
+  Future<List<WatchSourceItem>> fetchSources(List<String> titles) async {
+    final seen = <String>{};
+    return [
+      for (final title in titles)
+        for (final item in await dataSource.fetchSources(title))
+          if (seen.add(item.link)) mapNyaaWatchSourceToDomain(item),
+    ];
   }
 }

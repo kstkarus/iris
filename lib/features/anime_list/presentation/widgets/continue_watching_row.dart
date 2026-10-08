@@ -10,36 +10,63 @@ import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/utils/duration_formatter.dart';
 import 'package:iris/shared/utils/file_display_name.dart';
 import 'package:iris/shared/widgets/display_title.dart';
+import 'package:iris/shared/widgets/fold_row.dart';
 import 'package:iris/shared/widgets/pixel_icon.dart';
 import 'package:iris/shared/widgets/section_label.dart';
 import 'package:iris/shared/widgets/segmented_bar.dart';
 
 /// The latest file of each recently watched torrent, from the catalog and
-/// from saved torrents alike.
+/// from saved torrents alike. Files only looked at are left out before the
+/// latest is picked, so a glance at the next episode does not hide the one
+/// actually being watched.
 List<WatchProgress> continueWatchingItems(List<WatchProgress> history) {
-  return latestPerTorrent(history).take(ContinueWatchingRow.maxItems).toList();
+  return latestPerTorrent(
+    history.where((item) => item.isWorthContinuing),
+  ).take(ContinueWatchingRow.maxItems).toList();
 }
 
 /// The most recent title large, with where it stopped on a position
 /// panel; the next few below it as numbered rows.
-class ContinueWatchingRow extends StatelessWidget {
+class ContinueWatchingRow extends StatefulWidget {
   const ContinueWatchingRow({required this.items, super.key});
 
   static const maxItems = 5;
 
-  /// From here the title and the position panel sit side by side.
-  static const _twoColumnMinWidth = 840.0;
+  /// Rows under the panel before the rest folds away, so the catalog
+  /// still starts on the first screen.
+  static const visibleRows = 1;
+
+  /// A toggle as tall as the one row it would hide saves nothing.
+  static const _minFolded = 2;
 
   final List<WatchProgress> items;
 
   @override
+  State<ContinueWatchingRow> createState() => _ContinueWatchingRowState();
+}
+
+class _ContinueWatchingRowState extends State<ContinueWatchingRow> {
+  /// From here the title and the position panel sit side by side.
+  static const _twoColumnMinWidth = 840.0;
+
+  bool _expanded = false;
+
+  @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final items = widget.items;
     final latest = items.first;
+    final queued = items.skip(1).toList();
+    final hidden = queued.length - ContinueWatchingRow.visibleRows;
+    final folds = hidden >= ContinueWatchingRow._minFolded;
+    final shown = _expanded || !folds
+        ? queued
+        : queued.take(ContinueWatchingRow.visibleRows).toList();
     return Column(
       key: const Key('continue_watching_row'),
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        SectionLabel(AppLocalizations.of(context).continueWatchingTitle),
+        SectionLabel(l10n.continueWatchingTitle),
         const SizedBox(height: 20),
         LayoutBuilder(
           builder: (context, constraints) {
@@ -64,11 +91,34 @@ class ContinueWatchingRow extends StatelessWidget {
             );
           },
         ),
-        if (items.length > 1) ...[
+        if (queued.isNotEmpty) ...[
           const SizedBox(height: 24),
-          for (final (index, progress) in items.skip(1).indexed) ...[
+          // The catalog below moves with the rows rather than jumping.
+          AnimatedSize(
+            duration: MediaQuery.disableAnimationsOf(context)
+                ? Duration.zero
+                : const Duration(milliseconds: 200),
+            curve: Curves.easeOutCubic,
+            alignment: Alignment.topCenter,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                for (final (index, progress) in shown.indexed) ...[
+                  const SegmentedRule(),
+                  _QueuedRow(number: index + 2, progress: progress),
+                ],
+              ],
+            ),
+          ),
+          if (folds) ...[
             const SegmentedRule(),
-            _QueuedRow(number: index + 2, progress: progress),
+            FoldRow(
+              key: const Key('continue_watching_more'),
+              label: _expanded
+                  ? l10n.commonShowLess
+                  : l10n.commonShowMore(hidden),
+              onPressed: () => setState(() => _expanded = !_expanded),
+            ),
           ],
         ],
       ],
@@ -263,7 +313,7 @@ class _QueuedRow extends StatelessWidget {
                   ),
                   if (!wide) ...[
                     const SizedBox(height: 6),
-                    WatchProgressLine(progress: progress, showBar: false),
+                    WatchProgressLine(progress: progress, timesOnly: true),
                   ],
                 ],
               );
@@ -282,10 +332,10 @@ class _QueuedRow extends StatelessWidget {
                   if (wide) ...[
                     const SizedBox(width: 24),
                     SizedBox(
-                      width: 300,
+                      width: 200,
                       child: WatchProgressLine(
                         progress: progress,
-                        showBar: false,
+                        timesOnly: true,
                       ),
                     ),
                   ],

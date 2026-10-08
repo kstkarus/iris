@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:iris/app/router/app_shell_page.dart';
 import 'package:iris/main.dart';
 import 'package:iris/shared/widgets/dithered_image.dart';
+import 'package:iris/shared/widgets/adaptive/adaptive_content_width.dart';
 
 import '../helpers/test_window.dart';
 
@@ -175,8 +176,8 @@ void main() {
       );
       expect(
         fileCard.width,
-        lessThanOrEqualTo(840),
-        reason: 'file list width is capped on wide windows',
+        lessThanOrEqualTo(AdaptiveContentWidth.page),
+        reason: 'the file list keeps to the shared page frame',
       );
       expect(tester.takeException(), isNull);
 
@@ -188,6 +189,23 @@ void main() {
       expect(tester.takeException(), isNull);
     });
   }
+
+  testWidgets('the top bar keeps to the page frame, sections centred', (
+    tester,
+  ) async {
+    const size = TestWindowSizes.desktop;
+    await _pumpMockApp(tester, size);
+
+    final sections = tester
+        .getRect(find.text('Catalog').first)
+        .expandToInclude(tester.getRect(find.text('Downloads').first));
+    expect(sections.center.dx, closeTo(size.width / 2, 12));
+    // The mark sits over the content's left edge: the frame is centred.
+    final mark = tester.getRect(
+      find.ancestor(of: find.text('iris'), matching: find.byType(Row)).first,
+    );
+    expect(mark.left, (size.width - AdaptiveContentWidth.page) / 2);
+  });
 
   testWidgets('filters open in a dialog on wide windows', (tester) async {
     await _pumpMockApp(tester, TestWindowSizes.desktop);

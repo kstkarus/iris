@@ -11,6 +11,7 @@ import 'package:iris/features/downloads/presentation/models/download_selection_a
 import 'package:iris/features/downloads/presentation/pages/download_manager_page.dart';
 import 'package:iris/features/downloads/presentation/pages/download_selection_page.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
+import 'package:iris/shared/widgets/adaptive/adaptive_content_width.dart';
 
 import '../../../../helpers/test_window.dart';
 
@@ -69,7 +70,7 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('download selection is width-capped on ${entry.key}', (
+    testWidgets('download selection keeps to the page frame on ${entry.key}', (
       tester,
     ) async {
       setTestWindowSize(tester, entry.value);
@@ -98,7 +99,7 @@ void main() {
         ),
       );
       expect(find.text('episode-01'), findsOneWidget);
-      expect(row.width, lessThanOrEqualTo(840));
+      expect(row.width, lessThanOrEqualTo(AdaptiveContentWidth.page));
       expect(tester.takeException(), isNull);
     });
   }

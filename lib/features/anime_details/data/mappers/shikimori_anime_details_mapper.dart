@@ -1,5 +1,6 @@
 import 'package:iris/features/anime_details/data/models/shikimori_anime_details_dto.dart';
 import 'package:iris/features/anime_details/domain/entities/anime_details.dart';
+import 'package:iris/features/anime_details/domain/entities/related_anime.dart';
 
 AnimeDetails mapShikimoriAnimeDetailsToDomain(ShikimoriAnimeDetailsDto dto) {
   final normalizedEpisodesAired =
@@ -11,6 +12,7 @@ AnimeDetails mapShikimoriAnimeDetailsToDomain(ShikimoriAnimeDetailsDto dto) {
     id: dto.id,
     name: dto.name,
     russian: dto.russian,
+    english: dto.english,
     description: sanitizeShikimoriDescription(dto.description),
     kind: dto.kind,
     score: dto.score,
@@ -19,8 +21,39 @@ AnimeDetails mapShikimoriAnimeDetailsToDomain(ShikimoriAnimeDetailsDto dto) {
     episodesAired: normalizedEpisodesAired,
     airedOn: dto.airedOn.date,
     posterOriginalUrl: dto.poster.originalUrl,
+    related: [for (final item in dto.related) _mapRelated(item)],
   );
 }
+
+RelatedAnime _mapRelated(ShikimoriRelatedAnimeDto dto) => RelatedAnime(
+  relation: mapShikimoriRelation(dto.relationKind),
+  id: dto.id,
+  name: dto.name,
+  russian: dto.russian,
+  english: dto.english,
+  kind: dto.kind,
+  score: dto.score,
+  status: dto.status,
+  episodes: dto.episodes,
+  episodesAired: dto.episodesAired,
+  airedOn: dto.airedOn,
+  posterUrl: dto.posterMainUrl,
+);
+
+/// Kinds this app does not know yet read as [AnimeRelation.other].
+AnimeRelation mapShikimoriRelation(String kind) => switch (kind) {
+  'prequel' => AnimeRelation.prequel,
+  'sequel' => AnimeRelation.sequel,
+  'parent_story' => AnimeRelation.parentStory,
+  'full_story' => AnimeRelation.fullStory,
+  'side_story' => AnimeRelation.sideStory,
+  'alternative_setting' => AnimeRelation.alternativeSetting,
+  'alternative_version' => AnimeRelation.alternativeVersion,
+  'spin_off' => AnimeRelation.spinOff,
+  'summary' => AnimeRelation.summary,
+  'character' => AnimeRelation.character,
+  _ => AnimeRelation.other,
+};
 
 String sanitizeShikimoriDescription(String input) {
   // Wiki links: [[Page]] or [[Page|shown text]].

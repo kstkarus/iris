@@ -8,10 +8,8 @@ class RemoteWatchSourcesDataSource {
 
   final NyaaApiClient _client;
 
-  Future<List<NyaaWatchSourceDto>> fetchSources(
-    String animeEnglishTitle,
-  ) async {
-    final response = await _client.fetchSources(query: animeEnglishTitle);
+  Future<List<NyaaWatchSourceDto>> fetchSources(String title) async {
+    final response = await _client.fetchSources(query: title);
     final items = response['data'];
 
     if (items is! List) {

@@ -4,6 +4,7 @@ class ShikimoriAnimeDto {
     required this.malId,
     required this.name,
     required this.russian,
+    this.english = '',
     required this.kind,
     required this.score,
     required this.status,
@@ -17,6 +18,9 @@ class ShikimoriAnimeDto {
   final String malId;
   final String name;
   final String russian;
+
+  /// The licensed English title; empty when there is none.
+  final String english;
   final String kind;
   final double score;
   final String status;
@@ -31,6 +35,7 @@ class ShikimoriAnimeDto {
       malId: json['malId']?.toString() ?? '',
       name: json['name']?.toString() ?? '',
       russian: json['russian']?.toString() ?? '',
+      english: json['english']?.toString() ?? '',
       kind: json['kind']?.toString() ?? '',
       score: (json['score'] as num?)?.toDouble() ?? 0,
       status: json['status']?.toString() ?? '',

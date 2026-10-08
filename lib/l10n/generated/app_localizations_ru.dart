@@ -620,6 +620,9 @@ class AppLocalizationsRu extends AppLocalizations {
   String get watchProgressPlayNextButton => 'Смотреть дальше';
 
   @override
+  String get watchProgressWatchButton => 'Смотреть';
+
+  @override
   String watchProgressLastFile(String fileName) {
     return 'Последняя: $fileName';
   }
@@ -853,4 +856,54 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get downloadsFilesTitle => 'Файлы';
+
+  @override
+  String commonShowMore(int count) {
+    return 'Ещё $count';
+  }
+
+  @override
+  String get commonShowLess => 'Свернуть';
+
+  @override
+  String get animeKindSpecial => 'Спешл';
+
+  @override
+  String get animeKindTvSpecial => 'ТВ-спешл';
+
+  @override
+  String get animeDetailsRelatedTitle => 'Связанные';
+
+  @override
+  String get animeRelationPrequel => 'Предыстория';
+
+  @override
+  String get animeRelationSequel => 'Продолжение';
+
+  @override
+  String get animeRelationParentStory => 'Основная история';
+
+  @override
+  String get animeRelationFullStory => 'Полная история';
+
+  @override
+  String get animeRelationSideStory => 'Побочная история';
+
+  @override
+  String get animeRelationAlternativeSetting => 'Альтернативная вселенная';
+
+  @override
+  String get animeRelationAlternativeVersion => 'Альтернативная версия';
+
+  @override
+  String get animeRelationSpinOff => 'Ответвление';
+
+  @override
+  String get animeRelationSummary => 'Пересказ';
+
+  @override
+  String get animeRelationCharacter => 'Общие персонажи';
+
+  @override
+  String get animeRelationOther => 'Другое';
 }

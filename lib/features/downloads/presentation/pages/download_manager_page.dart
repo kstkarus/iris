@@ -19,8 +19,7 @@ class DownloadManagerPage extends StatelessWidget {
         child: Padding(
           padding: EdgeInsets.fromLTRB(margin, sizeClass.pageTop, margin, 0),
           child: MaxWidthBox(
-            maxWidth: AdaptiveContentWidth.subpage,
-            alignment: Alignment.topLeft,
+            maxWidth: AdaptiveContentWidth.page,
             child: DownloadManagerView(onWatch: onWatch),
           ),
         ),

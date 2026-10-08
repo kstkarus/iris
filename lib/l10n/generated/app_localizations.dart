@@ -1160,6 +1160,12 @@ abstract class AppLocalizations {
   /// **'Play next'**
   String get watchProgressPlayNextButton;
 
+  /// No description provided for @watchProgressWatchButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Watch'**
+  String get watchProgressWatchButton;
+
   /// No description provided for @watchProgressLastFile.
   ///
   /// In en, this message translates to:
@@ -1507,6 +1513,102 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Files'**
   String get downloadsFilesTitle;
+
+  /// Unfolds the rest of a list.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} more'**
+  String commonShowMore(int count);
+
+  /// No description provided for @commonShowLess.
+  ///
+  /// In en, this message translates to:
+  /// **'Show less'**
+  String get commonShowLess;
+
+  /// No description provided for @animeKindSpecial.
+  ///
+  /// In en, this message translates to:
+  /// **'Special'**
+  String get animeKindSpecial;
+
+  /// No description provided for @animeKindTvSpecial.
+  ///
+  /// In en, this message translates to:
+  /// **'TV special'**
+  String get animeKindTvSpecial;
+
+  /// No description provided for @animeDetailsRelatedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Related'**
+  String get animeDetailsRelatedTitle;
+
+  /// No description provided for @animeRelationPrequel.
+  ///
+  /// In en, this message translates to:
+  /// **'Prequel'**
+  String get animeRelationPrequel;
+
+  /// No description provided for @animeRelationSequel.
+  ///
+  /// In en, this message translates to:
+  /// **'Sequel'**
+  String get animeRelationSequel;
+
+  /// No description provided for @animeRelationParentStory.
+  ///
+  /// In en, this message translates to:
+  /// **'Parent story'**
+  String get animeRelationParentStory;
+
+  /// No description provided for @animeRelationFullStory.
+  ///
+  /// In en, this message translates to:
+  /// **'Full story'**
+  String get animeRelationFullStory;
+
+  /// No description provided for @animeRelationSideStory.
+  ///
+  /// In en, this message translates to:
+  /// **'Side story'**
+  String get animeRelationSideStory;
+
+  /// No description provided for @animeRelationAlternativeSetting.
+  ///
+  /// In en, this message translates to:
+  /// **'Alternative setting'**
+  String get animeRelationAlternativeSetting;
+
+  /// No description provided for @animeRelationAlternativeVersion.
+  ///
+  /// In en, this message translates to:
+  /// **'Alternative version'**
+  String get animeRelationAlternativeVersion;
+
+  /// No description provided for @animeRelationSpinOff.
+  ///
+  /// In en, this message translates to:
+  /// **'Spin-off'**
+  String get animeRelationSpinOff;
+
+  /// No description provided for @animeRelationSummary.
+  ///
+  /// In en, this message translates to:
+  /// **'Summary'**
+  String get animeRelationSummary;
+
+  /// No description provided for @animeRelationCharacter.
+  ///
+  /// In en, this message translates to:
+  /// **'Shared characters'**
+  String get animeRelationCharacter;
+
+  /// No description provided for @animeRelationOther.
+  ///
+  /// In en, this message translates to:
+  /// **'Other'**
+  String get animeRelationOther;
 }
 
 class _AppLocalizationsDelegate

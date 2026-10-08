@@ -53,6 +53,7 @@ query AnimePage(
     malId
     name
     russian
+    english
     kind
     score
     status

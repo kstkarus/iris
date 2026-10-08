@@ -2,6 +2,8 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import 'package:iris/shared/utils/ordered_dither.dart';
+
 /// Progress drawn as a row of equal blocks: filled ones in [color] (the
 /// signal by default), the rest in [trackColor].
 ///
@@ -11,9 +13,10 @@ import 'package:flutter/material.dart';
 /// Changes of [value] light the blocks up in turn rather than jumping;
 /// with [animateIn] the bar also fills from empty when it first shows.
 ///
-/// With [ditherTrack] the unfilled blocks are a halftone of [color]
-/// instead: the first one dense, the rest a checkerboard of square
-/// [ditherPixel]s, so a large bar fades out rather than stopping.
+/// With [ditherTrack], for a large bar, the unfilled blocks are a
+/// checkerboard of square [ditherPixel]s in [trackColor], so the rest of
+/// the bar recedes, and the block where progress stops fills in Bayer
+/// order by its own share.
 class SegmentedBar extends StatelessWidget {
   const SegmentedBar({
     required this.value,
@@ -67,7 +70,12 @@ class SegmentedBar extends StatelessWidget {
               segment: segment,
               gap: gap,
               color: color ?? scheme.tertiary,
-              trackColor: trackColor ?? scheme.surfaceContainerHighest,
+              trackColor:
+                  trackColor ??
+                  (ditherTrack
+                      ? scheme.onSurface.withValues(alpha: 0.3)
+                      : scheme.surfaceContainerHighest),
+              devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
               ditherPixel: ditherTrack ? ditherPixel : null,
             ),
           ),
@@ -138,6 +146,7 @@ class _SegmentsPainter extends CustomPainter {
     required this.gap,
     required this.color,
     required this.trackColor,
+    this.devicePixelRatio = 1,
     this.ditherPixel,
   });
 
@@ -147,14 +156,39 @@ class _SegmentsPainter extends CustomPainter {
   final Color color;
   final Color trackColor;
 
-  /// Halftone pixel for unfilled blocks; null paints them in [trackColor].
+  /// Block edges and halftone pixels land on whole device pixels, so a
+  /// scaled screen does not smear them.
+  final double devicePixelRatio;
+
+  /// Halftone pixel; null paints blocks solid.
   final double? ditherPixel;
+
+  double _snap(double value) =>
+      (value * devicePixelRatio).roundToDouble() / devicePixelRatio;
 
   @override
   void paint(Canvas canvas, Size size) {
     if (size.width <= 0 || size.height <= 0) return;
+    final pixel = ditherPixel;
+    if (pixel != null) {
+      _paintHalftone(canvas, size, _snapPixel(pixel));
+      return;
+    }
     final count = math.max(1, ((size.width + gap) / (segment + gap)).floor());
     final width = (size.width - gap * (count - 1)) / count;
+    _paintSolid(canvas, [
+      for (var index = 0; index < count; index++)
+        Rect.fromLTRB(
+          _snap(index * (width + gap)),
+          0,
+          _snap(index * (width + gap) + width),
+          _snap(size.height),
+        ),
+    ]);
+  }
+
+  void _paintSolid(Canvas canvas, List<Rect> blocks) {
+    final count = blocks.length;
     // Any progress shows at least one block; only the end fills the last.
     final lit = filled <= 0
         ? 0
@@ -163,45 +197,84 @@ class _SegmentsPainter extends CustomPainter {
         : (filled * count).floor().clamp(1, count - 1);
     final on = Paint()..color = color;
     final off = Paint()..color = trackColor;
-    final pixel = ditherPixel;
-    final halftone = Path();
-    for (var index = 0; index < count; index++) {
-      final block = Rect.fromLTWH(index * (width + gap), 0, width, size.height);
-      if (index < lit) {
-        canvas.drawRect(block, on);
-      } else if (pixel == null) {
-        canvas.drawRect(block, off);
-      } else {
-        _addHalftone(halftone, block, pixel, dense: index == lit);
-      }
+    for (final (index, block) in blocks.indexed) {
+      canvas.drawRect(block, index < lit ? on : off);
     }
-    if (pixel != null) canvas.drawPath(halftone, on);
   }
 
-  /// Three pixels in four for the block next to the filled ones, every
-  /// other pixel after it.
-  static void _addHalftone(
-    Path path,
-    Rect block,
-    double pixel, {
-    required bool dense,
-  }) {
-    final columns = (block.width / pixel).floor();
-    final rows = (block.height / pixel).floor();
-    for (var y = 0; y < rows; y++) {
-      for (var x = 0; x < columns; x++) {
-        final lit = dense ? !(x.isOdd && y.isOdd) : (x + y).isEven;
-        if (!lit) continue;
-        path.addRect(
-          Rect.fromLTWH(
-            block.left + x * pixel,
-            block.top + y * pixel,
-            pixel,
-            pixel,
-          ),
-        );
+  /// Whole blocks in [color]; the block where progress stops fills in
+  /// Bayer order by its own share, so a sliver of progress is a few pixels
+  /// rather than a whole block; the rest is a checkerboard of [trackColor].
+  ///
+  /// Every block is the same odd number of pixels each way, the nearest to
+  /// [segment]: the checkerboard then starts and ends on a lit pixel at
+  /// every edge, and solid and halftone blocks line up. The number of
+  /// blocks follows from that size, so the gaps stay close to [gap].
+  void _paintHalftone(Canvas canvas, Size size, double pixel) {
+    final columns = _nearestOdd(segment / pixel);
+    final rows = _oddFloor(size.height / pixel);
+    if (rows == 0) return;
+    final blockWidth = columns * pixel;
+    final blockHeight = rows * pixel;
+    final count = math.max(
+      1,
+      ((size.width + gap) / (blockWidth + gap)).floor(),
+    );
+    final spacing = count > 1
+        ? (size.width - count * blockWidth) / (count - 1)
+        : 0.0;
+    final top = _snap((size.height - blockHeight) / 2);
+    final exact = filled.clamp(0.0, 1.0) * count;
+    final lit = exact.floor();
+    // Of 16 Bayer levels; anything above zero shows at least one.
+    final level = lit < count && exact > lit
+        ? ((exact - lit) * 16).ceil().clamp(1, 16)
+        : 0;
+    final solid = Path();
+    final progress = Path();
+    final track = Path();
+    for (var index = 0; index < count; index++) {
+      final left = count > 1
+          ? _snap(index * (blockWidth + spacing))
+          : _snap((size.width - blockWidth) / 2);
+      if (index < lit) {
+        solid.addRect(Rect.fromLTWH(left, top, blockWidth, blockHeight));
+        continue;
+      }
+      // The filling block shows only its own pixels: grey between them
+      // would read as noise.
+      final filling = index == lit && level > 0;
+      for (var y = 0; y < rows; y++) {
+        for (var x = 0; x < columns; x++) {
+          final on = filling ? bayerLevel(x, y) < level : (x + y).isEven;
+          if (!on) continue;
+          (filling ? progress : track).addRect(
+            Rect.fromLTWH(left + x * pixel, top + y * pixel, pixel, pixel),
+          );
+        }
       }
     }
+    final on = Paint()..color = color;
+    canvas
+      ..drawPath(track, Paint()..color = trackColor)
+      ..drawPath(solid, on)
+      ..drawPath(progress, on);
+  }
+
+  double _snapPixel(double pixel) =>
+      math.max(1, (pixel * devicePixelRatio).round()) / devicePixelRatio;
+
+  /// The odd whole number nearest to [value], the smaller one on a tie.
+  static int _nearestOdd(double value) {
+    final below = _oddFloor(value);
+    if (below == 0) return 1;
+    return value - below > below + 2 - value ? below + 2 : below;
+  }
+
+  static int _oddFloor(double value) {
+    final whole = value.floor();
+    if (whole <= 1) return math.max(whole, 0);
+    return whole.isOdd ? whole : whole - 1;
   }
 
   @override
@@ -211,5 +284,6 @@ class _SegmentsPainter extends CustomPainter {
       old.gap != gap ||
       old.color != color ||
       old.trackColor != trackColor ||
+      old.devicePixelRatio != devicePixelRatio ||
       old.ditherPixel != ditherPixel;
 }

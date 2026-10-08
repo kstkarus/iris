@@ -1,10 +1,8 @@
 import 'package:iris/features/watch_sources/data/models/nyaa_watch_source_dto.dart';
 
 class MockWatchSourcesDataSource {
-  Future<List<NyaaWatchSourceDto>> fetchSources(
-    String animeEnglishTitle,
-  ) async {
-    final normalizedTitle = animeEnglishTitle.trim().toLowerCase();
+  Future<List<NyaaWatchSourceDto>> fetchSources(String title) async {
+    final normalizedTitle = title.trim().toLowerCase();
     return _mockSources[normalizedTitle] ?? const [];
   }
 }

@@ -24,6 +24,10 @@ class WatchProgress {
   /// Shorter positions are not worth resuming from.
   static const minResumePosition = Duration(seconds: 10);
 
+  /// Less than this was a look at the file (checking a release, a wrong
+  /// file), not watching it.
+  static const minContinuePosition = Duration(minutes: 1);
+
   final String torrentKey;
   final int fileIndex;
   final String fileName;
@@ -50,6 +54,10 @@ class WatchProgress {
 
   bool get isFinished =>
       duration > Duration.zero && fraction >= finishedFraction;
+
+  /// Worth offering under "Continue watching": watched for a while, or to
+  /// the end (then the next file is offered).
+  bool get isWorthContinuing => isFinished || position >= minContinuePosition;
 
   /// Where playback should continue, or null to start from the beginning.
   Duration? get resumePosition {

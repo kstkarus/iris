@@ -10,7 +10,8 @@ void main() {
   test('emits loading then loaded with default sorting by seeders', () async {
     final cubit = WatchSourcesCubit(
       animeId: '52991',
-      animeEnglishTitle: 'Frieren: Beyond Journey\'s End',
+      animeTitle: 'Frieren: Beyond Journey\'s End',
+      searchTitles: ['Frieren: Beyond Journey\'s End'],
       repository: _SuccessWatchSourcesRepository(_items),
     );
 
@@ -40,7 +41,8 @@ void main() {
       final repository = _CountingWatchSourcesRepository(_items);
       final cubit = WatchSourcesCubit(
         animeId: '52991',
-        animeEnglishTitle: 'Frieren: Beyond Journey\'s End',
+        animeTitle: 'Frieren: Beyond Journey\'s End',
+        searchTitles: ['Frieren: Beyond Journey\'s End'],
         repository: repository,
       );
 
@@ -63,7 +65,8 @@ void main() {
   test('clearing search restores all items', () async {
     final cubit = WatchSourcesCubit(
       animeId: '52991',
-      animeEnglishTitle: 'Frieren: Beyond Journey\'s End',
+      animeTitle: 'Frieren: Beyond Journey\'s End',
+      searchTitles: ['Frieren: Beyond Journey\'s End'],
       repository: _SuccessWatchSourcesRepository(_items),
     );
 
@@ -86,7 +89,8 @@ void main() {
   test('updates visible items when sort option changes', () async {
     final cubit = WatchSourcesCubit(
       animeId: '52991',
-      animeEnglishTitle: 'Frieren: Beyond Journey\'s End',
+      animeTitle: 'Frieren: Beyond Journey\'s End',
+      searchTitles: ['Frieren: Beyond Journey\'s End'],
       repository: _SuccessWatchSourcesRepository(_items),
     );
 
@@ -107,7 +111,8 @@ void main() {
   test('emits loading then empty when service returns no items', () async {
     final cubit = WatchSourcesCubit(
       animeId: '1',
-      animeEnglishTitle: 'Unknown Title',
+      animeTitle: 'Unknown Title',
+      searchTitles: ['Unknown Title'],
       repository: const _SuccessWatchSourcesRepository([]),
     );
 
@@ -122,7 +127,8 @@ void main() {
   test('emits failure when title is empty', () async {
     final cubit = WatchSourcesCubit(
       animeId: '1',
-      animeEnglishTitle: '',
+      animeTitle: '',
+      searchTitles: const [],
       repository: const _SuccessWatchSourcesRepository(_items),
     );
 
@@ -137,7 +143,8 @@ void main() {
   test('emits failure when repository throws', () async {
     final cubit = WatchSourcesCubit(
       animeId: '1535',
-      animeEnglishTitle: 'Death Note',
+      animeTitle: 'Death Note',
+      searchTitles: ['Death Note'],
       repository: _FailingWatchSourcesRepository(),
     );
 
@@ -156,7 +163,7 @@ class _SuccessWatchSourcesRepository implements WatchSourcesRepository {
   final List<WatchSourceItem> items;
 
   @override
-  Future<List<WatchSourceItem>> fetchSources(String animeEnglishTitle) async {
+  Future<List<WatchSourceItem>> fetchSources(List<String> titles) async {
     return items;
   }
 }
@@ -168,7 +175,7 @@ class _CountingWatchSourcesRepository implements WatchSourcesRepository {
   int callCount = 0;
 
   @override
-  Future<List<WatchSourceItem>> fetchSources(String animeEnglishTitle) async {
+  Future<List<WatchSourceItem>> fetchSources(List<String> titles) async {
     callCount += 1;
     return items;
   }
@@ -176,7 +183,7 @@ class _CountingWatchSourcesRepository implements WatchSourcesRepository {
 
 class _FailingWatchSourcesRepository implements WatchSourcesRepository {
   @override
-  Future<List<WatchSourceItem>> fetchSources(String animeEnglishTitle) async {
+  Future<List<WatchSourceItem>> fetchSources(List<String> titles) async {
     throw Exception('Failed to load sources');
   }
 }

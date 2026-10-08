@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/widgets/adaptive/window_size_class.dart';
 import 'package:iris/shared/widgets/pixel_icon.dart';
+import 'package:iris/shared/widgets/adaptive/adaptive_content_width.dart';
 
 /// Top-level shell with adaptive navigation.
 ///
@@ -112,14 +113,18 @@ class _TopBar extends StatelessWidget {
           height: height,
           child: Padding(
             padding: EdgeInsets.symmetric(horizontal: margin),
-            child: LayoutBuilder(
-              builder: (context, constraints) => Row(
+            // On the page frame: the mark over the content's left edge,
+            // the sections in the middle.
+            child: MaxWidthBox(
+              maxWidth: AdaptiveContentWidth.page,
+              alignment: Alignment.center,
+              child: Row(
                 children: [
-                  // The sections start a third of the way in, on the
-                  // page grid rather than straight after the mark.
-                  SizedBox(
-                    width: constraints.maxWidth / 3,
-                    child: _Wordmark(appName: appName),
+                  Expanded(
+                    child: Align(
+                      alignment: AlignmentDirectional.centerStart,
+                      child: _Wordmark(appName: appName),
+                    ),
                   ),
                   for (var index = 0; index < labels.length; index++)
                     _TopBarItem(
@@ -127,6 +132,7 @@ class _TopBar extends StatelessWidget {
                       selected: index == selectedIndex,
                       onTap: () => onSelected(index),
                     ),
+                  const Spacer(),
                 ],
               ),
             ),

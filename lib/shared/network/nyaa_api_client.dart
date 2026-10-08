@@ -12,7 +12,14 @@ class NyaaApiClient {
     try {
       final response = await _dio.get<dynamic>(
         NyaaApi.searchPath,
-        queryParameters: {'q': query, 'category': NyaaApi.animeCategory},
+        queryParameters: {
+          'q': query,
+          'category': NyaaApi.animeCategory,
+          // A search returns one page (75); the best-seeded rather than the
+          // newest, as the list is sorted by seeders anyway.
+          'sort': 'seeders',
+          'order': 'desc',
+        },
       );
 
       final payload = response.data;

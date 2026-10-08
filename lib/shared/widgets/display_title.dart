@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 
 /// A headline set as large as the space allows: the biggest size up to
 /// [maxSize] at which [text] wraps into at most [maxLines] lines without
-/// breaking a word, and never below [minSize].
+/// breaking a word, and never below [minSize]. A bounded height from the
+/// parent is a limit too.
 ///
 /// This is the one big voice of a page. Everything around it stays small,
 /// so the contrast in scale carries the hierarchy.
@@ -44,6 +45,7 @@ class DisplayTitle extends StatelessWidget {
             maxSize: maxSize,
             minSize: minSize,
             maxLines: maxLines,
+            maxHeight: constraints.maxHeight,
             textScaler: textScaler,
           );
           return Text(text, style: styleAt(base, size));
@@ -61,6 +63,7 @@ double fitDisplaySize(
   required double maxSize,
   required double minSize,
   required int maxLines,
+  double maxHeight = double.infinity,
   TextScaler textScaler = TextScaler.noScaling,
 }) {
   if (!width.isFinite || width <= 0) return minSize;
@@ -85,7 +88,10 @@ double fitDisplaySize(
       textScaler: textScaler,
       maxLines: 1,
     )..layout();
-    final result = !whole.didExceedMaxLines && word.width <= width;
+    final result =
+        !whole.didExceedMaxLines &&
+        whole.height <= maxHeight &&
+        word.width <= width;
     whole.dispose();
     word.dispose();
     return result;
@@ -96,4 +102,23 @@ double fitDisplaySize(
     size *= 0.92;
   }
   return size < minSize ? minSize : size.floorToDouble();
+}
+
+/// How tall [text] is set at [size] in [width], every line counted: what a
+/// [DisplayTitle] needs at its smallest.
+double displayTitleHeight(
+  String text, {
+  required TextStyle base,
+  required double size,
+  required double width,
+  TextScaler textScaler = TextScaler.noScaling,
+}) {
+  final painter = TextPainter(
+    text: TextSpan(text: text, style: DisplayTitle.styleAt(base, size)),
+    textDirection: TextDirection.ltr,
+    textScaler: textScaler,
+  )..layout(maxWidth: width);
+  final height = painter.height;
+  painter.dispose();
+  return height;
 }

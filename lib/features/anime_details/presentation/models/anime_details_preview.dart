@@ -1,4 +1,5 @@
 import 'package:iris/features/anime_details/domain/entities/anime_details.dart';
+import 'package:iris/features/anime_details/domain/entities/related_anime.dart';
 
 /// What a title page can show before its details load: the catalog
 /// already knows all of it, so the page opens with it and only waits for
@@ -8,6 +9,7 @@ class AnimeDetailsPreview {
     required this.id,
     required this.name,
     required this.russian,
+    this.english = '',
     required this.kind,
     required this.score,
     required this.status,
@@ -23,6 +25,7 @@ class AnimeDetailsPreview {
         id: details.id,
         name: details.name,
         russian: details.russian,
+        english: details.english,
         kind: details.kind,
         score: details.score,
         status: details.status,
@@ -32,9 +35,28 @@ class AnimeDetailsPreview {
         posterUrl: details.posterOriginalUrl,
       );
 
+  /// What the franchise list knows of a related title.
+  factory AnimeDetailsPreview.fromRelated(RelatedAnime anime) =>
+      AnimeDetailsPreview(
+        id: anime.id,
+        name: anime.name,
+        russian: anime.russian,
+        english: anime.english,
+        kind: anime.kind,
+        score: anime.score,
+        status: anime.status,
+        episodes: anime.episodes,
+        episodesAired: anime.episodesAired,
+        airedOn: anime.airedOn,
+        posterUrl: anime.posterUrl,
+      );
+
   final String id;
   final String name;
   final String russian;
+
+  /// Also searched for releases.
+  final String english;
   final String kind;
   final double score;
   final String status;

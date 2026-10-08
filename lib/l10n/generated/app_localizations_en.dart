@@ -613,6 +613,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get watchProgressPlayNextButton => 'Play next';
 
   @override
+  String get watchProgressWatchButton => 'Watch';
+
+  @override
   String watchProgressLastFile(String fileName) {
     return 'Last watched: $fileName';
   }
@@ -839,4 +842,54 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get downloadsFilesTitle => 'Files';
+
+  @override
+  String commonShowMore(int count) {
+    return '$count more';
+  }
+
+  @override
+  String get commonShowLess => 'Show less';
+
+  @override
+  String get animeKindSpecial => 'Special';
+
+  @override
+  String get animeKindTvSpecial => 'TV special';
+
+  @override
+  String get animeDetailsRelatedTitle => 'Related';
+
+  @override
+  String get animeRelationPrequel => 'Prequel';
+
+  @override
+  String get animeRelationSequel => 'Sequel';
+
+  @override
+  String get animeRelationParentStory => 'Parent story';
+
+  @override
+  String get animeRelationFullStory => 'Full story';
+
+  @override
+  String get animeRelationSideStory => 'Side story';
+
+  @override
+  String get animeRelationAlternativeSetting => 'Alternative setting';
+
+  @override
+  String get animeRelationAlternativeVersion => 'Alternative version';
+
+  @override
+  String get animeRelationSpinOff => 'Spin-off';
+
+  @override
+  String get animeRelationSummary => 'Summary';
+
+  @override
+  String get animeRelationCharacter => 'Shared characters';
+
+  @override
+  String get animeRelationOther => 'Other';
 }

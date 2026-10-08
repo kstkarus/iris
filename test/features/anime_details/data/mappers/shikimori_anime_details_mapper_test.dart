@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:iris/features/anime_details/data/mappers/shikimori_anime_details_mapper.dart';
 import 'package:iris/features/anime_details/data/models/shikimori_anime_details_dto.dart';
 import 'package:iris/features/anime_details/domain/entities/anime_details.dart';
+import 'package:iris/features/anime_details/domain/entities/related_anime.dart';
 
 void main() {
   test('Shikimori anime details dto maps to a domain entity', () {
@@ -61,5 +62,72 @@ void main() {
       'Изнывающий от скуки бог смерти Рюк бросает тетрадь. '
       'Убийцу окрещают Кира.',
     );
+  });
+
+  test('related anime map with their relation; manga is left out', () {
+    final dto = ShikimoriAnimeDetailsDto.fromJson({
+      'id': '52991',
+      'name': 'Sousou no Frieren',
+      'related': [
+        {
+          'relationKind': 'sequel',
+          'anime': {
+            'id': '59978',
+            'name': 'Sousou no Frieren 2nd Season',
+            'russian': 'Провожающая в последний путь Фрирен 2',
+            'english': "Frieren: Beyond Journey's End Season 2",
+            'kind': 'tv',
+            'score': 9.1,
+            'status': 'released',
+            'episodes': 10,
+            'episodesAired': 10,
+            'airedOn': {'date': '2026-01-16'},
+            'poster': {'mainUrl': 'https://shikimori.io/poster/59978.jpg'},
+          },
+          'manga': null,
+        },
+        {
+          'relationKind': 'adaptation',
+          'anime': null,
+          'manga': {'id': '126287'},
+        },
+        {
+          'relationKind': 'something_new',
+          'anime': {'id': '1', 'name': 'Unknown kin'},
+        },
+      ],
+    });
+
+    final related = mapShikimoriAnimeDetailsToDomain(dto).related;
+
+    expect(related, const [
+      RelatedAnime(
+        relation: AnimeRelation.sequel,
+        id: '59978',
+        name: 'Sousou no Frieren 2nd Season',
+        russian: 'Провожающая в последний путь Фрирен 2',
+        english: "Frieren: Beyond Journey's End Season 2",
+        kind: 'tv',
+        score: 9.1,
+        status: 'released',
+        episodes: 10,
+        episodesAired: 10,
+        airedOn: '2026-01-16',
+        posterUrl: 'https://shikimori.io/poster/59978.jpg',
+      ),
+      RelatedAnime(
+        relation: AnimeRelation.other,
+        id: '1',
+        name: 'Unknown kin',
+        russian: '',
+        kind: '',
+        score: 0,
+        status: '',
+        episodes: 0,
+        episodesAired: 0,
+        airedOn: '',
+        posterUrl: '',
+      ),
+    ]);
   });
 }

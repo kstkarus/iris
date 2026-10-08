@@ -8,25 +8,31 @@ import 'package:iris/features/watch_sources/presentation/models/watch_sources_so
 class WatchSourcesCubit extends Cubit<WatchSourcesState> {
   WatchSourcesCubit({
     required this.animeId,
-    required this.animeEnglishTitle,
+    required this.animeTitle,
+    required this.searchTitles,
     required WatchSourcesRepository repository,
   }) : _repository = repository,
        super(const WatchSourcesInitial());
 
   final String animeId;
-  final String animeEnglishTitle;
+
+  /// How history names the anime of a release played from here.
+  final String animeTitle;
+
+  /// What releases are searched by.
+  final List<String> searchTitles;
   final WatchSourcesRepository _repository;
 
   Future<void> loadSources() async {
     emit(const WatchSourcesLoading());
 
-    if (animeEnglishTitle.trim().isEmpty) {
+    if (searchTitles.isEmpty) {
       emit(const WatchSourcesFailure());
       return;
     }
 
     try {
-      final items = await _repository.fetchSources(animeEnglishTitle);
+      final items = await _repository.fetchSources(searchTitles);
 
       if (items.isEmpty) {
         emit(const WatchSourcesEmpty());

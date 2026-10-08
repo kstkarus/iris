@@ -6,6 +6,7 @@ AnimeListItem mapShikimoriAnimeToDomain(ShikimoriAnimeDto dto) {
     id: dto.id,
     name: dto.name,
     russian: dto.russian,
+    english: dto.english,
     kind: dto.kind,
     score: dto.score,
     status: dto.status,

@@ -9,14 +9,9 @@ abstract final class AdaptiveContentWidth {
   /// Long-form text such as descriptions.
   static const double reading = 720;
 
-  /// Single-column lists of cards.
-  static const double list = 840;
-
-  /// Pages opened from a section (an anime, its releases, a torrent's
-  /// files): no navigation beside them, so their rows stay this wide.
-  static const double subpage = 1200;
-
-  /// Multi-pane pages and grids.
+  /// The frame every page shares, the top bar and sub-page bars included:
+  /// centred, with the content left-aligned inside, so the left edge stays
+  /// put when moving between pages.
   static const double page = 1600;
 }
 

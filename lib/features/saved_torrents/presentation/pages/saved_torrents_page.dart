@@ -48,8 +48,7 @@ class SavedTorrentsPage extends StatelessWidget {
                 0,
               ),
               child: MaxWidthBox(
-                maxWidth: AdaptiveContentWidth.subpage,
-                alignment: Alignment.topLeft,
+                maxWidth: AdaptiveContentWidth.page,
                 child: SavedTorrentsView(
                   addButtonKey: addButtonKey,
                   onAdd: () => _add(context),

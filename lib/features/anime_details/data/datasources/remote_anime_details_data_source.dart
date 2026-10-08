@@ -43,6 +43,7 @@ query AnimeDetails($id: String!) {
     malId
     name
     russian
+    english
     description
     kind
     score
@@ -54,6 +55,26 @@ query AnimeDetails($id: String!) {
     }
     poster {
       originalUrl
+    }
+    related {
+      relationKind
+      anime {
+        id
+        name
+        russian
+        english
+        kind
+        score
+        status
+        episodes
+        episodesAired
+        airedOn {
+          date
+        }
+        poster {
+          mainUrl
+        }
+      }
     }
   }
 }

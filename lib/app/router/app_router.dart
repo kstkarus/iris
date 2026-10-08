@@ -189,7 +189,8 @@ abstract final class AppRouter {
             return BlocProvider(
               create: (_) => WatchSourcesCubit(
                 animeId: args.animeId,
-                animeEnglishTitle: args.animeEnglishTitle,
+                animeTitle: args.animeTitle,
+                searchTitles: args.searchTitles,
                 repository: serviceLocator<WatchSourcesRepository>(),
               )..loadSources(),
               child: WatchSourcesPage(args: args),
