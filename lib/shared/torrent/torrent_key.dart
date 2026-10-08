@@ -17,6 +17,10 @@ String torrentKeyFromMagnet(String magnet) {
   return _fnv1a(magnet);
 }
 
+/// [key] as [torrentKeyFromMagnet] spells it now. Keys stored before the hex
+/// and base32 spellings were unified may hold the base32 form.
+String canonicalTorrentKey(String key) => canonicalInfoHash(key) ?? key;
+
 /// The key for an `urn:btih:` value, or null for any other value.
 String? _btihKey(String xt) {
   const prefix = 'urn:btih:';

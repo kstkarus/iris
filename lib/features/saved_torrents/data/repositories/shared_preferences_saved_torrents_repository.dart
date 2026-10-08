@@ -100,7 +100,15 @@ class SharedPreferencesSavedTorrentsRepository
     try {
       final decoded = jsonDecode(raw);
       if (decoded is! List) return [];
-      return [for (final entry in decoded) ?SavedTorrentModel.fromJson(entry)];
+      // Both spellings of one info-hash may have been saved before they were
+      // unified; the one added first stands.
+      final seen = <String>{};
+      return [
+        for (final entry in decoded)
+          if (SavedTorrentModel.fromJson(entry) case final torrent?
+              when seen.add(torrent.infoHash))
+            torrent,
+      ];
     } on FormatException catch (error, stackTrace) {
       developer.log(
         'Saved torrents storage is corrupted; starting with an empty list.',

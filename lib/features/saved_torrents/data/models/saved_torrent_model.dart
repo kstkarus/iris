@@ -1,4 +1,5 @@
 import 'package:iris/features/saved_torrents/domain/entities/saved_torrent.dart';
+import 'package:iris/shared/torrent/torrent_key.dart';
 
 /// JSON shape of a saved torrent in local storage.
 abstract final class SavedTorrentModel {
@@ -30,7 +31,7 @@ abstract final class SavedTorrentModel {
     }
     final lastOpenedRaw = json['lastOpenedAt'];
     return SavedTorrent(
-      infoHash: infoHash,
+      infoHash: canonicalTorrentKey(infoHash),
       magnet: magnet,
       title: title,
       addedAt: addedAt,

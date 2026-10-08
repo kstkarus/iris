@@ -1,4 +1,5 @@
 import 'package:iris/entities/watch_progress/domain/watch_progress.dart';
+import 'package:iris/shared/torrent/torrent_key.dart';
 
 abstract final class WatchProgressModel {
   static Map<String, Object?> toJson(WatchProgress progress) => {
@@ -31,7 +32,7 @@ abstract final class WatchProgressModel {
       return null;
     }
     return WatchProgress(
-      torrentKey: torrentKey,
+      torrentKey: canonicalTorrentKey(torrentKey),
       fileIndex: fileIndex,
       fileName: _string(json['fileName']),
       magnet: _string(json['magnet']),

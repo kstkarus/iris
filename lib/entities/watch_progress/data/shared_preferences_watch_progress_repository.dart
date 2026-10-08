@@ -72,7 +72,9 @@ class SharedPreferencesWatchProgressRepository
     try {
       final decoded = jsonDecode(raw);
       if (decoded is! List) return [];
-      return [for (final entry in decoded) ?WatchProgressModel.fromJson(entry)];
+      return _latestPerFile([
+        for (final entry in decoded) ?WatchProgressModel.fromJson(entry),
+      ]);
     } on FormatException catch (error, stackTrace) {
       developer.log(
         'Watch progress storage is corrupted; starting with an empty history.',
@@ -95,6 +97,19 @@ class SharedPreferencesWatchProgressRepository
       jsonEncode([for (final item in kept) WatchProgressModel.toJson(item)]),
     );
     if (!_changes.isClosed) _changes.add(kept);
+  }
+
+  /// Records saved under the base32 and the hex key of one torrent meet once
+  /// the key is canonical; the newer one stands.
+  List<WatchProgress> _latestPerFile(List<WatchProgress> items) {
+    final latest = <String, WatchProgress>{};
+    for (final item in items) {
+      final kept = latest[item.id];
+      if (kept == null || item.updatedAt.isAfter(kept.updatedAt)) {
+        latest[item.id] = item;
+      }
+    }
+    return latest.values.toList();
   }
 
   List<WatchProgress> _sorted(List<WatchProgress> items) {

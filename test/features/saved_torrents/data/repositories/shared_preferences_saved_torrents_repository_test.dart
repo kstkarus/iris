@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -135,5 +136,52 @@ void main() {
     );
     final torrents = await repository.watchTorrents().first;
     expect(torrents.single.title, 'Ok');
+  });
+
+  group('torrents saved before hex and base32 were unified', () {
+    const base32A = 'azoeneo6qt4wjykdca5txug6c67fx7ik';
+    const base32MagnetA =
+        'magnet:?xt=urn:btih:AZOENEO6QT4WJYKDCA5TXUG6C67FX7IK';
+
+    Map<String, Object?> stored(String infoHash, String magnet, int day) => {
+      'infoHash': infoHash,
+      'magnet': magnet,
+      'title': 'Saved $day',
+      'addedAt': DateTime.utc(2026, 9, day).toIso8601String(),
+    };
+
+    Future<void> storeRaw(List<Map<String, Object?>> items) async {
+      SharedPreferences.setMockInitialValues({
+        'saved_torrents.items': jsonEncode(items),
+      });
+      preferences = await SharedPreferences.getInstance();
+      await repository.close();
+      repository = create();
+    }
+
+    test('read with the hex key, so the same magnet is a duplicate', () async {
+      await storeRaw([stored(base32A, base32MagnetA, 1)]);
+
+      final torrents = await repository.watchTorrents().first;
+      expect(torrents.single.infoHash, _hashA);
+      expect(
+        await repository.add(magnet: base32MagnetA),
+        isA<SaveTorrentDuplicate>(),
+      );
+      expect(
+        await repository.add(magnet: _magnetA),
+        isA<SaveTorrentDuplicate>(),
+      );
+    });
+
+    test('both spellings of one torrent show once, the first added', () async {
+      await storeRaw([
+        stored(base32A, base32MagnetA, 1),
+        stored(_hashA, _magnetA, 2),
+      ]);
+
+      final torrents = await repository.watchTorrents().first;
+      expect(torrents.single.title, 'Saved 1');
+    });
   });
 }

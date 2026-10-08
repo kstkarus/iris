@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:iris/features/player/domain/entities/player_track_preferences.dart';
 import 'package:iris/features/player/domain/repositories/player_track_preferences_repository.dart';
+import 'package:iris/shared/torrent/torrent_key.dart';
 
 class SharedPreferencesTrackPreferencesRepository
     implements PlayerTrackPreferencesRepository {
@@ -16,7 +17,9 @@ class SharedPreferencesTrackPreferencesRepository
 
   @override
   Future<PlayerTrackPreferences?> load({required String torrentKey}) async {
-    final raw = _preferences.getString('$_keyPrefix$torrentKey');
+    final raw =
+        _preferences.getString('$_keyPrefix$torrentKey') ??
+        _legacyEntry(torrentKey);
     if (raw == null) return null;
     try {
       final json = jsonDecode(raw);
@@ -34,6 +37,20 @@ class SharedPreferencesTrackPreferencesRepository
       );
       return null;
     }
+  }
+
+  /// A choice saved under the base32 key of the same torrent, before keys
+  /// were unified to hex.
+  String? _legacyEntry(String torrentKey) {
+    for (final key in _preferences.getKeys()) {
+      if (!key.startsWith(_keyPrefix)) continue;
+      final storedKey = key.substring(_keyPrefix.length);
+      if (storedKey != torrentKey &&
+          canonicalTorrentKey(storedKey) == torrentKey) {
+        return _preferences.getString(key);
+      }
+    }
+    return null;
   }
 
   @override

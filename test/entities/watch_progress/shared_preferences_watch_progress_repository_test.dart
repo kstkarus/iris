@@ -1,3 +1,5 @@
+import 'package:iris/entities/watch_progress/data/watch_progress_model.dart';
+import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -135,5 +137,42 @@ void main() {
       ]);
       expect(latest.map((item) => item.id), ['abc:1', 'def:0']);
     });
+  });
+
+  group('records saved before hex and base32 keys were unified', () {
+    const hex = '065c4691de84f964e143103b3bd0de17be5bfd0a';
+    const base32 = 'azoeneo6qt4wjykdca5txug6c67fx7ik';
+
+    Future<void> storeRaw(List<WatchProgress> items) async {
+      SharedPreferences.setMockInitialValues({
+        'watch_progress.items': jsonEncode([
+          for (final item in items) WatchProgressModel.toJson(item),
+        ]),
+      });
+      preferences = await SharedPreferences.getInstance();
+      await repository.close();
+      repository = SharedPreferencesWatchProgressRepository(preferences);
+    }
+
+    test('are found by the hex key', () async {
+      await storeRaw([_progress(torrentKey: base32, positionSeconds: 600)]);
+
+      final found = await repository.find(torrentKey: hex, fileIndex: 0);
+      expect(found?.position, const Duration(seconds: 600));
+      expect(found?.torrentKey, hex);
+    });
+
+    test(
+      'merge with the hex record of the same file, the newer one standing',
+      () async {
+        await storeRaw([
+          _progress(torrentKey: base32, positionSeconds: 600, minute: 5),
+          _progress(torrentKey: hex, positionSeconds: 300, minute: 1),
+        ]);
+
+        final items = await repository.watchAll().first;
+        expect(items.single.position, const Duration(seconds: 600));
+      },
+    );
   });
 }
