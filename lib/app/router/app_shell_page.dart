@@ -321,14 +321,19 @@ class _BottomTab extends StatelessWidget {
             const SizedBox(height: 2),
             Expanded(
               child: Center(
-                child: Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.labelMedium?.copyWith(
-                    color: selected
-                        ? scheme.onSurface
-                        : scheme.onSurfaceVariant,
+                // Very large text shrinks a label that would not fit, a
+                // little, rather than cutting the word off; at usual sizes
+                // every label fits as it is.
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    style: theme.textTheme.labelMedium?.copyWith(
+                      color: selected
+                          ? scheme.onSurface
+                          : scheme.onSurfaceVariant,
+                    ),
                   ),
                 ),
               ),

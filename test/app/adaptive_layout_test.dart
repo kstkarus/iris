@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -248,6 +249,26 @@ void main() {
       }
     });
   }
+
+  testWidgets('bottom tabs show whole words at 320 dp in Russian at 2.0 '
+      'text', (tester) async {
+    _useRussianAtDoubleText(tester);
+    await _pumpMockApp(tester, const Size(320, 720));
+
+    final bar = find.byKey(AppShellPage.navigationBarKey);
+    for (final label in const ['Каталог', 'Раздачи', 'Загрузки']) {
+      final text = find.descendant(of: bar, matching: find.text(label));
+      final paragraph = tester.renderObject<RenderParagraph>(text);
+      expect(paragraph.didExceedMaxLines, isFalse, reason: label);
+      final tab = tester.getRect(
+        find.ancestor(of: text, matching: find.byType(InkWell)),
+      );
+      final shown = tester.getRect(text);
+      expect(shown.left, greaterThanOrEqualTo(tab.left - 0.5), reason: label);
+      expect(shown.right, lessThanOrEqualTo(tab.right + 0.5), reason: label);
+    }
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('filters open in a dialog on wide windows', (tester) async {
     await _pumpMockApp(tester, TestWindowSizes.desktop);
