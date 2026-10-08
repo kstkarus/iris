@@ -339,8 +339,13 @@ class _DownloadRow extends StatelessWidget {
         ],
       ),
     );
-    if (shouldDelete == true && context.mounted) {
-      await context.read<DownloadManagerCubit>().delete(item.id);
+    if (shouldDelete != true || !context.mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+    final deleted = await context.read<DownloadManagerCubit>().delete(item.id);
+    if (!deleted) {
+      messenger.showSnackBar(
+        SnackBar(content: Text(l10n.downloadDeleteFailed)),
+      );
     }
   }
 }

@@ -1064,6 +1064,12 @@ abstract class AppLocalizations {
   /// **'The cache is in use while a video is playing'**
   String get downloadStorageCacheBusy;
 
+  /// No description provided for @downloadDeleteFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to delete the files. Close the file if it is open and try again'**
+  String get downloadDeleteFailed;
+
   /// No description provided for @playerResumedFrom.
   ///
   /// In en, this message translates to:

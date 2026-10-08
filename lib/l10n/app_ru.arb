@@ -244,6 +244,7 @@
   "downloadStorageClearCache": "Очистить",
   "downloadStorageCacheCleared": "Кэш очищен",
   "downloadStorageCacheBusy": "Кэш занят: сейчас идёт просмотр",
+  "downloadDeleteFailed": "Не удалось удалить файлы. Закройте файл, если он открыт, и попробуйте снова",
   "playerResumedFrom": "Продолжаем с {position}",
   "playerStartOver": "С начала",
   "playerResumingFrom": "Продолжим с {position}",

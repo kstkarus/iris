@@ -63,7 +63,7 @@ Playback uses:
 Current behavior:
 
 - streaming sessions are temporary; streamed pieces live in `<temp>/iris/stream`, are removed when the player closes, and the folder is wiped on every app start
-- the Downloads tab shows one Cache total on every platform (Android: system app cache, which contains the stream folder; elsewhere: the stream folder) with a Clear action
+- the Downloads tab shows the stream folder as Cache on every platform, next to the Clear action that empties it; the rest of the Android app cache (posters) only counts in the total
 - watch progress is stored per torrent info-hash and file index (`shared_preferences`), so streaming and a downloaded copy share it; playback resumes from the saved position with a Start over action, and a file counts as watched at 90%
 - progress, track choices, saved torrents and downloads recorded under a base32 key by an earlier version are read under the hex key; where both spellings of one file or torrent were stored, they show once
 - the file picker marks watched files and offers Continue / Up next; the Torrents tab, the anime page (Recently watched), the source list (You watched this) and the catalog (Continue watching) use the same history; Continue watching leaves out files watched for less than a minute (a look at a release, not watching it), shows the latest title large and one more row, and folds the rest under a toggle (a single extra row is shown instead) so the catalog still starts on the first screen; an anime link is recorded only when playback was started from that anime's page
@@ -96,6 +96,7 @@ Current behavior:
 - a torrent that fails or is removed while its metadata is awaited ends the wait at once, in the picker and in the player
 - pause and retry preserve already downloaded pieces
 - completed files remain in app storage until the user deletes them
+- if the files cannot be removed (for example, a file still open elsewhere), the download stays in the list, stopped, and a message asks to delete it again
 - app restart restores the durable queue and rechecks partial files
 - Android may impose a time limit on very long `dataSync` foreground services on recent OS versions; interrupted items resume the next time the app starts
 

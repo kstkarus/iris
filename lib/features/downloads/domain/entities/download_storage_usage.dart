@@ -7,8 +7,7 @@ class DownloadStorageUsage {
 
   final int downloadsBytes;
 
-  /// Temporary data: the streaming cache plus, on Android, the rest of the
-  /// app cache reported by the system.
+  /// The streaming cache: what clearing the cache removes.
   final int? cacheBytes;
   final int? totalBytes;
 

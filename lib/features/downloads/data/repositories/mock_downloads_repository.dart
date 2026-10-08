@@ -28,9 +28,10 @@ class MockDownloadsRepository implements DownloadsRepository {
   Future<List<DownloadItem>> currentDownloads() async => List.of(_items);
 
   @override
-  Future<void> delete({required String id}) async {
+  Future<bool> delete({required String id}) async {
     _items.removeWhere((item) => item.id == id);
     _emit();
+    return true;
   }
 
   @override

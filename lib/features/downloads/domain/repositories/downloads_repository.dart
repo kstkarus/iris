@@ -31,7 +31,9 @@ abstract interface class DownloadsRepository {
 
   Future<void> retry({required String id});
 
-  Future<void> delete({required String id});
+  /// Returns false when the files could not be removed; the record is then
+  /// kept, stopped if it was loading.
+  Future<bool> delete({required String id});
 
   Future<DownloadItem?> findCompletedById({required String id});
 

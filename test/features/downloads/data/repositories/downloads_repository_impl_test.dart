@@ -185,11 +185,34 @@ void main() {
     await File(
       '${downloadsDirectory.path}${Platform.pathSeparator}video.mkv',
     ).writeAsBytes(List.filled(128, 0));
+    final streamCacheDirectory = Directory(
+      '${temporaryDirectory.path}${Platform.pathSeparator}stream',
+    );
+    final leftover = File(
+      '${streamCacheDirectory.path}${Platform.pathSeparator}episode.mkv',
+    );
+    await leftover.parent.create(recursive: true);
+    await leftover.writeAsBytes(List.filled(16, 0));
+    final androidRepository = DownloadsRepositoryImpl(
+      engine: engine,
+      registry: DownloadRegistryDataSource(
+        registryFile: File(
+          '${temporaryDirectory.path}${Platform.pathSeparator}android.json',
+        ),
+      ),
+      downloadsDirectory: downloadsDirectory,
+      foregroundService: foregroundService,
+      storageUsageAdapter: const _FakeStorageUsageAdapter(),
+      streamCache: StreamCacheStorage(directory: streamCacheDirectory),
+      activityRegistry: activityRegistry,
+    );
+    addTearDown(androidRepository.close);
 
-    final usage = await repository.calculateStorageUsage();
+    final usage = await androidRepository.calculateStorageUsage();
 
     expect(usage.downloadsBytes, 128);
-    expect(usage.cacheBytes, 25);
+    // The stream folder Clear empties, not the whole system app cache (25).
+    expect(usage.cacheBytes, 16);
     expect(usage.totalBytes, 300);
   });
 
@@ -677,7 +700,7 @@ void main() {
   );
 
   test(
-    'a folder that cannot be deleted leaves the record failed, not downloading',
+    'a folder that cannot be deleted keeps the record, stopped, to delete again',
     () async {
       final source = await repository.prepareSource(magnet: _magnet);
       final item = await repository.enqueueDownload(
@@ -692,20 +715,18 @@ void main() {
       // An open handle keeps Windows from removing the folder.
       final lock = await File(item.localPath).open(mode: FileMode.write);
       try {
-        await repository.delete(id: item.id);
+        expect(await repository.delete(id: item.id), isFalse);
 
         final downloads = await repository.currentDownloads();
-        expect(downloads.single.status, DownloadStatus.failed);
-        expect(
-          downloads.single.errorMessage,
-          'Unable to delete downloaded files.',
-        );
+        // Not failed: its action would be Retry, which loads the file again.
+        expect(downloads.single.status, DownloadStatus.paused);
+        expect(downloads.single.errorMessage, isNull);
         expect(downloads.single.downloadRateBytesPerSecond, 0);
       } finally {
         await lock.close();
       }
 
-      await repository.delete(id: item.id);
+      expect(await repository.delete(id: item.id), isTrue);
       expect(await repository.currentDownloads(), isEmpty);
     },
     skip: Platform.isWindows

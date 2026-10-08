@@ -549,6 +549,10 @@ class AppLocalizationsEn extends AppLocalizations {
       'The cache is in use while a video is playing';
 
   @override
+  String get downloadDeleteFailed =>
+      'Unable to delete the files. Close the file if it is open and try again';
+
+  @override
   String playerResumedFrom(String position) {
     return 'Resumed from $position';
   }

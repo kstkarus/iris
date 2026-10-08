@@ -556,6 +556,10 @@ class AppLocalizationsRu extends AppLocalizations {
   String get downloadStorageCacheBusy => 'Кэш занят: сейчас идёт просмотр';
 
   @override
+  String get downloadDeleteFailed =>
+      'Не удалось удалить файлы. Закройте файл, если он открыт, и попробуйте снова';
+
+  @override
   String playerResumedFrom(String position) {
     return 'Продолжаем с $position';
   }

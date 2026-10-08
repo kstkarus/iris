@@ -56,9 +56,12 @@ class DownloadManagerCubit extends Cubit<DownloadManagerState> {
 
   Future<void> retry(String id) => _run(() => _repository.retry(id: id));
 
-  Future<void> delete(String id) async {
-    await _run(() => _repository.delete(id: id));
+  /// Returns false when the files could not be removed.
+  Future<bool> delete(String id) async {
+    var deleted = false;
+    await _run(() async => deleted = await _repository.delete(id: id));
     await refreshStorage();
+    return deleted;
   }
 
   /// Returns false when the cache is in use by an active stream.

@@ -79,11 +79,10 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
   Future<DownloadStorageUsage> calculateStorageUsage() async {
     await _downloadsDirectory.create(recursive: true);
     final downloadsBytes = await directorySize(_downloadsDirectory);
-    final streamCacheBytes = await _streamCache?.sizeBytes() ?? 0;
-    // Android reports the whole app cache, which already contains the stream
-    // cache; other platforms only have the folder the app owns.
+    // Only the stream folder: it is what clearCache empties. The rest of the
+    // Android app cache, such as posters, still counts in the total.
+    final cacheBytes = await _streamCache?.sizeBytes() ?? 0;
     final appUsage = await _storageUsageAdapter.getUsage();
-    final cacheBytes = appUsage?.cacheBytes ?? streamCacheBytes;
     return DownloadStorageUsage(
       downloadsBytes: downloadsBytes,
       cacheBytes: cacheBytes,
@@ -107,14 +106,15 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
   }
 
   @override
-  Future<void> delete({required String id}) async {
+  Future<bool> delete({required String id}) async {
     await restore();
     final item = _find(id);
-    if (item == null || _deletingIds.contains(id)) return;
+    if (item == null || _deletingIds.contains(id)) return true;
 
     // Set before any await of the removal, so a queued start cannot pick the
     // item up while its files are going away.
     _deletingIds.add(id);
+    var deleted = true;
     try {
       final torrentId = _torrentIdByDownloadId.remove(id);
       if (torrentId != null) {
@@ -137,11 +137,17 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
         error: error,
         stackTrace: stackTrace,
       );
+      deleted = false;
       final current = _find(id) ?? item;
+      // The torrent is gone, so a file that was loading stops; the record is
+      // kept as it was otherwise, and the person can delete it again.
       _replace(
         current.copyWith(
-          status: DownloadStatus.failed,
-          errorMessage: 'Unable to delete downloaded files.',
+          status: switch (current.status) {
+            DownloadStatus.downloading ||
+            DownloadStatus.queued => DownloadStatus.paused,
+            final status => status,
+          },
           downloadRateBytesPerSecond: 0,
           peers: 0,
         ),
@@ -151,6 +157,7 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
     }
     await _commit();
     unawaited(_pumpQueue());
+    return deleted;
   }
 
   @override

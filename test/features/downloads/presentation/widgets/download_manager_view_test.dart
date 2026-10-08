@@ -103,6 +103,40 @@ void main() {
       expect(tester.takeException(), isNull);
     });
   }
+
+  for (final deletable in const [true, false]) {
+    testWidgets(
+      deletable
+          ? 'a deleted download leaves without a message'
+          : 'a download that cannot be deleted says so',
+      (tester) async {
+        final repository = await _repositoryWithDownloads(
+          count: 1,
+          deletable: deletable,
+        );
+        await _pumpApp(
+          tester,
+          BlocProvider(
+            create: (_) => DownloadManagerCubit(repository: repository)..load(),
+            child: DownloadManagerPage(onWatch: (_) {}),
+          ),
+        );
+
+        await tester.tap(find.byTooltip('Delete'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.widgetWithText(FilledButton, 'Delete'));
+        await tester.pumpAndSettle();
+
+        expect(
+          find.text(
+            'Unable to delete the files. Close the file if it is open and '
+            'try again',
+          ),
+          deletable ? findsNothing : findsOneWidget,
+        );
+      },
+    );
+  }
 }
 
 Future<void> _pumpApp(WidgetTester tester, Widget home) async {
@@ -119,8 +153,11 @@ Future<void> _pumpApp(WidgetTester tester, Widget home) async {
 
 Future<MockDownloadsRepository> _repositoryWithDownloads({
   required int count,
+  bool deletable = true,
 }) async {
-  final repository = MockDownloadsRepository();
+  final repository = deletable
+      ? MockDownloadsRepository()
+      : _LockedDownloadsRepository();
   const source = PreparedDownloadSource(sourceToken: 'mock-source', files: []);
   for (var index = 0; index < count; index++) {
     await repository.enqueueDownload(
@@ -138,4 +175,10 @@ Future<MockDownloadsRepository> _repositoryWithDownloads({
     );
   }
   return repository;
+}
+
+/// Files that stay open elsewhere, so they cannot be removed.
+class _LockedDownloadsRepository extends MockDownloadsRepository {
+  @override
+  Future<bool> delete({required String id}) async => false;
 }
