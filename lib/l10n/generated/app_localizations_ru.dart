@@ -386,7 +386,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get playerDecoderMediacodec => 'MediaCodec';
 
   @override
-  String get playerDecoderMediacodecCopy => 'MediaCodec (zero-copy)';
+  String get playerDecoderMediacodecCopy => 'MediaCodec (с копированием)';
 
   @override
   String get playerDecoderSoftwareOnly => 'Только программный';

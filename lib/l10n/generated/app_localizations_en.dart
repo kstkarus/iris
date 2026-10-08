@@ -379,7 +379,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get playerDecoderMediacodec => 'MediaCodec';
 
   @override
-  String get playerDecoderMediacodecCopy => 'MediaCodec (zero-copy)';
+  String get playerDecoderMediacodecCopy => 'MediaCodec (copy-back)';
 
   @override
   String get playerDecoderSoftwareOnly => 'Software only';

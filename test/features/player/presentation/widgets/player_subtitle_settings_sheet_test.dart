@@ -143,7 +143,7 @@ void main() {
 
       expect(find.text('Auto (recommended)'), findsOneWidget);
       expect(find.text('MediaCodec'), findsOneWidget);
-      expect(find.text('MediaCodec (zero-copy)'), findsOneWidget);
+      expect(find.text('MediaCodec (copy-back)'), findsOneWidget);
       expect(find.text('Software only'), findsOneWidget);
     } finally {
       debugDefaultTargetPlatformOverride = null;
@@ -160,7 +160,7 @@ void main() {
       expect(find.text('Auto (recommended)'), findsOneWidget);
       expect(find.text('Software only'), findsOneWidget);
       expect(find.text('MediaCodec'), findsNothing);
-      expect(find.text('MediaCodec (zero-copy)'), findsNothing);
+      expect(find.text('MediaCodec (copy-back)'), findsNothing);
     } finally {
       debugDefaultTargetPlatformOverride = null;
     }

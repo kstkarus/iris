@@ -199,7 +199,7 @@
   "playerDecoderSettingsDescription": "Change this only if video stutters or shows green frames on your device. The current decoder is visible in the player overlay stats.",
   "playerDecoderAutoSafe": "Auto (recommended)",
   "playerDecoderMediacodec": "MediaCodec",
-  "playerDecoderMediacodecCopy": "MediaCodec (zero-copy)",
+  "playerDecoderMediacodecCopy": "MediaCodec (copy-back)",
   "playerDecoderSoftwareOnly": "Software only",
   "playerSubtitleAppearanceTitle": "Subtitle Appearance",
   "playerSubtitleVisibilityLabel": "Show subtitles",

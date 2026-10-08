@@ -192,7 +192,7 @@
   "playerDecoderSettingsDescription": "Меняйте это, только если видео тормозит или показывает зелёные кадры на вашем устройстве. Текущий декодер виден в overlay-статистике плеера.",
   "playerDecoderAutoSafe": "Авто (рекомендуется)",
   "playerDecoderMediacodec": "MediaCodec",
-  "playerDecoderMediacodecCopy": "MediaCodec (zero-copy)",
+  "playerDecoderMediacodecCopy": "MediaCodec (с копированием)",
   "playerDecoderSoftwareOnly": "Только программный",
   "playerSubtitleAppearanceTitle": "Вид субтитров",
   "playerSubtitleVisibilityLabel": "Показывать субтитры",

@@ -755,7 +755,7 @@ abstract class AppLocalizations {
   /// No description provided for @playerDecoderMediacodecCopy.
   ///
   /// In en, this message translates to:
-  /// **'MediaCodec (zero-copy)'**
+  /// **'MediaCodec (copy-back)'**
   String get playerDecoderMediacodecCopy;
 
   /// No description provided for @playerDecoderSoftwareOnly.
