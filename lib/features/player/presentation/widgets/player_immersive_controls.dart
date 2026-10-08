@@ -1309,13 +1309,15 @@ class _BarButtons extends StatelessWidget {
       playback,
       view,
     ].where((group) => group.isNotEmpty);
-    return Row(
-      mainAxisSize: MainAxisSize.min,
+    // A group stays whole; a window too narrow for all of them moves the
+    // last ones to a second line, still ending at the right edge.
+    return Wrap(
+      alignment: WrapAlignment.end,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      spacing: _barGroupGap,
       children: [
-        for (final (index, group) in groups.indexed) ...[
-          if (index > 0) const SizedBox(width: _barGroupGap),
-          ...group,
-        ],
+        for (final group in groups)
+          Row(mainAxisSize: MainAxisSize.min, children: group),
       ],
     );
   }

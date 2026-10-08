@@ -1024,6 +1024,37 @@ void main() {
       });
     }
 
+    for (final width in const [360.0, 480.0, 600.0]) {
+      testWidgets('fit every bar button in a ${width.toInt()} dp wide window', (
+        tester,
+      ) async {
+        tester.view.physicalSize = Size(width, 720);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+
+        await tester.pumpWidget(
+          _wrapViewport(
+            chrome: chrome(episodes: (context, close) => const SizedBox()),
+            next: PlayerNextFile(title: 'Episode 3', play: () {}),
+          ),
+        );
+        await tester.pump();
+
+        expect(tester.takeException(), isNull);
+        for (final key in const [
+          'player_next_file_button',
+          'player_episodes_button',
+          'player_tracks_button',
+          'player_settings_button',
+          'player_fullscreen_button',
+        ]) {
+          final button = tester.getRect(find.byKey(Key(key)));
+          expect(button.right, lessThanOrEqualTo(width), reason: key);
+          expect(button.left, greaterThanOrEqualTo(0), reason: key);
+        }
+      });
+    }
+
     testWidgets('keep both scrims at full size in a 600 dp window', (
       tester,
     ) async {
