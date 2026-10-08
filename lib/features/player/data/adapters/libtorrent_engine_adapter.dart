@@ -8,6 +8,7 @@ import 'package:iris/features/player/data/models/playback_runtime_stats_model.da
 import 'package:iris/features/player/data/models/playback_stream_descriptor.dart';
 import 'package:iris/features/player/data/models/torrent_file_descriptor.dart';
 import 'package:iris/shared/storage/stream_cache_storage.dart';
+import 'package:iris/shared/torrent/torrent_metadata_wait.dart';
 import 'package:iris/shared/utils/playback_runtime_initializer.dart';
 
 const torrentStreamCacheBytes = 256 * 1024 * 1024;
@@ -208,12 +209,12 @@ class LibtorrentEngineAdapterImpl implements LibtorrentEngineAdapter {
     }
 
     try {
-      await _engineClient.torrentUpdates
-          .firstWhere((torrents) {
-            final torrent = torrents[torrentId];
-            return torrent != null && torrent.hasMetadata;
-          })
-          .timeout(_metadataWaitTimeout);
+      await waitForTorrentMetadata(
+        torrentId: torrentId,
+        current: _engineClient.torrents,
+        updates: _engineClient.torrentUpdates,
+        timeout: _metadataWaitTimeout,
+      );
     } on TimeoutException {
       developer.log(
         'Timed out while waiting for torrent metadata. torrentId=$torrentId timeout=${_metadataWaitTimeout.inSeconds}s',
@@ -223,6 +224,13 @@ class LibtorrentEngineAdapterImpl implements LibtorrentEngineAdapter {
         torrentId: torrentId,
         timeout: _metadataWaitTimeout,
       );
+    } on TorrentMetadataFailedException catch (error) {
+      developer.log(
+        'Torrent failed before its metadata arrived. torrentId=$torrentId',
+        name: 'iris.player.libtorrent',
+        error: error,
+      );
+      rethrow;
     }
     developer.log(
       'Torrent metadata received. torrentId=$torrentId',

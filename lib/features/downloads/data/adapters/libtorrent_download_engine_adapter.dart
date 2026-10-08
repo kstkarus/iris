@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:libtorrent_flutter/libtorrent_flutter.dart';
 
+import 'package:iris/shared/torrent/torrent_metadata_wait.dart';
 import 'package:iris/shared/utils/playback_runtime_initializer.dart';
 
 class DownloadEngineFile {
@@ -145,15 +146,13 @@ class LibtorrentDownloadEngineAdapterImpl
   Future<void> waitForMetadata(
     int torrentId, {
     Duration timeout = const Duration(seconds: 90),
-  }) async {
-    final current = _engine.torrents[torrentId];
-    if (current?.hasMetadata == true) {
-      return;
-    }
-
-    await _engine.torrentUpdates
-        .firstWhere((torrents) => torrents[torrentId]?.hasMetadata == true)
-        .timeout(timeout);
+  }) {
+    return waitForTorrentMetadata(
+      torrentId: torrentId,
+      current: _engine.torrents,
+      updates: _engine.torrentUpdates,
+      timeout: timeout,
+    );
   }
 }
 

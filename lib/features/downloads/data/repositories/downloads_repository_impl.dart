@@ -184,7 +184,9 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
     }
 
     final id = _createDownloadId(runtime.magnet, file.index);
-    final existing = _find(id);
+    // By torrent and file, not id: an item queued before the hex and base32
+    // keys were unified has a base32 id.
+    final existing = _findFile(runtime.torrentKey, file.index);
     if (existing != null) {
       await disposePreparedSource(sourceToken: source.sourceToken);
       return existing;
@@ -278,6 +280,10 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
     final token =
         'source-${++_sourceSequence}-${_now().microsecondsSinceEpoch}';
     final torrentKey = torrentKeyFromMagnet(magnet);
+    // A player of the same torrent, also one that is still closing, owns the
+    // native torrent and removes it with its files when it ends; an add now
+    // would land on that torrent.
+    await _untilNotStreaming(torrentKey, cancelled);
     // libtorrent maps a second add of the same info-hash onto the existing
     // torrent, so removing it later would kill the running download too.
     final heldTorrentId = _sharedTorrentId(torrentKey);
@@ -293,8 +299,15 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
         path.join(_downloadsDirectory.path, '.metadata', token),
       );
       await _createMetadataFolder(directory);
-      // The create is an await: a download of the same torrent may have
-      // started meanwhile. Nothing is awaited between this check and addMagnet.
+      try {
+        // A player may have started on the torrent during the create.
+        await _untilNotStreaming(torrentKey, cancelled);
+      } catch (_) {
+        await _deleteMetadataFolder(directory);
+        rethrow;
+      }
+      // The awaits above may also have let a download of the same torrent
+      // start. Nothing is awaited between this check and addMagnet.
       final lateHeldTorrentId = _sharedTorrentId(torrentKey);
       if (lateHeldTorrentId != null) {
         await _deleteMetadataFolder(directory);
@@ -771,10 +784,23 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
   /// Waits for the metadata of [torrentId], or gives up when [cancelled]
   /// completes first.
   Future<void> _waitForMetadata(int torrentId, Future<void>? cancelled) {
-    final metadata = _engine.waitForMetadata(torrentId);
-    if (cancelled == null) return metadata;
+    return _unlessCancelled(_engine.waitForMetadata(torrentId), cancelled);
+  }
+
+  /// Waits while [torrentKey] is streamed, or gives up when [cancelled]
+  /// completes first.
+  Future<void> _untilNotStreaming(String torrentKey, Future<void>? cancelled) {
+    if (!_activityRegistry.isStreaming(torrentKey)) return Future.value();
+    final stopped = _activityRegistry.streamingStopped
+        .firstWhere((key) => key == torrentKey)
+        .then<void>((_) {});
+    return _unlessCancelled(stopped, cancelled);
+  }
+
+  Future<void> _unlessCancelled(Future<void> work, Future<void>? cancelled) {
+    if (cancelled == null) return work;
     return Future.any<void>([
-      metadata,
+      work,
       cancelled.then<void>((_) => throw const PreparationCancelledException()),
     ]);
   }
@@ -819,6 +845,16 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
     if (!_downloadsController.isClosed) {
       _downloadsController.add(List<DownloadItem>.unmodifiable(_downloads));
     }
+  }
+
+  DownloadItem? _findFile(String torrentKey, int fileIndex) {
+    for (final item in _downloads) {
+      if (item.fileIndex == fileIndex &&
+          torrentKeyFromMagnet(item.magnet) == torrentKey) {
+        return item;
+      }
+    }
+    return null;
   }
 
   DownloadItem? _find(String id) {

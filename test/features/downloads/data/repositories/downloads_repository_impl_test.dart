@@ -9,6 +9,7 @@ import 'package:iris/features/downloads/data/adapters/download_foreground_servic
 import 'package:iris/features/downloads/data/adapters/libtorrent_download_engine_adapter.dart';
 import 'package:iris/features/downloads/data/datasources/download_registry_data_source.dart';
 import 'package:iris/features/downloads/data/repositories/downloads_repository_impl.dart';
+import 'package:iris/features/downloads/domain/entities/download_item.dart';
 import 'package:iris/features/downloads/domain/entities/download_status.dart';
 import 'package:iris/shared/storage/stream_cache_storage.dart';
 import 'package:iris/shared/torrent/preparation_cancelled_exception.dart';
@@ -23,6 +24,7 @@ void main() {
   late DownloadsRepositoryImpl repository;
   // Holds the create of a metadata folder while a test needs it open.
   Completer<void>? metadataFolderGate;
+  var metadataFolderRequests = 0;
 
   setUp(() async {
     temporaryDirectory = await Directory.systemTemp.createTemp(
@@ -35,6 +37,7 @@ void main() {
     foregroundService = _FakeForegroundService();
     activityRegistry = TorrentActivityRegistry();
     metadataFolderGate = null;
+    metadataFolderRequests = 0;
     repository = DownloadsRepositoryImpl(
       engine: engine,
       registry: DownloadRegistryDataSource(
@@ -48,6 +51,7 @@ void main() {
       activityRegistry: activityRegistry,
       now: () => DateTime.utc(2026, 7, 11, 12),
       createMetadataFolder: (folder) async {
+        metadataFolderRequests++;
         await metadataFolderGate?.future;
         await folder.create(recursive: true);
       },
@@ -756,6 +760,110 @@ void main() {
       (await repository.currentDownloads()).single.status,
       DownloadStatus.downloading,
     );
+  });
+
+  test(
+    'a file queued under its base32 id is found again by its hex key',
+    () async {
+      const base32Magnet =
+          'magnet:?xt=urn:btih:AZOENEO6QT4WJYKDCA5TXUG6C67FX7IK';
+      final legacy = DownloadItem(
+        id: 'azoeneo6qt4wjykdca5txug6c67fx7ik-0',
+        animeId: '154587',
+        animeTitle: 'Sousou no Frieren',
+        sourceTitle: 'Release',
+        magnet: base32Magnet,
+        fileIndex: 0,
+        fileName: 'episode-01.mkv',
+        relativePath: 'episode-01.mkv',
+        localPath: path.join(downloadsDirectory.path, 'episode-01.mkv'),
+        totalBytes: 100,
+        downloadedBytes: 10,
+        downloadRateBytesPerSecond: 0,
+        peers: 0,
+        status: DownloadStatus.paused,
+        createdAt: DateTime.utc(2026, 9, 1),
+      );
+      await DownloadRegistryDataSource(
+        registryFile: File(
+          '${temporaryDirectory.path}${Platform.pathSeparator}registry.json',
+        ),
+      ).writeDownloads([legacy]);
+
+      final source = await repository.prepareSource(magnet: base32Magnet);
+      final item = await repository.enqueueDownload(
+        source: source,
+        file: source.files.first,
+        animeId: '154587',
+        animeTitle: 'Sousou no Frieren',
+        sourceTitle: 'Release',
+      );
+
+      expect(item.id, legacy.id);
+      expect(await repository.currentDownloads(), hasLength(1));
+    },
+  );
+
+  test(
+    'a selection waits until a closing player releases the torrent',
+    () async {
+      await repository.restore();
+      activityRegistry.acquireStreaming('abcdef1234567890');
+
+      final pending = repository.prepareSource(magnet: _magnet);
+      await pumpEventQueue();
+      // Not even the folder: the wait comes before anything is created.
+      expect(metadataFolderRequests, 0);
+      expect(engine.addCalls, isEmpty);
+
+      activityRegistry.releaseStreaming('abcdef1234567890');
+      final source = await pending;
+
+      expect(source.files, isNotEmpty);
+      expect(engine.addCalls.single.metadataOnly, isTrue);
+    },
+  );
+
+  test('leaving a selection that waits for a player adds nothing', () async {
+    await repository.restore();
+    activityRegistry.acquireStreaming('abcdef1234567890');
+    final cancelled = Completer<void>();
+
+    final pending = repository.prepareSource(
+      magnet: _magnet,
+      cancelled: cancelled.future,
+    );
+    await pumpEventQueue();
+    cancelled.complete();
+
+    await expectLater(pending, throwsA(isA<PreparationCancelledException>()));
+    activityRegistry.releaseStreaming('abcdef1234567890');
+    await pumpEventQueue();
+    expect(metadataFolderRequests, 0);
+    expect(engine.addCalls, isEmpty);
+  });
+
+  test('a player that starts while a selection creates its folder is waited '
+      'for', () async {
+    await repository.restore();
+    final gate = metadataFolderGate = Completer<void>();
+    final pending = repository.prepareSource(magnet: _magnet);
+    await _waitFor(() => metadataFolderRequests == 1);
+
+    activityRegistry.acquireStreaming('abcdef1234567890');
+    gate.complete();
+    final metadataRoot = Directory(
+      '${downloadsDirectory.path}${Platform.pathSeparator}.metadata',
+    );
+    await _waitFor(
+      () => metadataRoot.existsSync() && metadataRoot.listSync().isNotEmpty,
+    );
+    await pumpEventQueue();
+    expect(engine.addCalls, isEmpty);
+
+    activityRegistry.releaseStreaming('abcdef1234567890');
+    await pending;
+    expect(engine.addCalls.single.metadataOnly, isTrue);
   });
 
   test(
