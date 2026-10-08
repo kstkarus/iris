@@ -29,7 +29,9 @@ class DownloadManagerView extends StatelessWidget {
     return BlocBuilder<DownloadManagerCubit, DownloadManagerState>(
       builder: (context, state) {
         if (state.isLoading && state.downloads.isEmpty) {
-          return const LoadingView();
+          return LoadingView(
+            semanticsLabel: AppLocalizations.of(context).downloadsLoading,
+          );
         }
         if (state.hasError && state.downloads.isEmpty) {
           final l10n = AppLocalizations.of(context);

@@ -151,9 +151,13 @@ class _TrackSection<T> extends StatelessWidget {
             ),
           )
         else
-          ...tracks.map(
-            (track) => ListTile(
+          for (final track in tracks)
+            ListTile(
               contentPadding: EdgeInsets.zero,
+              // For assistive technology; the check mark shows it on screen,
+              // so the title keeps its colour.
+              selected: selectedTrack == track,
+              selectedColor: theme.colorScheme.onSurface,
               title: Text(labelBuilder(track)),
               trailing: selectedTrack == track
                   ? PixelIcon(
@@ -164,7 +168,6 @@ class _TrackSection<T> extends StatelessWidget {
                   : null,
               onTap: () => onSelected(track),
             ),
-          ),
       ],
     );
   }

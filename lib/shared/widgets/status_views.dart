@@ -8,12 +8,16 @@ import 'package:iris/shared/widgets/segmented_bar.dart';
 class LoadingView extends StatelessWidget {
   const LoadingView({
     this.label,
+    this.semanticsLabel,
     this.value,
     this.details = const [],
     super.key,
   });
 
   final String? label;
+
+  /// What a screen reader announces when there is no visible [label].
+  final String? semanticsLabel;
 
   /// Known progress from 0 to 1.
   final double? value;
@@ -26,7 +30,8 @@ class LoadingView extends StatelessWidget {
     final theme = Theme.of(context);
     final label = this.label;
     final value = this.value;
-    return Center(
+    final semanticsLabel = label == null ? this.semanticsLabel : null;
+    final view = Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
         child: Column(
@@ -54,6 +59,8 @@ class LoadingView extends StatelessWidget {
         ),
       ),
     );
+    if (semanticsLabel == null) return view;
+    return Semantics(label: semanticsLabel, child: view);
   }
 }
 

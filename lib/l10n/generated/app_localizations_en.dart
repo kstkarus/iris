@@ -549,6 +549,12 @@ class AppLocalizationsEn extends AppLocalizations {
       'The cache is in use while a video is playing';
 
   @override
+  String get downloadsLoading => 'Loading downloaded files...';
+
+  @override
+  String get savedTorrentsLoading => 'Loading saved torrents...';
+
+  @override
   String get downloadDeleteFailed =>
       'Unable to delete the files. Close the file if it is open and try again';
 

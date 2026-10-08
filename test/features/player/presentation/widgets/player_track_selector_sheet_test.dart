@@ -40,6 +40,48 @@ void main() {
     expect(find.text('Off'), findsOneWidget);
   });
 
+  testWidgets('tells assistive technology which tracks are selected', (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+    await tester.pumpWidget(
+      _wrap(
+        child: PlayerTrackSelectorSheet(
+          audioTracks: const [
+            AudioTrack('auto', null, null),
+            AudioTrack('1', 'Japanese', 'ja'),
+          ],
+          selectedAudioTrack: const AudioTrack('1', 'Japanese', 'ja'),
+          subtitleTracks: const [
+            SubtitleTrack('auto', null, null),
+            SubtitleTrack('10', 'English Signs', 'en'),
+          ],
+          selectedSubtitleTrack: const SubtitleTrack('auto', null, null),
+          onAudioTrackSelected: (_) {},
+          onSubtitleTrackSelected: (_) {},
+          onSubtitleAppearancePressed: () {},
+        ),
+      ),
+    );
+
+    Matcher row({required bool selected}) => isSemantics(
+      isSelected: selected,
+      hasSelectedState: true,
+      isButton: true,
+      isFocusable: true,
+      hasEnabledState: true,
+      isEnabled: true,
+      hasTapAction: true,
+      hasFocusAction: true,
+    );
+    expect(tester.getSemantics(find.text('Japanese')), row(selected: true));
+    expect(
+      tester.getSemantics(find.text('English Signs')),
+      row(selected: false),
+    );
+    semantics.dispose();
+  });
+
   testWidgets('invokes callbacks when track options are tapped', (
     tester,
   ) async {

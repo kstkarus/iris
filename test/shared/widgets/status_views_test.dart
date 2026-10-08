@@ -68,4 +68,17 @@ void main() {
     await tester.pumpWidget(_spinner());
     expect(tester.hasRunningAnimations, isTrue);
   });
+
+  testWidgets('a loading view without a label still names what it waits for', (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+    await tester.pumpWidget(
+      const MaterialApp(home: LoadingView(semanticsLabel: 'Loading files')),
+    );
+
+    expect(find.bySemanticsLabel('Loading files'), findsOneWidget);
+    expect(find.text('Loading files'), findsNothing);
+    semantics.dispose();
+  });
 }

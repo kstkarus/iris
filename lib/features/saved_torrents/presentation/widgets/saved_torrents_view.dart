@@ -45,7 +45,9 @@ class SavedTorrentsView extends StatelessWidget {
     final l10n = AppLocalizations.of(context);
     return BlocBuilder<SavedTorrentsCubit, SavedTorrentsState>(
       builder: (context, state) {
-        if (state.isLoading) return const LoadingView();
+        if (state.isLoading) {
+          return LoadingView(semanticsLabel: l10n.savedTorrentsLoading);
+        }
         final addButton = FilledButton(
           key: addButtonKey,
           onPressed: onAdd,

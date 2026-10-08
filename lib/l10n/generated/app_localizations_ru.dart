@@ -556,6 +556,12 @@ class AppLocalizationsRu extends AppLocalizations {
   String get downloadStorageCacheBusy => 'Кэш занят: сейчас идёт просмотр';
 
   @override
+  String get downloadsLoading => 'Загружаем список файлов...';
+
+  @override
+  String get savedTorrentsLoading => 'Загружаем раздачи...';
+
+  @override
   String get downloadDeleteFailed =>
       'Не удалось удалить файлы. Закройте файл, если он открыт, и попробуйте снова';
 

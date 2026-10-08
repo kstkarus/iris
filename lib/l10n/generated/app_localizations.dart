@@ -1064,6 +1064,18 @@ abstract class AppLocalizations {
   /// **'The cache is in use while a video is playing'**
   String get downloadStorageCacheBusy;
 
+  /// No description provided for @downloadsLoading.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading downloaded files...'**
+  String get downloadsLoading;
+
+  /// No description provided for @savedTorrentsLoading.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading saved torrents...'**
+  String get savedTorrentsLoading;
+
   /// No description provided for @downloadDeleteFailed.
   ///
   /// In en, this message translates to:

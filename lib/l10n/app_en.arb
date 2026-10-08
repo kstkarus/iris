@@ -279,6 +279,8 @@
   "downloadStorageClearCache": "Clear",
   "downloadStorageCacheCleared": "Cache cleared",
   "downloadStorageCacheBusy": "The cache is in use while a video is playing",
+  "downloadsLoading": "Loading downloaded files...",
+  "savedTorrentsLoading": "Loading saved torrents...",
   "downloadDeleteFailed": "Unable to delete the files. Close the file if it is open and try again",
   "playerResumedFrom": "Resumed from {position}",
   "@playerResumedFrom": {
