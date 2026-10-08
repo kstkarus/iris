@@ -36,7 +36,7 @@ typedef MediaKitFirstFrameAwaiter =
 
 enum PlayerEnginePhase { openingSource, waitingForFirstFrame, ready, failed }
 
-enum PlayerEngineFailure { generic, firstFrameTimeout, transportStartupTimeout }
+enum PlayerEngineFailure { generic, firstFrameTimeout }
 
 /// Startup progress of the currently opened file.
 @immutable
@@ -188,9 +188,6 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
   PlayerEngineStartupState _startupState =
       const PlayerEngineStartupState.openingSource();
   Timer? _startupTimeoutTimer;
-  Timer? _startupNetworkWatchdogTimer;
-  Duration? _startupNetworkMonitoringElapsed;
-  Duration? _lastStartupNetworkActivityAt;
   int _startupGeneration = 0;
 
   final playbackStats = ValueNotifier<PlayerPlaybackStats?>(null);
@@ -344,7 +341,6 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
     _resetPositionOffers();
     _stopWatchingPlaybackStats();
     _cancelStartupTimeout();
-    _cancelStartupNetworkWatchdog();
     _updateStartupState(const PlayerEngineStartupState.openingSource());
     final player = _player;
     if (player == null) return;
@@ -403,7 +399,6 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
     _closed = true;
     _startupGeneration++;
     _cancelStartupTimeout();
-    _cancelStartupNetworkWatchdog();
     await _subtitlePreferencesSubscription?.cancel();
     await _decodingPreferencesSubscription?.cancel();
     await _playbackStatsSubscription?.cancel();
@@ -464,7 +459,6 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
           if (_closed) return;
           playbackStats.value = stats;
           _updateBufferMargin(stats);
-          _trackStartupNetworkActivity(stats);
           unawaited(_logStartupProgress(stats));
           unawaited(_refreshPlaybackDiagnostics());
         });
@@ -546,7 +540,6 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
       ..start();
     _rebufferCycleTracker.reset();
     _cancelStartupTimeout();
-    _cancelStartupNetworkWatchdog();
     _updateStartupState(const PlayerEngineStartupState.openingSource());
 
     developer.log(
@@ -950,7 +943,6 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
     _updateStartupState(
       _startupState.copyWith(phase: PlayerEnginePhase.waitingForFirstFrame),
     );
-    _startStartupNetworkWatchdog(startupGeneration);
     _startupTimeoutTimer = Timer(startupTimeout, () {
       unawaited(_handleStartupTimeout(startupGeneration));
     });
@@ -1012,7 +1004,6 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
       name: 'iris.player.media',
     );
     _cancelStartupTimeout();
-    _cancelStartupNetworkWatchdog();
     _updateStartupState(_startupState.copyWith(phase: PlayerEnginePhase.ready));
     _applyPendingSeek();
     if (player.state.playing && !buffering.value) {
@@ -1023,7 +1014,6 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
 
   void _fail(PlayerEngineFailure failure) {
     _cancelStartupTimeout();
-    _cancelStartupNetworkWatchdog();
     _updateStartupState(
       _startupState.copyWith(phase: PlayerEnginePhase.failed, failure: failure),
     );
@@ -1046,56 +1036,6 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
   void _cancelStartupTimeout() {
     _startupTimeoutTimer?.cancel();
     _startupTimeoutTimer = null;
-  }
-
-  void _trackStartupNetworkActivity(PlayerPlaybackStats stats) {
-    if (_startupState.phase == PlayerEnginePhase.ready ||
-        _startupState.phase == PlayerEnginePhase.failed) {
-      return;
-    }
-
-    _startupNetworkMonitoringElapsed ??= Duration.zero;
-    if (stats.downloadRateBytesPerSecond > 0 || stats.activePeers > 0) {
-      _lastStartupNetworkActivityAt = _startupNetworkMonitoringElapsed;
-    }
-  }
-
-  void _startStartupNetworkWatchdog(int startupGeneration) {
-    if (_startupNetworkWatchdogTimer != null) return;
-
-    _startupNetworkWatchdogTimer = Timer.periodic(const Duration(seconds: 1), (
-      _,
-    ) {
-      if (_closed ||
-          startupGeneration != _startupGeneration ||
-          _startupState.phase == PlayerEnginePhase.ready ||
-          _startupState.phase == PlayerEnginePhase.failed) {
-        _cancelStartupNetworkWatchdog();
-        return;
-      }
-
-      final monitoringElapsed = _startupNetworkMonitoringElapsed;
-      if (monitoringElapsed == null) return;
-
-      final nextElapsed = monitoringElapsed + const Duration(seconds: 1);
-      _startupNetworkMonitoringElapsed = nextElapsed;
-
-      final lastActivityAt = _lastStartupNetworkActivityAt ?? Duration.zero;
-      if (nextElapsed - lastActivityAt < const Duration(seconds: 15)) return;
-
-      developer.log(
-        'media_kit startup failed because torrent stream never showed network activity.',
-        name: 'iris.player.media',
-      );
-      _fail(PlayerEngineFailure.transportStartupTimeout);
-    });
-  }
-
-  void _cancelStartupNetworkWatchdog() {
-    _startupNetworkWatchdogTimer?.cancel();
-    _startupNetworkWatchdogTimer = null;
-    _startupNetworkMonitoringElapsed = null;
-    _lastStartupNetworkActivityAt = null;
   }
 
   void _updateBufferMargin(PlayerPlaybackStats stats) {
@@ -1212,7 +1152,6 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
 
   Future<void> _disposePlayer() async {
     _cancelStartupTimeout();
-    _cancelStartupNetworkWatchdog();
     final subscriptions = List.of(_playerSubscriptions);
     _playerSubscriptions.clear();
     if (!_closed) diagnostics.value = null;

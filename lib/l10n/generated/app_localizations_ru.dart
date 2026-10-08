@@ -296,6 +296,9 @@ class AppLocalizationsRu extends AppLocalizations {
   String get playerPreparingMoreBuffer => 'Собираем больше данных для старта';
 
   @override
+  String get playerWaitNoPeers => 'Пиров пока нет';
+
+  @override
   String playerWaitPeers(int count) {
     String _temp0 = intl.Intl.pluralLogic(
       count,

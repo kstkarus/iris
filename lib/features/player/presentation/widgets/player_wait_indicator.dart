@@ -192,13 +192,16 @@ class _PlayerWaitLabelState extends State<PlayerWaitLabel> {
   }
 }
 
-/// "2.4 MB/s · 12 peers"; nothing when nothing is moving, since a local
-/// file reports zeros too and "0 peers" would misdescribe it.
+/// "2.4 MB/s · 12 peers". A torrent that moves nothing says it has no peers
+/// yet, which is why it waits; a local file reports zeros too and says
+/// nothing.
 String? _statsLine(AppLocalizations l10n, PlayerPlaybackStats? stats) {
   if (stats == null) return null;
   final rate = stats.downloadRateBytesPerSecond;
   final peers = stats.activePeers;
-  if (rate <= 0 && peers <= 0) return null;
+  if (rate <= 0 && peers <= 0) {
+    return stats.isTorrent ? l10n.playerWaitNoPeers : null;
+  }
   return [
     formatTransferRate(l10n, rate),
     l10n.playerWaitPeers(peers),

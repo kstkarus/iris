@@ -6,6 +6,7 @@ class PlayerPlaybackStats {
     required this.bufferSeconds,
     required this.bufferPieces,
     required this.readaheadWindow,
+    this.isTorrent = false,
   });
 
   final int downloadRateBytesPerSecond;
@@ -14,6 +15,9 @@ class PlayerPlaybackStats {
   final double bufferSeconds;
   final int bufferPieces;
   final int readaheadWindow;
+
+  /// The numbers describe a torrent stream; a local file reports zeros.
+  final bool isTorrent;
 
   @override
   bool operator ==(Object other) {
@@ -27,7 +31,8 @@ class PlayerPlaybackStats {
         other.activePeers == activePeers &&
         other.bufferSeconds == bufferSeconds &&
         other.bufferPieces == bufferPieces &&
-        other.readaheadWindow == readaheadWindow;
+        other.readaheadWindow == readaheadWindow &&
+        other.isTorrent == isTorrent;
   }
 
   @override
@@ -38,5 +43,6 @@ class PlayerPlaybackStats {
     bufferSeconds,
     bufferPieces,
     readaheadWindow,
+    isTorrent,
   );
 }

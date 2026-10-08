@@ -133,6 +133,7 @@ void main() {
         bufferSeconds: 18,
         bufferPieces: 24,
         readaheadWindow: 32,
+        isTorrent: true,
       ),
     );
   });

@@ -122,6 +122,7 @@
   "playerWaitingMetadata": "Looking for torrent metadata",
   "playerBuffering": "Buffering",
   "playerPreparingMoreBuffer": "Collecting more buffered data",
+  "playerWaitNoPeers": "No peers yet",
   "playerWaitPeers": "{count, plural, =1{1 peer} other{{count} peers}}",
   "@playerWaitPeers": {
     "placeholders": {

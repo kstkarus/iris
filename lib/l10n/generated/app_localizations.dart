@@ -626,6 +626,12 @@ abstract class AppLocalizations {
   /// **'Collecting more buffered data'**
   String get playerPreparingMoreBuffer;
 
+  /// No description provided for @playerWaitNoPeers.
+  ///
+  /// In en, this message translates to:
+  /// **'No peers yet'**
+  String get playerWaitNoPeers;
+
   /// No description provided for @playerWaitPeers.
   ///
   /// In en, this message translates to:

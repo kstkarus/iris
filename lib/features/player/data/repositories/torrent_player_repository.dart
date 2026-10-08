@@ -147,6 +147,7 @@ PlayerPlaybackStats _mapPlaybackStats(PlaybackRuntimeStatsModel stats) {
     bufferSeconds: stats.bufferSeconds,
     bufferPieces: stats.bufferPieces,
     readaheadWindow: stats.readaheadWindow,
+    isTorrent: true,
   );
 }
 

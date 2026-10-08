@@ -260,7 +260,7 @@ void main() {
   );
 
   testWidgets(
-    'fails startup early when playback stats show no network activity',
+    'keeps waiting for a torrent without peers and says it has none yet',
     (tester) async {
       final firstFrameCompleter = Completer<void>();
       final platformPlayer = _FakePlatformPlayer(
@@ -285,12 +285,15 @@ void main() {
           bufferSeconds: 0,
           bufferPieces: 0,
           readaheadWindow: 30,
+          isTorrent: true,
         ),
       );
       await tester.pump();
+      // Past the old 15 s cut-off: mpv keeps waiting for the data.
       await tester.pump(const Duration(seconds: 16));
 
-      expect(find.text('Unable to start playback.'), findsOneWidget);
+      expect(find.text('Unable to start playback.'), findsNothing);
+      expect(find.text('No peers yet'), findsOneWidget);
 
       repository.finishCancel();
     },

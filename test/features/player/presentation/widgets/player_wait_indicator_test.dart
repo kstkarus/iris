@@ -82,9 +82,28 @@ void main() {
 
     expect(find.byKey(const Key('player_wait_stats')), findsNothing);
   });
+
+  testWidgets('the wait label says a torrent that moves nothing has no peers '
+      'yet', (tester) async {
+    final stats = ValueNotifier<PlayerPlaybackStats?>(
+      _stats(rate: 0, peers: 0, isTorrent: true),
+    );
+    addTearDown(stats.dispose);
+
+    await tester.pumpWidget(
+      app(PlayerWaitLabel(label: 'Buffering', stats: stats, style: null)),
+    );
+    await tester.pump(PlayerWaitLabel.statsDelay);
+
+    expect(find.text('No peers yet'), findsOneWidget);
+  });
 }
 
-PlayerPlaybackStats _stats({required int rate, int peers = 12}) {
+PlayerPlaybackStats _stats({
+  required int rate,
+  int peers = 12,
+  bool isTorrent = false,
+}) {
   return PlayerPlaybackStats(
     downloadRateBytesPerSecond: rate,
     appMemoryBytes: null,
@@ -92,5 +111,6 @@ PlayerPlaybackStats _stats({required int rate, int peers = 12}) {
     bufferSeconds: 0,
     bufferPieces: 0,
     readaheadWindow: 0,
+    isTorrent: isTorrent,
   );
 }

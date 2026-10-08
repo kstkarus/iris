@@ -122,6 +122,7 @@
   "playerWaitingMetadata": "Ищем метаданные торрента",
   "playerBuffering": "Буферизация",
   "playerPreparingMoreBuffer": "Собираем больше данных для старта",
+  "playerWaitNoPeers": "Пиров пока нет",
   "playerWaitPeers": "{count, plural, one{{count} пир} few{{count} пира} many{{count} пиров} other{{count} пира}}",
   "playerStreamPreparationProgress": "Готовно для старта: {percent}%",
   "@playerStreamPreparationProgress": {
