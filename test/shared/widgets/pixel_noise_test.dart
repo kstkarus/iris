@@ -57,6 +57,24 @@ void main() {
     expect(await _cells(still, 5), first);
   });
 
+  testWidgets('the widget clock runs unless motion is reduced', (tester) async {
+    Widget app({bool disableAnimations = false}) {
+      return MaterialApp(
+        home: MediaQuery(
+          data: MediaQueryData(disableAnimations: disableAnimations),
+          child: const PixelNoise(),
+        ),
+      );
+    }
+
+    await tester.pumpWidget(app());
+    expect(tester.hasRunningAnimations, isTrue);
+
+    await tester.pumpWidget(app(disableAnimations: true));
+    await tester.pump();
+    expect(tester.hasRunningAnimations, isFalse);
+  });
+
   test('effects with the same settings are equal', () {
     expect(
       const PixelNoiseEffect(color: Colors.white),

@@ -69,6 +69,42 @@ void main() {
 
     await expectLater(repository.fetchSources(['One', 'Two']), throwsException);
   });
+
+  test(
+    'fails with the first error when the other search finds nothing',
+    () async {
+      final repository = RemoteWatchSourcesRepository(
+        dataSource: _PerTitleDataSource({'Sousou no Frieren': const []}),
+      );
+
+      await expectLater(
+        repository.fetchSources(['Unreachable', 'Sousou no Frieren']),
+        throwsA(
+          isA<Exception>().having(
+            (error) => error.toString(),
+            'message',
+            contains('Unreachable'),
+          ),
+        ),
+      );
+    },
+  );
+
+  test('returns an empty list when every search finds nothing', () async {
+    final repository = RemoteWatchSourcesRepository(
+      dataSource: _PerTitleDataSource({
+        'Sousou no Frieren': const [],
+        "Frieren: Beyond Journey's End": const [],
+      }),
+    );
+
+    final items = await repository.fetchSources([
+      'Sousou no Frieren',
+      "Frieren: Beyond Journey's End",
+    ]);
+
+    expect(items, isEmpty);
+  });
 }
 
 const _subbed = 'Anime - English-translated';
@@ -111,7 +147,7 @@ class _PerTitleDataSource implements RemoteWatchSourcesDataSource {
   Future<List<NyaaWatchSourceDto>> fetchSources(String title) async {
     asked.add(title);
     final items = byTitle[title];
-    if (items == null) throw Exception('unreachable');
+    if (items == null) throw Exception('unreachable: $title');
     return items;
   }
 }

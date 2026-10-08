@@ -72,10 +72,23 @@ class _BlockSpinnerState extends State<BlockSpinner>
   static const _blocks = 12;
   static const _run = 3;
 
+  /// The frame held without motion: a run of lit blocks mid-bar.
+  static const _stillValue = 0.5;
+
   late final _controller = AnimationController(
     vsync: this,
     duration: const Duration(milliseconds: 1200),
-  )..repeat();
+  );
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _controller.stop();
+    } else if (!_controller.isAnimating) {
+      _controller.repeat();
+    }
+  }
 
   @override
   void dispose() {
@@ -90,7 +103,10 @@ class _BlockSpinnerState extends State<BlockSpinner>
       child: AnimatedBuilder(
         animation: _controller,
         builder: (context, _) {
-          final head = (_controller.value * (_blocks + _run)).floor();
+          final value = _controller.isAnimating
+              ? _controller.value
+              : _stillValue;
+          final head = (value * (_blocks + _run)).floor();
           return SizedBox(
             height: widget.height,
             // Stretched: an empty ColoredBox is otherwise zero high.

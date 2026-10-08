@@ -33,6 +33,7 @@ class WatchSourcesCubit extends Cubit<WatchSourcesState> {
 
     try {
       final items = await _repository.fetchSources(searchTitles);
+      if (isClosed) return;
 
       if (items.isEmpty) {
         emit(const WatchSourcesEmpty());
@@ -47,6 +48,7 @@ class WatchSourcesCubit extends Cubit<WatchSourcesState> {
         ),
       );
     } catch (_) {
+      if (isClosed) return;
       emit(const WatchSourcesFailure());
     }
   }

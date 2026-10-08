@@ -436,7 +436,74 @@ void main() {
       expect(seenQueries.last.filters.kinds, {AnimeKindFilter.tv});
       expect(seenQueries.last.filters.statuses, {AnimeStatusFilter.released});
     });
+
+    test('does not throw when closed before the first page arrives', () async {
+      var fetches = 0;
+      final errors = await _collectUncaughtErrors(() async {
+        final pending = Completer<AnimeListPageResult>();
+        final bloc = AnimeListBloc(
+          repository: _FakeAnimeListRepository(
+            handler: ({required query}) {
+              fetches++;
+              return pending.future;
+            },
+          ),
+        );
+
+        bloc.add(const AnimeListStarted());
+        await Future<void>.delayed(Duration.zero);
+        await bloc.close();
+        pending.complete(
+          AnimeListPageResult(
+            items: _pageOneItems,
+            page: 1,
+            hasMore: true,
+            query: '',
+          ),
+        );
+        await Future<void>.delayed(Duration.zero);
+      });
+
+      expect(fetches, 1);
+      expect(errors, isEmpty);
+    });
+
+    test('does not throw when closed before the first page fails', () async {
+      var fetches = 0;
+      final errors = await _collectUncaughtErrors(() async {
+        final pending = Completer<AnimeListPageResult>();
+        final bloc = AnimeListBloc(
+          repository: _FakeAnimeListRepository(
+            handler: ({required query}) {
+              fetches++;
+              return pending.future;
+            },
+          ),
+        );
+
+        bloc.add(const AnimeListStarted());
+        await Future<void>.delayed(Duration.zero);
+        await bloc.close();
+        pending.completeError(Exception('Initial failure'));
+        await Future<void>.delayed(Duration.zero);
+      });
+
+      expect(fetches, 1);
+      expect(errors, isEmpty);
+    });
   });
+}
+
+/// Runs [body] in its own zone and returns the errors it leaves uncaught,
+/// such as a failed `add` inside a fetch that nothing awaits. Create any
+/// completer that [body] completes inside [body]: an error does not cross
+/// zones, so one made outside would be reported as uncaught instead.
+Future<List<Object>> _collectUncaughtErrors(
+  Future<void> Function() body,
+) async {
+  final errors = <Object>[];
+  await runZonedGuarded(body, (error, _) => errors.add(error));
+  return errors;
 }
 
 class _FakeAnimeListRepository implements AnimeListRepository {

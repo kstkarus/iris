@@ -19,8 +19,10 @@ class AnimeDetailsCubit extends Cubit<AnimeDetailsState> {
 
     try {
       final details = await _repository.fetchAnimeDetails(_animeId);
+      if (isClosed) return;
       emit(AnimeDetailsSuccess(details));
     } catch (_) {
+      if (isClosed) return;
       emit(const AnimeDetailsFailure());
     }
   }

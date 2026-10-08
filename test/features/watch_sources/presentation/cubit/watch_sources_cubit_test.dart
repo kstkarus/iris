@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:iris/features/watch_sources/domain/entities/watch_source_item.dart';
@@ -155,6 +157,38 @@ void main() {
 
     await cubit.loadSources();
   });
+
+  test('does not throw when closed before the sources arrive', () async {
+    final pending = Completer<List<WatchSourceItem>>();
+    final cubit = WatchSourcesCubit(
+      animeId: '52991',
+      animeTitle: 'Frieren: Beyond Journey\'s End',
+      searchTitles: ['Frieren: Beyond Journey\'s End'],
+      repository: _PendingWatchSourcesRepository(pending.future),
+    );
+
+    final load = cubit.loadSources();
+    await cubit.close();
+    pending.complete(_items);
+
+    await expectLater(load, completes);
+  });
+
+  test('does not throw when closed before the search fails', () async {
+    final pending = Completer<List<WatchSourceItem>>();
+    final cubit = WatchSourcesCubit(
+      animeId: '52991',
+      animeTitle: 'Frieren: Beyond Journey\'s End',
+      searchTitles: ['Frieren: Beyond Journey\'s End'],
+      repository: _PendingWatchSourcesRepository(pending.future),
+    );
+
+    final load = cubit.loadSources();
+    await cubit.close();
+    pending.completeError(Exception('Failed to load sources'));
+
+    await expectLater(load, completes);
+  });
 }
 
 class _SuccessWatchSourcesRepository implements WatchSourcesRepository {
@@ -186,6 +220,15 @@ class _FailingWatchSourcesRepository implements WatchSourcesRepository {
   Future<List<WatchSourceItem>> fetchSources(List<String> titles) async {
     throw Exception('Failed to load sources');
   }
+}
+
+class _PendingWatchSourcesRepository implements WatchSourcesRepository {
+  const _PendingWatchSourcesRepository(this.pending);
+
+  final Future<List<WatchSourceItem>> pending;
+
+  @override
+  Future<List<WatchSourceItem>> fetchSources(List<String> titles) => pending;
 }
 
 const _itemWithMostSeeders = WatchSourceItem(

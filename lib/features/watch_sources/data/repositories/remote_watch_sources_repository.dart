@@ -11,7 +11,9 @@ class RemoteWatchSourcesRepository implements WatchSourcesRepository {
 
   /// One search per title, together: nyaa has no "or", and a release is
   /// found only by the name its group used. A title that fails does not
-  /// hide what the others found.
+  /// hide what the others found. Only when nothing was found and a search
+  /// failed is the first failure thrown, so it reads as an error, not as
+  /// "no sources".
   @override
   Future<List<WatchSourceItem>> fetchSources(List<String> titles) async {
     final results = await Future.wait(
@@ -24,17 +26,18 @@ class RemoteWatchSourcesRepository implements WatchSourcesRepository {
       }),
     );
     final failure = results.where((result) => result.error != null);
-    if (results.isNotEmpty && failure.length == results.length) {
-      throw failure.first.error!;
-    }
 
     final seen = <String>{};
-    return [
+    final items = [
       for (final result in results)
         for (final item in result.items)
           if (isWatchableNyaaCategory(item.category) &&
               seen.add(item.link.isEmpty ? item.magnet : item.link))
             mapNyaaWatchSourceToDomain(item),
     ];
+    if (items.isEmpty && failure.isNotEmpty) {
+      throw failure.first.error!;
+    }
+    return items;
   }
 }

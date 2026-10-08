@@ -264,6 +264,7 @@ class AnimeListBloc extends Bloc<AnimeListEvent, AnimeListState> {
   }) async {
     try {
       final result = await _repository.fetchAnimePage(query: query);
+      if (isClosed) return;
 
       add(
         AnimeListPageLoaded(
@@ -274,6 +275,7 @@ class AnimeListBloc extends Bloc<AnimeListEvent, AnimeListState> {
         ),
       );
     } catch (_) {
+      if (isClosed) return;
       add(
         AnimeListPageFailed(sessionId: sessionId, query: query, append: append),
       );

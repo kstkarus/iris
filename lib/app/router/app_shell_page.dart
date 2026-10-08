@@ -118,22 +118,37 @@ class _TopBar extends StatelessWidget {
             child: MaxWidthBox(
               maxWidth: AdaptiveContentWidth.page,
               alignment: Alignment.center,
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Align(
-                      alignment: AlignmentDirectional.centerStart,
-                      child: _Wordmark(appName: appName),
+              // The row takes the frame's width, and scrolls sideways only
+              // when the mark and the sections need more (large text).
+              // IntrinsicWidth gives its Expanded and Spacer a finite width.
+              child: LayoutBuilder(
+                builder: (context, constraints) => SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  // Stops at the ends, so the bar does not rubber-band on iOS.
+                  physics: const ClampingScrollPhysics(),
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(minWidth: constraints.maxWidth),
+                    child: IntrinsicWidth(
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Align(
+                              alignment: AlignmentDirectional.centerStart,
+                              child: _Wordmark(appName: appName),
+                            ),
+                          ),
+                          for (var index = 0; index < labels.length; index++)
+                            _TopBarItem(
+                              label: labels[index],
+                              selected: index == selectedIndex,
+                              onTap: () => onSelected(index),
+                            ),
+                          const Spacer(),
+                        ],
+                      ),
                     ),
                   ),
-                  for (var index = 0; index < labels.length; index++)
-                    _TopBarItem(
-                      label: labels[index],
-                      selected: index == selectedIndex,
-                      onTap: () => onSelected(index),
-                    ),
-                  const Spacer(),
-                ],
+                ),
               ),
             ),
           ),

@@ -58,6 +58,21 @@ Future<void> _pumpMockApp(WidgetTester tester, Size size) async {
   await tester.pumpAndSettle();
 }
 
+/// Russian labels at 2.0 text: the longest section name is the hard case.
+void _useRussianAtDoubleText(WidgetTester tester) {
+  final dispatcher = tester.platformDispatcher;
+  dispatcher
+    ..localeTestValue = const Locale('ru')
+    ..localesTestValue = const [Locale('ru')]
+    ..textScaleFactorTestValue = 2;
+  addTearDown(() {
+    dispatcher
+      ..clearLocaleTestValue()
+      ..clearLocalesTestValue()
+      ..clearTextScaleFactorTestValue();
+  });
+}
+
 void main() {
   for (final entry in TestWindowSizes.all.entries) {
     final sizeName = entry.key;
@@ -206,6 +221,33 @@ void main() {
     );
     expect(mark.left, (size.width - AdaptiveContentWidth.page) / 2);
   });
+
+  for (final width in const [600.0, 720.0, 840.0]) {
+    testWidgets('top bar sections stay in reach at ${width.toInt()} dp in '
+        'Russian at 2.0 text', (tester) async {
+      _useRussianAtDoubleText(tester);
+      await _pumpMockApp(tester, Size(width, 900));
+
+      expect(tester.takeException(), isNull);
+      final bar = find.byKey(AppShellPage.navigationRailKey);
+      final barRect = tester.getRect(bar);
+      for (final label in const ['Каталог', 'Раздачи', 'Загрузки']) {
+        final section = find.ancestor(
+          of: find.descendant(of: bar, matching: find.text(label)),
+          matching: find.byType(InkWell),
+        );
+        await tester.ensureVisible(section);
+        await tester.pump();
+        final rect = tester.getRect(section);
+        expect(rect.left, greaterThanOrEqualTo(barRect.left), reason: label);
+        expect(rect.right, lessThanOrEqualTo(barRect.right), reason: label);
+
+        await tester.tap(section);
+        await tester.pump(const Duration(milliseconds: 300));
+        expect(tester.takeException(), isNull, reason: label);
+      }
+    });
+  }
 
   testWidgets('filters open in a dialog on wide windows', (tester) async {
     await _pumpMockApp(tester, TestWindowSizes.desktop);

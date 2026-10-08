@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:iris/features/anime_details/domain/entities/anime_details.dart';
@@ -7,6 +9,34 @@ import 'package:iris/features/anime_details/presentation/cubit/anime_details_sta
 
 void main() {
   group('AnimeDetailsCubit', () {
+    test('does not throw when closed before the details arrive', () async {
+      final pending = Completer<AnimeDetails>();
+      final cubit = AnimeDetailsCubit(
+        animeId: '5114',
+        repository: _PendingAnimeDetailsRepository(pending.future),
+      );
+
+      final load = cubit.loadAnime();
+      await cubit.close();
+      pending.complete(_details);
+
+      await expectLater(load, completes);
+    });
+
+    test('does not throw when closed before the request fails', () async {
+      final pending = Completer<AnimeDetails>();
+      final cubit = AnimeDetailsCubit(
+        animeId: '5114',
+        repository: _PendingAnimeDetailsRepository(pending.future),
+      );
+
+      final load = cubit.loadAnime();
+      await cubit.close();
+      pending.completeError(Exception('Repository failure'));
+
+      await expectLater(load, completes);
+    });
+
     test(
       'emits loading then success when repository returns details',
       () async {
@@ -60,6 +90,15 @@ class _FailureAnimeDetailsRepository implements AnimeDetailsRepository {
   Future<AnimeDetails> fetchAnimeDetails(String id) {
     throw Exception('Repository failure');
   }
+}
+
+class _PendingAnimeDetailsRepository implements AnimeDetailsRepository {
+  const _PendingAnimeDetailsRepository(this.pending);
+
+  final Future<AnimeDetails> pending;
+
+  @override
+  Future<AnimeDetails> fetchAnimeDetails(String id) => pending;
 }
 
 const _details = AnimeDetails(
