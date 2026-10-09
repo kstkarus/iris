@@ -6,7 +6,6 @@ void main() {
   test('uses expected defaults', () {
     const preferences = SubtitlePreferences.defaults();
 
-    expect(preferences.visible, isTrue);
     expect(preferences.libassEnabled, isTrue);
     expect(preferences.textScale, SubtitleTextScalePreset.normal);
     expect(preferences.textColor, SubtitleTextColorPreset.white);
@@ -22,7 +21,6 @@ void main() {
 
   test('serializes and restores preferences', () {
     const preferences = SubtitlePreferences(
-      visible: false,
       libassEnabled: false,
       textScale: SubtitleTextScalePreset.large,
       textColor: SubtitleTextColorPreset.yellow,
@@ -34,5 +32,22 @@ void main() {
     final restored = SubtitlePreferences.fromJson(json);
 
     expect(restored, preferences);
+  });
+
+  test('reads a record saved with the old Show subtitles switch', () {
+    // Hiding subtitles is the Off track now; a stored "hidden" is dropped
+    // so it cannot keep them hidden with no switch left to show them.
+    final restored = SubtitlePreferences.fromJson({
+      'visible': false,
+      'textColor': 'yellow',
+    });
+
+    expect(
+      restored,
+      const SubtitlePreferences.defaults().copyWith(
+        textColor: SubtitleTextColorPreset.yellow,
+      ),
+    );
+    expect(restored.toJson(), isNot(contains('visible')));
   });
 }

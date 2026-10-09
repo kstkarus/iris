@@ -24,7 +24,6 @@ void main() {
       preferences,
     );
     const saved = SubtitlePreferences(
-      visible: false,
       libassEnabled: false,
       textScale: SubtitleTextScalePreset.compact,
       textColor: SubtitleTextColorPreset.cyan,

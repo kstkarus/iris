@@ -24,6 +24,10 @@ import 'package:iris/shared/widgets/pixel_icon.dart';
 /// on a dark frame in both themes.
 Color playerAccentColor(ColorScheme scheme) => scheme.tertiaryFixed;
 
+/// Opens a panel as a popover of [anchor], its button; completes when the
+/// panel closes.
+typedef PlayerPanelOpener = Future<void> Function(BuildContext anchor);
+
 /// Streaming-app controls drawn over a full-bleed video: the way back and
 /// the episodes at the top, play and ±10 s in the middle, the titles and
 /// the timeline at the bottom, the episodes in a drawer on the right.
@@ -74,8 +78,10 @@ class PlayerImmersiveControls extends StatefulWidget {
   final Widget statsPanel;
   final ValueListenable<bool> fullscreen;
   final VoidCallback onToggleFullscreen;
-  final VoidCallback onShowTracks;
-  final VoidCallback onShowSettings;
+
+  /// Open the panels from their buttons; done when they close.
+  final PlayerPanelOpener onShowTracks;
+  final PlayerPanelOpener onShowSettings;
   final PlayerNextFile? next;
 
   /// Pixels the visible controls cover at the bottom of a box of the given
@@ -100,6 +106,10 @@ class _PlayerImmersiveControlsState extends State<PlayerImmersiveControls> {
 
   bool _controlsVisible = true;
   bool _episodesOpen = false;
+
+  /// The panel open from the bar; its button shows it, and the controls
+  /// stay while it is open.
+  Object? _openPanel;
   Timer? _hideTimer;
 
   /// The bottom controls' parts at their full sizes, so the subtitles move
@@ -294,6 +304,24 @@ class _PlayerImmersiveControlsState extends State<PlayerImmersiveControls> {
       unawaited(widget.engine.skipCurrentSegment());
     } else if (widget.engine.skipForwardOffered.value) {
       unawaited(widget.engine.skipForward());
+    }
+  }
+
+  Future<void> _showPanel(
+    Object panel,
+    PlayerPanelOpener open,
+    BuildContext anchor,
+  ) async {
+    if (_openPanel != null) return;
+    setState(() => _openPanel = panel);
+    _setHold(panel, true);
+    try {
+      await open(anchor);
+    } finally {
+      if (mounted) {
+        setState(() => _openPanel = null);
+        _setHold(panel, false);
+      }
     }
   }
 
@@ -502,8 +530,11 @@ class _PlayerImmersiveControlsState extends State<PlayerImmersiveControls> {
               onSeekActive: (active) => _setHold(#seek, active),
               onToggleMute: _toggleMute,
               onVolume: (volume) => _setVolume(volume, showHud: false),
-              onShowTracks: widget.onShowTracks,
-              onShowSettings: widget.onShowSettings,
+              openPanel: _openPanel,
+              onShowTracks: (anchor) =>
+                  _showPanel(#tracks, widget.onShowTracks, anchor),
+              onShowSettings: (anchor) =>
+                  _showPanel(#settings, widget.onShowSettings, anchor),
               onToggleFullscreen: widget.onToggleFullscreen,
               onEpisodes: widget.chrome.episodes == null ? null : _openEpisodes,
             ),
@@ -872,6 +903,7 @@ class _BottomSection extends StatelessWidget {
     required this.onSeekActive,
     required this.onToggleMute,
     required this.onVolume,
+    required this.openPanel,
     required this.onShowTracks,
     required this.onShowSettings,
     required this.onToggleFullscreen,
@@ -912,8 +944,9 @@ class _BottomSection extends StatelessWidget {
   final ValueChanged<bool> onSeekActive;
   final VoidCallback onToggleMute;
   final ValueChanged<double> onVolume;
-  final VoidCallback onShowTracks;
-  final VoidCallback onShowSettings;
+  final Object? openPanel;
+  final ValueChanged<BuildContext> onShowTracks;
+  final ValueChanged<BuildContext> onShowSettings;
   final VoidCallback onToggleFullscreen;
   final VoidCallback? onEpisodes;
 
@@ -941,6 +974,7 @@ class _BottomSection extends StatelessWidget {
             fullscreen: fullscreen,
             onToggleMute: onToggleMute,
             onVolume: onVolume,
+            openPanel: openPanel,
             onShowTracks: onShowTracks,
             onShowSettings: onShowSettings,
             onToggleFullscreen: onToggleFullscreen,
@@ -1232,6 +1266,7 @@ class _BarButtons extends StatelessWidget {
     required this.fullscreen,
     required this.onToggleMute,
     required this.onVolume,
+    required this.openPanel,
     required this.onShowTracks,
     required this.onShowSettings,
     required this.onToggleFullscreen,
@@ -1243,8 +1278,9 @@ class _BarButtons extends StatelessWidget {
   final ValueListenable<bool> fullscreen;
   final VoidCallback onToggleMute;
   final ValueChanged<double> onVolume;
-  final VoidCallback onShowTracks;
-  final VoidCallback onShowSettings;
+  final Object? openPanel;
+  final ValueChanged<BuildContext> onShowTracks;
+  final ValueChanged<BuildContext> onShowSettings;
   final VoidCallback onToggleFullscreen;
   final VoidCallback? onEpisodes;
 
@@ -1270,17 +1306,24 @@ class _BarButtons extends StatelessWidget {
         ),
     ];
     final view = [
-      _BarButton(
-        key: const Key('player_tracks_button'),
-        glyph: const PixelIcon(PixelGlyph.subtitles),
-        label: l10n.playerAudioAndSubtitles,
-        onPressed: onShowTracks,
+      // The panels open from their buttons, which stay lit meanwhile.
+      Builder(
+        builder: (anchor) => _BarButton(
+          key: const Key('player_tracks_button'),
+          glyph: const PixelIcon(PixelGlyph.subtitles),
+          label: l10n.playerAudioAndSubtitles,
+          selected: openPanel == #tracks,
+          onPressed: () => onShowTracks(anchor),
+        ),
       ),
-      _BarButton(
-        key: const Key('player_settings_button'),
-        glyph: const PixelIcon(PixelGlyph.settings),
-        label: l10n.playerSettingsTitle,
-        onPressed: onShowSettings,
+      Builder(
+        builder: (anchor) => _BarButton(
+          key: const Key('player_settings_button'),
+          glyph: const PixelIcon(PixelGlyph.settings),
+          label: l10n.playerSettingsTitle,
+          selected: openPanel == #settings,
+          onPressed: () => onShowSettings(anchor),
+        ),
       ),
       ValueListenableBuilder<bool>(
         valueListenable: fullscreen,
@@ -1332,6 +1375,7 @@ class _BarButton extends StatelessWidget {
     required this.glyph,
     required this.label,
     required this.onPressed,
+    this.selected = false,
     super.key,
   });
 
@@ -1339,6 +1383,7 @@ class _BarButton extends StatelessWidget {
 
   final Widget glyph;
   final String label;
+  final bool selected;
   final VoidCallback onPressed;
 
   @override
@@ -1348,6 +1393,7 @@ class _BarButton extends StatelessWidget {
       iconSize: glyphSize,
       size: const Size(_barButtonSize + 4, _barButtonSize),
       label: label,
+      selected: selected,
       onPressed: onPressed,
     );
   }
@@ -1364,10 +1410,15 @@ class _GlyphButton extends StatefulWidget {
     required this.size,
     required this.label,
     required this.onPressed,
+    this.selected = false,
     super.key,
   });
 
   static const restOpacity = 0.85;
+
+  /// Its panel is open: an inverse square, as the chosen cell of a
+  /// segmented choice.
+  final bool selected;
 
   /// A [PixelIcon] or a short figure; give it a key that changes with the
   /// state it shows, and it cross-fades when the state flips.
@@ -1391,7 +1442,8 @@ class _GlyphButtonState extends State<_GlyphButton> {
 
   @override
   Widget build(BuildContext context) {
-    final active = _hovered || _focused;
+    final selected = widget.selected;
+    final active = _hovered || _focused || selected;
     return FocusableActionDetector(
       mouseCursor: SystemMouseCursors.click,
       onFocusChange: (focused) => setState(() => _focused = focused),
@@ -1417,6 +1469,7 @@ class _GlyphButtonState extends State<_GlyphButton> {
               width: widget.size.width,
               height: widget.size.height,
               decoration: BoxDecoration(
+                color: selected ? Colors.white : Colors.transparent,
                 borderRadius: BorderRadius.zero,
                 border: Border.all(
                   color: _focused ? Colors.white70 : Colors.transparent,
@@ -1425,7 +1478,7 @@ class _GlyphButtonState extends State<_GlyphButton> {
               ),
               child: Center(
                 child: AnimatedScale(
-                  scale: _hovered ? 1.12 : 1,
+                  scale: _hovered && !selected ? 1.12 : 1,
                   duration: _animation,
                   child: AnimatedOpacity(
                     opacity: active ? 1 : _GlyphButton.restOpacity,
@@ -1433,17 +1486,20 @@ class _GlyphButtonState extends State<_GlyphButton> {
                     child: IconTheme.merge(
                       data: IconThemeData(
                         size: widget.iconSize,
-                        color: Colors.white,
+                        color: selected ? Colors.black : Colors.white,
                       ),
                       // The button's label speaks for it; a figure such
                       // as "+10" must not be read out on top of it.
                       child: ExcludeSemantics(
                         child: AnimatedSwitcher(
                           duration: _glyphSwapDuration(context),
-                          child: _ShadowedGlyph(
-                            key: widget.glyph.key,
-                            glyph: widget.glyph,
-                          ),
+                          // On the light square the glyph needs no shadow.
+                          child: selected
+                              ? widget.glyph
+                              : _ShadowedGlyph(
+                                  key: widget.glyph.key,
+                                  glyph: widget.glyph,
+                                ),
                         ),
                       ),
                     ),

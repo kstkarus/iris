@@ -8,7 +8,6 @@ enum SubtitleVerticalPositionPreset { low, standard, high }
 
 class SubtitlePreferences {
   const SubtitlePreferences({
-    required this.visible,
     required this.libassEnabled,
     required this.textScale,
     required this.textColor,
@@ -17,14 +16,12 @@ class SubtitlePreferences {
   });
 
   const SubtitlePreferences.defaults()
-    : visible = true,
-      libassEnabled = true,
+    : libassEnabled = true,
       textScale = SubtitleTextScalePreset.normal,
       textColor = SubtitleTextColorPreset.white,
       backgroundStyle = SubtitleBackgroundStylePreset.translucent,
       verticalPosition = SubtitleVerticalPositionPreset.standard;
 
-  final bool visible;
   final bool libassEnabled;
   final SubtitleTextScalePreset textScale;
   final SubtitleTextColorPreset textColor;
@@ -32,7 +29,6 @@ class SubtitlePreferences {
   final SubtitleVerticalPositionPreset verticalPosition;
 
   SubtitlePreferences copyWith({
-    bool? visible,
     bool? libassEnabled,
     SubtitleTextScalePreset? textScale,
     SubtitleTextColorPreset? textColor,
@@ -40,7 +36,6 @@ class SubtitlePreferences {
     SubtitleVerticalPositionPreset? verticalPosition,
   }) {
     return SubtitlePreferences(
-      visible: visible ?? this.visible,
       libassEnabled: libassEnabled ?? this.libassEnabled,
       textScale: textScale ?? this.textScale,
       textColor: textColor ?? this.textColor,
@@ -51,7 +46,6 @@ class SubtitlePreferences {
 
   Map<String, Object?> toJson() {
     return {
-      'visible': visible,
       'libassEnabled': libassEnabled,
       'textScale': textScale.name,
       'textColor': textColor.name,
@@ -62,9 +56,6 @@ class SubtitlePreferences {
 
   factory SubtitlePreferences.fromJson(Map<String, Object?> json) {
     return SubtitlePreferences(
-      visible:
-          json['visible'] as bool? ??
-          const SubtitlePreferences.defaults().visible,
       libassEnabled:
           json['libassEnabled'] as bool? ??
           const SubtitlePreferences.defaults().libassEnabled,
@@ -98,7 +89,6 @@ class SubtitlePreferences {
     }
 
     return other is SubtitlePreferences &&
-        other.visible == visible &&
         other.libassEnabled == libassEnabled &&
         other.textScale == textScale &&
         other.textColor == textColor &&
@@ -108,7 +98,6 @@ class SubtitlePreferences {
 
   @override
   int get hashCode => Object.hash(
-    visible,
     libassEnabled,
     textScale,
     textColor,

@@ -354,23 +354,20 @@ class AppLocalizationsEn extends AppLocalizations {
   String get playerNoPlayableVideo => 'No playable video found.';
 
   @override
-  String get playerTracksTitle => 'Playback Tracks';
-
-  @override
   String get playerAudioTracksTitle => 'Audio';
 
   @override
   String get playerSubtitleTracksTitle => 'Subtitles';
 
   @override
-  String get playerSettingsTitle => 'Player Settings';
+  String get playerSettingsTitle => 'Settings';
 
   @override
   String get playerDecoderSettingsTitle => 'Decoder';
 
   @override
   String get playerDecoderSettingsDescription =>
-      'Change this only if video stutters or shows green frames on your device. The current decoder is visible in the player overlay stats.';
+      'Change this only if video stutters or shows green frames on your device. Technical details below show the decoder in use.';
 
   @override
   String get playerDecoderAutoSafe => 'Auto (recommended)';
@@ -386,9 +383,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get playerSubtitleAppearanceTitle => 'Subtitle Appearance';
-
-  @override
-  String get playerSubtitleVisibilityLabel => 'Show subtitles';
 
   @override
   String get playerSubtitleLibassLabel => 'Improved ASS/SSA rendering';
@@ -411,6 +405,46 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get playerSubtitleResetAction => 'Reset';
+
+  @override
+  String get playerSubtitleSizeSample => 'Aa';
+
+  @override
+  String get playerSubtitleSizeSmaller => 'Smaller';
+
+  @override
+  String get playerSubtitleSizeNormal => 'Normal';
+
+  @override
+  String get playerSubtitleSizeLarger => 'Larger';
+
+  @override
+  String get playerSubtitleSizeLargest => 'Largest';
+
+  @override
+  String get playerSubtitleOverrideHint =>
+      'A custom colour, background or position replaces the release\'s styling: styled signs become plain text.';
+
+  @override
+  String get playerAdvancedTitle => 'Advanced';
+
+  @override
+  String playerAdvancedSummary(String decoder, String ass) {
+    return 'Decoder: $decoder · ASS rendering: $ass';
+  }
+
+  @override
+  String get playerSettingOn => 'on';
+
+  @override
+  String get playerSettingOff => 'off';
+
+  @override
+  String get playerDecoderAutoShort => 'Auto';
+
+  @override
+  String get playerRestartHint =>
+      'The decoder and ASS rendering apply by restarting the video where it is.';
 
   @override
   String get playerSubtitleColorWhite => 'White';

@@ -6,18 +6,39 @@ import 'package:iris/features/player/domain/entities/subtitle_preferences.dart';
 import 'package:iris/features/player/presentation/cubit/player_decoding_preferences_cubit.dart';
 import 'package:iris/features/player/presentation/cubit/player_subtitle_preferences_cubit.dart';
 import 'package:iris/features/player/presentation/widgets/player_adaptive_layout.dart';
+import 'package:iris/features/player/presentation/widgets/player_choice_row.dart';
+import 'package:iris/features/player/presentation/widgets/player_overlay_preferences.dart';
+import 'package:iris/features/player/presentation/widgets/player_popover.dart';
 import 'package:iris/features/player/presentation/widgets/player_subtitle_preferences_mapper.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
-import 'package:iris/shared/widgets/option_toggle.dart';
+import 'package:iris/shared/widgets/pixel_icon.dart';
 import 'package:iris/shared/widgets/section_label.dart';
+import 'package:iris/shared/widgets/segmented_bar.dart';
+import 'package:iris/shared/widgets/segmented_choice.dart';
 
-Future<void> showPlayerSubtitleSettingsSheet(BuildContext context) {
+/// The video stays in view behind the settings, lightly dimmed, so a change
+/// to the subtitles shows on them at once.
+const _settingsBarrier = Color(0x33000000);
+
+/// Room for the size samples and "Semi-transparent" in a third of a row.
+const _popoverWidth = 440.0;
+
+/// Opens the settings; on wide windows as a popover of [anchor], the
+/// settings button.
+Future<void> showPlayerSubtitleSettingsSheet(
+  BuildContext context, {
+  BuildContext? anchor,
+}) {
   final subtitleCubit = context.read<PlayerSubtitlePreferencesCubit>();
   final decodingCubit = context.read<PlayerDecodingPreferencesCubit>();
 
   return showPlayerAdaptiveSheet<void>(
     context: context,
+    anchor: anchor,
+    popoverWidth: _popoverWidth,
+    semanticsLabel: AppLocalizations.of(context).playerSettingsTitle,
     isScrollControlled: true,
+    barrierColor: _settingsBarrier,
     builder: (_) => MultiBlocProvider(
       providers: [
         BlocProvider<PlayerSubtitlePreferencesCubit>.value(
@@ -32,12 +53,17 @@ Future<void> showPlayerSubtitleSettingsSheet(BuildContext context) {
   );
 }
 
+/// The player's settings: the look of subtitles first, as the thing people
+/// change; the decoder, the ASS renderer and the technical overlay folded
+/// under Advanced, for playback problems.
 class PlayerSubtitleSettingsSheet extends StatelessWidget {
   const PlayerSubtitleSettingsSheet({super.key});
 
   @override
   Widget build(BuildContext context) {
     final mediaQuery = MediaQuery.of(context);
+    final l10n = AppLocalizations.of(context);
+    final theme = Theme.of(context);
 
     return SafeArea(
       child: ConstrainedBox(
@@ -53,267 +79,435 @@ class PlayerSubtitleSettingsSheet extends StatelessWidget {
             // Ink paints on the nearest Material: this one scrolls with the list,
             // so the sheet's edge clips the highlight.
             type: MaterialType.transparency,
-            child:
-                BlocBuilder<
-                  PlayerDecodingPreferencesCubit,
-                  PlayerDecodingPreferences
-                >(
-                  builder: (context, decodingPreferences) {
-                    return BlocBuilder<
-                      PlayerSubtitlePreferencesCubit,
-                      SubtitlePreferences
-                    >(
-                      builder: (context, preferences) {
-                        final subtitleCubit = context
-                            .read<PlayerSubtitlePreferencesCubit>();
-                        final decodingCubit = context
-                            .read<PlayerDecodingPreferencesCubit>();
-                        final l10n = AppLocalizations.of(context);
-                        final theme = Theme.of(context);
-                        final effectiveHwdecMode = resolveSupportedHwdecMode(
-                          decodingPreferences.hwdecMode,
-                        );
-
-                        return Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              l10n.playerSettingsTitle,
-                              style: theme.textTheme.titleLarge?.copyWith(
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-                            _SettingsSection(
-                              title: l10n.playerDecoderSettingsTitle,
-                              subtitle: l10n.playerDecoderSettingsDescription,
-                              child: Wrap(
-                                spacing: 8,
-                                runSpacing: 8,
-                                children: [
-                                  for (final preset in supportedHwdecModes())
-                                    _ChoiceChip(
-                                      label: _decoderLabel(l10n, preset),
-                                      selected: effectiveHwdecMode == preset,
-                                      onSelected: () =>
-                                          decodingCubit.setHwdecMode(preset),
-                                    ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(height: 20),
-                            _SettingsSection(
-                              title: l10n.playerSubtitleAppearanceTitle,
-                              child: const SizedBox.shrink(),
-                            ),
-                            const SizedBox(height: 8),
-                            SwitchListTile(
-                              contentPadding: EdgeInsets.zero,
-                              title: Text(l10n.playerSubtitleVisibilityLabel),
-                              value: preferences.visible,
-                              onChanged: subtitleCubit.setVisibility,
-                            ),
-                            SwitchListTile(
-                              contentPadding: EdgeInsets.zero,
-                              title: Text(l10n.playerSubtitleLibassLabel),
-                              subtitle: Text(
-                                l10n.playerSubtitleLibassDescription,
-                              ),
-                              value: preferences.libassEnabled,
-                              onChanged: subtitleCubit.setLibassEnabled,
-                            ),
-                            const SizedBox(height: 12),
-                            _SettingsSection(
-                              title: l10n.playerSubtitleSizeLabel,
-                              child: Wrap(
-                                spacing: 8,
-                                runSpacing: 8,
-                                children: [
-                                  _ChoiceChip(
-                                    label: '0.85x',
-                                    selected:
-                                        preferences.textScale ==
-                                        SubtitleTextScalePreset.compact,
-                                    onSelected: () =>
-                                        subtitleCubit.setTextScale(
-                                          SubtitleTextScalePreset.compact,
-                                        ),
-                                  ),
-                                  _ChoiceChip(
-                                    label: '1.0x',
-                                    selected:
-                                        preferences.textScale ==
-                                        SubtitleTextScalePreset.normal,
-                                    onSelected: () =>
-                                        subtitleCubit.setTextScale(
-                                          SubtitleTextScalePreset.normal,
-                                        ),
-                                  ),
-                                  _ChoiceChip(
-                                    label: '1.15x',
-                                    selected:
-                                        preferences.textScale ==
-                                        SubtitleTextScalePreset.large,
-                                    onSelected: () =>
-                                        subtitleCubit.setTextScale(
-                                          SubtitleTextScalePreset.large,
-                                        ),
-                                  ),
-                                  _ChoiceChip(
-                                    label: '1.30x',
-                                    selected:
-                                        preferences.textScale ==
-                                        SubtitleTextScalePreset.xLarge,
-                                    onSelected: () =>
-                                        subtitleCubit.setTextScale(
-                                          SubtitleTextScalePreset.xLarge,
-                                        ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-                            _SettingsSection(
-                              title: l10n.playerSubtitleColorLabel,
-                              child: Wrap(
-                                spacing: 8,
-                                runSpacing: 8,
-                                children: [
-                                  _ChoiceChip(
-                                    label: l10n.playerSubtitleColorWhite,
-                                    selected:
-                                        preferences.textColor ==
-                                        SubtitleTextColorPreset.white,
-                                    onSelected: () =>
-                                        subtitleCubit.setTextColor(
-                                          SubtitleTextColorPreset.white,
-                                        ),
-                                  ),
-                                  _ChoiceChip(
-                                    label: l10n.playerSubtitleColorYellow,
-                                    selected:
-                                        preferences.textColor ==
-                                        SubtitleTextColorPreset.yellow,
-                                    onSelected: () =>
-                                        subtitleCubit.setTextColor(
-                                          SubtitleTextColorPreset.yellow,
-                                        ),
-                                  ),
-                                  _ChoiceChip(
-                                    label: l10n.playerSubtitleColorCyan,
-                                    selected:
-                                        preferences.textColor ==
-                                        SubtitleTextColorPreset.cyan,
-                                    onSelected: () =>
-                                        subtitleCubit.setTextColor(
-                                          SubtitleTextColorPreset.cyan,
-                                        ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-                            _SettingsSection(
-                              title: l10n.playerSubtitleBackgroundLabel,
-                              child: Wrap(
-                                spacing: 8,
-                                runSpacing: 8,
-                                children: [
-                                  _ChoiceChip(
-                                    label: l10n.playerSubtitleBackgroundNone,
-                                    selected:
-                                        preferences.backgroundStyle ==
-                                        SubtitleBackgroundStylePreset.none,
-                                    onSelected: () =>
-                                        subtitleCubit.setBackgroundStyle(
-                                          SubtitleBackgroundStylePreset.none,
-                                        ),
-                                  ),
-                                  _ChoiceChip(
-                                    label: l10n
-                                        .playerSubtitleBackgroundTranslucent,
-                                    selected:
-                                        preferences.backgroundStyle ==
-                                        SubtitleBackgroundStylePreset
-                                            .translucent,
-                                    onSelected: () =>
-                                        subtitleCubit.setBackgroundStyle(
-                                          SubtitleBackgroundStylePreset
-                                              .translucent,
-                                        ),
-                                  ),
-                                  _ChoiceChip(
-                                    label: l10n.playerSubtitleBackgroundSolid,
-                                    selected:
-                                        preferences.backgroundStyle ==
-                                        SubtitleBackgroundStylePreset.solid,
-                                    onSelected: () =>
-                                        subtitleCubit.setBackgroundStyle(
-                                          SubtitleBackgroundStylePreset.solid,
-                                        ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-                            _SettingsSection(
-                              title: l10n.playerSubtitlePositionLabel,
-                              child: Wrap(
-                                spacing: 8,
-                                runSpacing: 8,
-                                children: [
-                                  _ChoiceChip(
-                                    label: l10n.playerSubtitlePositionLow,
-                                    selected:
-                                        preferences.verticalPosition ==
-                                        SubtitleVerticalPositionPreset.low,
-                                    onSelected: () =>
-                                        subtitleCubit.setVerticalPosition(
-                                          SubtitleVerticalPositionPreset.low,
-                                        ),
-                                  ),
-                                  _ChoiceChip(
-                                    label: l10n.playerSubtitlePositionStandard,
-                                    selected:
-                                        preferences.verticalPosition ==
-                                        SubtitleVerticalPositionPreset.standard,
-                                    onSelected: () =>
-                                        subtitleCubit.setVerticalPosition(
-                                          SubtitleVerticalPositionPreset
-                                              .standard,
-                                        ),
-                                  ),
-                                  _ChoiceChip(
-                                    label: l10n.playerSubtitlePositionHigh,
-                                    selected:
-                                        preferences.verticalPosition ==
-                                        SubtitleVerticalPositionPreset.high,
-                                    onSelected: () =>
-                                        subtitleCubit.setVerticalPosition(
-                                          SubtitleVerticalPositionPreset.high,
-                                        ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(height: 20),
-                            Align(
-                              alignment: Alignment.centerLeft,
-                              child: TextButton(
-                                onPressed: subtitleCubit.reset,
-                                child: Text(l10n.playerSubtitleResetAction),
-                              ),
-                            ),
-                          ],
-                        );
-                      },
-                    );
-                  },
-                ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // A popover's button already names it.
+                if (!isInPlayerPopover(context)) ...[
+                  Text(
+                    l10n.playerSettingsTitle,
+                    style: theme.textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ],
+                const _Appearance(),
+                const SizedBox(height: 8),
+                const SegmentedRule(),
+                const _Advanced(),
+              ],
+            ),
           ),
         ),
       ),
+    );
+  }
+}
+
+class _Appearance extends StatelessWidget {
+  const _Appearance();
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final theme = Theme.of(context);
+    final cubit = context.read<PlayerSubtitlePreferencesCubit>();
+    final preferences = context.watch<PlayerSubtitlePreferencesCubit>().state;
+    final isDefault =
+        preferences ==
+        const SubtitlePreferences.defaults().copyWith(
+          libassEnabled: preferences.libassEnabled,
+        );
+    // Only where the release's own renderer would otherwise draw them.
+    final overridesRelease =
+        preferences.libassEnabled && overridesReleaseSubtitleStyle(preferences);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SectionLabel(
+          l10n.playerSubtitleAppearanceTitle,
+          trailing: TextButton(
+            onPressed: isDefault ? null : cubit.resetAppearance,
+            child: Text(l10n.playerSubtitleResetAction),
+          ),
+        ),
+        const SizedBox(height: 4),
+        _Labelled(
+          label: l10n.playerSubtitleSizeLabel,
+          child: SegmentedChoice<SubtitleTextScalePreset>(
+            selected: preferences.textScale,
+            onSelected: cubit.setTextScale,
+            options: [
+              for (final (preset, label, size) in [
+                (
+                  SubtitleTextScalePreset.compact,
+                  l10n.playerSubtitleSizeSmaller,
+                  11.0,
+                ),
+                (
+                  SubtitleTextScalePreset.normal,
+                  l10n.playerSubtitleSizeNormal,
+                  13.0,
+                ),
+                (
+                  SubtitleTextScalePreset.large,
+                  l10n.playerSubtitleSizeLarger,
+                  15.0,
+                ),
+                (
+                  SubtitleTextScalePreset.xLarge,
+                  l10n.playerSubtitleSizeLargest,
+                  17.0,
+                ),
+              ])
+                SegmentedOption(
+                  value: preset,
+                  label: label,
+                  // A sample at the size says more than a name or a factor.
+                  text: l10n.playerSubtitleSizeSample,
+                  textStyle: TextStyle(fontSize: size),
+                ),
+            ],
+          ),
+        ),
+        _Labelled(
+          label: l10n.playerSubtitleColorLabel,
+          child: SegmentedChoice<SubtitleTextColorPreset>(
+            selected: preferences.textColor,
+            onSelected: cubit.setTextColor,
+            options: [
+              for (final (preset, label) in [
+                (SubtitleTextColorPreset.white, l10n.playerSubtitleColorWhite),
+                (
+                  SubtitleTextColorPreset.yellow,
+                  l10n.playerSubtitleColorYellow,
+                ),
+                (SubtitleTextColorPreset.cyan, l10n.playerSubtitleColorCyan),
+              ])
+                SegmentedOption(
+                  value: preset,
+                  label: label,
+                  leading: _Swatch(color: subtitleTextColor(preset)),
+                ),
+            ],
+          ),
+        ),
+        _Labelled(
+          label: l10n.playerSubtitleBackgroundLabel,
+          child: SegmentedChoice<SubtitleBackgroundStylePreset>(
+            selected: preferences.backgroundStyle,
+            onSelected: cubit.setBackgroundStyle,
+            options: [
+              SegmentedOption(
+                value: SubtitleBackgroundStylePreset.none,
+                label: l10n.playerSubtitleBackgroundNone,
+              ),
+              SegmentedOption(
+                value: SubtitleBackgroundStylePreset.translucent,
+                label: l10n.playerSubtitleBackgroundTranslucent,
+              ),
+              SegmentedOption(
+                value: SubtitleBackgroundStylePreset.solid,
+                label: l10n.playerSubtitleBackgroundSolid,
+              ),
+            ],
+          ),
+        ),
+        _Labelled(
+          label: l10n.playerSubtitlePositionLabel,
+          child: SegmentedChoice<SubtitleVerticalPositionPreset>(
+            selected: preferences.verticalPosition,
+            onSelected: cubit.setVerticalPosition,
+            options: [
+              SegmentedOption(
+                value: SubtitleVerticalPositionPreset.low,
+                label: l10n.playerSubtitlePositionLow,
+              ),
+              SegmentedOption(
+                value: SubtitleVerticalPositionPreset.standard,
+                label: l10n.playerSubtitlePositionStandard,
+              ),
+              SegmentedOption(
+                value: SubtitleVerticalPositionPreset.high,
+                label: l10n.playerSubtitlePositionHigh,
+              ),
+            ],
+          ),
+        ),
+        // The warning comes and goes with the choice that causes it.
+        _Reveal(
+          visible: overridesRelease,
+          child: Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Text(
+              l10n.playerSubtitleOverrideHint,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// A control under its small caption.
+class _Labelled extends StatelessWidget {
+  const _Labelled({required this.label, required this.child});
+
+  final String label;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            label,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 6),
+          child,
+        ],
+      ),
+    );
+  }
+}
+
+class _Swatch extends StatelessWidget {
+  const _Swatch({required this.color});
+
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 10,
+      height: 10,
+      decoration: BoxDecoration(
+        color: color,
+        border: Border.all(color: Theme.of(context).colorScheme.outline),
+      ),
+    );
+  }
+}
+
+/// The decoder, the ASS renderer and the technical overlay: wanted for a
+/// playback problem, so folded until asked for. Folded, a line says what
+/// they are set to.
+class _Advanced extends StatefulWidget {
+  const _Advanced();
+
+  @override
+  State<_Advanced> createState() => _AdvancedState();
+}
+
+class _AdvancedState extends State<_Advanced> {
+  static const _unfold = Duration(milliseconds: 240);
+
+  final _contentKey = GlobalKey();
+  bool _expanded = false;
+
+  Duration get _duration =>
+      MediaQuery.disableAnimationsOf(context) ? Duration.zero : _unfold;
+
+  void _toggle() {
+    setState(() => _expanded = !_expanded);
+    if (!_expanded) return;
+    // Opened at the bottom of the sheet, the content would unfold out of
+    // sight: once it has its size, bring it into view. The frame after the
+    // unfolding is the one that has that size.
+    final duration = _duration;
+    Future<void>.delayed(duration, () {
+      if (!mounted) return;
+      WidgetsBinding.instance
+        ..addPostFrameCallback((_) => _reveal(duration))
+        ..scheduleFrame();
+    });
+  }
+
+  void _reveal(Duration duration) {
+    final content = _contentKey.currentContext;
+    if (!mounted || content == null || !content.mounted) return;
+    Scrollable.ensureVisible(
+      content,
+      duration: duration == Duration.zero
+          ? Duration.zero
+          : const Duration(milliseconds: 280),
+      curve: Curves.easeOutCubic,
+      alignmentPolicy: ScrollPositionAlignmentPolicy.keepVisibleAtEnd,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final theme = Theme.of(context);
+    final decoding = context.watch<PlayerDecodingPreferencesCubit>().state;
+    final libass = context.select(
+      (PlayerSubtitlePreferencesCubit cubit) => cubit.state.libassEnabled,
+    );
+    final decoder = resolveSupportedHwdecMode(decoding.hwdecMode);
+    final duration = _duration;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Semantics(
+          expanded: _expanded,
+          child: InkWell(
+            onTap: _toggle,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: 56),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          l10n.playerAdvancedTitle,
+                          style: theme.textTheme.bodyMedium,
+                        ),
+                        _Reveal(
+                          visible: !_expanded,
+                          duration: duration,
+                          child: Text(
+                            l10n.playerAdvancedSummary(
+                              _decoderShortLabel(l10n, decoder),
+                              libass
+                                  ? l10n.playerSettingOn
+                                  : l10n.playerSettingOff,
+                            ),
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  // Points down to unfold and up to fold.
+                  AnimatedRotation(
+                    turns: _expanded ? -0.25 : 0.25,
+                    duration: duration,
+                    curve: Curves.easeOutCubic,
+                    child: const PixelIcon(PixelGlyph.arrowRight, size: 14),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        AnimatedCrossFade(
+          duration: duration,
+          sizeCurve: Curves.easeOutCubic,
+          crossFadeState: _expanded
+              ? CrossFadeState.showSecond
+              : CrossFadeState.showFirst,
+          firstChild: const SizedBox(width: double.infinity),
+          secondChild: KeyedSubtree(
+            key: _contentKey,
+            child: _AdvancedContent(decoder: decoder, libass: libass),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _AdvancedContent extends StatelessWidget {
+  const _AdvancedContent({required this.decoder, required this.libass});
+
+  final PlayerHwdecModePreset decoder;
+  final bool libass;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final theme = Theme.of(context);
+    final muted = theme.textTheme.bodySmall?.copyWith(
+      color: theme.colorScheme.onSurfaceVariant,
+    );
+    final decodingCubit = context.read<PlayerDecodingPreferencesCubit>();
+    final subtitleCubit = context.read<PlayerSubtitlePreferencesCubit>();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(l10n.playerDecoderSettingsTitle, style: muted),
+        const SizedBox(height: 2),
+        Text(l10n.playerDecoderSettingsDescription, style: muted),
+        const SizedBox(height: 4),
+        for (final preset in supportedHwdecModes())
+          PlayerChoiceRow(
+            label: _decoderLabel(l10n, preset),
+            selected: decoder == preset,
+            onTap: () => decodingCubit.setHwdecMode(preset),
+          ),
+        const SizedBox(height: 8),
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          title: Text(l10n.playerSubtitleLibassLabel),
+          subtitle: Text(l10n.playerSubtitleLibassDescription),
+          value: libass,
+          onChanged: subtitleCubit.setLibassEnabled,
+        ),
+        ValueListenableBuilder<bool>(
+          valueListenable: playerDetailedStatsEnabled,
+          builder: (context, enabled, _) => SwitchListTile(
+            key: const Key('player_detailed_stats_switch'),
+            contentPadding: EdgeInsets.zero,
+            title: Text(l10n.playerDetailedStats),
+            subtitle: Text(l10n.playerDetailedStatsHint),
+            value: enabled,
+            onChanged: (value) => playerDetailedStatsEnabled.value = value,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(l10n.playerRestartHint, style: muted),
+        const SizedBox(height: 8),
+      ],
+    );
+  }
+}
+
+/// Shows or hides [child], growing and fading rather than jumping.
+class _Reveal extends StatelessWidget {
+  const _Reveal({required this.visible, required this.child, this.duration});
+
+  static const _defaultDuration = Duration(milliseconds: 200);
+
+  final bool visible;
+  final Widget child;
+  final Duration? duration;
+
+  @override
+  Widget build(BuildContext context) {
+    final duration =
+        this.duration ??
+        (MediaQuery.disableAnimationsOf(context)
+            ? Duration.zero
+            : _defaultDuration);
+    return AnimatedCrossFade(
+      duration: duration,
+      sizeCurve: Curves.easeOutCubic,
+      crossFadeState: visible
+          ? CrossFadeState.showSecond
+          : CrossFadeState.showFirst,
+      firstChild: const SizedBox(width: double.infinity),
+      secondChild: SizedBox(width: double.infinity, child: child),
     );
   }
 }
@@ -327,60 +521,9 @@ String _decoderLabel(AppLocalizations l10n, PlayerHwdecModePreset preset) {
   };
 }
 
-class _SettingsSection extends StatelessWidget {
-  const _SettingsSection({
-    required this.title,
-    required this.child,
-    this.subtitle,
-  });
-
-  final String title;
-  final Widget child;
-  final String? subtitle;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SectionLabel(title),
-        if (subtitle != null) ...[
-          const SizedBox(height: 6),
-          Text(
-            subtitle!,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-          ),
-        ],
-        const SizedBox(height: 8),
-        child,
-      ],
-    );
-  }
-}
-
-/// One option of a single-choice setting, drawn like every other option
-/// list in the app.
-class _ChoiceChip extends StatelessWidget {
-  const _ChoiceChip({
-    required this.label,
-    required this.selected,
-    required this.onSelected,
-  });
-
-  final String label;
-  final bool selected;
-  final VoidCallback onSelected;
-
-  @override
-  Widget build(BuildContext context) {
-    return OptionToggle(
-      label: label,
-      selected: selected,
-      exclusive: true,
-      onChanged: (_) => onSelected(),
-    );
-  }
+/// The decoder in the folded summary: "auto" without the advice.
+String _decoderShortLabel(AppLocalizations l10n, PlayerHwdecModePreset preset) {
+  return preset == PlayerHwdecModePreset.autoSafe
+      ? l10n.playerDecoderAutoShort
+      : _decoderLabel(l10n, preset);
 }

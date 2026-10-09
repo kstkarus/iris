@@ -361,23 +361,20 @@ class AppLocalizationsRu extends AppLocalizations {
   String get playerNoPlayableVideo => 'Подходящее видео не найдено.';
 
   @override
-  String get playerTracksTitle => 'Дорожки воспроизведения';
-
-  @override
   String get playerAudioTracksTitle => 'Аудио';
 
   @override
   String get playerSubtitleTracksTitle => 'Субтитры';
 
   @override
-  String get playerSettingsTitle => 'Настройки плеера';
+  String get playerSettingsTitle => 'Настройки';
 
   @override
   String get playerDecoderSettingsTitle => 'Декодер';
 
   @override
   String get playerDecoderSettingsDescription =>
-      'Меняйте это, только если видео тормозит или показывает зелёные кадры на вашем устройстве. Текущий декодер виден в overlay-статистике плеера.';
+      'Меняйте это, только если видео тормозит или показывает зелёные кадры на вашем устройстве. Текущий декодер видно в технических подробностях ниже.';
 
   @override
   String get playerDecoderAutoSafe => 'Авто (рекомендуется)';
@@ -393,9 +390,6 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get playerSubtitleAppearanceTitle => 'Вид субтитров';
-
-  @override
-  String get playerSubtitleVisibilityLabel => 'Показывать субтитры';
 
   @override
   String get playerSubtitleLibassLabel => 'Улучшенный рендер ASS/SSA';
@@ -420,6 +414,46 @@ class AppLocalizationsRu extends AppLocalizations {
   String get playerSubtitleResetAction => 'Сбросить';
 
   @override
+  String get playerSubtitleSizeSample => 'Аа';
+
+  @override
+  String get playerSubtitleSizeSmaller => 'Мельче';
+
+  @override
+  String get playerSubtitleSizeNormal => 'Обычный';
+
+  @override
+  String get playerSubtitleSizeLarger => 'Крупнее';
+
+  @override
+  String get playerSubtitleSizeLargest => 'Самый крупный';
+
+  @override
+  String get playerSubtitleOverrideHint =>
+      'Свой цвет, фон и положение заменяют оформление релиза: стилизованные надписи станут обычным текстом.';
+
+  @override
+  String get playerAdvancedTitle => 'Дополнительно';
+
+  @override
+  String playerAdvancedSummary(String decoder, String ass) {
+    return 'Декодер: $decoder · рендер ASS: $ass';
+  }
+
+  @override
+  String get playerSettingOn => 'вкл';
+
+  @override
+  String get playerSettingOff => 'выкл';
+
+  @override
+  String get playerDecoderAutoShort => 'авто';
+
+  @override
+  String get playerRestartHint =>
+      'Декодер и рендер ASS применяются перезапуском видео с того же места.';
+
+  @override
   String get playerSubtitleColorWhite => 'Белый';
 
   @override
@@ -441,7 +475,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get playerSubtitlePositionLow => 'Ниже';
 
   @override
-  String get playerSubtitlePositionStandard => 'Стандартно';
+  String get playerSubtitlePositionStandard => 'Обычно';
 
   @override
   String get playerSubtitlePositionHigh => 'Выше';

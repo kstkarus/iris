@@ -25,6 +25,7 @@ import 'package:iris/features/player/presentation/playback/media_kit_player_engi
 import 'package:iris/features/player/presentation/widgets/media_kit_player_viewport_factory.dart';
 import 'package:iris/features/player/presentation/widgets/player_viewport_factory.dart';
 import 'package:iris/features/player/presentation/widgets/player_overlay_preferences.dart';
+import 'package:iris/features/player/presentation/widgets/player_track_selector_sheet.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/features/player/presentation/widgets/player_wait_indicator.dart';
 
@@ -767,7 +768,8 @@ void main() {
         find.byKey(const Key('player_track_selector_button')),
         findsOneWidget,
       );
-      expect(find.byType(MaterialDesktopCustomButton), findsOneWidget);
+      expect(find.byKey(const Key('player_settings_button')), findsOneWidget);
+      expect(find.byType(MaterialDesktopCustomButton), findsNWidgets(2));
     } finally {
       debugDefaultTargetPlatformOverride = null;
     }
@@ -801,17 +803,24 @@ void main() {
       final mobileThemes = themes as MediaKitMobileVideoControlsThemes;
       expect(mobileThemes.normal.seekGesture, isTrue);
       expect(mobileThemes.normal.volumeGesture, isTrue);
-      expect(find.byType(MaterialCustomButton), findsOneWidget);
+      // Tracks and settings, each one tap away.
+      expect(find.byType(MaterialCustomButton), findsNWidgets(2));
+
+      await tester.tap(find.byKey(const Key('player_settings_button')));
+      await tester.pumpAndSettle();
+      expect(find.text('SUBTITLE APPEARANCE'), findsOneWidget);
     } finally {
       debugDefaultTargetPlatformOverride = null;
     }
   });
 
-  testWidgets('opens the track selector as a dialog on desktop', (
-    tester,
-  ) async {
+  testWidgets('opens the track selector as a popover of its button on '
+      'desktop', (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.windows;
     try {
+      tester.view.physicalSize = const Size(1280, 720);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
       await tester.pumpWidget(
         _wrapViewport(
           videoSurfaceBuilder:
@@ -828,15 +837,45 @@ void main() {
       );
       await tester.pump();
 
+      final button = tester.getRect(
+        find.byKey(const Key('player_track_selector_button')),
+      );
       await tester.tap(find.byKey(const Key('player_track_selector_button')));
       await tester.pumpAndSettle();
 
+      final popover = find.byKey(const Key('player_popover'));
+      expect(popover, findsOneWidget);
       expect(
         find.byKey(const Key('player_adaptive_sheet_dialog')),
-        findsOneWidget,
+        findsNothing,
       );
       expect(find.byType(BottomSheet), findsNothing);
-      expect(find.text('Playback Tracks'), findsOneWidget);
+      expect(
+        find.descendant(
+          of: popover,
+          matching: find.byType(PlayerTrackSelectorSheet),
+        ),
+        findsOneWidget,
+      );
+      // Its button names it.
+      expect(find.text('Audio & subtitles'), findsNothing);
+      // Out of the button at the top, ending in line with it or at the
+      // window's margin.
+      final rect = tester.getRect(popover);
+      expect(rect.top, greaterThan(button.bottom));
+      expect(
+        rect.right,
+        moreOrLessEquals(button.right < 1264 ? button.right : 1264),
+      );
+      // The video stays undimmed.
+      expect(
+        tester.widget<ModalBarrier>(find.byType(ModalBarrier).last).color,
+        isNull,
+      );
+
+      await tester.tapAt(const Offset(40, 600));
+      await tester.pumpAndSettle();
+      expect(popover, findsNothing);
     } finally {
       debugDefaultTargetPlatformOverride = null;
     }
@@ -1403,6 +1442,62 @@ void main() {
         greaterThan(600),
         reason: 'the episodes left the top bar',
       );
+    });
+
+    testWidgets('open the tracks above their button and keep the controls '
+        'while open', (tester) async {
+      tester.view.physicalSize = const Size(1280, 720);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final platformPlayer = _FakePlatformPlayer(
+        configuration: const PlayerConfiguration(),
+      );
+      await tester.pumpWidget(
+        _wrapViewport(platformPlayer: platformPlayer, chrome: chrome()),
+      );
+      await tester.pump();
+      platformPlayer.emitPlaying(true);
+      await _deliverPlayerEvent(tester);
+      double opacity() => tester
+          .widget<AnimatedOpacity>(
+            find.byKey(const Key('player_immersive_controls')),
+          )
+          .opacity;
+      Color? fill() =>
+          (tester
+                      .widget<AnimatedContainer>(
+                        find.descendant(
+                          of: find.byKey(const Key('player_tracks_button')),
+                          matching: find.byType(AnimatedContainer),
+                        ),
+                      )
+                      .decoration
+                  as BoxDecoration?)
+              ?.color;
+
+      final button = tester.getRect(
+        find.byKey(const Key('player_tracks_button')),
+      );
+      await tester.tap(find.byKey(const Key('player_tracks_button')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      final popover = tester.getRect(find.byKey(const Key('player_popover')));
+      expect(popover.bottom, lessThan(button.top));
+      expect(popover.right, moreOrLessEquals(button.right));
+      expect(fill(), Colors.white, reason: 'its button shows it is open');
+
+      // Long past the controls' idle time, they stay with the popover.
+      await tester.pump(const Duration(seconds: 5));
+      expect(opacity(), 1);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(find.byKey(const Key('player_popover')), findsNothing);
+      expect(fill(), Colors.transparent);
+      await tester.pump(const Duration(seconds: 3));
+      expect(opacity(), 0);
     });
 
     testWidgets('light a glyph under the pointer and keep the focus with '

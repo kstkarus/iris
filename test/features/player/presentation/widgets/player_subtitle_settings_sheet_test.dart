@@ -9,27 +9,138 @@ import 'package:iris/features/player/domain/repositories/player_decoding_prefere
 import 'package:iris/features/player/domain/repositories/subtitle_preferences_repository.dart';
 import 'package:iris/features/player/presentation/cubit/player_decoding_preferences_cubit.dart';
 import 'package:iris/features/player/presentation/cubit/player_subtitle_preferences_cubit.dart';
+import 'package:iris/features/player/presentation/widgets/player_choice_row.dart';
+import 'package:iris/features/player/presentation/widgets/player_overlay_preferences.dart';
 import 'package:iris/features/player/presentation/widgets/player_subtitle_settings_sheet.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
-import 'package:iris/shared/widgets/option_toggle.dart';
 
 void main() {
-  testWidgets('renders subtitle settings controls', (tester) async {
+  tearDown(() => playerDetailedStatsEnabled.value = false);
+
+  testWidgets('puts the look of subtitles first and folds the rest', (
+    tester,
+  ) async {
     await tester.pumpWidget(_wrap(child: const PlayerSubtitleSettingsSheet()));
 
-    expect(find.text('Player Settings'), findsOneWidget);
+    expect(find.text('Settings'), findsOneWidget);
     expect(find.text('SUBTITLE APPEARANCE'), findsOneWidget);
-    expect(find.text('DECODER'), findsOneWidget);
-    expect(find.text('Auto (recommended)'), findsOneWidget);
-    expect(find.text('Software only'), findsOneWidget);
-    expect(find.text('Show subtitles'), findsOneWidget);
-    expect(find.text('Improved ASS/SSA rendering'), findsOneWidget);
-    expect(find.text('Reset'), findsOneWidget);
-    expect(find.text('0.85x'), findsOneWidget);
-    expect(find.text('1.30x'), findsOneWidget);
+    expect(find.text('Show subtitles'), findsNothing);
+    expect(find.bySemanticsLabel('Larger'), findsOneWidget);
+    expect(find.text('Advanced'), findsOneWidget);
+    expect(find.text('Decoder: Auto · ASS rendering: on'), findsOneWidget);
+    // Folded: there, but out of reach until Advanced opens.
+    expect(find.text('Software only').hitTestable(), findsNothing);
+    // Nothing to reset at the defaults.
+    final reset = tester.widget<TextButton>(
+      find.widgetWithText(TextButton, 'Reset'),
+    );
+    expect(reset.onPressed, isNull);
   });
 
-  testWidgets('updates decoding cubit when selecting decoder mode', (
+  testWidgets('updates cubit when selecting presets', (tester) async {
+    final repository = _FakeSubtitlePreferencesRepository(
+      const SubtitlePreferences.defaults(),
+    );
+    final cubit = PlayerSubtitlePreferencesCubit(repository: repository);
+
+    await tester.pumpWidget(
+      _wrap(cubit: cubit, child: const PlayerSubtitleSettingsSheet()),
+    );
+
+    await tester.tap(find.bySemanticsLabel('Larger'));
+    await tester.pump();
+    await tester.tap(find.text('Yellow'));
+    await tester.pump();
+    await tester.ensureVisible(find.text('Higher'));
+    await tester.tap(find.text('Higher'));
+    await tester.pumpAndSettle();
+
+    expect(cubit.state.textScale, SubtitleTextScalePreset.large);
+    expect(cubit.state.textColor, SubtitleTextColorPreset.yellow);
+    expect(cubit.state.verticalPosition, SubtitleVerticalPositionPreset.high);
+  });
+
+  testWidgets('a choice of one tells assistive technology what is chosen', (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+    await tester.pumpWidget(_wrap(child: const PlayerSubtitleSettingsSheet()));
+
+    Matcher cell({required bool selected}) => isSemantics(
+      label: selected ? 'Normal' : 'Larger',
+      isButton: true,
+      hasSelectedState: true,
+      isSelected: selected,
+      isInMutuallyExclusiveGroup: true,
+      hasTapAction: true,
+      isFocusable: true,
+      hasFocusAction: true,
+    );
+    expect(
+      tester.getSemantics(find.bySemanticsLabel('Normal')),
+      cell(selected: true),
+    );
+    expect(
+      tester.getSemantics(find.bySemanticsLabel('Larger')),
+      cell(selected: false),
+    );
+    semantics.dispose();
+  });
+
+  testWidgets('warns that a custom look replaces the release styling', (
+    tester,
+  ) async {
+    final cubit = PlayerSubtitlePreferencesCubit(
+      repository: _FakeSubtitlePreferencesRepository(
+        const SubtitlePreferences.defaults(),
+      ),
+    );
+    const warning =
+        "A custom colour, background or position replaces the release's "
+        'styling: styled signs become plain text.';
+
+    await tester.pumpWidget(
+      _wrap(cubit: cubit, child: const PlayerSubtitleSettingsSheet()),
+    );
+    expect(find.text(warning).hitTestable(), findsNothing);
+
+    await cubit.setTextColor(SubtitleTextColorPreset.yellow);
+    await tester.pumpAndSettle();
+    expect(find.text(warning).hitTestable(), findsOneWidget);
+
+    // Without the release renderer there is no styling to lose.
+    await cubit.setLibassEnabled(false);
+    await tester.pumpAndSettle();
+    expect(find.text(warning).hitTestable(), findsNothing);
+  });
+
+  testWidgets('resets the look and keeps the renderer', (tester) async {
+    final repository = _FakeSubtitlePreferencesRepository(
+      const SubtitlePreferences(
+        libassEnabled: false,
+        textScale: SubtitleTextScalePreset.compact,
+        textColor: SubtitleTextColorPreset.cyan,
+        backgroundStyle: SubtitleBackgroundStylePreset.none,
+        verticalPosition: SubtitleVerticalPositionPreset.high,
+      ),
+    );
+    final cubit = PlayerSubtitlePreferencesCubit(repository: repository);
+    await cubit.loadPreferences();
+
+    await tester.pumpWidget(
+      _wrap(cubit: cubit, child: const PlayerSubtitleSettingsSheet()),
+    );
+
+    await tester.tap(find.text('Reset'));
+    await tester.pumpAndSettle();
+
+    expect(
+      cubit.state,
+      const SubtitlePreferences.defaults().copyWith(libassEnabled: false),
+    );
+  });
+
+  testWidgets('Advanced unfolds the decoder, renderer and technical details', (
     tester,
   ) async {
     final decodingRepository = _FakePlayerDecodingPreferencesRepository(
@@ -46,90 +157,82 @@ void main() {
       ),
     );
 
+    await tester.tap(find.text('Advanced'));
+    await tester.pumpAndSettle();
+    expect(
+      find.text('Decoder: Auto · ASS rendering: on').hitTestable(),
+      findsNothing,
+    );
+
     await tester.tap(find.text('Software only'));
     await tester.pump();
-
     expect(decodingCubit.state.hwdecMode, PlayerHwdecModePreset.softwareOnly);
     expect(
       decodingRepository.state.hwdecMode,
       PlayerHwdecModePreset.softwareOnly,
     );
+
+    await tester.ensureVisible(
+      find.byKey(const Key('player_detailed_stats_switch')),
+    );
+    await tester.tap(find.byKey(const Key('player_detailed_stats_switch')));
+    await tester.pump();
+    expect(playerDetailedStatsEnabled.value, isTrue);
+
+    await tester.ensureVisible(find.text('Advanced'));
+    await tester.tap(find.text('Advanced'));
+    await tester.pumpAndSettle();
+    expect(
+      find.text('Decoder: Software only · ASS rendering: on'),
+      findsOneWidget,
+    );
+    expect(find.text('Software only').hitTestable(), findsNothing);
   });
 
-  testWidgets('updates cubit when selecting presets', (tester) async {
-    final repository = _FakeSubtitlePreferencesRepository(
-      const SubtitlePreferences.defaults(),
-    );
-    final cubit = PlayerSubtitlePreferencesCubit(repository: repository);
+  testWidgets('scrolls Advanced into view once it has unfolded', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
 
-    await tester.pumpWidget(
-      _wrap(cubit: cubit, child: const PlayerSubtitleSettingsSheet()),
-    );
+    await tester.pumpWidget(_wrap(child: const _OpenSettingsButton()));
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+    final position = tester
+        .state<ScrollableState>(
+          find
+              .descendant(
+                of: find.byType(PlayerSubtitleSettingsSheet),
+                matching: find.byType(Scrollable),
+              )
+              .first,
+        )
+        .position;
+    expect(position.pixels, 0);
 
-    await tester.ensureVisible(find.text('1.15x'));
-    await tester.tap(find.text('1.15x'));
-    await tester.pump();
-    await tester.ensureVisible(find.text('Yellow'));
-    await tester.tap(find.text('Yellow'));
-    await tester.pump();
-    await tester.ensureVisible(find.text('Higher'));
-    await tester.tap(find.text('Higher'));
+    await tester.tap(find.text('Advanced'));
+    for (var frame = 0; frame < 40; frame++) {
+      await tester.pump(const Duration(milliseconds: 16));
+    }
     await tester.pumpAndSettle();
 
-    expect(cubit.state.textScale, SubtitleTextScalePreset.large);
-    expect(cubit.state.textColor, SubtitleTextColorPreset.yellow);
-    expect(cubit.state.verticalPosition, SubtitleVerticalPositionPreset.high);
-  });
-
-  testWidgets('resets to defaults', (tester) async {
-    final repository = _FakeSubtitlePreferencesRepository(
-      const SubtitlePreferences(
-        visible: false,
-        libassEnabled: false,
-        textScale: SubtitleTextScalePreset.compact,
-        textColor: SubtitleTextColorPreset.cyan,
-        backgroundStyle: SubtitleBackgroundStylePreset.none,
-        verticalPosition: SubtitleVerticalPositionPreset.high,
-      ),
+    expect(position.pixels, greaterThan(0));
+    expect(
+      find.byKey(const Key('player_detailed_stats_switch')).hitTestable(),
+      findsOneWidget,
     );
-    final cubit = PlayerSubtitlePreferencesCubit(repository: repository);
-    await cubit.loadPreferences();
-
-    await tester.pumpWidget(
-      _wrap(cubit: cubit, child: const PlayerSubtitleSettingsSheet()),
-    );
-
-    await tester.ensureVisible(find.text('Reset'));
-    await tester.tap(find.text('Reset'));
-    await tester.pumpAndSettle();
-
-    expect(cubit.state, const SubtitlePreferences.defaults());
   });
 
   testWidgets(
     'opens subtitle settings from a modal route without losing cubit access',
     (tester) async {
-      await tester.pumpWidget(
-        _wrap(
-          child: Builder(
-            builder: (context) {
-              return Scaffold(
-                body: Center(
-                  child: FilledButton(
-                    onPressed: () => showPlayerSubtitleSettingsSheet(context),
-                    child: const Text('Open'),
-                  ),
-                ),
-              );
-            },
-          ),
-        ),
-      );
+      await tester.pumpWidget(_wrap(child: const _OpenSettingsButton()));
 
       await tester.tap(find.text('Open'));
       await tester.pumpAndSettle();
 
-      expect(find.text('Player Settings'), findsOneWidget);
+      expect(find.text('Settings'), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
   );
@@ -187,13 +290,14 @@ void main() {
           ),
         );
 
-        final autoChip = tester.widget<OptionToggle>(
+        final autoRow = tester.widget<PlayerChoiceRow>(
           find.ancestor(
             of: find.text('Auto (recommended)'),
-            matching: find.byType(OptionToggle),
+            matching: find.byType(PlayerChoiceRow),
           ),
         );
-        expect(autoChip.selected, isTrue);
+        expect(autoRow.selected, isTrue);
+        expect(find.text('Decoder: Auto · ASS rendering: on'), findsOneWidget);
       } finally {
         debugDefaultTargetPlatformOverride = null;
       }
@@ -215,7 +319,7 @@ void main() {
       findsOneWidget,
     );
     expect(find.byType(BottomSheet), findsNothing);
-    expect(find.text('Player Settings'), findsOneWidget);
+    expect(find.text('Settings'), findsOneWidget);
     final dialogContentSize = tester.getSize(
       find.descendant(
         of: find.byKey(const Key('player_adaptive_sheet_dialog')),
@@ -239,7 +343,23 @@ void main() {
 
     expect(find.byType(BottomSheet), findsOneWidget);
     expect(find.byKey(const Key('player_adaptive_sheet_dialog')), findsNothing);
-    expect(find.text('Player Settings'), findsOneWidget);
+    expect(find.text('Settings'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('leaves the video lightly dimmed behind the settings', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(400, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(_wrap(child: const _OpenSettingsButton()));
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+
+    final barrier = tester.widget<ModalBarrier>(find.byType(ModalBarrier).last);
+    expect(barrier.color!.a, lessThan(0.3));
   });
 }
 

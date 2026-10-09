@@ -191,18 +191,16 @@
   "playerUnableToPrepareFirstFrame": "The stream is open, but the player could not prepare the first frame.",
   "playerUnableToBufferForStart": "Unable to prepare enough buffered data to start playback.",
   "playerNoPlayableVideo": "No playable video found.",
-  "playerTracksTitle": "Playback Tracks",
   "playerAudioTracksTitle": "Audio",
   "playerSubtitleTracksTitle": "Subtitles",
-  "playerSettingsTitle": "Player Settings",
+  "playerSettingsTitle": "Settings",
   "playerDecoderSettingsTitle": "Decoder",
-  "playerDecoderSettingsDescription": "Change this only if video stutters or shows green frames on your device. The current decoder is visible in the player overlay stats.",
+  "playerDecoderSettingsDescription": "Change this only if video stutters or shows green frames on your device. Technical details below show the decoder in use.",
   "playerDecoderAutoSafe": "Auto (recommended)",
   "playerDecoderMediacodec": "MediaCodec",
   "playerDecoderMediacodecCopy": "MediaCodec (copy-back)",
   "playerDecoderSoftwareOnly": "Software only",
   "playerSubtitleAppearanceTitle": "Subtitle Appearance",
-  "playerSubtitleVisibilityLabel": "Show subtitles",
   "playerSubtitleLibassLabel": "Improved ASS/SSA rendering",
   "playerSubtitleLibassDescription": "Uses native subtitle rendering for better compatibility with anime releases.",
   "playerSubtitleSizeLabel": "Size",
@@ -210,6 +208,28 @@
   "playerSubtitleBackgroundLabel": "Background",
   "playerSubtitlePositionLabel": "Position",
   "playerSubtitleResetAction": "Reset",
+  "playerSubtitleSizeSample": "Aa",
+  "playerSubtitleSizeSmaller": "Smaller",
+  "playerSubtitleSizeNormal": "Normal",
+  "playerSubtitleSizeLarger": "Larger",
+  "playerSubtitleSizeLargest": "Largest",
+  "playerSubtitleOverrideHint": "A custom colour, background or position replaces the release's styling: styled signs become plain text.",
+  "playerAdvancedTitle": "Advanced",
+  "playerAdvancedSummary": "Decoder: {decoder} · ASS rendering: {ass}",
+  "@playerAdvancedSummary": {
+    "placeholders": {
+      "decoder": {
+        "type": "String"
+      },
+      "ass": {
+        "type": "String"
+      }
+    }
+  },
+  "playerSettingOn": "on",
+  "playerSettingOff": "off",
+  "playerDecoderAutoShort": "Auto",
+  "playerRestartHint": "The decoder and ASS rendering apply by restarting the video where it is.",
   "playerSubtitleColorWhite": "White",
   "playerSubtitleColorYellow": "Yellow",
   "playerSubtitleColorCyan": "Cyan",

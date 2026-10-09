@@ -16,10 +16,6 @@ class PlayerSubtitlePreferencesCubit extends Cubit<SubtitlePreferences> {
     emit(preferences);
   }
 
-  Future<void> setVisibility(bool visible) {
-    return _save(state.copyWith(visible: visible));
-  }
-
   Future<void> setLibassEnabled(bool enabled) {
     return _save(state.copyWith(libassEnabled: enabled));
   }
@@ -40,8 +36,14 @@ class PlayerSubtitlePreferencesCubit extends Cubit<SubtitlePreferences> {
     return _save(state.copyWith(verticalPosition: preset));
   }
 
-  Future<void> reset() {
-    return _save(const SubtitlePreferences.defaults());
+  /// Back to the default look. The renderer stays: switching it restarts
+  /// the video, which a reset of the look should not do.
+  Future<void> resetAppearance() {
+    return _save(
+      const SubtitlePreferences.defaults().copyWith(
+        libassEnabled: state.libassEnabled,
+      ),
+    );
   }
 
   Future<void> _save(SubtitlePreferences preferences) async {

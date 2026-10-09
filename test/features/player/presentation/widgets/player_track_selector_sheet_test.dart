@@ -27,7 +27,6 @@ void main() {
           ),
           onAudioTrackSelected: (_) {},
           onSubtitleTrackSelected: (_) {},
-          onSubtitleAppearancePressed: () {},
         ),
       ),
     );
@@ -59,7 +58,6 @@ void main() {
           selectedSubtitleTrack: const SubtitleTrack('auto', null, null),
           onAudioTrackSelected: (_) {},
           onSubtitleTrackSelected: (_) {},
-          onSubtitleAppearancePressed: () {},
         ),
       ),
     );
@@ -87,7 +85,6 @@ void main() {
   ) async {
     AudioTrack? selectedAudio;
     SubtitleTrack? selectedSubtitle;
-    var settingsOpened = false;
 
     await tester.pumpWidget(
       _wrap(
@@ -105,7 +102,6 @@ void main() {
           selectedSubtitleTrack: const SubtitleTrack('auto', null, null),
           onAudioTrackSelected: (track) => selectedAudio = track,
           onSubtitleTrackSelected: (track) => selectedSubtitle = track,
-          onSubtitleAppearancePressed: () => settingsOpened = true,
         ),
       ),
     );
@@ -114,14 +110,66 @@ void main() {
     await tester.pump();
     await tester.tap(find.text('Off'));
     await tester.pump();
-    await tester.ensureVisible(find.text('Subtitle Appearance'));
-    await tester.tap(find.text('Subtitle Appearance'));
-    await tester.pumpAndSettle();
 
     expect(selectedAudio, const AudioTrack('2', 'English Dub', 'en'));
     expect(selectedSubtitle, SubtitleTrack.no());
-    expect(settingsOpened, isTrue);
   });
+
+  testWidgets('holds only the tracks, the settings live elsewhere', (
+    tester,
+  ) async {
+    await tester.pumpWidget(_wrap(child: _sheet()));
+
+    expect(find.text('Audio & subtitles'), findsOneWidget);
+    expect(find.text('Subtitle Appearance'), findsNothing);
+    expect(find.byKey(const Key('player_detailed_stats_switch')), findsNothing);
+  });
+
+  testWidgets('tells apart two tracks of one language by their format', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _wrap(
+        child: _sheet(
+          subtitleTracks: const [
+            SubtitleTrack('10', 'Russian', 'ru', codec: 'ass'),
+            SubtitleTrack('11', 'Russian Full', 'ru', codec: 'subrip'),
+            SubtitleTrack('12', null, null, codec: 'ass'),
+          ],
+        ),
+      ),
+    );
+
+    expect(find.text('SRT'), findsOneWidget);
+    // Named by its codec already: no second ASS beside it.
+    expect(find.text('ASS'), findsNWidgets(2));
+  });
+
+  for (final (width, sideBySide) in const [(1280.0, true), (400.0, false)]) {
+    testWidgets(
+      sideBySide
+          ? 'sets the lists side by side in a wide window'
+          : 'stacks the lists in a phone sheet',
+      (tester) async {
+        tester.view.physicalSize = Size(width, 800);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+
+        await tester.pumpWidget(_wrap(child: _sheet()));
+
+        final audio = tester.getRect(find.text('AUDIO'));
+        final subtitles = tester.getRect(find.text('SUBTITLES'));
+        if (sideBySide) {
+          expect(subtitles.top, audio.top);
+          expect(subtitles.left, greaterThan(audio.right));
+        } else {
+          expect(subtitles.top, greaterThan(audio.bottom));
+          expect(subtitles.left, audio.left);
+        }
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
 
   testWidgets('supports scrolling for long track lists', (tester) async {
     final audioTracks = List.generate(
@@ -144,7 +192,6 @@ void main() {
             selectedSubtitleTrack: subtitleTracks.first,
             onAudioTrackSelected: (_) {},
             onSubtitleTrackSelected: (_) {},
-            onSubtitleAppearancePressed: () {},
           ),
         ),
       ),
@@ -169,5 +216,20 @@ Widget _wrap({required Widget child}) {
     localizationsDelegates: AppLocalizations.localizationsDelegates,
     supportedLocales: AppLocalizations.supportedLocales,
     home: Scaffold(body: child),
+  );
+}
+
+PlayerTrackSelectorSheet _sheet({
+  List<SubtitleTrack> subtitleTracks = const [
+    SubtitleTrack('10', 'English Signs', 'en'),
+  ],
+}) {
+  return PlayerTrackSelectorSheet(
+    audioTracks: const [AudioTrack('1', 'Japanese', 'ja')],
+    selectedAudioTrack: const AudioTrack('1', 'Japanese', 'ja'),
+    subtitleTracks: subtitleTracks,
+    selectedSubtitleTrack: SubtitleTrack.auto(),
+    onAudioTrackSelected: (_) {},
+    onSubtitleTrackSelected: (_) {},
   );
 }

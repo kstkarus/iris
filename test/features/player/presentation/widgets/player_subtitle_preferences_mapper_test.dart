@@ -9,7 +9,6 @@ import 'package:iris/features/player/presentation/widgets/player_subtitle_prefer
 void main() {
   test('builds subtitle view configuration from preferences', () {
     const preferences = SubtitlePreferences(
-      visible: true,
       libassEnabled: true,
       textScale: SubtitleTextScalePreset.large,
       textColor: SubtitleTextColorPreset.yellow,

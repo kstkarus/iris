@@ -704,12 +704,6 @@ abstract class AppLocalizations {
   /// **'No playable video found.'**
   String get playerNoPlayableVideo;
 
-  /// No description provided for @playerTracksTitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Playback Tracks'**
-  String get playerTracksTitle;
-
   /// No description provided for @playerAudioTracksTitle.
   ///
   /// In en, this message translates to:
@@ -725,7 +719,7 @@ abstract class AppLocalizations {
   /// No description provided for @playerSettingsTitle.
   ///
   /// In en, this message translates to:
-  /// **'Player Settings'**
+  /// **'Settings'**
   String get playerSettingsTitle;
 
   /// No description provided for @playerDecoderSettingsTitle.
@@ -737,7 +731,7 @@ abstract class AppLocalizations {
   /// No description provided for @playerDecoderSettingsDescription.
   ///
   /// In en, this message translates to:
-  /// **'Change this only if video stutters or shows green frames on your device. The current decoder is visible in the player overlay stats.'**
+  /// **'Change this only if video stutters or shows green frames on your device. Technical details below show the decoder in use.'**
   String get playerDecoderSettingsDescription;
 
   /// No description provided for @playerDecoderAutoSafe.
@@ -769,12 +763,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Subtitle Appearance'**
   String get playerSubtitleAppearanceTitle;
-
-  /// No description provided for @playerSubtitleVisibilityLabel.
-  ///
-  /// In en, this message translates to:
-  /// **'Show subtitles'**
-  String get playerSubtitleVisibilityLabel;
 
   /// No description provided for @playerSubtitleLibassLabel.
   ///
@@ -817,6 +805,78 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Reset'**
   String get playerSubtitleResetAction;
+
+  /// No description provided for @playerSubtitleSizeSample.
+  ///
+  /// In en, this message translates to:
+  /// **'Aa'**
+  String get playerSubtitleSizeSample;
+
+  /// No description provided for @playerSubtitleSizeSmaller.
+  ///
+  /// In en, this message translates to:
+  /// **'Smaller'**
+  String get playerSubtitleSizeSmaller;
+
+  /// No description provided for @playerSubtitleSizeNormal.
+  ///
+  /// In en, this message translates to:
+  /// **'Normal'**
+  String get playerSubtitleSizeNormal;
+
+  /// No description provided for @playerSubtitleSizeLarger.
+  ///
+  /// In en, this message translates to:
+  /// **'Larger'**
+  String get playerSubtitleSizeLarger;
+
+  /// No description provided for @playerSubtitleSizeLargest.
+  ///
+  /// In en, this message translates to:
+  /// **'Largest'**
+  String get playerSubtitleSizeLargest;
+
+  /// No description provided for @playerSubtitleOverrideHint.
+  ///
+  /// In en, this message translates to:
+  /// **'A custom colour, background or position replaces the release\'s styling: styled signs become plain text.'**
+  String get playerSubtitleOverrideHint;
+
+  /// No description provided for @playerAdvancedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Advanced'**
+  String get playerAdvancedTitle;
+
+  /// No description provided for @playerAdvancedSummary.
+  ///
+  /// In en, this message translates to:
+  /// **'Decoder: {decoder} · ASS rendering: {ass}'**
+  String playerAdvancedSummary(String decoder, String ass);
+
+  /// No description provided for @playerSettingOn.
+  ///
+  /// In en, this message translates to:
+  /// **'on'**
+  String get playerSettingOn;
+
+  /// No description provided for @playerSettingOff.
+  ///
+  /// In en, this message translates to:
+  /// **'off'**
+  String get playerSettingOff;
+
+  /// No description provided for @playerDecoderAutoShort.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto'**
+  String get playerDecoderAutoShort;
+
+  /// No description provided for @playerRestartHint.
+  ///
+  /// In en, this message translates to:
+  /// **'The decoder and ASS rendering apply by restarting the video where it is.'**
+  String get playerRestartHint;
 
   /// No description provided for @playerSubtitleColorWhite.
   ///

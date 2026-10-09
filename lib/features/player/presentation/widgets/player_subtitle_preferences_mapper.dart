@@ -93,11 +93,10 @@ SubtitleViewConfiguration buildSubtitleViewConfiguration(
   SubtitlePreferences preferences,
 ) {
   return SubtitleViewConfiguration(
-    visible: preferences.visible,
     style: TextStyle(
       height: 1.4,
       fontSize: 32,
-      color: _textColor(preferences.textColor),
+      color: subtitleTextColor(preferences.textColor),
       backgroundColor: _backgroundColor(preferences.backgroundStyle),
     ),
     textScaler: TextScaler.linear(_textScale(preferences.textScale)),
@@ -124,12 +123,11 @@ Map<String, String> buildSubtitleMpvProperties(
     'demuxer-readahead-secs': '20',
     'network-timeout': '60',
     'vd-lavc-threads': '0',
-    'sub-visibility': preferences.visible ? 'yes' : 'no',
     'sub-scale': _textScale(preferences.textScale).toString(),
-    'sub-color': _mpvColor(_textColor(preferences.textColor)),
+    'sub-color': _mpvColor(subtitleTextColor(preferences.textColor)),
     'sub-back-color': _mpvColor(_backgroundColor(preferences.backgroundStyle)),
     'sub-pos': _subtitlePosition(preferences.verticalPosition).toString(),
-    'sub-ass-override': _requiresAssForceOverride(preferences)
+    'sub-ass-override': overridesReleaseSubtitleStyle(preferences)
         ? 'force'
         : 'scale',
   };
@@ -172,7 +170,8 @@ double _textScale(SubtitleTextScalePreset preset) {
   };
 }
 
-Color _textColor(SubtitleTextColorPreset preset) {
+/// The colour a preset paints subtitles in.
+Color subtitleTextColor(SubtitleTextColorPreset preset) {
   return switch (preset) {
     SubtitleTextColorPreset.white => const Color(0xFFFFFFFF),
     SubtitleTextColorPreset.yellow => const Color(0xFFFFFF00),
@@ -204,7 +203,9 @@ int _subtitlePosition(SubtitleVerticalPositionPreset preset) {
   };
 }
 
-bool _requiresAssForceOverride(SubtitlePreferences preferences) {
+/// Whether the look replaces a release's own styling: mpv then forces the
+/// colour, background and position onto styled (ASS) subtitles too.
+bool overridesReleaseSubtitleStyle(SubtitlePreferences preferences) {
   return preferences.textColor !=
           const SubtitlePreferences.defaults().textColor ||
       preferences.backgroundStyle !=

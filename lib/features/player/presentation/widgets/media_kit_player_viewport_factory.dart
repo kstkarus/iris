@@ -486,8 +486,8 @@ class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
       fullscreen: _windowFullscreen,
       onToggleFullscreen: _toggleWindowFullscreen,
       onSubtitleClearance: _liftSubtitles,
-      onShowTracks: () => unawaited(_showTrackSelectorSheet()),
-      onShowSettings: () => unawaited(showPlayerSubtitleSettingsSheet(context)),
+      onShowTracks: (anchor) => _showTrackSelectorSheet(anchor: anchor),
+      onShowSettings: (anchor) => _showSettingsSheet(anchor: anchor),
     );
   }
 
@@ -548,11 +548,22 @@ class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
       topButtonBar: [
         _buildStatsPanel(),
         const SizedBox(width: 8),
-        MaterialDesktopCustomButton(
-          key: _trackSelectorButtonKey,
-          icon: _trackSelectorGlyph(l10n),
-          iconSize: 24,
-          onPressed: _showTrackSelectorSheet,
+        // Each opens its panel as a popover from itself.
+        Builder(
+          builder: (anchor) => MaterialDesktopCustomButton(
+            key: _trackSelectorButtonKey,
+            icon: _trackSelectorGlyph(l10n),
+            iconSize: 24,
+            onPressed: () => _showTrackSelectorSheet(anchor: anchor),
+          ),
+        ),
+        Builder(
+          builder: (anchor) => MaterialDesktopCustomButton(
+            key: _settingsButtonKey,
+            icon: _settingsGlyph(l10n),
+            iconSize: 24,
+            onPressed: () => _showSettingsSheet(anchor: anchor),
+          ),
         ),
       ],
       bottomButtonBar: [
@@ -644,10 +655,20 @@ class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
       topButtonBar: [
         _buildStatsPanel(),
         const SizedBox(width: 8),
-        MaterialCustomButton(
-          key: _trackSelectorButtonKey,
-          icon: _trackSelectorGlyph(l10n),
-          onPressed: _showTrackSelectorSheet,
+        // On tablets each opens its panel as a popover from itself.
+        Builder(
+          builder: (anchor) => MaterialCustomButton(
+            key: _trackSelectorButtonKey,
+            icon: _trackSelectorGlyph(l10n),
+            onPressed: () => _showTrackSelectorSheet(anchor: anchor),
+          ),
+        ),
+        Builder(
+          builder: (anchor) => MaterialCustomButton(
+            key: _settingsButtonKey,
+            icon: _settingsGlyph(l10n),
+            onPressed: () => _showSettingsSheet(anchor: anchor),
+          ),
         ),
       ],
       bottomButtonBar: [
@@ -670,14 +691,24 @@ class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
   }
 
   static const _trackSelectorButtonKey = Key('player_track_selector_button');
+  static const _settingsButtonKey = Key('player_settings_button');
 
   /// The tracks button of the package's control bars, named by its tooltip.
   Widget _trackSelectorGlyph(AppLocalizations l10n) => Tooltip(
     message: l10n.playerAudioAndSubtitles,
-    child: const PixelIcon(PixelGlyph.tune, size: 21),
+    child: const PixelIcon(PixelGlyph.subtitles, size: 21),
   );
 
-  Future<void> _showTrackSelectorSheet() async {
+  /// The settings button of the package's control bars, beside the tracks.
+  Widget _settingsGlyph(AppLocalizations l10n) => Tooltip(
+    message: l10n.playerSettingsTitle,
+    child: const PixelIcon(PixelGlyph.settings, size: 21),
+  );
+
+  Future<void> _showSettingsSheet({BuildContext? anchor}) =>
+      showPlayerSubtitleSettingsSheet(context, anchor: anchor);
+
+  Future<void> _showTrackSelectorSheet({BuildContext? anchor}) async {
     final engine = widget.engine;
     if (!engine.hasPlayer) return;
     final tracks = engine.player.state.tracks;
@@ -685,6 +716,9 @@ class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
 
     await showPlayerAdaptiveSheet<void>(
       context: context,
+      anchor: anchor,
+      popoverWidth: PlayerTrackSelectorSheet.popoverWidth,
+      semanticsLabel: AppLocalizations.of(context).playerAudioAndSubtitles,
       builder: (sheetContext) {
         return PlayerTrackSelectorSheet(
           audioTracks: tracks.audio,
@@ -698,10 +732,6 @@ class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
           onSubtitleTrackSelected: (track) async {
             await engine.selectSubtitleTrack(track);
             if (sheetContext.mounted) Navigator.of(sheetContext).pop();
-          },
-          onSubtitleAppearancePressed: () {
-            Navigator.of(sheetContext).pop();
-            unawaited(showPlayerSubtitleSettingsSheet(context));
           },
         );
       },

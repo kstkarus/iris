@@ -8,7 +8,6 @@ void main() {
   test('loads saved preferences from repository', () async {
     final repository = _FakeSubtitlePreferencesRepository(
       const SubtitlePreferences(
-        visible: false,
         libassEnabled: false,
         textScale: SubtitleTextScalePreset.large,
         textColor: SubtitleTextColorPreset.yellow,
@@ -20,7 +19,6 @@ void main() {
 
     await cubit.loadPreferences();
 
-    expect(cubit.state.visible, isFalse);
     expect(cubit.state.libassEnabled, isFalse);
     expect(cubit.state.textScale, SubtitleTextScalePreset.large);
     expect(cubit.state.textColor, SubtitleTextColorPreset.yellow);
@@ -42,25 +40,30 @@ void main() {
     expect(cubit.state.textColor, SubtitleTextColorPreset.cyan);
   });
 
-  test('resets preferences back to defaults', () async {
-    final repository = _FakeSubtitlePreferencesRepository(
-      const SubtitlePreferences(
-        visible: false,
+  test(
+    'resets the look but keeps the renderer, which restarts video',
+    () async {
+      final repository = _FakeSubtitlePreferencesRepository(
+        const SubtitlePreferences(
+          libassEnabled: false,
+          textScale: SubtitleTextScalePreset.large,
+          textColor: SubtitleTextColorPreset.yellow,
+          backgroundStyle: SubtitleBackgroundStylePreset.none,
+          verticalPosition: SubtitleVerticalPositionPreset.high,
+        ),
+      );
+      final cubit = PlayerSubtitlePreferencesCubit(repository: repository);
+
+      await cubit.loadPreferences();
+      await cubit.resetAppearance();
+
+      final expected = const SubtitlePreferences.defaults().copyWith(
         libassEnabled: false,
-        textScale: SubtitleTextScalePreset.large,
-        textColor: SubtitleTextColorPreset.yellow,
-        backgroundStyle: SubtitleBackgroundStylePreset.none,
-        verticalPosition: SubtitleVerticalPositionPreset.high,
-      ),
-    );
-    final cubit = PlayerSubtitlePreferencesCubit(repository: repository);
-
-    await cubit.loadPreferences();
-    await cubit.reset();
-
-    expect(cubit.state, const SubtitlePreferences.defaults());
-    expect(repository.savedStates.last, const SubtitlePreferences.defaults());
-  });
+      );
+      expect(cubit.state, expected);
+      expect(repository.savedStates.last, expected);
+    },
+  );
 }
 
 class _FakeSubtitlePreferencesRepository
