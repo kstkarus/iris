@@ -17,6 +17,7 @@ import 'package:iris/features/player/presentation/cubit/player_subtitle_preferen
 import 'package:iris/features/player/presentation/pages/player_page.dart';
 import 'package:iris/features/player/presentation/playback/player_engine.dart';
 import 'package:iris/features/player/presentation/widgets/player_adaptive_layout.dart';
+import 'package:iris/features/player/presentation/widgets/player_countdown.dart';
 import 'package:iris/features/player/presentation/widgets/player_viewport_factory.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 
@@ -397,9 +398,13 @@ void main() {
         find.text('notice: Playing from the beginning / From 2:22'),
         findsOneWidget,
       );
+      // The count starts with the next frame.
+      await tester.pump();
       await tester.pump(const Duration(seconds: 7));
       expect(find.textContaining('notice:'), findsOneWidget);
       await tester.pump(const Duration(seconds: 1));
+      // The dismissal reaches the page after that frame.
+      await tester.pump();
       expect(find.textContaining('notice:'), findsNothing);
     }, variant: desktop);
 
@@ -548,9 +553,14 @@ class _FakeViewportFactory implements PlayerViewportFactory {
         Text('titleDetail: ${chrome.titleDetail}'),
         Text('episodes: ${chrome.episodesCaption}'),
         if (chrome.notice case final notice?)
-          TextButton(
-            onPressed: notice.onAction,
-            child: Text('notice: ${notice.message} / ${notice.actionLabel}'),
+          // Counts down as the immersive player's notice does.
+          PlayerCountdown(
+            duration: notice.timeout,
+            onElapsed: notice.onTimeout,
+            child: TextButton(
+              onPressed: notice.onAction,
+              child: Text('notice: ${notice.message} / ${notice.actionLabel}'),
+            ),
           ),
         TextButton(onPressed: chrome.onBack, child: const Text('back')),
         if (episodes != null)

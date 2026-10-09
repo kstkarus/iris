@@ -12,6 +12,7 @@ import 'package:media_kit/media_kit.dart';
 import 'package:iris/features/player/domain/entities/player_skip_segment.dart';
 import 'package:iris/features/player/presentation/playback/media_kit_player_engine.dart';
 import 'package:iris/features/player/presentation/widgets/player_auto_hiding_offer.dart';
+import 'package:iris/features/player/presentation/widgets/player_countdown.dart';
 import 'package:iris/features/player/presentation/widgets/player_episodes_drawer.dart';
 import 'package:iris/features/player/presentation/widgets/player_seek_bar.dart';
 import 'package:iris/features/player/presentation/widgets/player_viewport_factory.dart';
@@ -1653,6 +1654,8 @@ class _BufferingSpinner extends StatelessWidget {
   }
 }
 
+const _overVideoOutlineWidth = 1.5;
+
 /// Secondary buttons over the video: a dark glass with a light outline.
 ButtonStyle _overVideoButtonStyle(ThemeData theme) {
   return OutlinedButton.styleFrom(
@@ -1660,7 +1663,10 @@ ButtonStyle _overVideoButtonStyle(ThemeData theme) {
     shape: const RoundedRectangleBorder(),
     foregroundColor: Colors.white,
     backgroundColor: Colors.black54,
-    side: const BorderSide(color: Colors.white70, width: 1.5),
+    side: const BorderSide(
+      color: Colors.white70,
+      width: _overVideoOutlineWidth,
+    ),
     textStyle: theme.textTheme.titleSmall,
   );
 }
@@ -1679,32 +1685,42 @@ class _NoticeCard extends StatelessWidget {
       tween: Tween(begin: 0, end: 1),
       duration: const Duration(milliseconds: 200),
       builder: (context, value, child) => Opacity(opacity: value, child: child),
-      child: DecoratedBox(
-        key: const Key('player_notice'),
-        decoration: BoxDecoration(
-          color: Colors.black54,
-          border: Border.all(color: Colors.white24),
-        ),
-        child: Padding(
-          padding: const EdgeInsetsDirectional.fromSTEB(18, 6, 8, 6),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                notice.message,
-                style: theme.textTheme.bodyLarge?.copyWith(color: Colors.white),
+      child: PlayerCountdown(
+        duration: notice.timeout,
+        onElapsed: notice.onTimeout,
+        child: PlayerCountdownBar(
+          color: Colors.white70,
+          inset: const EdgeInsets.all(1),
+          child: DecoratedBox(
+            key: const Key('player_notice'),
+            decoration: BoxDecoration(
+              color: Colors.black54,
+              border: Border.all(color: Colors.white24),
+            ),
+            child: Padding(
+              padding: const EdgeInsetsDirectional.fromSTEB(18, 6, 8, 6),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    notice.message,
+                    style: theme.textTheme.bodyLarge?.copyWith(
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  TextButton(
+                    key: const Key('player_notice_action'),
+                    onPressed: notice.onAction,
+                    style: TextButton.styleFrom(
+                      foregroundColor: accent,
+                      textStyle: theme.textTheme.titleSmall,
+                    ),
+                    child: Text(notice.actionLabel),
+                  ),
+                ],
               ),
-              const SizedBox(width: 16),
-              TextButton(
-                key: const Key('player_notice_action'),
-                onPressed: notice.onAction,
-                style: TextButton.styleFrom(
-                  foregroundColor: accent,
-                  textStyle: theme.textTheme.titleSmall,
-                ),
-                child: Text(notice.actionLabel),
-              ),
-            ],
+            ),
           ),
         ),
       ),
@@ -1799,19 +1815,27 @@ class _OfferButton extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(top: 12),
       child: filled
-          ? FilledButton(
-              onPressed: onPressed,
-              style: FilledButton.styleFrom(
-                padding: padding,
-                shape: shape,
-                textStyle: theme.textTheme.titleSmall,
+          ? PlayerCountdownBar(
+              color: theme.colorScheme.onPrimary,
+              child: FilledButton(
+                onPressed: onPressed,
+                style: FilledButton.styleFrom(
+                  padding: padding,
+                  shape: shape,
+                  textStyle: theme.textTheme.titleSmall,
+                ),
+                child: content,
               ),
-              child: content,
             )
-          : OutlinedButton(
-              onPressed: onPressed,
-              style: _overVideoButtonStyle(theme),
-              child: content,
+          : PlayerCountdownBar(
+              color: Colors.white,
+              // Inside the outline, not over it.
+              inset: const EdgeInsets.all(_overVideoOutlineWidth),
+              child: OutlinedButton(
+                onPressed: onPressed,
+                style: _overVideoButtonStyle(theme),
+                child: content,
+              ),
             ),
     );
   }

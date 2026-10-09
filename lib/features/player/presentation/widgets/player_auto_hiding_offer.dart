@@ -1,6 +1,6 @@
-import 'dart:async';
-
 import 'package:flutter/widgets.dart';
+
+import 'package:iris/features/player/presentation/widgets/player_countdown.dart';
 
 /// Pointer movement or a tap over the player.
 class PlayerPointerActivity extends ChangeNotifier {
@@ -9,6 +9,9 @@ class PlayerPointerActivity extends ChangeNotifier {
 
 /// Shows [child] for a while when it appears, then again briefly after
 /// pointer activity, like the player controls; [pinned] keeps it shown.
+///
+/// A [PlayerCountdownBar] in [child] shows the time left; resting the
+/// pointer on it keeps it shown.
 class PlayerAutoHidingOffer extends StatefulWidget {
   const PlayerAutoHidingOffer({
     required this.activity,
@@ -31,46 +34,51 @@ class PlayerAutoHidingOffer extends StatefulWidget {
 class _PlayerAutoHidingOfferState extends State<PlayerAutoHidingOffer> {
   bool _shown = true;
   bool _holdingAtStart = true;
-  Timer? _hideTimer;
+  Duration _showing = PlayerAutoHidingOffer.shownAtStart;
+  int _generation = 0;
 
   @override
   void initState() {
     super.initState();
     widget.activity.addListener(_onActivity);
-    _hideAfter(PlayerAutoHidingOffer.shownAtStart);
   }
 
   @override
   void dispose() {
     widget.activity.removeListener(_onActivity);
-    _hideTimer?.cancel();
     super.dispose();
   }
 
   void _onActivity() {
     // Activity must not cut the first, longer showing short.
     if (_holdingAtStart) return;
-    setState(() => _shown = true);
-    _hideAfter(PlayerAutoHidingOffer.shownOnActivity);
+    setState(() {
+      _shown = true;
+      _showing = PlayerAutoHidingOffer.shownOnActivity;
+      _generation++;
+    });
   }
 
-  void _hideAfter(Duration duration) {
-    _hideTimer?.cancel();
-    _hideTimer = Timer(duration, () {
-      _holdingAtStart = false;
-      if (mounted) setState(() => _shown = false);
-    });
+  void _hide() {
+    _holdingAtStart = false;
+    if (mounted) setState(() => _shown = false);
   }
 
   @override
   Widget build(BuildContext context) {
     final visible = _shown || widget.pinned;
-    return IgnorePointer(
-      ignoring: !visible,
-      child: AnimatedOpacity(
-        opacity: visible ? 1 : 0,
-        duration: const Duration(milliseconds: 200),
-        child: widget.child,
+    return PlayerCountdown(
+      duration: _shown && !widget.pinned ? _showing : null,
+      afterHold: PlayerAutoHidingOffer.shownOnActivity,
+      generation: _generation,
+      onElapsed: _hide,
+      child: IgnorePointer(
+        ignoring: !visible,
+        child: AnimatedOpacity(
+          opacity: visible ? 1 : 0,
+          duration: const Duration(milliseconds: 200),
+          child: widget.child,
+        ),
       ),
     );
   }

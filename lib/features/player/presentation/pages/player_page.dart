@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -10,6 +8,7 @@ import 'package:iris/features/player/domain/entities/player_video_file.dart';
 import 'package:iris/features/player/presentation/cubit/player_cubit.dart';
 import 'package:iris/features/player/presentation/cubit/player_state.dart';
 import 'package:iris/features/player/presentation/widgets/player_adaptive_layout.dart';
+import 'package:iris/features/player/presentation/widgets/player_countdown.dart';
 import 'package:iris/features/player/presentation/widgets/player_episode_cards.dart';
 import 'package:iris/features/player/presentation/widgets/player_episodes_list.dart';
 import 'package:iris/features/player/presentation/widgets/player_view.dart';
@@ -59,22 +58,13 @@ class _PlayerPageState extends State<PlayerPage> {
   /// The immersive player's own resume message, instead of a snackbar.
   PlayerNotice? _notice;
 
-  /// Counts the notice down once the file plays; until then it stays, so
-  /// the choice it offers is there for the whole startup.
-  Timer? _noticeTimer;
-
-  static const _noticeDuration = Duration(seconds: 8);
-
   @override
   void dispose() {
     _closePlaybackSnackBar();
-    _noticeTimer?.cancel();
     super.dispose();
   }
 
   void _hideNotice() {
-    _noticeTimer?.cancel();
-    _noticeTimer = null;
     if (mounted && _notice != null) setState(() => _notice = null);
   }
 
@@ -94,12 +84,18 @@ class _PlayerPageState extends State<PlayerPage> {
         .showSnackBar(
           SnackBar(
             key: const Key('player_resume_snackbar'),
-            content: _ResumeSnackBarContent(cubit: cubit),
-            // Closed by the page: it waits for the file to start, then
-            // counts down like the immersive notice.
+            content: _ResumeSnackBarContent(
+              cubit: cubit,
+              floating: behavior.behavior == SnackBarBehavior.floating,
+            ),
+            // Its content counts down once the file starts, like the
+            // immersive notice, and closes it.
             duration: const Duration(days: 1),
             behavior: behavior.behavior,
             width: behavior.width,
+            // The content pads itself, so the countdown can run along the
+            // snackbar's edge.
+            padding: EdgeInsets.zero,
           ),
         );
     _playbackSnackBar = controller;
@@ -274,9 +270,6 @@ class _PlayerPageState extends State<PlayerPage> {
       return;
     }
 
-    if (state.started) {
-      _noticeTimer ??= Timer(_noticeDuration, cubit.dismissResumeNotice);
-    }
     if (isDesktopPlayerPlatform()) {
       final choice = resumeChoice(AppLocalizations.of(context), cubit, state);
       setState(
@@ -284,6 +277,8 @@ class _PlayerPageState extends State<PlayerPage> {
           message: choice.message,
           actionLabel: choice.actionLabel,
           onAction: choice.onAction,
+          timeout: state.started ? resumeNoticeDuration : null,
+          onTimeout: cubit.dismissResumeNotice,
         ),
       );
     } else if (_playbackSnackBar == null) {
@@ -318,11 +313,18 @@ class _PlayerPageState extends State<PlayerPage> {
   );
 }
 
+/// How long the resume notice stays once the file plays; until then it
+/// stays, so the choice it offers is there for the whole startup.
+const resumeNoticeDuration = Duration(seconds: 8);
+
 /// The resume notice as a snackbar, kept current with the player's state.
 class _ResumeSnackBarContent extends StatelessWidget {
-  const _ResumeSnackBarContent({required this.cubit});
+  const _ResumeSnackBarContent({required this.cubit, required this.floating});
 
   final PlayerCubit cubit;
+
+  /// Floating snackbars pad their content less (as [SnackBar] does).
+  final bool floating;
 
   @override
   Widget build(BuildContext context) {
@@ -330,6 +332,9 @@ class _ResumeSnackBarContent extends StatelessWidget {
     final theme = Theme.of(context);
     final actionColor =
         theme.snackBarTheme.actionTextColor ?? theme.colorScheme.inversePrimary;
+    final textColor =
+        theme.snackBarTheme.contentTextStyle?.color ??
+        theme.colorScheme.onInverseSurface;
     return BlocBuilder<PlayerCubit, PlayerState>(
       bloc: cubit,
       builder: (context, state) {
@@ -337,17 +342,30 @@ class _ResumeSnackBarContent extends StatelessWidget {
           return const SizedBox.shrink();
         }
         final choice = resumeChoice(l10n, cubit, state);
-        return Row(
-          children: [
-            Expanded(child: Text(choice.message)),
-            const SizedBox(width: 8),
-            TextButton(
-              key: const Key('player_resume_action'),
-              onPressed: choice.onAction,
-              style: TextButton.styleFrom(foregroundColor: actionColor),
-              child: Text(choice.actionLabel),
+        return PlayerCountdown(
+          duration: state.started ? resumeNoticeDuration : null,
+          onElapsed: cubit.dismissResumeNotice,
+          child: PlayerCountdownBar(
+            color: textColor.withValues(alpha: 0.7),
+            child: Padding(
+              padding: EdgeInsetsDirectional.symmetric(
+                horizontal: floating ? 16 : 24,
+                vertical: 14,
+              ),
+              child: Row(
+                children: [
+                  Expanded(child: Text(choice.message)),
+                  const SizedBox(width: 8),
+                  TextButton(
+                    key: const Key('player_resume_action'),
+                    onPressed: choice.onAction,
+                    style: TextButton.styleFrom(foregroundColor: actionColor),
+                    child: Text(choice.actionLabel),
+                  ),
+                ],
+              ),
             ),
-          ],
+          ),
         );
       },
     );

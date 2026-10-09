@@ -521,6 +521,8 @@ void main() {
     expect(find.text('Episode 3'), findsOneWidget);
     expect(_nextPromptOpacity(tester), 1);
 
+    // The countdown starts with the next frame.
+    await tester.pump();
     await tester.pump(const Duration(seconds: 8));
     expect(_nextPromptOpacity(tester), 0);
 
@@ -529,6 +531,7 @@ void main() {
     await mouse.moveTo(const Offset(20, 20));
     await tester.pump();
     expect(_nextPromptOpacity(tester), 1);
+    await tester.pump();
     await tester.pump(const Duration(seconds: 3));
     expect(_nextPromptOpacity(tester), 0);
 
@@ -1390,6 +1393,7 @@ void main() {
               message: 'Resumed from 2:22',
               actionLabel: 'Start over',
               onAction: () => actions++,
+              onTimeout: () {},
             ),
           ),
         ),

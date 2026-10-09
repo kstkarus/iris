@@ -210,7 +210,8 @@ void main() {
       ),
     );
     await _pumpUntilVisible(tester, _playerSurface);
-    await tester.pumpAndSettle();
+    // Not pumpAndSettle: the notice's countdown would run out meanwhile.
+    await tester.pump(const Duration(seconds: 1));
     expect(find.text('Resumed from 5:00'), findsOneWidget);
     expect(find.text('Start over'), findsOneWidget);
 

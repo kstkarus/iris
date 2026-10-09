@@ -16,6 +16,7 @@ import 'package:iris/features/player/presentation/playback/player_engine.dart';
 import 'package:iris/features/player/presentation/widgets/player_adaptive_layout.dart';
 import 'package:iris/features/player/presentation/widgets/player_auto_hiding_offer.dart';
 import 'package:iris/features/player/presentation/widgets/player_buffer_health_tracker.dart';
+import 'package:iris/features/player/presentation/widgets/player_countdown.dart';
 import 'package:iris/features/player/presentation/widgets/player_immersive_controls.dart';
 import 'package:iris/features/player/presentation/widgets/player_overlay_preferences.dart';
 import 'package:iris/features/player/presentation/widgets/player_playback_stats_indicator.dart';
@@ -904,31 +905,38 @@ class _PlayerActionPill extends StatelessWidget {
       child: Padding(
         // Clear of the bottom button bar and the seek bar.
         padding: const EdgeInsetsDirectional.fromSTEB(16, 16, 16, 72),
-        child: FilledButton(
-          key: actionKey,
-          onPressed: onPressed,
-          style: FilledButton.styleFrom(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-          ),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 220),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(label),
-                if (detail != null)
-                  // Inherits the button's colour.
-                  Text(
-                    detail,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: theme.textTheme.labelSmall?.fontSize,
-                      fontWeight: FontWeight.w400,
+        child: PlayerCountdownBar(
+          color: theme.colorScheme.onPrimary,
+          child: FilledButton(
+            key: actionKey,
+            onPressed: onPressed,
+            style: FilledButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+              // The plate is the whole touch target, so the countdown runs
+              // along its visible edge, not below it.
+              minimumSize: const Size(64, 48),
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 220),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(label),
+                  if (detail != null)
+                    // Inherits the button's colour.
+                    Text(
+                      detail,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: theme.textTheme.labelSmall?.fontSize,
+                        fontWeight: FontWeight.w400,
+                      ),
                     ),
-                  ),
-              ],
+                ],
+              ),
             ),
           ),
         ),

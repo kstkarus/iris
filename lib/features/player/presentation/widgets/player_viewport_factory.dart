@@ -23,11 +23,18 @@ class PlayerNotice {
     required this.message,
     required this.actionLabel,
     required this.onAction,
+    required this.onTimeout,
+    this.timeout,
   });
 
   final String message;
   final String actionLabel;
   final VoidCallback onAction;
+
+  /// How long it stays, counted from when this is first set; null keeps it,
+  /// e.g. while the file starts.
+  final Duration? timeout;
+  final VoidCallback onTimeout;
 }
 
 /// What the immersive player draws around the video: the titles, the way
