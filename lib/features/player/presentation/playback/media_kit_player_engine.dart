@@ -549,7 +549,13 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
     try {
       await _applyNativePlayerProperties();
       _preferredTracksApplied = false;
-      await player.open(Media(session.streamUrl, start: _openPosition));
+      await player.open(
+        Media(
+          session.streamUrl,
+          httpHeaders: session.httpHeaders.isEmpty ? null : session.httpHeaders,
+          start: _openPosition,
+        ),
+      );
       if (startupGeneration != _startupGeneration) return;
 
       developer.log(

@@ -912,6 +912,37 @@ void main() {
     expect(find.byKey(const Key('player_adaptive_sheet_dialog')), findsNothing);
   });
 
+  testWidgets('sends the session headers with the stream', (tester) async {
+    final platformPlayer = _FakePlatformPlayer(
+      configuration: const PlayerConfiguration(),
+    );
+    await tester.pumpWidget(
+      _wrapViewport(
+        platformPlayer: platformPlayer,
+        session: const PlayerSession(
+          sessionId: '7',
+          streamUrl: 'https://video.example/episode/1.m3u8',
+          httpHeaders: {'Referer': 'https://player.example/'},
+        ),
+      ),
+    );
+    await tester.pump();
+
+    final media = platformPlayer.lastOpened! as Media;
+    expect(media.uri, 'https://video.example/episode/1.m3u8');
+    expect(media.httpHeaders, {'Referer': 'https://player.example/'});
+  });
+
+  testWidgets('sends no headers for a torrent stream', (tester) async {
+    final platformPlayer = _FakePlatformPlayer(
+      configuration: const PlayerConfiguration(),
+    );
+    await tester.pumpWidget(_wrapViewport(platformPlayer: platformPlayer));
+    await tester.pump();
+
+    expect((platformPlayer.lastOpened! as Media).httpHeaders, isNull);
+  });
+
   testWidgets('fits a 16:9 video frame into a wide window without overflow', (
     tester,
   ) async {
@@ -1939,6 +1970,7 @@ Widget _wrapViewport({
   PlayerChrome? chrome,
   NativeFullscreenToggle? enterNativeFullscreen,
   NativeFullscreenToggle? exitNativeFullscreen,
+  PlayerSession session = _session,
 }) {
   final effectivePlatformPlayer =
       platformPlayer ??
@@ -2002,6 +2034,7 @@ Widget _wrapViewport({
           factory: factory,
           subtitleCubit: effectiveSubtitleCubit,
           decodingCubit: effectiveDecodingCubit,
+          session: session,
           onEngine: onEngine,
           next: next,
           chrome: chrome,
@@ -2016,19 +2049,21 @@ const _session = PlayerSession(
   streamUrl: 'http://127.0.0.1:8080/stream/2',
 );
 
-/// Owns the engine the way PlayerCubit does: opens it for [_session] and
+/// Owns the engine the way PlayerCubit does: opens it for [session] and
 /// closes it when the page goes away.
 class _EngineHost extends StatefulWidget {
   const _EngineHost({
     required this.factory,
     required this.subtitleCubit,
     required this.decodingCubit,
+    this.session = _session,
     this.onEngine,
     this.next,
     this.chrome,
   });
 
   final MediaKitPlayerViewportFactory factory;
+  final PlayerSession session;
   final PlayerSubtitlePreferencesCubit subtitleCubit;
   final PlayerDecodingPreferencesCubit decodingCubit;
   final ValueChanged<MediaKitPlayerEngine>? onEngine;
@@ -2048,7 +2083,7 @@ class _EngineHostState extends State<_EngineHost> {
   @override
   void initState() {
     super.initState();
-    unawaited(_engine.open(_session));
+    unawaited(_engine.open(widget.session));
     widget.onEngine?.call(_engine);
   }
 
@@ -2272,10 +2307,12 @@ class _FakePlatformPlayer extends PlatformPlayer {
   final Map<String, String> nativeProperties = {};
 
   int openCount = 0;
+  Playable? lastOpened;
 
   @override
   Future<void> open(Playable playable, {bool play = true}) async {
     openCount++;
+    lastOpened = playable;
     nativeProperties['idle-active'] = 'no';
   }
 
