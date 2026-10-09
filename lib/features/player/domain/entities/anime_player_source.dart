@@ -1,5 +1,6 @@
 import 'package:iris/features/player/domain/entities/player_video_file.dart';
 import 'package:iris/shared/torrent/torrent_key.dart';
+import 'package:iris/shared/utils/episode_number.dart';
 
 class AnimePlayerSource {
   const AnimePlayerSource({
@@ -31,6 +32,14 @@ class AnimePlayerSource {
   /// Identity of the torrent for watch progress; null without a magnet.
   String? get torrentKey =>
       magnet.trim().isEmpty ? null : torrentKeyFromMagnet(magnet);
+
+  /// The playing episode's number, when the source or the name gives one.
+  int? get episodeNumber {
+    for (final file in files) {
+      if (file.index == fileIndex) return file.number;
+    }
+    return episodeNumberFromFileName(fileName);
+  }
 
   /// The file after the current one, if any.
   PlayerVideoFile? get nextFile {

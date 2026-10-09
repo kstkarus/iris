@@ -8,6 +8,8 @@ import 'package:go_router/go_router.dart';
 import 'package:iris/entities/watch_progress/domain/watch_progress.dart';
 import 'package:iris/entities/watch_progress/domain/watch_progress_repository.dart';
 import 'package:iris/entities/watch_progress/presentation/watch_progress_cubit.dart';
+import 'package:iris/features/online_sources/data/repositories/mock_online_sources_repository.dart';
+import 'package:iris/features/online_sources/presentation/cubit/online_releases_cubit.dart';
 import 'package:iris/shared/torrent/torrent_key.dart';
 import 'package:iris/features/downloads/presentation/models/download_selection_args.dart';
 import 'package:iris/features/player/presentation/models/anime_player_source_args.dart';
@@ -180,8 +182,11 @@ void main() {
         locale: const Locale('ru'),
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
-        home: BlocProvider.value(
-          value: cubit..loadSources(),
+        home: MultiBlocProvider(
+          providers: [
+            BlocProvider.value(value: cubit..loadSources()),
+            BlocProvider(create: (_) => _noOnlineReleases()),
+          ],
           child: const WatchSourcesPage(
             args: AnimeWatchSourcesArgs(
               animeId: '52991',
@@ -440,8 +445,11 @@ void main() {
           locale: const Locale('en'),
           localizationsDelegates: AppLocalizations.localizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
-          home: BlocProvider.value(
-            value: cubit..loadSources(),
+          home: MultiBlocProvider(
+            providers: [
+              BlocProvider.value(value: cubit..loadSources()),
+              BlocProvider(create: (_) => _noOnlineReleases()),
+            ],
             child: const WatchSourcesPage(
               args: AnimeWatchSourcesArgs(
                 animeId: '52991',
@@ -579,6 +587,12 @@ String _topTitle(WidgetTester tester) {
 
   return titles.first;
 }
+
+OnlineReleasesCubit _noOnlineReleases() => OnlineReleasesCubit(
+  shikimoriId: '52991',
+  titles: const [],
+  repository: const MockOnlineSourcesRepository(),
+)..load();
 
 class _PendingWatchSourcesRepository implements WatchSourcesRepository {
   @override

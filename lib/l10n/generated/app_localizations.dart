@@ -494,6 +494,36 @@ abstract class AppLocalizations {
   /// **'No sources found.'**
   String get watchSourcesEmpty;
 
+  /// No description provided for @watchSourcesOnlineSection.
+  ///
+  /// In en, this message translates to:
+  /// **'Online'**
+  String get watchSourcesOnlineSection;
+
+  /// No description provided for @watchSourcesTorrentsSection.
+  ///
+  /// In en, this message translates to:
+  /// **'Torrents'**
+  String get watchSourcesTorrentsSection;
+
+  /// No description provided for @watchSourcesOnlineLoading.
+  ///
+  /// In en, this message translates to:
+  /// **'Looking for online sources'**
+  String get watchSourcesOnlineLoading;
+
+  /// No description provided for @watchSourcesOnlineLoadError.
+  ///
+  /// In en, this message translates to:
+  /// **'Online sources did not respond.'**
+  String get watchSourcesOnlineLoadError;
+
+  /// No description provided for @watchSourcesOnlineBestQuality.
+  ///
+  /// In en, this message translates to:
+  /// **'up to {quality}p'**
+  String watchSourcesOnlineBestQuality(int quality);
+
   /// No description provided for @watchSourcesSearchHint.
   ///
   /// In en, this message translates to:
@@ -601,6 +631,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Unable to prepare this source.'**
   String get playerSourceUnableToPrepare;
+
+  /// No description provided for @playerSourceEpisodesTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose an episode'**
+  String get playerSourceEpisodesTitle;
+
+  /// No description provided for @playerSourceEpisodesPreparing.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading episodes'**
+  String get playerSourceEpisodesPreparing;
+
+  /// No description provided for @playerEpisodeMinutes.
+  ///
+  /// In en, this message translates to:
+  /// **'{minutes} min'**
+  String playerEpisodeMinutes(int minutes);
 
   /// No description provided for @playerPreparing.
   ///

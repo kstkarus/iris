@@ -228,6 +228,23 @@ class AppLocalizationsRu extends AppLocalizations {
   String get watchSourcesEmpty => 'Источники не найдены.';
 
   @override
+  String get watchSourcesOnlineSection => 'Онлайн';
+
+  @override
+  String get watchSourcesTorrentsSection => 'Торренты';
+
+  @override
+  String get watchSourcesOnlineLoading => 'Ищем онлайн-источники';
+
+  @override
+  String get watchSourcesOnlineLoadError => 'Онлайн-источники не ответили.';
+
+  @override
+  String watchSourcesOnlineBestQuality(int quality) {
+    return 'до ${quality}p';
+  }
+
+  @override
   String get watchSourcesSearchHint => 'Поиск источников';
 
   @override
@@ -282,6 +299,17 @@ class AppLocalizationsRu extends AppLocalizations {
   @override
   String get playerSourceUnableToPrepare =>
       'Не удалось подготовить этот источник.';
+
+  @override
+  String get playerSourceEpisodesTitle => 'Выбор серии';
+
+  @override
+  String get playerSourceEpisodesPreparing => 'Загружаем серии';
+
+  @override
+  String playerEpisodeMinutes(int minutes) {
+    return '$minutes мин';
+  }
 
   @override
   String get playerPreparing => 'Подготавливаем видео';

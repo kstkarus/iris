@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 
 import 'package:iris/entities/watch_progress/domain/watch_progress.dart';
 import 'package:iris/entities/watch_progress/presentation/watch_progress_cubit.dart';
+import 'package:iris/features/online_sources/domain/entities/online_source_link.dart';
 import 'package:iris/features/player/domain/entities/player_video_file.dart';
 import 'package:iris/features/player/presentation/cubit/player_source_cubit.dart';
 import 'package:iris/features/player/presentation/cubit/player_source_state.dart';
@@ -28,6 +29,7 @@ class PlayerSourcePage extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final margin = WindowSizeClass.of(context).pageMargin;
+    final isOnline = OnlineSourceLink.tryParse(args.magnet) != null;
 
     return BlocListener<PlayerSourceCubit, PlayerSourceState>(
       listenWhen: (_, state) => state is PlayerSourceReady,
@@ -46,7 +48,9 @@ class PlayerSourcePage extends StatelessWidget {
       child: Scaffold(
         appBar: FramedAppBar(
           title: PageTitle(
-            title: l10n.playerSourceTitle,
+            title: isOnline
+                ? l10n.playerSourceEpisodesTitle
+                : l10n.playerSourceTitle,
             subtitle: args.sourceTitle,
           ),
         ),
@@ -60,6 +64,7 @@ class PlayerSourcePage extends StatelessWidget {
                 children: [
                   Expanded(
                     child: PlayerSourceView(
+                      isOnline: isOnline,
                       progressByFile: progressByFile(
                         context.watchWatchProgress(),
                         torrentKeyFromMagnet(args.magnet),

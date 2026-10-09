@@ -16,7 +16,6 @@ import 'package:iris/features/player/domain/repositories/player_skip_times_repos
 import 'package:iris/features/player/domain/repositories/player_track_preferences_repository.dart';
 import 'package:iris/features/player/presentation/cubit/player_state.dart';
 import 'package:iris/features/player/presentation/playback/player_engine.dart';
-import 'package:iris/shared/utils/episode_number.dart';
 
 /// Owns the page's playback: the torrent stream (through the repository)
 /// and the media player ([PlayerEngine]), and keeps them in order — the
@@ -187,7 +186,7 @@ class PlayerCubit extends Cubit<PlayerState> {
     final animeId = source.animeId.isNotEmpty
         ? source.animeId
         : _savedProgress?.animeId ?? '';
-    final episode = episodeNumberFromFileName(source.fileName);
+    final episode = source.episodeNumber;
     if (animeId.isEmpty || episode == null) return;
 
     unawaited(() async {

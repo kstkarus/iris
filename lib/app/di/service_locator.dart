@@ -38,6 +38,7 @@ import 'package:iris/features/player/data/repositories/aniskip_skip_times_reposi
 import 'package:iris/features/player/data/repositories/mock_player_repository.dart';
 import 'package:iris/features/player/data/repositories/mock_player_skip_times_repository.dart';
 import 'package:iris/features/player/data/repositories/local_player_repository.dart';
+import 'package:iris/features/player/data/repositories/online_player_repository.dart';
 import 'package:iris/features/player/data/repositories/player_decoding_preferences_repository_impl.dart';
 import 'package:iris/features/player/data/repositories/shared_preferences_subtitle_preferences_repository.dart';
 import 'package:iris/features/player/data/repositories/shared_preferences_track_preferences_repository.dart';
@@ -53,11 +54,17 @@ import 'package:iris/features/player/presentation/widgets/mock_player_viewport_f
 import 'package:iris/features/player/presentation/widgets/player_viewport_factory.dart';
 import 'package:iris/features/saved_torrents/data/repositories/shared_preferences_saved_torrents_repository.dart';
 import 'package:iris/features/saved_torrents/domain/repositories/saved_torrents_repository.dart';
+import 'package:iris/features/online_sources/data/datasources/anilibria_data_source.dart';
+import 'package:iris/features/online_sources/data/repositories/anilibria_online_sources_repository.dart';
+import 'package:iris/features/online_sources/data/repositories/mock_online_sources_repository.dart';
+import 'package:iris/features/online_sources/domain/repositories/online_sources_repository.dart';
 import 'package:iris/features/watch_sources/data/datasources/mock_watch_sources_data_source.dart';
 import 'package:iris/features/watch_sources/data/datasources/remote_watch_sources_data_source.dart';
 import 'package:iris/features/watch_sources/data/repositories/mock_watch_sources_repository.dart';
 import 'package:iris/features/watch_sources/data/repositories/remote_watch_sources_repository.dart';
 import 'package:iris/features/watch_sources/domain/repositories/watch_sources_repository.dart';
+import 'package:iris/shared/network/anilibria_api_client.dart';
+import 'package:iris/shared/network/anilibria_dio_factory.dart';
 import 'package:iris/shared/network/dio_factory.dart';
 import 'package:iris/shared/network/aniskip_api_client.dart';
 import 'package:iris/shared/network/aniskip_dio_factory.dart';
@@ -91,6 +98,12 @@ Future<void> configureDependencies({
   if (!serviceLocator.isRegistered<NyaaApiClient>()) {
     serviceLocator.registerLazySingleton<NyaaApiClient>(
       () => NyaaApiClient(dio: createNyaaDio()),
+    );
+  }
+
+  if (!serviceLocator.isRegistered<AnilibriaApiClient>()) {
+    serviceLocator.registerLazySingleton<AnilibriaApiClient>(
+      () => AnilibriaApiClient(dio: createAnilibriaDio()),
     );
   }
 
@@ -156,6 +169,12 @@ Future<void> configureDependencies({
     if (!serviceLocator.isRegistered<DownloadsRepository>()) {
       serviceLocator.registerLazySingleton<DownloadsRepository>(
         MockDownloadsRepository.new,
+      );
+    }
+
+    if (!serviceLocator.isRegistered<OnlineSourcesRepository>()) {
+      serviceLocator.registerLazySingleton<OnlineSourcesRepository>(
+        MockOnlineSourcesRepository.new,
       );
     }
 
@@ -335,11 +354,24 @@ Future<void> configureDependencies({
       );
     }
 
+    if (!serviceLocator.isRegistered<OnlineSourcesRepository>()) {
+      serviceLocator.registerLazySingleton<OnlineSourcesRepository>(
+        () => AnilibriaOnlineSourcesRepository(
+          dataSource: AnilibriaDataSource(
+            client: serviceLocator<AnilibriaApiClient>(),
+          ),
+        ),
+      );
+    }
+
     if (!serviceLocator.isRegistered<PlayerRepository>()) {
       serviceLocator.registerLazySingleton<PlayerRepository>(
         () => StreamingOrLocalPlayerRepository(
           streaming: TorrentPlayerRepository(
             dataSource: serviceLocator<LibtorrentPlayerDataSource>(),
+          ),
+          online: OnlinePlayerRepository(
+            repository: serviceLocator<OnlineSourcesRepository>(),
           ),
           local: LocalPlayerRepository(
             downloadsRepository: serviceLocator<DownloadsRepository>(),

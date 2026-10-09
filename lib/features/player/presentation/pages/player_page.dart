@@ -15,7 +15,6 @@ import 'package:iris/features/player/presentation/widgets/player_view.dart';
 import 'package:iris/features/player/presentation/widgets/player_viewport_factory.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/utils/duration_formatter.dart';
-import 'package:iris/shared/utils/episode_number.dart';
 import 'package:iris/shared/utils/file_display_name.dart';
 import 'package:iris/shared/theme/over_video_theme.dart';
 import 'package:iris/shared/utils/release_title.dart';
@@ -217,7 +216,7 @@ class _PlayerPageState extends State<PlayerPage> {
     final overline = anime.isNotEmpty && anime != release
         ? anime
         : releaseDisplayTitle(release);
-    final episode = episodeNumberFromFileName(source.fileName);
+    final episode = source.episodeNumber;
     final count = source.files.length;
     final position = source.files.indexWhere(
       (file) => file.index == source.fileIndex,

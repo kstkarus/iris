@@ -8,7 +8,6 @@ import 'package:iris/features/player/presentation/cubit/player_state.dart';
 import 'package:iris/features/player/presentation/widgets/player_playback_stats_indicator.dart';
 import 'package:iris/features/player/presentation/widgets/player_viewport_factory.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
-import 'package:iris/shared/utils/file_display_name.dart';
 import 'package:iris/shared/widgets/status_views.dart';
 import 'package:iris/shared/widgets/pixel_icon.dart';
 
@@ -34,7 +33,7 @@ class PlayerView extends StatelessWidget {
               chrome: chrome,
               next: switch (cubit.source.nextFile) {
                 final next? => PlayerNextFile(
-                  title: fileDisplayName(next.name),
+                  title: next.displayName,
                   play: () => cubit.playFile(next),
                 ),
                 null => null,

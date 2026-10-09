@@ -8,14 +8,13 @@ import 'package:iris/features/player/presentation/cubit/player_source_state.dart
 import 'package:iris/features/player/presentation/widgets/player_episodes_list.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/entities/watch_progress/presentation/watch_progress_line.dart';
-import 'package:iris/shared/utils/episode_number.dart';
-import 'package:iris/shared/utils/file_display_name.dart';
 import 'package:iris/shared/widgets/status_views.dart';
 
 class PlayerSourceView extends StatelessWidget {
   const PlayerSourceView({
     required this.onFileSelected,
     this.progressByFile = const {},
+    this.isOnline = false,
     super.key,
   });
 
@@ -26,13 +25,18 @@ class PlayerSourceView extends StatelessWidget {
   /// Watch progress of this torrent's files, keyed by file index.
   final Map<int, WatchProgress> progressByFile;
 
+  /// An online release, whose episodes come from a server, not a torrent.
+  final bool isOnline;
+
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<PlayerSourceCubit, PlayerSourceState>(
       builder: (context, state) {
         return switch (state) {
           PlayerSourceInitial() || PlayerSourceLoading() => LoadingView(
-            label: AppLocalizations.of(context).playerSourcePreparing,
+            label: isOnline
+                ? AppLocalizations.of(context).playerSourceEpisodesPreparing
+                : AppLocalizations.of(context).playerSourcePreparing,
           ),
           PlayerSourceReady(:final preparedSource) => _SuccessState(
             files: preparedSource.files,
@@ -88,7 +92,7 @@ class _SuccessState extends StatelessWidget {
           _ContinueCard(
             file: continueTarget.file,
             number:
-                episodeNumberFromFileName(continueTarget.file.name) ??
+                continueTarget.file.number ??
                 files.indexOf(continueTarget.file) + 1,
             progress: continueTarget.isNext
                 ? null
@@ -140,7 +144,7 @@ class _ContinueCard extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          fileDisplayName(file.name),
+          file.displayName,
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
           style: theme.textTheme.bodyMedium,

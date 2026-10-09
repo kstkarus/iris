@@ -100,6 +100,18 @@
   "watchSourcesLoading": "Loading sources...",
   "watchSourcesLoadError": "Unable to load sources.",
   "watchSourcesEmpty": "No sources found.",
+  "watchSourcesOnlineSection": "Online",
+  "watchSourcesTorrentsSection": "Torrents",
+  "watchSourcesOnlineLoading": "Looking for online sources",
+  "watchSourcesOnlineLoadError": "Online sources did not respond.",
+  "watchSourcesOnlineBestQuality": "up to {quality}p",
+  "@watchSourcesOnlineBestQuality": {
+    "placeholders": {
+      "quality": {
+        "type": "int"
+      }
+    }
+  },
   "watchSourcesSearchHint": "Search sources",
   "watchSourcesSearchEmpty": "No sources match your search.",
   "watchSourcesSortButton": "Sort",
@@ -118,6 +130,16 @@
   "playerSourcePreparing": "Preparing torrent files",
   "playerSourceUnsupported": "This source is not suitable for playback.",
   "playerSourceUnableToPrepare": "Unable to prepare this source.",
+  "playerSourceEpisodesTitle": "Choose an episode",
+  "playerSourceEpisodesPreparing": "Loading episodes",
+  "playerEpisodeMinutes": "{minutes} min",
+  "@playerEpisodeMinutes": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
   "playerPreparing": "Preparing video",
   "playerWaitingMetadata": "Looking for torrent metadata",
   "playerBuffering": "Buffering",

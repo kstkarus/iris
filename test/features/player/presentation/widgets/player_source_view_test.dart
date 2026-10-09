@@ -64,6 +64,70 @@ void main() {
     expect(selected, [2]);
   });
 
+  testWidgets('lists online episodes by their own names and lengths', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _wrap(
+        cubit: _FakePlayerSourceCubit(
+          const PlayerSourceReady(
+            PreparedPlayerSource(
+              sessionId: 'online:anilibria/9542',
+              files: [
+                PlayerVideoFile(
+                  index: 0,
+                  name: '01 «Конец приключений»',
+                  size: 0,
+                  extension: '',
+                  episodeNumber: 1,
+                  title: '«Конец приключений»',
+                  duration: Duration(minutes: 25, seconds: 50),
+                ),
+                PlayerVideoFile(
+                  index: 1,
+                  name: '02 «Дело-то вовсе не в магии!»',
+                  size: 0,
+                  extension: '',
+                  episodeNumber: 2,
+                  title: '«Дело-то вовсе не в магии!»',
+                  duration: Duration(minutes: 26),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('01'), findsOneWidget);
+    expect(find.text('«Конец приключений»'), findsOneWidget);
+    expect(find.text('«Дело-то вовсе не в магии!»'), findsOneWidget);
+    // The name history keeps is not repeated under the title.
+    expect(find.text('01 «Конец приключений»'), findsNothing);
+    expect(find.text('26 min'), findsNWidgets(2));
+    expect(find.text('0 B'), findsNothing);
+  });
+
+  testWidgets('says episodes, not torrent files, load for an online release', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        locale: const Locale('en'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: BlocProvider<PlayerSourceCubit>.value(
+          value: _FakePlayerSourceCubit(const PlayerSourceLoading()),
+          child: Scaffold(
+            body: PlayerSourceView(isOnline: true, onFileSelected: (_) {}),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('Loading episodes'), findsOneWidget);
+  });
+
   testWidgets('marks progress and continues the last unfinished file', (
     tester,
   ) async {

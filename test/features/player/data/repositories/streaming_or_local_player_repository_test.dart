@@ -10,14 +10,17 @@ import 'package:iris/features/player/domain/repositories/player_repository.dart'
 
 void main() {
   late _RecordingPlayerRepository streaming;
+  late _RecordingPlayerRepository online;
   late _RecordingPlayerRepository local;
   late StreamingOrLocalPlayerRepository repository;
 
   setUp(() {
     streaming = _RecordingPlayerRepository('streaming');
+    online = _RecordingPlayerRepository('online');
     local = _RecordingPlayerRepository('local');
     repository = StreamingOrLocalPlayerRepository(
       streaming: streaming,
+      online: online,
       local: local,
     );
   });
@@ -46,6 +49,23 @@ void main() {
     await repository.disposePlayback(sessionId: '7');
 
     expect(streaming.calls, ['start:7', 'stats:7', 'dispose:7']);
+    expect(local.calls, isEmpty);
+  });
+
+  test('prepares and plays an online release online', () async {
+    const link = 'online:anilibria/9542';
+    await repository.prepareSource(magnet: link);
+    await repository.startPlayback(sessionId: link, fileIndex: 3).drain<void>();
+    await repository.watchPlaybackStats(sessionId: link).drain<void>();
+    await repository.disposePlayback(sessionId: link);
+
+    expect(online.calls, [
+      'prepare',
+      'start:$link',
+      'stats:$link',
+      'dispose:$link',
+    ]);
+    expect(streaming.calls, isEmpty);
     expect(local.calls, isEmpty);
   });
 

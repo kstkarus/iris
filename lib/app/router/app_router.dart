@@ -21,6 +21,8 @@ import 'package:iris/features/downloads/presentation/cubit/download_selection_cu
 import 'package:iris/features/downloads/presentation/models/download_selection_args.dart';
 import 'package:iris/features/downloads/presentation/pages/download_manager_page.dart';
 import 'package:iris/features/downloads/presentation/pages/download_selection_page.dart';
+import 'package:iris/features/online_sources/domain/repositories/online_sources_repository.dart';
+import 'package:iris/features/online_sources/presentation/cubit/online_releases_cubit.dart';
 import 'package:iris/features/player/domain/entities/anime_player_source.dart';
 import 'package:iris/features/player/domain/repositories/player_decoding_preferences_repository.dart';
 import 'package:iris/features/player/domain/repositories/player_repository.dart';
@@ -186,19 +188,32 @@ abstract final class AppRouter {
               return const _InvalidRoutePage();
             }
 
-            return BlocProvider(
-              create: (_) => WatchSourcesCubit(
-                animeId: args.animeId,
-                animeTitle: args.animeTitle,
-                searchTitles: args.searchTitles,
-                repository: serviceLocator<WatchSourcesRepository>(),
-              )..loadSources(),
+            return MultiBlocProvider(
+              providers: [
+                BlocProvider(
+                  create: (_) => WatchSourcesCubit(
+                    animeId: args.animeId,
+                    animeTitle: args.animeTitle,
+                    searchTitles: args.searchTitles,
+                    repository: serviceLocator<WatchSourcesRepository>(),
+                  )..loadSources(),
+                ),
+                // Catalog ids are Shikimori's, which online releases name.
+                BlocProvider(
+                  create: (_) => OnlineReleasesCubit(
+                    shikimoriId: args.animeId,
+                    titles: args.searchTitles,
+                    repository: serviceLocator<OnlineSourcesRepository>(),
+                  )..load(),
+                ),
+              ],
               child: WatchSourcesPage(args: args),
             );
           },
         ),
         // Torrent routes take a magnet, not a catalog title: they serve both
-        // catalog sources and the user's saved torrents.
+        // catalog sources and the user's saved torrents. The file picker
+        // also takes an online release's link in place of a magnet.
         GoRoute(
           path: '/torrent/download',
           name: 'torrent-download-files',

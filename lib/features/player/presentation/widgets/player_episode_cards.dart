@@ -5,7 +5,6 @@ import 'package:iris/features/player/domain/entities/player_video_file.dart';
 import 'package:iris/features/player/presentation/widgets/player_immersive_controls.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/utils/duration_formatter.dart';
-import 'package:iris/shared/utils/episode_number.dart';
 import 'package:iris/shared/utils/file_display_name.dart';
 import 'package:iris/shared/widgets/segmented_bar.dart';
 import 'package:iris/shared/widgets/pixel_icon.dart';
@@ -78,6 +77,13 @@ final _letter = RegExp(r'\p{L}', unicode: true);
 /// and the number every file shares: `Frieren - 11 - The Hero's Party`
 /// gives `The Hero's Party`, `Death Note 19` gives nothing.
 Map<int, String> distinctEpisodeNames(List<PlayerVideoFile> files) {
+  // An online release names its episodes itself.
+  if (files.any((file) => file.title.isNotEmpty)) {
+    return {
+      for (final file in files)
+        if (file.title.isNotEmpty) file.index: file.title,
+    };
+  }
   if (files.length < 2) return const {};
   final names = [
     for (final file in files)
@@ -173,7 +179,7 @@ class _EpisodeCardState extends State<_EpisodeCard> {
     final accent = playerAccentColor(theme.colorScheme);
     final file = widget.file;
     final progress = widget.progress;
-    final episode = episodeNumberFromFileName(file.name);
+    final episode = file.number;
     final finished = progress?.isFinished ?? false;
     final partial =
         !finished && progress != null && progress.duration > Duration.zero;
@@ -230,7 +236,7 @@ class _EpisodeCardState extends State<_EpisodeCard> {
                         children: [
                           Text(
                             episode == null
-                                ? fileDisplayName(file.name)
+                                ? file.displayName
                                 : l10n.playerEpisodeNumber(episode),
                             maxLines: episode == null ? 2 : 1,
                             overflow: TextOverflow.ellipsis,

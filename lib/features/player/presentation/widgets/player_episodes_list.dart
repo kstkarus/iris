@@ -6,7 +6,6 @@ import 'package:iris/features/player/domain/entities/player_video_file.dart';
 import 'package:iris/features/player/presentation/widgets/player_episode_cards.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/utils/byte_size_formatter.dart';
-import 'package:iris/shared/utils/episode_number.dart';
 import 'package:iris/shared/utils/file_display_name.dart';
 import 'package:iris/shared/widgets/segmented_bar.dart';
 
@@ -84,7 +83,7 @@ class _PlayerEpisodesListState extends State<PlayerEpisodesList> {
             _EpisodeRow(
               key: file.index == widget.currentFileIndex ? _currentKey : null,
               file: file,
-              number: episodeNumberFromFileName(file.name) ?? position + 1,
+              number: file.number ?? position + 1,
               ownName: names[file.index],
               isCurrent: file.index == widget.currentFileIndex,
               progress: widget.progressByFile[file.index],
@@ -170,7 +169,8 @@ class _EpisodeRow extends StatelessWidget {
                             : scheme.onSurface,
                       ),
                     ),
-                    if (ownName != null)
+                    // An online episode has no file name to add.
+                    if (ownName != null && file.title.isEmpty)
                       Text(
                         fileName,
                         maxLines: 1,
@@ -194,10 +194,12 @@ class _EpisodeRow extends StatelessWidget {
               ),
               if (showSize) ...[
                 const SizedBox(width: 16),
-                Text(
-                  formatByteSize(l10n, file.size),
-                  style: theme.textTheme.bodySmall,
-                ),
+                Text(switch (file.duration) {
+                  final duration? => l10n.playerEpisodeMinutes(
+                    (duration.inSeconds / 60).round(),
+                  ),
+                  null => formatByteSize(l10n, file.size),
+                }, style: theme.textTheme.bodySmall),
               ],
             ],
           ),

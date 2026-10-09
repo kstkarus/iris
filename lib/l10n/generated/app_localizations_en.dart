@@ -224,6 +224,23 @@ class AppLocalizationsEn extends AppLocalizations {
   String get watchSourcesEmpty => 'No sources found.';
 
   @override
+  String get watchSourcesOnlineSection => 'Online';
+
+  @override
+  String get watchSourcesTorrentsSection => 'Torrents';
+
+  @override
+  String get watchSourcesOnlineLoading => 'Looking for online sources';
+
+  @override
+  String get watchSourcesOnlineLoadError => 'Online sources did not respond.';
+
+  @override
+  String watchSourcesOnlineBestQuality(int quality) {
+    return 'up to ${quality}p';
+  }
+
+  @override
   String get watchSourcesSearchHint => 'Search sources';
 
   @override
@@ -277,6 +294,17 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get playerSourceUnableToPrepare => 'Unable to prepare this source.';
+
+  @override
+  String get playerSourceEpisodesTitle => 'Choose an episode';
+
+  @override
+  String get playerSourceEpisodesPreparing => 'Loading episodes';
+
+  @override
+  String playerEpisodeMinutes(int minutes) {
+    return '$minutes min';
+  }
 
   @override
   String get playerPreparing => 'Preparing video';

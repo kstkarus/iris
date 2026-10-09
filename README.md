@@ -1,6 +1,6 @@
 # iris
 
-`iris` is a Flutter app (Android, iOS, Windows) for browsing anime and streaming episodes from torrents in the in-app player. Downloading episodes for offline viewing is a secondary feature.
+`iris` is a Flutter app (Android, iOS, Windows) for browsing anime and streaming episodes from torrents or online video servers in the in-app player. Downloading episodes for offline viewing is a secondary feature.
 
 The project follows a feature-first structure with `FSD light` at the repository level and `clean arch` inside each feature.
 
@@ -9,7 +9,7 @@ The project follows a feature-first structure with `FSD light` at the repository
 - browse anime titles
 - open anime details
 - search and filter the catalog
-- find torrent-based watch sources
+- find torrent-based watch sources, and online releases (AniLibria) above them
 - save your own magnet links in the Torrents tab and stream or download them later
 - choose a video file when a torrent contains multiple episodes
 - stream the selected file in the in-app player
@@ -42,6 +42,17 @@ The watch sources screen currently uses the public `nyaaapi` service:
 - only Nyaa's anime section is requested (`category=anime`), and anime music videos are dropped, so soundtracks, manga and AMVs never show up as sources
 - when no name finds anything and a search failed, the screen shows an error with Retry instead of an empty list
 - a catalog that cannot load keeps Continue watching above its error; an anime page that cannot load keeps what the list already knew (title, cover, facts and Choose source) and shows the error with Retry in place of the description
+
+### Online Sources
+
+The watch sources screen also looks the anime up on AniLibria's public API:
+
+- endpoint: `https://aniliberty.top/api/v1`, read-only, no account
+- searched by every name of the anime like the torrents, but a release is kept only when AniLibria links it to the same Shikimori id; it is never matched by name alone
+- a release opens its episodes in the same picker a torrent opens its files in, with Continue, watch progress and next episode as for torrents
+- an episode's stream link is asked for right before it plays (links expire) and played as HLS, best quality first; buffering is mpv's
+- when no release is found the section is not shown; when the search fails it says so with Retry and the torrents still work
+- `dart run tool/online_sources_smoke.dart [shikimoriId] [title...]` checks the live API
 
 ### Saved Torrents
 
