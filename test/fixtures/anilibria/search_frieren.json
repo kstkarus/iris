@@ -1,0 +1,62 @@
+[
+  {
+    "id": 9542,
+    "alias": "sousou-no-frieren",
+    "name": {
+      "main": "Провожающая в последний путь Фрирен",
+      "english": "Sousou no Frieren",
+      "alternative": null
+    },
+    "type": {
+      "value": "TV",
+      "description": "ТВ"
+    },
+    "year": 2023,
+    "episodes_total": 28,
+    "is_blocked_by_geo": false,
+    "is_blocked_by_copyrights": false,
+    "is_ongoing": false,
+    "shikimori": {
+      "id": 52991,
+      "url": "https://shikimori.io/animes/52991",
+      "votes": 71237,
+      "rating": 8.84
+    },
+    "mal": {
+      "id": 52991,
+      "url": "https://myanimelist.net/anime/52991",
+      "votes": 941947,
+      "rating": 9.25
+    }
+  },
+  {
+    "id": 10085,
+    "alias": "sousou-no-frieren-2nd-season",
+    "name": {
+      "main": "Провожающая в последний путь Фрирен 2",
+      "english": "Sousou no Frieren 2nd Season",
+      "alternative": null
+    },
+    "type": {
+      "value": "TV",
+      "description": "ТВ"
+    },
+    "year": 2026,
+    "episodes_total": 10,
+    "is_blocked_by_geo": false,
+    "is_blocked_by_copyrights": false,
+    "is_ongoing": false,
+    "shikimori": {
+      "id": 59978,
+      "url": "https://shikimori.io/animes/59978",
+      "votes": 22175,
+      "rating": 8.51
+    },
+    "mal": {
+      "id": 59978,
+      "url": "https://myanimelist.net/anime/59978",
+      "votes": 303884,
+      "rating": 8.84
+    }
+  }
+]

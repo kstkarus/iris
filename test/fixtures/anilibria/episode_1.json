@@ -1,0 +1,20 @@
+{
+  "id": "9a416b99-4487-4d8a-960a-461089d36cad",
+  "ordinal": 1,
+  "sort_order": 1,
+  "name": "«Конец приключений»",
+  "name_english": null,
+  "duration": 1560,
+  "opening": {
+    "stop": null,
+    "start": null
+  },
+  "ending": {
+    "stop": null,
+    "start": null
+  },
+  "hls_480": "https://cdn.example.test/videos/media/ts/9542/1/480/5db9e319abbbe3039f3c5985505f7854.m3u8",
+  "hls_720": "https://cdn.example.test/videos/media/ts/9542/1/720/f2dc34029cefbeb93e9fbb4c5cfbfa5d.m3u8",
+  "hls_1080": "https://cdn.example.test/videos/media/ts/9542/1/1080/aa675e5f3fe5b528517d812182344011.m3u8",
+  "release_id": 9542
+}
