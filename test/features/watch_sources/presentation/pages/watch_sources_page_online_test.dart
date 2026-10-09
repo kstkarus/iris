@@ -11,8 +11,7 @@ import 'package:iris/entities/watch_progress/presentation/watch_progress_cubit.d
 import 'package:iris/features/online_sources/domain/entities/online_episode.dart';
 import 'package:iris/features/online_sources/domain/entities/online_provider.dart';
 import 'package:iris/features/online_sources/domain/entities/online_release.dart';
-import 'package:iris/features/online_sources/domain/entities/online_stream.dart';
-import 'package:iris/features/online_sources/domain/repositories/online_sources_repository.dart';
+import 'package:iris/features/online_sources/domain/repositories/online_releases_search.dart';
 import 'package:iris/features/online_sources/presentation/cubit/online_releases_cubit.dart';
 import 'package:iris/features/player/presentation/models/anime_player_source_args.dart';
 import 'package:iris/features/watch_sources/domain/entities/watch_source_item.dart';
@@ -123,6 +122,7 @@ void main() {
     tester,
   ) async {
     await _pumpPage(tester, online: _FakeOnlineSources(const []));
+    await tester.pumpAndSettle();
 
     expect(find.text('ONLINE'), findsNothing);
     expect(find.text('TORRENTS'), findsNothing);
@@ -137,7 +137,7 @@ void main() {
 
     await tester.enterText(find.byType(TextField), 'subs');
     await tester.pump();
-    online.answer.complete(const []);
+    await online.answers.close();
     await tester.pumpAndSettle();
 
     expect(find.text('ONLINE'), findsNothing);
@@ -151,6 +151,93 @@ void main() {
     expect(find.text('ONLINE'), findsOneWidget);
     expect(find.bySemanticsLabel('Looking for online sources'), findsOneWidget);
     semantics.dispose();
+  });
+
+  testWidgets('shows a fast server\'s dubs while a slow one searches', (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+    final online = _FakeOnlineSources.pending();
+    await _pumpPage(tester, online: online);
+
+    online.answers.add([_release]);
+    // The noise never settles.
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+    expect(
+      find.byKey(const ValueKey('online_release_anilibria_9542')),
+      findsOneWidget,
+    );
+    // The next row still waits in noise.
+    expect(find.bySemanticsLabel('Looking for online sources'), findsOneWidget);
+
+    online.answers.add(_dubs);
+    await online.answers.close();
+    await tester.pumpAndSettle();
+    expect(find.text('AniDUB'), findsOneWidget);
+    expect(find.text('All dubs · 5'), findsOneWidget);
+    expect(find.bySemanticsLabel('Looking for online sources'), findsNothing);
+    semantics.dispose();
+  });
+
+  testWidgets('dissolves the online part when nothing is found', (
+    tester,
+  ) async {
+    final online = _FakeOnlineSources.pending();
+    await _pumpPage(tester, online: online);
+
+    await online.answers.close();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+    // Still there, going cell by cell.
+    expect(find.text('ONLINE'), findsOneWidget);
+
+    await tester.pumpAndSettle();
+    expect(find.text('ONLINE'), findsNothing);
+    expect(find.text('TORRENTS'), findsNothing);
+    expect(find.text('[SubsPlease] Frieren'), findsOneWidget);
+  });
+
+  testWidgets('a new row opens its space instead of pushing at once', (
+    tester,
+  ) async {
+    final online = _FakeOnlineSources.pending();
+    await _pumpPage(tester, online: online);
+    online.answers.add([_release]);
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+    final before = _torrentTop(tester);
+
+    online.answers.add(_dubs);
+    await online.answers.close();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 260));
+    final midway = _torrentTop(tester);
+    await tester.pumpAndSettle();
+
+    expect(midway, greaterThan(before));
+    expect(midway, lessThan(_torrentTop(tester)));
+  });
+
+  testWidgets('the torrents slide up once the online part has dissolved', (
+    tester,
+  ) async {
+    final online = _FakeOnlineSources.pending();
+    await _pumpPage(tester, online: online);
+    final before = _torrentTop(tester);
+
+    await online.answers.close();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    // Dissolving in place first.
+    expect(_torrentTop(tester), before);
+    // Dissolved; the space is half given back.
+    await tester.pump(const Duration(milliseconds: 380));
+    final midway = _torrentTop(tester);
+    await tester.pumpAndSettle();
+
+    expect(midway, lessThan(before));
+    expect(midway, greaterThan(_torrentTop(tester)));
   });
 
   testWidgets('a failed search offers to retry and keeps the torrents', (
@@ -274,7 +361,7 @@ Future<_RecordedNavigation> _pumpPage(
               create: (_) => OnlineReleasesCubit(
                 shikimoriId: args.animeId,
                 titles: args.searchTitles,
-                repository: online,
+                search: online,
               )..load(),
             ),
             BlocProvider(
@@ -310,7 +397,10 @@ Future<_RecordedNavigation> _pumpPage(
   return navigation;
 }
 
-class _FakeOnlineSources implements OnlineSourcesRepository {
+double _torrentTop(WidgetTester tester) =>
+    tester.getTopLeft(find.text('[SubsPlease] Frieren')).dy;
+
+class _FakeOnlineSources implements OnlineReleasesSearch {
   _FakeOnlineSources(this.releases);
 
   _FakeOnlineSources.found() : releases = [_release];
@@ -323,30 +413,21 @@ class _FakeOnlineSources implements OnlineSourcesRepository {
   bool pendingAnswer = false;
   bool fail = false;
   int searches = 0;
-  final answer = Completer<List<OnlineRelease>>();
+
+  /// The servers' answers while [pendingAnswer]; closing it ends the
+  /// search.
+  final answers = StreamController<List<OnlineRelease>>();
 
   @override
-  Future<List<OnlineRelease>> findReleases({
+  Stream<List<OnlineRelease>> watchReleases({
     required String shikimoriId,
     required List<String> titles,
-  }) async {
+  }) {
     searches++;
-    if (pendingAnswer) return answer.future;
-    if (fail) throw StateError('offline');
-    return releases;
+    if (pendingAnswer) return answers.stream;
+    if (fail) return Stream.error(StateError('offline'));
+    return releases.isEmpty ? const Stream.empty() : Stream.value(releases);
   }
-
-  @override
-  Future<OnlineRelease> fetchRelease({
-    required OnlineProvider provider,
-    required String id,
-  }) => throw UnimplementedError();
-
-  @override
-  Future<List<OnlineStream>> resolveStreams({
-    required OnlineProvider provider,
-    required String episodeId,
-  }) => throw UnimplementedError();
 }
 
 class _Torrents implements WatchSourcesRepository {

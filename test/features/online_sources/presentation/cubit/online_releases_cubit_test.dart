@@ -1,9 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:iris/features/online_sources/domain/entities/online_provider.dart';
 import 'package:iris/features/online_sources/domain/entities/online_release.dart';
-import 'package:iris/features/online_sources/domain/entities/online_stream.dart';
-import 'package:iris/features/online_sources/domain/repositories/online_sources_repository.dart';
+import 'package:iris/features/online_sources/domain/repositories/online_releases_search.dart';
 import 'package:iris/features/online_sources/presentation/cubit/online_releases_cubit.dart';
 import 'package:iris/features/online_sources/presentation/cubit/online_releases_state.dart';
 
@@ -15,12 +16,20 @@ const _release = OnlineRelease(
   episodes: [],
 );
 
+const _dub = OnlineRelease(
+  provider: OnlineProvider.yummyAnime,
+  id: '10661:AniDUB',
+  title: 'Фрирен',
+  dub: 'AniDUB',
+  episodes: [],
+);
+
 void main() {
-  Future<List<OnlineReleasesState>> load(_Sources sources) async {
+  Future<List<OnlineReleasesState>> load(_Search search) async {
     final cubit = OnlineReleasesCubit(
       shikimoriId: '52991',
       titles: const ['Frieren', 'Sousou no Frieren'],
-      repository: sources,
+      search: search,
     );
     final states = <OnlineReleasesState>[];
     final subscription = cubit.stream.listen(states.add);
@@ -33,56 +42,65 @@ void main() {
   }
 
   test('looks the anime up by its id and titles', () async {
-    final sources = _Sources(const [_release]);
+    final search = _Search(const [
+      [_release],
+    ]);
 
-    expect(await load(sources), const [
+    expect(await load(search), const [
       OnlineReleasesLoading(),
+      OnlineReleasesLoaded([_release], searching: true),
       OnlineReleasesLoaded([_release]),
     ]);
-    expect(sources.asked, ['52991: Frieren, Sousou no Frieren']);
+    expect(search.asked, ['52991: Frieren, Sousou no Frieren']);
+  });
+
+  test('shows each server as it answers', () async {
+    expect(
+      await load(
+        _Search(const [
+          [_release],
+          [_release, _dub],
+        ]),
+      ),
+      const [
+        OnlineReleasesLoading(),
+        OnlineReleasesLoaded([_release], searching: true),
+        OnlineReleasesLoaded([_release, _dub], searching: true),
+        OnlineReleasesLoaded([_release, _dub]),
+      ],
+    );
   });
 
   test('is empty when no server has the anime', () async {
-    expect(await load(_Sources(const [])), const [
+    expect(await load(_Search(const [])), const [
       OnlineReleasesLoading(),
       OnlineReleasesEmpty(),
     ]);
   });
 
   test('fails when the search fails', () async {
-    expect(await load(_Sources(const [], fail: true)), const [
+    expect(await load(_Search(const [], fail: true)), const [
       OnlineReleasesLoading(),
       OnlineReleasesFailure(),
     ]);
   });
 }
 
-class _Sources implements OnlineSourcesRepository {
-  _Sources(this.releases, {this.fail = false});
+class _Search implements OnlineReleasesSearch {
+  _Search(this.answers, {this.fail = false});
 
-  final List<OnlineRelease> releases;
+  /// What the search gives, step by step.
+  final List<List<OnlineRelease>> answers;
   final bool fail;
   final asked = <String>[];
 
   @override
-  Future<List<OnlineRelease>> findReleases({
+  Stream<List<OnlineRelease>> watchReleases({
     required String shikimoriId,
     required List<String> titles,
-  }) async {
+  }) async* {
     asked.add('$shikimoriId: ${titles.join(', ')}');
     if (fail) throw StateError('offline');
-    return releases;
+    yield* Stream.fromIterable(answers);
   }
-
-  @override
-  Future<OnlineRelease> fetchRelease({
-    required OnlineProvider provider,
-    required String id,
-  }) => throw UnimplementedError();
-
-  @override
-  Future<List<OnlineStream>> resolveStreams({
-    required OnlineProvider provider,
-    required String episodeId,
-  }) => throw UnimplementedError();
 }

@@ -591,7 +591,7 @@ String _topTitle(WidgetTester tester) {
 OnlineReleasesCubit _noOnlineReleases() => OnlineReleasesCubit(
   shikimoriId: '52991',
   titles: const [],
-  repository: const MockOnlineSourcesRepository(),
+  search: const MockOnlineSourcesRepository(),
 )..load();
 
 class _PendingWatchSourcesRepository implements WatchSourcesRepository {

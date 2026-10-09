@@ -63,6 +63,7 @@ import 'package:iris/features/online_sources/data/repositories/combined_online_s
 import 'package:iris/features/online_sources/data/repositories/yummy_anime_online_sources_repository.dart';
 import 'package:iris/features/online_sources/domain/entities/online_provider.dart';
 import 'package:iris/features/online_sources/data/repositories/mock_online_sources_repository.dart';
+import 'package:iris/features/online_sources/domain/repositories/online_releases_search.dart';
 import 'package:iris/features/online_sources/domain/repositories/online_sources_repository.dart';
 import 'package:iris/features/watch_sources/data/datasources/mock_watch_sources_data_source.dart';
 import 'package:iris/features/watch_sources/data/datasources/remote_watch_sources_data_source.dart';
@@ -188,9 +189,13 @@ Future<void> configureDependencies({
     }
 
     if (!serviceLocator.isRegistered<OnlineSourcesRepository>()) {
-      serviceLocator.registerLazySingleton<OnlineSourcesRepository>(
-        MockOnlineSourcesRepository.new,
-      );
+      serviceLocator
+        ..registerLazySingleton<OnlineSourcesRepository>(
+          MockOnlineSourcesRepository.new,
+        )
+        ..registerLazySingleton<OnlineReleasesSearch>(
+          MockOnlineSourcesRepository.new,
+        );
     }
 
     if (!serviceLocator.isRegistered<PlayerRepository>()) {
@@ -369,8 +374,8 @@ Future<void> configureDependencies({
       );
     }
 
-    if (!serviceLocator.isRegistered<OnlineSourcesRepository>()) {
-      serviceLocator.registerLazySingleton<OnlineSourcesRepository>(() {
+    if (!serviceLocator.isRegistered<CombinedOnlineSourcesRepository>()) {
+      serviceLocator.registerLazySingleton<CombinedOnlineSourcesRepository>(() {
         final videoServers = createVideoServerDio();
         return CombinedOnlineSourcesRepository(
           // AniLibria first: its own release is better than a copy.
@@ -390,6 +395,18 @@ Future<void> configureDependencies({
           },
         );
       });
+    }
+    // One repository behind both: the search shows sites as they answer,
+    // the player opens what it found.
+    if (!serviceLocator.isRegistered<OnlineSourcesRepository>()) {
+      serviceLocator.registerLazySingleton<OnlineSourcesRepository>(
+        () => serviceLocator<CombinedOnlineSourcesRepository>(),
+      );
+    }
+    if (!serviceLocator.isRegistered<OnlineReleasesSearch>()) {
+      serviceLocator.registerLazySingleton<OnlineReleasesSearch>(
+        () => serviceLocator<CombinedOnlineSourcesRepository>(),
+      );
     }
 
     if (!serviceLocator.isRegistered<PlayerRepository>()) {

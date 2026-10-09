@@ -9,12 +9,14 @@ import 'package:iris/features/watch_sources/presentation/widgets/watch_sources_v
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/widgets/adaptive/adaptive_content_width.dart';
 import 'package:iris/shared/widgets/adaptive/window_size_class.dart';
+import 'package:iris/shared/widgets/dither_switcher.dart';
 import 'package:iris/shared/widgets/page_title.dart';
 import 'package:iris/shared/widgets/section_label.dart';
 import 'package:iris/shared/widgets/adaptive/framed_app_bar.dart';
 
 /// Online releases over the torrents, each under its own label; with no
-/// online release the torrents are the whole page and need no label.
+/// online release the online part dissolves, and the torrents are the
+/// whole page and need no label.
 class WatchSourcesPage extends StatelessWidget {
   const WatchSourcesPage({required this.args, super.key});
 
@@ -45,15 +47,25 @@ class WatchSourcesPage extends StatelessWidget {
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  if (online) ...[
-                    OnlineReleasesSection(
-                      animeId: args.animeId,
-                      animeTitle: args.animeTitle,
-                    ),
-                    const SizedBox(height: 32),
-                    SectionLabel(l10n.watchSourcesTorrentsSection),
-                    const SizedBox(height: 12),
-                  ],
+                  // The torrents slide up once the online part dissolved.
+                  DitherSwitcher(
+                    collapse: true,
+                    child: online
+                        ? Column(
+                            key: const ValueKey('online'),
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              OnlineReleasesSection(
+                                animeId: args.animeId,
+                                animeTitle: args.animeTitle,
+                              ),
+                              const SizedBox(height: 32),
+                              SectionLabel(l10n.watchSourcesTorrentsSection),
+                              const SizedBox(height: 12),
+                            ],
+                          )
+                        : const SizedBox.shrink(key: ValueKey('no_online')),
+                  ),
                   // Keyed, so the torrents keep their state when the
                   // labels above them go.
                   const Expanded(

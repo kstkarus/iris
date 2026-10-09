@@ -15,6 +15,14 @@ abstract final class DitherTransition {
   static Widget transition(Widget child, Animation<double> animation) =>
       _DitherTransition(animation: animation, child: child);
 
+  /// Like [transition], but the outgoing child dissolves in the first half
+  /// of its run and gives its height back in the second. Run it backwards
+  /// for twice [duration].
+  static Widget collapsingTransition(
+    Widget child,
+    Animation<double> animation,
+  ) => _DitherTransition(animation: animation, collapse: true, child: child);
+
   /// Children stacked from the top-left; the tallest sets the height.
   static Widget layout(Widget? current, List<Widget> previous) => Stack(
     alignment: AlignmentDirectional.topStart,
@@ -27,9 +35,13 @@ abstract final class DitherTransition {
 }
 
 class _DitherTransition extends AnimatedWidget {
-  const _DitherTransition({required Animation<double> animation, this.child})
-    : super(listenable: animation);
+  const _DitherTransition({
+    required Animation<double> animation,
+    this.collapse = false,
+    this.child,
+  }) : super(listenable: animation);
 
+  final bool collapse;
   final Widget? child;
 
   @override
@@ -42,10 +54,27 @@ class _DitherTransition extends AnimatedWidget {
       _ => false,
     };
     final progress = leaving ? 1 - animation.value : animation.value;
-    return BayerMasked(
-      open: (progress * BayerMask.steps).round(),
-      inverse: leaving,
-      child: child,
+    if (!leaving || !collapse) {
+      return BayerMasked(
+        open: (progress * BayerMask.steps).round(),
+        inverse: leaving,
+        child: child,
+      );
+    }
+    final dissolved = (progress * 2).clamp(0.0, 1.0);
+    final collapsed = Curves.easeInOut.transform(
+      (progress * 2 - 1).clamp(0.0, 1.0),
+    );
+    return ClipRect(
+      child: Align(
+        alignment: AlignmentDirectional.topStart,
+        heightFactor: 1 - collapsed,
+        child: BayerMasked(
+          open: (dissolved * BayerMask.steps).round(),
+          inverse: true,
+          child: child,
+        ),
+      ),
     );
   }
 }

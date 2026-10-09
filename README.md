@@ -54,7 +54,7 @@ The watch sources screen also looks the anime up on video servers, ported from [
 - an episode the site gives no stream for is left out, and a release left with none is not offered; a special (12.5) keeps its own number in the picker and the same place in every dub
 - a release opens its episodes in the same picker a torrent opens its files in, with Continue and next episode as for torrents; watch progress belongs to the anime's episode, so switching dub keeps the place
 - an episode's stream links are asked for right before it plays (links expire), the better player first; buffering is mpv's; leaving the picker or the player drops a request still on its way; the stats overlay shows the decoder, without torrent speed or peers
-- when nothing is found the section is not shown; when the search fails it says so with Retry and the torrents still work
+- the sites are asked at once and each one's dubs show as soon as it answers, developing out of a noise row that waits while another site still searches; when nothing is found the section dissolves; when the search fails it says so with Retry and the torrents still work
 - `dart run tool/online_sources_smoke.dart [shikimoriId] [title...]` checks every site live
 - animelib (ddos-guard), animego (HTTP 500), dreamcast (timeouts) and hdrezka (bot challenge, broken player) did not answer when this was built; animevost and sameband have no Shikimori ids, and animevost's dub comes through yummy_anime anyway
 

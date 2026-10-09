@@ -21,7 +21,7 @@ import 'package:iris/features/downloads/presentation/cubit/download_selection_cu
 import 'package:iris/features/downloads/presentation/models/download_selection_args.dart';
 import 'package:iris/features/downloads/presentation/pages/download_manager_page.dart';
 import 'package:iris/features/downloads/presentation/pages/download_selection_page.dart';
-import 'package:iris/features/online_sources/domain/repositories/online_sources_repository.dart';
+import 'package:iris/features/online_sources/domain/repositories/online_releases_search.dart';
 import 'package:iris/features/online_sources/presentation/cubit/online_releases_cubit.dart';
 import 'package:iris/features/player/domain/entities/anime_player_source.dart';
 import 'package:iris/features/player/domain/repositories/player_decoding_preferences_repository.dart';
@@ -203,7 +203,7 @@ abstract final class AppRouter {
                   create: (_) => OnlineReleasesCubit(
                     shikimoriId: args.animeId,
                     titles: args.searchTitles,
-                    repository: serviceLocator<OnlineSourcesRepository>(),
+                    search: serviceLocator<OnlineReleasesSearch>(),
                   )..load(),
                 ),
               ],

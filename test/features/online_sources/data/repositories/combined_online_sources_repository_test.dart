@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:iris/features/online_sources/data/repositories/combined_online_sources_repository.dart';
@@ -93,6 +95,51 @@ void main() {
     );
   });
 
+  test('shows a fast provider before a slow one answers', () async {
+    final slow = _Provider.slow();
+    final found = <List<String>>[];
+    final done = Completer<void>();
+    combined(slow, yummy)
+        .watchReleases(shikimoriId: '52991', titles: const ['Frieren'])
+        .listen(
+          (releases) => found.add([for (final r in releases) r.id]),
+          onDone: done.complete,
+        );
+    await pumpEventQueue();
+    expect(found, [
+      ['10661:a', '10661:b'],
+    ]);
+
+    slow.answer.complete(anilibria.releases);
+    await done.future;
+    // Merged in the providers' order, whichever answered first.
+    expect(found.last, ['9542', '10661:b']);
+  });
+
+  test('a provider with nothing adds no step', () async {
+    final found = await combined(
+      _Provider(const []),
+      yummy,
+    ).watchReleases(shikimoriId: '52991', titles: const ['Frieren']).toList();
+
+    expect(found, hasLength(1));
+  });
+
+  test('the search fails only after every provider answered', () async {
+    final slow = _Provider.slow();
+    final events = <Object>[];
+    final done = Completer<void>();
+    combined(_Provider.failing(), slow)
+        .watchReleases(shikimoriId: '52991', titles: const ['Frieren'])
+        .listen(events.add, onError: events.add, onDone: done.complete);
+    await pumpEventQueue();
+    expect(events, isEmpty);
+
+    slow.answer.complete(const []);
+    await done.future;
+    expect(events.single, isA<NetworkRequestException>());
+  });
+
   test('asks the release provider for releases and streams', () async {
     final repository = combined(anilibria, yummy);
 
@@ -124,8 +171,13 @@ class _Provider implements OnlineSourcesRepository {
 
   _Provider.failing() : releases = const [], fails = true;
 
+  /// Answers when [answer] completes.
+  _Provider.slow() : releases = const [], fails = false, slowAnswer = true;
+
   final List<OnlineRelease> releases;
   final bool fails;
+  bool slowAnswer = false;
+  final answer = Completer<List<OnlineRelease>>();
   final calls = <String>[];
 
   @override
@@ -134,6 +186,7 @@ class _Provider implements OnlineSourcesRepository {
     required List<String> titles,
   }) async {
     if (fails) throw const NetworkRequestException('offline');
+    if (slowAnswer) return answer.future;
     return releases;
   }
 

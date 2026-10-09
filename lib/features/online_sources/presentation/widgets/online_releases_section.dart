@@ -12,13 +12,18 @@ import 'package:iris/features/player/presentation/models/anime_player_source_arg
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/widgets/adaptive/show_adaptive_sheet.dart';
 import 'package:iris/shared/widgets/app_skeleton.dart';
+import 'package:iris/shared/widgets/dither_switcher.dart';
 import 'package:iris/shared/widgets/section_label.dart';
 import 'package:iris/shared/widgets/segmented_bar.dart';
 
 /// The anime's releases on video servers, one row per dub, over its
 /// torrents. A row opens the release's episodes in the file picker, as a
-/// torrent row opens its files. Nothing is shown when no server has the
-/// anime.
+/// torrent row opens its files. When no server has the anime, the page
+/// dissolves the section.
+///
+/// Rows come as the servers answer: each develops out of noise in its
+/// place, and while a server is still searching a noise row waits under
+/// the found ones.
 ///
 /// An anime may have dozens of dubs: the page keeps [shownRows] of them,
 /// those watched from first, and lists the rest in a sheet, so the torrents
@@ -43,20 +48,17 @@ class OnlineReleasesSection extends StatelessWidget {
     return BlocBuilder<OnlineReleasesCubit, OnlineReleasesState>(
       builder: (context, state) {
         final Widget rows = switch (state) {
-          OnlineReleasesEmpty() => const SizedBox.shrink(),
-          // The search takes a second or two; the row's shape is known.
-          OnlineReleasesLoading() => AppSkeleton(
-            enabled: true,
-            semanticLabel: l10n.watchSourcesOnlineLoading,
-            child: _ReleaseRow(release: _standIn, watched: false, onTap: () {}),
-          ),
-          OnlineReleasesLoaded(:final releases) => AppSkeleton(
-            enabled: false,
-            child: _loadedRows(context, releases),
+          // Nothing found: the stand-in stays while the page dissolves
+          // the section.
+          OnlineReleasesLoading() ||
+          OnlineReleasesEmpty() => _rows(context, const [], searching: true),
+          OnlineReleasesLoaded(:final releases, :final searching) => _rows(
+            context,
+            releases,
+            searching: searching,
           ),
           OnlineReleasesFailure() => const _FailureRow(),
         };
-        if (state is OnlineReleasesEmpty) return rows;
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -71,48 +73,99 @@ class OnlineReleasesSection extends StatelessWidget {
     );
   }
 
-  Widget _loadedRows(BuildContext context, List<OnlineRelease> releases) {
-    final l10n = AppLocalizations.of(context);
+  /// The rows sit in fixed slots, so a row that comes, goes or changes
+  /// develops or dissolves in its own place.
+  Widget _rows(
+    BuildContext context,
+    List<OnlineRelease> releases, {
+    required bool searching,
+  }) {
     final watchedLinks = {
       for (final progress in context.watchWatchProgress()) progress.magnet,
     };
     bool watched(OnlineRelease release) =>
         watchedLinks.contains(_link(release));
-    final ordered = [
+    List<OnlineRelease> order(List<OnlineRelease> releases) => [
       ...releases.where(watched),
       ...releases.where((release) => !watched(release)),
     ];
+    final ordered = order(releases);
     final shown = ordered.take(shownRows).toList();
+
+    Widget slot(int index) {
+      final Widget row;
+      if (index < shown.length) {
+        final release = shown[index];
+        row = _ReleaseRow(
+          key: ValueKey(_link(release)),
+          release: release,
+          watched: watched(release),
+          onTap: () => _open(context, release),
+        );
+      } else if (searching && index == shown.length) {
+        row = const _StandInRow(key: ValueKey('stand_in'));
+      } else {
+        return const SizedBox.shrink(key: ValueKey('empty'));
+      }
+      return Column(
+        key: row.key,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [if (index > 0) const SegmentedRule(), row],
+      );
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        for (final (index, release) in shown.indexed) ...[
-          if (index > 0) const SegmentedRule(),
-          _ReleaseRow(
-            release: release,
-            watched: watched(release),
-            onTap: () => _open(context, release),
-          ),
-        ],
-        if (ordered.length > shown.length) ...[
-          const SegmentedRule(),
-          _AllReleasesRow(
-            count: ordered.length,
-            onTap: () => showAdaptiveSheet<void>(
-              context: context,
-              builder: (sheetContext) => _AllReleasesSheet(
-                title: l10n.watchSourcesOnlineAllTitle,
-                releases: ordered,
-                watched: watched,
-                onSelected: (release) {
-                  Navigator.of(sheetContext).pop();
-                  _open(context, release);
-                },
-              ),
+        for (var index = 0; index < shownRows; index++)
+          DitherSwitcher(resize: true, child: slot(index)),
+        DitherSwitcher(
+          resize: true,
+          child: ordered.length > shown.length
+              ? Column(
+                  key: const ValueKey('all'),
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const SegmentedRule(),
+                    _AllReleasesRow(
+                      count: ordered.length,
+                      onTap: () => _showAll(context, order, watched),
+                    ),
+                  ],
+                )
+              : const SizedBox.shrink(key: ValueKey('empty')),
+        ),
+      ],
+    );
+  }
+
+  /// The sheet follows the search: a server that answers while it is
+  /// open adds its dubs there too.
+  void _showAll(
+    BuildContext context,
+    List<OnlineRelease> Function(List<OnlineRelease> releases) order,
+    bool Function(OnlineRelease release) watched,
+  ) {
+    final l10n = AppLocalizations.of(context);
+    final cubit = context.read<OnlineReleasesCubit>();
+    showAdaptiveSheet<void>(
+      context: context,
+      builder: (sheetContext) =>
+          BlocBuilder<OnlineReleasesCubit, OnlineReleasesState>(
+            bloc: cubit,
+            builder: (_, state) => _AllReleasesSheet(
+              title: l10n.watchSourcesOnlineAllTitle,
+              releases: switch (state) {
+                OnlineReleasesLoaded(:final releases) => order(releases),
+                _ => const [],
+              },
+              watched: watched,
+              onSelected: (release) {
+                Navigator.of(sheetContext).pop();
+                _open(context, release);
+              },
             ),
           ),
-        ],
-      ],
     );
   }
 
@@ -135,21 +188,35 @@ class OnlineReleasesSection extends StatelessWidget {
   }
 }
 
-/// What the row looks like while the search runs.
-const _standIn = OnlineRelease(
-  provider: OnlineProvider.anilibria,
-  id: '',
-  title: '',
-  dub: 'AniLibria',
-  episodes: [],
-  bestQuality: 1080,
-);
+/// A row's shape in noise while a server is still searching.
+class _StandInRow extends StatelessWidget {
+  const _StandInRow({super.key});
+
+  static const _standIn = OnlineRelease(
+    provider: OnlineProvider.anilibria,
+    id: '',
+    title: '',
+    dub: 'AniLibria',
+    episodes: [],
+    bestQuality: 1080,
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    return AppSkeleton(
+      enabled: true,
+      semanticLabel: AppLocalizations.of(context).watchSourcesOnlineLoading,
+      child: _ReleaseRow(release: _standIn, watched: false, onTap: () {}),
+    );
+  }
+}
 
 class _ReleaseRow extends StatelessWidget {
   const _ReleaseRow({
     required this.release,
     required this.watched,
     required this.onTap,
+    super.key,
   });
 
   final OnlineRelease release;
