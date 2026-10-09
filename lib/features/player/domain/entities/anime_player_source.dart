@@ -1,5 +1,5 @@
 import 'package:iris/features/player/domain/entities/player_video_file.dart';
-import 'package:iris/shared/torrent/torrent_key.dart';
+import 'package:iris/shared/online/online_source_link.dart';
 import 'package:iris/shared/utils/episode_number.dart';
 
 class AnimePlayerSource {
@@ -29,9 +29,10 @@ class AnimePlayerSource {
   /// downloads, which play a single file.
   final List<PlayerVideoFile> files;
 
-  /// Identity of the torrent for watch progress; null without a magnet.
+  /// Identity of the source for watch progress: the torrent, or the anime
+  /// for an online release; null without a magnet.
   String? get torrentKey =>
-      magnet.trim().isEmpty ? null : torrentKeyFromMagnet(magnet);
+      magnet.trim().isEmpty ? null : sourceProgressKey(magnet);
 
   /// The playing episode's number, when the source or the name gives one.
   int? get episodeNumber {

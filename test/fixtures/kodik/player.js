@@ -1,0 +1,1 @@
+,!0===playerSettings.onlyAdvert&&(e.only_a=!0),!0===t.isUpdate&&(e.isUpdate=!0),$.ajax({type:"POST",url:atob("L2Z0b3I="),cache:!1,dataType:"json",data:e,beforeSend:function(){"function"==typeof t.befo

@@ -1,0 +1,15 @@
+{
+  "id": "36c45284528fe5b4f30a39d9f008d1b8",
+  "anime_id": 10661,
+  "episode": "1",
+  "studio_name": "AniLibria",
+  "is_subtitle": false,
+  "qualities": {
+    "q1080": "https://cdn.example.test/static13/video/a10661/AniLibria/01/1080.mpd",
+    "q360": null,
+    "q480": null,
+    "q720": null,
+    "q2k": null,
+    "q4k": null
+  }
+}

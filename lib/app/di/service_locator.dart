@@ -54,8 +54,14 @@ import 'package:iris/features/player/presentation/widgets/mock_player_viewport_f
 import 'package:iris/features/player/presentation/widgets/player_viewport_factory.dart';
 import 'package:iris/features/saved_torrents/data/repositories/shared_preferences_saved_torrents_repository.dart';
 import 'package:iris/features/saved_torrents/domain/repositories/saved_torrents_repository.dart';
+import 'package:iris/features/online_sources/data/datasources/aksor_data_source.dart';
 import 'package:iris/features/online_sources/data/datasources/anilibria_data_source.dart';
+import 'package:iris/features/online_sources/data/datasources/kodik_data_source.dart';
+import 'package:iris/features/online_sources/data/datasources/yummy_anime_data_source.dart';
 import 'package:iris/features/online_sources/data/repositories/anilibria_online_sources_repository.dart';
+import 'package:iris/features/online_sources/data/repositories/combined_online_sources_repository.dart';
+import 'package:iris/features/online_sources/data/repositories/yummy_anime_online_sources_repository.dart';
+import 'package:iris/features/online_sources/domain/entities/online_provider.dart';
 import 'package:iris/features/online_sources/data/repositories/mock_online_sources_repository.dart';
 import 'package:iris/features/online_sources/domain/repositories/online_sources_repository.dart';
 import 'package:iris/features/watch_sources/data/datasources/mock_watch_sources_data_source.dart';
@@ -71,6 +77,9 @@ import 'package:iris/shared/network/aniskip_dio_factory.dart';
 import 'package:iris/shared/network/nyaa_api_client.dart';
 import 'package:iris/shared/network/nyaa_dio_factory.dart';
 import 'package:iris/shared/network/shikimori_graph_ql_client.dart';
+import 'package:iris/shared/network/video_server_dio_factory.dart';
+import 'package:iris/shared/network/yummy_anime_api_client.dart';
+import 'package:iris/shared/network/yummy_anime_dio_factory.dart';
 import 'package:iris/shared/storage/stream_cache_storage.dart';
 import 'package:iris/shared/torrent/torrent_activity_registry.dart';
 import 'package:iris/shared/window/windows_fullscreen.dart';
@@ -104,6 +113,12 @@ Future<void> configureDependencies({
   if (!serviceLocator.isRegistered<AnilibriaApiClient>()) {
     serviceLocator.registerLazySingleton<AnilibriaApiClient>(
       () => AnilibriaApiClient(dio: createAnilibriaDio()),
+    );
+  }
+
+  if (!serviceLocator.isRegistered<YummyAnimeApiClient>()) {
+    serviceLocator.registerLazySingleton<YummyAnimeApiClient>(
+      () => YummyAnimeApiClient(dio: createYummyAnimeDio()),
     );
   }
 
@@ -355,13 +370,26 @@ Future<void> configureDependencies({
     }
 
     if (!serviceLocator.isRegistered<OnlineSourcesRepository>()) {
-      serviceLocator.registerLazySingleton<OnlineSourcesRepository>(
-        () => AnilibriaOnlineSourcesRepository(
-          dataSource: AnilibriaDataSource(
-            client: serviceLocator<AnilibriaApiClient>(),
-          ),
-        ),
-      );
+      serviceLocator.registerLazySingleton<OnlineSourcesRepository>(() {
+        final videoServers = createVideoServerDio();
+        return CombinedOnlineSourcesRepository(
+          // AniLibria first: its own release is better than a copy.
+          providers: {
+            OnlineProvider.anilibria: AnilibriaOnlineSourcesRepository(
+              dataSource: AnilibriaDataSource(
+                client: serviceLocator<AnilibriaApiClient>(),
+              ),
+            ),
+            OnlineProvider.yummyAnime: YummyAnimeOnlineSourcesRepository(
+              dataSource: YummyAnimeDataSource(
+                client: serviceLocator<YummyAnimeApiClient>(),
+              ),
+              kodik: KodikDataSource(dio: videoServers),
+              aksor: AksorDataSource(dio: videoServers),
+            ),
+          },
+        );
+      });
     }
 
     if (!serviceLocator.isRegistered<PlayerRepository>()) {

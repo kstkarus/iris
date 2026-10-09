@@ -12,5 +12,8 @@ void main() {
   test('keeps names without a real extension', () {
     expect(fileDisplayName('Episode 1'), 'Episode 1');
     expect(fileDisplayName('.mkv'), '.mkv');
+    // A number is not an extension: specials keep their half.
+    expect(fileDisplayName('Frieren 12.5'), 'Frieren 12.5');
+    expect(fileDisplayName('1.5'), '1.5');
   });
 }

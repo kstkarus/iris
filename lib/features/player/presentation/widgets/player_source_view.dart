@@ -92,8 +92,8 @@ class _SuccessState extends StatelessWidget {
           _ContinueCard(
             file: continueTarget.file,
             number:
-                continueTarget.file.number ??
-                files.indexOf(continueTarget.file) + 1,
+                continueTarget.file.numberLabel ??
+                '${files.indexOf(continueTarget.file) + 1}'.padLeft(2, '0'),
             progress: continueTarget.isNext
                 ? null
                 : progressByFile[continueTarget.file.index],
@@ -128,7 +128,9 @@ class _ContinueCard extends StatelessWidget {
   });
 
   final PlayerVideoFile file;
-  final int number;
+
+  /// As the list shows it: "04", "12.5".
+  final String number;
 
   /// Where the file stopped; null for the next, unwatched file.
   final WatchProgress? progress;
@@ -167,10 +169,7 @@ class _ContinueCard extends StatelessWidget {
     );
     final number = SizedBox(
       width: 44,
-      child: Text(
-        this.number.toString().padLeft(2, '0'),
-        style: theme.textTheme.titleMedium,
-      ),
+      child: Text(this.number, style: theme.textTheme.titleMedium),
     );
     return Card(
       child: Padding(

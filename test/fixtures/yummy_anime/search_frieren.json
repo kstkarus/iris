@@ -1,0 +1,34 @@
+{
+  "response": [
+    {
+      "anime_id": 10661,
+      "title": "Провожающая в последний путь Фрирен",
+      "remote_ids": {
+        "worldart_id": 11466,
+        "shikimori_id": 52991,
+        "anidub_id": 0,
+        "anilibria_alias": "sousou-no-frieren",
+        "myanimelist_id": 52991,
+        "kp_id": 5401195,
+        "worldart_type": "animation",
+        "sr_id": 1459
+      },
+      "year": 2023
+    },
+    {
+      "anime_id": 15084,
+      "title": "Провожающая в последний путь Фрирен 2",
+      "remote_ids": {
+        "worldart_id": 12242,
+        "shikimori_id": 59978,
+        "anidub_id": 0,
+        "anilibria_alias": "",
+        "myanimelist_id": 59978,
+        "kp_id": 5401195,
+        "worldart_type": "animation",
+        "sr_id": 0
+      },
+      "year": 2026
+    }
+  ]
+}

@@ -42,15 +42,18 @@ class PlayerPlaybackStatsListenable extends StatelessWidget {
           ? listenable
           : Listenable.merge([listenable, diagnosticsListenable!]),
       builder: (context, child) {
+        // An online stream has no transport stats; its decoder still has
+        // something to show.
         final stats = listenable.value;
-        if (stats == null) {
+        final diagnostics = diagnosticsListenable?.value ?? this.diagnostics;
+        if (stats == null && diagnostics == null && !isBuffering) {
           return const SizedBox.shrink();
         }
         return PlayerPlaybackStatsIndicator(
           stats: stats,
           videoCodec: videoCodec,
           audioCodec: audioCodec,
-          diagnostics: diagnosticsListenable?.value ?? diagnostics,
+          diagnostics: diagnostics,
           isBuffering: isBuffering,
           bufferMarginState: bufferMarginState,
           detailed: detailed,
@@ -63,7 +66,7 @@ class PlayerPlaybackStatsListenable extends StatelessWidget {
 
 class PlayerPlaybackStatsIndicator extends StatelessWidget {
   const PlayerPlaybackStatsIndicator({
-    required this.stats,
+    this.stats,
     this.videoCodec,
     this.audioCodec,
     this.diagnostics,
@@ -78,7 +81,9 @@ class PlayerPlaybackStatsIndicator extends StatelessWidget {
   /// understand stalls (speed, buffer, buffering).
   static const _essentialPriorities = {0, 2, 9};
 
-  final PlayerPlaybackStats stats;
+  /// Transport metrics (speed, peers, read-ahead, memory); null for a
+  /// stream that has none, which shows the rest.
+  final PlayerPlaybackStats? stats;
   final String? videoCodec;
   final String? audioCodec;
   final PlayerPlaybackDiagnostics? diagnostics;
@@ -155,27 +160,32 @@ class PlayerPlaybackStatsIndicator extends StatelessWidget {
   List<_PlayerOverlayMetricItem> _buildMetrics(AppLocalizations l10n) {
     // TODO(kstk): Add a user-facing setting to choose which overlay metrics
     // should stay visible in the player.
+    final stats = this.stats;
     final items = <_PlayerOverlayMetricItem>[
-      _PlayerOverlayMetricItem(
-        value: formatTransferRate(l10n, stats.downloadRateBytesPerSecond),
-        priority: 0,
-        tooltip: l10n.playerRuntimeStatsSpeed(
-          formatTransferRate(l10n, stats.downloadRateBytesPerSecond),
+      if (stats != null) ...[
+        _PlayerOverlayMetricItem(
+          value: formatTransferRate(l10n, stats.downloadRateBytesPerSecond),
+          priority: 0,
+          tooltip: l10n.playerRuntimeStatsSpeed(
+            formatTransferRate(l10n, stats.downloadRateBytesPerSecond),
+          ),
         ),
-      ),
-      _PlayerOverlayMetricItem(
-        value: stats.activePeers.toString(),
-        label: _labelOf(l10n.playerRuntimeStatsPeers('')),
-        priority: 1,
-        tooltip: l10n.playerRuntimeStatsPeers(stats.activePeers.toString()),
-      ),
+        _PlayerOverlayMetricItem(
+          value: stats.activePeers.toString(),
+          label: _labelOf(l10n.playerRuntimeStatsPeers('')),
+          priority: 1,
+          tooltip: l10n.playerRuntimeStatsPeers(stats.activePeers.toString()),
+        ),
+      ],
     ];
 
-    final bufferedWindowProgress = _resolveBufferedWindowProgress(stats);
-    final bufferSufficient =
-        (bufferMarginState ?? resolvePlayerBufferMargin(stats)) ==
-        PlayerBufferMarginState.sufficient;
-    if (bufferedWindowProgress > 0) {
+    final bufferedWindowProgress = stats == null
+        ? 0.0
+        : _resolveBufferedWindowProgress(stats);
+    if (stats != null && bufferedWindowProgress > 0) {
+      final bufferSufficient =
+          (bufferMarginState ?? resolvePlayerBufferMargin(stats)) ==
+          PlayerBufferMarginState.sufficient;
       items.add(
         _PlayerOverlayMetricItem(
           value: _formatBufferedWindowProgress(bufferedWindowProgress),
@@ -246,7 +256,7 @@ class PlayerPlaybackStatsIndicator extends StatelessWidget {
       );
     }
 
-    final memory = stats.appMemoryBytes;
+    final memory = stats?.appMemoryBytes;
     if (memory != null) {
       final formattedMemory = _formatMemory(l10n, memory);
       items.add(

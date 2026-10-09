@@ -5,25 +5,32 @@ import 'package:go_router/go_router.dart';
 import 'package:iris/entities/watch_progress/presentation/watch_progress_cubit.dart';
 import 'package:iris/features/online_sources/domain/entities/online_provider.dart';
 import 'package:iris/features/online_sources/domain/entities/online_release.dart';
-import 'package:iris/features/online_sources/domain/entities/online_source_link.dart';
+import 'package:iris/shared/online/online_source_link.dart';
 import 'package:iris/features/online_sources/presentation/cubit/online_releases_cubit.dart';
 import 'package:iris/features/online_sources/presentation/cubit/online_releases_state.dart';
 import 'package:iris/features/player/presentation/models/anime_player_source_args.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
-import 'package:iris/shared/torrent/torrent_key.dart';
+import 'package:iris/shared/widgets/adaptive/show_adaptive_sheet.dart';
 import 'package:iris/shared/widgets/app_skeleton.dart';
 import 'package:iris/shared/widgets/section_label.dart';
 import 'package:iris/shared/widgets/segmented_bar.dart';
 
-/// The anime's releases on video servers, one row each, over its torrents.
-/// A row opens the release's episodes in the file picker, as a torrent row
-/// opens its files. Nothing is shown when no server has the anime.
+/// The anime's releases on video servers, one row per dub, over its
+/// torrents. A row opens the release's episodes in the file picker, as a
+/// torrent row opens its files. Nothing is shown when no server has the
+/// anime.
+///
+/// An anime may have dozens of dubs: the page keeps [shownRows] of them,
+/// those watched from first, and lists the rest in a sheet, so the torrents
+/// stay on screen.
 class OnlineReleasesSection extends StatelessWidget {
   const OnlineReleasesSection({
     required this.animeId,
     required this.animeTitle,
     super.key,
   });
+
+  static const shownRows = 3;
 
   final String animeId;
 
@@ -41,22 +48,11 @@ class OnlineReleasesSection extends StatelessWidget {
           OnlineReleasesLoading() => AppSkeleton(
             enabled: true,
             semanticLabel: l10n.watchSourcesOnlineLoading,
-            child: _ReleaseRow(release: _standIn, onTap: () {}),
+            child: _ReleaseRow(release: _standIn, watched: false, onTap: () {}),
           ),
           OnlineReleasesLoaded(:final releases) => AppSkeleton(
             enabled: false,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                for (final (index, release) in releases.indexed) ...[
-                  if (index > 0) const SegmentedRule(),
-                  _ReleaseRow(
-                    release: release,
-                    onTap: () => _open(context, release),
-                  ),
-                ],
-              ],
-            ),
+            child: _loadedRows(context, releases),
           ),
           OnlineReleasesFailure() => const _FailureRow(),
         };
@@ -75,6 +71,57 @@ class OnlineReleasesSection extends StatelessWidget {
     );
   }
 
+  Widget _loadedRows(BuildContext context, List<OnlineRelease> releases) {
+    final l10n = AppLocalizations.of(context);
+    final watchedLinks = {
+      for (final progress in context.watchWatchProgress()) progress.magnet,
+    };
+    bool watched(OnlineRelease release) =>
+        watchedLinks.contains(_link(release));
+    final ordered = [
+      ...releases.where(watched),
+      ...releases.where((release) => !watched(release)),
+    ];
+    final shown = ordered.take(shownRows).toList();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (final (index, release) in shown.indexed) ...[
+          if (index > 0) const SegmentedRule(),
+          _ReleaseRow(
+            release: release,
+            watched: watched(release),
+            onTap: () => _open(context, release),
+          ),
+        ],
+        if (ordered.length > shown.length) ...[
+          const SegmentedRule(),
+          _AllReleasesRow(
+            count: ordered.length,
+            onTap: () => showAdaptiveSheet<void>(
+              context: context,
+              builder: (sheetContext) => _AllReleasesSheet(
+                title: l10n.watchSourcesOnlineAllTitle,
+                releases: ordered,
+                watched: watched,
+                onSelected: (release) {
+                  Navigator.of(sheetContext).pop();
+                  _open(context, release);
+                },
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  String _link(OnlineRelease release) => OnlineSourceLink(
+    provider: release.provider.name,
+    releaseId: release.id,
+    animeId: animeId,
+  ).toString();
+
   void _open(BuildContext context, OnlineRelease release) {
     context.pushNamed(
       'torrent-stream-files',
@@ -82,10 +129,7 @@ class OnlineReleasesSection extends StatelessWidget {
         animeId: animeId,
         animeTitle: animeTitle,
         sourceTitle: release.dub,
-        magnet: OnlineSourceLink(
-          provider: release.provider,
-          releaseId: release.id,
-        ).toString(),
+        magnet: _link(release),
       ),
     );
   }
@@ -102,23 +146,22 @@ const _standIn = OnlineRelease(
 );
 
 class _ReleaseRow extends StatelessWidget {
-  const _ReleaseRow({required this.release, required this.onTap});
+  const _ReleaseRow({
+    required this.release,
+    required this.watched,
+    required this.onTap,
+  });
 
   final OnlineRelease release;
+
+  /// The user watched from this dub before.
+  final bool watched;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final l10n = AppLocalizations.of(context);
-    final link = OnlineSourceLink(
-      provider: release.provider,
-      releaseId: release.id,
-    ).toString();
-    final key = torrentKeyFromMagnet(link);
-    final watched = context.watchWatchProgress().any(
-      (progress) => progress.torrentKey == key,
-    );
     final count = release.episodes.length;
     final quality = release.bestQuality;
     final facts = [
@@ -130,7 +173,7 @@ class _ReleaseRow extends StatelessWidget {
     return Material(
       type: MaterialType.transparency,
       child: InkWell(
-        key: ValueKey('online_release_$link'),
+        key: ValueKey('online_release_${release.provider.name}_${release.id}'),
         onTap: onTap,
         child: Padding(
           padding: const EdgeInsets.all(12),
@@ -157,6 +200,77 @@ class _ReleaseRow extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// The way to the dubs the page does not show.
+class _AllReleasesRow extends StatelessWidget {
+  const _AllReleasesRow({required this.count, required this.onTap});
+
+  final int count;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context);
+    return Material(
+      type: MaterialType.transparency,
+      child: InkWell(
+        key: const Key('online_releases_all'),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Text(
+            l10n.watchSourcesOnlineAll(count),
+            style: theme.textTheme.bodyMedium,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AllReleasesSheet extends StatelessWidget {
+  const _AllReleasesSheet({
+    required this.title,
+    required this.releases,
+    required this.watched,
+    required this.onSelected,
+  });
+
+  final String title;
+  final List<OnlineRelease> releases;
+  final bool Function(OnlineRelease release) watched;
+  final ValueChanged<OnlineRelease> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 24, 24, 12),
+            child: Text(title, style: Theme.of(context).textTheme.titleLarge),
+          ),
+          Flexible(
+            child: ListView.separated(
+              shrinkWrap: true,
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+              itemCount: releases.length,
+              separatorBuilder: (context, index) => const SegmentedRule(),
+              itemBuilder: (context, index) => _ReleaseRow(
+                release: releases[index],
+                watched: watched(releases[index]),
+                onTap: () => onSelected(releases[index]),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

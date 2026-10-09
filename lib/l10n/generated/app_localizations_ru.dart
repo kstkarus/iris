@@ -237,6 +237,14 @@ class AppLocalizationsRu extends AppLocalizations {
   String get watchSourcesOnlineLoading => 'Ищем онлайн-источники';
 
   @override
+  String watchSourcesOnlineAll(int count) {
+    return 'Все озвучки · $count';
+  }
+
+  @override
+  String get watchSourcesOnlineAllTitle => 'Озвучки';
+
+  @override
   String get watchSourcesOnlineLoadError => 'Онлайн-источники не ответили.';
 
   @override

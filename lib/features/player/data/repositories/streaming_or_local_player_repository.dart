@@ -1,4 +1,4 @@
-import 'package:iris/features/online_sources/domain/entities/online_source_link.dart';
+import 'package:iris/shared/online/online_source_link.dart';
 import 'package:iris/features/player/domain/entities/player_launch_update.dart';
 import 'package:iris/features/player/domain/entities/player_playback_stats.dart';
 import 'package:iris/features/player/domain/entities/prepared_player_source.dart';

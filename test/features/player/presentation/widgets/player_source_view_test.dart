@@ -108,6 +108,43 @@ void main() {
     expect(find.text('0 B'), findsNothing);
   });
 
+  testWidgets('an episode without a length shows no size either', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _wrap(
+        cubit: _FakePlayerSourceCubit(
+          const PlayerSourceReady(
+            PreparedPlayerSource(
+              sessionId: 'online:yummy_anime/10661:AniDUB',
+              files: [
+                PlayerVideoFile(
+                  index: 1,
+                  name: '1',
+                  size: 0,
+                  extension: '',
+                  episodeNumber: 1,
+                ),
+                PlayerVideoFile(
+                  index: 100050,
+                  name: '0.5',
+                  size: 0,
+                  extension: '',
+                  episodeNumber: 0.5,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('0 B'), findsNothing);
+    expect(find.textContaining('min'), findsNothing);
+    // A special is labelled with its own number, not its position.
+    expect(find.text('0.5'), findsWidgets);
+  });
+
   testWidgets('says episodes, not torrent files, load for an online release', (
     tester,
   ) async {

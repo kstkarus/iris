@@ -21,11 +21,11 @@ import 'package:iris/features/watch_sources/presentation/cubit/watch_sources_cub
 import 'package:iris/features/watch_sources/presentation/models/anime_watch_sources_args.dart';
 import 'package:iris/features/watch_sources/presentation/pages/watch_sources_page.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
-import 'package:iris/shared/torrent/torrent_key.dart';
+import 'package:iris/shared/online/online_source_link.dart';
 
 import '../../../../helpers/test_window.dart';
 
-const _link = 'online:anilibria/9542';
+const _link = 'online:anilibria/9542?anime=52991';
 
 final _release = OnlineRelease(
   provider: OnlineProvider.anilibria,
@@ -38,6 +38,24 @@ final _release = OnlineRelease(
   ],
   bestQuality: 1080,
 );
+
+OnlineRelease _dub(OnlineProvider provider, String id, String dub) =>
+    OnlineRelease(
+      provider: provider,
+      id: id,
+      title: '',
+      dub: dub,
+      episodes: const [OnlineEpisode(id: 'e1', number: 1)],
+      bestQuality: 720,
+    );
+
+final _dubs = [
+  _release,
+  _dub(OnlineProvider.yummyAnime, '10661:anidub', 'AniDUB'),
+  _dub(OnlineProvider.yummyAnime, '10661:dreamcast', 'Dream Cast'),
+  _dub(OnlineProvider.yummyAnime, '10661:shiza', 'SHIZA Project'),
+  _dub(OnlineProvider.yummyAnime, '10661:anistar', 'AniStar'),
+];
 
 void main() {
   testWidgets('puts the online release over the torrents, each labelled', (
@@ -64,7 +82,9 @@ void main() {
       online: _FakeOnlineSources.found(),
     );
 
-    await tester.tap(find.byKey(const ValueKey('online_release_$_link')));
+    await tester.tap(
+      find.byKey(const ValueKey('online_release_anilibria_9542')),
+    );
     await tester.pumpAndSettle();
 
     expect(find.text('File picker'), findsOneWidget);
@@ -81,7 +101,7 @@ void main() {
       online: _FakeOnlineSources.found(),
       history: [
         WatchProgress(
-          torrentKey: torrentKeyFromMagnet(_link),
+          torrentKey: sourceProgressKey(_link),
           fileIndex: 3,
           fileName: '04 «Пристанище душ»',
           magnet: _link,
@@ -148,6 +168,63 @@ void main() {
 
     expect(online.searches, 2);
     expect(find.text('AniLibria'), findsOneWidget);
+  });
+
+  testWidgets('keeps three dubs on the page and lists all in a sheet', (
+    tester,
+  ) async {
+    final navigation = await _pumpPage(
+      tester,
+      online: _FakeOnlineSources(_dubs),
+    );
+
+    expect(find.text('AniLibria'), findsOneWidget);
+    expect(find.text('AniDUB'), findsOneWidget);
+    expect(find.text('Dream Cast'), findsOneWidget);
+    expect(find.text('SHIZA Project'), findsNothing);
+    expect(find.text('All dubs · 5'), findsOneWidget);
+
+    await tester.tap(find.text('All dubs · 5'));
+    await tester.pumpAndSettle();
+    expect(find.text('Dubs'), findsOneWidget);
+    await tester.tap(find.text('SHIZA Project'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('File picker'), findsOneWidget);
+    final args = navigation.extra! as AnimePlayerSourceArgs;
+    expect(args.sourceTitle, 'SHIZA Project');
+    expect(args.magnet, 'online:yummyAnime/10661:shiza?anime=52991');
+  });
+
+  testWidgets('puts the dubs the user watched from first', (tester) async {
+    const link = 'online:yummyAnime/10661:anistar?anime=52991';
+    await _pumpPage(
+      tester,
+      online: _FakeOnlineSources(_dubs),
+      history: [
+        WatchProgress(
+          torrentKey: sourceProgressKey(link),
+          fileIndex: 2,
+          fileName: '02',
+          magnet: link,
+          sourceTitle: 'AniStar',
+          position: const Duration(minutes: 3),
+          duration: const Duration(minutes: 24),
+          updatedAt: DateTime(2026, 10, 9),
+        ),
+      ],
+    );
+
+    expect(find.text('AniStar'), findsOneWidget);
+    expect(
+      tester.getTopLeft(find.text('AniStar')).dy,
+      lessThan(tester.getTopLeft(find.text('AniLibria')).dy),
+    );
+    // Only the dub watched from is marked, though all share the progress.
+    expect(
+      find.textContaining('You watched this', findRichText: true),
+      findsOneWidget,
+    );
   });
 
   for (final entry in TestWindowSizes.all.entries) {

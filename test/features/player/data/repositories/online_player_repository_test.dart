@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:iris/features/online_sources/domain/entities/online_episode.dart';
@@ -10,6 +12,7 @@ import 'package:iris/features/player/domain/entities/player_launch_failure.dart'
 import 'package:iris/features/player/domain/entities/player_launch_update.dart';
 import 'package:iris/features/player/domain/entities/player_session.dart';
 import 'package:iris/features/player/domain/entities/player_video_file.dart';
+import 'package:iris/shared/torrent/preparation_cancelled_exception.dart';
 
 const _link = 'online:anilibria/9542';
 
@@ -45,7 +48,7 @@ void main() {
     expect(source.sessionId, _link);
     expect(source.files, const [
       PlayerVideoFile(
-        index: 0,
+        index: 1,
         name: '01 «Конец приключений»',
         size: 0,
         extension: '',
@@ -53,8 +56,14 @@ void main() {
         title: '«Конец приключений»',
         duration: Duration(minutes: 26),
       ),
-      // A special keeps its place but has no whole number.
-      PlayerVideoFile(index: 1, name: '1.5', size: 0, extension: ''),
+      // A special is filed under its number too, past every whole one.
+      PlayerVideoFile(
+        index: 100150,
+        name: '1.5',
+        size: 0,
+        extension: '',
+        episodeNumber: 1.5,
+      ),
     ]);
   });
 
@@ -62,7 +71,7 @@ void main() {
     await repository.prepareSource(magnet: _link);
 
     final updates = await repository
-        .startPlayback(sessionId: _link, fileIndex: 0)
+        .startPlayback(sessionId: _link, fileIndex: 1)
         .toList();
 
     expect(sources.resolved, ['e1']);
@@ -81,18 +90,95 @@ void main() {
 
   test('fetches the release when playback starts from history', () async {
     await repository
-        .startPlayback(sessionId: _link, fileIndex: 0)
+        .startPlayback(sessionId: _link, fileIndex: 1)
         .drain<void>();
 
     expect(sources.fetched, hasLength(1));
     expect(sources.resolved, ['e1']);
   });
 
+  test('files every episode under its number, as every dub does', () async {
+    sources.release = const OnlineRelease(
+      provider: OnlineProvider.yummyAnime,
+      id: '10661:AniDUB',
+      title: '',
+      dub: 'AniDUB',
+      episodes: [
+        OnlineEpisode(id: 'e5', number: 5),
+        OnlineEpisode(id: 'e6', number: 6),
+        // A number given twice keeps the first.
+        OnlineEpisode(id: 'e6b', number: 6),
+      ],
+    );
+
+    final source = await repository.prepareSource(magnet: _link);
+    expect([for (final file in source.files) file.index], [5, 6, 300002]);
+
+    await repository
+        .startPlayback(sessionId: _link, fileIndex: 6)
+        .drain<void>();
+    expect(sources.resolved, ['e6']);
+  });
+
+  test('a special keeps its index in every dub', () async {
+    final withEpisodeOne = await repository.prepareSource(magnet: _link);
+    sources.release = const OnlineRelease(
+      provider: OnlineProvider.yummyAnime,
+      id: '10661:AniDUB',
+      title: '',
+      dub: 'AniDUB',
+      episodes: [
+        OnlineEpisode(id: 's', number: 1.5),
+        OnlineEpisode(id: 'e2', number: 2),
+      ],
+    );
+    final other = OnlinePlayerRepository(repository: sources);
+    final withoutEpisodeOne = await other.prepareSource(magnet: _link);
+
+    expect(
+      withEpisodeOne.files.last.index,
+      withoutEpisodeOne.files.first.index,
+    );
+  });
+
+  test('stops waiting for a release when the picker goes', () async {
+    sources.pendingRelease = Completer<OnlineRelease>();
+    final cancelled = Completer<void>();
+
+    final preparation = repository.prepareSource(
+      magnet: _link,
+      cancelled: cancelled.future,
+    );
+    cancelled.complete();
+
+    await expectLater(
+      preparation,
+      throwsA(isA<PreparationCancelledException>()),
+    );
+  });
+
+  test('cancelling a launch does not wait for the server', () async {
+    await repository.prepareSource(magnet: _link);
+    sources.pendingStreams = Completer<List<OnlineStream>>();
+    final updates = <PlayerLaunchUpdate>[];
+
+    final subscription = repository
+        .startPlayback(sessionId: _link, fileIndex: 1)
+        .listen(updates.add);
+    await pumpEventQueue();
+    // Completes although the server has not answered.
+    await subscription.cancel();
+
+    sources.pendingStreams!.complete(sources.streams);
+    await pumpEventQueue();
+    expect(updates, isEmpty, reason: 'a late answer is dropped');
+  });
+
   test('fails to start an episode without streams', () async {
     sources.streams = const [];
 
     final updates = await repository
-        .startPlayback(sessionId: _link, fileIndex: 0)
+        .startPlayback(sessionId: _link, fileIndex: 1)
         .toList();
 
     expect(updates, const [
@@ -104,7 +190,7 @@ void main() {
     sources.failResolve = true;
 
     final updates = await repository
-        .startPlayback(sessionId: _link, fileIndex: 0)
+        .startPlayback(sessionId: _link, fileIndex: 1)
         .toList();
 
     expect(updates, const [
@@ -154,13 +240,17 @@ class _FakeOnlineSources implements OnlineSourcesRepository {
     ),
   ];
 
+  OnlineRelease release = _release;
+  Completer<OnlineRelease>? pendingRelease;
+  Completer<List<OnlineStream>>? pendingStreams;
+
   @override
   Future<OnlineRelease> fetchRelease({
     required OnlineProvider provider,
     required String id,
   }) async {
     fetched.add((provider, id));
-    return _release;
+    return pendingRelease?.future ?? release;
   }
 
   @override
@@ -170,7 +260,7 @@ class _FakeOnlineSources implements OnlineSourcesRepository {
   }) async {
     resolved.add(episodeId);
     if (failResolve) throw StateError('offline');
-    return streams;
+    return pendingStreams?.future ?? streams;
   }
 
   @override

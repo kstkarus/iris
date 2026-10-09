@@ -21,20 +21,36 @@ class PlayerVideoFile {
   final int size;
   final String extension;
 
-  /// Given by an online release; a torrent file's number is read from its
-  /// name instead.
-  final int? episodeNumber;
+  /// Given by an online release, specials included (12.5); a torrent
+  /// file's number is read from its name instead.
+  final num? episodeNumber;
 
   /// The episode's own name when the source gives one; empty for torrents.
   final String title;
   final Duration? duration;
 
-  /// The source's own number, else the one the file name carries.
-  int? get number => episodeNumber ?? episodeNumberFromFileName(name);
+  /// The episode's whole number: the source's own (none for a special),
+  /// else the one the file name carries.
+  int? get number {
+    final given = episodeNumber;
+    if (given == null) return episodeNumberFromFileName(name);
+    return given % 1 == 0 ? given.toInt() : null;
+  }
+
+  /// The number as a list shows it, "04" or "12.5"; null when none is
+  /// known.
+  String? get numberLabel {
+    final given = episodeNumber;
+    if (given != null && given % 1 != 0) return '$given';
+    return number?.toString().padLeft(2, '0');
+  }
 
   /// The episode's own name, else the file name without folders and
-  /// extension.
-  String get displayName => title.isNotEmpty ? title : fileDisplayName(name);
+  /// extension (an online episode's name is not a file's).
+  String get displayName {
+    if (title.isNotEmpty) return title;
+    return episodeNumber == null ? fileDisplayName(name) : name;
+  }
 
   @override
   bool operator ==(Object other) {

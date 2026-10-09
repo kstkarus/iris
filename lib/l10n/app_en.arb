@@ -103,6 +103,15 @@
   "watchSourcesOnlineSection": "Online",
   "watchSourcesTorrentsSection": "Torrents",
   "watchSourcesOnlineLoading": "Looking for online sources",
+  "watchSourcesOnlineAll": "All dubs · {count}",
+  "@watchSourcesOnlineAll": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "watchSourcesOnlineAllTitle": "Dubs",
   "watchSourcesOnlineLoadError": "Online sources did not respond.",
   "watchSourcesOnlineBestQuality": "up to {quality}p",
   "@watchSourcesOnlineBestQuality": {

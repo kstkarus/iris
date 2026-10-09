@@ -9,7 +9,7 @@ The project follows a feature-first structure with `FSD light` at the repository
 - browse anime titles
 - open anime details
 - search and filter the catalog
-- find torrent-based watch sources, and online releases (AniLibria) above them
+- find torrent-based watch sources, and online releases in many dubs (AniLibria, yummy_anime) above them
 - save your own magnet links in the Torrents tab and stream or download them later
 - choose a video file when a torrent contains multiple episodes
 - stream the selected file in the in-app player
@@ -45,14 +45,18 @@ The watch sources screen currently uses the public `nyaaapi` service:
 
 ### Online Sources
 
-The watch sources screen also looks the anime up on AniLibria's public API:
+The watch sources screen also looks the anime up on video servers, ported from [anicli-api](https://github.com/vypivshiy/anicli-api) 0.12.0:
 
-- endpoint: `https://aniliberty.top/api/v1`, read-only, no account
-- searched by every name of the anime like the torrents, but a release is kept only when AniLibria links it to the same Shikimori id; it is never matched by name alone
-- a release opens its episodes in the same picker a torrent opens its files in, with Continue, watch progress and next episode as for torrents
-- an episode's stream link is asked for right before it plays (links expire) and played as HLS, best quality first; buffering is mpv's
-- when no release is found the section is not shown; when the search fails it says so with Retry and the torrents still work
-- `dart run tool/online_sources_smoke.dart [shikimoriId] [title...]` checks the live API
+- AniLibria, `https://aniliberty.top/api/v1`: its own dub, HLS up to 1080p
+- yummy_anime, `https://api.yani.tv`: dozens of dubs and subtitles, each played through Kodik (HLS up to 720p) or Aksor (DASH up to 1080p, a few dubs); its CVH and Alloha players are not read
+- both are read-only and need no account; every name of the anime is searched like the torrents, but a release is kept only when the site links it to the same Shikimori id, never by name alone
+- one row per dub; when two sites carry the same dub, the copy with more episodes is kept (AniLibria on a tie); three rows stay on the page (the dubs watched from first) and "All dubs" lists the rest
+- an episode the site gives no stream for is left out, and a release left with none is not offered; a special (12.5) keeps its own number in the picker and the same place in every dub
+- a release opens its episodes in the same picker a torrent opens its files in, with Continue and next episode as for torrents; watch progress belongs to the anime's episode, so switching dub keeps the place
+- an episode's stream links are asked for right before it plays (links expire), the better player first; buffering is mpv's; leaving the picker or the player drops a request still on its way; the stats overlay shows the decoder, without torrent speed or peers
+- when nothing is found the section is not shown; when the search fails it says so with Retry and the torrents still work
+- `dart run tool/online_sources_smoke.dart [shikimoriId] [title...]` checks every site live
+- animelib (ddos-guard), animego (HTTP 500), dreamcast (timeouts) and hdrezka (bot challenge, broken player) did not answer when this was built; animevost and sameband have no Shikimori ids, and animevost's dub comes through yummy_anime anyway
 
 ### Saved Torrents
 

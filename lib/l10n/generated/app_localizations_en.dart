@@ -233,6 +233,14 @@ class AppLocalizationsEn extends AppLocalizations {
   String get watchSourcesOnlineLoading => 'Looking for online sources';
 
   @override
+  String watchSourcesOnlineAll(int count) {
+    return 'All dubs · $count';
+  }
+
+  @override
+  String get watchSourcesOnlineAllTitle => 'Dubs';
+
+  @override
   String get watchSourcesOnlineLoadError => 'Online sources did not respond.';
 
   @override

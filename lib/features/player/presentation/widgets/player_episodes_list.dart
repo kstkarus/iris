@@ -83,7 +83,7 @@ class _PlayerEpisodesListState extends State<PlayerEpisodesList> {
             _EpisodeRow(
               key: file.index == widget.currentFileIndex ? _currentKey : null,
               file: file,
-              number: file.number ?? position + 1,
+              number: file.numberLabel ?? '${position + 1}'.padLeft(2, '0'),
               ownName: names[file.index],
               isCurrent: file.index == widget.currentFileIndex,
               progress: widget.progressByFile[file.index],
@@ -111,8 +111,9 @@ class _EpisodeRow extends StatelessWidget {
 
   final PlayerVideoFile file;
 
-  /// The episode number from the name, or the file's place in the torrent.
-  final int number;
+  /// The episode number from the source or the name, or the file's place
+  /// in the torrent, as shown: "04", "12.5".
+  final String number;
 
   /// The episode's own title, when the file name carries one.
   final String? ownName;
@@ -130,6 +131,7 @@ class _EpisodeRow extends StatelessWidget {
     final finished = progress?.isFinished ?? false;
     final fileName = fileDisplayName(file.name);
     final ownName = this.ownName;
+    final size = showSize ? _sizeLabel(l10n) : null;
 
     return Material(
       color: isCurrent ? scheme.surfaceContainer : Colors.transparent,
@@ -145,7 +147,7 @@ class _EpisodeRow extends StatelessWidget {
               SizedBox(
                 width: 44,
                 child: Text(
-                  number.toString().padLeft(2, '0'),
+                  number,
                   style: theme.textTheme.titleMedium?.copyWith(
                     color: isCurrent
                         ? scheme.tertiary
@@ -192,19 +194,24 @@ class _EpisodeRow extends StatelessWidget {
                   ],
                 ),
               ),
-              if (showSize) ...[
+              if (size != null) ...[
                 const SizedBox(width: 16),
-                Text(switch (file.duration) {
-                  final duration? => l10n.playerEpisodeMinutes(
-                    (duration.inSeconds / 60).round(),
-                  ),
-                  null => formatByteSize(l10n, file.size),
-                }, style: theme.textTheme.bodySmall),
+                Text(size, style: theme.textTheme.bodySmall),
               ],
             ],
           ),
         ),
       ),
     );
+  }
+
+  /// The episode's length, or the file's size; nothing for an online
+  /// episode the source gave no length for.
+  String? _sizeLabel(AppLocalizations l10n) {
+    final duration = file.duration;
+    if (duration != null) {
+      return l10n.playerEpisodeMinutes((duration.inSeconds / 60).round());
+    }
+    return file.size > 0 ? formatByteSize(l10n, file.size) : null;
   }
 }

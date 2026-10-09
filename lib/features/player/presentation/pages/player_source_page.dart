@@ -6,7 +6,7 @@ import 'package:go_router/go_router.dart';
 
 import 'package:iris/entities/watch_progress/domain/watch_progress.dart';
 import 'package:iris/entities/watch_progress/presentation/watch_progress_cubit.dart';
-import 'package:iris/features/online_sources/domain/entities/online_source_link.dart';
+import 'package:iris/shared/online/online_source_link.dart';
 import 'package:iris/features/player/domain/entities/player_video_file.dart';
 import 'package:iris/features/player/presentation/cubit/player_source_cubit.dart';
 import 'package:iris/features/player/presentation/cubit/player_source_state.dart';
@@ -14,7 +14,6 @@ import 'package:iris/features/player/presentation/models/anime_player_args.dart'
 import 'package:iris/features/player/presentation/models/anime_player_source_args.dart';
 import 'package:iris/features/player/presentation/widgets/player_source_view.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
-import 'package:iris/shared/torrent/torrent_key.dart';
 import 'package:iris/shared/widgets/adaptive/adaptive_content_width.dart';
 import 'package:iris/shared/widgets/adaptive/window_size_class.dart';
 import 'package:iris/shared/widgets/page_title.dart';
@@ -67,7 +66,7 @@ class PlayerSourcePage extends StatelessWidget {
                       isOnline: isOnline,
                       progressByFile: progressByFile(
                         context.watchWatchProgress(),
-                        torrentKeyFromMagnet(args.magnet),
+                        sourceProgressKey(args.magnet),
                       ),
                       onFileSelected: (file) {
                         final preparedSource =

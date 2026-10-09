@@ -25,6 +25,7 @@ void main() {
   AnilibriaOnlineSourcesRepository repository({
     Map<String, Object?>? searchResults,
     Set<String> failingQueries = const {},
+    Object? release,
   }) {
     final dio = Dio();
     dio.interceptors.add(
@@ -46,7 +47,7 @@ void main() {
           if (path == '/app/search/releases') {
             data = searchResults?[query] ?? _fixture('search_frieren');
           } else if (path == '/anime/releases/9542') {
-            data = _fixture('release_9542');
+            data = release ?? _fixture('release_9542');
           } else if (path.startsWith('/anime/releases/episodes/')) {
             data = _fixture('episode_1');
           } else {
@@ -118,6 +119,37 @@ void main() {
       repository().fetchRelease(provider: OnlineProvider.anilibria, id: 'x'),
       throwsA(isA<ResourceNotFoundException>()),
     );
+  });
+
+  test('leaves out episodes without streams', () async {
+    final release = _fixture('release_9542')! as Map<String, dynamic>;
+    final episodes = release['episodes'] as List;
+    (episodes.first as Map)
+      ..['hls_480'] = null
+      ..['hls_720'] = null
+      ..['hls_1080'] = null;
+
+    final releases = await repository(
+      release: release,
+    ).findReleases(shikimoriId: _frierenShikimoriId, titles: const ['Frieren']);
+
+    expect([for (final e in releases.single.episodes) e.number], [2, 3]);
+  });
+
+  test('a release with nothing to play is not offered', () async {
+    final release = _fixture('release_9542')! as Map<String, dynamic>;
+    for (final episode in release['episodes'] as List) {
+      (episode as Map)
+        ..['hls_480'] = null
+        ..['hls_720'] = null
+        ..['hls_1080'] = null;
+    }
+
+    final releases = await repository(
+      release: release,
+    ).findReleases(shikimoriId: _frierenShikimoriId, titles: const ['Frieren']);
+
+    expect(releases, isEmpty);
   });
 
   test('searches each title once and fetches a match once', () async {

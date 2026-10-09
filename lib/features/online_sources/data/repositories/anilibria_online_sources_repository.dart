@@ -50,7 +50,11 @@ class AnilibriaOnlineSourcesRepository implements OnlineSourcesRepository {
       return const [];
     }
     final releases = await Future.wait(matching.map(dataSource.release));
-    return [for (final release in releases) mapAnilibriaRelease(release)];
+    return [
+      for (final release in releases.map(mapAnilibriaRelease))
+        // A release with nothing to play would hide another site's copy.
+        if (release.episodes.isNotEmpty) release,
+    ];
   }
 
   @override

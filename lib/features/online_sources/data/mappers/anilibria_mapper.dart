@@ -16,9 +16,11 @@ OnlineRelease mapAnilibriaRelease(AnilibriaReleaseDto release) {
     id: '${release.id}',
     title: release.title,
     dub: anilibriaDub,
+    // An episode without streams (blocked, not uploaded) cannot play.
     episodes: [
       for (final episode in episodes)
-        if (episode.id.isNotEmpty) mapAnilibriaEpisode(episode),
+        if (episode.id.isNotEmpty && mapAnilibriaStreams(episode).isNotEmpty)
+          mapAnilibriaEpisode(episode),
     ],
     bestQuality: _bestQuality(episodes),
   );

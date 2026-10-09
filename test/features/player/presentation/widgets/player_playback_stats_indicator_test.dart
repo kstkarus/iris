@@ -188,6 +188,36 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('shows the decoder of a stream without transport stats', (
+    tester,
+  ) async {
+    final diagnostics = ValueNotifier<PlayerPlaybackDiagnostics?>(null);
+    addTearDown(diagnostics.dispose);
+    final stats = ValueNotifier<PlayerPlaybackStats?>(null);
+    addTearDown(stats.dispose);
+
+    await tester.pumpWidget(
+      _wrap(
+        child: PlayerPlaybackStatsListenable(
+          listenable: stats,
+          diagnosticsListenable: diagnostics,
+        ),
+      ),
+    );
+    expect(find.byType(PlayerPlaybackStatsIndicator), findsNothing);
+
+    diagnostics.value = const PlayerPlaybackDiagnostics(
+      hwdecCurrent: 'mediacodec',
+      currentVo: 'gpu',
+    );
+    await tester.pump();
+
+    expect(find.text('mediacodec'), findsOneWidget);
+    expect(find.text('gpu'), findsOneWidget);
+    // No made-up speed or peers.
+    expect(find.textContaining('/s'), findsNothing);
+  });
+
   testWidgets('renders zero-valued live runtime metrics once stats exist', (
     tester,
   ) async {

@@ -190,6 +190,11 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
   Timer? _startupTimeoutTimer;
   int _startupGeneration = 0;
 
+  /// Reads the decoder state while a file is open, whatever carries it:
+  /// an online stream has no transport stats to piggyback on.
+  Timer? _diagnosticsTimer;
+  static const _diagnosticsInterval = Duration(seconds: 2);
+
   final playbackStats = ValueNotifier<PlayerPlaybackStats?>(null);
   final phase = ValueNotifier<PlayerEnginePhase>(
     PlayerEnginePhase.openingSource,
@@ -272,6 +277,7 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
     completed.value = false;
     _resetPositionOffers();
     _watchPlaybackStats(session.sessionId);
+    _watchDiagnostics();
     // Synchronous on purpose: the viewport can render the controller as soon
     // as this returns.
     if (_player == null) _createPlayer();
@@ -340,6 +346,7 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
     completed.value = false;
     _resetPositionOffers();
     _stopWatchingPlaybackStats();
+    _stopWatchingDiagnostics();
     _cancelStartupTimeout();
     _updateStartupState(const PlayerEngineStartupState.openingSource());
     final player = _player;
@@ -399,6 +406,7 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
     _closed = true;
     _startupGeneration++;
     _cancelStartupTimeout();
+    _stopWatchingDiagnostics();
     await _subtitlePreferencesSubscription?.cancel();
     await _decodingPreferencesSubscription?.cancel();
     await _playbackStatsSubscription?.cancel();
@@ -460,8 +468,20 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
           playbackStats.value = stats;
           _updateBufferMargin(stats);
           unawaited(_logStartupProgress(stats));
-          unawaited(_refreshPlaybackDiagnostics());
         });
+  }
+
+  void _watchDiagnostics() {
+    _diagnosticsTimer?.cancel();
+    _diagnosticsTimer = Timer.periodic(
+      _diagnosticsInterval,
+      (_) => unawaited(_refreshPlaybackDiagnostics()),
+    );
+  }
+
+  void _stopWatchingDiagnostics() {
+    _diagnosticsTimer?.cancel();
+    _diagnosticsTimer = null;
   }
 
   /// A stopped file's stats stream ends with the file. The next [open] watches

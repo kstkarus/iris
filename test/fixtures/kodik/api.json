@@ -1,0 +1,24 @@
+{
+  "domain": "kodikplayer.com",
+  "default": 360,
+  "links": {
+    "360": [
+      {
+        "src": "Tg9rHO4cHFppjFJaHA50HFV0T2bdHOtzThU2UK5bkLY6iOfhWu1pjutuHFV0Tu0hlBo",
+        "type": "application/x-mpegURL"
+      }
+    ],
+    "480": [
+      {
+        "src": "Tg9rHO4cHFppjFJaHA50HFV0T2bdHOtzThY4UK5bkLY6iOfhWu1pjutuHFV0Tu0hlBo",
+        "type": "application/x-mpegURL"
+      }
+    ],
+    "720": [
+      {
+        "src": "Tg9rHO4cHFppjFJaHA50HFV0T2bdHOtzThkgUK5bkLY6iOfhWu1pjutuHFV0Tu0hlBo",
+        "type": "application/x-mpegURL"
+      }
+    ]
+  }
+}
