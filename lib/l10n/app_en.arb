@@ -612,7 +612,6 @@
   "profileSignInNetworkError": "Shikimori did not respond. Try again.",
   "profileSignInRejected": "Shikimori did not let the app in. Try again.",
   "profileSessionExpired": "Shikimori ended the session. Sign in again.",
-  "profileAccountCaption": "Shikimori account",
   "profileSignOut": "Sign out",
   "userRateTitle": "My list",
   "userRateAdd": "Add to list",
@@ -798,6 +797,5 @@
         "type": "int"
       }
     }
-  },
-  "profileFriendCaption": "Friend on Shikimori"
+  }
 }

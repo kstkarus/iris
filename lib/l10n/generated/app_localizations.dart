@@ -1802,12 +1802,6 @@ abstract class AppLocalizations {
   /// **'Shikimori ended the session. Sign in again.'**
   String get profileSessionExpired;
 
-  /// No description provided for @profileAccountCaption.
-  ///
-  /// In en, this message translates to:
-  /// **'Shikimori account'**
-  String get profileAccountCaption;
-
   /// No description provided for @profileSignOut.
   ///
   /// In en, this message translates to:
@@ -2173,12 +2167,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{watched} ep.'**
   String profileListWatched(int watched);
-
-  /// No description provided for @profileFriendCaption.
-  ///
-  /// In en, this message translates to:
-  /// **'Friend on Shikimori'**
-  String get profileFriendCaption;
 }
 
 class _AppLocalizationsDelegate

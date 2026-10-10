@@ -132,7 +132,6 @@ void main() {
     await pumpPage(tester, repository);
 
     expect(find.text('kstk'), findsOneWidget);
-    expect(find.text('SHIKIMORI ACCOUNT'), findsOneWidget);
 
     await tester.tap(find.byKey(ProfilePage.signOutButtonKey));
     await tester.pump();

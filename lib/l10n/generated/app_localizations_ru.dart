@@ -1017,9 +1017,6 @@ class AppLocalizationsRu extends AppLocalizations {
       'Шикимори завершил сессию. Войдите снова.';
 
   @override
-  String get profileAccountCaption => 'Аккаунт Шикимори';
-
-  @override
   String get profileSignOut => 'Выйти';
 
   @override
@@ -1245,7 +1242,4 @@ class AppLocalizationsRu extends AppLocalizations {
   String profileListWatched(int watched) {
     return '$watched эп.';
   }
-
-  @override
-  String get profileFriendCaption => 'Друг на Шикимори';
 }

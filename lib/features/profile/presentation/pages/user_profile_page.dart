@@ -4,7 +4,6 @@ import 'package:iris/entities/friend/domain/friend.dart';
 import 'package:iris/features/profile/domain/entities/user_list_entry.dart';
 import 'package:iris/features/profile/presentation/widgets/profile_header.dart';
 import 'package:iris/features/profile/presentation/widgets/user_list_view.dart';
-import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/widgets/adaptive/adaptive_content_width.dart';
 import 'package:iris/shared/widgets/adaptive/framed_app_bar.dart';
 import 'package:iris/shared/widgets/adaptive/window_size_class.dart';
@@ -34,7 +33,6 @@ class UserProfilePage extends StatelessWidget {
             header: ProfileHeader(
               nickname: friend.nickname,
               avatarUrl: friend.avatarUrl,
-              caption: AppLocalizations.of(context).profileFriendCaption,
             ),
             onOpen: onOpenAnime,
           ),

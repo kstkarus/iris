@@ -367,7 +367,6 @@
   "profileSignInNetworkError": "Шикимори не ответил. Попробуйте ещё раз.",
   "profileSignInRejected": "Шикимори не пустил приложение. Попробуйте ещё раз.",
   "profileSessionExpired": "Шикимори завершил сессию. Войдите снова.",
-  "profileAccountCaption": "Аккаунт Шикимори",
   "profileSignOut": "Выйти",
   "userRateTitle": "Мой список",
   "userRateAdd": "Добавить в список",
@@ -428,6 +427,5 @@
   "profileListTab": "Список",
   "profileListEmptyHint": "Статус ставится на странице аниме.",
   "profileListProgress": "{watched} из {total} эп.",
-  "profileListWatched": "{watched} эп.",
-  "profileFriendCaption": "Друг на Шикимори"
+  "profileListWatched": "{watched} эп."
 }

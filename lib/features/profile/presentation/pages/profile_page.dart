@@ -108,7 +108,6 @@ class _Account extends StatelessWidget {
     return ProfileHeader(
       nickname: account.nickname,
       avatarUrl: account.avatarUrl,
-      caption: l10n.profileAccountCaption,
       // Rare, and costly to undo (signing in again goes through the
       // browser): a quiet button out of the way of the list.
       trailing: TextButton(
