@@ -194,7 +194,7 @@ abstract final class AppRouter {
                         animeId: animeId,
                         repository: serviceLocator<UserRateRepository>(),
                       )..accountChanged(
-                        _accountId(context.read<AuthCubit>().state),
+                        accountIdOf(context.read<AuthCubit>().state),
                       ),
                 ),
               ],
@@ -202,10 +202,10 @@ abstract final class AppRouter {
               // shows or hides it here.
               child: BlocListener<AuthCubit, AuthState>(
                 listenWhen: (previous, current) =>
-                    _accountId(previous) != _accountId(current),
+                    accountIdOf(previous) != accountIdOf(current),
                 listener: (context, auth) => context
                     .read<UserRateCubit>()
-                    .accountChanged(_accountId(auth)),
+                    .accountChanged(accountIdOf(auth)),
                 child: AnimeDetailsPage(preview: preview),
               ),
             );
@@ -365,12 +365,6 @@ abstract final class AppRouter {
     );
   }
 }
-
-/// The signed-in account's id, the key to its Shikimori list.
-String? _accountId(AuthState state) => switch (state) {
-  AuthSignedIn(:final account) => account.id,
-  _ => null,
-};
 
 void _reportInvalidRouteArgs({
   required String routeName,

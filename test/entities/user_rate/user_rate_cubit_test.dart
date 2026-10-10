@@ -118,6 +118,35 @@ void main() {
     );
   });
 
+  test(
+    'a score keeps the entry; scoring an unlisted anime completes it',
+    () async {
+      await cubit.accountChanged('42');
+
+      cubit.setScore(8);
+      await pumpEventQueue();
+      expect(
+        cubit.state,
+        const UserRateLoaded(
+          UserRate(
+            id: '1',
+            status: UserRateStatus.completed,
+            episodes: 0,
+            score: 8,
+          ),
+        ),
+      );
+
+      cubit.setStatus(UserRateStatus.dropped);
+      await pumpEventQueue();
+      expect((cubit.state as UserRateLoaded).rate?.score, 8);
+
+      cubit.setScore(0);
+      await pumpEventQueue();
+      expect((cubit.state as UserRateLoaded).rate?.score, 0);
+    },
+  );
+
   test('removes the anime from the list', () async {
     await cubit.accountChanged('42');
     cubit.setStatus(UserRateStatus.planned);
@@ -149,6 +178,7 @@ class _GatedRepository extends MockUserRateRepository {
     required String? rateId,
     required UserRateStatus status,
     required int episodes,
+    required int score,
   }) async {
     saves.add((rateId: rateId, episodes: episodes));
     await gate?.future;
@@ -159,6 +189,7 @@ class _GatedRepository extends MockUserRateRepository {
       rateId: rateId,
       status: status,
       episodes: episodes,
+      score: score,
     );
   }
 }

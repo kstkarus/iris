@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:dio/dio.dart';
 
 import 'package:iris/entities/user_rate/data/user_rate_dto.dart';
@@ -12,7 +14,7 @@ import 'package:iris/shared/network/shikimori_graph_ql_client.dart';
 ///
 /// Both go through the Shikimori Dio, which signs them in.
 class RemoteUserRateRepository implements UserRateRepository {
-  const RemoteUserRateRepository({
+  RemoteUserRateRepository({
     required ShikimoriGraphQlClient graphQl,
     required Dio dio,
   }) : _graphQl = graphQl,
@@ -22,6 +24,10 @@ class RemoteUserRateRepository implements UserRateRepository {
 
   final ShikimoriGraphQlClient _graphQl;
   final Dio _dio;
+  final _changes = StreamController<UserRateChange>.broadcast();
+
+  @override
+  Stream<UserRateChange> get changes => _changes.stream;
 
   @override
   Future<UserRate?> fetch(String animeId) async {
@@ -34,9 +40,11 @@ class RemoteUserRateRepository implements UserRateRepository {
       throw ResourceNotFoundException('Anime not found for id: $animeId');
     }
     final anime = animes.first;
-    return anime is Map
+    final rate = anime is Map
         ? UserRateDto.tryParse(anime['userRate'])?.toEntity()
         : null;
+    _changes.add(UserRateChange(animeId, rate));
+    return rate;
   }
 
   @override
@@ -46,10 +54,12 @@ class RemoteUserRateRepository implements UserRateRepository {
     required String? rateId,
     required UserRateStatus status,
     required int episodes,
+    required int score,
   }) async {
     final fields = {
       'status': UserRateDto.statusToApi(status),
       'episodes': episodes,
+      'score': score,
     };
     final Response<dynamic> response;
     try {
@@ -76,16 +86,19 @@ class RemoteUserRateRepository implements UserRateRepository {
     if (saved == null) {
       throw const RemoteResponseException('User rate response is invalid.');
     }
-    return saved.toEntity();
+    final rate = saved.toEntity();
+    _changes.add(UserRateChange(animeId, rate));
+    return rate;
   }
 
   @override
-  Future<void> remove(String rateId) async {
+  Future<void> remove({required String animeId, required String rateId}) async {
     try {
       await _dio.delete<dynamic>('$_ratesPath/$rateId');
     } on DioException catch (error) {
       throw mapDioException(error);
     }
+    _changes.add(UserRateChange(animeId, null));
   }
 }
 
@@ -97,6 +110,7 @@ query UserRate($id: String!) {
       id
       status
       episodes
+      score
     }
   }
 }

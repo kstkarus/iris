@@ -7,6 +7,7 @@ class UserRateDto {
     required this.id,
     required this.status,
     required this.episodes,
+    required this.score,
   });
 
   /// Null when [json] is not a rate or its status is unknown.
@@ -15,19 +16,23 @@ class UserRateDto {
     final id = json['id'];
     final status = statusFromApi(json['status']);
     final episodes = json['episodes'];
+    final score = json['score'];
     if (id == null || status == null) return null;
     return UserRateDto(
       id: '$id',
       status: status,
       episodes: episodes is num ? episodes.toInt() : 0,
+      score: score is num ? score.toInt() : 0,
     );
   }
 
   final String id;
   final UserRateStatus status;
   final int episodes;
+  final int score;
 
-  UserRate toEntity() => UserRate(id: id, status: status, episodes: episodes);
+  UserRate toEntity() =>
+      UserRate(id: id, status: status, episodes: episodes, score: score);
 
   static UserRateStatus? statusFromApi(Object? value) => switch (value) {
     'planned' => UserRateStatus.planned,

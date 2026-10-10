@@ -634,5 +634,15 @@
     }
   },
   "userRateLoadError": "Your list did not load.",
-  "userRateSaveError": "Shikimori did not save the change."
+  "userRateSaveError": "Shikimori did not save the change.",
+  "userRateScore": "Score: {score}",
+  "@userRateScore": {
+    "placeholders": {
+      "score": {
+        "type": "int"
+      }
+    }
+  },
+  "userRateRate": "Rate",
+  "userRateNoScore": "No score"
 }

@@ -72,6 +72,7 @@ void main() {
       rateId: null,
       status: UserRateStatus.watching,
       episodes: 1,
+      score: 0,
     );
     await cubit.accountChanged('42');
     await pumpSection(tester, total: 2);
@@ -99,6 +100,7 @@ void main() {
       rateId: null,
       status: UserRateStatus.planned,
       episodes: 0,
+      score: 0,
     );
     await cubit.accountChanged('42');
     await pumpSection(tester);
@@ -110,5 +112,18 @@ void main() {
 
     expect(find.text('Add to list'), findsOneWidget);
     expect(await repository.fetch('1'), isNull);
+  });
+
+  testWidgets('scores from the menu', (tester) async {
+    await cubit.accountChanged('42');
+    await pumpSection(tester);
+
+    await tester.tap(find.byKey(MyListSection.scoreButtonKey));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('9'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Score: 9'), findsOneWidget);
+    expect((await repository.fetch('1'))?.score, 9);
   });
 }

@@ -21,6 +21,7 @@ class MyListSection extends StatelessWidget {
   });
 
   static const statusButtonKey = Key('my_list_status_button');
+  static const scoreButtonKey = Key('my_list_score_button');
   static const episodeMoreKey = Key('my_list_episode_more');
   static const episodeLessKey = Key('my_list_episode_less');
 
@@ -91,6 +92,7 @@ class _Controls extends StatelessWidget {
           children: [
             _StatusMenu(rate: rate, saving: state.saving),
             if (rate != null) _EpisodeStepper(rate: rate, total: total),
+            _ScoreMenu(score: rate?.score ?? 0),
           ],
         ),
         if (state.saveFailed) ...[
@@ -151,6 +153,46 @@ class _StatusMenu extends StatelessWidget {
               ? l10n.userRateAdd
               : userRateStatusLabel(l10n, rate.status),
         ),
+      ),
+    );
+  }
+}
+
+/// The score as a menu of 10 down to 1, and a way to clear it.
+class _ScoreMenu extends StatelessWidget {
+  const _ScoreMenu({required this.score});
+
+  final int score;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final cubit = context.read<UserRateCubit>();
+    return MenuAnchor(
+      menuChildren: [
+        for (var value = UserRate.maxScore; value > 0; value--)
+          MenuItemButton(
+            onPressed: value == score ? null : () => cubit.setScore(value),
+            leadingIcon: SizedBox.square(
+              dimension: 14,
+              child: value == score
+                  ? const PixelIcon(PixelGlyph.check, size: 14)
+                  : null,
+            ),
+            child: Text('$value'),
+          ),
+        if (score > 0)
+          MenuItemButton(
+            onPressed: () => cubit.setScore(0),
+            leadingIcon: const SizedBox.square(dimension: 14),
+            child: Text(l10n.userRateNoScore),
+          ),
+      ],
+      builder: (context, controller, _) => TextButton(
+        key: MyListSection.scoreButtonKey,
+        onPressed: () =>
+            controller.isOpen ? controller.close() : controller.open(),
+        child: Text(score > 0 ? l10n.userRateScore(score) : l10n.userRateRate),
       ),
     );
   }

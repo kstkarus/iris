@@ -382,5 +382,8 @@
   "userRateEpisodeMore": "Ещё серия",
   "userRateEpisodesWatched": "Просмотрено серий: {count}",
   "userRateLoadError": "Список не загрузился.",
-  "userRateSaveError": "Шикимори не сохранил изменение."
+  "userRateSaveError": "Шикимори не сохранил изменение.",
+  "userRateScore": "Оценка: {score}",
+  "userRateRate": "Оценить",
+  "userRateNoScore": "Без оценки"
 }

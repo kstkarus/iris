@@ -57,3 +57,10 @@ final class AuthSignedIn extends AuthState {
   @override
   int get hashCode => account.hashCode;
 }
+
+/// The signed-in account's id, the key to its Shikimori list; null when
+/// signed out or still restoring.
+String? accountIdOf(AuthState state) => switch (state) {
+  AuthSignedIn(:final account) => account.id,
+  _ => null,
+};

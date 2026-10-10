@@ -4,10 +4,13 @@ import 'package:go_router/go_router.dart';
 
 import 'package:iris/app/app.dart';
 import 'package:iris/app/di/service_locator.dart';
+import 'package:iris/entities/user_rate/domain/user_rate_repository.dart';
+import 'package:iris/entities/user_rate/presentation/user_rate_book_cubit.dart';
 import 'package:iris/entities/watch_progress/domain/watch_progress_repository.dart';
 import 'package:iris/entities/watch_progress/presentation/watch_progress_cubit.dart';
 import 'package:iris/features/auth/domain/repositories/auth_repository.dart';
 import 'package:iris/features/auth/presentation/cubit/auth_cubit.dart';
+import 'package:iris/features/auth/presentation/cubit/auth_state.dart';
 import 'package:iris/shared/utils/playback_runtime_initializer.dart';
 
 Future<Widget> createApp({bool useMocks = false}) async {
@@ -18,8 +21,8 @@ Future<Widget> createApp({bool useMocks = false}) async {
   await configureDependencies(useMocks: useMocks, reset: useMocks);
 
   // Watch history feeds several screens (catalog, anime page, file picker,
-  // saved torrents), and the Shikimori session both the profile tab and the
-  // anime page, so they live above the router.
+  // saved torrents), the Shikimori session and the list entries seen most
+  // of them too, so they live above the router.
   return MultiBlocProvider(
     providers: [
       BlocProvider(
@@ -31,7 +34,16 @@ Future<Widget> createApp({bool useMocks = false}) async {
         create: (_) =>
             AuthCubit(repository: serviceLocator<AuthRepository>())..restore(),
       ),
+      BlocProvider(
+        create: (_) =>
+            UserRateBookCubit(repository: serviceLocator<UserRateRepository>()),
+      ),
     ],
-    child: IrisApp(router: serviceLocator<GoRouter>()),
+    child: BlocListener<AuthCubit, AuthState>(
+      listenWhen: (previous, current) =>
+          accountIdOf(previous) != accountIdOf(current),
+      listener: (context, _) => context.read<UserRateBookCubit>().clear(),
+      child: IrisApp(router: serviceLocator<GoRouter>()),
+    ),
   );
 }

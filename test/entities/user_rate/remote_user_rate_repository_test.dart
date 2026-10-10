@@ -76,6 +76,7 @@ void main() {
       rateId: null,
       status: UserRateStatus.watching,
       episodes: 1,
+      score: 0,
     );
 
     final request = adapter.requests.single;
@@ -88,6 +89,7 @@ void main() {
         'target_type': 'Anime',
         'status': 'watching',
         'episodes': 1,
+        'score': 0,
       },
     });
     expect(rate.id, '16');
@@ -103,13 +105,14 @@ void main() {
       rateId: '16',
       status: UserRateStatus.onHold,
       episodes: 12,
+      score: 8,
     );
 
     final request = adapter.requests.single;
     expect(request.method, 'PATCH');
     expect(request.path, '/api/v2/user_rates/16');
     expect(body(request), {
-      'user_rate': {'status': 'on_hold', 'episodes': 12},
+      'user_rate': {'status': 'on_hold', 'episodes': 12, 'score': 8},
     });
     // Shikimori finishes an anime whose last episode is marked.
     expect(rate.status, UserRateStatus.completed);
@@ -118,7 +121,7 @@ void main() {
   test('removes an entry', () async {
     server = (_) => const FakeReply(204);
 
-    await repository().remove('16');
+    await repository().remove(animeId: '1', rateId: '16');
 
     final request = adapter.requests.single;
     expect(request.method, 'DELETE');
@@ -135,6 +138,7 @@ void main() {
         rateId: '16',
         status: UserRateStatus.watching,
         episodes: 1,
+        score: 0,
       ),
       throwsA(isA<RemoteResponseException>()),
     );

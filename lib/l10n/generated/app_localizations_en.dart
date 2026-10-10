@@ -1051,4 +1051,15 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get userRateSaveError => 'Shikimori did not save the change.';
+
+  @override
+  String userRateScore(int score) {
+    return 'Score: $score';
+  }
+
+  @override
+  String get userRateRate => 'Rate';
+
+  @override
+  String get userRateNoScore => 'No score';
 }

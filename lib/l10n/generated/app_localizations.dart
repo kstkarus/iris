@@ -1897,6 +1897,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Shikimori did not save the change.'**
   String get userRateSaveError;
+
+  /// No description provided for @userRateScore.
+  ///
+  /// In en, this message translates to:
+  /// **'Score: {score}'**
+  String userRateScore(int score);
+
+  /// No description provided for @userRateRate.
+  ///
+  /// In en, this message translates to:
+  /// **'Rate'**
+  String get userRateRate;
+
+  /// No description provided for @userRateNoScore.
+  ///
+  /// In en, this message translates to:
+  /// **'No score'**
+  String get userRateNoScore;
 }
 
 class _AppLocalizationsDelegate

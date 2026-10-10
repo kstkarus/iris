@@ -1065,4 +1065,15 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get userRateSaveError => 'Шикимори не сохранил изменение.';
+
+  @override
+  String userRateScore(int score) {
+    return 'Оценка: $score';
+  }
+
+  @override
+  String get userRateRate => 'Оценить';
+
+  @override
+  String get userRateNoScore => 'Без оценки';
 }
