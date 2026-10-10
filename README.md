@@ -87,7 +87,8 @@ The Torrents tab keeps magnet links the user pasted, independent of the catalog:
 - the hex and base32 spellings of one info-hash are one torrent (keys use the 40-character hex form)
 - the name defaults to the magnet's `dn` and can be renamed later
 - the list is stored locally in `shared_preferences` and sorted by last use
-- on desktop, `Ctrl+V` on the tab opens the add form prefilled from the clipboard
+- on desktop, `Ctrl+V` (`⌘V` on macOS) on the tab opens the add form prefilled from the clipboard; the tab names the shortcut in the platform's spelling, also when the list is empty
+- a row watches the torrent (or continues its last file); a watched torrent shows the episode read from the file name (`Episode 5`) and how far into it, an unwatched one when it was added or last opened. Download, Rename, Copy link and Delete (set apart) are in the row's menu, which a long press or a right click also opens
 - Watch and Download open the same file picker, player, and download routes as catalog sources (`/torrent/watch`, `/torrent/download`, `/player`); these routes are not tied to an anime id
 
 ## Player and Streaming

@@ -929,8 +929,9 @@ class AppLocalizationsRu extends AppLocalizations {
   String get watchSourcesColumnDate => 'Дата';
 
   @override
-  String get savedTorrentsPasteHint =>
-      'Ctrl+V — добавить magnet-ссылку из буфера';
+  String savedTorrentsPasteHint(String shortcut) {
+    return '$shortcut — добавить magnet-ссылку из буфера';
+  }
 
   @override
   String get downloadsFilesTitle => 'Файлы';

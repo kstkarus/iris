@@ -915,8 +915,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get watchSourcesColumnDate => 'Date';
 
   @override
-  String get savedTorrentsPasteHint =>
-      'Ctrl+V adds a magnet link from the clipboard';
+  String savedTorrentsPasteHint(String shortcut) {
+    return '$shortcut adds a magnet link from the clipboard';
+  }
 
   @override
   String get downloadsFilesTitle => 'Files';

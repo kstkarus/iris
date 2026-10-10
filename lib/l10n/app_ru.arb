@@ -340,7 +340,7 @@
   "watchSourcesColumnSeeders": "Сиды",
   "watchSourcesColumnDownloads": "Загрузки",
   "watchSourcesColumnDate": "Дата",
-  "savedTorrentsPasteHint": "Ctrl+V — добавить magnet-ссылку из буфера",
+  "savedTorrentsPasteHint": "{shortcut} — добавить magnet-ссылку из буфера",
   "downloadsFilesTitle": "Файлы",
   "commonShowMore": "Ещё {count}",
   "commonShowLess": "Свернуть",

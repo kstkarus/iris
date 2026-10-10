@@ -1643,8 +1643,8 @@ abstract class AppLocalizations {
   /// No description provided for @savedTorrentsPasteHint.
   ///
   /// In en, this message translates to:
-  /// **'Ctrl+V adds a magnet link from the clipboard'**
-  String get savedTorrentsPasteHint;
+  /// **'{shortcut} adds a magnet link from the clipboard'**
+  String savedTorrentsPasteHint(String shortcut);
 
   /// No description provided for @downloadsFilesTitle.
   ///

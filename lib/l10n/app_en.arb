@@ -577,7 +577,7 @@
   "watchSourcesColumnSeeders": "Seeders",
   "watchSourcesColumnDownloads": "Downloads",
   "watchSourcesColumnDate": "Date",
-  "savedTorrentsPasteHint": "Ctrl+V adds a magnet link from the clipboard",
+  "savedTorrentsPasteHint": "{shortcut} adds a magnet link from the clipboard",
   "downloadsFilesTitle": "Files",
   "commonShowMore": "{count} more",
   "@commonShowMore": {
@@ -795,6 +795,14 @@
     "placeholders": {
       "watched": {
         "type": "int"
+      }
+    }
+  },
+  "@savedTorrentsPasteHint": {
+    "placeholders": {
+      "shortcut": {
+        "type": "String",
+        "example": "Ctrl+V"
       }
     }
   }

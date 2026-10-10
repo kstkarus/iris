@@ -171,14 +171,14 @@ void main() {
     await tester.pumpAndSettle();
     await tester.pageBack();
     await tester.pumpAndSettle();
-    expect(find.textContaining('Last watched: episode-01'), findsOneWidget);
-    expect(find.text('Stopped at 5:00 of 24:00'), findsOneWidget);
+    expect(find.text('Episode 1'), findsOneWidget);
+    expect(find.text('5:00 / 24:00'), findsOneWidget);
     // The default test window is too narrow for the row's verb label; the
     // progress itself sits inside the tappable row.
     expect(
       find.descendant(
         of: find.byKey(const Key('saved_torrent_watch_button')),
-        matching: find.text('Stopped at 5:00 of 24:00'),
+        matching: find.text('5:00 / 24:00'),
       ),
       findsOneWidget,
     );

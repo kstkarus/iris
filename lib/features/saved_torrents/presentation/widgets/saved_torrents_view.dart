@@ -13,6 +13,7 @@ import 'package:iris/features/saved_torrents/presentation/cubit/saved_torrents_s
 import 'package:iris/features/saved_torrents/presentation/widgets/saved_torrent_dialogs.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/torrent/torrent_key.dart';
+import 'package:iris/shared/utils/episode_number.dart';
 import 'package:iris/shared/utils/file_display_name.dart';
 import 'package:iris/shared/widgets/adaptive/window_size_class.dart';
 import 'package:iris/shared/widgets/pixel_icon.dart';
@@ -53,17 +54,27 @@ class SavedTorrentsView extends StatelessWidget {
           onPressed: onAdd,
           child: Text(l10n.savedTorrentsAddButton),
         );
+        final pasteHint = _pasteHint(context);
         if (state.torrents.isEmpty) {
           return MessageView(
             title: l10n.savedTorrentsEmptyTitle,
             message: l10n.savedTorrentsEmptyMessage,
-            action: addButton,
+            action: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                addButton,
+                if (pasteHint != null) ...[
+                  const SizedBox(height: 16),
+                  Text(pasteHint, style: Theme.of(context).textTheme.bodySmall),
+                ],
+              ],
+            ),
           );
         }
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _Header(addButton: addButton),
+            _Header(addButton: addButton, pasteHint: pasteHint),
             const SizedBox(height: 16),
             Expanded(
               child: _TorrentList(
@@ -79,30 +90,34 @@ class SavedTorrentsView extends StatelessWidget {
   }
 }
 
-/// The add action, with the keyboard shortcut spelled out where there is
-/// a keyboard.
+/// The paste shortcut in the platform's own spelling, where there is a
+/// keyboard; null on phones.
+String? _pasteHint(BuildContext context) {
+  final shortcut = switch (defaultTargetPlatform) {
+    TargetPlatform.macOS => '⌘V',
+    TargetPlatform.windows || TargetPlatform.linux => 'Ctrl+V',
+    _ => null,
+  };
+  if (shortcut == null) return null;
+  return AppLocalizations.of(context).savedTorrentsPasteHint(shortcut);
+}
+
+/// The add action, with the paste shortcut beside it where there is one.
 class _Header extends StatelessWidget {
-  const _Header({required this.addButton});
+  const _Header({required this.addButton, required this.pasteHint});
 
   final Widget addButton;
+  final String? pasteHint;
 
   @override
   Widget build(BuildContext context) {
-    final hasKeyboard = switch (defaultTargetPlatform) {
-      TargetPlatform.windows ||
-      TargetPlatform.linux ||
-      TargetPlatform.macOS => true,
-      _ => false,
-    };
+    final pasteHint = this.pasteHint;
     return Row(
       children: [
         Expanded(
-          child: hasKeyboard
-              ? Text(
-                  AppLocalizations.of(context).savedTorrentsPasteHint,
-                  style: Theme.of(context).textTheme.bodySmall,
-                )
-              : const SizedBox.shrink(),
+          child: pasteHint == null
+              ? const SizedBox.shrink()
+              : Text(pasteHint, style: Theme.of(context).textTheme.bodySmall),
         ),
         const SizedBox(width: 16),
         addButton,
@@ -164,9 +179,9 @@ class _TorrentList extends StatelessWidget {
   }
 }
 
-/// One saved torrent. The row itself watches (or continues) it; download
-/// and the menu sit at its end.
-class _TorrentRow extends StatelessWidget {
+/// One saved torrent. The row itself watches (or continues) it; the rarer
+/// actions sit in its menu, which a long press or a right click also opens.
+class _TorrentRow extends StatefulWidget {
   const _TorrentRow({
     required this.torrent,
     required this.progress,
@@ -190,24 +205,24 @@ class _TorrentRow extends StatelessWidget {
   final VoidCallback onDownload;
 
   @override
+  State<_TorrentRow> createState() => _TorrentRowState();
+}
+
+class _TorrentRowState extends State<_TorrentRow> {
+  final _menu = MenuController();
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final l10n = AppLocalizations.of(context);
-    final progress = this.progress;
-    final date = DateFormat.yMMMd(
-      l10n.localeName,
-    ).format(torrent.lastUsedAt.toLocal());
-    final usedLabel = torrent.lastOpenedAt == null
-        ? l10n.savedTorrentsAddedOn(date)
-        : l10n.savedTorrentsOpenedOn(date);
-
     return Material(
-      color: highlighted
+      color: widget.highlighted
           ? theme.colorScheme.surfaceContainer
           : Colors.transparent,
       child: InkWell(
         key: const Key('saved_torrent_watch_button'),
-        onTap: onWatch,
+        onTap: widget.onWatch,
+        onLongPress: _menu.open,
+        onSecondaryTap: _menu.open,
         child: Padding(
           padding: const EdgeInsets.fromLTRB(12, 14, 0, 14),
           child: Row(
@@ -217,40 +232,23 @@ class _TorrentRow extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      torrent.title,
+                      widget.torrent.title,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.titleSmall,
                     ),
                     const SizedBox(height: 4),
-                    Text(
-                      [
-                        usedLabel,
-                        if (progress != null)
-                          l10n.watchProgressLastFile(
-                            fileDisplayName(progress.fileName),
-                          ),
-                      ].join(' · '),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodySmall,
-                    ),
-                    if (progress != null) ...[
-                      const SizedBox(height: 10),
-                      WatchProgressLine(progress: progress),
-                    ],
+                    _Status(torrent: widget.torrent, progress: widget.progress),
                   ],
                 ),
               ),
-              const SizedBox(width: 16),
-              IconButton(
-                key: const Key('saved_torrent_download_button'),
-                tooltip: l10n.downloadsOpenButton,
-                icon: const PixelIcon(PixelGlyph.download, size: 18),
-                onPressed: onDownload,
+              const SizedBox(width: 8),
+              _RowMenu(
+                controller: _menu,
+                torrent: widget.torrent,
+                onDownload: widget.onDownload,
               ),
-              _RowMenu(torrent: torrent),
-              if (wide)
+              if (widget.wide)
                 const Padding(
                   padding: EdgeInsets.only(left: 4, right: 8),
                   child: PixelIcon(PixelGlyph.arrowRight, size: 16),
@@ -263,34 +261,90 @@ class _TorrentRow extends StatelessWidget {
   }
 }
 
-enum _MenuAction { rename, copyLink, delete }
-
-class _RowMenu extends StatelessWidget {
-  const _RowMenu({required this.torrent});
+/// Where the user is in the torrent: the episode and how far into it, or,
+/// before anything was watched, when the torrent was added or opened. The
+/// file's own name is left out when it has an episode number: it mostly
+/// repeats the torrent's.
+class _Status extends StatelessWidget {
+  const _Status({required this.torrent, required this.progress});
 
   final SavedTorrent torrent;
+  final WatchProgress? progress;
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    return PopupMenuButton<_MenuAction>(
-      tooltip: l10n.savedTorrentsMoreTooltip,
-      icon: const PixelIcon(PixelGlyph.more, size: 18),
-      onSelected: (action) => _handle(context, action),
-      itemBuilder: (_) => [
-        PopupMenuItem(
-          value: _MenuAction.rename,
-          child: Text(l10n.savedTorrentsRename),
+    final style = Theme.of(context).textTheme.bodySmall;
+    final progress = this.progress;
+    if (progress == null) {
+      final used = torrent.lastUsedAt.toLocal();
+      final format = used.year == DateTime.now().year
+          ? DateFormat.MMMd(l10n.localeName)
+          : DateFormat.yMMMd(l10n.localeName);
+      final date = format.format(used);
+      return Text(
+        torrent.lastOpenedAt == null
+            ? l10n.savedTorrentsAddedOn(date)
+            : l10n.savedTorrentsOpenedOn(date),
+        style: style,
+      );
+    }
+    final episode = episodeNumberFromFileName(progress.fileName);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          episode == null
+              ? fileDisplayName(progress.fileName)
+              : l10n.playerEpisodeNumber(episode),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: style,
         ),
-        PopupMenuItem(
-          value: _MenuAction.copyLink,
-          child: Text(l10n.savedTorrentsCopyLink),
-        ),
-        PopupMenuItem(
-          value: _MenuAction.delete,
-          child: Text(l10n.savedTorrentsDelete),
-        ),
+        const SizedBox(height: 8),
+        WatchProgressLine(progress: progress, timesOnly: true),
       ],
+    );
+  }
+}
+
+enum _MenuAction { download, rename, copyLink, delete }
+
+class _RowMenu extends StatelessWidget {
+  const _RowMenu({
+    required this.controller,
+    required this.torrent,
+    required this.onDownload,
+  });
+
+  final MenuController controller;
+  final SavedTorrent torrent;
+  final VoidCallback onDownload;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    MenuItemButton item(_MenuAction action, String label) => MenuItemButton(
+      key: ValueKey('saved_torrent_${action.name}'),
+      onPressed: () => _handle(context, action),
+      child: Text(label),
+    );
+    return MenuAnchor(
+      controller: controller,
+      menuChildren: [
+        item(_MenuAction.download, l10n.downloadsOpenButton),
+        item(_MenuAction.rename, l10n.savedTorrentsRename),
+        item(_MenuAction.copyLink, l10n.savedTorrentsCopyLink),
+        // Apart from the rest, so it is not hit on the way to them.
+        const Divider(height: 1),
+        item(_MenuAction.delete, l10n.savedTorrentsDelete),
+      ],
+      builder: (context, controller, _) => IconButton(
+        tooltip: l10n.savedTorrentsMoreTooltip,
+        icon: const PixelIcon(PixelGlyph.more, size: 18),
+        onPressed: () =>
+            controller.isOpen ? controller.close() : controller.open(),
+      ),
     );
   }
 
@@ -299,6 +353,8 @@ class _RowMenu extends StatelessWidget {
     final messenger = ScaffoldMessenger.of(context);
     final l10n = AppLocalizations.of(context);
     switch (action) {
+      case _MenuAction.download:
+        onDownload();
       case _MenuAction.rename:
         final title = await showRenameSavedTorrentDialog(
           context: context,

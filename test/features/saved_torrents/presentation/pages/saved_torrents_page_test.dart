@@ -1,9 +1,14 @@
+import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:iris/entities/watch_progress/domain/watch_progress.dart';
+import 'package:iris/entities/watch_progress/domain/watch_progress_repository.dart';
+import 'package:iris/entities/watch_progress/presentation/watch_progress_cubit.dart';
 import 'package:iris/features/saved_torrents/data/repositories/shared_preferences_saved_torrents_repository.dart';
 import 'package:iris/features/saved_torrents/domain/entities/saved_torrent.dart';
 import 'package:iris/features/saved_torrents/presentation/cubit/saved_torrents_cubit.dart';
@@ -32,18 +37,32 @@ void main() {
 
   tearDown(() => repository.close());
 
-  Future<void> pumpPage(WidgetTester tester, {Size? size}) async {
+  Future<void> pumpPage(
+    WidgetTester tester, {
+    Size? size,
+    List<WatchProgress> history = const [],
+  }) async {
     if (size != null) setTestWindowSize(tester, size);
     await tester.pumpWidget(
       MaterialApp(
+        // A new page each time, so a changed platform builds afresh.
+        key: UniqueKey(),
         locale: const Locale('ru'),
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
-        home: BlocProvider(
-          create: (_) => SavedTorrentsCubit(
-            repository: repository,
-            highlightDuration: const Duration(milliseconds: 10),
-          )..load(),
+        home: MultiBlocProvider(
+          providers: [
+            BlocProvider(
+              create: (_) => SavedTorrentsCubit(
+                repository: repository,
+                highlightDuration: const Duration(milliseconds: 10),
+              )..load(),
+            ),
+            BlocProvider(
+              create: (_) =>
+                  WatchProgressCubit(repository: _History(history))..load(),
+            ),
+          ],
           child: SavedTorrentsPage(
             onWatch: (SavedTorrent torrent, {int? autoOpenFileIndex}) =>
                 watched.add(torrent.infoHash),
@@ -164,12 +183,78 @@ void main() {
 
     await tester.tap(find.byKey(const Key('saved_torrent_watch_button')));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('saved_torrent_download_button')));
+    await tester.tap(find.byTooltip('Ещё'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('saved_torrent_download')));
     await tester.pumpAndSettle();
 
     expect(watched, [_hash]);
     expect(downloaded, [_hash]);
     expect(find.textContaining('Открывали'), findsOneWidget);
+  });
+
+  testWidgets('a long press or a right click opens the row menu', (
+    tester,
+  ) async {
+    await repository.add(magnet: _magnet);
+    await pumpPage(tester);
+    final row = find.byKey(const Key('saved_torrent_watch_button'));
+
+    await tester.longPress(row);
+    await tester.pumpAndSettle();
+    expect(find.text('Переименовать'), findsOneWidget);
+    expect(watched, isEmpty);
+
+    await tester.tapAt(Offset.zero);
+    await tester.pumpAndSettle();
+    expect(find.text('Переименовать'), findsNothing);
+
+    await tester.tap(row, buttons: kSecondaryButton);
+    await tester.pumpAndSettle();
+    expect(find.text('Переименовать'), findsOneWidget);
+  });
+
+  testWidgets('a watched torrent shows the episode, not the file name', (
+    tester,
+  ) async {
+    await repository.add(magnet: _magnet);
+    await pumpPage(
+      tester,
+      history: [
+        WatchProgress(
+          torrentKey: _hash,
+          fileIndex: 4,
+          fileName: 'Death Note S01/[Group] Death Note - 05 (1080p).mkv',
+          magnet: _magnet,
+          sourceTitle: 'Death Note S01',
+          position: const Duration(minutes: 12, seconds: 31),
+          duration: const Duration(minutes: 23, seconds: 40),
+          updatedAt: DateTime(2026, 10, 10),
+        ),
+      ],
+    );
+
+    expect(find.text('Серия 5'), findsOneWidget);
+    expect(find.text('12:31 / 23:40'), findsOneWidget);
+    expect(find.textContaining('Death Note - 05'), findsNothing);
+    expect(find.textContaining('Добавлена'), findsNothing);
+  });
+
+  testWidgets('the paste shortcut is spelled for the platform', (tester) async {
+    await pumpPage(tester);
+    expect(find.textContaining('из буфера'), findsNothing);
+
+    debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+    await pumpPage(tester);
+    expect(find.text('⌘V — добавить magnet-ссылку из буфера'), findsOneWidget);
+
+    debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+    await pumpPage(tester);
+    expect(
+      find.text('Ctrl+V — добавить magnet-ссылку из буфера'),
+      findsOneWidget,
+    );
+    debugDefaultTargetPlatformOverride = null;
   });
 
   testWidgets('renames and deletes from the card menu', (tester) async {
@@ -218,4 +303,25 @@ void main() {
       expect(find.byType(Dialog), isCompact ? findsNothing : findsOneWidget);
     });
   }
+}
+
+class _History implements WatchProgressRepository {
+  _History(this.items);
+
+  final List<WatchProgress> items;
+
+  @override
+  Stream<List<WatchProgress>> watchAll() => Stream.value(items);
+
+  @override
+  Future<WatchProgress?> find({
+    required String torrentKey,
+    required int fileIndex,
+  }) async => null;
+
+  @override
+  Future<void> removeTorrent({required String torrentKey}) async {}
+
+  @override
+  Future<void> save(WatchProgress progress) async {}
 }
