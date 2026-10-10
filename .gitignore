@@ -44,3 +44,6 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Local Shikimori OAuth credentials (see README)
+/config/shikimori.json

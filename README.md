@@ -27,7 +27,7 @@ The app currently reads public anime data from the Shikimori GraphQL API:
 - endpoint: `https://shikimori.io/api/graphql`
 - read-only integration
 - user authorization is not connected yet
-- every request carries `User-Agent: iris`, as Shikimori requires; replace it with the OAuth application name once one is registered
+- every request carries `User-Agent: iris`, as Shikimori requires: the name of the app's registered OAuth application
 - requests are held on the client to Shikimori's limits (5 per second, 90 per minute); a `429` is retried once after `Retry-After`
 - a title page lists the rest of the franchise under Related: prequel and sequel first, then the other relations by air date; commercials, promo videos and music clips are left out, and lists longer than four rows fold after three
 - air dates show as much as Shikimori knows (the year, the month and year, or the day): it fills an unknown month or day with the first one
@@ -173,6 +173,14 @@ Run the app:
 ```bash
 flutter run
 ```
+
+Shikimori sign-in needs the OAuth application's id and secret, which stay out of git. Copy `config/shikimori.example.json` to `config/shikimori.json` (ignored), fill in the values from https://shikimori.io/oauth/applications and pass the file to every run or build (in Android Studio: Run configuration → Additional run args):
+
+```bash
+flutter run --dart-define-from-file=config/shikimori.json
+```
+
+Without it the app builds and runs, and the Profile tab says sign-in is not set up. The application must list `iris://oauth/callback` as a redirect URI and allow the `user_rates` scope. The secret ends up inside the built app, where it can be read out; that is accepted for an app shared among friends.
 
 Run on Windows desktop (requires Visual Studio 2022 with the "Desktop development with C++" workload):
 

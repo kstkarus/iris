@@ -4,9 +4,9 @@ abstract final class ShikimoriApi {
   static const baseUrl = 'https://shikimori.io';
   static const graphQlPath = '/api/graphql';
 
-  /// Shikimori asks every client to name itself here (the OAuth
-  /// application's name once there is one) and bans addresses that send
-  /// browser-like or empty agents.
+  /// Shikimori asks every client to name itself here by its OAuth
+  /// application's name and bans addresses that send browser-like or empty
+  /// agents.
   static const userAgent = 'iris';
 
   /// The published limits: 5 requests a second and 90 a minute.
