@@ -1219,4 +1219,12 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get playerMarkFailed => 'Шикимори не сохранил отметку.';
+
+  @override
+  String get profileSigningInHint =>
+      'Закончите вход в браузере. Если вернуться сюда раньше, вход отменится.';
+
+  @override
+  String get profileSignInPortBusy =>
+      'Порт 43821, нужный для входа, занят другой программой. Закройте её и попробуйте снова.';
 }

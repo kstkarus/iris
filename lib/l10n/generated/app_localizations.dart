@@ -2137,6 +2137,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Shikimori did not save the mark.'**
   String get playerMarkFailed;
+
+  /// No description provided for @profileSigningInHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Finish signing in in the browser. Coming back here before that cancels it.'**
+  String get profileSigningInHint;
+
+  /// No description provided for @profileSignInPortBusy.
+  ///
+  /// In en, this message translates to:
+  /// **'Another program holds port 43821, which sign-in needs. Close it and try again.'**
+  String get profileSignInPortBusy;
 }
 
 class _AppLocalizationsDelegate

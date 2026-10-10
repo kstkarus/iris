@@ -422,5 +422,7 @@
   "playerMarkUndo": "Отменить",
   "playerMarkOffer": "Отметить {episode} серию на Шикимори?",
   "playerMarkAction": "Отметить",
-  "playerMarkFailed": "Шикимори не сохранил отметку."
+  "playerMarkFailed": "Шикимори не сохранил отметку.",
+  "profileSigningInHint": "Закончите вход в браузере. Если вернуться сюда раньше, вход отменится.",
+  "profileSignInPortBusy": "Порт 43821, нужный для входа, занят другой программой. Закройте её и попробуйте снова."
 }

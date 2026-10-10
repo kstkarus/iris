@@ -128,11 +128,27 @@ Future<void> configureDependencies({
     );
   }
 
+  if (!serviceLocator.isRegistered<ShikimoriOAuthConfig>()) {
+    // Desktop has no app links: the default browser comes back to a
+    // server the app runs on its own machine.
+    final loopback =
+        !kIsWeb &&
+        (defaultTargetPlatform == TargetPlatform.windows ||
+            defaultTargetPlatform == TargetPlatform.linux);
+    serviceLocator.registerSingleton<ShikimoriOAuthConfig>(
+      ShikimoriOAuthConfig.fromEnvironment(
+        redirectUri: loopback
+            ? ShikimoriOAuthConfig.loopbackRedirectUri
+            : ShikimoriOAuthConfig.appRedirectUri,
+      ),
+    );
+  }
+
   if (!serviceLocator.isRegistered<ShikimoriOAuthClient>()) {
     serviceLocator.registerLazySingleton<ShikimoriOAuthClient>(
       () => ShikimoriOAuthClient(
         dio: createShikimoriOAuthDio(),
-        config: const ShikimoriOAuthConfig.fromEnvironment(),
+        config: serviceLocator<ShikimoriOAuthConfig>(),
       ),
     );
   }
@@ -361,7 +377,10 @@ Future<void> configureDependencies({
           accounts: ShikimoriAccountDataSource(
             client: serviceLocator<ShikimoriGraphQlClient>(),
           ),
-          authenticator: const FlutterWebAuthenticator(),
+          authenticator: FlutterWebAuthenticator(
+            callbackUrlScheme:
+                serviceLocator<ShikimoriOAuthConfig>().callbackUrlScheme,
+          ),
           preferences: serviceLocator<SharedPreferences>(),
           // flutter_web_auth_2's web flow needs a callback page iris lacks.
           platformSupported: !kIsWeb,

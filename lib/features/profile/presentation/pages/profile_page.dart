@@ -49,6 +49,7 @@ class ProfilePage extends StatelessWidget {
               AuthRestoring() => const LoadingView(),
               AuthSigningIn() => LoadingView(
                 label: AppLocalizations.of(context).profileSigningIn,
+                details: [AppLocalizations.of(context).profileSigningInHint],
               ),
               AuthSignedOut() => _SignedOut(state: state),
               AuthSignedIn(:final account) => UserListView(
@@ -83,6 +84,7 @@ class _SignedOut extends StatelessWidget {
             AuthNetworkFailure() => l10n.profileSignInNetworkError,
             AuthRejected() => l10n.profileSignInRejected,
             AuthUnavailable() => l10n.profileSignInUnavailable,
+            AuthCallbackBusy() => l10n.profileSignInPortBusy,
             AuthCancelled() || null => l10n.profileSignInMessage,
           };
     return MessageView(

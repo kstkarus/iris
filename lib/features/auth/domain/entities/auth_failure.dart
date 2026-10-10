@@ -13,6 +13,12 @@ final class AuthUnavailable extends AuthFailure {
   const AuthUnavailable();
 }
 
+/// The local server the browser comes back to could not start: another
+/// program holds its port.
+final class AuthCallbackBusy extends AuthFailure {
+  const AuthCallbackBusy();
+}
+
 /// Shikimori could not be reached.
 final class AuthNetworkFailure extends AuthFailure {
   const AuthNetworkFailure();

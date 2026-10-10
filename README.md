@@ -38,7 +38,7 @@ The app currently reads public anime data from the Shikimori GraphQL API:
 
 The Profile tab (the fourth section) signs in with Shikimori's OAuth (authorization code flow, scope `user_rates`):
 
-- the sign-in page opens in a browser tab on Android, the system sheet on iOS and a WebView2 window on Windows, and comes back through the `iris://oauth/callback` redirect; a random `state` ties the redirect to the sign-in that asked for it
+- the sign-in page opens in a browser tab on Android and the system sheet on iOS, which come back through the `iris://oauth/callback` redirect; on Windows and Linux it opens in the default browser, which comes back to a server the app runs at `http://127.0.0.1:43821/oauth/callback` (both redirects are registered with the application; the port is fixed because Shikimori compares redirects exactly). Making the app's window active again before the browser comes back cancels the sign-in. A random `state` ties the redirect to the sign-in that asked for it
 - the tokens are kept in `flutter_secure_storage`; the account's id, nickname and avatar in preferences, so a session restored offline still shows whose it is
 - the access token lasts a day: the Shikimori Dio (`ShikimoriAuthInterceptor`) renews it a minute before it runs out, or once after a `401`, with one renewal shared by requests that need it together; a renewal Shikimori refuses ends the session and the tab asks to sign in again, a network failure keeps it
 - signing out forgets the session on the device; Shikimori has no endpoint to revoke it

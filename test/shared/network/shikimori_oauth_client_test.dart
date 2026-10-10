@@ -27,6 +27,32 @@ void main() {
     'created_at': 1791633600,
   });
 
+  test('on desktop the redirect comes back to the local server', () async {
+    const loopback = ShikimoriOAuthConfig(
+      clientId: 'id',
+      clientSecret: 'secret',
+      redirectUri: ShikimoriOAuthConfig.loopbackRedirectUri,
+    );
+    final adapter = FakeHttpAdapter((_) => tokenReply);
+    final desktop = ShikimoriOAuthClient(
+      dio: createShikimoriOAuthDio()..httpClientAdapter = adapter,
+      config: loopback,
+      now: () => now,
+    );
+
+    expect(
+      desktop.authorizeUrl(state: 'xyz').queryParameters['redirect_uri'],
+      'http://127.0.0.1:43821/oauth/callback',
+    );
+    await desktop.exchangeCode('code');
+    expect(
+      (adapter.requests.single.data as Map)['redirect_uri'],
+      'http://127.0.0.1:43821/oauth/callback',
+    );
+    expect(loopback.callbackUrlScheme, 'http://127.0.0.1:43821');
+    expect(config.callbackUrlScheme, 'iris');
+  });
+
   test('asks for the app, the redirect, the list scope and the state', () {
     final url = client(
       FakeHttpAdapter((_) => tokenReply),

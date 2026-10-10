@@ -31,7 +31,7 @@ class ShikimoriOAuthClient {
       ).replace(
         queryParameters: {
           'client_id': _config.clientId,
-          'redirect_uri': ShikimoriOAuthConfig.redirectUri,
+          'redirect_uri': _config.redirectUri,
           'response_type': 'code',
           'scope': ShikimoriOAuthConfig.scope,
           'state': state,
@@ -41,7 +41,7 @@ class ShikimoriOAuthClient {
   Future<ShikimoriTokens> exchangeCode(String code) => _requestTokens({
     'grant_type': 'authorization_code',
     'code': code,
-    'redirect_uri': ShikimoriOAuthConfig.redirectUri,
+    'redirect_uri': _config.redirectUri,
   });
 
   Future<ShikimoriTokens> refresh(String refreshToken) => _requestTokens({
