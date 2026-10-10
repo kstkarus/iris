@@ -187,7 +187,7 @@ class _AddSavedTorrentFormState extends State<AddSavedTorrentForm> {
               FilledButton(
                 key: AddSavedTorrentForm.saveButtonKey,
                 onPressed: canSave ? _save : null,
-                child: Text(l10n.savedTorrentsSaveButton),
+                child: Text(l10n.savedTorrentsAddConfirm),
               ),
             ],
           ),

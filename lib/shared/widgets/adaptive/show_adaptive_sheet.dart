@@ -8,7 +8,10 @@ import 'package:iris/shared/widgets/adaptive/window_size_class.dart';
 /// centered dialog on medium and wider windows, as recommended by Material 3.
 ///
 /// Both open in reverse, in the [InverseTheme]: an overlay reads as a
-/// separate sheet laid over the page rather than more of the page.
+/// separate sheet laid over the page rather than more of the page. Both
+/// cover the whole window, the app's navigation included, so nothing
+/// behind a modal looks usable; the content gets what it needs from its
+/// opener's arguments, not from providers around the page.
 ///
 /// The content should size itself with `MainAxisSize.min` and put scrollable
 /// parts into a `Flexible`, because the available height is only capped, not
@@ -21,6 +24,8 @@ Future<T?> showAdaptiveSheet<T>({
   if (WindowSizeClass.of(context).isCompact) {
     return showModalBottomSheet<T>(
       context: context,
+      useRootNavigator: true,
+      showDragHandle: true,
       isScrollControlled: true,
       useSafeArea: true,
       backgroundColor: inverse.bottomSheetTheme.modalBackgroundColor,

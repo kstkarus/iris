@@ -269,18 +269,18 @@
   "playerPauseButton": "Pause",
   "navigationSavedTorrents": "Torrents",
   "savedTorrentsTitle": "Torrents",
-  "savedTorrentsAddButton": "Add magnet",
+  "savedTorrentsAddButton": "Add torrent",
   "savedTorrentsEmptyTitle": "No saved torrents yet",
-  "savedTorrentsEmptyMessage": "Paste a magnet link to stream or download it. Saved links stay here for later.",
-  "savedTorrentsAddTitle": "Add magnet link",
+  "savedTorrentsEmptyMessage": "Add one by its magnet link to stream or download it. Added torrents stay here.",
+  "savedTorrentsAddTitle": "Add torrent",
   "savedTorrentsMagnetLabel": "Magnet link",
   "savedTorrentsPasteTooltip": "Paste from clipboard",
   "savedTorrentsNameLabel": "Name",
   "savedTorrentsNameHelper": "Taken from the link if left empty",
   "savedTorrentsInvalidMagnet": "Not a magnet link with a torrent hash (xt=urn:btih:…).",
   "savedTorrentsSaveButton": "Save",
-  "savedTorrentsAdded": "Torrent saved",
-  "savedTorrentsDuplicate": "Already saved as “{title}”",
+  "savedTorrentsAdded": "Torrent added",
+  "savedTorrentsDuplicate": "Already added as “{title}”",
   "@savedTorrentsDuplicate": {
     "placeholders": {
       "title": {
@@ -293,15 +293,6 @@
   "savedTorrentsCopyLink": "Copy link",
   "savedTorrentsLinkCopied": "Link copied",
   "savedTorrentsDelete": "Delete",
-  "savedTorrentsDeleteTitle": "Delete “{title}”?",
-  "@savedTorrentsDeleteTitle": {
-    "placeholders": {
-      "title": {
-        "type": "String"
-      }
-    }
-  },
-  "savedTorrentsDeleteMessage": "Only the saved link is removed. Downloaded files stay in Downloads.",
   "savedTorrentsAddedOn": "Added {date}",
   "@savedTorrentsAddedOn": {
     "placeholders": {
@@ -577,7 +568,7 @@
   "watchSourcesColumnSeeders": "Seeders",
   "watchSourcesColumnDownloads": "Downloads",
   "watchSourcesColumnDate": "Date",
-  "savedTorrentsPasteHint": "{shortcut} adds a magnet link from the clipboard",
+  "savedTorrentsPasteHint": "{shortcut} adds a torrent from the clipboard",
   "downloadsFilesTitle": "Files",
   "commonShowMore": "{count} more",
   "@commonShowMore": {
@@ -806,5 +797,24 @@
       }
     }
   },
-  "profileListBrowseCatalog": "Browse the catalog"
+  "profileListBrowseCatalog": "Browse the catalog",
+  "savedTorrentsAddConfirm": "Add",
+  "savedTorrentsDeleted": "Torrent deleted",
+  "savedTorrentsEpisodeWatched": "Episode {number} watched",
+  "@savedTorrentsEpisodeWatched": {
+    "placeholders": {
+      "number": {
+        "type": "int"
+      }
+    }
+  },
+  "savedTorrentsFileWatched": "Watched: {fileName}",
+  "@savedTorrentsFileWatched": {
+    "placeholders": {
+      "fileName": {
+        "type": "String"
+      }
+    }
+  },
+  "commonUndo": "Undo"
 }

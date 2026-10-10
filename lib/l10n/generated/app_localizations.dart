@@ -1031,7 +1031,7 @@ abstract class AppLocalizations {
   /// No description provided for @savedTorrentsAddButton.
   ///
   /// In en, this message translates to:
-  /// **'Add magnet'**
+  /// **'Add torrent'**
   String get savedTorrentsAddButton;
 
   /// No description provided for @savedTorrentsEmptyTitle.
@@ -1043,13 +1043,13 @@ abstract class AppLocalizations {
   /// No description provided for @savedTorrentsEmptyMessage.
   ///
   /// In en, this message translates to:
-  /// **'Paste a magnet link to stream or download it. Saved links stay here for later.'**
+  /// **'Add one by its magnet link to stream or download it. Added torrents stay here.'**
   String get savedTorrentsEmptyMessage;
 
   /// No description provided for @savedTorrentsAddTitle.
   ///
   /// In en, this message translates to:
-  /// **'Add magnet link'**
+  /// **'Add torrent'**
   String get savedTorrentsAddTitle;
 
   /// No description provided for @savedTorrentsMagnetLabel.
@@ -1091,13 +1091,13 @@ abstract class AppLocalizations {
   /// No description provided for @savedTorrentsAdded.
   ///
   /// In en, this message translates to:
-  /// **'Torrent saved'**
+  /// **'Torrent added'**
   String get savedTorrentsAdded;
 
   /// No description provided for @savedTorrentsDuplicate.
   ///
   /// In en, this message translates to:
-  /// **'Already saved as “{title}”'**
+  /// **'Already added as “{title}”'**
   String savedTorrentsDuplicate(String title);
 
   /// No description provided for @savedTorrentsMoreTooltip.
@@ -1129,18 +1129,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Delete'**
   String get savedTorrentsDelete;
-
-  /// No description provided for @savedTorrentsDeleteTitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Delete “{title}”?'**
-  String savedTorrentsDeleteTitle(String title);
-
-  /// No description provided for @savedTorrentsDeleteMessage.
-  ///
-  /// In en, this message translates to:
-  /// **'Only the saved link is removed. Downloaded files stay in Downloads.'**
-  String get savedTorrentsDeleteMessage;
 
   /// No description provided for @savedTorrentsAddedOn.
   ///
@@ -1643,7 +1631,7 @@ abstract class AppLocalizations {
   /// No description provided for @savedTorrentsPasteHint.
   ///
   /// In en, this message translates to:
-  /// **'{shortcut} adds a magnet link from the clipboard'**
+  /// **'{shortcut} adds a torrent from the clipboard'**
   String savedTorrentsPasteHint(String shortcut);
 
   /// No description provided for @downloadsFilesTitle.
@@ -2173,6 +2161,36 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Browse the catalog'**
   String get profileListBrowseCatalog;
+
+  /// No description provided for @savedTorrentsAddConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Add'**
+  String get savedTorrentsAddConfirm;
+
+  /// No description provided for @savedTorrentsDeleted.
+  ///
+  /// In en, this message translates to:
+  /// **'Torrent deleted'**
+  String get savedTorrentsDeleted;
+
+  /// No description provided for @savedTorrentsEpisodeWatched.
+  ///
+  /// In en, this message translates to:
+  /// **'Episode {number} watched'**
+  String savedTorrentsEpisodeWatched(int number);
+
+  /// No description provided for @savedTorrentsFileWatched.
+  ///
+  /// In en, this message translates to:
+  /// **'Watched: {fileName}'**
+  String savedTorrentsFileWatched(String fileName);
+
+  /// No description provided for @commonUndo.
+  ///
+  /// In en, this message translates to:
+  /// **'Undo'**
+  String get commonUndo;
 }
 
 class _AppLocalizationsDelegate

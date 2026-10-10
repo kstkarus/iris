@@ -57,9 +57,16 @@ class SavedTorrentsCubit extends Cubit<SavedTorrentsState> {
     return _repository.rename(infoHash: infoHash, title: title);
   }
 
-  Future<void> delete(String infoHash) {
-    return _repository.delete(infoHash: infoHash);
+  /// Removes the torrent; resolves to it, for [restore] to undo.
+  Future<SavedTorrent?> delete(String infoHash) async {
+    final torrent = state.torrents
+        .where((torrent) => torrent.infoHash == infoHash)
+        .firstOrNull;
+    await _repository.delete(infoHash: infoHash);
+    return torrent;
   }
+
+  Future<void> restore(SavedTorrent torrent) => _repository.restore(torrent);
 
   /// Moves the torrent to the top of the list when the user opens it.
   Future<void> markOpened(String infoHash) {

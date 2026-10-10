@@ -13,6 +13,7 @@ import 'package:iris/features/saved_torrents/presentation/cubit/saved_torrents_s
 import 'package:iris/features/saved_torrents/presentation/widgets/saved_torrent_dialogs.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/torrent/torrent_key.dart';
+import 'package:iris/shared/utils/duration_formatter.dart';
 import 'package:iris/shared/utils/episode_number.dart';
 import 'package:iris/shared/utils/file_display_name.dart';
 import 'package:iris/shared/widgets/adaptive/window_size_class.dart';
@@ -89,6 +90,13 @@ class SavedTorrentsView extends StatelessWidget {
     );
   }
 }
+
+bool get _hasKeyboard => switch (defaultTargetPlatform) {
+  TargetPlatform.windows ||
+  TargetPlatform.linux ||
+  TargetPlatform.macOS => true,
+  _ => false,
+};
 
 /// The paste shortcut in the platform's own spelling, where there is a
 /// keyboard; null on phones.
@@ -210,12 +218,18 @@ class _TorrentRow extends StatefulWidget {
 
 class _TorrentRowState extends State<_TorrentRow> {
   final _menu = MenuController();
+  bool _menuOpen = false;
+
+  void _setMenuOpen(bool open) {
+    if (mounted) setState(() => _menuOpen = open);
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Material(
-      color: widget.highlighted
+      // Also while its menu is open, which then plainly acts on this row.
+      color: widget.highlighted || _menuOpen
           ? theme.colorScheme.surfaceContainer
           : Colors.transparent,
       child: InkWell(
@@ -247,6 +261,7 @@ class _TorrentRowState extends State<_TorrentRow> {
                 controller: _menu,
                 torrent: widget.torrent,
                 onDownload: widget.onDownload,
+                onOpenChanged: _setMenuOpen,
               ),
               if (widget.wide)
                 const Padding(
@@ -261,10 +276,10 @@ class _TorrentRowState extends State<_TorrentRow> {
   }
 }
 
-/// Where the user is in the torrent: the episode and how far into it, or,
-/// before anything was watched, when the torrent was added or opened. The
-/// file's own name is left out when it has an episode number: it mostly
-/// repeats the torrent's.
+/// Where the user is in the torrent: the episode and how far into it on
+/// one line over its bar, or, before anything was watched, when the
+/// torrent was added or opened. The file's own name is left out when it
+/// has an episode number: it mostly repeats the torrent's.
 class _Status extends StatelessWidget {
   const _Status({required this.torrent, required this.progress});
 
@@ -290,19 +305,58 @@ class _Status extends StatelessWidget {
       );
     }
     final episode = episodeNumberFromFileName(progress.fileName);
+    final file = fileDisplayName(progress.fileName);
+    if (progress.isFinished) {
+      // Which episode is done, not the torrent: a batch goes on.
+      return Row(
+        children: [
+          PixelIcon(
+            PixelGlyph.check,
+            size: 14,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              episode == null
+                  ? l10n.savedTorrentsFileWatched(file)
+                  : l10n.savedTorrentsEpisodeWatched(episode),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: style,
+            ),
+          ),
+        ],
+      );
+    }
+    final times =
+        '${formatPlaybackPosition(progress.position)} / '
+        '${formatPlaybackPosition(progress.duration)}';
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          episode == null
-              ? fileDisplayName(progress.fileName)
-              : l10n.playerEpisodeNumber(episode),
+          '${episode == null ? file : l10n.playerEpisodeNumber(episode)}'
+          ' · $times',
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: style,
+          style: style?.copyWith(
+            fontFeatures: const [FontFeature.tabularFigures()],
+          ),
         ),
-        const SizedBox(height: 8),
-        WatchProgressLine(progress: progress, timesOnly: true),
+        const SizedBox(height: 6),
+        ConstrainedBox(
+          constraints: const BoxConstraints(
+            maxWidth: WatchProgressLine.maxWidth,
+          ),
+          child: ExcludeSemantics(
+            child: SegmentedBar(
+              value: progress.fraction,
+              height: 4,
+              segment: 6,
+            ),
+          ),
+        ),
       ],
     );
   }
@@ -315,11 +369,18 @@ class _RowMenu extends StatelessWidget {
     required this.controller,
     required this.torrent,
     required this.onDownload,
+    required this.onOpenChanged,
   });
+
+  /// Fixed, so the menu can end where its button ends instead of running
+  /// to the window's edge.
+  static const _width = 224.0;
+  static const _buttonWidth = 48.0;
 
   final MenuController controller;
   final SavedTorrent torrent;
   final VoidCallback onDownload;
+  final ValueChanged<bool> onOpenChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -329,11 +390,20 @@ class _RowMenu extends StatelessWidget {
       onPressed: () => _handle(context, action),
       child: Text(label),
     );
+    // Desktop menus mark an item that asks for more with an ellipsis.
+    final more = _hasKeyboard ? '…' : '';
     return MenuAnchor(
       controller: controller,
+      onOpen: () => onOpenChanged(true),
+      onClose: () => onOpenChanged(false),
+      alignmentOffset: const Offset(_buttonWidth - _width, 0),
+      style: const MenuStyle(
+        minimumSize: WidgetStatePropertyAll(Size(_width, 0)),
+        maximumSize: WidgetStatePropertyAll(Size(_width, double.infinity)),
+      ),
       menuChildren: [
         item(_MenuAction.download, l10n.downloadsOpenButton),
-        item(_MenuAction.rename, l10n.savedTorrentsRename),
+        item(_MenuAction.rename, '${l10n.savedTorrentsRename}$more'),
         item(_MenuAction.copyLink, l10n.savedTorrentsCopyLink),
         // Apart from the rest, so it is not hit on the way to them.
         const Divider(height: 1),
@@ -367,11 +437,20 @@ class _RowMenu extends StatelessWidget {
           SnackBar(content: Text(l10n.savedTorrentsLinkCopied)),
         );
       case _MenuAction.delete:
-        final confirmed = await showDeleteSavedTorrentDialog(
-          context: context,
-          title: torrent.title,
-        );
-        if (confirmed) await cubit.delete(torrent.infoHash);
+        // Cheap to put back, so no question first: an undo instead.
+        final removed = await cubit.delete(torrent.infoHash);
+        if (removed == null) return;
+        messenger
+          ..hideCurrentSnackBar()
+          ..showSnackBar(
+            SnackBar(
+              content: Text(l10n.savedTorrentsDeleted),
+              action: SnackBarAction(
+                label: l10n.commonUndo,
+                onPressed: () => cubit.restore(removed),
+              ),
+            ),
+          );
     }
   }
 }

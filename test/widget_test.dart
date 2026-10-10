@@ -143,7 +143,7 @@ void main() {
     await _pumpUntilVisible(tester, find.text('No saved torrents yet'));
     await tester.pumpAndSettle();
 
-    await _tapVisible(tester, find.text('Add magnet').last);
+    await _tapVisible(tester, find.text('Add torrent').last);
     await tester.pumpAndSettle();
     await tester.enterText(
       find.byKey(const Key('add_saved_torrent_magnet_field')),
@@ -171,14 +171,13 @@ void main() {
     await tester.pumpAndSettle();
     await tester.pageBack();
     await tester.pumpAndSettle();
-    expect(find.text('Episode 1'), findsOneWidget);
-    expect(find.text('5:00 / 24:00'), findsOneWidget);
+    expect(find.text('Episode 1 · 5:00 / 24:00'), findsOneWidget);
     // The default test window is too narrow for the row's verb label; the
     // progress itself sits inside the tappable row.
     expect(
       find.descendant(
         of: find.byKey(const Key('saved_torrent_watch_button')),
-        matching: find.text('5:00 / 24:00'),
+        matching: find.text('Episode 1 · 5:00 / 24:00'),
       ),
       findsOneWidget,
     );

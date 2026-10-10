@@ -34,4 +34,8 @@ abstract interface class SavedTorrentsRepository {
   Future<void> markOpened({required String infoHash});
 
   Future<void> delete({required String infoHash});
+
+  /// Puts back a torrent [delete] removed, as it was (its place in the list
+  /// included); nothing when the same info-hash is saved again meanwhile.
+  Future<void> restore(SavedTorrent torrent);
 }

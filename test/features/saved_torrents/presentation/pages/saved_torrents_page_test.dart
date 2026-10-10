@@ -84,7 +84,7 @@ void main() {
     await pumpPage(tester);
 
     expect(find.text('Пока нет сохранённых раздач'), findsOneWidget);
-    expect(find.text('Добавить magnet'), findsWidgets);
+    expect(find.text('Добавить раздачу'), findsWidgets);
   });
 
   testWidgets('saves a pasted magnet named after dn', (tester) async {
@@ -104,7 +104,7 @@ void main() {
     await tester.tap(find.byKey(AddSavedTorrentForm.saveButtonKey));
     await tester.pumpAndSettle();
 
-    expect(find.text('Раздача сохранена'), findsOneWidget);
+    expect(find.text('Раздача добавлена'), findsOneWidget);
     expect(find.text('Death Note S01'), findsOneWidget);
     expect(find.textContaining('065c4691'), findsNothing);
   });
@@ -143,7 +143,7 @@ void main() {
     await tester.tap(find.byKey(AddSavedTorrentForm.saveButtonKey));
     await tester.pumpAndSettle();
 
-    expect(find.text('Уже сохранена как «Моя тетрадь»'), findsOneWidget);
+    expect(find.text('Уже добавлена как «Моя тетрадь»'), findsOneWidget);
     expect(find.text('Моя тетрадь'), findsOneWidget);
   });
 
@@ -234,30 +234,54 @@ void main() {
       ],
     );
 
-    expect(find.text('Серия 5'), findsOneWidget);
-    expect(find.text('12:31 / 23:40'), findsOneWidget);
+    expect(find.text('Серия 5 · 12:31 / 23:40'), findsOneWidget);
     expect(find.textContaining('Death Note - 05'), findsNothing);
     expect(find.textContaining('Добавлена'), findsNothing);
+  });
+
+  testWidgets('a finished episode is named, not the whole torrent', (
+    tester,
+  ) async {
+    await repository.add(magnet: _magnet);
+    await pumpPage(
+      tester,
+      history: [
+        WatchProgress(
+          torrentKey: _hash,
+          fileIndex: 6,
+          fileName: '[Group] Death Note - 07 (1080p).mkv',
+          magnet: _magnet,
+          sourceTitle: 'Death Note S01',
+          position: const Duration(minutes: 23, seconds: 30),
+          duration: const Duration(minutes: 23, seconds: 40),
+          updatedAt: DateTime(2026, 10, 10),
+        ),
+      ],
+    );
+
+    expect(find.text('Серия 7 просмотрена'), findsOneWidget);
+    expect(find.text('Просмотрено'), findsNothing);
   });
 
   testWidgets('the paste shortcut is spelled for the platform', (tester) async {
     await pumpPage(tester);
     expect(find.textContaining('из буфера'), findsNothing);
 
-    debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
-    await pumpPage(tester);
-    expect(find.text('⌘V — добавить magnet-ссылку из буфера'), findsOneWidget);
+    try {
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+      await pumpPage(tester);
+      expect(find.text('⌘V — добавить раздачу из буфера'), findsOneWidget);
 
-    debugDefaultTargetPlatformOverride = TargetPlatform.windows;
-    await pumpPage(tester);
-    expect(
-      find.text('Ctrl+V — добавить magnet-ссылку из буфера'),
-      findsOneWidget,
-    );
-    debugDefaultTargetPlatformOverride = null;
+      debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+      await pumpPage(tester);
+      expect(find.text('Ctrl+V — добавить раздачу из буфера'), findsOneWidget);
+    } finally {
+      // Reset before the test ends: Flutter checks it before tear-downs.
+      debugDefaultTargetPlatformOverride = null;
+    }
   });
 
-  testWidgets('renames and deletes from the card menu', (tester) async {
+  testWidgets('renames, deletes at once and undoes the delete', (tester) async {
     await repository.add(magnet: _magnet);
     await pumpPage(tester);
 
@@ -274,11 +298,27 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Удалить'));
     await tester.pumpAndSettle();
-    expect(find.text('Удалить «Тетрадь смерти»?'), findsOneWidget);
-    await tester.tap(find.widgetWithText(FilledButton, 'Удалить'));
-    await tester.pumpAndSettle();
-
+    // No question first: an undo instead.
+    expect(find.byType(AlertDialog), findsNothing);
     expect(find.text('Пока нет сохранённых раздач'), findsOneWidget);
+    expect(find.text('Раздача удалена'), findsOneWidget);
+
+    await tester.tap(find.text('Отменить'));
+    await tester.pumpAndSettle();
+    expect(find.text('Тетрадь смерти'), findsOneWidget);
+  });
+
+  testWidgets('the add sheet covers the whole window on phones', (
+    tester,
+  ) async {
+    await pumpPage(tester, size: TestWindowSizes.phone);
+    await openAddSheet(tester);
+
+    expect(find.text('Добавить раздачу'), findsWidgets);
+    expect(
+      tester.widget<BottomSheet>(find.byType(BottomSheet)).showDragHandle,
+      isTrue,
+    );
   });
 
   for (final entry in TestWindowSizes.all.entries) {

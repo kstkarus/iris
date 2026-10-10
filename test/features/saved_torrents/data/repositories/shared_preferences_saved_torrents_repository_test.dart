@@ -92,6 +92,17 @@ void main() {
     expect(torrents.first.lastOpenedAt, now);
   });
 
+  test('puts back a deleted torrent as it was', () async {
+    await repository.add(magnet: 'magnet:?xt=urn:btih:$_hashA', title: 'A');
+    final saved = (await repository.watchTorrents().first).single;
+    await repository.delete(infoHash: _hashA);
+
+    await repository.restore(saved);
+    await repository.restore(saved);
+
+    expect(await repository.watchTorrents().first, [saved]);
+  });
+
   test('renames, ignores blank names and deletes', () async {
     await repository.add(magnet: _magnetA);
 

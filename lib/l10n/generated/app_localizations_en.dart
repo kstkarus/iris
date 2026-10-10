@@ -527,17 +527,17 @@ class AppLocalizationsEn extends AppLocalizations {
   String get savedTorrentsTitle => 'Torrents';
 
   @override
-  String get savedTorrentsAddButton => 'Add magnet';
+  String get savedTorrentsAddButton => 'Add torrent';
 
   @override
   String get savedTorrentsEmptyTitle => 'No saved torrents yet';
 
   @override
   String get savedTorrentsEmptyMessage =>
-      'Paste a magnet link to stream or download it. Saved links stay here for later.';
+      'Add one by its magnet link to stream or download it. Added torrents stay here.';
 
   @override
-  String get savedTorrentsAddTitle => 'Add magnet link';
+  String get savedTorrentsAddTitle => 'Add torrent';
 
   @override
   String get savedTorrentsMagnetLabel => 'Magnet link';
@@ -559,11 +559,11 @@ class AppLocalizationsEn extends AppLocalizations {
   String get savedTorrentsSaveButton => 'Save';
 
   @override
-  String get savedTorrentsAdded => 'Torrent saved';
+  String get savedTorrentsAdded => 'Torrent added';
 
   @override
   String savedTorrentsDuplicate(String title) {
-    return 'Already saved as “$title”';
+    return 'Already added as “$title”';
   }
 
   @override
@@ -580,15 +580,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get savedTorrentsDelete => 'Delete';
-
-  @override
-  String savedTorrentsDeleteTitle(String title) {
-    return 'Delete “$title”?';
-  }
-
-  @override
-  String get savedTorrentsDeleteMessage =>
-      'Only the saved link is removed. Downloaded files stay in Downloads.';
 
   @override
   String savedTorrentsAddedOn(String date) {
@@ -916,7 +907,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String savedTorrentsPasteHint(String shortcut) {
-    return '$shortcut adds a magnet link from the clipboard';
+    return '$shortcut adds a torrent from the clipboard';
   }
 
   @override
@@ -1230,4 +1221,23 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get profileListBrowseCatalog => 'Browse the catalog';
+
+  @override
+  String get savedTorrentsAddConfirm => 'Add';
+
+  @override
+  String get savedTorrentsDeleted => 'Torrent deleted';
+
+  @override
+  String savedTorrentsEpisodeWatched(int number) {
+    return 'Episode $number watched';
+  }
+
+  @override
+  String savedTorrentsFileWatched(String fileName) {
+    return 'Watched: $fileName';
+  }
+
+  @override
+  String get commonUndo => 'Undo';
 }

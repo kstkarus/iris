@@ -534,17 +534,17 @@ class AppLocalizationsRu extends AppLocalizations {
   String get savedTorrentsTitle => 'Раздачи';
 
   @override
-  String get savedTorrentsAddButton => 'Добавить magnet';
+  String get savedTorrentsAddButton => 'Добавить раздачу';
 
   @override
   String get savedTorrentsEmptyTitle => 'Пока нет сохранённых раздач';
 
   @override
   String get savedTorrentsEmptyMessage =>
-      'Вставьте magnet-ссылку, чтобы смотреть или скачать. Сохранённые ссылки останутся здесь.';
+      'Добавьте раздачу по magnet-ссылке, чтобы смотреть или скачать её. Добавленные раздачи останутся здесь.';
 
   @override
-  String get savedTorrentsAddTitle => 'Добавить magnet-ссылку';
+  String get savedTorrentsAddTitle => 'Добавить раздачу';
 
   @override
   String get savedTorrentsMagnetLabel => 'Magnet-ссылка';
@@ -567,11 +567,11 @@ class AppLocalizationsRu extends AppLocalizations {
   String get savedTorrentsSaveButton => 'Сохранить';
 
   @override
-  String get savedTorrentsAdded => 'Раздача сохранена';
+  String get savedTorrentsAdded => 'Раздача добавлена';
 
   @override
   String savedTorrentsDuplicate(String title) {
-    return 'Уже сохранена как «$title»';
+    return 'Уже добавлена как «$title»';
   }
 
   @override
@@ -588,15 +588,6 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get savedTorrentsDelete => 'Удалить';
-
-  @override
-  String savedTorrentsDeleteTitle(String title) {
-    return 'Удалить «$title»?';
-  }
-
-  @override
-  String get savedTorrentsDeleteMessage =>
-      'Удалится только сохранённая ссылка. Скачанные файлы останутся в «Загрузках».';
 
   @override
   String savedTorrentsAddedOn(String date) {
@@ -930,7 +921,7 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String savedTorrentsPasteHint(String shortcut) {
-    return '$shortcut — добавить magnet-ссылку из буфера';
+    return '$shortcut — добавить раздачу из буфера';
   }
 
   @override
@@ -1246,4 +1237,23 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get profileListBrowseCatalog => 'Открыть каталог';
+
+  @override
+  String get savedTorrentsAddConfirm => 'Добавить';
+
+  @override
+  String get savedTorrentsDeleted => 'Раздача удалена';
+
+  @override
+  String savedTorrentsEpisodeWatched(int number) {
+    return 'Серия $number просмотрена';
+  }
+
+  @override
+  String savedTorrentsFileWatched(String fileName) {
+    return 'Просмотрено: $fileName';
+  }
+
+  @override
+  String get commonUndo => 'Отменить';
 }

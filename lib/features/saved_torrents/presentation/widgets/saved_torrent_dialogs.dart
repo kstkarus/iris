@@ -13,32 +13,6 @@ Future<String?> showRenameSavedTorrentDialog({
   );
 }
 
-Future<bool> showDeleteSavedTorrentDialog({
-  required BuildContext context,
-  required String title,
-}) async {
-  final l10n = AppLocalizations.of(context);
-  final materialL10n = MaterialLocalizations.of(context);
-  final confirmed = await showDialog<bool>(
-    context: context,
-    builder: (dialogContext) => AlertDialog(
-      title: Text(l10n.savedTorrentsDeleteTitle(title)),
-      content: Text(l10n.savedTorrentsDeleteMessage),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(dialogContext).pop(false),
-          child: Text(materialL10n.cancelButtonLabel),
-        ),
-        FilledButton(
-          onPressed: () => Navigator.of(dialogContext).pop(true),
-          child: Text(l10n.savedTorrentsDelete),
-        ),
-      ],
-    ),
-  );
-  return confirmed ?? false;
-}
-
 class _RenameDialog extends StatefulWidget {
   const _RenameDialog({required this.currentTitle});
 

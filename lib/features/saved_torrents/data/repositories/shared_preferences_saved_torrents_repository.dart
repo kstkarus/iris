@@ -79,6 +79,13 @@ class SharedPreferencesSavedTorrentsRepository
     await _write(remaining);
   }
 
+  @override
+  Future<void> restore(SavedTorrent torrent) async {
+    final torrents = _read();
+    if (torrents.any((saved) => saved.infoHash == torrent.infoHash)) return;
+    await _write([...torrents, torrent]);
+  }
+
   Future<void> close() => _changes.close();
 
   Future<void> _update(
