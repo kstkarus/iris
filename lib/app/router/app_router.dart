@@ -70,18 +70,49 @@ abstract final class AppRouter {
                   path: '/',
                   name: 'anime-list',
                   builder: (context, state) {
+                    final signedIn =
+                        accountIdOf(context.read<AuthCubit>().state) != null;
+                    var restored = false;
                     return MultiBlocProvider(
                       providers: [
                         BlocProvider(
-                          create: (_) =>
-                              serviceLocator<AnimeListBloc>()
-                                ..add(const AnimeListStarted()),
+                          create: (_) => serviceLocator<AnimeListBloc>()
+                            ..add(
+                              AnimeListAccountChanged(
+                                signedIn: signedIn,
+                                reload: false,
+                              ),
+                            )
+                            ..add(const AnimeListStarted()),
                         ),
                         BlocProvider(
-                          create: (_) => serviceLocator<AnimeSearchBloc>(),
+                          create: (_) => serviceLocator<AnimeSearchBloc>()
+                            ..add(
+                              AnimeListAccountChanged(
+                                signedIn: signedIn,
+                                reload: false,
+                              ),
+                            ),
                         ),
                       ],
-                      child: const AnimeListPage(),
+                      // Signing in or out changes which titles carry the
+                      // user's list; a session restored at launch already
+                      // signed the first page in.
+                      child: BlocListener<AuthCubit, AuthState>(
+                        listenWhen: (previous, current) {
+                          restored = previous is AuthRestoring;
+                          return accountIdOf(previous) != accountIdOf(current);
+                        },
+                        listener: (context, auth) {
+                          final event = AnimeListAccountChanged(
+                            signedIn: accountIdOf(auth) != null,
+                            reload: !restored,
+                          );
+                          context.read<AnimeListBloc>().add(event);
+                          context.read<AnimeSearchBloc>().add(event);
+                        },
+                        child: const AnimeListPage(),
+                      ),
                     );
                   },
                 ),

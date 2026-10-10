@@ -15,6 +15,7 @@ class AnimeListState {
     this.isLoadingMore = false,
     this.hasLoadedOnce = false,
     this.errorType = AnimeListErrorType.none,
+    this.signedIn = false,
   });
 
   final List<AnimeListItem> items;
@@ -28,6 +29,9 @@ class AnimeListState {
   final bool hasLoadedOnce;
   final AnimeListErrorType errorType;
 
+  /// A Shikimori account is signed in: the user's list can filter titles.
+  final bool signedIn;
+
   AnimeListState copyWith({
     List<AnimeListItem>? items,
     int? page,
@@ -39,6 +43,7 @@ class AnimeListState {
     bool? isLoadingMore,
     bool? hasLoadedOnce,
     AnimeListErrorType? errorType,
+    bool? signedIn,
   }) {
     return AnimeListState(
       items: items ?? this.items,
@@ -51,6 +56,7 @@ class AnimeListState {
       isLoadingMore: isLoadingMore ?? this.isLoadingMore,
       hasLoadedOnce: hasLoadedOnce ?? this.hasLoadedOnce,
       errorType: errorType ?? this.errorType,
+      signedIn: signedIn ?? this.signedIn,
     );
   }
 
@@ -70,7 +76,8 @@ class AnimeListState {
         other.isInitialLoading == isInitialLoading &&
         other.isLoadingMore == isLoadingMore &&
         other.hasLoadedOnce == hasLoadedOnce &&
-        other.errorType == errorType;
+        other.errorType == errorType &&
+        other.signedIn == signedIn;
   }
 
   @override
@@ -85,6 +92,7 @@ class AnimeListState {
     isLoadingMore,
     hasLoadedOnce,
     errorType,
+    signedIn,
   );
 }
 

@@ -69,6 +69,12 @@ query AnimePage(
       mainUrl
       originalUrl
     }
+    userRate {
+      id
+      status
+      episodes
+      score
+    }
   }
 }
 ''';

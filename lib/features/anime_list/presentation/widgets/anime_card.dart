@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'package:iris/entities/user_rate/presentation/user_rate_badge.dart';
+import 'package:iris/entities/user_rate/presentation/user_rate_book_cubit.dart';
 import 'package:iris/features/anime_list/domain/entities/anime_list_item.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/utils/anime_metadata_formatter.dart';
@@ -7,7 +9,8 @@ import 'package:iris/shared/utils/incomplete_date.dart';
 import 'package:iris/shared/widgets/poster_image.dart';
 
 /// A catalog title: the cover first, then the names and one short line of
-/// facts. Airing titles carry the signal mark.
+/// facts. Airing titles carry the signal mark; one in the user's list
+/// carries its status on the cover.
 class AnimeCard extends StatelessWidget {
   const AnimeCard({required this.item, this.onTap, super.key});
 
@@ -19,6 +22,7 @@ class AnimeCard extends StatelessWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final l10n = AppLocalizations.of(context);
+    final rate = context.watchUserRate(item.id, item.userRate);
     final airing = item.status == 'ongoing';
     final year = yearOfIsoDate(item.airedOn);
     final facts = [
@@ -44,7 +48,24 @@ class AnimeCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              PosterImage(url: item.posterMainUrl),
+              Stack(
+                children: [
+                  PosterImage(url: item.posterMainUrl),
+                  if (rate != null)
+                    PositionedDirectional(
+                      start: 0,
+                      bottom: 0,
+                      end: 0,
+                      child: Align(
+                        alignment: AlignmentDirectional.bottomStart,
+                        child: UserRateBadge(
+                          rate: rate,
+                          totalEpisodes: item.episodes,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
               const SizedBox(height: 10),
               Text(
                 item.name,

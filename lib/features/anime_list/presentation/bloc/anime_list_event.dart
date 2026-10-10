@@ -40,6 +40,16 @@ class AnimeListCriteriaApplied extends AnimeListEvent {
   final AnimeListFilters? filters;
 }
 
+/// The Shikimori session began or ended: entries in the user's list come
+/// with the titles only while signed in. [reload] is false for the state
+/// the catalog starts in.
+class AnimeListAccountChanged extends AnimeListEvent {
+  const AnimeListAccountChanged({required this.signedIn, this.reload = true});
+
+  final bool signedIn;
+  final bool reload;
+}
+
 class AnimeListCriteriaReset extends AnimeListEvent {
   const AnimeListCriteriaReset();
 }

@@ -20,5 +20,6 @@ AnimeListItem mapShikimoriAnimeToDomain(ShikimoriAnimeDto dto) {
       date: dto.airedOn.date,
     ),
     posterMainUrl: dto.poster.mainUrl,
+    userRate: dto.userRate?.toEntity(),
   );
 }

@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:iris/entities/user_rate/domain/user_rate.dart';
 import 'package:iris/features/anime_list/data/mappers/shikimori_anime_mapper.dart';
 import 'package:iris/features/anime_list/data/models/shikimori_anime_dto.dart';
 import 'package:iris/features/anime_list/domain/entities/anime_list_item.dart';
@@ -45,6 +46,30 @@ void main() {
         airedOn: '2009-04-05',
         posterMainUrl: 'https://shikimori.one/posters/5114/main.jpg',
       ),
+    );
+  });
+
+  test('the user entry comes along when the page was signed in', () {
+    final dto = ShikimoriAnimeDto.fromJson(const {
+      'id': '1',
+      'name': 'Frieren',
+      'userRate': {'id': '7', 'status': 'watching', 'episodes': 5, 'score': 9},
+    });
+
+    expect(
+      mapShikimoriAnimeToDomain(dto).userRate,
+      const UserRate(
+        id: '7',
+        status: UserRateStatus.watching,
+        episodes: 5,
+        score: 9,
+      ),
+    );
+    expect(
+      mapShikimoriAnimeToDomain(
+        ShikimoriAnimeDto.fromJson(const {'id': '1', 'userRate': null}),
+      ).userRate,
+      isNull,
     );
   });
 }

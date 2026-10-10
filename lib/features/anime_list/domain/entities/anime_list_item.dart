@@ -1,3 +1,5 @@
+import 'package:iris/entities/user_rate/domain/user_rate.dart';
+
 class AnimeListItem {
   const AnimeListItem({
     required this.id,
@@ -11,6 +13,7 @@ class AnimeListItem {
     required this.episodesAired,
     required this.airedOn,
     required this.posterMainUrl,
+    this.userRate,
   });
 
   final String id;
@@ -26,6 +29,9 @@ class AnimeListItem {
   final int episodesAired;
   final String airedOn;
   final String posterMainUrl;
+
+  /// The signed-in user's entry when the page was loaded.
+  final UserRate? userRate;
 
   @override
   bool operator ==(Object other) {
@@ -44,7 +50,8 @@ class AnimeListItem {
         other.episodes == episodes &&
         other.episodesAired == episodesAired &&
         other.airedOn == airedOn &&
-        other.posterMainUrl == posterMainUrl;
+        other.posterMainUrl == posterMainUrl &&
+        other.userRate == userRate;
   }
 
   @override
@@ -60,5 +67,6 @@ class AnimeListItem {
     episodesAired,
     airedOn,
     posterMainUrl,
+    userRate,
   );
 }

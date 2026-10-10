@@ -1,3 +1,5 @@
+import 'package:iris/entities/user_rate/data/user_rate_dto.dart';
+
 class ShikimoriAnimeDto {
   const ShikimoriAnimeDto({
     required this.id,
@@ -12,6 +14,7 @@ class ShikimoriAnimeDto {
     required this.episodesAired,
     required this.airedOn,
     required this.poster,
+    this.userRate,
   });
 
   final String id;
@@ -28,6 +31,9 @@ class ShikimoriAnimeDto {
   final int episodesAired;
   final ShikimoriAiredOnDto airedOn;
   final ShikimoriPosterDto poster;
+
+  /// The signed-in user's entry; null when signed out or not in the list.
+  final UserRateDto? userRate;
 
   factory ShikimoriAnimeDto.fromJson(Map<String, dynamic> json) {
     return ShikimoriAnimeDto(
@@ -47,6 +53,7 @@ class ShikimoriAnimeDto {
       poster: ShikimoriPosterDto.fromJson(
         json['poster'] as Map<String, dynamic>? ?? const {},
       ),
+      userRate: UserRateDto.tryParse(json['userRate']),
     );
   }
 }

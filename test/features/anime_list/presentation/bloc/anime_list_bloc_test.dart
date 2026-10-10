@@ -491,6 +491,45 @@ void main() {
       expect(fetches, 1);
       expect(errors, isEmpty);
     });
+
+    test(
+      'signing in or out reloads the list; a restored session does not',
+      () async {
+        var requests = 0;
+        final bloc = AnimeListBloc(
+          repository: _FakeAnimeListRepository(
+            handler: ({required query}) async {
+              requests++;
+              return AnimeListPageResult(
+                items: _pageOneItems,
+                page: 1,
+                hasMore: false,
+                query: '',
+              );
+            },
+          ),
+        );
+
+        bloc.add(const AnimeListStarted());
+        await Future<void>.delayed(Duration.zero);
+        expect(requests, 1);
+
+        bloc.add(const AnimeListAccountChanged(signedIn: true, reload: false));
+        await Future<void>.delayed(Duration.zero);
+        expect(bloc.state.signedIn, isTrue);
+        expect(requests, 1);
+
+        bloc.add(const AnimeListAccountChanged(signedIn: false));
+        await Future<void>.delayed(Duration.zero);
+        expect(bloc.state.signedIn, isFalse);
+        expect(requests, 2);
+
+        bloc.add(const AnimeListAccountChanged(signedIn: false));
+        await Future<void>.delayed(Duration.zero);
+        expect(requests, 2);
+        await bloc.close();
+      },
+    );
   });
 }
 

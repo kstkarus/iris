@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:iris/app/di/service_locator.dart';
 import 'package:iris/app/router/app_router.dart';
+import 'package:iris/features/auth/domain/repositories/auth_repository.dart';
+import 'package:iris/features/auth/presentation/cubit/auth_cubit.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 
 void main() {
@@ -21,14 +25,7 @@ void main() {
   ) async {
     final router = AppRouter.createRouter();
 
-    await tester.pumpWidget(
-      MaterialApp.router(
-        locale: const Locale('en'),
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        routerConfig: router,
-      ),
-    );
+    await tester.pumpWidget(_app(router));
     await tester.pumpAndSettle();
 
     router.goNamed('player', extra: 'bad');
@@ -46,14 +43,7 @@ void main() {
       final router = AppRouter.createRouter();
       addTearDown(router.dispose);
 
-      await tester.pumpWidget(
-        MaterialApp.router(
-          locale: const Locale('en'),
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          routerConfig: router,
-        ),
-      );
+      await tester.pumpWidget(_app(router));
       await tester.pumpAndSettle();
 
       router.goNamed('torrent-stream-files', extra: 'bad');
@@ -76,3 +66,14 @@ void main() {
     expect(router.namedLocation('saved-torrents'), '/torrents');
   });
 }
+
+/// The router under the session every page can read, as in the app.
+Widget _app(GoRouter router) => BlocProvider(
+  create: (_) => AuthCubit(repository: serviceLocator<AuthRepository>()),
+  child: MaterialApp.router(
+    locale: const Locale('en'),
+    localizationsDelegates: AppLocalizations.localizationsDelegates,
+    supportedLocales: AppLocalizations.supportedLocales,
+    routerConfig: router,
+  ),
+);

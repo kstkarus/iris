@@ -20,6 +20,7 @@ class AnimeListBloc extends Bloc<AnimeListEvent, AnimeListState> {
     on<AnimeListSortChanged>(_onSortChanged);
     on<AnimeListCriteriaApplied>(_onCriteriaApplied);
     on<AnimeListCriteriaReset>(_onCriteriaReset);
+    on<AnimeListAccountChanged>(_onAccountChanged);
     on<AnimeListPageLoaded>(_onPageLoaded);
     on<AnimeListPageFailed>(_onPageFailed);
   }
@@ -165,6 +166,21 @@ class AnimeListBloc extends Bloc<AnimeListEvent, AnimeListState> {
     );
   }
 
+  void _onAccountChanged(
+    AnimeListAccountChanged event,
+    Emitter<AnimeListState> emit,
+  ) {
+    if (event.signedIn == state.signedIn) return;
+    emit(state.copyWith(signedIn: event.signedIn));
+    if (!event.reload || !state.hasLoadedOnce) return;
+    _restartList(
+      emit,
+      query: state.query,
+      sort: state.sort,
+      filters: state.filters,
+    );
+  }
+
   void _onPageLoaded(AnimeListPageLoaded event, Emitter<AnimeListState> emit) {
     if (event.sessionId != _requestSessionId) {
       return;
@@ -218,7 +234,14 @@ class AnimeListBloc extends Bloc<AnimeListEvent, AnimeListState> {
     final sessionId = ++_requestSessionId;
 
     if (query.isEmpty && !fetchesWithoutQuery) {
-      emit(AnimeListState(sort: sort, filters: filters, hasMore: false));
+      emit(
+        AnimeListState(
+          sort: sort,
+          filters: filters,
+          hasMore: false,
+          signedIn: state.signedIn,
+        ),
+      );
       return;
     }
 
@@ -229,6 +252,7 @@ class AnimeListBloc extends Bloc<AnimeListEvent, AnimeListState> {
         filters: filters,
         hasMore: true,
         isInitialLoading: true,
+        signedIn: state.signedIn,
       ),
     );
 
