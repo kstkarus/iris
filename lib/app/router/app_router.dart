@@ -207,6 +207,7 @@ abstract final class AppRouter {
                         repository: serviceLocator<DownloadsRepository>(),
                       )..load(),
                       child: DownloadManagerPage(
+                        onBrowseCatalog: () => context.goNamed('anime-list'),
                         onWatch: (item) {
                           context.pushNamed(
                             'player',

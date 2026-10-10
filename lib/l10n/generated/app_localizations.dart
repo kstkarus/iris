@@ -137,7 +137,7 @@ abstract class AppLocalizations {
   /// No description provided for @downloadsEmpty.
   ///
   /// In en, this message translates to:
-  /// **'Downloaded episodes will appear here.'**
+  /// **'Episodes download from a title’s sources, or from Torrents.'**
   String get downloadsEmpty;
 
   /// No description provided for @downloadSelectionTitle.
@@ -209,7 +209,7 @@ abstract class AppLocalizations {
   /// No description provided for @downloadStorageCache.
   ///
   /// In en, this message translates to:
-  /// **'Cache'**
+  /// **'Online viewing cache'**
   String get downloadStorageCache;
 
   /// No description provided for @downloadStatusQueued.
@@ -233,7 +233,7 @@ abstract class AppLocalizations {
   /// No description provided for @downloadStatusCompleted.
   ///
   /// In en, this message translates to:
-  /// **'Downloaded'**
+  /// **'Done'**
   String get downloadStatusCompleted;
 
   /// No description provided for @downloadStatusFailed.
@@ -251,7 +251,7 @@ abstract class AppLocalizations {
   /// No description provided for @downloadFailedMessage.
   ///
   /// In en, this message translates to:
-  /// **'The download stopped with an error.'**
+  /// **'The torrent stopped with an error. Try again later.'**
   String get downloadFailedMessage;
 
   /// No description provided for @downloadWatchButton.
@@ -293,7 +293,7 @@ abstract class AppLocalizations {
   /// No description provided for @downloadDeleteMessage.
   ///
   /// In en, this message translates to:
-  /// **'The file “{name}” will be removed from the device.'**
+  /// **'“{name}” will be removed from the device.'**
   String downloadDeleteMessage(String name);
 
   /// No description provided for @animeKindTv.
@@ -2197,6 +2197,78 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Loading my list...'**
   String get userRateLoading;
+
+  /// No description provided for @downloadStorageCacheHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Episodes watched without downloading. Clearing it keeps your downloads.'**
+  String get downloadStorageCacheHint;
+
+  /// No description provided for @downloadNoPeers.
+  ///
+  /// In en, this message translates to:
+  /// **'no peers yet'**
+  String get downloadNoPeers;
+
+  /// No description provided for @downloadTimeLeftUnderMinute.
+  ///
+  /// In en, this message translates to:
+  /// **'< 1 min left'**
+  String get downloadTimeLeftUnderMinute;
+
+  /// No description provided for @downloadTimeLeftMinutes.
+  ///
+  /// In en, this message translates to:
+  /// **'~{minutes} min left'**
+  String downloadTimeLeftMinutes(int minutes);
+
+  /// No description provided for @downloadTimeLeftHours.
+  ///
+  /// In en, this message translates to:
+  /// **'~{hours} h {minutes} min left'**
+  String downloadTimeLeftHours(int hours, int minutes);
+
+  /// No description provided for @downloadFailedNoSpace.
+  ///
+  /// In en, this message translates to:
+  /// **'The device ran out of space. Free some up and try again.'**
+  String get downloadFailedNoSpace;
+
+  /// No description provided for @downloadFailedNoAccess.
+  ///
+  /// In en, this message translates to:
+  /// **'The app may not write to the downloads folder.'**
+  String get downloadFailedNoAccess;
+
+  /// No description provided for @downloadFailedFileMissing.
+  ///
+  /// In en, this message translates to:
+  /// **'The file is gone from the device. Try again to download it anew.'**
+  String get downloadFailedFileMissing;
+
+  /// No description provided for @downloadFailedCouldNotStart.
+  ///
+  /// In en, this message translates to:
+  /// **'The download did not start. Check the connection and try again.'**
+  String get downloadFailedCouldNotStart;
+
+  /// No description provided for @downloadDeleteProgressLost.
+  ///
+  /// In en, this message translates to:
+  /// **'The {size} downloaded so far will be lost.'**
+  String downloadDeleteProgressLost(String size);
+
+  /// No description provided for @downloadAnnounceCompleted.
+  ///
+  /// In en, this message translates to:
+  /// **'Downloaded: {name}'**
+  String downloadAnnounceCompleted(String name);
+
+  /// No description provided for @downloadAnnounceFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Download failed: {name}'**
+  String downloadAnnounceFailed(String name);
 }
 
 class _AppLocalizationsDelegate

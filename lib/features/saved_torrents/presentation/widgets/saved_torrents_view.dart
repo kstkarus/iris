@@ -13,11 +13,13 @@ import 'package:iris/features/saved_torrents/presentation/cubit/saved_torrents_s
 import 'package:iris/features/saved_torrents/presentation/widgets/saved_torrent_dialogs.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/torrent/torrent_key.dart';
+import 'package:iris/shared/utils/desktop_platform.dart';
 import 'package:iris/shared/utils/duration_formatter.dart';
 import 'package:iris/shared/utils/episode_number.dart';
 import 'package:iris/shared/utils/file_display_name.dart';
 import 'package:iris/shared/widgets/adaptive/window_size_class.dart';
 import 'package:iris/shared/widgets/pixel_icon.dart';
+import 'package:iris/shared/widgets/row_menu_button.dart';
 import 'package:iris/shared/widgets/segmented_bar.dart';
 import 'package:iris/shared/widgets/status_views.dart';
 
@@ -90,13 +92,6 @@ class SavedTorrentsView extends StatelessWidget {
     );
   }
 }
-
-bool get _hasKeyboard => switch (defaultTargetPlatform) {
-  TargetPlatform.windows ||
-  TargetPlatform.linux ||
-  TargetPlatform.macOS => true,
-  _ => false,
-};
 
 /// The paste shortcut in the platform's own spelling, where there is a
 /// keyboard; null on phones.
@@ -372,11 +367,6 @@ class _RowMenu extends StatelessWidget {
     required this.onOpenChanged,
   });
 
-  /// Fixed, so the menu can end where its button ends instead of running
-  /// to the window's edge.
-  static const _width = 224.0;
-  static const _buttonWidth = 48.0;
-
   final MenuController controller;
   final SavedTorrent torrent;
   final VoidCallback onDownload;
@@ -390,31 +380,18 @@ class _RowMenu extends StatelessWidget {
       onPressed: () => _handle(context, action),
       child: Text(label),
     );
-    // Desktop menus mark an item that asks for more with an ellipsis.
-    final more = _hasKeyboard ? '…' : '';
-    return MenuAnchor(
+    return RowMenuButton(
       controller: controller,
-      onOpen: () => onOpenChanged(true),
-      onClose: () => onOpenChanged(false),
-      alignmentOffset: const Offset(_buttonWidth - _width, 0),
-      style: const MenuStyle(
-        minimumSize: WidgetStatePropertyAll(Size(_width, 0)),
-        maximumSize: WidgetStatePropertyAll(Size(_width, double.infinity)),
-      ),
+      tooltip: l10n.savedTorrentsMoreTooltip,
+      onOpenChanged: onOpenChanged,
       menuChildren: [
         item(_MenuAction.download, l10n.downloadsOpenButton),
-        item(_MenuAction.rename, '${l10n.savedTorrentsRename}$more'),
+        item(_MenuAction.rename, asksForMore(l10n.savedTorrentsRename)),
         item(_MenuAction.copyLink, l10n.savedTorrentsCopyLink),
         // Apart from the rest, so it is not hit on the way to them.
         const Divider(height: 1),
         item(_MenuAction.delete, l10n.savedTorrentsDelete),
       ],
-      builder: (context, controller, _) => IconButton(
-        tooltip: l10n.savedTorrentsMoreTooltip,
-        icon: const PixelIcon(PixelGlyph.more, size: 18),
-        onPressed: () =>
-            controller.isOpen ? controller.close() : controller.open(),
-      ),
     );
   }
 

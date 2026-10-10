@@ -118,8 +118,10 @@ ThemeData buildAppTheme({
               ? scheme.onSurfaceVariant
               : scheme.onPrimary,
         ),
-        overlayColor: WidgetStatePropertyAll(
-          scheme.onPrimary.withValues(alpha: 0.08),
+        overlayColor: WidgetStateProperty.resolveWith(
+          (states) => scheme.onPrimary.withValues(
+            alpha: states.contains(WidgetState.focused) ? 0.24 : 0.08,
+          ),
         ),
         shape: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.disabled)) return square;
@@ -145,6 +147,7 @@ ThemeData buildAppTheme({
         overlayColor: WidgetStatePropertyAll(
           scheme.onSurface.withValues(alpha: 0.08),
         ),
+        side: _focusRing(scheme),
         shape: const WidgetStatePropertyAll(square),
       ),
     ),
@@ -160,6 +163,7 @@ ThemeData buildAppTheme({
         overlayColor: WidgetStatePropertyAll(
           scheme.onSurface.withValues(alpha: 0.08),
         ),
+        side: _focusRing(scheme),
       ),
     ),
     floatingActionButtonTheme: FloatingActionButtonThemeData(
@@ -322,6 +326,15 @@ ThemeData buildAppTheme({
   );
 }
 
+/// A keyboard user sees which button Enter will press; a pointer user
+/// never focuses one, so the ring stays out of their way.
+WidgetStateProperty<BorderSide> _focusRing(ColorScheme scheme) =>
+    WidgetStateProperty.resolveWith(
+      (states) => states.contains(WidgetState.focused)
+          ? BorderSide(color: scheme.onSurface, width: 2)
+          : BorderSide.none,
+    );
+
 ButtonStyle _flatButtonStyle(
   ColorScheme scheme,
   TextStyle? textStyle,
@@ -333,7 +346,7 @@ ButtonStyle _flatButtonStyle(
     padding: WidgetStatePropertyAll(padding),
     textStyle: WidgetStatePropertyAll(textStyle),
     elevation: const WidgetStatePropertyAll(0),
-    side: const WidgetStatePropertyAll(BorderSide.none),
+    side: _focusRing(scheme),
     backgroundColor: WidgetStatePropertyAll(scheme.surfaceContainerHigh),
     foregroundColor: WidgetStateProperty.resolveWith(
       (states) => states.contains(WidgetState.disabled)

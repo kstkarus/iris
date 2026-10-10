@@ -8,6 +8,7 @@ import 'package:iris/features/downloads/data/adapters/app_storage_usage_adapter.
 import 'package:iris/features/downloads/data/adapters/download_foreground_service_adapter.dart';
 import 'package:iris/features/downloads/data/adapters/libtorrent_download_engine_adapter.dart';
 import 'package:iris/features/downloads/data/datasources/download_registry_data_source.dart';
+import 'package:iris/features/downloads/domain/entities/download_failure.dart';
 import 'package:iris/features/downloads/domain/entities/download_item.dart';
 import 'package:iris/features/downloads/domain/entities/download_status.dart';
 import 'package:iris/features/downloads/domain/entities/download_storage_usage.dart';
@@ -369,7 +370,7 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
                 ? item
                 : item.copyWith(
                     status: DownloadStatus.failed,
-                    errorMessage: 'Downloaded file is missing.',
+                    errorMessage: downloadFileMissingMessage,
                     completedAt: null,
                   ),
           );
@@ -638,7 +639,7 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
           _replace(
             failed.copyWith(
               status: DownloadStatus.failed,
-              errorMessage: 'Unable to start the download.',
+              errorMessage: downloadCouldNotStartMessage,
             ),
           );
           await _commit();
@@ -672,7 +673,7 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
         _replace(
           item.copyWith(
             status: DownloadStatus.failed,
-            errorMessage: 'Unable to start the download.',
+            errorMessage: downloadCouldNotStartMessage,
           ),
         );
         await _commit();
@@ -735,7 +736,7 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
         );
         final current = _find(item.id);
         if (current != null && _activeDownloadId == item.id) {
-          await _failActive(current, 'Unable to start the download.');
+          await _failActive(current, downloadCouldNotStartMessage);
         }
       }
     } finally {

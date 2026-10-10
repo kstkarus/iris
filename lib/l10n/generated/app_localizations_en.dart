@@ -27,7 +27,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get downloadsOpenButton => 'Download';
 
   @override
-  String get downloadsEmpty => 'Downloaded episodes will appear here.';
+  String get downloadsEmpty =>
+      'Episodes download from a title’s sources, or from Torrents.';
 
   @override
   String get downloadSelectionTitle => 'Download a file';
@@ -66,7 +67,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get downloadStorageContent => 'Offline content';
 
   @override
-  String get downloadStorageCache => 'Cache';
+  String get downloadStorageCache => 'Online viewing cache';
 
   @override
   String get downloadStatusQueued => 'Queued';
@@ -78,7 +79,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get downloadStatusPaused => 'Paused';
 
   @override
-  String get downloadStatusCompleted => 'Downloaded';
+  String get downloadStatusCompleted => 'Done';
 
   @override
   String get downloadStatusFailed => 'Failed';
@@ -89,7 +90,8 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get downloadFailedMessage => 'The download stopped with an error.';
+  String get downloadFailedMessage =>
+      'The torrent stopped with an error. Try again later.';
 
   @override
   String get downloadWatchButton => 'Watch';
@@ -111,7 +113,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String downloadDeleteMessage(String name) {
-    return 'The file “$name” will be removed from the device.';
+    return '“$name” will be removed from the device.';
   }
 
   @override
@@ -1243,4 +1245,55 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get userRateLoading => 'Loading my list...';
+
+  @override
+  String get downloadStorageCacheHint =>
+      'Episodes watched without downloading. Clearing it keeps your downloads.';
+
+  @override
+  String get downloadNoPeers => 'no peers yet';
+
+  @override
+  String get downloadTimeLeftUnderMinute => '< 1 min left';
+
+  @override
+  String downloadTimeLeftMinutes(int minutes) {
+    return '~$minutes min left';
+  }
+
+  @override
+  String downloadTimeLeftHours(int hours, int minutes) {
+    return '~$hours h $minutes min left';
+  }
+
+  @override
+  String get downloadFailedNoSpace =>
+      'The device ran out of space. Free some up and try again.';
+
+  @override
+  String get downloadFailedNoAccess =>
+      'The app may not write to the downloads folder.';
+
+  @override
+  String get downloadFailedFileMissing =>
+      'The file is gone from the device. Try again to download it anew.';
+
+  @override
+  String get downloadFailedCouldNotStart =>
+      'The download did not start. Check the connection and try again.';
+
+  @override
+  String downloadDeleteProgressLost(String size) {
+    return 'The $size downloaded so far will be lost.';
+  }
+
+  @override
+  String downloadAnnounceCompleted(String name) {
+    return 'Downloaded: $name';
+  }
+
+  @override
+  String downloadAnnounceFailed(String name) {
+    return 'Download failed: $name';
+  }
 }

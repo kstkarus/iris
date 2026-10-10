@@ -6,7 +6,7 @@
   "navigationDownloads": "Загрузки",
   "downloadsTitle": "Загрузки",
   "downloadsOpenButton": "Скачать",
-  "downloadsEmpty": "Загруженные серии появятся здесь.",
+  "downloadsEmpty": "Серии скачиваются из источников на странице аниме или из «Раздач».",
   "downloadSelectionTitle": "Скачать файл",
   "downloadSelectionPreparing": "Получаем список файлов торрента...",
   "downloadSelectionUnsupported": "В этом источнике нет поддерживаемых видеофайлов.",
@@ -18,11 +18,11 @@
   "downloadStorageTitle": "Память приложения",
   "downloadStorageTotal": "Всего занято приложением",
   "downloadStorageContent": "Офлайн-контент",
-  "downloadStorageCache": "Кэш",
+  "downloadStorageCache": "Кэш онлайн-просмотра",
   "downloadStatusQueued": "В очереди",
   "downloadStatusDownloading": "Загружается",
   "downloadStatusPaused": "На паузе",
-  "downloadStatusCompleted": "Загружено",
+  "downloadStatusCompleted": "Готово",
   "downloadStatusFailed": "Ошибка",
   "downloadPeers": "Пиры: {count}",
   "@downloadPeers": {
@@ -32,14 +32,14 @@
       }
     }
   },
-  "downloadFailedMessage": "Загрузка остановилась из-за ошибки.",
+  "downloadFailedMessage": "Торрент остановился с ошибкой. Попробуйте позже.",
   "downloadWatchButton": "Смотреть",
   "downloadPauseButton": "Пауза",
   "downloadResumeButton": "Продолжить",
   "downloadDeleteButton": "Удалить",
   "downloadCancelButton": "Отмена",
   "downloadDeleteTitle": "Удалить загрузку?",
-  "downloadDeleteMessage": "Файл «{name}» будет удалён с устройства.",
+  "downloadDeleteMessage": "«{name}» удалится с устройства.",
   "@downloadDeleteMessage": {
     "placeholders": {
       "name": {
@@ -432,5 +432,17 @@
   "savedTorrentsEpisodeWatched": "Серия {number} просмотрена",
   "savedTorrentsFileWatched": "Просмотрено: {fileName}",
   "commonUndo": "Отменить",
-  "userRateLoading": "Загружаем мой список..."
+  "userRateLoading": "Загружаем мой список...",
+  "downloadStorageCacheHint": "Серии, которые смотрели без загрузки. Очистка не трогает загрузки.",
+  "downloadNoPeers": "пока нет пиров",
+  "downloadTimeLeftUnderMinute": "осталось < 1 мин",
+  "downloadTimeLeftMinutes": "осталось ~{minutes} мин",
+  "downloadTimeLeftHours": "осталось ~{hours} ч {minutes} мин",
+  "downloadFailedNoSpace": "На устройстве кончилось место. Освободите его и повторите.",
+  "downloadFailedNoAccess": "Приложению нельзя писать в папку загрузок.",
+  "downloadFailedFileMissing": "Файл пропал с устройства. Повторите, чтобы скачать заново.",
+  "downloadFailedCouldNotStart": "Загрузка не началась. Проверьте интернет и повторите.",
+  "downloadDeleteProgressLost": "Уже скачанные {size} пропадут.",
+  "downloadAnnounceCompleted": "Скачано: {name}",
+  "downloadAnnounceFailed": "Ошибка загрузки: {name}"
 }

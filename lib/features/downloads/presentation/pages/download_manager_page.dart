@@ -6,9 +6,14 @@ import 'package:iris/shared/widgets/adaptive/adaptive_content_width.dart';
 import 'package:iris/shared/widgets/adaptive/window_size_class.dart';
 
 class DownloadManagerPage extends StatelessWidget {
-  const DownloadManagerPage({required this.onWatch, super.key});
+  const DownloadManagerPage({
+    required this.onWatch,
+    required this.onBrowseCatalog,
+    super.key,
+  });
 
   final ValueChanged<DownloadItem> onWatch;
+  final VoidCallback onBrowseCatalog;
 
   @override
   Widget build(BuildContext context) {
@@ -20,7 +25,10 @@ class DownloadManagerPage extends StatelessWidget {
           padding: EdgeInsets.fromLTRB(margin, sizeClass.pageTop, margin, 0),
           child: MaxWidthBox(
             maxWidth: AdaptiveContentWidth.page,
-            child: DownloadManagerView(onWatch: onWatch),
+            child: DownloadManagerView(
+              onWatch: onWatch,
+              onBrowseCatalog: onBrowseCatalog,
+            ),
           ),
         ),
       ),

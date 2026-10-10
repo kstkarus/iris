@@ -1,3 +1,4 @@
+import 'package:iris/features/downloads/domain/entities/download_failure.dart';
 import 'package:iris/features/downloads/domain/entities/download_status.dart';
 
 const _notProvided = Object();
@@ -40,6 +41,11 @@ class DownloadItem {
   final String? errorMessage;
   final DateTime createdAt;
   final DateTime? completedAt;
+
+  /// Why a failed download stopped; null for any other status.
+  DownloadFailure? get failure => status == DownloadStatus.failed
+      ? downloadFailureFrom(errorMessage)
+      : null;
 
   DownloadItem copyWith({
     String? id,

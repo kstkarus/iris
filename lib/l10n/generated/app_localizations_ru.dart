@@ -27,7 +27,8 @@ class AppLocalizationsRu extends AppLocalizations {
   String get downloadsOpenButton => 'Скачать';
 
   @override
-  String get downloadsEmpty => 'Загруженные серии появятся здесь.';
+  String get downloadsEmpty =>
+      'Серии скачиваются из источников на странице аниме или из «Раздач».';
 
   @override
   String get downloadSelectionTitle => 'Скачать файл';
@@ -67,7 +68,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get downloadStorageContent => 'Офлайн-контент';
 
   @override
-  String get downloadStorageCache => 'Кэш';
+  String get downloadStorageCache => 'Кэш онлайн-просмотра';
 
   @override
   String get downloadStatusQueued => 'В очереди';
@@ -79,7 +80,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get downloadStatusPaused => 'На паузе';
 
   @override
-  String get downloadStatusCompleted => 'Загружено';
+  String get downloadStatusCompleted => 'Готово';
 
   @override
   String get downloadStatusFailed => 'Ошибка';
@@ -90,7 +91,8 @@ class AppLocalizationsRu extends AppLocalizations {
   }
 
   @override
-  String get downloadFailedMessage => 'Загрузка остановилась из-за ошибки.';
+  String get downloadFailedMessage =>
+      'Торрент остановился с ошибкой. Попробуйте позже.';
 
   @override
   String get downloadWatchButton => 'Смотреть';
@@ -112,7 +114,7 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String downloadDeleteMessage(String name) {
-    return 'Файл «$name» будет удалён с устройства.';
+    return '«$name» удалится с устройства.';
   }
 
   @override
@@ -1259,4 +1261,55 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get userRateLoading => 'Загружаем мой список...';
+
+  @override
+  String get downloadStorageCacheHint =>
+      'Серии, которые смотрели без загрузки. Очистка не трогает загрузки.';
+
+  @override
+  String get downloadNoPeers => 'пока нет пиров';
+
+  @override
+  String get downloadTimeLeftUnderMinute => 'осталось < 1 мин';
+
+  @override
+  String downloadTimeLeftMinutes(int minutes) {
+    return 'осталось ~$minutes мин';
+  }
+
+  @override
+  String downloadTimeLeftHours(int hours, int minutes) {
+    return 'осталось ~$hours ч $minutes мин';
+  }
+
+  @override
+  String get downloadFailedNoSpace =>
+      'На устройстве кончилось место. Освободите его и повторите.';
+
+  @override
+  String get downloadFailedNoAccess =>
+      'Приложению нельзя писать в папку загрузок.';
+
+  @override
+  String get downloadFailedFileMissing =>
+      'Файл пропал с устройства. Повторите, чтобы скачать заново.';
+
+  @override
+  String get downloadFailedCouldNotStart =>
+      'Загрузка не началась. Проверьте интернет и повторите.';
+
+  @override
+  String downloadDeleteProgressLost(String size) {
+    return 'Уже скачанные $size пропадут.';
+  }
+
+  @override
+  String downloadAnnounceCompleted(String name) {
+    return 'Скачано: $name';
+  }
+
+  @override
+  String downloadAnnounceFailed(String name) {
+    return 'Ошибка загрузки: $name';
+  }
 }

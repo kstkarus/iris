@@ -6,7 +6,7 @@
   "navigationDownloads": "Downloads",
   "downloadsTitle": "Downloads",
   "downloadsOpenButton": "Download",
-  "downloadsEmpty": "Downloaded episodes will appear here.",
+  "downloadsEmpty": "Episodes download from a title’s sources, or from Torrents.",
   "downloadSelectionTitle": "Download a file",
   "downloadSelectionPreparing": "Loading torrent file list...",
   "downloadSelectionUnsupported": "This source has no supported video files.",
@@ -18,11 +18,11 @@
   "downloadStorageTitle": "App storage",
   "downloadStorageTotal": "Total used by app",
   "downloadStorageContent": "Offline content",
-  "downloadStorageCache": "Cache",
+  "downloadStorageCache": "Online viewing cache",
   "downloadStatusQueued": "Queued",
   "downloadStatusDownloading": "Downloading",
   "downloadStatusPaused": "Paused",
-  "downloadStatusCompleted": "Downloaded",
+  "downloadStatusCompleted": "Done",
   "downloadStatusFailed": "Failed",
   "downloadPeers": "Peers: {count}",
   "@downloadPeers": {
@@ -32,14 +32,14 @@
       }
     }
   },
-  "downloadFailedMessage": "The download stopped with an error.",
+  "downloadFailedMessage": "The torrent stopped with an error. Try again later.",
   "downloadWatchButton": "Watch",
   "downloadPauseButton": "Pause",
   "downloadResumeButton": "Resume",
   "downloadDeleteButton": "Delete",
   "downloadCancelButton": "Cancel",
   "downloadDeleteTitle": "Delete download?",
-  "downloadDeleteMessage": "The file “{name}” will be removed from the device.",
+  "downloadDeleteMessage": "“{name}” will be removed from the device.",
   "@downloadDeleteMessage": {
     "placeholders": {
       "name": {
@@ -817,5 +817,55 @@
     }
   },
   "commonUndo": "Undo",
-  "userRateLoading": "Loading my list..."
+  "userRateLoading": "Loading my list...",
+  "downloadStorageCacheHint": "Episodes watched without downloading. Clearing it keeps your downloads.",
+  "downloadNoPeers": "no peers yet",
+  "downloadTimeLeftUnderMinute": "< 1 min left",
+  "downloadTimeLeftMinutes": "~{minutes} min left",
+  "@downloadTimeLeftMinutes": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "downloadTimeLeftHours": "~{hours} h {minutes} min left",
+  "@downloadTimeLeftHours": {
+    "placeholders": {
+      "hours": {
+        "type": "int"
+      },
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "downloadFailedNoSpace": "The device ran out of space. Free some up and try again.",
+  "downloadFailedNoAccess": "The app may not write to the downloads folder.",
+  "downloadFailedFileMissing": "The file is gone from the device. Try again to download it anew.",
+  "downloadFailedCouldNotStart": "The download did not start. Check the connection and try again.",
+  "downloadDeleteProgressLost": "The {size} downloaded so far will be lost.",
+  "@downloadDeleteProgressLost": {
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "downloadAnnounceCompleted": "Downloaded: {name}",
+  "@downloadAnnounceCompleted": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "downloadAnnounceFailed": "Download failed: {name}",
+  "@downloadAnnounceFailed": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  }
 }
