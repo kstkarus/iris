@@ -1184,4 +1184,23 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get animeDetailsDubsTitle => 'Dubs';
+
+  @override
+  String playerMarked(int episode) {
+    return 'Episode $episode marked on Shikimori';
+  }
+
+  @override
+  String get playerMarkUndo => 'Undo';
+
+  @override
+  String playerMarkOffer(int episode) {
+    return 'Mark episode $episode on Shikimori?';
+  }
+
+  @override
+  String get playerMarkAction => 'Mark';
+
+  @override
+  String get playerMarkFailed => 'Shikimori did not save the mark.';
 }

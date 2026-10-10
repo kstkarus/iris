@@ -125,6 +125,18 @@ void main() {
     expect((cubit.state as PlayerReady).started, isTrue);
   });
 
+  test('the ending counts the file watched', () async {
+    final cubit = createCubit();
+    addTearDown(cubit.close);
+    await cubit.loadPlayback();
+    expect((cubit.state as PlayerReady).watched, isFalse);
+
+    engine.emit(const PlayerEngineWatched());
+    await Future<void>.delayed(Duration.zero);
+
+    expect((cubit.state as PlayerReady).watched, isTrue);
+  });
+
   test('starting over once the file plays closes the notice', () async {
     progress.seed(saved());
     final cubit = createCubit();

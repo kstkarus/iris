@@ -31,6 +31,12 @@ final class PlayerEngineCompleted extends PlayerEngineEvent {
   const PlayerEngineCompleted();
 }
 
+/// Playback reached the ending (or, when its start is unknown, the point
+/// where the file counts as watched); once per opened file.
+final class PlayerEngineWatched extends PlayerEngineEvent {
+  const PlayerEngineWatched();
+}
+
 /// The user picked an audio or subtitle track.
 final class PlayerEngineTracksChosen extends PlayerEngineEvent {
   const PlayerEngineTracksChosen(this.preferences);

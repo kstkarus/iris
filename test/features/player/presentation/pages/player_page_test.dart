@@ -10,6 +10,10 @@ import 'package:iris/features/player/domain/entities/player_session.dart';
 import 'package:iris/features/player/domain/entities/player_video_file.dart';
 import 'package:iris/features/player/domain/entities/prepared_player_source.dart';
 import 'package:iris/features/player/domain/repositories/player_repository.dart';
+import 'package:iris/entities/user_rate/data/mock_user_rate_repository.dart';
+import 'package:iris/entities/user_rate/domain/mark_episode_watched.dart';
+import 'package:iris/entities/user_rate/domain/user_rate.dart';
+import 'package:iris/features/player/presentation/cubit/episode_mark_cubit.dart';
 import 'package:iris/features/player/presentation/cubit/player_cubit.dart';
 import 'package:iris/features/player/presentation/cubit/player_decoding_preferences_cubit.dart';
 import 'package:iris/features/player/presentation/cubit/player_state.dart';
@@ -224,8 +228,60 @@ void main() {
     expect(find.text('Resumed from 12:34'), findsNothing);
   });
 
+  testWidgets('a torrent episode watched to its ending is offered for the '
+      'list', (tester) async {
+    setWindow(tester, const Size(400, 800));
+    final rates = MockUserRateRepository();
+    await tester.pumpWidget(_wrap(rates: rates));
+    final cubit =
+        tester.element(find.byType(PlayerPage)).read<PlayerCubit>()
+            as _FakePlayerCubit;
+
+    cubit.push((cubit.state as PlayerReady).copyWith(watched: true));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Mark episode 2 on Shikimori?'), findsOneWidget);
+    await tester.tap(find.text('Mark'));
+    await tester.pumpAndSettle();
+
+    expect(rates.rates['5114']?.episodes, 2);
+    expect(rates.rates['5114']?.status, UserRateStatus.watching);
+    expect(find.text('Episode 2 marked on Shikimori'), findsOneWidget);
+
+    await tester.tap(find.text('Undo'));
+    await tester.pumpAndSettle();
+    expect(rates.rates['5114'], isNull);
+  });
+
   group('on desktop', () {
     final desktop = TargetPlatformVariant.only(TargetPlatform.windows);
+
+    testWidgets('an online episode is marked at once, inside the player', (
+      tester,
+    ) async {
+      setWindow(tester, const Size(1280, 720));
+      final rates = MockUserRateRepository();
+      await tester.pumpWidget(_wrap(source: _onlineSource, rates: rates));
+      final cubit =
+          tester.element(find.byType(PlayerPage)).read<PlayerCubit>()
+              as _FakePlayerCubit;
+
+      cubit.push((cubit.state as PlayerReady).copyWith(watched: true));
+      await tester.pump();
+      await tester.pump();
+
+      expect(rates.rates['5114']?.episodes, 3);
+      expect(find.byType(SnackBar), findsNothing);
+      expect(
+        find.text('notice: Episode 3 marked on Shikimori / Undo'),
+        findsOneWidget,
+      );
+
+      await tester.pump();
+      await tester.pump(markNoticeDuration);
+      await tester.pump();
+      expect(find.textContaining('notice:'), findsNothing);
+    }, variant: desktop);
 
     testWidgets('fills the window with the immersive player', (tester) async {
       setWindow(tester, const Size(1280, 720));
@@ -450,12 +506,22 @@ Widget _wrap({
   PlayerState state = const PlayerReady(
     PlayerSession(sessionId: '42', streamUrl: 'http://127.0.0.1:8080/stream/2'),
   ),
+  MockUserRateRepository? rates,
 }) {
+  final page = _page(source, state);
   return MaterialApp(
     locale: const Locale('en'),
     localizationsDelegates: AppLocalizations.localizationsDelegates,
     supportedLocales: AppLocalizations.supportedLocales,
-    home: _page(source, state),
+    home: rates == null
+        ? page
+        : BlocProvider(
+            create: (_) => EpisodeMarkCubit(
+              markEpisode: MarkEpisodeWatched(rates),
+              userId: '42',
+            ),
+            child: page,
+          ),
   );
 }
 
@@ -594,6 +660,25 @@ const _source = AnimePlayerSource(
   sessionId: '42',
   fileIndex: 2,
   fileName: 'episode-02.mkv',
+);
+
+/// An online release: its episodes come numbered.
+const _onlineSource = AnimePlayerSource(
+  animeId: '5114',
+  animeTitle: 'Fullmetal Alchemist: Brotherhood',
+  sourceTitle: 'AniLibria',
+  sessionId: '42',
+  fileIndex: 3,
+  fileName: 'Episode 3',
+  files: [
+    PlayerVideoFile(
+      index: 3,
+      name: 'Episode 3',
+      size: 0,
+      extension: '',
+      episodeNumber: 3,
+    ),
+  ],
 );
 
 const _seriesSource = AnimePlayerSource(

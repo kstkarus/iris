@@ -15,6 +15,7 @@ import 'package:iris/entities/friend/data/mock_friends_repository.dart';
 import 'package:iris/entities/friend/data/remote_friends_repository.dart';
 import 'package:iris/entities/friend/domain/friends_repository.dart';
 import 'package:iris/entities/user_rate/data/mock_user_rate_repository.dart';
+import 'package:iris/entities/user_rate/domain/mark_episode_watched.dart';
 import 'package:iris/entities/user_rate/data/remote_user_rate_repository.dart';
 import 'package:iris/entities/user_rate/domain/user_rate_repository.dart';
 import 'package:iris/entities/watch_progress/data/shared_preferences_watch_progress_repository.dart';
@@ -198,6 +199,12 @@ Future<void> configureDependencies({
       );
     }
 
+    if (!serviceLocator.isRegistered<MarkEpisodeWatched>()) {
+      serviceLocator.registerLazySingleton<MarkEpisodeWatched>(
+        () => MarkEpisodeWatched(serviceLocator<UserRateRepository>()),
+      );
+    }
+
     if (!serviceLocator.isRegistered<MockAnimeListDataSource>()) {
       serviceLocator.registerLazySingleton<MockAnimeListDataSource>(
         MockAnimeListDataSource.new,
@@ -368,6 +375,12 @@ Future<void> configureDependencies({
           graphQl: serviceLocator<ShikimoriGraphQlClient>(),
           dio: serviceLocator<Dio>(),
         ),
+      );
+    }
+
+    if (!serviceLocator.isRegistered<MarkEpisodeWatched>()) {
+      serviceLocator.registerLazySingleton<MarkEpisodeWatched>(
+        () => MarkEpisodeWatched(serviceLocator<UserRateRepository>()),
       );
     }
 

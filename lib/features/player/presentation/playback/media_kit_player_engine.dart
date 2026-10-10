@@ -225,6 +225,9 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
   /// where the file counts as watched.
   final finishing = ValueNotifier<bool>(false);
 
+  /// [PlayerEngineWatched] went out for the opened file.
+  bool _watchedReported = false;
+
   /// The opening or recap playing now, when its end is known.
   final skipSegment = ValueNotifier<PlayerSkipSegment?>(null);
 
@@ -772,6 +775,7 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
     _chapterSegments = const [];
     _lookedUpSegments = const [];
     finishing.value = false;
+    _watchedReported = false;
     skipSegment.value = null;
     skipForwardOffered.value = false;
   }
@@ -796,6 +800,10 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
         position < _skipForwardWindow &&
         !segments.any((segment) => segment.kind == PlayerSkipKind.opening);
     finishing.value = position >= _finishingStart(segments, duration);
+    if (finishing.value && !_watchedReported) {
+      _watchedReported = true;
+      _emit(const PlayerEngineWatched());
+    }
   }
 
   /// The ending's start when known (an "ending" in the first half is a

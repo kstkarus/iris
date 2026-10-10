@@ -48,6 +48,7 @@ final class PlayerReady extends PlayerState {
     this.startsOver = false,
     this.started = false,
     this.completed = false,
+    this.watched = false,
   });
 
   final PlayerSession session;
@@ -68,11 +69,15 @@ final class PlayerReady extends PlayerState {
   /// The file played to its end.
   final bool completed;
 
+  /// Playback reached the file's ending: it counts as watched.
+  final bool watched;
+
   PlayerReady copyWith({
     bool? showResumeNotice,
     bool? startsOver,
     bool? started,
     bool? completed,
+    bool? watched,
   }) {
     return PlayerReady(
       session,
@@ -81,6 +86,7 @@ final class PlayerReady extends PlayerState {
       startsOver: startsOver ?? this.startsOver,
       started: started ?? this.started,
       completed: completed ?? this.completed,
+      watched: watched ?? this.watched,
     );
   }
 
@@ -96,7 +102,8 @@ final class PlayerReady extends PlayerState {
         other.showResumeNotice == showResumeNotice &&
         other.startsOver == startsOver &&
         other.started == started &&
-        other.completed == completed;
+        other.completed == completed &&
+        other.watched == watched;
   }
 
   @override
@@ -107,6 +114,7 @@ final class PlayerReady extends PlayerState {
     startsOver,
     started,
     completed,
+    watched,
   );
 }
 

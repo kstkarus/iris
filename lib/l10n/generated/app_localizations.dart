@@ -2107,6 +2107,36 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Dubs'**
   String get animeDetailsDubsTitle;
+
+  /// No description provided for @playerMarked.
+  ///
+  /// In en, this message translates to:
+  /// **'Episode {episode} marked on Shikimori'**
+  String playerMarked(int episode);
+
+  /// No description provided for @playerMarkUndo.
+  ///
+  /// In en, this message translates to:
+  /// **'Undo'**
+  String get playerMarkUndo;
+
+  /// No description provided for @playerMarkOffer.
+  ///
+  /// In en, this message translates to:
+  /// **'Mark episode {episode} on Shikimori?'**
+  String playerMarkOffer(int episode);
+
+  /// No description provided for @playerMarkAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Mark'**
+  String get playerMarkAction;
+
+  /// No description provided for @playerMarkFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Shikimori did not save the mark.'**
+  String get playerMarkFailed;
 }
 
 class _AppLocalizationsDelegate

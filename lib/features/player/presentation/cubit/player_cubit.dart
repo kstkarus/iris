@@ -168,6 +168,11 @@ class PlayerCubit extends Cubit<PlayerState> {
         }
       case PlayerEngineCompleted():
         markCompleted();
+      case PlayerEngineWatched():
+        final current = state;
+        if (current is PlayerReady && !current.watched) {
+          _emitIfOpen(current.copyWith(watched: true));
+        }
       case PlayerEngineTracksChosen(:final preferences):
         saveTrackPreferences(preferences);
     }

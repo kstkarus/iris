@@ -1200,4 +1200,23 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get animeDetailsDubsTitle => 'Озвучка';
+
+  @override
+  String playerMarked(int episode) {
+    return '$episode серия отмечена на Шикимори';
+  }
+
+  @override
+  String get playerMarkUndo => 'Отменить';
+
+  @override
+  String playerMarkOffer(int episode) {
+    return 'Отметить $episode серию на Шикимори?';
+  }
+
+  @override
+  String get playerMarkAction => 'Отметить';
+
+  @override
+  String get playerMarkFailed => 'Шикимори не сохранил отметку.';
 }

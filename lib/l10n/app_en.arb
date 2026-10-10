@@ -749,5 +749,24 @@
   "animeDetailsFactStudio": "Studio",
   "animeDetailsFactGenres": "Genres",
   "animeDetailsFactRating": "Rated",
-  "animeDetailsDubsTitle": "Dubs"
+  "animeDetailsDubsTitle": "Dubs",
+  "playerMarked": "Episode {episode} marked on Shikimori",
+  "@playerMarked": {
+    "placeholders": {
+      "episode": {
+        "type": "int"
+      }
+    }
+  },
+  "playerMarkUndo": "Undo",
+  "playerMarkOffer": "Mark episode {episode} on Shikimori?",
+  "@playerMarkOffer": {
+    "placeholders": {
+      "episode": {
+        "type": "int"
+      }
+    }
+  },
+  "playerMarkAction": "Mark",
+  "playerMarkFailed": "Shikimori did not save the mark."
 }

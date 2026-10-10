@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -5,6 +7,7 @@ import 'package:iris/entities/watch_progress/domain/watch_progress.dart';
 import 'package:iris/entities/watch_progress/presentation/watch_progress_cubit.dart';
 import 'package:iris/features/player/domain/entities/anime_player_source.dart';
 import 'package:iris/features/player/domain/entities/player_video_file.dart';
+import 'package:iris/features/player/presentation/cubit/episode_mark_cubit.dart';
 import 'package:iris/features/player/presentation/cubit/player_cubit.dart';
 import 'package:iris/features/player/presentation/cubit/player_state.dart';
 import 'package:iris/features/player/presentation/widgets/player_adaptive_layout.dart';
@@ -57,10 +60,24 @@ class _PlayerPageState extends State<PlayerPage> {
   /// The immersive player's own resume message, instead of a snackbar.
   PlayerNotice? _notice;
 
+  /// What became of the episode in the Shikimori list, in the immersive
+  /// player; the resume message goes first.
+  PlayerNotice? _markNotice;
+
+  /// The same as a snackbar; its action belongs to this page.
+  ScaffoldFeatureController<SnackBar, SnackBarClosedReason>? _markSnackBar;
+
   @override
   void dispose() {
     _closePlaybackSnackBar();
+    _closeMarkSnackBar();
     super.dispose();
+  }
+
+  void _closeMarkSnackBar() {
+    final controller = _markSnackBar;
+    _markSnackBar = null;
+    controller?.close();
   }
 
   void _hideNotice() {
@@ -108,10 +125,34 @@ class _PlayerPageState extends State<PlayerPage> {
 
   @override
   Widget build(BuildContext context) {
+    final page = isDesktopPlayerPlatform()
+        ? _buildImmersive(context)
+        : _buildAdaptive(context);
+    // Pages opened without a list to mark (as in tests) only play.
+    final marks = context.read<EpisodeMarkCubit?>();
+    if (marks == null) return page;
+    return MultiBlocListener(
+      listeners: [
+        BlocListener<PlayerCubit, PlayerState>(
+          listenWhen: (previous, current) =>
+              current is PlayerReady &&
+              current.watched &&
+              !(previous is PlayerReady && previous.watched),
+          listener: (context, state) =>
+              marks.watched(context.read<PlayerCubit>().source),
+        ),
+        BlocListener<EpisodeMarkCubit, EpisodeMarkState>(
+          bloc: marks,
+          listener: _showMarkNotice,
+        ),
+      ],
+      child: page,
+    );
+  }
+
+  Widget _buildAdaptive(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final cubit = context.read<PlayerCubit>();
-
-    if (isDesktopPlayerPlatform()) return _buildImmersive(context);
 
     return BlocConsumer<PlayerCubit, PlayerState>(
       listener: _showPlaybackMessages,
@@ -242,7 +283,7 @@ class _PlayerPageState extends State<PlayerPage> {
       details: details,
       episodesCaption: episodesCaption,
       onBack: () => Navigator.of(context).maybePop(),
-      notice: _notice,
+      notice: _notice ?? _markNotice,
       episodes: source.files.length > 1
           ? (context, close) => _EpisodeCardsPane(
               source: source,
@@ -284,6 +325,74 @@ class _PlayerPageState extends State<PlayerPage> {
       _showResumeSnackBar(context, cubit);
     }
   }
+
+  /// What became of the watched episode in the Shikimori list: marked (with
+  /// undo), offered when its number is a guess, or failed (with retry).
+  void _showMarkNotice(BuildContext context, EpisodeMarkState state) {
+    final l10n = AppLocalizations.of(context);
+    final marks = context.read<EpisodeMarkCubit>();
+    final notice = switch (state) {
+      EpisodeMarkOffered(:final episode) => (
+        message: l10n.playerMarkOffer(episode),
+        actionLabel: l10n.playerMarkAction,
+        onAction: marks.confirm,
+        timeout: markOfferDuration,
+      ),
+      EpisodeMarkDone(:final episode) => (
+        message: l10n.playerMarked(episode),
+        actionLabel: l10n.playerMarkUndo,
+        onAction: () => unawaited(marks.undo()),
+        timeout: markNoticeDuration,
+      ),
+      EpisodeMarkFailed() => (
+        message: l10n.playerMarkFailed,
+        actionLabel: l10n.commonRetry,
+        onAction: marks.confirm,
+        timeout: markNoticeDuration,
+      ),
+      EpisodeMarkIdle() || EpisodeMarkSaving() => null,
+    };
+
+    if (isDesktopPlayerPlatform()) {
+      setState(
+        () => _markNotice = notice == null
+            ? null
+            : PlayerNotice(
+                message: notice.message,
+                actionLabel: notice.actionLabel,
+                onAction: notice.onAction,
+                timeout: notice.timeout,
+                onTimeout: marks.dismiss,
+              ),
+      );
+      return;
+    }
+
+    _closeMarkSnackBar();
+    if (notice == null) return;
+    final placement = _snackBarPlacement(context);
+    final controller = ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        // Its own key: a reused action would stay spent from the last one.
+        key: ObjectKey(state),
+        content: Text(notice.message),
+        action: SnackBarAction(
+          label: notice.actionLabel,
+          onPressed: notice.onAction,
+        ),
+        duration: notice.timeout,
+        behavior: placement.behavior,
+        width: placement.width,
+      ),
+    );
+    _markSnackBar = controller;
+    controller.closed.then((reason) {
+      if (!identical(_markSnackBar, controller)) return;
+      _markSnackBar = null;
+      // Timed out or swiped away; an action changes the state itself.
+      if (reason != SnackBarClosedReason.action) marks.dismiss();
+    });
+  }
 }
 
 /// What the resume notice says for [state] and what its action does:
@@ -311,6 +420,11 @@ class _PlayerPageState extends State<PlayerPage> {
     onAction: cubit.restartFromBeginning,
   );
 }
+
+/// How long the Shikimori mark notice stays; an offer stays longer, as it
+/// asks for something.
+const markNoticeDuration = Duration(seconds: 8);
+const markOfferDuration = Duration(seconds: 15);
 
 /// How long the resume notice stays once the file plays; until then it
 /// stays, so the choice it offers is there for the whole startup.

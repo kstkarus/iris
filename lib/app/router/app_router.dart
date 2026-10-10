@@ -9,6 +9,7 @@ import 'package:iris/app/router/app_shell_page.dart';
 import 'package:iris/entities/friend/domain/friend.dart';
 import 'package:iris/entities/friend/domain/friends_repository.dart';
 import 'package:iris/entities/watch_progress/domain/watch_progress_repository.dart';
+import 'package:iris/entities/user_rate/domain/mark_episode_watched.dart';
 import 'package:iris/entities/user_rate/domain/user_rate_repository.dart';
 import 'package:iris/entities/user_rate/presentation/user_rate_cubit.dart';
 import 'package:iris/features/anime_details/domain/repositories/anime_details_repository.dart';
@@ -38,6 +39,7 @@ import 'package:iris/features/player/domain/repositories/player_repository.dart'
 import 'package:iris/features/player/domain/repositories/player_skip_times_repository.dart';
 import 'package:iris/features/player/domain/repositories/player_track_preferences_repository.dart';
 import 'package:iris/features/player/domain/repositories/subtitle_preferences_repository.dart';
+import 'package:iris/features/player/presentation/cubit/episode_mark_cubit.dart';
 import 'package:iris/features/player/presentation/cubit/player_cubit.dart';
 import 'package:iris/features/player/presentation/cubit/player_decoding_preferences_cubit.dart';
 import 'package:iris/features/player/presentation/cubit/player_source_cubit.dart';
@@ -489,6 +491,13 @@ abstract final class AppRouter {
                     skipTimesRepository:
                         serviceLocator<PlayerSkipTimesRepository>(),
                   )..loadPlayback(),
+                ),
+                // Marks what is watched in the account's list, if any.
+                BlocProvider(
+                  create: (context) => EpisodeMarkCubit(
+                    markEpisode: serviceLocator<MarkEpisodeWatched>(),
+                    userId: accountIdOf(context.read<AuthCubit>().state),
+                  ),
                 ),
               ],
               child: PlayerPage(viewportFactory: viewportFactory),
