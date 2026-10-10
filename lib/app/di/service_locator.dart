@@ -21,6 +21,9 @@ import 'package:iris/features/anime_details/data/datasources/remote_anime_detail
 import 'package:iris/features/anime_details/data/repositories/mock_anime_details_repository.dart';
 import 'package:iris/features/anime_details/data/repositories/remote_anime_details_repository.dart';
 import 'package:iris/features/anime_details/domain/repositories/anime_details_repository.dart';
+import 'package:iris/features/anime_list/data/repositories/mock_anime_genres_repository.dart';
+import 'package:iris/features/anime_list/data/repositories/remote_anime_genres_repository.dart';
+import 'package:iris/features/anime_list/domain/repositories/anime_genres_repository.dart';
 import 'package:iris/features/anime_list/data/datasources/mock_anime_list_data_source.dart';
 import 'package:iris/features/anime_list/data/datasources/remote_anime_list_data_source.dart';
 import 'package:iris/features/anime_list/data/repositories/mock_anime_list_repository.dart';
@@ -208,7 +211,17 @@ Future<void> configureDependencies({
       serviceLocator.registerLazySingleton<AnimeListRepository>(
         () => MockAnimeListRepository(
           dataSource: serviceLocator<MockAnimeListDataSource>(),
+          userRates: switch (serviceLocator<UserRateRepository>()) {
+            final MockUserRateRepository mock => mock,
+            _ => null,
+          },
         ),
+      );
+    }
+
+    if (!serviceLocator.isRegistered<AnimeGenresRepository>()) {
+      serviceLocator.registerLazySingleton<AnimeGenresRepository>(
+        MockAnimeGenresRepository.new,
       );
     }
 
@@ -322,6 +335,14 @@ Future<void> configureDependencies({
         () => RemoteUserRateRepository(
           graphQl: serviceLocator<ShikimoriGraphQlClient>(),
           dio: serviceLocator<Dio>(),
+        ),
+      );
+    }
+
+    if (!serviceLocator.isRegistered<AnimeGenresRepository>()) {
+      serviceLocator.registerLazySingleton<AnimeGenresRepository>(
+        () => RemoteAnimeGenresRepository(
+          client: serviceLocator<ShikimoriGraphQlClient>(),
         ),
       );
     }

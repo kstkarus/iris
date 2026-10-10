@@ -38,7 +38,12 @@ query AnimePage(
   $search: String,
   $order: OrderEnum,
   $kind: AnimeKindString,
-  $status: AnimeStatusString
+  $status: AnimeStatusString,
+  $mylist: MylistString,
+  $genre: String,
+  $season: SeasonString,
+  $rating: RatingString,
+  $duration: DurationString
 ) {
   animes(
     page: $page,
@@ -47,6 +52,11 @@ query AnimePage(
     order: $order,
     kind: $kind,
     status: $status,
+    mylist: $mylist,
+    genre: $genre,
+    season: $season,
+    rating: $rating,
+    duration: $duration,
     censored: true
   ) {
     id

@@ -644,5 +644,62 @@
     }
   },
   "userRateRate": "Rate",
-  "userRateNoScore": "No score"
+  "userRateNoScore": "No score",
+  "animeListHideCompleted": "Not completed",
+  "animeListGenresSectionTitle": "Genres",
+  "animeListShowThemes": "Themes ({count})",
+  "@animeListShowThemes": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "animeListSeasonSectionTitle": "Season",
+  "animeSeasonWinter": "Winter {year}",
+  "@animeSeasonWinter": {
+    "placeholders": {
+      "year": {
+        "type": "String"
+      }
+    }
+  },
+  "animeSeasonSpring": "Spring {year}",
+  "@animeSeasonSpring": {
+    "placeholders": {
+      "year": {
+        "type": "String"
+      }
+    }
+  },
+  "animeSeasonSummer": "Summer {year}",
+  "@animeSeasonSummer": {
+    "placeholders": {
+      "year": {
+        "type": "String"
+      }
+    }
+  },
+  "animeSeasonFall": "Fall {year}",
+  "@animeSeasonFall": {
+    "placeholders": {
+      "year": {
+        "type": "String"
+      }
+    }
+  },
+  "animeListDecade": "{decade}s",
+  "@animeListDecade": {
+    "placeholders": {
+      "decade": {
+        "type": "String"
+      }
+    }
+  },
+  "animeListBefore2000": "Before 2000",
+  "animeListRatingSectionTitle": "Age rating",
+  "animeListDurationSectionTitle": "Episode length",
+  "animeDurationShort": "Under 10 min",
+  "animeDurationStandard": "Under 30 min",
+  "animeDurationLong": "Over 30 min"
 }

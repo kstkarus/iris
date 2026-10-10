@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:iris/entities/user_rate/domain/user_rate.dart';
 import 'package:iris/features/anime_list/domain/entities/anime_list_item.dart';
 import 'package:iris/features/anime_list/domain/entities/anime_list_page_result.dart';
 import 'package:iris/features/anime_list/domain/entities/anime_list_query.dart';
@@ -490,6 +491,46 @@ void main() {
 
       expect(fetches, 1);
       expect(errors, isEmpty);
+    });
+
+    test('signing out drops the list filters and reloads', () async {
+      final queries = <AnimeListQuery>[];
+      final bloc = AnimeListBloc(
+        repository: _FakeAnimeListRepository(
+          handler: ({required query}) async {
+            queries.add(query);
+            return AnimeListPageResult(
+              items: _pageOneItems,
+              page: 1,
+              hasMore: false,
+              query: '',
+            );
+          },
+        ),
+      );
+      bloc
+        ..add(const AnimeListAccountChanged(signedIn: true, reload: false))
+        ..add(const AnimeListStarted());
+      await Future<void>.delayed(Duration.zero);
+      bloc.add(
+        const AnimeListCriteriaApplied(
+          filters: AnimeListFilters(
+            kinds: {AnimeKindFilter.tv},
+            myList: {UserRateStatus.watching},
+          ),
+        ),
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      bloc.add(const AnimeListAccountChanged(signedIn: false, reload: false));
+      await Future<void>.delayed(Duration.zero);
+
+      expect(
+        queries.last.filters,
+        const AnimeListFilters(kinds: {AnimeKindFilter.tv}),
+      );
+      expect(bloc.state.filters.usesMyList, isFalse);
+      await bloc.close();
     });
 
     test(

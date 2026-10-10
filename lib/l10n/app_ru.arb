@@ -385,5 +385,20 @@
   "userRateSaveError": "Шикимори не сохранил изменение.",
   "userRateScore": "Оценка: {score}",
   "userRateRate": "Оценить",
-  "userRateNoScore": "Без оценки"
+  "userRateNoScore": "Без оценки",
+  "animeListHideCompleted": "Кроме просмотренного",
+  "animeListGenresSectionTitle": "Жанры",
+  "animeListShowThemes": "Темы ({count})",
+  "animeListSeasonSectionTitle": "Сезон",
+  "animeSeasonWinter": "Зима {year}",
+  "animeSeasonSpring": "Весна {year}",
+  "animeSeasonSummer": "Лето {year}",
+  "animeSeasonFall": "Осень {year}",
+  "animeListDecade": "{decade}-е",
+  "animeListBefore2000": "До 2000",
+  "animeListRatingSectionTitle": "Возрастной рейтинг",
+  "animeListDurationSectionTitle": "Длина серии",
+  "animeDurationShort": "До 10 мин",
+  "animeDurationStandard": "До 30 мин",
+  "animeDurationLong": "Больше 30 мин"
 }

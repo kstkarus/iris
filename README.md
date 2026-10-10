@@ -29,6 +29,7 @@ The app currently reads public anime data from the Shikimori GraphQL API:
 - the catalog is read anonymously; with a signed-in account the same client sends its token
 - every request carries `User-Agent: iris`, as Shikimori requires: the name of the app's registered OAuth application
 - requests are held on the client to Shikimori's limits (5 per second, 90 per minute); a `429` is retried once after `Retry-After`
+- the filter sheet narrows the catalog by type, status, genre (genres and audiences shown, the 53 themes folded), season (this and the last broadcast quarter, this and the last year, decades, before 2000), age rating and episode length; signed in, also by the user's list (any statuses, or everything except Completed), which signing out drops. Genres are read from Shikimori once a session (`AnimeGenresRepository`); if they fail to load the section is left out
 - a title page lists the rest of the franchise under Related: prequel and sequel first, then the other relations by air date; commercials, promo videos and music clips are left out, and lists longer than four rows fold after three
 - air dates show as much as Shikimori knows (the year, the month and year, or the day): it fills an unknown month or day with the first one
 

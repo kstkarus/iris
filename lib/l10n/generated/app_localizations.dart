@@ -1915,6 +1915,96 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'No score'**
   String get userRateNoScore;
+
+  /// No description provided for @animeListHideCompleted.
+  ///
+  /// In en, this message translates to:
+  /// **'Not completed'**
+  String get animeListHideCompleted;
+
+  /// No description provided for @animeListGenresSectionTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Genres'**
+  String get animeListGenresSectionTitle;
+
+  /// No description provided for @animeListShowThemes.
+  ///
+  /// In en, this message translates to:
+  /// **'Themes ({count})'**
+  String animeListShowThemes(int count);
+
+  /// No description provided for @animeListSeasonSectionTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Season'**
+  String get animeListSeasonSectionTitle;
+
+  /// No description provided for @animeSeasonWinter.
+  ///
+  /// In en, this message translates to:
+  /// **'Winter {year}'**
+  String animeSeasonWinter(String year);
+
+  /// No description provided for @animeSeasonSpring.
+  ///
+  /// In en, this message translates to:
+  /// **'Spring {year}'**
+  String animeSeasonSpring(String year);
+
+  /// No description provided for @animeSeasonSummer.
+  ///
+  /// In en, this message translates to:
+  /// **'Summer {year}'**
+  String animeSeasonSummer(String year);
+
+  /// No description provided for @animeSeasonFall.
+  ///
+  /// In en, this message translates to:
+  /// **'Fall {year}'**
+  String animeSeasonFall(String year);
+
+  /// No description provided for @animeListDecade.
+  ///
+  /// In en, this message translates to:
+  /// **'{decade}s'**
+  String animeListDecade(String decade);
+
+  /// No description provided for @animeListBefore2000.
+  ///
+  /// In en, this message translates to:
+  /// **'Before 2000'**
+  String get animeListBefore2000;
+
+  /// No description provided for @animeListRatingSectionTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Age rating'**
+  String get animeListRatingSectionTitle;
+
+  /// No description provided for @animeListDurationSectionTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Episode length'**
+  String get animeListDurationSectionTitle;
+
+  /// No description provided for @animeDurationShort.
+  ///
+  /// In en, this message translates to:
+  /// **'Under 10 min'**
+  String get animeDurationShort;
+
+  /// No description provided for @animeDurationStandard.
+  ///
+  /// In en, this message translates to:
+  /// **'Under 30 min'**
+  String get animeDurationStandard;
+
+  /// No description provided for @animeDurationLong.
+  ///
+  /// In en, this message translates to:
+  /// **'Over 30 min'**
+  String get animeDurationLong;
 }
 
 class _AppLocalizationsDelegate

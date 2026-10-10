@@ -1076,4 +1076,61 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get userRateNoScore => 'Без оценки';
+
+  @override
+  String get animeListHideCompleted => 'Кроме просмотренного';
+
+  @override
+  String get animeListGenresSectionTitle => 'Жанры';
+
+  @override
+  String animeListShowThemes(int count) {
+    return 'Темы ($count)';
+  }
+
+  @override
+  String get animeListSeasonSectionTitle => 'Сезон';
+
+  @override
+  String animeSeasonWinter(String year) {
+    return 'Зима $year';
+  }
+
+  @override
+  String animeSeasonSpring(String year) {
+    return 'Весна $year';
+  }
+
+  @override
+  String animeSeasonSummer(String year) {
+    return 'Лето $year';
+  }
+
+  @override
+  String animeSeasonFall(String year) {
+    return 'Осень $year';
+  }
+
+  @override
+  String animeListDecade(String decade) {
+    return '$decade-е';
+  }
+
+  @override
+  String get animeListBefore2000 => 'До 2000';
+
+  @override
+  String get animeListRatingSectionTitle => 'Возрастной рейтинг';
+
+  @override
+  String get animeListDurationSectionTitle => 'Длина серии';
+
+  @override
+  String get animeDurationShort => 'До 10 мин';
+
+  @override
+  String get animeDurationStandard => 'До 30 мин';
+
+  @override
+  String get animeDurationLong => 'Больше 30 мин';
 }

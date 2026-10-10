@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import 'package:iris/entities/user_rate/domain/user_rate.dart';
+import 'package:iris/entities/user_rate/presentation/user_rate_status_label.dart';
 import 'package:iris/entities/watch_progress/presentation/watch_progress_cubit.dart';
 import 'package:iris/features/anime_list/domain/entities/anime_list_query.dart';
 import 'package:iris/features/anime_list/presentation/bloc/anime_list_bloc.dart';
@@ -455,11 +457,7 @@ class _CatalogHeading extends StatelessWidget {
       AnimeListSortOption.score => l10n.animeListHeadingScore,
       AnimeListSortOption.airedOn => l10n.animeListHeadingAiredOn,
     };
-    final filters = [
-      for (final kind in state.filters.kinds) animeKindFilterLabel(l10n, kind),
-      for (final status in state.filters.statuses)
-        animeStatusFilterLabel(l10n, status),
-    ];
+    final filters = animeListFilterLabels(l10n, state.filters);
     final compact = WindowSizeClass.of(context).isCompact;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -512,3 +510,22 @@ class _FailureState extends StatelessWidget {
     );
   }
 }
+
+/// Every filter in force, in the order the filter sheet shows them.
+List<String> animeListFilterLabels(
+  AppLocalizations l10n,
+  AnimeListFilters filters,
+) => [
+  for (final kind in filters.kinds) animeKindFilterLabel(l10n, kind),
+  for (final status in filters.statuses) animeStatusFilterLabel(l10n, status),
+  for (final status in UserRateStatus.values)
+    if (filters.myList.contains(status)) userRateStatusLabel(l10n, status),
+  if (filters.hideCompleted) l10n.animeListHideCompleted,
+  for (final genre in filters.genres) animeGenreLabel(l10n, genre),
+  for (final season in filters.seasons) seasonFilterLabel(l10n, season),
+  for (final rating in AnimeRatingFilter.values)
+    if (filters.ratings.contains(rating)) animeRatingFilterLabel(rating),
+  for (final duration in AnimeDurationFilter.values)
+    if (filters.durations.contains(duration))
+      animeDurationFilterLabel(l10n, duration),
+];

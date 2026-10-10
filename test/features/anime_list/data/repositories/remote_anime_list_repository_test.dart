@@ -166,6 +166,11 @@ void main() {
       'order': 'ranked',
       'kind': 'tv,movie',
       'status': 'released',
+      'mylist': null,
+      'genre': null,
+      'season': null,
+      'rating': null,
+      'duration': null,
     });
   });
 }

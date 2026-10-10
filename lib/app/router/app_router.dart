@@ -13,6 +13,8 @@ import 'package:iris/features/anime_details/domain/repositories/anime_details_re
 import 'package:iris/features/anime_details/presentation/cubit/anime_details_cubit.dart';
 import 'package:iris/features/anime_details/presentation/models/anime_details_preview.dart';
 import 'package:iris/features/anime_details/presentation/pages/anime_details_page.dart';
+import 'package:iris/features/anime_list/domain/repositories/anime_genres_repository.dart';
+import 'package:iris/features/anime_list/presentation/cubit/anime_genres_cubit.dart';
 import 'package:iris/features/anime_list/presentation/bloc/anime_list_bloc.dart';
 import 'package:iris/features/anime_list/presentation/bloc/anime_search_bloc.dart';
 import 'package:iris/features/anime_list/presentation/bloc/anime_list_event.dart';
@@ -84,6 +86,11 @@ abstract final class AppRouter {
                               ),
                             )
                             ..add(const AnimeListStarted()),
+                        ),
+                        BlocProvider(
+                          create: (_) => AnimeGenresCubit(
+                            repository: serviceLocator<AnimeGenresRepository>(),
+                          ),
                         ),
                         BlocProvider(
                           create: (_) => serviceLocator<AnimeSearchBloc>()

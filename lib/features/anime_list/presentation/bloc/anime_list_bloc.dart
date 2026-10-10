@@ -171,14 +171,14 @@ class AnimeListBloc extends Bloc<AnimeListEvent, AnimeListState> {
     Emitter<AnimeListState> emit,
   ) {
     if (event.signedIn == state.signedIn) return;
-    emit(state.copyWith(signedIn: event.signedIn));
-    if (!event.reload || !state.hasLoadedOnce) return;
-    _restartList(
-      emit,
-      query: state.query,
-      sort: state.sort,
-      filters: state.filters,
-    );
+    // Signed out, the user's list cannot filter anything.
+    final filters = event.signedIn
+        ? state.filters
+        : state.filters.withoutMyList();
+    final reload = event.reload || filters != state.filters;
+    emit(state.copyWith(signedIn: event.signedIn, filters: filters));
+    if (!reload || !state.hasLoadedOnce) return;
+    _restartList(emit, query: state.query, sort: state.sort, filters: filters);
   }
 
   void _onPageLoaded(AnimeListPageLoaded event, Emitter<AnimeListState> emit) {

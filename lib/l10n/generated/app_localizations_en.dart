@@ -1062,4 +1062,61 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get userRateNoScore => 'No score';
+
+  @override
+  String get animeListHideCompleted => 'Not completed';
+
+  @override
+  String get animeListGenresSectionTitle => 'Genres';
+
+  @override
+  String animeListShowThemes(int count) {
+    return 'Themes ($count)';
+  }
+
+  @override
+  String get animeListSeasonSectionTitle => 'Season';
+
+  @override
+  String animeSeasonWinter(String year) {
+    return 'Winter $year';
+  }
+
+  @override
+  String animeSeasonSpring(String year) {
+    return 'Spring $year';
+  }
+
+  @override
+  String animeSeasonSummer(String year) {
+    return 'Summer $year';
+  }
+
+  @override
+  String animeSeasonFall(String year) {
+    return 'Fall $year';
+  }
+
+  @override
+  String animeListDecade(String decade) {
+    return '${decade}s';
+  }
+
+  @override
+  String get animeListBefore2000 => 'Before 2000';
+
+  @override
+  String get animeListRatingSectionTitle => 'Age rating';
+
+  @override
+  String get animeListDurationSectionTitle => 'Episode length';
+
+  @override
+  String get animeDurationShort => 'Under 10 min';
+
+  @override
+  String get animeDurationStandard => 'Under 30 min';
+
+  @override
+  String get animeDurationLong => 'Over 30 min';
 }
