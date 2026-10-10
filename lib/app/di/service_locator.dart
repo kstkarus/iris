@@ -11,6 +11,9 @@ import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:iris/app/router/app_router.dart';
+import 'package:iris/entities/friend/data/mock_friends_repository.dart';
+import 'package:iris/entities/friend/data/remote_friends_repository.dart';
+import 'package:iris/entities/friend/domain/friends_repository.dart';
 import 'package:iris/entities/user_rate/data/mock_user_rate_repository.dart';
 import 'package:iris/entities/user_rate/data/remote_user_rate_repository.dart';
 import 'package:iris/entities/user_rate/domain/user_rate_repository.dart';
@@ -225,6 +228,12 @@ Future<void> configureDependencies({
       );
     }
 
+    if (!serviceLocator.isRegistered<FriendsRepository>()) {
+      serviceLocator.registerLazySingleton<FriendsRepository>(
+        MockFriendsRepository.new,
+      );
+    }
+
     if (!serviceLocator.isRegistered<UserListRepository>()) {
       serviceLocator.registerLazySingleton<UserListRepository>(
         () => MockUserListRepository(
@@ -359,6 +368,12 @@ Future<void> configureDependencies({
           graphQl: serviceLocator<ShikimoriGraphQlClient>(),
           dio: serviceLocator<Dio>(),
         ),
+      );
+    }
+
+    if (!serviceLocator.isRegistered<FriendsRepository>()) {
+      serviceLocator.registerLazySingleton<FriendsRepository>(
+        () => RemoteFriendsRepository(dio: serviceLocator<Dio>()),
       );
     }
 

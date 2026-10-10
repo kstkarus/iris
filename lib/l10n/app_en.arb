@@ -739,5 +739,10 @@
   },
   "profileListEmpty": "Nothing here yet.",
   "profileListLoadError": "The list did not load.",
-  "profileListLoading": "Loading the list"
+  "profileListLoading": "Loading the list",
+  "profileFriendsTab": "Friends",
+  "profileFriendsEmpty": "No friends on Shikimori yet.",
+  "profileFriendsLoadError": "Friends did not load.",
+  "profileFriendsLoading": "Loading friends",
+  "animeDetailsFriendsTitle": "Friends"
 }

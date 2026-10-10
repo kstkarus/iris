@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:iris/app/di/service_locator.dart';
 import 'package:iris/app/router/app_router.dart';
+import 'package:iris/entities/friend/domain/friend.dart';
 import 'package:iris/features/auth/domain/repositories/auth_repository.dart';
 import 'package:iris/features/auth/presentation/cubit/auth_cubit.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
@@ -55,6 +56,25 @@ void main() {
       );
     },
   );
+
+  testWidgets('a friend opens on their own page', (tester) async {
+    final router = AppRouter.createRouter();
+    addTearDown(router.dispose);
+
+    await tester.pumpWidget(_app(router));
+    await tester.pumpAndSettle();
+
+    router.pushNamed(
+      'user-profile',
+      pathParameters: {'id': '9001'},
+      extra: const Friend(id: '9001', nickname: 'mock_friend', avatarUrl: ''),
+    );
+    await tester.pumpAndSettle();
+
+    expect(router.state.uri.path, '/user/9001');
+    expect(find.text('mock_friend'), findsOneWidget);
+    expect(find.text('Nothing here yet.'), findsOneWidget);
+  });
 
   test('torrent and player routes do not depend on a catalog title', () {
     final router = AppRouter.createRouter();

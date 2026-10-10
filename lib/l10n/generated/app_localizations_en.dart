@@ -1154,4 +1154,19 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get profileListLoading => 'Loading the list';
+
+  @override
+  String get profileFriendsTab => 'Friends';
+
+  @override
+  String get profileFriendsEmpty => 'No friends on Shikimori yet.';
+
+  @override
+  String get profileFriendsLoadError => 'Friends did not load.';
+
+  @override
+  String get profileFriendsLoading => 'Loading friends';
+
+  @override
+  String get animeDetailsFriendsTitle => 'Friends';
 }

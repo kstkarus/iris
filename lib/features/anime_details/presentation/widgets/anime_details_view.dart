@@ -10,6 +10,7 @@ import 'package:iris/features/anime_details/presentation/cubit/anime_details_sta
 import 'package:iris/features/anime_details/presentation/models/anime_details_preview.dart';
 import 'package:iris/features/anime_details/presentation/widgets/headline_anchor.dart';
 import 'package:iris/features/anime_details/presentation/widgets/headline_column.dart';
+import 'package:iris/features/anime_details/presentation/widgets/friends_section.dart';
 import 'package:iris/features/anime_details/presentation/widgets/my_list_section.dart';
 import 'package:iris/features/anime_details/presentation/widgets/recently_watched_section.dart';
 import 'package:iris/features/anime_details/presentation/widgets/related_anime_section.dart';
@@ -203,6 +204,8 @@ class _CompactLayout extends StatelessWidget {
           RecentlyWatchedSection(animeId: head.id),
           _Description(description: description, onRetry: onRetry),
           RelatedAnimeSection(related: related),
+          // Last: it arrives a while after the page, and shifts nothing.
+          FriendsSection(totalEpisodes: head.episodes),
         ],
       ),
     );
@@ -301,6 +304,7 @@ class _TwoPaneLayout extends StatelessWidget {
             onRetry: onRetry,
           ),
           RelatedAnimeSection(related: related, labelWidth: labelWidth),
+          FriendsSection(totalEpisodes: head.episodes, labelWidth: labelWidth),
         ],
       ),
     );

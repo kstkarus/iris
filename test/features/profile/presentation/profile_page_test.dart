@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:iris/entities/friend/domain/friend.dart';
 import 'package:iris/entities/user_rate/data/mock_user_rate_repository.dart';
 import 'package:iris/entities/user_rate/domain/user_rate.dart';
 import 'package:iris/entities/user_rate/presentation/user_rate_book_cubit.dart';
@@ -11,10 +12,12 @@ import 'package:iris/features/auth/domain/entities/auth_failure.dart';
 import 'package:iris/features/auth/presentation/cubit/auth_cubit.dart';
 import 'package:iris/features/auth/presentation/cubit/auth_state.dart';
 import 'package:iris/features/profile/domain/entities/user_list_entry.dart';
+import 'package:iris/features/profile/presentation/cubit/friends_cubit.dart';
 import 'package:iris/features/profile/presentation/cubit/user_list_cubit.dart';
 import 'package:iris/features/profile/presentation/pages/profile_page.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 
+import '../../../entities/friend/friend_test_doubles.dart';
 import '../../auth/presentation/auth_test_doubles.dart';
 import 'user_list_test_doubles.dart';
 
@@ -22,6 +25,8 @@ void main() {
   late FakeUserListRepository lists;
   late MockUserRateRepository rates;
   late List<UserListEntry> opened;
+  late FakeFriendsRepository friends;
+  late List<Friend> openedFriends;
 
   setUp(() {
     lists = FakeUserListRepository({
@@ -33,6 +38,8 @@ void main() {
     });
     rates = MockUserRateRepository();
     opened = [];
+    friends = FakeFriendsRepository(list: [testFriend('7')]);
+    openedFriends = [];
   });
 
   Future<AuthCubit> pumpPage(
@@ -44,9 +51,12 @@ void main() {
     final userList = UserListCubit(repository: lists)
       ..show(accountIdOf(cubit.state));
     final book = UserRateBookCubit(repository: rates);
+    final friendsCubit = FriendsCubit(repository: friends)
+      ..show(accountIdOf(cubit.state));
     addTearDown(() async {
       await userList.close();
       await book.close();
+      await friendsCubit.close();
     });
     await tester.pumpWidget(
       MaterialApp(
@@ -57,10 +67,14 @@ void main() {
             BlocProvider.value(value: cubit),
             BlocProvider.value(value: userList),
             BlocProvider.value(value: book),
+            BlocProvider.value(value: friendsCubit),
           ],
           child: BlocListener<AuthCubit, AuthState>(
             listener: (context, auth) => userList.show(accountIdOf(auth)),
-            child: ProfilePage(onOpenAnime: opened.add),
+            child: ProfilePage(
+              onOpenAnime: opened.add,
+              onOpenFriend: openedFriends.add,
+            ),
           ),
         ),
       ),
@@ -149,7 +163,7 @@ void main() {
 
     expect(lists.requests.single.userId, testAccount.id);
     expect(find.text('Anime 1'), findsOneWidget);
-    expect(find.text('5 / 12 · SCORE: 8'), findsOneWidget);
+    expect(find.text('5/12 · SCORE: 8'), findsOneWidget);
     expect(find.text('Anime 3'), findsNothing);
 
     await tester.tap(find.byKey(const ValueKey('user_list_tab_planned')));
@@ -183,7 +197,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('6 / 12 · SCORE: 8'), findsOneWidget);
+    expect(find.text('6/12 · SCORE: 8'), findsOneWidget);
     expect(find.text('Anime 2'), findsNothing);
   });
 
@@ -207,6 +221,27 @@ void main() {
     await tester.tap(find.text('Try Again'));
     await tester.pumpAndSettle();
 
+    expect(find.text('Anime 1'), findsOneWidget);
+  });
+
+  testWidgets('friends are read when their tab is opened', (tester) async {
+    await pumpPage(tester, FakeAuthRepository(restored: testAccount));
+    await tester.pumpAndSettle();
+    expect(friends.friendReads, 0);
+
+    final friendsTab = find.byKey(const ValueKey('user_list_tab_friends'));
+    await tester.ensureVisible(friendsTab);
+    await tester.tap(friendsTab);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Anime 1'), findsNothing);
+    await tester.tap(find.text('friend_7'));
+    expect(openedFriends.single.id, '7');
+
+    final watchingTab = find.byKey(const ValueKey('user_list_tab_watching'));
+    await tester.ensureVisible(watchingTab);
+    await tester.tap(watchingTab);
+    await tester.pumpAndSettle();
     expect(find.text('Anime 1'), findsOneWidget);
   });
 }

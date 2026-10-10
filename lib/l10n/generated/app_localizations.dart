@@ -2047,6 +2047,36 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Loading the list'**
   String get profileListLoading;
+
+  /// No description provided for @profileFriendsTab.
+  ///
+  /// In en, this message translates to:
+  /// **'Friends'**
+  String get profileFriendsTab;
+
+  /// No description provided for @profileFriendsEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No friends on Shikimori yet.'**
+  String get profileFriendsEmpty;
+
+  /// No description provided for @profileFriendsLoadError.
+  ///
+  /// In en, this message translates to:
+  /// **'Friends did not load.'**
+  String get profileFriendsLoadError;
+
+  /// No description provided for @profileFriendsLoading.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading friends'**
+  String get profileFriendsLoading;
+
+  /// No description provided for @animeDetailsFriendsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Friends'**
+  String get animeDetailsFriendsTitle;
 }
 
 class _AppLocalizationsDelegate

@@ -1170,4 +1170,19 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get profileListLoading => 'Загружаем список';
+
+  @override
+  String get profileFriendsTab => 'Друзья';
+
+  @override
+  String get profileFriendsEmpty => 'На Шикимори пока нет друзей.';
+
+  @override
+  String get profileFriendsLoadError => 'Друзья не загрузились.';
+
+  @override
+  String get profileFriendsLoading => 'Загружаем друзей';
+
+  @override
+  String get animeDetailsFriendsTitle => 'Друзья';
 }

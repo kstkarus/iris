@@ -24,7 +24,7 @@ class UserRateBadge extends StatelessWidget {
     final scheme = theme.colorScheme;
     final l10n = AppLocalizations.of(context);
     final label = userRateStatusLabel(l10n, rate.status).toUpperCase();
-    final progress = _progress();
+    final progress = userRateProgress(rate, totalEpisodes);
     final text = progress == null ? label : '$label $progress';
     return ColoredBox(
       color: scheme.inverseSurface,
@@ -42,20 +42,21 @@ class UserRateBadge extends StatelessWidget {
       ),
     );
   }
+}
 
-  /// `5/12` for an anime in progress; nothing before the first episode
-  /// or once the count says nothing new (planned, completed).
-  String? _progress() {
-    final inProgress = switch (rate.status) {
-      UserRateStatus.watching ||
-      UserRateStatus.rewatching ||
-      UserRateStatus.onHold ||
-      UserRateStatus.dropped => true,
-      UserRateStatus.planned || UserRateStatus.completed => false,
-    };
-    if (!inProgress || rate.episodes <= 0) return null;
-    return totalEpisodes > 0
-        ? '${rate.episodes}/$totalEpisodes'
-        : '${rate.episodes}';
-  }
+/// `5/12` for an anime under way (just `5` while the total is unknown);
+/// nothing before the first episode, or once the count says nothing new
+/// (planned, completed).
+String? userRateProgress(UserRate rate, int totalEpisodes) {
+  final underWay = switch (rate.status) {
+    UserRateStatus.watching ||
+    UserRateStatus.rewatching ||
+    UserRateStatus.onHold ||
+    UserRateStatus.dropped => true,
+    UserRateStatus.planned || UserRateStatus.completed => false,
+  };
+  if (!underWay || rate.episodes <= 0) return null;
+  return totalEpisodes > 0
+      ? '${rate.episodes}/$totalEpisodes'
+      : '${rate.episodes}';
 }

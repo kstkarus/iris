@@ -6,11 +6,14 @@ import 'package:go_router/go_router.dart';
 
 import 'package:iris/app/di/service_locator.dart';
 import 'package:iris/app/router/app_shell_page.dart';
+import 'package:iris/entities/friend/domain/friend.dart';
+import 'package:iris/entities/friend/domain/friends_repository.dart';
 import 'package:iris/entities/watch_progress/domain/watch_progress_repository.dart';
 import 'package:iris/entities/user_rate/domain/user_rate_repository.dart';
 import 'package:iris/entities/user_rate/presentation/user_rate_cubit.dart';
 import 'package:iris/features/anime_details/domain/repositories/anime_details_repository.dart';
 import 'package:iris/features/anime_details/presentation/cubit/anime_details_cubit.dart';
+import 'package:iris/features/anime_details/presentation/cubit/friend_rates_cubit.dart';
 import 'package:iris/features/anime_details/presentation/models/anime_details_preview.dart';
 import 'package:iris/features/anime_details/presentation/pages/anime_details_page.dart';
 import 'package:iris/features/anime_list/domain/repositories/anime_genres_repository.dart';
@@ -47,7 +50,9 @@ import 'package:iris/features/player/presentation/widgets/player_viewport_factor
 import 'package:iris/features/profile/domain/entities/user_list_entry.dart';
 import 'package:iris/features/profile/domain/repositories/user_list_repository.dart';
 import 'package:iris/features/profile/presentation/cubit/user_list_cubit.dart';
+import 'package:iris/features/profile/presentation/cubit/friends_cubit.dart';
 import 'package:iris/features/profile/presentation/pages/profile_page.dart';
+import 'package:iris/features/profile/presentation/pages/user_profile_page.dart';
 import 'package:iris/features/saved_torrents/domain/repositories/saved_torrents_repository.dart';
 import 'package:iris/features/saved_torrents/presentation/cubit/saved_torrents_cubit.dart';
 import 'package:iris/features/saved_torrents/presentation/pages/saved_torrents_page.dart';
@@ -59,7 +64,14 @@ import 'package:iris/features/watch_sources/presentation/models/anime_watch_sour
 import 'package:iris/features/watch_sources/presentation/pages/watch_sources_page.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 
-/// What a list row knows of the anime, for its title page.
+/// Opens a list row's anime with what the row knows of it.
+void _openListed(BuildContext context, UserListEntry entry) =>
+    context.pushNamed(
+      'anime-details',
+      pathParameters: {'id': entry.anime.id},
+      extra: _listedPreview(entry.anime),
+    );
+
 AnimeDetailsPreview _listedPreview(ListedAnime anime) => AnimeDetailsPreview(
   id: anime.id,
   name: anime.name,
@@ -218,23 +230,38 @@ abstract final class AppRouter {
                   path: '/profile',
                   name: 'profile',
                   builder: (context, state) {
-                    return BlocProvider(
-                      create: (context) => UserListCubit(
-                        repository: serviceLocator<UserListRepository>(),
-                        changes: serviceLocator<UserRateRepository>().changes,
-                      )..show(accountIdOf(context.read<AuthCubit>().state)),
-                      // The list is the signed-in account's.
+                    final accountId = accountIdOf(
+                      context.read<AuthCubit>().state,
+                    );
+                    return MultiBlocProvider(
+                      providers: [
+                        BlocProvider(
+                          create: (_) => UserListCubit(
+                            repository: serviceLocator<UserListRepository>(),
+                            changes:
+                                serviceLocator<UserRateRepository>().changes,
+                          )..show(accountId),
+                        ),
+                        BlocProvider(
+                          create: (_) => FriendsCubit(
+                            repository: serviceLocator<FriendsRepository>(),
+                          )..show(accountId),
+                        ),
+                      ],
+                      // The list and the friends follow the account.
                       child: BlocListener<AuthCubit, AuthState>(
                         listenWhen: (previous, current) =>
                             accountIdOf(previous) != accountIdOf(current),
-                        listener: (context, auth) => context
-                            .read<UserListCubit>()
-                            .show(accountIdOf(auth)),
+                        listener: (context, auth) {
+                          context.read<UserListCubit>().show(accountIdOf(auth));
+                          context.read<FriendsCubit>().show(accountIdOf(auth));
+                        },
                         child: ProfilePage(
-                          onOpenAnime: (entry) => context.pushNamed(
-                            'anime-details',
-                            pathParameters: {'id': entry.anime.id},
-                            extra: _listedPreview(entry.anime),
+                          onOpenAnime: (entry) => _openListed(context, entry),
+                          onOpenFriend: (friend) => context.pushNamed(
+                            'user-profile',
+                            pathParameters: {'id': friend.id},
+                            extra: friend,
                           ),
                         ),
                       ),
@@ -244,6 +271,27 @@ abstract final class AppRouter {
               ],
             ),
           ],
+        ),
+        GoRoute(
+          path: '/user/:id',
+          name: 'user-profile',
+          builder: (context, state) {
+            final userId = state.pathParameters['id'] ?? '';
+            // A deep link knows only the id.
+            final friend = switch (state.extra) {
+              final Friend friend when friend.id == userId => friend,
+              _ => Friend(id: userId, nickname: '', avatarUrl: ''),
+            };
+            return BlocProvider(
+              create: (_) => UserListCubit(
+                repository: serviceLocator<UserListRepository>(),
+              )..show(userId),
+              child: UserProfilePage(
+                friend: friend,
+                onOpenAnime: (entry) => _openListed(context, entry),
+              ),
+            );
+          },
         ),
         GoRoute(
           path: '/anime/:id',
@@ -274,15 +322,23 @@ abstract final class AppRouter {
                         accountIdOf(context.read<AuthCubit>().state),
                       ),
                 ),
+                BlocProvider(
+                  create: (context) => FriendRatesCubit(
+                    animeId: animeId,
+                    repository: serviceLocator<FriendsRepository>(),
+                  )..show(accountIdOf(context.read<AuthCubit>().state)),
+                ),
               ],
               // The list follows the session: signing in or out elsewhere
               // shows or hides it here.
               child: BlocListener<AuthCubit, AuthState>(
                 listenWhen: (previous, current) =>
                     accountIdOf(previous) != accountIdOf(current),
-                listener: (context, auth) => context
-                    .read<UserRateCubit>()
-                    .accountChanged(accountIdOf(auth)),
+                listener: (context, auth) {
+                  final accountId = accountIdOf(auth);
+                  context.read<UserRateCubit>().accountChanged(accountId);
+                  context.read<FriendRatesCubit>().show(accountId);
+                },
                 child: AnimeDetailsPage(preview: preview),
               ),
             );

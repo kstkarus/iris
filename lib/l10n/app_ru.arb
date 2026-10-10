@@ -407,5 +407,10 @@
   "profileListNextEpisode": "{episode} серия {when}",
   "profileListEmpty": "Здесь пока пусто.",
   "profileListLoadError": "Список не загрузился.",
-  "profileListLoading": "Загружаем список"
+  "profileListLoading": "Загружаем список",
+  "profileFriendsTab": "Друзья",
+  "profileFriendsEmpty": "На Шикимори пока нет друзей.",
+  "profileFriendsLoadError": "Друзья не загрузились.",
+  "profileFriendsLoading": "Загружаем друзей",
+  "animeDetailsFriendsTitle": "Друзья"
 }
