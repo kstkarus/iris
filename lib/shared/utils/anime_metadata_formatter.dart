@@ -103,3 +103,30 @@ String formatAiredOn(AppLocalizations l10n, String rawDate) {
     _ => rawDate,
   };
 }
+
+/// When the next episode airs, seen from [now]: today or tomorrow with the
+/// time, later in days. Null once it is due (Shikimori updates the date
+/// some time after the episode is out).
+String? formatNextEpisodeTime(
+  AppLocalizations l10n,
+  DateTime at,
+  DateTime now,
+) {
+  final local = at.toLocal();
+  if (!local.isAfter(now)) return null;
+  // Whole days between the dates; rounding keeps a 23- or 25-hour day
+  // (a clock change) one day.
+  final days =
+      DateTime(
+        local.year,
+        local.month,
+        local.day,
+      ).difference(DateTime(now.year, now.month, now.day)).inHours /
+      24;
+  final time = DateFormat.Hm(l10n.localeName).format(local);
+  return switch (days.round()) {
+    0 => l10n.animeNextEpisodeToday(time),
+    1 => l10n.animeNextEpisodeTomorrow(time),
+    final count => l10n.animeNextEpisodeInDays(count),
+  };
+}

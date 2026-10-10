@@ -36,4 +36,44 @@ void main() {
       expect(formatAiredOn(en, ''), '');
     });
   });
+
+  group('formatNextEpisodeTime', () {
+    final ru = AppLocalizationsRu();
+    final now = DateTime(2026, 10, 10, 20);
+
+    setUpAll(() async {
+      await initializeDateFormatting('en');
+      await initializeDateFormatting('ru');
+    });
+
+    test('names today and tomorrow with the time', () {
+      expect(
+        formatNextEpisodeTime(en, DateTime(2026, 10, 10, 23, 30), now),
+        'today at 23:30',
+      );
+      expect(
+        formatNextEpisodeTime(ru, DateTime(2026, 10, 11, 1, 5), now),
+        'завтра в 01:05',
+      );
+    });
+
+    test('counts later days by the date, not the hours', () {
+      expect(
+        formatNextEpisodeTime(ru, DateTime(2026, 10, 12, 9), now),
+        'через 2 дня',
+      );
+      expect(
+        formatNextEpisodeTime(ru, DateTime(2026, 10, 15, 9), now),
+        'через 5 дней',
+      );
+      expect(
+        formatNextEpisodeTime(en, DateTime(2026, 10, 31, 9), now),
+        'in 21 days',
+      );
+    });
+
+    test('says nothing once it is due', () {
+      expect(formatNextEpisodeTime(en, now, now), isNull);
+    });
+  });
 }

@@ -5,6 +5,8 @@ import 'package:iris/features/auth/domain/entities/auth_failure.dart';
 import 'package:iris/features/auth/domain/entities/shikimori_account.dart';
 import 'package:iris/features/auth/presentation/cubit/auth_cubit.dart';
 import 'package:iris/features/auth/presentation/cubit/auth_state.dart';
+import 'package:iris/features/profile/domain/entities/user_list_entry.dart';
+import 'package:iris/features/profile/presentation/widgets/user_list_view.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/widgets/adaptive/adaptive_content_width.dart';
 import 'package:iris/shared/widgets/adaptive/window_size_class.dart';
@@ -13,12 +15,16 @@ import 'package:iris/shared/widgets/segmented_bar.dart';
 import 'package:iris/shared/widgets/status_views.dart';
 
 /// The Shikimori account: an invitation to sign in, or whose list the app
-/// writes to and the way out.
+/// writes to, the way out and the list itself by status.
+///
+/// Signed in, it needs a `UserListCubit` showing the account's list.
 class ProfilePage extends StatelessWidget {
-  const ProfilePage({super.key});
+  const ProfilePage({required this.onOpenAnime, super.key});
 
   static const signInButtonKey = Key('profile_sign_in_button');
   static const signOutButtonKey = Key('profile_sign_out_button');
+
+  final ValueChanged<UserListEntry> onOpenAnime;
 
   @override
   Widget build(BuildContext context) {
@@ -37,7 +43,11 @@ class ProfilePage extends StatelessWidget {
                 label: AppLocalizations.of(context).profileSigningIn,
               ),
               AuthSignedOut() => _SignedOut(state: state),
-              AuthSignedIn(:final account) => _Account(account: account),
+              AuthSignedIn(:final account) => UserListView(
+                header: _Account(account: account),
+                onOpen: onOpenAnime,
+                mine: true,
+              ),
             },
           ),
         ),
@@ -90,37 +100,36 @@ class _Account extends StatelessWidget {
     final l10n = AppLocalizations.of(context);
     final theme = Theme.of(context);
     final compact = WindowSizeClass.of(context).isCompact;
-    return SingleChildScrollView(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const BlockRule(),
-          SizedBox(height: compact ? 20 : 28),
-          if (account.avatarUrl.isNotEmpty) ...[
-            _Avatar(url: account.avatarUrl, size: _avatarSize),
-            const SizedBox(height: 20),
-          ],
-          DisplayTitle(
-            account.nickname,
-            maxSize: compact ? 56 : 144,
-            minSize: 32,
-            maxLines: 1,
-          ),
-          const SizedBox(height: 12),
-          Text(
-            l10n.profileAccountCaption.toUpperCase(),
-            style: theme.textTheme.labelSmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-          ),
-          const SizedBox(height: 28),
-          OutlinedButton(
-            key: ProfilePage.signOutButtonKey,
-            onPressed: context.read<AuthCubit>().signOut,
-            child: Text(l10n.profileSignOut),
-          ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const BlockRule(),
+        SizedBox(height: compact ? 20 : 28),
+        if (account.avatarUrl.isNotEmpty) ...[
+          _Avatar(url: account.avatarUrl, size: _avatarSize),
+          const SizedBox(height: 20),
         ],
-      ),
+        DisplayTitle(
+          account.nickname,
+          maxSize: compact ? 56 : 144,
+          minSize: 32,
+          maxLines: 1,
+        ),
+        const SizedBox(height: 12),
+        Text(
+          l10n.profileAccountCaption.toUpperCase(),
+          style: theme.textTheme.labelSmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+        const SizedBox(height: 28),
+        OutlinedButton(
+          key: ProfilePage.signOutButtonKey,
+          onPressed: context.read<AuthCubit>().signOut,
+          child: Text(l10n.profileSignOut),
+        ),
+        SizedBox(height: compact ? 12 : 20),
+      ],
     );
   }
 }

@@ -1133,4 +1133,41 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get animeDurationLong => 'Больше 30 мин';
+
+  @override
+  String animeNextEpisodeToday(String time) {
+    return 'сегодня в $time';
+  }
+
+  @override
+  String animeNextEpisodeTomorrow(String time) {
+    return 'завтра в $time';
+  }
+
+  @override
+  String animeNextEpisodeInDays(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count дня',
+      many: '$count дней',
+      few: '$count дня',
+      one: '$count день',
+    );
+    return 'через $_temp0';
+  }
+
+  @override
+  String profileListNextEpisode(int episode, String when) {
+    return '$episode серия $when';
+  }
+
+  @override
+  String get profileListEmpty => 'Здесь пока пусто.';
+
+  @override
+  String get profileListLoadError => 'Список не загрузился.';
+
+  @override
+  String get profileListLoading => 'Загружаем список';
 }

@@ -2005,6 +2005,48 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Over 30 min'**
   String get animeDurationLong;
+
+  /// No description provided for @animeNextEpisodeToday.
+  ///
+  /// In en, this message translates to:
+  /// **'today at {time}'**
+  String animeNextEpisodeToday(String time);
+
+  /// No description provided for @animeNextEpisodeTomorrow.
+  ///
+  /// In en, this message translates to:
+  /// **'tomorrow at {time}'**
+  String animeNextEpisodeTomorrow(String time);
+
+  /// No description provided for @animeNextEpisodeInDays.
+  ///
+  /// In en, this message translates to:
+  /// **'in {count, plural, one{{count} day} other{{count} days}}'**
+  String animeNextEpisodeInDays(int count);
+
+  /// No description provided for @profileListNextEpisode.
+  ///
+  /// In en, this message translates to:
+  /// **'Episode {episode} {when}'**
+  String profileListNextEpisode(int episode, String when);
+
+  /// No description provided for @profileListEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing here yet.'**
+  String get profileListEmpty;
+
+  /// No description provided for @profileListLoadError.
+  ///
+  /// In en, this message translates to:
+  /// **'The list did not load.'**
+  String get profileListLoadError;
+
+  /// No description provided for @profileListLoading.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading the list'**
+  String get profileListLoading;
 }
 
 class _AppLocalizationsDelegate

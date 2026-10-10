@@ -1119,4 +1119,39 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get animeDurationLong => 'Over 30 min';
+
+  @override
+  String animeNextEpisodeToday(String time) {
+    return 'today at $time';
+  }
+
+  @override
+  String animeNextEpisodeTomorrow(String time) {
+    return 'tomorrow at $time';
+  }
+
+  @override
+  String animeNextEpisodeInDays(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count days',
+      one: '$count day',
+    );
+    return 'in $_temp0';
+  }
+
+  @override
+  String profileListNextEpisode(int episode, String when) {
+    return 'Episode $episode $when';
+  }
+
+  @override
+  String get profileListEmpty => 'Nothing here yet.';
+
+  @override
+  String get profileListLoadError => 'The list did not load.';
+
+  @override
+  String get profileListLoading => 'Loading the list';
 }

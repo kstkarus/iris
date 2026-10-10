@@ -400,5 +400,12 @@
   "animeListDurationSectionTitle": "Длина серии",
   "animeDurationShort": "До 10 мин",
   "animeDurationStandard": "До 30 мин",
-  "animeDurationLong": "Больше 30 мин"
+  "animeDurationLong": "Больше 30 мин",
+  "animeNextEpisodeToday": "сегодня в {time}",
+  "animeNextEpisodeTomorrow": "завтра в {time}",
+  "animeNextEpisodeInDays": "через {count, plural, one{{count} день} few{{count} дня} many{{count} дней} other{{count} дня}}",
+  "profileListNextEpisode": "{episode} серия {when}",
+  "profileListEmpty": "Здесь пока пусто.",
+  "profileListLoadError": "Список не загрузился.",
+  "profileListLoading": "Загружаем список"
 }

@@ -21,7 +21,6 @@ import 'package:iris/features/anime_list/presentation/bloc/anime_list_event.dart
 import 'package:iris/features/anime_list/presentation/pages/anime_list_page.dart';
 import 'package:iris/features/auth/presentation/cubit/auth_cubit.dart';
 import 'package:iris/features/auth/presentation/cubit/auth_state.dart';
-import 'package:iris/features/auth/presentation/pages/profile_page.dart';
 import 'package:iris/features/downloads/domain/repositories/downloads_repository.dart';
 import 'package:iris/features/downloads/presentation/cubit/download_manager_cubit.dart';
 import 'package:iris/features/downloads/presentation/cubit/download_selection_cubit.dart';
@@ -45,6 +44,10 @@ import 'package:iris/features/player/presentation/models/anime_player_source_arg
 import 'package:iris/features/player/presentation/pages/player_page.dart';
 import 'package:iris/features/player/presentation/pages/player_source_page.dart';
 import 'package:iris/features/player/presentation/widgets/player_viewport_factory.dart';
+import 'package:iris/features/profile/domain/entities/user_list_entry.dart';
+import 'package:iris/features/profile/domain/repositories/user_list_repository.dart';
+import 'package:iris/features/profile/presentation/cubit/user_list_cubit.dart';
+import 'package:iris/features/profile/presentation/pages/profile_page.dart';
 import 'package:iris/features/saved_torrents/domain/repositories/saved_torrents_repository.dart';
 import 'package:iris/features/saved_torrents/presentation/cubit/saved_torrents_cubit.dart';
 import 'package:iris/features/saved_torrents/presentation/pages/saved_torrents_page.dart';
@@ -55,6 +58,20 @@ import 'package:iris/features/watch_sources/presentation/cubit/watch_sources_tab
 import 'package:iris/features/watch_sources/presentation/models/anime_watch_sources_args.dart';
 import 'package:iris/features/watch_sources/presentation/pages/watch_sources_page.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
+
+/// What a list row knows of the anime, for its title page.
+AnimeDetailsPreview _listedPreview(ListedAnime anime) => AnimeDetailsPreview(
+  id: anime.id,
+  name: anime.name,
+  russian: anime.russian,
+  kind: anime.kind,
+  score: anime.score,
+  status: anime.status,
+  episodes: anime.episodes,
+  episodesAired: anime.episodesAired,
+  airedOn: anime.airedOn,
+  posterUrl: anime.posterUrl,
+);
 
 abstract final class AppRouter {
   static GoRouter createRouter() {
@@ -200,7 +217,29 @@ abstract final class AppRouter {
                 GoRoute(
                   path: '/profile',
                   name: 'profile',
-                  builder: (context, state) => const ProfilePage(),
+                  builder: (context, state) {
+                    return BlocProvider(
+                      create: (context) => UserListCubit(
+                        repository: serviceLocator<UserListRepository>(),
+                        changes: serviceLocator<UserRateRepository>().changes,
+                      )..show(accountIdOf(context.read<AuthCubit>().state)),
+                      // The list is the signed-in account's.
+                      child: BlocListener<AuthCubit, AuthState>(
+                        listenWhen: (previous, current) =>
+                            accountIdOf(previous) != accountIdOf(current),
+                        listener: (context, auth) => context
+                            .read<UserListCubit>()
+                            .show(accountIdOf(auth)),
+                        child: ProfilePage(
+                          onOpenAnime: (entry) => context.pushNamed(
+                            'anime-details',
+                            pathParameters: {'id': entry.anime.id},
+                            extra: _listedPreview(entry.anime),
+                          ),
+                        ),
+                      ),
+                    );
+                  },
                 ),
               ],
             ),

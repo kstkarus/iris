@@ -701,5 +701,43 @@
   "animeListDurationSectionTitle": "Episode length",
   "animeDurationShort": "Under 10 min",
   "animeDurationStandard": "Under 30 min",
-  "animeDurationLong": "Over 30 min"
+  "animeDurationLong": "Over 30 min",
+  "animeNextEpisodeToday": "today at {time}",
+  "@animeNextEpisodeToday": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "animeNextEpisodeTomorrow": "tomorrow at {time}",
+  "@animeNextEpisodeTomorrow": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "animeNextEpisodeInDays": "in {count, plural, one{{count} day} other{{count} days}}",
+  "@animeNextEpisodeInDays": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "profileListNextEpisode": "Episode {episode} {when}",
+  "@profileListNextEpisode": {
+    "placeholders": {
+      "episode": {
+        "type": "int"
+      },
+      "when": {
+        "type": "String"
+      }
+    }
+  },
+  "profileListEmpty": "Nothing here yet.",
+  "profileListLoadError": "The list did not load.",
+  "profileListLoading": "Loading the list"
 }
