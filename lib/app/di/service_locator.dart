@@ -11,6 +11,9 @@ import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:iris/app/router/app_router.dart';
+import 'package:iris/entities/user_rate/data/mock_user_rate_repository.dart';
+import 'package:iris/entities/user_rate/data/remote_user_rate_repository.dart';
+import 'package:iris/entities/user_rate/domain/user_rate_repository.dart';
 import 'package:iris/entities/watch_progress/data/shared_preferences_watch_progress_repository.dart';
 import 'package:iris/entities/watch_progress/domain/watch_progress_repository.dart';
 import 'package:iris/features/anime_details/data/datasources/mock_anime_details_data_source.dart';
@@ -177,6 +180,12 @@ Future<void> configureDependencies({
       );
     }
 
+    if (!serviceLocator.isRegistered<UserRateRepository>()) {
+      serviceLocator.registerLazySingleton<UserRateRepository>(
+        MockUserRateRepository.new,
+      );
+    }
+
     if (!serviceLocator.isRegistered<MockAnimeListDataSource>()) {
       serviceLocator.registerLazySingleton<MockAnimeListDataSource>(
         MockAnimeListDataSource.new,
@@ -304,6 +313,15 @@ Future<void> configureDependencies({
           preferences: serviceLocator<SharedPreferences>(),
           // flutter_web_auth_2's web flow needs a callback page iris lacks.
           platformSupported: !kIsWeb,
+        ),
+      );
+    }
+
+    if (!serviceLocator.isRegistered<UserRateRepository>()) {
+      serviceLocator.registerLazySingleton<UserRateRepository>(
+        () => RemoteUserRateRepository(
+          graphQl: serviceLocator<ShikimoriGraphQlClient>(),
+          dio: serviceLocator<Dio>(),
         ),
       );
     }

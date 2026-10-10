@@ -16,7 +16,7 @@ The project follows a feature-first structure with `FSD light` at the repository
 - optionally download a file for offline viewing and manage queued, active, paused, completed, and failed downloads
 - continue an active download while the Android app is minimized
 - view app, cache, and offline-content storage usage
-- sign in with a Shikimori account on the Profile tab
+- sign in with a Shikimori account on the Profile tab, and set an anime's status and episodes watched in its Shikimori list
 - pick audio and subtitle tracks, customize subtitle appearance and decoding mode in the player
 
 ## Data Sources
@@ -40,6 +40,7 @@ The Profile tab (the fourth section) signs in with Shikimori's OAuth (authorizat
 - the tokens are kept in `flutter_secure_storage`; the account's id, nickname and avatar in preferences, so a session restored offline still shows whose it is
 - the access token lasts a day: the Shikimori Dio (`ShikimoriAuthInterceptor`) renews it a minute before it runs out, or once after a `401`, with one renewal shared by requests that need it together; a renewal Shikimori refuses ends the session and the tab asks to sign in again, a network failure keeps it
 - signing out forgets the session on the device; Shikimori has no endpoint to revoke it
+- signed in, a title page has a My list section under the rule: the status (Add to list until it has one; the menu also takes it out of the list) and, once it is in the list, `− 3 / 12 +` for the episodes watched, never past the total; changes show at once and go to Shikimori one after another, the latest last, so quick taps neither race nor add the anime twice; a change Shikimori refuses falls back to what it keeps and says so. The entry is read through GraphQL (`Anime.userRate`) and written through `/api/v2/user_rates` (GraphQL has no mutations); Shikimori itself marks an anime completed when its last episode is checked (`lib/entities/user_rate/`)
 - without `config/shikimori.json` (see Development) the tab says sign-in is not set up
 
 ### Watch Sources

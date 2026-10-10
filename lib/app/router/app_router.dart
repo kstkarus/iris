@@ -7,7 +7,8 @@ import 'package:go_router/go_router.dart';
 import 'package:iris/app/di/service_locator.dart';
 import 'package:iris/app/router/app_shell_page.dart';
 import 'package:iris/entities/watch_progress/domain/watch_progress_repository.dart';
-import 'package:iris/features/auth/presentation/pages/profile_page.dart';
+import 'package:iris/entities/user_rate/domain/user_rate_repository.dart';
+import 'package:iris/entities/user_rate/presentation/user_rate_cubit.dart';
 import 'package:iris/features/anime_details/domain/repositories/anime_details_repository.dart';
 import 'package:iris/features/anime_details/presentation/cubit/anime_details_cubit.dart';
 import 'package:iris/features/anime_details/presentation/models/anime_details_preview.dart';
@@ -16,6 +17,9 @@ import 'package:iris/features/anime_list/presentation/bloc/anime_list_bloc.dart'
 import 'package:iris/features/anime_list/presentation/bloc/anime_search_bloc.dart';
 import 'package:iris/features/anime_list/presentation/bloc/anime_list_event.dart';
 import 'package:iris/features/anime_list/presentation/pages/anime_list_page.dart';
+import 'package:iris/features/auth/presentation/cubit/auth_cubit.dart';
+import 'package:iris/features/auth/presentation/cubit/auth_state.dart';
+import 'package:iris/features/auth/presentation/pages/profile_page.dart';
 import 'package:iris/features/downloads/domain/repositories/downloads_repository.dart';
 import 'package:iris/features/downloads/presentation/cubit/download_manager_cubit.dart';
 import 'package:iris/features/downloads/presentation/cubit/download_selection_cubit.dart';
@@ -176,12 +180,34 @@ abstract final class AppRouter {
               _ => null,
             };
 
-            return BlocProvider(
-              create: (_) => AnimeDetailsCubit(
-                animeId: animeId,
-                repository: serviceLocator<AnimeDetailsRepository>(),
-              )..loadAnime(),
-              child: AnimeDetailsPage(preview: preview),
+            return MultiBlocProvider(
+              providers: [
+                BlocProvider(
+                  create: (_) => AnimeDetailsCubit(
+                    animeId: animeId,
+                    repository: serviceLocator<AnimeDetailsRepository>(),
+                  )..loadAnime(),
+                ),
+                BlocProvider(
+                  create: (context) =>
+                      UserRateCubit(
+                        animeId: animeId,
+                        repository: serviceLocator<UserRateRepository>(),
+                      )..accountChanged(
+                        _accountId(context.read<AuthCubit>().state),
+                      ),
+                ),
+              ],
+              // The list follows the session: signing in or out elsewhere
+              // shows or hides it here.
+              child: BlocListener<AuthCubit, AuthState>(
+                listenWhen: (previous, current) =>
+                    _accountId(previous) != _accountId(current),
+                listener: (context, auth) => context
+                    .read<UserRateCubit>()
+                    .accountChanged(_accountId(auth)),
+                child: AnimeDetailsPage(preview: preview),
+              ),
             );
           },
         ),
@@ -339,6 +365,12 @@ abstract final class AppRouter {
     );
   }
 }
+
+/// The signed-in account's id, the key to its Shikimori list.
+String? _accountId(AuthState state) => switch (state) {
+  AuthSignedIn(:final account) => account.id,
+  _ => null,
+};
 
 void _reportInvalidRouteArgs({
   required String routeName,

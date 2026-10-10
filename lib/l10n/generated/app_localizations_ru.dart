@@ -1021,4 +1021,48 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get profileSignOut => 'Выйти';
+
+  @override
+  String get userRateTitle => 'Мой список';
+
+  @override
+  String get userRateAdd => 'Добавить в список';
+
+  @override
+  String get userRateRemove => 'Убрать из списка';
+
+  @override
+  String get userRateStatusPlanned => 'Запланировано';
+
+  @override
+  String get userRateStatusWatching => 'Смотрю';
+
+  @override
+  String get userRateStatusRewatching => 'Пересматриваю';
+
+  @override
+  String get userRateStatusCompleted => 'Просмотрено';
+
+  @override
+  String get userRateStatusOnHold => 'Отложено';
+
+  @override
+  String get userRateStatusDropped => 'Брошено';
+
+  @override
+  String get userRateEpisodeLess => 'На серию меньше';
+
+  @override
+  String get userRateEpisodeMore => 'Ещё серия';
+
+  @override
+  String userRateEpisodesWatched(String count) {
+    return 'Просмотрено серий: $count';
+  }
+
+  @override
+  String get userRateLoadError => 'Список не загрузился.';
+
+  @override
+  String get userRateSaveError => 'Шикимори не сохранил изменение.';
 }

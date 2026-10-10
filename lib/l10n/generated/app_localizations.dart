@@ -1813,6 +1813,90 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Sign out'**
   String get profileSignOut;
+
+  /// No description provided for @userRateTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'My list'**
+  String get userRateTitle;
+
+  /// No description provided for @userRateAdd.
+  ///
+  /// In en, this message translates to:
+  /// **'Add to list'**
+  String get userRateAdd;
+
+  /// No description provided for @userRateRemove.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove from list'**
+  String get userRateRemove;
+
+  /// No description provided for @userRateStatusPlanned.
+  ///
+  /// In en, this message translates to:
+  /// **'Planned'**
+  String get userRateStatusPlanned;
+
+  /// No description provided for @userRateStatusWatching.
+  ///
+  /// In en, this message translates to:
+  /// **'Watching'**
+  String get userRateStatusWatching;
+
+  /// No description provided for @userRateStatusRewatching.
+  ///
+  /// In en, this message translates to:
+  /// **'Rewatching'**
+  String get userRateStatusRewatching;
+
+  /// No description provided for @userRateStatusCompleted.
+  ///
+  /// In en, this message translates to:
+  /// **'Completed'**
+  String get userRateStatusCompleted;
+
+  /// No description provided for @userRateStatusOnHold.
+  ///
+  /// In en, this message translates to:
+  /// **'On hold'**
+  String get userRateStatusOnHold;
+
+  /// No description provided for @userRateStatusDropped.
+  ///
+  /// In en, this message translates to:
+  /// **'Dropped'**
+  String get userRateStatusDropped;
+
+  /// No description provided for @userRateEpisodeLess.
+  ///
+  /// In en, this message translates to:
+  /// **'One episode less'**
+  String get userRateEpisodeLess;
+
+  /// No description provided for @userRateEpisodeMore.
+  ///
+  /// In en, this message translates to:
+  /// **'One more episode'**
+  String get userRateEpisodeMore;
+
+  /// No description provided for @userRateEpisodesWatched.
+  ///
+  /// In en, this message translates to:
+  /// **'Episodes watched: {count}'**
+  String userRateEpisodesWatched(String count);
+
+  /// No description provided for @userRateLoadError.
+  ///
+  /// In en, this message translates to:
+  /// **'Your list did not load.'**
+  String get userRateLoadError;
+
+  /// No description provided for @userRateSaveError.
+  ///
+  /// In en, this message translates to:
+  /// **'Shikimori did not save the change.'**
+  String get userRateSaveError;
 }
 
 class _AppLocalizationsDelegate

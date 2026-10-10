@@ -10,6 +10,7 @@ import 'package:iris/features/anime_details/presentation/cubit/anime_details_sta
 import 'package:iris/features/anime_details/presentation/models/anime_details_preview.dart';
 import 'package:iris/features/anime_details/presentation/widgets/headline_anchor.dart';
 import 'package:iris/features/anime_details/presentation/widgets/headline_column.dart';
+import 'package:iris/features/anime_details/presentation/widgets/my_list_section.dart';
 import 'package:iris/features/anime_details/presentation/widgets/recently_watched_section.dart';
 import 'package:iris/features/anime_details/presentation/widgets/related_anime_section.dart';
 import 'package:iris/features/watch_sources/presentation/models/anime_watch_sources_args.dart';
@@ -198,6 +199,7 @@ class _CompactLayout extends StatelessWidget {
           _Facts(head: head, labelWidth: 96),
           const SizedBox(height: 40),
           const Skeleton.keep(child: BlockRule(height: 10)),
+          MyListSection(totalEpisodes: head.episodes),
           RecentlyWatchedSection(animeId: head.id),
           _Description(description: description, onRetry: onRetry),
           RelatedAnimeSection(related: related),
@@ -291,6 +293,7 @@ class _TwoPaneLayout extends StatelessWidget {
           ),
           const SizedBox(height: 48),
           const Skeleton.keep(child: BlockRule()),
+          MyListSection(totalEpisodes: head.episodes, labelWidth: labelWidth),
           RecentlyWatchedSection(animeId: head.id, labelWidth: labelWidth),
           _Description(
             description: description,

@@ -368,5 +368,19 @@
   "profileSignInRejected": "Шикимори не пустил приложение. Попробуйте ещё раз.",
   "profileSessionExpired": "Шикимори завершил сессию. Войдите снова.",
   "profileAccountCaption": "Аккаунт Шикимори",
-  "profileSignOut": "Выйти"
+  "profileSignOut": "Выйти",
+  "userRateTitle": "Мой список",
+  "userRateAdd": "Добавить в список",
+  "userRateRemove": "Убрать из списка",
+  "userRateStatusPlanned": "Запланировано",
+  "userRateStatusWatching": "Смотрю",
+  "userRateStatusRewatching": "Пересматриваю",
+  "userRateStatusCompleted": "Просмотрено",
+  "userRateStatusOnHold": "Отложено",
+  "userRateStatusDropped": "Брошено",
+  "userRateEpisodeLess": "На серию меньше",
+  "userRateEpisodeMore": "Ещё серия",
+  "userRateEpisodesWatched": "Просмотрено серий: {count}",
+  "userRateLoadError": "Список не загрузился.",
+  "userRateSaveError": "Шикимори не сохранил изменение."
 }

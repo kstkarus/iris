@@ -613,5 +613,26 @@
   "profileSignInRejected": "Shikimori did not let the app in. Try again.",
   "profileSessionExpired": "Shikimori ended the session. Sign in again.",
   "profileAccountCaption": "Shikimori account",
-  "profileSignOut": "Sign out"
+  "profileSignOut": "Sign out",
+  "userRateTitle": "My list",
+  "userRateAdd": "Add to list",
+  "userRateRemove": "Remove from list",
+  "userRateStatusPlanned": "Planned",
+  "userRateStatusWatching": "Watching",
+  "userRateStatusRewatching": "Rewatching",
+  "userRateStatusCompleted": "Completed",
+  "userRateStatusOnHold": "On hold",
+  "userRateStatusDropped": "Dropped",
+  "userRateEpisodeLess": "One episode less",
+  "userRateEpisodeMore": "One more episode",
+  "userRateEpisodesWatched": "Episodes watched: {count}",
+  "@userRateEpisodesWatched": {
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "userRateLoadError": "Your list did not load.",
+  "userRateSaveError": "Shikimori did not save the change."
 }

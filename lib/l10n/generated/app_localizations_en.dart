@@ -1007,4 +1007,48 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get profileSignOut => 'Sign out';
+
+  @override
+  String get userRateTitle => 'My list';
+
+  @override
+  String get userRateAdd => 'Add to list';
+
+  @override
+  String get userRateRemove => 'Remove from list';
+
+  @override
+  String get userRateStatusPlanned => 'Planned';
+
+  @override
+  String get userRateStatusWatching => 'Watching';
+
+  @override
+  String get userRateStatusRewatching => 'Rewatching';
+
+  @override
+  String get userRateStatusCompleted => 'Completed';
+
+  @override
+  String get userRateStatusOnHold => 'On hold';
+
+  @override
+  String get userRateStatusDropped => 'Dropped';
+
+  @override
+  String get userRateEpisodeLess => 'One episode less';
+
+  @override
+  String get userRateEpisodeMore => 'One more episode';
+
+  @override
+  String userRateEpisodesWatched(String count) {
+    return 'Episodes watched: $count';
+  }
+
+  @override
+  String get userRateLoadError => 'Your list did not load.';
+
+  @override
+  String get userRateSaveError => 'Shikimori did not save the change.';
 }
