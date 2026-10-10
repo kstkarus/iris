@@ -431,5 +431,6 @@
   "savedTorrentsDeleted": "Раздача удалена",
   "savedTorrentsEpisodeWatched": "Серия {number} просмотрена",
   "savedTorrentsFileWatched": "Просмотрено: {fileName}",
-  "commonUndo": "Отменить"
+  "commonUndo": "Отменить",
+  "userRateLoading": "Загружаем мой список..."
 }

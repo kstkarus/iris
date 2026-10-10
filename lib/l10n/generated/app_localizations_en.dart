@@ -1240,4 +1240,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get commonUndo => 'Undo';
+
+  @override
+  String get userRateLoading => 'Loading my list...';
 }

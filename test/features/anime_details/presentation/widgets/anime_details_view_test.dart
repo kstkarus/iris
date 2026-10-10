@@ -83,9 +83,52 @@ void main() {
     await tester.pump();
 
     final poster = tester.getRect(find.byType(DitheredImage).first);
-    final facts = tester.getRect(find.byType(SpecTable));
+    // The facts beside the cover; the details' own rows wait below it.
+    final facts = tester.getRect(find.byType(SpecTable).first);
     expect(facts.bottom, lessThanOrEqualTo(poster.bottom));
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('the rows the details bring hold their place as noise', (
+    tester,
+  ) async {
+    final details = Completer<AnimeDetails>();
+    final cubit = AnimeDetailsCubit(
+      animeId: '5114',
+      repository: _CompleterAnimeDetailsRepository(details),
+    );
+
+    await tester.pumpWidget(_app(cubit..loadAnime(), preview: _preview));
+    await tester.pump();
+
+    final moreFacts = find.byKey(const Key('anime_details_more_facts'));
+    expect(moreFacts, findsOneWidget);
+    expect(_skeletonAround(tester, moreFacts).enabled, isTrue);
+    // The labels are known already: only the values are noise.
+    expect(find.text('Studio'), findsOneWidget);
+    final top = tester.getTopLeft(moreFacts).dy;
+
+    details.complete(
+      AnimeDetails(
+        id: _details.id,
+        name: _details.name,
+        russian: _details.russian,
+        description: _details.description,
+        kind: _details.kind,
+        score: _details.score,
+        status: _details.status,
+        episodes: _details.episodes,
+        episodesAired: _details.episodesAired,
+        airedOn: _details.airedOn,
+        posterOriginalUrl: _details.posterOriginalUrl,
+        studios: const ['Bones'],
+        rating: 'r',
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Bones'), findsOneWidget);
+    expect(_skeletonAround(tester, moreFacts).enabled, isFalse);
+    expect(tester.getTopLeft(moreFacts).dy, top);
   });
 
   testWidgets('the description develops out of the noise', (tester) async {

@@ -1256,4 +1256,7 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get commonUndo => 'Отменить';
+
+  @override
+  String get userRateLoading => 'Загружаем мой список...';
 }

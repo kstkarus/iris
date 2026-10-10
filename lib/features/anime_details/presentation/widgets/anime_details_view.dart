@@ -46,7 +46,7 @@ class AnimeDetailsView extends StatelessWidget {
         void retry() => context.read<AnimeDetailsCubit>().loadAnime();
         return switch (state) {
           AnimeDetailsInitial() ||
-          AnimeDetailsLoading() => _Content(head: preview),
+          AnimeDetailsLoading() => _Content(head: preview, loading: true),
           AnimeDetailsSuccess(:final details) => _Content(
             head: AnimeDetailsPreview.fromDetails(details),
             description: details.description,
@@ -94,6 +94,7 @@ final _standInDescription = List.filled(
 class _Content extends StatelessWidget {
   const _Content({
     required this.head,
+    this.loading = false,
     this.description,
     this.related = const [],
     this.dubs = const [],
@@ -101,6 +102,10 @@ class _Content extends StatelessWidget {
   });
 
   final AnimeDetailsPreview? head;
+
+  /// The details are on their way: what they will surely bring shows as
+  /// noise in its shape, so nothing above the reader jumps when it lands.
+  final bool loading;
   final String? description;
   final VoidCallback? onRetry;
 
@@ -122,6 +127,7 @@ class _Content extends StatelessWidget {
           return switch (sizeClass) {
             WindowSizeClass.compact => _CompactLayout(
               head: head,
+              loading: loading,
               description: description,
               related: related,
               dubs: dubs,
@@ -129,6 +135,7 @@ class _Content extends StatelessWidget {
             ),
             _ => _TwoPaneLayout(
               head: head,
+              loading: loading,
               description: description,
               related: related,
               dubs: dubs,
@@ -177,6 +184,7 @@ class _Halftone extends StatelessWidget {
 class _CompactLayout extends StatelessWidget {
   const _CompactLayout({
     required this.head,
+    required this.loading,
     required this.description,
     required this.related,
     required this.dubs,
@@ -184,6 +192,7 @@ class _CompactLayout extends StatelessWidget {
   });
 
   final AnimeDetailsPreview head;
+  final bool loading;
   final String? description;
   final List<RelatedAnime> related;
   final List<String> dubs;
@@ -206,7 +215,7 @@ class _CompactLayout extends StatelessWidget {
           _WatchSourcesButton(head: head),
           const SizedBox(height: 28),
           _Facts(head: head, labelWidth: 96),
-          _MoreFacts(head: head, labelWidth: 96),
+          _MoreFacts(head: head, loading: loading, labelWidth: 96),
           const SizedBox(height: 40),
           MyListSection(totalEpisodes: head.episodes),
           RecentlyWatchedSection(animeId: head.id),
@@ -227,6 +236,7 @@ class _CompactLayout extends StatelessWidget {
 class _TwoPaneLayout extends StatelessWidget {
   const _TwoPaneLayout({
     required this.head,
+    required this.loading,
     required this.description,
     required this.related,
     required this.dubs,
@@ -241,6 +251,7 @@ class _TwoPaneLayout extends StatelessWidget {
   static const _minTitleSize = 36.0;
 
   final AnimeDetailsPreview head;
+  final bool loading;
   final String? description;
   final List<RelatedAnime> related;
   final List<String> dubs;
@@ -306,7 +317,12 @@ class _TwoPaneLayout extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 48),
-          _MoreFacts(head: head, labelWidth: labelWidth, top: 40),
+          _MoreFacts(
+            head: head,
+            loading: loading,
+            labelWidth: labelWidth,
+            top: 40,
+          ),
           MyListSection(totalEpisodes: head.episodes, labelWidth: labelWidth),
           RecentlyWatchedSection(animeId: head.id, labelWidth: labelWidth),
           _Description(
@@ -406,11 +422,16 @@ class _Facts extends StatelessWidget {
 class _MoreFacts extends StatelessWidget {
   const _MoreFacts({
     required this.head,
+    required this.loading,
     required this.labelWidth,
     this.top = 0,
   });
 
   final AnimeDetailsPreview head;
+
+  /// Noise in the shape nearly every title has (studio, genres, rating,
+  /// and the next episode of an airing one) until the details land.
+  final bool loading;
   final double labelWidth;
 
   /// Space above, when there is anything to show.
@@ -419,7 +440,32 @@ class _MoreFacts extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final rows = [
+    final rows = loading ? _standIns(l10n) : _rows(l10n);
+    if (rows.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: EdgeInsets.only(top: top),
+      child: AppSkeleton(
+        enabled: loading,
+        semanticLabel: l10n.animeDetailsLoading,
+        child: SpecTable(
+          key: const Key('anime_details_more_facts'),
+          labelWidth: labelWidth,
+          rows: rows,
+        ),
+      ),
+    );
+  }
+
+  List<SpecRow> _standIns(AppLocalizations l10n) => [
+    if (head.status == 'ongoing')
+      SpecRow(l10n.animeDetailsFactNextEpisode, 'Episode 7 in 3 days'),
+    SpecRow(l10n.animeDetailsFactStudio, 'Studio name'),
+    SpecRow(l10n.animeDetailsFactGenres, 'Action, Drama, Fantasy'),
+    SpecRow(l10n.animeDetailsFactRating, 'PG-13'),
+  ];
+
+  List<SpecRow> _rows(AppLocalizations l10n) {
+    return [
       ?_nextEpisodeRow(l10n, head),
       if (head.studios.isNotEmpty)
         SpecRow(l10n.animeDetailsFactStudio, head.studios.join(', ')),
@@ -431,15 +477,6 @@ class _MoreFacts extends StatelessWidget {
       if (formatAgeRating(head.rating) case final rating?)
         SpecRow(l10n.animeDetailsFactRating, rating),
     ];
-    if (rows.isEmpty) return const SizedBox.shrink();
-    return Padding(
-      padding: EdgeInsets.only(top: top),
-      child: SpecTable(
-        key: const Key('anime_details_more_facts'),
-        labelWidth: labelWidth,
-        rows: rows,
-      ),
-    );
   }
 }
 

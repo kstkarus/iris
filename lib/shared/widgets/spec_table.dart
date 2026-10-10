@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:skeletonizer/skeletonizer.dart';
 
 import 'package:iris/shared/widgets/segmented_bar.dart';
 
@@ -33,7 +34,11 @@ class SpecTable extends StatelessWidget {
               children: [
                 SizedBox(
                   width: labelWidth,
-                  child: Text(row.label, style: theme.textTheme.bodySmall),
+                  // Labels are known before the values: they stay readable
+                  // while the values are noise.
+                  child: Skeleton.keep(
+                    child: Text(row.label, style: theme.textTheme.bodySmall),
+                  ),
                 ),
                 Expanded(
                   child: Padding(

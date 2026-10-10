@@ -2191,6 +2191,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Undo'**
   String get commonUndo;
+
+  /// No description provided for @userRateLoading.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading my list...'**
+  String get userRateLoading;
 }
 
 class _AppLocalizationsDelegate

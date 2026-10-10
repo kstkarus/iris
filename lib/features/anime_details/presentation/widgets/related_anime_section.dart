@@ -11,6 +11,7 @@ import 'package:iris/shared/widgets/fold_row.dart';
 import 'package:iris/shared/widgets/labeled_section.dart';
 import 'package:iris/shared/widgets/pixel_icon.dart';
 import 'package:iris/shared/widgets/segmented_bar.dart';
+import 'package:iris/shared/widgets/dither_switcher.dart';
 
 /// Commercials, promo videos and music clips: listed by Shikimori, but
 /// nothing to watch.
@@ -93,7 +94,9 @@ class _RelatedAnimeSectionState extends State<RelatedAnimeSection> {
   @override
   Widget build(BuildContext context) {
     final related = relatedToShow(widget.related);
-    if (related.isEmpty) return const SizedBox.shrink();
+    // It may well be empty, so no noise for it: it develops in when
+    // it arrives, below everything it could push.
+    if (related.isEmpty) return const DitherSwitcher(child: SizedBox.shrink());
 
     final l10n = AppLocalizations.of(context);
     final hidden = related.length - RelatedAnimeSection.visibleRows;
@@ -101,48 +104,50 @@ class _RelatedAnimeSectionState extends State<RelatedAnimeSection> {
     final shown = _expanded || !folds
         ? related
         : related.take(RelatedAnimeSection.visibleRows).toList();
-    return Padding(
-      padding: const EdgeInsets.only(top: 40),
-      child: LabeledSection(
-        label: l10n.animeDetailsRelatedTitle,
-        labelWidth: widget.labelWidth,
-        child: Align(
-          alignment: AlignmentDirectional.topStart,
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(
-              maxWidth: AdaptiveContentWidth.reading,
-            ),
-            child: Column(
-              key: const Key('related_anime_section'),
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                AnimatedSize(
-                  duration: MediaQuery.disableAnimationsOf(context)
-                      ? Duration.zero
-                      : const Duration(milliseconds: 200),
-                  curve: Curves.easeOutCubic,
-                  alignment: Alignment.topCenter,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      for (final (index, anime) in shown.indexed) ...[
-                        if (index > 0) const SegmentedRule(),
-                        _RelatedRow(anime: anime, first: index == 0),
+    return DitherSwitcher(
+      child: Padding(
+        padding: const EdgeInsets.only(top: 40),
+        child: LabeledSection(
+          label: l10n.animeDetailsRelatedTitle,
+          labelWidth: widget.labelWidth,
+          child: Align(
+            alignment: AlignmentDirectional.topStart,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(
+                maxWidth: AdaptiveContentWidth.reading,
+              ),
+              child: Column(
+                key: const Key('related_anime_section'),
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  AnimatedSize(
+                    duration: MediaQuery.disableAnimationsOf(context)
+                        ? Duration.zero
+                        : const Duration(milliseconds: 200),
+                    curve: Curves.easeOutCubic,
+                    alignment: Alignment.topCenter,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        for (final (index, anime) in shown.indexed) ...[
+                          if (index > 0) const SegmentedRule(),
+                          _RelatedRow(anime: anime, first: index == 0),
+                        ],
                       ],
-                    ],
+                    ),
                   ),
-                ),
-                if (folds) ...[
-                  const SegmentedRule(),
-                  FoldRow(
-                    key: const Key('related_anime_more'),
-                    label: _expanded
-                        ? l10n.commonShowLess
-                        : l10n.commonShowMore(hidden),
-                    onPressed: () => setState(() => _expanded = !_expanded),
-                  ),
+                  if (folds) ...[
+                    const SegmentedRule(),
+                    FoldRow(
+                      key: const Key('related_anime_more'),
+                      label: _expanded
+                          ? l10n.commonShowLess
+                          : l10n.commonShowMore(hidden),
+                      onPressed: () => setState(() => _expanded = !_expanded),
+                    ),
+                  ],
                 ],
-              ],
+              ),
             ),
           ),
         ),

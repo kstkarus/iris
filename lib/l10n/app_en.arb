@@ -816,5 +816,6 @@
       }
     }
   },
-  "commonUndo": "Undo"
+  "commonUndo": "Undo",
+  "userRateLoading": "Loading my list..."
 }

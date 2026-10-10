@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
+import 'package:skeletonizer/skeletonizer.dart';
 
 import 'package:iris/entities/user_rate/domain/user_rate.dart';
 import 'package:iris/entities/user_rate/presentation/user_rate_cubit.dart';
@@ -9,7 +10,7 @@ import 'package:iris/entities/user_rate/presentation/user_rate_status_label.dart
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/widgets/labeled_section.dart';
 import 'package:iris/shared/widgets/pixel_icon.dart';
-import 'package:iris/shared/widgets/status_views.dart';
+import 'package:iris/shared/widgets/app_skeleton.dart';
 
 /// The anime's place in the signed-in user's Shikimori list: its status,
 /// and the episodes watched once it is in the list. Signed out, nothing.
@@ -42,9 +43,11 @@ class MyListSection extends StatelessWidget {
       case UserRateSignedOut():
         return const SizedBox.shrink();
       case UserRateLoading():
-        content = const Align(
-          alignment: AlignmentDirectional.centerStart,
-          child: SizedBox(width: 80, child: BlockSpinner()),
+        // Noise in the shape most titles show: not in the list yet.
+        content = AppSkeleton(
+          enabled: true,
+          semanticLabel: l10n.userRateLoading,
+          child: const _StandInControls(),
         );
       case UserRateLoadFailure():
         content = Wrap(
@@ -59,7 +62,10 @@ class MyListSection extends StatelessWidget {
           ],
         );
       case UserRateLoaded():
-        content = _Controls(state: state, total: totalEpisodes);
+        content = AppSkeleton(
+          enabled: false,
+          child: _Controls(state: state, total: totalEpisodes),
+        );
     }
     return Padding(
       padding: const EdgeInsets.only(top: 40),
@@ -68,6 +74,28 @@ class MyListSection extends StatelessWidget {
         labelWidth: labelWidth,
         child: content,
       ),
+    );
+  }
+}
+
+/// The controls of an anime not in the list yet, to give the noise its
+/// shape.
+class _StandInControls extends StatelessWidget {
+  const _StandInControls();
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return Wrap(
+      spacing: 16,
+      runSpacing: 8,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        Skeleton.unite(
+          child: OutlinedButton(onPressed: null, child: Text(l10n.userRateAdd)),
+        ),
+        TextButton(onPressed: null, child: Text(l10n.userRateRate)),
+      ],
     );
   }
 }

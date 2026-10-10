@@ -8,6 +8,7 @@ import 'package:iris/features/anime_details/presentation/cubit/friend_rates_cubi
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/widgets/labeled_section.dart';
 import 'package:iris/shared/widgets/square_avatar.dart';
+import 'package:iris/shared/widgets/dither_switcher.dart';
 
 /// Friends who have the anime in their lists: who, the status, how far
 /// along and the score. Nothing while they are read, or if none has it.
@@ -28,18 +29,22 @@ class FriendsSection extends StatelessWidget {
   Widget build(BuildContext context) {
     // Pages built without friends (as in tests) show no section.
     final rates = context.watch<FriendRatesCubit?>()?.state ?? const [];
-    if (rates.isEmpty) return const SizedBox.shrink();
-    return Padding(
-      padding: const EdgeInsets.only(top: 40),
-      child: LabeledSection(
-        label: AppLocalizations.of(context).animeDetailsFriendsTitle,
-        labelWidth: labelWidth,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            for (final (index, rate) in rates.indexed)
-              _FriendRow(rate: rate, total: totalEpisodes, first: index == 0),
-          ],
+    // It may well be empty, so no noise for it: it develops in when
+    // it arrives, below everything it could push.
+    if (rates.isEmpty) return const DitherSwitcher(child: SizedBox.shrink());
+    return DitherSwitcher(
+      child: Padding(
+        padding: const EdgeInsets.only(top: 40),
+        child: LabeledSection(
+          label: AppLocalizations.of(context).animeDetailsFriendsTitle,
+          labelWidth: labelWidth,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              for (final (index, rate) in rates.indexed)
+                _FriendRow(rate: rate, total: totalEpisodes, first: index == 0),
+            ],
+          ),
         ),
       ),
     );
