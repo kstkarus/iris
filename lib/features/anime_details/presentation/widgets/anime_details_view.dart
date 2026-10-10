@@ -8,6 +8,7 @@ import 'package:iris/features/anime_details/domain/entities/related_anime.dart';
 import 'package:iris/features/anime_details/presentation/cubit/anime_details_cubit.dart';
 import 'package:iris/features/anime_details/presentation/cubit/anime_details_state.dart';
 import 'package:iris/features/anime_details/presentation/models/anime_details_preview.dart';
+import 'package:iris/features/anime_details/presentation/widgets/headline_anchor.dart';
 import 'package:iris/features/anime_details/presentation/widgets/headline_column.dart';
 import 'package:iris/features/anime_details/presentation/widgets/recently_watched_section.dart';
 import 'package:iris/features/anime_details/presentation/widgets/related_anime_section.dart';
@@ -263,10 +264,12 @@ class _TwoPaneLayout extends StatelessWidget {
                       width: constraints.maxWidth,
                       textScaler: MediaQuery.textScalerOf(context),
                     ),
-                    headline: DisplayTitle(
-                      head.name,
-                      maxSize: titleSize,
-                      minSize: _minTitleSize,
+                    headline: HeadlineAnchor(
+                      child: DisplayTitle(
+                        head.name,
+                        maxSize: titleSize,
+                        minSize: _minTitleSize,
+                      ),
                     ),
                     rest: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -312,7 +315,9 @@ class _Titles extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        DisplayTitle(head.name, maxSize: maxSize, maxLines: 4),
+        HeadlineAnchor(
+          child: DisplayTitle(head.name, maxSize: maxSize, maxLines: 4),
+        ),
         _RussianTitle(head: head),
       ],
     );

@@ -12,6 +12,7 @@ import 'package:iris/features/anime_details/presentation/pages/anime_details_pag
 import 'package:iris/features/anime_details/presentation/widgets/anime_details_view.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/widgets/app_skeleton.dart';
+import 'package:iris/shared/utils/bayer_mask.dart';
 import 'package:iris/shared/widgets/dither_transition.dart';
 import 'package:iris/shared/widgets/dithered_image.dart';
 import 'package:iris/shared/widgets/spec_table.dart';
@@ -234,6 +235,68 @@ void main() {
     expect(find.text(_details.description), findsOneWidget);
   });
 
+  for (final entry in {
+    'phone': TestWindowSizes.phone,
+    'desktop': TestWindowSizes.desktop,
+  }.entries) {
+    testWidgets('the bar takes the name over once it is gone on ${entry.key}', (
+      tester,
+    ) async {
+      setTestWindowSize(tester, entry.value);
+      await _pumpPage(tester);
+      expect(_barTitle, findsNothing);
+
+      // A sliver of the name still shows: the page still has it.
+      await _scrollBy(tester, _nameBelowBar(tester) - 4);
+      expect(_barTitle, findsNothing);
+
+      await _scrollBy(tester, 8);
+      expect(_barTitle, findsOneWidget);
+
+      await _scrollBy(tester, -200);
+      expect(_barTitle, findsNothing);
+    });
+  }
+
+  testWidgets('the name develops in the bar rather than appearing', (
+    tester,
+  ) async {
+    setTestWindowSize(tester, TestWindowSizes.phone);
+    await _pumpPage(tester);
+    final page = find.byType(SingleChildScrollView).first;
+    final position = tester
+        .state<ScrollableState>(
+          find.descendant(of: page, matching: find.byType(Scrollable)).first,
+        )
+        .position;
+
+    position.jumpTo(position.pixels + _nameBelowBar(tester) + 4);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 150));
+    final masked = find.ancestor(
+      of: _barTitle,
+      matching: find.byType(BayerMasked),
+    );
+    expect(tester.widget<BayerMasked>(masked.first).open, greaterThan(0));
+    expect(
+      tester.widget<BayerMasked>(masked.first).open,
+      lessThan(BayerMask.steps),
+    );
+  });
+
+  testWidgets('screen readers hear the name once', (tester) async {
+    final semantics = tester.ensureSemantics();
+    setTestWindowSize(tester, TestWindowSizes.phone);
+    await _pumpPage(tester);
+    // The heading, and the cover named after the anime.
+    final before = find.bySemanticsLabel(_longDetails.name).evaluate().length;
+    await _scrollBy(tester, _nameBelowBar(tester) + 4);
+
+    expect(_barTitle, findsOneWidget);
+    expect(find.bySemanticsLabel(_longDetails.name), findsNWidgets(before));
+    semantics.dispose();
+  });
+
   for (final entry in TestWindowSizes.all.entries) {
     testWidgets('adapts the details layout on ${entry.key}', (tester) async {
       setTestWindowSize(tester, entry.value);
@@ -267,6 +330,55 @@ void main() {
       expect(tester.takeException(), isNull);
     });
   }
+}
+
+Future<void> _pumpPage(WidgetTester tester) async {
+  final cubit = AnimeDetailsCubit(
+    animeId: '5114',
+    repository: _SuccessAnimeDetailsRepository(_longDetails),
+  );
+  await tester.pumpWidget(
+    MaterialApp(
+      locale: const Locale('en'),
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: BlocProvider.value(
+        value: cubit..loadAnime(),
+        child: const AnimeDetailsPage(),
+      ),
+    ),
+  );
+  await tester.pumpAndSettle();
+}
+
+/// The anime name in the bar, not on the page.
+Finder get _barTitle => find.descendant(
+  of: find.byType(AppBar),
+  matching: find.text(_longDetails.name),
+);
+
+/// Scrolls the page by [dy] and waits for the bar to settle.
+Future<void> _scrollBy(WidgetTester tester, double dy) async {
+  final page = find.byType(SingleChildScrollView).first;
+  final position = tester
+      .state<ScrollableState>(
+        find.descendant(of: page, matching: find.byType(Scrollable)).first,
+      )
+      .position;
+  position.jumpTo(position.pixels + dy);
+  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 400));
+}
+
+/// How far the page name's lower edge is below the bar.
+double _nameBelowBar(WidgetTester tester) {
+  final name = tester.getRect(
+    find.descendant(
+      of: find.byType(SingleChildScrollView).first,
+      matching: find.text(_longDetails.name),
+    ),
+  );
+  return name.bottom - tester.getRect(find.byType(AppBar)).bottom;
 }
 
 Widget _app(AnimeDetailsCubit cubit, {AnimeDetailsPreview? preview}) {
