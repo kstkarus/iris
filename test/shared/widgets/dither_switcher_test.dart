@@ -7,7 +7,6 @@ void main() {
   Future<void> pumpSwitcher(
     WidgetTester tester, {
     required Widget child,
-    bool resize = false,
     bool collapse = false,
   }) => tester.pumpWidget(
     Directionality(
@@ -16,7 +15,6 @@ void main() {
         alignment: Alignment.topLeft,
         child: DitherSwitcher(
           key: const ValueKey('switcher'),
-          resize: resize,
           collapse: collapse,
           child: child,
         ),
@@ -29,25 +27,6 @@ void main() {
 
   const empty = SizedBox(key: ValueKey('empty'), width: 100);
   const row = SizedBox(key: ValueKey('row'), width: 100, height: 60);
-
-  testWidgets('a growing child opens its space while it develops', (
-    tester,
-  ) async {
-    await pumpSwitcher(tester, resize: true, child: empty);
-    await pumpSwitcher(tester, resize: true, child: row);
-    await tester.pump(const Duration(milliseconds: 260));
-
-    expect(height(tester), inExclusiveRange(0, 60));
-    await tester.pumpAndSettle();
-    expect(height(tester), 60);
-  });
-
-  testWidgets('without resize the height changes at once', (tester) async {
-    await pumpSwitcher(tester, child: empty);
-    await pumpSwitcher(tester, child: row);
-
-    expect(height(tester), 60);
-  });
 
   testWidgets('a leaving child dissolves, then gives its height back', (
     tester,

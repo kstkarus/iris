@@ -512,18 +512,6 @@ abstract class AppLocalizations {
   /// **'Looking for online sources'**
   String get watchSourcesOnlineLoading;
 
-  /// No description provided for @watchSourcesOnlineAll.
-  ///
-  /// In en, this message translates to:
-  /// **'All dubs · {count}'**
-  String watchSourcesOnlineAll(int count);
-
-  /// No description provided for @watchSourcesOnlineAllTitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Dubs'**
-  String get watchSourcesOnlineAllTitle;
-
   /// No description provided for @watchSourcesOnlineLoadError.
   ///
   /// In en, this message translates to:

@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/widgets/adaptive/window_size_class.dart';
+import 'package:iris/shared/widgets/marked_tab.dart';
 import 'package:iris/shared/widgets/pixel_icon.dart';
 import 'package:iris/shared/widgets/adaptive/adaptive_content_width.dart';
 
@@ -138,7 +139,7 @@ class _TopBar extends StatelessWidget {
                             ),
                           ),
                           for (var index = 0; index < labels.length; index++)
-                            _TopBarItem(
+                            MarkedTab(
                               label: labels[index],
                               selected: index == selectedIndex,
                               onTap: () => onSelected(index),
@@ -182,52 +183,6 @@ class _Wordmark extends StatelessWidget {
               style: theme.textTheme.titleLarge?.copyWith(letterSpacing: 3),
             ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-class _TopBarItem extends StatelessWidget {
-  const _TopBarItem({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    return Semantics(
-      selected: selected,
-      button: true,
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-          child: Row(
-            children: [
-              // The current section is marked, not boxed.
-              AnimatedContainer(
-                duration: _markerDuration(context),
-                width: 6,
-                height: 6,
-                color: selected ? scheme.onSurface : Colors.transparent,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                label,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: selected ? scheme.onSurface : scheme.onSurfaceVariant,
-                ),
-              ),
-            ],
-          ),
         ),
       ),
     );

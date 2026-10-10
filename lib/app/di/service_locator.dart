@@ -69,7 +69,9 @@ import 'package:iris/features/watch_sources/data/datasources/mock_watch_sources_
 import 'package:iris/features/watch_sources/data/datasources/remote_watch_sources_data_source.dart';
 import 'package:iris/features/watch_sources/data/repositories/mock_watch_sources_repository.dart';
 import 'package:iris/features/watch_sources/data/repositories/remote_watch_sources_repository.dart';
+import 'package:iris/features/watch_sources/data/repositories/shared_preferences_watch_sources_tab_repository.dart';
 import 'package:iris/features/watch_sources/domain/repositories/watch_sources_repository.dart';
+import 'package:iris/features/watch_sources/domain/repositories/watch_sources_tab_repository.dart';
 import 'package:iris/shared/network/anilibria_api_client.dart';
 import 'package:iris/shared/network/anilibria_dio_factory.dart';
 import 'package:iris/shared/network/dio_factory.dart';
@@ -476,6 +478,14 @@ Future<void> configureDependencies({
   if (!serviceLocator.isRegistered<PlayerTrackPreferencesRepository>()) {
     serviceLocator.registerLazySingleton<PlayerTrackPreferencesRepository>(
       () => SharedPreferencesTrackPreferencesRepository(
+        serviceLocator<SharedPreferences>(),
+      ),
+    );
+  }
+
+  if (!serviceLocator.isRegistered<WatchSourcesTabRepository>()) {
+    serviceLocator.registerLazySingleton<WatchSourcesTabRepository>(
+      () => SharedPreferencesWatchSourcesTabRepository(
         serviceLocator<SharedPreferences>(),
       ),
     );

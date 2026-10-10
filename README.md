@@ -50,11 +50,12 @@ The watch sources screen also looks the anime up on video servers, ported from [
 - AniLibria, `https://aniliberty.top/api/v1`: its own dub, HLS up to 1080p
 - yummy_anime, `https://api.yani.tv`: dozens of dubs and subtitles, each played through Kodik (HLS up to 720p) or Aksor (DASH up to 1080p, a few dubs); its CVH and Alloha players are not read
 - both are read-only and need no account; every name of the anime is searched like the torrents, but a release is kept only when the site links it to the same Shikimori id, never by name alone
-- one row per dub; when two sites carry the same dub, the copy with more episodes is kept (AniLibria on a tie); three rows stay on the page (the dubs watched from first) and "All dubs" lists the rest
+- online releases and torrents are two tabs of the page, text tabs with the current one marked as in the app's top bar, each with the whole height; wide windows set the dubs in columns; the tab chosen last opens, online the first time; a kind with nothing found takes its tab away, and the page is the other kind alone
+- one row per dub, the dubs watched from first; when two sites carry the same dub, the copy with more episodes is kept (AniLibria on a tie)
 - an episode the site gives no stream for is left out, and a release left with none is not offered; a special (12.5) keeps its own number in the picker and the same place in every dub
 - a release opens its episodes in the same picker a torrent opens its files in, with Continue and next episode as for torrents; watch progress belongs to the anime's episode, so switching dub keeps the place
 - an episode's stream links are asked for right before it plays (links expire), the better player first; buffering is mpv's; leaving the picker or the player drops a request still on its way; the stats overlay shows the decoder, without torrent speed or peers
-- the sites are asked at once and each one's dubs show as soon as it answers, developing out of a noise row that waits while another site still searches; when nothing is found the section dissolves; when the search fails it says so with Retry and the torrents still work
+- the sites are asked at once and each one's dubs show as soon as it answers, developing out of noise rows; one waits at the end while another site still searches; when nothing is found the tabs dissolve; when the search fails the online tab says so with Retry
 - `dart run tool/online_sources_smoke.dart [shikimoriId] [title...]` checks every site live
 - animelib (ddos-guard), animego (HTTP 500), dreamcast (timeouts) and hdrezka (bot challenge, broken player) did not answer when this was built; animevost and sameband have no Shikimori ids, and animevost's dub comes through yummy_anime anyway
 

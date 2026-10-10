@@ -5,6 +5,9 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:iris/features/watch_sources/domain/entities/watch_sources_tab.dart';
+import 'package:iris/features/watch_sources/domain/repositories/watch_sources_tab_repository.dart';
+import 'package:iris/features/watch_sources/presentation/cubit/watch_sources_tab_cubit.dart';
 import 'package:iris/entities/watch_progress/domain/watch_progress.dart';
 import 'package:iris/entities/watch_progress/domain/watch_progress_repository.dart';
 import 'package:iris/entities/watch_progress/presentation/watch_progress_cubit.dart';
@@ -186,6 +189,7 @@ void main() {
           providers: [
             BlocProvider.value(value: cubit..loadSources()),
             BlocProvider(create: (_) => _noOnlineReleases()),
+            BlocProvider(create: (_) => _tabs()),
           ],
           child: const WatchSourcesPage(
             args: AnimeWatchSourcesArgs(
@@ -449,6 +453,7 @@ void main() {
             providers: [
               BlocProvider.value(value: cubit..loadSources()),
               BlocProvider(create: (_) => _noOnlineReleases()),
+              BlocProvider(create: (_) => _tabs()),
             ],
             child: const WatchSourcesPage(
               args: AnimeWatchSourcesArgs(
@@ -586,6 +591,18 @@ String _topTitle(WidgetTester tester) {
       .toList(growable: false);
 
   return titles.first;
+}
+
+WatchSourcesTabCubit _tabs() => WatchSourcesTabCubit(repository: _TabMemory());
+
+class _TabMemory implements WatchSourcesTabRepository {
+  WatchSourcesTab? tab;
+
+  @override
+  WatchSourcesTab? loadTab() => tab;
+
+  @override
+  Future<void> saveTab(WatchSourcesTab tab) async => this.tab = tab;
 }
 
 OnlineReleasesCubit _noOnlineReleases() => OnlineReleasesCubit(

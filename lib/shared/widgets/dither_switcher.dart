@@ -9,34 +9,31 @@ import 'package:iris/shared/widgets/dither_transition.dart';
 /// With [expand], both children fill the box; otherwise they stack from
 /// the top-left and the taller one sets the height while they swap.
 ///
-/// With [resize], a change of height is eased too, so what lies below
-/// moves instead of jumping: a taller child opens its space while it
-/// develops, a shorter one gives the space back once the old child has
-/// dissolved. Not for a child whose height changes on its own: the easing
-/// would chase it and lag behind; give such a place [collapse].
-///
-/// With [collapse], only a leaving child's height is eased: it dissolves,
-/// then gives its space back. For a place that goes empty.
+/// With [collapse], a leaving child's height is eased: it dissolves, then
+/// gives its space back, so what lies below slides instead of jumping.
+/// For a place that goes empty.
 class DitherSwitcher extends StatelessWidget {
   const DitherSwitcher({
     required this.child,
     this.expand = false,
-    this.resize = false,
     this.collapse = false,
+    this.duration = DitherTransition.duration,
     super.key,
-  }) : assert(!(resize && collapse), 'collapse eases a part of resize');
+  });
 
   final Widget child;
   final bool expand;
-  final bool resize;
   final bool collapse;
+
+  /// How long a swap takes; shorter where it answers a gesture.
+  final Duration duration;
 
   @override
   Widget build(BuildContext context) {
     final duration = MediaQuery.disableAnimationsOf(context)
         ? Duration.zero
-        : DitherTransition.duration;
-    final switcher = AnimatedSwitcher(
+        : this.duration;
+    return AnimatedSwitcher(
       duration: duration,
       reverseDuration: collapse ? duration * 2 : null,
       transitionBuilder: collapse
@@ -46,13 +43,6 @@ class DitherSwitcher extends StatelessWidget {
           ? DitherTransition.expandedLayout
           : DitherTransition.layout,
       child: child,
-    );
-    if (!resize) return switcher;
-    return AnimatedSize(
-      duration: duration,
-      curve: Curves.easeInOut,
-      alignment: AlignmentDirectional.topStart,
-      child: switcher,
     );
   }
 }

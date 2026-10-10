@@ -103,8 +103,6 @@
   "watchSourcesOnlineSection": "Онлайн",
   "watchSourcesTorrentsSection": "Торренты",
   "watchSourcesOnlineLoading": "Ищем онлайн-источники",
-  "watchSourcesOnlineAll": "Все озвучки · {count}",
-  "watchSourcesOnlineAllTitle": "Озвучки",
   "watchSourcesOnlineLoadError": "Онлайн-источники не ответили.",
   "watchSourcesOnlineBestQuality": "до {quality}p",
   "watchSourcesSearchHint": "Поиск источников",

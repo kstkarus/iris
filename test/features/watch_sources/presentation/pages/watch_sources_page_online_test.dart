@@ -15,8 +15,11 @@ import 'package:iris/features/online_sources/domain/repositories/online_releases
 import 'package:iris/features/online_sources/presentation/cubit/online_releases_cubit.dart';
 import 'package:iris/features/player/presentation/models/anime_player_source_args.dart';
 import 'package:iris/features/watch_sources/domain/entities/watch_source_item.dart';
+import 'package:iris/features/watch_sources/domain/entities/watch_sources_tab.dart';
 import 'package:iris/features/watch_sources/domain/repositories/watch_sources_repository.dart';
+import 'package:iris/features/watch_sources/domain/repositories/watch_sources_tab_repository.dart';
 import 'package:iris/features/watch_sources/presentation/cubit/watch_sources_cubit.dart';
+import 'package:iris/features/watch_sources/presentation/cubit/watch_sources_tab_cubit.dart';
 import 'package:iris/features/watch_sources/presentation/models/anime_watch_sources_args.dart';
 import 'package:iris/features/watch_sources/presentation/pages/watch_sources_page.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
@@ -57,22 +60,87 @@ final _dubs = [
 ];
 
 void main() {
-  testWidgets('puts the online release over the torrents, each labelled', (
-    tester,
-  ) async {
+  testWidgets('opens on the online tab the first time', (tester) async {
     await _pumpPage(tester, online: _FakeOnlineSources.found());
 
-    expect(find.text('ONLINE'), findsOneWidget);
-    expect(find.text('TORRENTS'), findsOneWidget);
+    expect(find.text('Online'), findsOneWidget);
+    expect(find.text('Torrents'), findsOneWidget);
     expect(find.text('AniLibria'), findsOneWidget);
     expect(
       find.text('28 episodes · up to 1080p', findRichText: true),
       findsOneWidget,
     );
-    expect(
-      tester.getTopLeft(find.text('AniLibria')).dy,
-      lessThan(tester.getTopLeft(find.text('[SubsPlease] Frieren')).dy),
+    expect(find.text('[SubsPlease] Frieren'), findsNothing);
+  });
+
+  testWidgets('a tap shows the torrents and is remembered', (tester) async {
+    final tabs = _TabMemory();
+    await _pumpPage(tester, online: _FakeOnlineSources.found(), tabs: tabs);
+
+    await tester.tap(find.text('Torrents'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('[SubsPlease] Frieren'), findsOneWidget);
+    expect(find.text('AniLibria'), findsNothing);
+    expect(tabs.tab, WatchSourcesTab.torrents);
+  });
+
+  testWidgets('opens on the tab chosen last', (tester) async {
+    await _pumpPage(
+      tester,
+      online: _FakeOnlineSources.found(),
+      tabs: _TabMemory(WatchSourcesTab.torrents),
     );
+
+    expect(find.text('[SubsPlease] Frieren'), findsOneWidget);
+    expect(find.text('AniLibria'), findsNothing);
+  });
+
+  testWidgets('keeps the torrent search while the other tab shows', (
+    tester,
+  ) async {
+    await _pumpPage(
+      tester,
+      online: _FakeOnlineSources.found(),
+      tabs: _TabMemory(WatchSourcesTab.torrents),
+    );
+
+    await tester.enterText(find.byType(TextField), 'subs');
+    await tester.pump();
+    await tester.tap(find.text('Online'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Torrents'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('subs'), findsOneWidget);
+  });
+
+  testWidgets('lists every dub on the online tab', (tester) async {
+    await _pumpPage(tester, online: _FakeOnlineSources(_dubs));
+
+    for (final release in _dubs) {
+      expect(find.text(release.dub), findsOneWidget);
+    }
+  });
+
+  testWidgets('sets the dubs in columns on a wide window', (tester) async {
+    setTestWindowSize(tester, TestWindowSizes.desktop);
+    await _pumpPage(tester, online: _FakeOnlineSources(_dubs));
+
+    final first = tester.getTopLeft(find.text('AniLibria'));
+    final second = tester.getTopLeft(find.text('AniDUB'));
+    expect(second.dy, first.dy);
+    expect(second.dx, greaterThan(first.dx));
+  });
+
+  testWidgets('keeps the dubs in one column on a phone', (tester) async {
+    setTestWindowSize(tester, TestWindowSizes.phone);
+    await _pumpPage(tester, online: _FakeOnlineSources(_dubs));
+
+    final first = tester.getTopLeft(find.text('AniLibria'));
+    final second = tester.getTopLeft(find.text('AniDUB'));
+    expect(second.dx, first.dx);
+    expect(second.dy, greaterThan(first.dy));
   });
 
   testWidgets('opens the release episodes in the file picker', (tester) async {
@@ -118,172 +186,8 @@ void main() {
     );
   });
 
-  testWidgets('without an online release the torrents need no label', (
-    tester,
-  ) async {
-    await _pumpPage(tester, online: _FakeOnlineSources(const []));
-    await tester.pumpAndSettle();
-
-    expect(find.text('ONLINE'), findsNothing);
-    expect(find.text('TORRENTS'), findsNothing);
-    expect(find.text('[SubsPlease] Frieren'), findsOneWidget);
-  });
-
-  testWidgets('keeps the torrent search when the online labels go', (
-    tester,
-  ) async {
-    final online = _FakeOnlineSources.pending();
-    await _pumpPage(tester, online: online);
-
-    await tester.enterText(find.byType(TextField), 'subs');
-    await tester.pump();
-    await online.answers.close();
-    await tester.pumpAndSettle();
-
-    expect(find.text('ONLINE'), findsNothing);
-    expect(find.text('subs'), findsOneWidget);
-  });
-
-  testWidgets('shows a loading row while servers are searched', (tester) async {
-    final semantics = tester.ensureSemantics();
-    await _pumpPage(tester, online: _FakeOnlineSources.pending());
-
-    expect(find.text('ONLINE'), findsOneWidget);
-    expect(find.bySemanticsLabel('Looking for online sources'), findsOneWidget);
-    semantics.dispose();
-  });
-
-  testWidgets('shows a fast server\'s dubs while a slow one searches', (
-    tester,
-  ) async {
-    final semantics = tester.ensureSemantics();
-    final online = _FakeOnlineSources.pending();
-    await _pumpPage(tester, online: online);
-
-    online.answers.add([_release]);
-    // The noise never settles.
-    await tester.pump();
-    await tester.pump(const Duration(seconds: 1));
-    expect(
-      find.byKey(const ValueKey('online_release_anilibria_9542')),
-      findsOneWidget,
-    );
-    // The next row still waits in noise.
-    expect(find.bySemanticsLabel('Looking for online sources'), findsOneWidget);
-
-    online.answers.add(_dubs);
-    await online.answers.close();
-    await tester.pumpAndSettle();
-    expect(find.text('AniDUB'), findsOneWidget);
-    expect(find.text('All dubs · 5'), findsOneWidget);
-    expect(find.bySemanticsLabel('Looking for online sources'), findsNothing);
-    semantics.dispose();
-  });
-
-  testWidgets('dissolves the online part when nothing is found', (
-    tester,
-  ) async {
-    final online = _FakeOnlineSources.pending();
-    await _pumpPage(tester, online: online);
-
-    await online.answers.close();
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 200));
-    // Still there, going cell by cell.
-    expect(find.text('ONLINE'), findsOneWidget);
-
-    await tester.pumpAndSettle();
-    expect(find.text('ONLINE'), findsNothing);
-    expect(find.text('TORRENTS'), findsNothing);
-    expect(find.text('[SubsPlease] Frieren'), findsOneWidget);
-  });
-
-  testWidgets('a new row opens its space instead of pushing at once', (
-    tester,
-  ) async {
-    final online = _FakeOnlineSources.pending();
-    await _pumpPage(tester, online: online);
-    online.answers.add([_release]);
-    await tester.pump();
-    await tester.pump(const Duration(seconds: 1));
-    final before = _torrentTop(tester);
-
-    online.answers.add(_dubs);
-    await online.answers.close();
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 260));
-    final midway = _torrentTop(tester);
-    await tester.pumpAndSettle();
-
-    expect(midway, greaterThan(before));
-    expect(midway, lessThan(_torrentTop(tester)));
-  });
-
-  testWidgets('the torrents slide up once the online part has dissolved', (
-    tester,
-  ) async {
-    final online = _FakeOnlineSources.pending();
-    await _pumpPage(tester, online: online);
-    final before = _torrentTop(tester);
-
-    await online.answers.close();
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 400));
-    // Dissolving in place first.
-    expect(_torrentTop(tester), before);
-    // Dissolved; the space is half given back.
-    await tester.pump(const Duration(milliseconds: 380));
-    final midway = _torrentTop(tester);
-    await tester.pumpAndSettle();
-
-    expect(midway, lessThan(before));
-    expect(midway, greaterThan(_torrentTop(tester)));
-  });
-
-  testWidgets('a failed search offers to retry and keeps the torrents', (
-    tester,
-  ) async {
-    final online = _FakeOnlineSources.failing();
-    await _pumpPage(tester, online: online);
-
-    expect(find.text('Online sources did not respond.'), findsOneWidget);
-    expect(find.text('[SubsPlease] Frieren'), findsOneWidget);
-
-    online.fail = false;
-    await tester.tap(find.text('Try Again'));
-    await tester.pumpAndSettle();
-
-    expect(online.searches, 2);
-    expect(find.text('AniLibria'), findsOneWidget);
-  });
-
-  testWidgets('keeps three dubs on the page and lists all in a sheet', (
-    tester,
-  ) async {
-    final navigation = await _pumpPage(
-      tester,
-      online: _FakeOnlineSources(_dubs),
-    );
-
-    expect(find.text('AniLibria'), findsOneWidget);
-    expect(find.text('AniDUB'), findsOneWidget);
-    expect(find.text('Dream Cast'), findsOneWidget);
-    expect(find.text('SHIZA Project'), findsNothing);
-    expect(find.text('All dubs · 5'), findsOneWidget);
-
-    await tester.tap(find.text('All dubs · 5'));
-    await tester.pumpAndSettle();
-    expect(find.text('Dubs'), findsOneWidget);
-    await tester.tap(find.text('SHIZA Project'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('File picker'), findsOneWidget);
-    final args = navigation.extra! as AnimePlayerSourceArgs;
-    expect(args.sourceTitle, 'SHIZA Project');
-    expect(args.magnet, 'online:yummyAnime/10661:shiza?anime=52991');
-  });
-
   testWidgets('puts the dubs the user watched from first', (tester) async {
+    setTestWindowSize(tester, TestWindowSizes.phone);
     const link = 'online:yummyAnime/10661:anistar?anime=52991';
     await _pumpPage(
       tester,
@@ -302,7 +206,6 @@ void main() {
       ],
     );
 
-    expect(find.text('AniStar'), findsOneWidget);
     expect(
       tester.getTopLeft(find.text('AniStar')).dy,
       lessThan(tester.getTopLeft(find.text('AniLibria')).dy),
@@ -314,14 +217,131 @@ void main() {
     );
   });
 
+  testWidgets('without an online release the torrents are the page', (
+    tester,
+  ) async {
+    await _pumpPage(tester, online: _FakeOnlineSources(const []));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Online'), findsNothing);
+    expect(find.text('Torrents'), findsNothing);
+    expect(find.text('[SubsPlease] Frieren'), findsOneWidget);
+  });
+
+  testWidgets('without torrents the online releases are the page', (
+    tester,
+  ) async {
+    await _pumpPage(
+      tester,
+      online: _FakeOnlineSources.found(),
+      torrents: const _Torrents.none(),
+      // The chosen tab has nothing: the page shows what there is.
+      tabs: _TabMemory(WatchSourcesTab.torrents),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Online'), findsNothing);
+    expect(find.text('AniLibria'), findsOneWidget);
+  });
+
+  testWidgets('dissolves the tabs when nothing is found online', (
+    tester,
+  ) async {
+    final tabs = _TabMemory();
+    final online = _FakeOnlineSources.pending();
+    await _pumpPage(tester, online: online, tabs: tabs);
+
+    await online.answers.close();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+    // Still there, going cell by cell.
+    expect(find.text('Online'), findsOneWidget);
+
+    await tester.pumpAndSettle();
+    expect(find.text('Online'), findsNothing);
+    expect(find.text('[SubsPlease] Frieren'), findsOneWidget);
+    // Shown for want of online releases, not chosen.
+    expect(tabs.tab, isNull);
+  });
+
+  testWidgets('keeps the torrent search when the tabs go', (tester) async {
+    final online = _FakeOnlineSources.pending();
+    await _pumpPage(
+      tester,
+      online: online,
+      tabs: _TabMemory(WatchSourcesTab.torrents),
+    );
+
+    await tester.enterText(find.byType(TextField), 'subs');
+    await tester.pump();
+    await online.answers.close();
+    await tester.pumpAndSettle();
+
+    expect(find.text('Online'), findsNothing);
+    expect(find.text('subs'), findsOneWidget);
+  });
+
+  testWidgets('shows noise rows while servers are searched', (tester) async {
+    final semantics = tester.ensureSemantics();
+    await _pumpPage(tester, online: _FakeOnlineSources.pending());
+
+    expect(find.text('Online'), findsOneWidget);
+    expect(find.bySemanticsLabel('Looking for online sources'), findsWidgets);
+    semantics.dispose();
+  });
+
+  testWidgets('shows a fast server\'s dubs while a slow one searches', (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+    final online = _FakeOnlineSources.pending();
+    await _pumpPage(tester, online: online);
+
+    online.answers.add([_release]);
+    // The noise never settles.
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+    expect(
+      find.byKey(const ValueKey('online_release_anilibria_9542')),
+      findsOneWidget,
+    );
+    // A noise row waits for the slow server, heard apart from the dub
+    // beside it.
+    expect(find.bySemanticsLabel('Looking for online sources'), findsOneWidget);
+
+    online.answers.add(_dubs);
+    await online.answers.close();
+    await tester.pumpAndSettle();
+    expect(find.text('AniDUB'), findsOneWidget);
+    expect(find.bySemanticsLabel('Looking for online sources'), findsNothing);
+    semantics.dispose();
+  });
+
+  testWidgets('a failed search offers to retry on its tab', (tester) async {
+    final online = _FakeOnlineSources.failing();
+    await _pumpPage(tester, online: online);
+
+    expect(find.text('Online sources did not respond.'), findsOneWidget);
+    expect(find.text('Torrents'), findsOneWidget);
+
+    online.fail = false;
+    await tester.tap(find.text('Try Again'));
+    await tester.pumpAndSettle();
+
+    expect(online.searches, 2);
+    expect(find.text('AniLibria'), findsOneWidget);
+  });
+
   for (final entry in TestWindowSizes.all.entries) {
-    testWidgets('lays out the online row without overflow on ${entry.key}', (
+    testWidgets('lays out both tabs without overflow on ${entry.key}', (
       tester,
     ) async {
       setTestWindowSize(tester, entry.value);
-      await _pumpPage(tester, online: _FakeOnlineSources.found());
+      await _pumpPage(tester, online: _FakeOnlineSources(_dubs));
+      await tester.tap(find.text('Torrents'));
+      await tester.pumpAndSettle();
 
-      expect(find.text('AniLibria'), findsOneWidget);
+      expect(find.text('[SubsPlease] Frieren'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
   }
@@ -334,6 +354,8 @@ class _RecordedNavigation {
 Future<_RecordedNavigation> _pumpPage(
   WidgetTester tester, {
   required _FakeOnlineSources online,
+  _Torrents torrents = const _Torrents(),
+  _TabMemory? tabs,
   List<WatchProgress> history = const [],
 }) async {
   final navigation = _RecordedNavigation();
@@ -354,7 +376,7 @@ Future<_RecordedNavigation> _pumpPage(
                 animeId: args.animeId,
                 animeTitle: args.animeTitle,
                 searchTitles: args.searchTitles,
-                repository: const _Torrents(),
+                repository: torrents,
               )..loadSources(),
             ),
             BlocProvider(
@@ -363,6 +385,10 @@ Future<_RecordedNavigation> _pumpPage(
                 titles: args.searchTitles,
                 search: online,
               )..load(),
+            ),
+            BlocProvider(
+              create: (_) =>
+                  WatchSourcesTabCubit(repository: tabs ?? _TabMemory()),
             ),
             BlocProvider(
               create: (_) =>
@@ -397,8 +423,17 @@ Future<_RecordedNavigation> _pumpPage(
   return navigation;
 }
 
-double _torrentTop(WidgetTester tester) =>
-    tester.getTopLeft(find.text('[SubsPlease] Frieren')).dy;
+class _TabMemory implements WatchSourcesTabRepository {
+  _TabMemory([this.tab]);
+
+  WatchSourcesTab? tab;
+
+  @override
+  WatchSourcesTab? loadTab() => tab;
+
+  @override
+  Future<void> saveTab(WatchSourcesTab tab) async => this.tab = tab;
+}
 
 class _FakeOnlineSources implements OnlineReleasesSearch {
   _FakeOnlineSources(this.releases);
@@ -431,22 +466,27 @@ class _FakeOnlineSources implements OnlineReleasesSearch {
 }
 
 class _Torrents implements WatchSourcesRepository {
-  const _Torrents();
+  const _Torrents() : found = true;
+
+  const _Torrents.none() : found = false;
+
+  final bool found;
 
   @override
   Future<List<WatchSourceItem>> fetchSources(List<String> titles) async => [
-    const WatchSourceItem(
-      title: '[SubsPlease] Frieren',
-      category: 'Anime - English-translated',
-      link: 'https://nyaa.example/1',
-      torrent: '',
-      magnet: 'magnet:?xt=urn:btih:0123456789abcdef0123456789abcdef01234567',
-      size: '1.4 GiB',
-      time: '2026-04-14',
-      seeders: 33,
-      leechers: 1,
-      downloads: 269,
-    ),
+    if (found)
+      const WatchSourceItem(
+        title: '[SubsPlease] Frieren',
+        category: 'Anime - English-translated',
+        link: 'https://nyaa.example/1',
+        torrent: '',
+        magnet: 'magnet:?xt=urn:btih:0123456789abcdef0123456789abcdef01234567',
+        size: '1.4 GiB',
+        time: '2026-04-14',
+        seeders: 33,
+        leechers: 1,
+        downloads: 269,
+      ),
   ];
 }
 

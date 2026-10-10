@@ -42,7 +42,9 @@ import 'package:iris/features/saved_torrents/domain/repositories/saved_torrents_
 import 'package:iris/features/saved_torrents/presentation/cubit/saved_torrents_cubit.dart';
 import 'package:iris/features/saved_torrents/presentation/pages/saved_torrents_page.dart';
 import 'package:iris/features/watch_sources/domain/repositories/watch_sources_repository.dart';
+import 'package:iris/features/watch_sources/domain/repositories/watch_sources_tab_repository.dart';
 import 'package:iris/features/watch_sources/presentation/cubit/watch_sources_cubit.dart';
+import 'package:iris/features/watch_sources/presentation/cubit/watch_sources_tab_cubit.dart';
 import 'package:iris/features/watch_sources/presentation/models/anime_watch_sources_args.dart';
 import 'package:iris/features/watch_sources/presentation/pages/watch_sources_page.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
@@ -205,6 +207,11 @@ abstract final class AppRouter {
                     titles: args.searchTitles,
                     search: serviceLocator<OnlineReleasesSearch>(),
                   )..load(),
+                ),
+                BlocProvider(
+                  create: (_) => WatchSourcesTabCubit(
+                    repository: serviceLocator<WatchSourcesTabRepository>(),
+                  ),
                 ),
               ],
               child: WatchSourcesPage(args: args),
