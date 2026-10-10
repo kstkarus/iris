@@ -1,5 +1,3 @@
-import 'package:iris/features/player/domain/entities/player_launch_failure.dart';
-import 'package:iris/features/player/domain/entities/player_launch_progress.dart';
 import 'package:iris/features/player/domain/entities/player_session.dart';
 
 sealed class PlayerState {
@@ -17,9 +15,7 @@ final class PlayerInitial extends PlayerState {
 }
 
 final class PlayerPreparing extends PlayerState {
-  const PlayerPreparing({required this.progress, this.keepsPlayer = false});
-
-  final PlayerLaunchProgress progress;
+  const PlayerPreparing({this.keepsPlayer = false});
 
   /// A file was already playing: the player stays on screen (and in full
   /// screen) while this one starts.
@@ -31,13 +27,11 @@ final class PlayerPreparing extends PlayerState {
       return true;
     }
 
-    return other is PlayerPreparing &&
-        other.progress == progress &&
-        other.keepsPlayer == keepsPlayer;
+    return other is PlayerPreparing && other.keepsPlayer == keepsPlayer;
   }
 
   @override
-  int get hashCode => Object.hash(progress, keepsPlayer);
+  int get hashCode => keepsPlayer.hashCode;
 }
 
 final class PlayerReady extends PlayerState {
@@ -119,19 +113,11 @@ final class PlayerReady extends PlayerState {
 }
 
 final class PlayerFailure extends PlayerState {
-  const PlayerFailure(this.type);
-
-  final PlayerLaunchFailure type;
+  const PlayerFailure();
 
   @override
-  bool operator ==(Object other) {
-    if (identical(this, other)) {
-      return true;
-    }
-
-    return other is PlayerFailure && other.type == type;
-  }
+  bool operator ==(Object other) => other is PlayerFailure;
 
   @override
-  int get hashCode => type.hashCode;
+  int get hashCode => runtimeType.hashCode;
 }

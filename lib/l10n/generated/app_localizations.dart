@@ -668,12 +668,6 @@ abstract class AppLocalizations {
   /// **'Buffering'**
   String get playerBuffering;
 
-  /// No description provided for @playerPreparingMoreBuffer.
-  ///
-  /// In en, this message translates to:
-  /// **'Collecting more buffered data'**
-  String get playerPreparingMoreBuffer;
-
   /// No description provided for @playerWaitNoPeers.
   ///
   /// In en, this message translates to:
@@ -739,12 +733,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'The stream is open, but the player could not prepare the first frame.'**
   String get playerUnableToPrepareFirstFrame;
-
-  /// No description provided for @playerUnableToBufferForStart.
-  ///
-  /// In en, this message translates to:
-  /// **'Unable to prepare enough buffered data to start playback.'**
-  String get playerUnableToBufferForStart;
 
   /// No description provided for @playerNoPlayableVideo.
   ///

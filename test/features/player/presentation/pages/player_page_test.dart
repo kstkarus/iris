@@ -3,7 +3,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:iris/features/player/domain/entities/anime_player_source.dart';
-import 'package:iris/features/player/domain/entities/player_launch_progress.dart';
 import 'package:iris/features/player/domain/entities/player_launch_update.dart';
 import 'package:iris/features/player/domain/entities/player_playback_stats.dart';
 import 'package:iris/features/player/domain/entities/player_session.dart';
@@ -220,7 +219,7 @@ void main() {
     // Its action belongs to that file: switching files closes it.
     (tester.element(find.byType(PlayerPage)).read<PlayerCubit>()
             as _FakePlayerCubit)
-        .push(const PlayerPreparing(progress: PlayerLaunchProgress.initial()));
+        .push(const PlayerPreparing());
     // The loading spinner never settles; let the snackbar animate out.
     for (var frame = 0; frame < 5; frame++) {
       await tester.pump(const Duration(milliseconds: 200));

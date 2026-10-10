@@ -3,8 +3,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:iris/features/player/domain/entities/anime_player_source.dart';
-import 'package:iris/features/player/domain/entities/player_launch_failure.dart';
-import 'package:iris/features/player/domain/entities/player_launch_progress.dart';
 import 'package:iris/features/player/domain/entities/player_launch_update.dart';
 import 'package:iris/features/player/domain/entities/player_playback_stats.dart';
 import 'package:iris/features/player/domain/entities/player_session.dart';
@@ -22,23 +20,13 @@ import 'package:iris/l10n/generated/app_localizations.dart';
 import '../../../../helpers/fake_player_engine.dart';
 
 void main() {
-  testWidgets('shows detailed preparation state', (tester) async {
-    final cubit = _FakePlayerCubit(
-      const PlayerPreparing(
-        progress: PlayerLaunchProgress(
-          bufferProgress: 0.375,
-          downloadRateBytesPerSecond: 1572864,
-          stage: PlayerLaunchStage.preparing,
-        ),
-      ),
-      source: _source,
-    );
+  testWidgets('shows the preparation state', (tester) async {
+    final cubit = _FakePlayerCubit(const PlayerPreparing(), source: _source);
 
     await tester.pumpWidget(_wrap(cubit: cubit));
 
     expect(find.text('Preparing video'), findsOneWidget);
-    expect(find.text('38% ready for playback'), findsOneWidget);
-    expect(find.text('Current speed: 1.5 MB/s'), findsOneWidget);
+    expect(find.text('0% ready for playback'), findsOneWidget);
   });
 
   testWidgets('shows player viewport when playback is ready', (tester) async {
@@ -63,10 +51,7 @@ void main() {
     tester,
   ) async {
     final cubit = _FakePlayerCubit(
-      const PlayerPreparing(
-        progress: PlayerLaunchProgress.initial(),
-        keepsPlayer: true,
-      ),
+      const PlayerPreparing(keepsPlayer: true),
       source: _source,
     );
 
@@ -77,10 +62,7 @@ void main() {
   });
 
   testWidgets('shows retry action on generic failure', (tester) async {
-    final cubit = _FakePlayerCubit(
-      const PlayerFailure(PlayerLaunchFailure.unableToStart),
-      source: _source,
-    );
+    final cubit = _FakePlayerCubit(const PlayerFailure(), source: _source);
 
     await tester.pumpWidget(_wrap(cubit: cubit));
 
@@ -89,20 +71,6 @@ void main() {
 
     await tester.tap(find.text('Try Again'));
     expect(cubit.loadCalls, 1);
-  });
-
-  testWidgets('shows dedicated startup buffer failure message', (tester) async {
-    final cubit = _FakePlayerCubit(
-      const PlayerFailure(PlayerLaunchFailure.unableToPrepareStartupBuffer),
-      source: _source,
-    );
-
-    await tester.pumpWidget(_wrap(cubit: cubit));
-
-    expect(
-      find.text('Unable to prepare enough buffered data to start playback.'),
-      findsOneWidget,
-    );
   });
 }
 

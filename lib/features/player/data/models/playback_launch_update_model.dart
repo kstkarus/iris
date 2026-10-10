@@ -1,30 +1,7 @@
-import 'package:iris/features/player/data/models/playback_launch_progress_model.dart';
 import 'package:iris/features/player/data/models/prepared_playback_model.dart';
-
-enum PlaybackLaunchFailureModel { unableToStart, unableToPrepareStartupBuffer }
 
 sealed class PlaybackLaunchUpdateModel {
   const PlaybackLaunchUpdateModel();
-}
-
-final class PlaybackLaunchProgressUpdateModel
-    extends PlaybackLaunchUpdateModel {
-  const PlaybackLaunchProgressUpdateModel(this.progress);
-
-  final PlaybackLaunchProgressModel progress;
-
-  @override
-  bool operator ==(Object other) {
-    if (identical(this, other)) {
-      return true;
-    }
-
-    return other is PlaybackLaunchProgressUpdateModel &&
-        other.progress == progress;
-  }
-
-  @override
-  int get hashCode => progress.hashCode;
 }
 
 final class PlaybackLaunchReadyUpdateModel extends PlaybackLaunchUpdateModel {
@@ -47,20 +24,11 @@ final class PlaybackLaunchReadyUpdateModel extends PlaybackLaunchUpdateModel {
 }
 
 final class PlaybackLaunchFailureUpdateModel extends PlaybackLaunchUpdateModel {
-  const PlaybackLaunchFailureUpdateModel(this.failure);
-
-  final PlaybackLaunchFailureModel failure;
+  const PlaybackLaunchFailureUpdateModel();
 
   @override
-  bool operator ==(Object other) {
-    if (identical(this, other)) {
-      return true;
-    }
-
-    return other is PlaybackLaunchFailureUpdateModel &&
-        other.failure == failure;
-  }
+  bool operator ==(Object other) => other is PlaybackLaunchFailureUpdateModel;
 
   @override
-  int get hashCode => failure.hashCode;
+  int get hashCode => runtimeType.hashCode;
 }

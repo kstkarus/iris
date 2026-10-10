@@ -2,16 +2,12 @@ import 'dart:developer' as developer;
 
 import 'package:iris/features/player/data/datasources/libtorrent_player_data_source.dart';
 import 'package:iris/features/player/data/exceptions/no_playable_video_exception.dart';
-import 'package:iris/features/player/data/models/playback_launch_progress_model.dart';
 import 'package:iris/features/player/data/models/playback_runtime_stats_model.dart';
 import 'package:iris/features/player/data/models/playback_launch_update_model.dart';
 import 'package:iris/features/player/data/models/torrent_file_descriptor.dart';
-import 'package:iris/features/player/domain/entities/player_launch_failure.dart';
-import 'package:iris/features/player/domain/entities/player_launch_progress.dart';
 import 'package:iris/features/player/domain/entities/player_launch_update.dart';
 import 'package:iris/features/player/domain/entities/player_playback_stats.dart';
 import 'package:iris/features/player/domain/entities/player_video_file.dart';
-import 'package:iris/features/player/domain/player_buffer_policy.dart';
 import 'package:iris/features/player/domain/entities/player_session.dart';
 import 'package:iris/features/player/domain/entities/prepared_player_source.dart';
 import 'package:iris/features/player/domain/repositories/player_repository.dart';
@@ -97,8 +93,6 @@ class TorrentPlayerRepository implements PlayerRepository {
         fileIndex: fileIndex,
       )) {
         switch (update) {
-          case PlaybackLaunchProgressUpdateModel(:final progress):
-            yield PlayerLaunchProgressUpdate(_mapLaunchProgress(progress));
           case PlaybackLaunchReadyUpdateModel(:final playback):
             yield PlayerLaunchReadyUpdate(
               PlayerSession(
@@ -106,8 +100,8 @@ class TorrentPlayerRepository implements PlayerRepository {
                 streamUrl: playback.streamUrl,
               ),
             );
-          case PlaybackLaunchFailureUpdateModel(:final failure):
-            yield PlayerLaunchFailureUpdate(_mapLaunchFailure(failure));
+          case PlaybackLaunchFailureUpdateModel():
+            yield const PlayerLaunchFailureUpdate();
         }
       }
     } catch (error, stackTrace) {
@@ -117,26 +111,9 @@ class TorrentPlayerRepository implements PlayerRepository {
         error: error,
         stackTrace: stackTrace,
       );
-      yield const PlayerLaunchFailureUpdate(PlayerLaunchFailure.unableToStart);
+      yield const PlayerLaunchFailureUpdate();
     }
   }
-}
-
-PlayerLaunchProgress _mapLaunchProgress(PlaybackLaunchProgressModel progress) {
-  return PlayerLaunchProgress(
-    bufferProgress: _mapReadinessProgress(progress.bufferProgress),
-    downloadRateBytesPerSecond: progress.downloadRateBytesPerSecond,
-    stage: switch (progress.stage) {
-      PlaybackLaunchStageModel.buffering => PlayerLaunchStage.preparing,
-      PlaybackLaunchStageModel.extendedBuffering =>
-        PlayerLaunchStage.waitingForBuffer,
-    },
-  );
-}
-
-double _mapReadinessProgress(double rawBufferProgress) {
-  final normalized = rawBufferProgress / playerStartupReadyBufferProgress;
-  return normalized.clamp(0.0, 1.0);
 }
 
 PlayerPlaybackStats _mapPlaybackStats(PlaybackRuntimeStatsModel stats) {
@@ -149,15 +126,6 @@ PlayerPlaybackStats _mapPlaybackStats(PlaybackRuntimeStatsModel stats) {
     readaheadWindow: stats.readaheadWindow,
     isTorrent: true,
   );
-}
-
-PlayerLaunchFailure _mapLaunchFailure(PlaybackLaunchFailureModel failure) {
-  return switch (failure) {
-    PlaybackLaunchFailureModel.unableToStart =>
-      PlayerLaunchFailure.unableToStart,
-    PlaybackLaunchFailureModel.unableToPrepareStartupBuffer =>
-      PlayerLaunchFailure.unableToPrepareStartupBuffer,
-  };
 }
 
 bool _isSupportedVideoFile(TorrentFileDescriptor file) {

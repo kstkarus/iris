@@ -3,8 +3,6 @@ import 'dart:async';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:iris/features/player/domain/entities/anime_player_source.dart';
-import 'package:iris/features/player/domain/entities/player_launch_failure.dart';
-import 'package:iris/features/player/domain/entities/player_launch_progress.dart';
 import 'package:iris/features/player/domain/entities/player_launch_update.dart';
 import 'package:iris/features/player/domain/entities/player_playback_stats.dart';
 import 'package:iris/features/player/domain/entities/player_session.dart';
@@ -33,14 +31,7 @@ void main() {
       expectLater(
         cubit.stream,
         emitsInOrder([
-          const PlayerPreparing(progress: PlayerLaunchProgress.initial()),
-          const PlayerPreparing(
-            progress: PlayerLaunchProgress(
-              bufferProgress: 0.25,
-              downloadRateBytesPerSecond: 2048,
-              stage: PlayerLaunchStage.preparing,
-            ),
-          ),
+          const PlayerPreparing(),
           const PlayerReady(
             PlayerSession(
               sessionId: '42',
@@ -64,10 +55,7 @@ void main() {
 
     expectLater(
       cubit.stream,
-      emitsInOrder([
-        const PlayerPreparing(progress: PlayerLaunchProgress.initial()),
-        const PlayerFailure(PlayerLaunchFailure.unableToStart),
-      ]),
+      emitsInOrder([const PlayerPreparing(), const PlayerFailure()]),
     );
 
     await cubit.loadPlayback();
@@ -76,43 +64,10 @@ void main() {
   });
 
   test(
-    'emits startup buffer failure when repository reports stalled buffer',
-    () async {
-      final repository = _StartupBufferFailingPlayerRepository();
-      final cubit = PlayerCubit(
-        source: _source,
-        repository: repository,
-        engine: FakePlayerEngine(),
-      );
-
-      expectLater(
-        cubit.stream,
-        emitsInOrder([
-          const PlayerPreparing(progress: PlayerLaunchProgress.initial()),
-          const PlayerPreparing(
-            progress: PlayerLaunchProgress(
-              bufferProgress: 0.125,
-              downloadRateBytesPerSecond: 8192,
-              stage: PlayerLaunchStage.waitingForBuffer,
-            ),
-          ),
-          const PlayerFailure(PlayerLaunchFailure.unableToPrepareStartupBuffer),
-        ]),
-      );
-
-      await cubit.loadPlayback();
-
-      expect(repository.disposedSessionIds, isEmpty);
-    },
-  );
-
-  test(
     'keeps the session after a failed launch, so retry starts it again',
     () async {
       final repository = _ScriptedPlayerRepository([
-        Stream.value(
-          const PlayerLaunchFailureUpdate(PlayerLaunchFailure.unableToStart),
-        ),
+        Stream.value(const PlayerLaunchFailureUpdate()),
         Stream.value(const PlayerLaunchReadyUpdate(_playerSession)),
       ]);
       final engine = FakePlayerEngine();
@@ -124,10 +79,7 @@ void main() {
 
       await cubit.loadPlayback();
 
-      expect(
-        cubit.state,
-        const PlayerFailure(PlayerLaunchFailure.unableToStart),
-      );
+      expect(cubit.state, const PlayerFailure());
       expect(repository.disposedSessionIds, isEmpty);
 
       await cubit.loadPlayback();
@@ -157,10 +109,7 @@ void main() {
 
       await cubit.loadPlayback();
 
-      expect(
-        cubit.state,
-        const PlayerFailure(PlayerLaunchFailure.unableToStart),
-      );
+      expect(cubit.state, const PlayerFailure());
       expect(repository.disposedSessionIds, isEmpty);
 
       await cubit.loadPlayback();
@@ -337,13 +286,6 @@ class _SuccessPlayerRepository implements PlayerRepository {
   }) async* {
     startedSessionIds.add(sessionId);
     startedFileIndices.add(fileIndex);
-    yield const PlayerLaunchProgressUpdate(
-      PlayerLaunchProgress(
-        bufferProgress: 0.25,
-        downloadRateBytesPerSecond: 2048,
-        stage: PlayerLaunchStage.preparing,
-      ),
-    );
     yield PlayerLaunchReadyUpdate(session);
   }
 
@@ -377,49 +319,7 @@ class _FailingPlayerRepository implements PlayerRepository {
     required String sessionId,
     required int fileIndex,
   }) async* {
-    yield const PlayerLaunchFailureUpdate(PlayerLaunchFailure.unableToStart);
-  }
-
-  @override
-  Stream<PlayerPlaybackStats> watchPlaybackStats({required String sessionId}) {
-    return const Stream.empty();
-  }
-}
-
-class _StartupBufferFailingPlayerRepository implements PlayerRepository {
-  @override
-  Future<void> stopPlayback({required String sessionId}) async {}
-
-  final List<String> disposedSessionIds = [];
-
-  @override
-  Future<void> disposePlayback({required String sessionId}) async {
-    disposedSessionIds.add(sessionId);
-  }
-
-  @override
-  Future<PreparedPlayerSource> prepareSource({
-    required String magnet,
-    Future<void>? cancelled,
-  }) {
-    throw UnimplementedError();
-  }
-
-  @override
-  Stream<PlayerLaunchUpdate> startPlayback({
-    required String sessionId,
-    required int fileIndex,
-  }) async* {
-    yield const PlayerLaunchProgressUpdate(
-      PlayerLaunchProgress(
-        bufferProgress: 0.125,
-        downloadRateBytesPerSecond: 8192,
-        stage: PlayerLaunchStage.waitingForBuffer,
-      ),
-    );
-    yield const PlayerLaunchFailureUpdate(
-      PlayerLaunchFailure.unableToPrepareStartupBuffer,
-    );
+    yield const PlayerLaunchFailureUpdate();
   }
 
   @override

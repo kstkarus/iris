@@ -7,7 +7,6 @@ import 'package:iris/features/downloads/domain/entities/download_status.dart';
 import 'package:iris/features/downloads/domain/repositories/downloads_repository.dart';
 import 'package:iris/features/player/data/adapters/player_runtime_memory_adapter.dart';
 import 'package:iris/features/player/data/repositories/local_player_repository.dart';
-import 'package:iris/features/player/domain/entities/player_launch_failure.dart';
 import 'package:iris/features/player/domain/entities/player_launch_update.dart';
 
 void main() {
@@ -37,9 +36,7 @@ void main() {
         .startPlayback(sessionId: 'missing', fileIndex: 0)
         .toList();
 
-    expect(updates, const [
-      PlayerLaunchFailureUpdate(PlayerLaunchFailure.unableToStart),
-    ]);
+    expect(updates, const [PlayerLaunchFailureUpdate()]);
   });
 }
 

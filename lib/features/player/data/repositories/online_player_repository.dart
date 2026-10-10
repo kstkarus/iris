@@ -5,7 +5,6 @@ import 'package:iris/features/online_sources/domain/entities/online_provider.dar
 import 'package:iris/features/online_sources/domain/entities/online_release.dart';
 import 'package:iris/shared/online/online_source_link.dart';
 import 'package:iris/features/online_sources/domain/repositories/online_sources_repository.dart';
-import 'package:iris/features/player/domain/entities/player_launch_failure.dart';
 import 'package:iris/features/player/domain/entities/player_launch_update.dart';
 import 'package:iris/features/player/domain/entities/player_playback_stats.dart';
 import 'package:iris/features/player/domain/entities/player_session.dart';
@@ -118,7 +117,7 @@ class OnlinePlayerRepository implements PlayerRepository {
         'Online episode $fileIndex of $sessionId did not start: $error',
         name: 'iris.player.online',
       );
-      return const PlayerLaunchFailureUpdate(PlayerLaunchFailure.unableToStart);
+      return const PlayerLaunchFailureUpdate();
     }
   }
 

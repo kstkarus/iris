@@ -46,8 +46,6 @@ class LibtorrentPlayerDataSource {
   /// Numeric: the player routes numeric session ids to streaming.
   int _lastSessionId = 0;
   final Map<String, int> _streamIdsBySessionId = {};
-  final Map<String, _PlaybackLaunchCancellation>
-  _launchCancellationBySessionId = {};
   final Map<String, _BackgroundProbeToken> _probeTokensBySessionId = {};
 
   Future<PreparedPlayerSourceModel> prepareSource({
@@ -156,9 +154,7 @@ class LibtorrentPlayerDataSource {
         'disposed: $sessionId',
         name: 'iris.player.datasource',
       );
-      yield const PlaybackLaunchFailureUpdateModel(
-        PlaybackLaunchFailureModel.unableToStart,
-      );
+      yield const PlaybackLaunchFailureUpdateModel();
       return;
     }
     final torrentId = torrent.torrentId;
@@ -168,21 +164,16 @@ class LibtorrentPlayerDataSource {
       name: 'iris.player.datasource',
     );
 
-    if (_streamIdsBySessionId.containsKey(sessionId) ||
-        _launchCancellationBySessionId.containsKey(sessionId)) {
+    if (_streamIdsBySessionId.containsKey(sessionId)) {
       developer.log(
         'Skipping playback start because sessionId=$sessionId already has an active stream.',
         name: 'iris.player.datasource',
       );
-      yield const PlaybackLaunchFailureUpdateModel(
-        PlaybackLaunchFailureModel.unableToStart,
-      );
+      yield const PlaybackLaunchFailureUpdateModel();
       return;
     }
 
     _stopOtherStreamsOnTorrent(torrent, sessionId: sessionId);
-    final cancellation = _PlaybackLaunchCancellation();
-    _launchCancellationBySessionId[sessionId] = cancellation;
     final PlaybackStreamDescriptor stream;
     try {
       stream = _engine.startStream(
@@ -197,49 +188,21 @@ class LibtorrentPlayerDataSource {
         error: error,
         stackTrace: stackTrace,
       );
-      // Cleaned up before the failure is yielded: a subscriber that stops at
-      // the failure ends this generator at the yield, so code after it may
-      // not run. The session must stay startable for a retry.
-      _completeLaunch(sessionId);
-      yield const PlaybackLaunchFailureUpdateModel(
-        PlaybackLaunchFailureModel.unableToStart,
-      );
+      // Nothing was recorded yet, so the session stays startable for a retry.
+      yield const PlaybackLaunchFailureUpdateModel();
       return;
     }
     _streamIdsBySessionId[sessionId] = stream.streamId;
 
-    try {
-      _launchHttpProbeInBackground(
-        sessionId: sessionId,
-        url: stream.url,
-        isLaunchCancelled: () => cancellation.isCancelled,
-      );
-      developer.log(
-        'Playback stream prepared. torrentId=$torrentId sessionId=$sessionId streamId=${stream.streamId} url=${stream.url}',
-        name: 'iris.player.datasource',
-      );
-      _launchCancellationBySessionId.remove(sessionId);
-      yield PlaybackLaunchReadyUpdateModel(
-        PreparedPlaybackModel(sessionId: sessionId, streamUrl: stream.url),
-      );
-    } catch (error, stackTrace) {
-      if (cancellation.isCancelled) {
-        _completeLaunch(sessionId);
-        return;
-      }
-      developer.log(
-        'Playback HTTP probe failed after stream startup. sessionId=$sessionId torrentId=$torrentId streamId=${stream.streamId}',
-        name: 'iris.player.datasource',
-        error: error,
-        stackTrace: stackTrace,
-      );
-      // The stream is already running: stop it along with its bookkeeping.
-      final streamId = _releaseStream(sessionId);
-      if (streamId != null) _engine.stopStream(streamId);
-      yield const PlaybackLaunchFailureUpdateModel(
-        PlaybackLaunchFailureModel.unableToStart,
-      );
-    }
+    // Diagnostics only: the launch never waits for the probe.
+    _launchHttpProbeInBackground(sessionId: sessionId, url: stream.url);
+    developer.log(
+      'Playback stream prepared. torrentId=$torrentId sessionId=$sessionId streamId=${stream.streamId} url=${stream.url}',
+      name: 'iris.player.datasource',
+    );
+    yield PlaybackLaunchReadyUpdateModel(
+      PreparedPlaybackModel(sessionId: sessionId, streamUrl: stream.url),
+    );
   }
 
   /// The end of a stream resets the whole torrent's piece priorities, which
@@ -340,10 +303,9 @@ class LibtorrentPlayerDataSource {
     }
   }
 
-  /// Forgets the session's stream and its launch and probe; the caller
+  /// Forgets the session's stream and its probe; the caller
   /// stops the native stream. Returns the stream's id, if it had one.
   int? _releaseStream(String sessionId) {
-    _launchCancellationBySessionId.remove(sessionId)?.cancel();
     _probeTokensBySessionId.remove(sessionId)?.cancel();
     return _streamIdsBySessionId.remove(sessionId);
   }
@@ -351,20 +313,11 @@ class LibtorrentPlayerDataSource {
   void _launchHttpProbeInBackground({
     required String sessionId,
     required String url,
-    required bool Function() isLaunchCancelled,
   }) {
-    final previousToken = _probeTokensBySessionId.remove(sessionId);
-    previousToken?.cancel();
-
     final token = _BackgroundProbeToken();
     _probeTokensBySessionId[sessionId] = token;
     unawaited(
-      _runHttpProbeInBackground(
-        sessionId: sessionId,
-        url: url,
-        token: token,
-        isLaunchCancelled: isLaunchCancelled,
-      ),
+      _runHttpProbeInBackground(sessionId: sessionId, url: url, token: token),
     );
   }
 
@@ -372,13 +325,12 @@ class LibtorrentPlayerDataSource {
     required String sessionId,
     required String url,
     required _BackgroundProbeToken token,
-    required bool Function() isLaunchCancelled,
   }) async {
     PlaybackProbeResult? lastResult;
 
     try {
       for (var attempt = 1; attempt <= 6; attempt++) {
-        if (_shouldStopProbe(sessionId, token, isLaunchCancelled)) {
+        if (_shouldStopProbe(sessionId, token)) {
           developer.log(
             'Stopping background playback HTTP probe because the session is no longer active. sessionId=$sessionId url=$url attempt=$attempt',
             name: 'iris.player.datasource',
@@ -392,7 +344,7 @@ class LibtorrentPlayerDataSource {
         final result = await _probe.probe(url);
         lastResult = result;
 
-        if (_shouldStopProbe(sessionId, token, isLaunchCancelled)) {
+        if (_shouldStopProbe(sessionId, token)) {
           developer.log(
             'Ignoring completed background playback HTTP probe because the session is no longer active. sessionId=$sessionId url=$url attempt=$attempt',
             name: 'iris.player.datasource',
@@ -413,7 +365,7 @@ class LibtorrentPlayerDataSource {
         }
       }
 
-      if (_shouldStopProbe(sessionId, token, isLaunchCancelled)) {
+      if (_shouldStopProbe(sessionId, token)) {
         return;
       }
 
@@ -422,7 +374,7 @@ class LibtorrentPlayerDataSource {
         name: 'iris.player.datasource',
       );
     } catch (error, stackTrace) {
-      if (_shouldStopProbe(sessionId, token, isLaunchCancelled)) {
+      if (_shouldStopProbe(sessionId, token)) {
         return;
       }
       developer.log(
@@ -438,22 +390,10 @@ class LibtorrentPlayerDataSource {
     }
   }
 
-  bool _shouldStopProbe(
-    String sessionId,
-    _BackgroundProbeToken token,
-    bool Function() isLaunchCancelled,
-  ) {
+  bool _shouldStopProbe(String sessionId, _BackgroundProbeToken token) {
     return token.isCancelled ||
-        isLaunchCancelled() ||
         _streamIdsBySessionId[sessionId] == null ||
         !identical(_probeTokensBySessionId[sessionId], token);
-  }
-
-  void _completeLaunch(String sessionId) {
-    _launchCancellationBySessionId.remove(sessionId);
-    final probeToken = _probeTokensBySessionId.remove(sessionId);
-    probeToken?.cancel();
-    _streamIdsBySessionId.remove(sessionId);
   }
 }
 
@@ -471,14 +411,6 @@ class _SharedTorrent {
   /// Awaited by every session that prepares this torrent.
   final Future<void> metadata;
   final Set<String> sessionIds = {};
-}
-
-class _PlaybackLaunchCancellation {
-  bool isCancelled = false;
-
-  void cancel() {
-    isCancelled = true;
-  }
 }
 
 class _BackgroundProbeToken {

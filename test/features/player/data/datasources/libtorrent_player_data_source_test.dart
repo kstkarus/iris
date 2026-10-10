@@ -415,11 +415,7 @@ void main() {
         .toList();
 
     expect(engine.startStreamCallCount, 1);
-    expect(secondAttempt, const [
-      PlaybackLaunchFailureUpdateModel(
-        PlaybackLaunchFailureModel.unableToStart,
-      ),
-    ]);
+    expect(secondAttempt, const [PlaybackLaunchFailureUpdateModel()]);
   });
 
   test(
@@ -440,11 +436,7 @@ void main() {
           .startPlayback(sessionId: sessionId, fileIndex: 8)
           .toList();
 
-      expect(failed, const [
-        PlaybackLaunchFailureUpdateModel(
-          PlaybackLaunchFailureModel.unableToStart,
-        ),
-      ]);
+      expect(failed, const [PlaybackLaunchFailureUpdateModel()]);
       expect(retried, [
         PlaybackLaunchReadyUpdateModel(
           PreparedPlaybackModel(
@@ -747,11 +739,7 @@ void main() {
         .startPlayback(sessionId: sessionId, fileIndex: 8)
         .toList();
 
-    expect(updates, const [
-      PlaybackLaunchFailureUpdateModel(
-        PlaybackLaunchFailureModel.unableToStart,
-      ),
-    ]);
+    expect(updates, const [PlaybackLaunchFailureUpdateModel()]);
     expect(engine.startStreamCallCount, 0);
   });
 }

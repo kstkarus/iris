@@ -1,27 +1,7 @@
-import 'package:iris/features/player/domain/entities/player_launch_failure.dart';
-import 'package:iris/features/player/domain/entities/player_launch_progress.dart';
 import 'package:iris/features/player/domain/entities/player_session.dart';
 
 sealed class PlayerLaunchUpdate {
   const PlayerLaunchUpdate();
-}
-
-final class PlayerLaunchProgressUpdate extends PlayerLaunchUpdate {
-  const PlayerLaunchProgressUpdate(this.progress);
-
-  final PlayerLaunchProgress progress;
-
-  @override
-  bool operator ==(Object other) {
-    if (identical(this, other)) {
-      return true;
-    }
-
-    return other is PlayerLaunchProgressUpdate && other.progress == progress;
-  }
-
-  @override
-  int get hashCode => progress.hashCode;
 }
 
 final class PlayerLaunchReadyUpdate extends PlayerLaunchUpdate {
@@ -43,19 +23,11 @@ final class PlayerLaunchReadyUpdate extends PlayerLaunchUpdate {
 }
 
 final class PlayerLaunchFailureUpdate extends PlayerLaunchUpdate {
-  const PlayerLaunchFailureUpdate(this.failure);
-
-  final PlayerLaunchFailure failure;
+  const PlayerLaunchFailureUpdate();
 
   @override
-  bool operator ==(Object other) {
-    if (identical(this, other)) {
-      return true;
-    }
-
-    return other is PlayerLaunchFailureUpdate && other.failure == failure;
-  }
+  bool operator ==(Object other) => other is PlayerLaunchFailureUpdate;
 
   @override
-  int get hashCode => failure.hashCode;
+  int get hashCode => runtimeType.hashCode;
 }

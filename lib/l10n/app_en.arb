@@ -143,7 +143,6 @@
   "playerPreparing": "Preparing video",
   "playerWaitingMetadata": "Looking for torrent metadata",
   "playerBuffering": "Buffering",
-  "playerPreparingMoreBuffer": "Collecting more buffered data",
   "playerWaitNoPeers": "No peers yet",
   "playerWaitPeers": "{count, plural, =1{1 peer} other{{count} peers}}",
   "@playerWaitPeers": {
@@ -211,7 +210,6 @@
   },
   "playerUnableToStart": "Unable to start playback.",
   "playerUnableToPrepareFirstFrame": "The stream is open, but the player could not prepare the first frame.",
-  "playerUnableToBufferForStart": "Unable to prepare enough buffered data to start playback.",
   "playerNoPlayableVideo": "No playable video found.",
   "playerAudioTracksTitle": "Audio",
   "playerSubtitleTracksTitle": "Subtitles",

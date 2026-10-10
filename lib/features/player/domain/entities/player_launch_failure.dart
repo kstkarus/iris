@@ -1,1 +1,0 @@
-enum PlayerLaunchFailure { unableToStart, unableToPrepareStartupBuffer }

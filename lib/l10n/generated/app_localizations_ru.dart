@@ -323,9 +323,6 @@ class AppLocalizationsRu extends AppLocalizations {
   String get playerBuffering => 'Буферизация';
 
   @override
-  String get playerPreparingMoreBuffer => 'Собираем больше данных для старта';
-
-  @override
   String get playerWaitNoPeers => 'Пиров пока нет';
 
   @override
@@ -382,10 +379,6 @@ class AppLocalizationsRu extends AppLocalizations {
   @override
   String get playerUnableToPrepareFirstFrame =>
       'Поток открыт, но плеер не смог подготовить первый кадр.';
-
-  @override
-  String get playerUnableToBufferForStart =>
-      'Не удалось набрать буфер для старта воспроизведения.';
 
   @override
   String get playerNoPlayableVideo => 'Подходящее видео не найдено.';

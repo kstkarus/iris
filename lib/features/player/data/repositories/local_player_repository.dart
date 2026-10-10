@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:iris/features/downloads/domain/repositories/downloads_repository.dart';
 import 'package:iris/features/player/data/adapters/player_runtime_memory_adapter.dart';
-import 'package:iris/features/player/domain/entities/player_launch_failure.dart';
 import 'package:iris/features/player/domain/entities/player_launch_update.dart';
 import 'package:iris/features/player/domain/entities/player_playback_stats.dart';
 import 'package:iris/features/player/domain/entities/player_session.dart';
@@ -42,7 +41,7 @@ class LocalPlayerRepository implements PlayerRepository {
       id: sessionId,
     );
     if (download == null) {
-      yield const PlayerLaunchFailureUpdate(PlayerLaunchFailure.unableToStart);
+      yield const PlayerLaunchFailureUpdate();
       return;
     }
     yield PlayerLaunchReadyUpdate(

@@ -8,7 +8,6 @@ import 'package:iris/features/online_sources/domain/entities/online_release.dart
 import 'package:iris/features/online_sources/domain/entities/online_stream.dart';
 import 'package:iris/features/online_sources/domain/repositories/online_sources_repository.dart';
 import 'package:iris/features/player/data/repositories/online_player_repository.dart';
-import 'package:iris/features/player/domain/entities/player_launch_failure.dart';
 import 'package:iris/features/player/domain/entities/player_launch_update.dart';
 import 'package:iris/features/player/domain/entities/player_session.dart';
 import 'package:iris/features/player/domain/entities/player_video_file.dart';
@@ -181,9 +180,7 @@ void main() {
         .startPlayback(sessionId: _link, fileIndex: 1)
         .toList();
 
-    expect(updates, const [
-      PlayerLaunchFailureUpdate(PlayerLaunchFailure.unableToStart),
-    ]);
+    expect(updates, const [PlayerLaunchFailureUpdate()]);
   });
 
   test('fails to start when the server does not answer', () async {
@@ -193,9 +190,7 @@ void main() {
         .startPlayback(sessionId: _link, fileIndex: 1)
         .toList();
 
-    expect(updates, const [
-      PlayerLaunchFailureUpdate(PlayerLaunchFailure.unableToStart),
-    ]);
+    expect(updates, const [PlayerLaunchFailureUpdate()]);
   });
 
   test('fails to start an episode the release does not have', () async {
@@ -203,9 +198,7 @@ void main() {
         .startPlayback(sessionId: _link, fileIndex: 5)
         .toList();
 
-    expect(updates, const [
-      PlayerLaunchFailureUpdate(PlayerLaunchFailure.unableToStart),
-    ]);
+    expect(updates, const [PlayerLaunchFailureUpdate()]);
     expect(sources.resolved, isEmpty);
   });
 

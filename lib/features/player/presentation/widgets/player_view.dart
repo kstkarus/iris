@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:iris/features/player/domain/entities/player_launch_failure.dart';
-import 'package:iris/features/player/domain/entities/player_launch_progress.dart';
 import 'package:iris/features/player/presentation/cubit/player_cubit.dart';
 import 'package:iris/features/player/presentation/cubit/player_state.dart';
 import 'package:iris/features/player/presentation/widgets/player_playback_stats_indicator.dart';
@@ -39,14 +37,10 @@ class PlayerView extends StatelessWidget {
                 null => null,
               },
             );
-          case PlayerInitial():
-            status = _LoadingState(
-              progress: const PlayerLaunchProgress.initial(),
-            );
-          case PlayerPreparing(:final progress):
-            status = _LoadingState(progress: progress);
-          case PlayerFailure(:final type):
-            status = _FailureState(type: type);
+          case PlayerInitial() || PlayerPreparing():
+            status = const _LoadingState();
+          case PlayerFailure():
+            status = const _FailureState();
         }
         final immersive = chrome;
         if (immersive == null) return status;
@@ -73,46 +67,30 @@ class PlayerView extends StatelessWidget {
 }
 
 class _LoadingState extends StatelessWidget {
-  const _LoadingState({required this.progress});
-
-  final PlayerLaunchProgress progress;
+  const _LoadingState();
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final clampedProgress = progress.bufferProgress.clamp(0.0, 1.0);
-    final percent = (clampedProgress * 100).round();
-    final message = progress.stage == PlayerLaunchStage.waitingForBuffer
-        ? l10n.playerPreparingMoreBuffer
-        : l10n.playerPreparing;
-
+    // No launch reports progress any more: these lines always read zero.
     return LoadingView(
-      label: message,
-      value: clampedProgress > 0 ? clampedProgress : null,
+      label: l10n.playerPreparing,
       details: [
-        l10n.playerStreamPreparationProgress(percent),
-        l10n.playerStreamPreparationSpeed(
-          formatTransferRate(l10n, progress.downloadRateBytesPerSecond),
-        ),
+        l10n.playerStreamPreparationProgress(0),
+        l10n.playerStreamPreparationSpeed(formatTransferRate(l10n, 0)),
       ],
     );
   }
 }
 
 class _FailureState extends StatelessWidget {
-  const _FailureState({required this.type});
-
-  final PlayerLaunchFailure type;
+  const _FailureState();
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final message = type == PlayerLaunchFailure.unableToPrepareStartupBuffer
-        ? l10n.playerUnableToBufferForStart
-        : l10n.playerUnableToStart;
-
     return MessageView(
-      message: message,
+      message: l10n.playerUnableToStart,
       action: FilledButton(
         onPressed: () => context.read<PlayerCubit>().loadPlayback(),
         child: Text(l10n.commonRetry),

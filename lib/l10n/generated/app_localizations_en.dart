@@ -318,9 +318,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get playerBuffering => 'Buffering';
 
   @override
-  String get playerPreparingMoreBuffer => 'Collecting more buffered data';
-
-  @override
   String get playerWaitNoPeers => 'No peers yet';
 
   @override
@@ -375,10 +372,6 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get playerUnableToPrepareFirstFrame =>
       'The stream is open, but the player could not prepare the first frame.';
-
-  @override
-  String get playerUnableToBufferForStart =>
-      'Unable to prepare enough buffered data to start playback.';
 
   @override
   String get playerNoPlayableVideo => 'No playable video found.';

@@ -6,8 +6,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:iris/entities/watch_progress/domain/watch_progress.dart';
 import 'package:iris/entities/watch_progress/domain/watch_progress_repository.dart';
 import 'package:iris/features/player/domain/entities/anime_player_source.dart';
-import 'package:iris/features/player/domain/entities/player_launch_failure.dart';
-import 'package:iris/features/player/domain/entities/player_launch_progress.dart';
 import 'package:iris/features/player/domain/entities/player_launch_update.dart';
 import 'package:iris/features/player/domain/entities/player_track_preferences.dart';
 import 'package:iris/features/player/domain/entities/player_video_file.dart';
@@ -86,7 +84,6 @@ class PlayerCubit extends Cubit<PlayerState> {
   StreamSubscription<PlayerLaunchUpdate>? _launchSubscription;
   Completer<void>? _launchCompleter;
   int _launchAttemptId = 0;
-  bool _receivedTerminalLaunchUpdate = false;
 
   Future<void> loadPlayback() async {
     final activeLaunch = _launchCompleter;
@@ -105,19 +102,14 @@ class PlayerCubit extends Cubit<PlayerState> {
       'Starting playback flow. animeId=${source.animeId} title=${source.animeTitle} source=${source.sourceTitle} sessionId=${source.sessionId} fileIndex=${source.fileIndex}',
       name: 'iris.player.cubit',
     );
-    _emitIfOpen(
-      PlayerPreparing(
-        progress: const PlayerLaunchProgress.initial(),
-        keepsPlayer: _engineOpened,
-      ),
-    );
+    _emitIfOpen(PlayerPreparing(keepsPlayer: _engineOpened));
 
     if (source.sessionId.trim().isEmpty) {
       developer.log(
         'Playback aborted because sessionId is empty.',
         name: 'iris.player.cubit',
       );
-      _emitIfOpen(const PlayerFailure(PlayerLaunchFailure.unableToStart));
+      _emitIfOpen(const PlayerFailure());
       return;
     }
 
@@ -125,7 +117,6 @@ class PlayerCubit extends Cubit<PlayerState> {
     if (isClosed) return;
 
     final attemptId = ++_launchAttemptId;
-    _receivedTerminalLaunchUpdate = false;
     final completer = Completer<void>();
     _launchCompleter = completer;
 
@@ -141,7 +132,6 @@ class PlayerCubit extends Cubit<PlayerState> {
               unawaited(_handleLaunchError(attemptId, error, stackTrace));
             },
             onDone: () => unawaited(_handleLaunchDone(attemptId)),
-            cancelOnError: false,
           );
       await completer.future;
     } catch (error, stackTrace) {
@@ -151,7 +141,7 @@ class PlayerCubit extends Cubit<PlayerState> {
         error: error,
         stackTrace: stackTrace,
       );
-      _emitIfOpen(const PlayerFailure(PlayerLaunchFailure.unableToStart));
+      _emitIfOpen(const PlayerFailure());
       await _finishLaunchAttempt(attemptId);
     }
   }
@@ -286,12 +276,7 @@ class PlayerCubit extends Cubit<PlayerState> {
     try {
       await _saveProgress();
       await _cancelActiveLaunch();
-      _emitIfOpen(
-        PlayerPreparing(
-          progress: const PlayerLaunchProgress.initial(),
-          keepsPlayer: _engineOpened,
-        ),
-      );
+      _emitIfOpen(PlayerPreparing(keepsPlayer: _engineOpened));
       // On Windows a paused mpv stops reading the local torrent stream;
       // stopping that stream while mpv still holds the connection blocks
       // the UI thread in a native send(). Release the player's side first.
@@ -446,12 +431,7 @@ class PlayerCubit extends Cubit<PlayerState> {
     }
 
     switch (update) {
-      case PlayerLaunchProgressUpdate(:final progress):
-        _emitIfOpen(
-          PlayerPreparing(progress: progress, keepsPlayer: _engineOpened),
-        );
       case PlayerLaunchReadyUpdate(:final session):
-        _receivedTerminalLaunchUpdate = true;
         _ownedSessionId = session.sessionId;
         developer.log(
           'Playback session prepared successfully. sessionId=${session.sessionId} url=${session.streamUrl}',
@@ -475,13 +455,12 @@ class PlayerCubit extends Cubit<PlayerState> {
         );
         unawaited(opening);
         await _finishLaunchAttempt(attemptId, cancelSubscription: true);
-      case PlayerLaunchFailureUpdate(:final failure):
-        _receivedTerminalLaunchUpdate = true;
+      case PlayerLaunchFailureUpdate():
         developer.log(
-          'Playback launch completed with domain failure. failure=$failure',
+          'Playback launch completed with domain failure.',
           name: 'iris.player.cubit',
         );
-        _emitIfOpen(PlayerFailure(failure));
+        _emitIfOpen(const PlayerFailure());
         await _finishLaunchAttempt(attemptId, cancelSubscription: true);
     }
   }
@@ -490,9 +469,9 @@ class PlayerCubit extends Cubit<PlayerState> {
     if (!_isCurrentAttempt(attemptId)) {
       return;
     }
-    if (!_receivedTerminalLaunchUpdate) {
-      _emitIfOpen(const PlayerFailure(PlayerLaunchFailure.unableToStart));
-    }
+    // A ready or failed launch ends the attempt before its stream does, so
+    // a stream that ends while still current never said how it went.
+    _emitIfOpen(const PlayerFailure());
     await _finishLaunchAttempt(attemptId);
   }
 
@@ -511,7 +490,7 @@ class PlayerCubit extends Cubit<PlayerState> {
       error: error,
       stackTrace: stackTrace,
     );
-    _emitIfOpen(const PlayerFailure(PlayerLaunchFailure.unableToStart));
+    _emitIfOpen(const PlayerFailure());
     await _finishLaunchAttempt(attemptId, cancelSubscription: true);
   }
 
@@ -519,7 +498,6 @@ class PlayerCubit extends Cubit<PlayerState> {
     _launchAttemptId++;
     final subscription = _launchSubscription;
     _launchSubscription = null;
-    _receivedTerminalLaunchUpdate = false;
     final completer = _launchCompleter;
     _launchCompleter = null;
     await subscription?.cancel();
@@ -538,7 +516,6 @@ class PlayerCubit extends Cubit<PlayerState> {
 
     final subscription = _launchSubscription;
     _launchSubscription = null;
-    _receivedTerminalLaunchUpdate = false;
     final completer = _launchCompleter;
     _launchCompleter = null;
 

@@ -4,7 +4,6 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:iris/features/player/data/adapters/libtorrent_engine_adapter.dart';
 import 'package:iris/features/player/data/datasources/libtorrent_player_data_source.dart';
-import 'package:iris/features/player/data/models/playback_launch_progress_model.dart';
 import 'package:iris/features/player/data/models/playback_runtime_stats_model.dart';
 import 'package:iris/features/player/data/models/playback_launch_update_model.dart';
 import 'package:iris/features/player/data/models/playback_stream_descriptor.dart';
@@ -12,82 +11,52 @@ import 'package:iris/features/player/data/models/prepared_playback_model.dart';
 import 'package:iris/features/player/data/models/prepared_player_source_model.dart';
 import 'package:iris/features/player/data/models/torrent_file_descriptor.dart';
 import 'package:iris/features/player/data/repositories/torrent_player_repository.dart';
-import 'package:iris/features/player/domain/entities/player_launch_failure.dart';
-import 'package:iris/features/player/domain/entities/player_launch_progress.dart';
 import 'package:iris/features/player/domain/entities/player_launch_update.dart';
 import 'package:iris/features/player/domain/entities/player_playback_stats.dart';
 import 'package:iris/features/player/domain/entities/player_session.dart';
 
 void main() {
-  test(
-    'maps internal launch progress into readiness progress for the player UI',
-    () async {
-      final repository = TorrentPlayerRepository(
-        dataSource: _FakePlayerDataSource(
-          launchUpdates: [
-            const PlaybackLaunchProgressUpdateModel(
-              PlaybackLaunchProgressModel(
-                bufferProgress: 0.25,
-                downloadRateBytesPerSecond: 2048,
-                stage: PlaybackLaunchStageModel.buffering,
-              ),
+  test('maps the data source launch into the domain launch', () async {
+    final repository = TorrentPlayerRepository(
+      dataSource: _FakePlayerDataSource(
+        launchUpdates: [
+          const PlaybackLaunchReadyUpdateModel(
+            PreparedPlaybackModel(
+              sessionId: '42',
+              streamUrl: 'http://127.0.0.1:8080/stream/2',
             ),
-            const PlaybackLaunchReadyUpdateModel(
-              PreparedPlaybackModel(
-                sessionId: '42',
-                streamUrl: 'http://127.0.0.1:8080/stream/2',
-              ),
-            ),
-          ],
-        ),
-      );
-
-      final updates = await repository
-          .startPlayback(sessionId: '42', fileIndex: 2)
-          .toList();
-
-      expect(updates, [
-        const PlayerLaunchProgressUpdate(
-          PlayerLaunchProgress(
-            bufferProgress: 0.5,
-            downloadRateBytesPerSecond: 2048,
-            stage: PlayerLaunchStage.preparing,
           ),
-        ),
-        const PlayerLaunchReadyUpdate(
-          PlayerSession(
-            sessionId: '42',
-            streamUrl: 'http://127.0.0.1:8080/stream/2',
-          ),
-        ),
-      ]);
-    },
-  );
+        ],
+      ),
+    );
 
-  test(
-    'maps startup buffer failure into domain startup buffer failure',
-    () async {
-      final repository = TorrentPlayerRepository(
-        dataSource: _FakePlayerDataSource(
-          launchUpdates: const [
-            PlaybackLaunchFailureUpdateModel(
-              PlaybackLaunchFailureModel.unableToPrepareStartupBuffer,
-            ),
-          ],
-        ),
-      );
+    final updates = await repository
+        .startPlayback(sessionId: '42', fileIndex: 2)
+        .toList();
 
-      final updates = await repository
-          .startPlayback(sessionId: '42', fileIndex: 2)
-          .toList();
-
-      expect(updates, const [
-        PlayerLaunchFailureUpdate(
-          PlayerLaunchFailure.unableToPrepareStartupBuffer,
+    expect(updates, [
+      const PlayerLaunchReadyUpdate(
+        PlayerSession(
+          sessionId: '42',
+          streamUrl: 'http://127.0.0.1:8080/stream/2',
         ),
-      ]);
-    },
-  );
+      ),
+    ]);
+  });
+
+  test('maps a data source launch failure into a domain failure', () async {
+    final repository = TorrentPlayerRepository(
+      dataSource: _FakePlayerDataSource(
+        launchUpdates: const [PlaybackLaunchFailureUpdateModel()],
+      ),
+    );
+
+    final updates = await repository
+        .startPlayback(sessionId: '42', fileIndex: 2)
+        .toList();
+
+    expect(updates, const [PlayerLaunchFailureUpdate()]);
+  });
 
   test(
     'maps unexpected datasource errors into generic domain launch failure',
@@ -100,9 +69,7 @@ void main() {
           .startPlayback(sessionId: '42', fileIndex: 2)
           .toList();
 
-      expect(updates, const [
-        PlayerLaunchFailureUpdate(PlayerLaunchFailure.unableToStart),
-      ]);
+      expect(updates, const [PlayerLaunchFailureUpdate()]);
     },
   );
 
