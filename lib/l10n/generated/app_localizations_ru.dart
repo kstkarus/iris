@@ -1158,7 +1158,7 @@ class AppLocalizationsRu extends AppLocalizations {
   }
 
   @override
-  String profileListNextEpisode(int episode, String when) {
+  String animeNextEpisode(int episode, String when) {
     return '$episode серия $when';
   }
 
@@ -1185,4 +1185,19 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get animeDetailsFriendsTitle => 'Друзья';
+
+  @override
+  String get animeDetailsFactNextEpisode => 'Следующая';
+
+  @override
+  String get animeDetailsFactStudio => 'Студия';
+
+  @override
+  String get animeDetailsFactGenres => 'Жанры';
+
+  @override
+  String get animeDetailsFactRating => 'Рейтинг';
+
+  @override
+  String get animeDetailsDubsTitle => 'Озвучка';
 }

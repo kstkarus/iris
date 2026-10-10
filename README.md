@@ -31,6 +31,7 @@ The app currently reads public anime data from the Shikimori GraphQL API:
 - requests are held on the client to Shikimori's limits (5 per second, 90 per minute); a `429` is retried once after `Retry-After`
 - the filter sheet narrows the catalog by type, status, genre (genres and audiences shown, the 53 themes folded), season (this and the last broadcast quarter, this and the last year, decades, before 2000), age rating and episode length; signed in, also by the user's list (any statuses, or everything except Completed), which signing out drops. Genres are read from Shikimori once a session (`AnimeGenresRepository`); if they fail to load the section is left out
 - a title page lists the rest of the franchise under Related: prequel and sequel first, then the other relations by air date; commercials, promo videos and music clips are left out, and lists longer than four rows fold after three
+- once its details load, a title page adds the next episode of an airing title (`Episode 7 in 3 days`, today or tomorrow with the time), the studios, the genres and audiences (themes are left out) and the age rating; beside a wide cover these go under the rule rather than among the facts by the cover, where the title is sized to fit and would shrink as they arrive. The dub teams Shikimori lists follow the description, folded after 12
 - air dates show as much as Shikimori knows (the year, the month and year, or the day): it fills an unknown month or day with the first one
 
 ### Shikimori Account

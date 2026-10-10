@@ -1,3 +1,4 @@
+import 'package:iris/features/anime_details/domain/entities/anime_genre_name.dart';
 import 'package:iris/features/anime_details/domain/entities/related_anime.dart';
 
 class AnimeDetails {
@@ -14,6 +15,11 @@ class AnimeDetails {
     required this.episodesAired,
     required this.airedOn,
     required this.posterOriginalUrl,
+    this.nextEpisodeAt,
+    this.rating = '',
+    this.studios = const [],
+    this.genres = const [],
+    this.fandubbers = const [],
     this.related = const [],
   });
 
@@ -31,6 +37,19 @@ class AnimeDetails {
   final int episodesAired;
   final String airedOn;
   final String posterOriginalUrl;
+
+  /// When the next episode airs, while the title is airing.
+  final DateTime? nextEpisodeAt;
+
+  /// The age rating as Shikimori names it (`pg_13`); empty when unknown.
+  final String rating;
+  final List<String> studios;
+
+  /// Genres and audiences; the themes are left out.
+  final List<AnimeGenreName> genres;
+
+  /// The dub teams.
+  final List<String> fandubbers;
 
   /// Other anime of the franchise; adaptations into manga are left out.
   final List<RelatedAnime> related;
@@ -54,6 +73,11 @@ class AnimeDetails {
         other.episodesAired == episodesAired &&
         other.airedOn == airedOn &&
         other.posterOriginalUrl == posterOriginalUrl &&
+        other.nextEpisodeAt == nextEpisodeAt &&
+        other.rating == rating &&
+        _sameItems(other.studios, studios) &&
+        _sameItems(other.genres, genres) &&
+        _sameItems(other.fandubbers, fandubbers) &&
         _sameItems(other.related, related);
   }
 
@@ -71,6 +95,11 @@ class AnimeDetails {
     episodesAired,
     airedOn,
     posterOriginalUrl,
+    nextEpisodeAt,
+    rating,
+    Object.hashAll(studios),
+    Object.hashAll(genres),
+    Object.hashAll(fandubbers),
     Object.hashAll(related),
   );
 }

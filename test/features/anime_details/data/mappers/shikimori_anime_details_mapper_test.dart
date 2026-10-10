@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:iris/features/anime_details/data/mappers/shikimori_anime_details_mapper.dart';
 import 'package:iris/features/anime_details/data/models/shikimori_anime_details_dto.dart';
 import 'package:iris/features/anime_details/domain/entities/anime_details.dart';
+import 'package:iris/features/anime_details/domain/entities/anime_genre_name.dart';
 import 'package:iris/features/anime_details/domain/entities/related_anime.dart';
 
 void main() {
@@ -50,6 +51,47 @@ void main() {
         posterOriginalUrl: 'https://shikimori.one/posters/5114/original.jpg',
       ),
     );
+  });
+
+  test('maps the studio, genres, rating, next episode and dubs', () {
+    final dto = ShikimoriAnimeDetailsDto.fromJson({
+      'id': 1,
+      'nextEpisodeAt': '2026-10-12T15:00:00+03:00',
+      'rating': 'pg_13',
+      'studios': [
+        {'name': 'Bones'},
+      ],
+      'genres': [
+        {'name': 'Action', 'russian': 'Экшен', 'kind': 'genre'},
+        {'name': 'Shounen', 'russian': 'Сёнен', 'kind': 'demographic'},
+        {'name': 'Military', 'russian': 'Военное', 'kind': 'theme'},
+      ],
+      'fandubbers': ['AniLibria', ' ', 'Studio Band '],
+    });
+
+    final details = mapShikimoriAnimeDetailsToDomain(dto);
+
+    expect(details.nextEpisodeAt, DateTime.utc(2026, 10, 12, 12));
+    expect(details.rating, 'pg_13');
+    expect(details.studios, ['Bones']);
+    expect(details.genres, const [
+      AnimeGenreName(name: 'Action', russian: 'Экшен'),
+      AnimeGenreName(name: 'Shounen', russian: 'Сёнен'),
+    ]);
+    expect(details.fandubbers, ['AniLibria', 'Studio Band']);
+  });
+
+  test('an unknown rating and no next episode map to nothing', () {
+    final details = mapShikimoriAnimeDetailsToDomain(
+      ShikimoriAnimeDetailsDto.fromJson({
+        'id': 1,
+        'rating': 'none',
+        'nextEpisodeAt': null,
+      }),
+    );
+
+    expect(details.rating, isEmpty);
+    expect(details.nextEpisodeAt, isNull);
   });
 
   test('description keeps the text of wiki links and BBCode tags', () {

@@ -83,6 +83,7 @@ AnimeDetailsPreview _listedPreview(ListedAnime anime) => AnimeDetailsPreview(
   episodesAired: anime.episodesAired,
   airedOn: anime.airedOn,
   posterUrl: anime.posterUrl,
+  nextEpisodeAt: anime.nextEpisodeAt,
 );
 
 abstract final class AppRouter {

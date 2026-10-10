@@ -13,6 +13,11 @@ class ShikimoriAnimeDetailsDto {
     required this.episodesAired,
     required this.airedOn,
     required this.poster,
+    this.nextEpisodeAt = '',
+    this.rating = '',
+    this.studios = const [],
+    this.genres = const [],
+    this.fandubbers = const [],
     this.related = const [],
   });
 
@@ -31,6 +36,17 @@ class ShikimoriAnimeDetailsDto {
   final int episodesAired;
   final ShikimoriDetailsAiredOnDto airedOn;
   final ShikimoriDetailsPosterDto poster;
+
+  /// ISO 8601; empty when there is no next episode.
+  final String nextEpisodeAt;
+
+  /// The age rating: `pg_13`, `r_plus`; `none` when unknown.
+  final String rating;
+  final List<String> studios;
+  final List<ShikimoriDetailsGenreDto> genres;
+
+  /// The dub teams.
+  final List<String> fandubbers;
   final List<ShikimoriRelatedAnimeDto> related;
 
   factory ShikimoriAnimeDetailsDto.fromJson(Map<String, dynamic> json) {
@@ -52,12 +68,49 @@ class ShikimoriAnimeDetailsDto {
       poster: ShikimoriDetailsPosterDto.fromJson(
         json['poster'] as Map<String, dynamic>? ?? const {},
       ),
+      nextEpisodeAt: json['nextEpisodeAt']?.toString() ?? '',
+      rating: json['rating']?.toString() ?? '',
+      studios: [
+        for (final studio in json['studios'] as List<dynamic>? ?? const [])
+          if (studio case {'name': final String name}) name,
+      ],
+      genres: [
+        for (final genre in json['genres'] as List<dynamic>? ?? const [])
+          if (genre is Map<String, dynamic>)
+            ShikimoriDetailsGenreDto.fromJson(genre),
+      ],
+      fandubbers: [
+        for (final name in json['fandubbers'] as List<dynamic>? ?? const [])
+          if (name is String && name.trim().isNotEmpty) name.trim(),
+      ],
       related: [
         // Relations to manga and ranobe come without an anime.
         for (final item in json['related'] as List<dynamic>? ?? const [])
           if (item case {'anime': final Map<String, dynamic> _})
             ShikimoriRelatedAnimeDto.fromJson(item as Map<String, dynamic>),
       ],
+    );
+  }
+}
+
+class ShikimoriDetailsGenreDto {
+  const ShikimoriDetailsGenreDto({
+    required this.name,
+    required this.russian,
+    required this.kind,
+  });
+
+  final String name;
+  final String russian;
+
+  /// `genre`, `demographic` or `theme`.
+  final String kind;
+
+  factory ShikimoriDetailsGenreDto.fromJson(Map<String, dynamic> json) {
+    return ShikimoriDetailsGenreDto(
+      name: json['name']?.toString() ?? '',
+      russian: json['russian']?.toString() ?? '',
+      kind: json['kind']?.toString() ?? '',
     );
   }
 }

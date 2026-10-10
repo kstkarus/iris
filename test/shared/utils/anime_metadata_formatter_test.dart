@@ -76,4 +76,10 @@ void main() {
       expect(formatNextEpisodeTime(en, now, now), isNull);
     });
   });
+
+  test('age ratings print as they are known', () {
+    expect(formatAgeRating('pg_13'), 'PG-13');
+    expect(formatAgeRating('r_plus'), 'R+');
+    expect(formatAgeRating('none'), isNull);
+  });
 }

@@ -59,6 +59,17 @@ query AnimeDetails($id: String!) {
     poster {
       originalUrl
     }
+    nextEpisodeAt
+    rating
+    studios {
+      name
+    }
+    genres {
+      name
+      russian
+      kind
+    }
+    fandubbers
     related {
       relationKind
       anime {

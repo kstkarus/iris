@@ -5,6 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:iris/features/anime_details/domain/entities/anime_details.dart';
+import 'package:iris/features/anime_details/domain/entities/anime_genre_name.dart';
 import 'package:iris/features/anime_details/domain/repositories/anime_details_repository.dart';
 import 'package:iris/features/anime_details/presentation/cubit/anime_details_cubit.dart';
 import 'package:iris/features/anime_details/presentation/models/anime_details_preview.dart';
@@ -148,6 +149,93 @@ void main() {
       ),
       findsOneWidget,
     );
+  });
+
+  testWidgets('the details add the next episode, studio, genres and rating', (
+    tester,
+  ) async {
+    final airing = AnimeDetails(
+      id: '5114',
+      name: 'Airing',
+      russian: 'Выходит',
+      description: 'About it.',
+      kind: 'tv',
+      score: 8,
+      status: 'ongoing',
+      episodes: 12,
+      episodesAired: 6,
+      airedOn: '2026-07',
+      posterOriginalUrl: '',
+      nextEpisodeAt: DateTime.now().add(const Duration(days: 3)),
+      rating: 'pg_13',
+      studios: const ['Bones', 'MAPPA'],
+      genres: const [
+        AnimeGenreName(name: 'Action', russian: 'Экшен'),
+        AnimeGenreName(name: 'Drama', russian: ''),
+      ],
+    );
+    final cubit = AnimeDetailsCubit(
+      animeId: '5114',
+      repository: _SuccessAnimeDetailsRepository(airing),
+    );
+
+    await tester.pumpWidget(_app(cubit..loadAnime(), locale: 'ru'));
+    await tester.pumpAndSettle();
+
+    for (final fact in [
+      'Следующая',
+      '7 серия через 3 дня',
+      'Студия',
+      'Bones, MAPPA',
+      'Жанры',
+      'Экшен, Drama',
+      'Рейтинг',
+      'PG-13',
+    ]) {
+      expect(find.text(fact), findsOneWidget, reason: fact);
+    }
+  });
+
+  testWidgets('a released title has no next episode; the dubs fold', (
+    tester,
+  ) async {
+    final dubs = [for (var i = 1; i <= 16; i++) 'Team $i'];
+    final cubit = AnimeDetailsCubit(
+      animeId: '5114',
+      repository: _SuccessAnimeDetailsRepository(
+        AnimeDetails(
+          id: '5114',
+          name: 'Done',
+          russian: '',
+          description: 'About it.',
+          kind: 'tv',
+          score: 8,
+          status: 'released',
+          episodes: 12,
+          episodesAired: 12,
+          airedOn: '2020',
+          posterOriginalUrl: '',
+          nextEpisodeAt: DateTime.now().add(const Duration(days: 3)),
+          fandubbers: dubs,
+        ),
+      ),
+    );
+
+    await tester.pumpWidget(_app(cubit..loadAnime()));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Next'), findsNothing);
+    expect(find.byKey(const Key('anime_details_more_facts')), findsNothing);
+    final names = find.byKey(const Key('dubs_section_names'));
+    await tester.ensureVisible(names);
+    expect(tester.widget<Text>(names).data, dubs.take(12).join(' · '));
+
+    final more = find.byKey(const Key('dubs_section_more'));
+    await tester.ensureVisible(more);
+    expect(find.text('4 more'), findsOneWidget);
+    await tester.tap(more);
+    await tester.pumpAndSettle();
+    expect(tester.widget<Text>(names).data, dubs.join(' · '));
   });
 
   testWidgets('shows localized details metadata for Russian locale', (
@@ -381,9 +469,13 @@ double _nameBelowBar(WidgetTester tester) {
   return name.bottom - tester.getRect(find.byType(AppBar)).bottom;
 }
 
-Widget _app(AnimeDetailsCubit cubit, {AnimeDetailsPreview? preview}) {
+Widget _app(
+  AnimeDetailsCubit cubit, {
+  AnimeDetailsPreview? preview,
+  String locale = 'en',
+}) {
   return MaterialApp(
-    locale: const Locale('en'),
+    locale: Locale(locale),
     localizationsDelegates: AppLocalizations.localizationsDelegates,
     supportedLocales: AppLocalizations.supportedLocales,
     home: BlocProvider.value(

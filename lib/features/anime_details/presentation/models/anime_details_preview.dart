@@ -1,4 +1,5 @@
 import 'package:iris/features/anime_details/domain/entities/anime_details.dart';
+import 'package:iris/features/anime_details/domain/entities/anime_genre_name.dart';
 import 'package:iris/features/anime_details/domain/entities/related_anime.dart';
 
 /// What a title page can show before its details load: the catalog
@@ -17,6 +18,10 @@ class AnimeDetailsPreview {
     required this.episodesAired,
     required this.airedOn,
     required this.posterUrl,
+    this.nextEpisodeAt,
+    this.rating = '',
+    this.studios = const [],
+    this.genres = const [],
   });
 
   /// The same fields of loaded details.
@@ -33,6 +38,10 @@ class AnimeDetailsPreview {
         episodesAired: details.episodesAired,
         airedOn: details.airedOn,
         posterUrl: details.posterOriginalUrl,
+        nextEpisodeAt: details.nextEpisodeAt,
+        rating: details.rating,
+        studios: details.studios,
+        genres: details.genres,
       );
 
   /// What the franchise list knows of a related title.
@@ -64,4 +73,11 @@ class AnimeDetailsPreview {
   final int episodesAired;
   final String airedOn;
   final String posterUrl;
+
+  /// The facts only the details carry; lists know at most the next
+  /// episode.
+  final DateTime? nextEpisodeAt;
+  final String rating;
+  final List<String> studios;
+  final List<AnimeGenreName> genres;
 }

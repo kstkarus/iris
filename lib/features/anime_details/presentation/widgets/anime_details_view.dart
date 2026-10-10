@@ -10,6 +10,8 @@ import 'package:iris/features/anime_details/presentation/cubit/anime_details_sta
 import 'package:iris/features/anime_details/presentation/models/anime_details_preview.dart';
 import 'package:iris/features/anime_details/presentation/widgets/headline_anchor.dart';
 import 'package:iris/features/anime_details/presentation/widgets/headline_column.dart';
+import 'package:iris/features/anime_details/domain/entities/anime_genre_name.dart';
+import 'package:iris/features/anime_details/presentation/widgets/dubs_section.dart';
 import 'package:iris/features/anime_details/presentation/widgets/friends_section.dart';
 import 'package:iris/features/anime_details/presentation/widgets/my_list_section.dart';
 import 'package:iris/features/anime_details/presentation/widgets/recently_watched_section.dart';
@@ -50,6 +52,7 @@ class AnimeDetailsView extends StatelessWidget {
             head: AnimeDetailsPreview.fromDetails(details),
             description: details.description,
             related: details.related,
+            dubs: details.fandubbers,
           ),
           // What the list already knew stays, with its way to the sources.
           AnimeDetailsFailure() when preview != null => _Content(
@@ -94,6 +97,7 @@ class _Content extends StatelessWidget {
     required this.head,
     this.description,
     this.related = const [],
+    this.dubs = const [],
     this.onRetry,
   });
 
@@ -104,6 +108,7 @@ class _Content extends StatelessWidget {
   /// Empty while loading: the list appears with the details rather than
   /// as noise of a guessed length.
   final List<RelatedAnime> related;
+  final List<String> dubs;
 
   @override
   Widget build(BuildContext context) {
@@ -120,12 +125,14 @@ class _Content extends StatelessWidget {
               head: head,
               description: description,
               related: related,
+              dubs: dubs,
               onRetry: onRetry,
             ),
             _ => _TwoPaneLayout(
               head: head,
               description: description,
               related: related,
+              dubs: dubs,
               onRetry: onRetry,
               posterWidth: sizeClass.isAtLeast(WindowSizeClass.large)
                   ? 320
@@ -173,12 +180,14 @@ class _CompactLayout extends StatelessWidget {
     required this.head,
     required this.description,
     required this.related,
+    required this.dubs,
     required this.onRetry,
   });
 
   final AnimeDetailsPreview head;
   final String? description;
   final List<RelatedAnime> related;
+  final List<String> dubs;
   final VoidCallback? onRetry;
 
   @override
@@ -198,11 +207,13 @@ class _CompactLayout extends StatelessWidget {
           _WatchSourcesButton(head: head),
           const SizedBox(height: 28),
           _Facts(head: head, labelWidth: 96),
+          _MoreFacts(head: head, labelWidth: 96),
           const SizedBox(height: 40),
           const Skeleton.keep(child: BlockRule(height: 10)),
           MyListSection(totalEpisodes: head.episodes),
           RecentlyWatchedSection(animeId: head.id),
           _Description(description: description, onRetry: onRetry),
+          DubsSection(dubs: dubs),
           RelatedAnimeSection(related: related),
           // Last: it arrives a while after the page, and shifts nothing.
           FriendsSection(totalEpisodes: head.episodes),
@@ -220,6 +231,7 @@ class _TwoPaneLayout extends StatelessWidget {
     required this.head,
     required this.description,
     required this.related,
+    required this.dubs,
     required this.posterWidth,
     required this.titleSize,
     required this.onRetry,
@@ -233,6 +245,7 @@ class _TwoPaneLayout extends StatelessWidget {
   final AnimeDetailsPreview head;
   final String? description;
   final List<RelatedAnime> related;
+  final List<String> dubs;
   final double posterWidth;
   final double titleSize;
   final VoidCallback? onRetry;
@@ -296,6 +309,7 @@ class _TwoPaneLayout extends StatelessWidget {
           ),
           const SizedBox(height: 48),
           const Skeleton.keep(child: BlockRule()),
+          _MoreFacts(head: head, labelWidth: labelWidth, top: 40),
           MyListSection(totalEpisodes: head.episodes, labelWidth: labelWidth),
           RecentlyWatchedSection(animeId: head.id, labelWidth: labelWidth),
           _Description(
@@ -303,6 +317,7 @@ class _TwoPaneLayout extends StatelessWidget {
             labelWidth: labelWidth,
             onRetry: onRetry,
           ),
+          DubsSection(dubs: dubs, labelWidth: labelWidth),
           RelatedAnimeSection(related: related, labelWidth: labelWidth),
           FriendsSection(totalEpisodes: head.episodes, labelWidth: labelWidth),
         ],
@@ -387,6 +402,67 @@ class _Facts extends StatelessWidget {
     );
   }
 }
+
+/// The facts only the details carry: the next episode, studio, genres and
+/// age rating. Kept apart from [_Facts] beside a wide cover, where the
+/// title is sized to the facts and would shrink when these arrive.
+class _MoreFacts extends StatelessWidget {
+  const _MoreFacts({
+    required this.head,
+    required this.labelWidth,
+    this.top = 0,
+  });
+
+  final AnimeDetailsPreview head;
+  final double labelWidth;
+
+  /// Space above, when there is anything to show.
+  final double top;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final rows = [
+      ?_nextEpisodeRow(l10n, head),
+      if (head.studios.isNotEmpty)
+        SpecRow(l10n.animeDetailsFactStudio, head.studios.join(', ')),
+      if (head.genres.isNotEmpty)
+        SpecRow(
+          l10n.animeDetailsFactGenres,
+          [for (final genre in head.genres) _genreName(l10n, genre)].join(', '),
+        ),
+      if (formatAgeRating(head.rating) case final rating?)
+        SpecRow(l10n.animeDetailsFactRating, rating),
+    ];
+    if (rows.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: EdgeInsets.only(top: top),
+      child: SpecTable(
+        key: const Key('anime_details_more_facts'),
+        labelWidth: labelWidth,
+        rows: rows,
+      ),
+    );
+  }
+}
+
+/// The next episode of an airing title, while its date is ahead.
+SpecRow? _nextEpisodeRow(AppLocalizations l10n, AnimeDetailsPreview head) {
+  final at = head.nextEpisodeAt;
+  if (head.status != 'ongoing' || at == null) return null;
+  final when = formatNextEpisodeTime(l10n, at, DateTime.now());
+  if (when == null) return null;
+  return SpecRow(
+    l10n.animeDetailsFactNextEpisode,
+    l10n.animeNextEpisode(head.episodesAired + 1, when),
+  );
+}
+
+/// The Russian name in Russian, where there is one.
+String _genreName(AppLocalizations l10n, AnimeGenreName genre) =>
+    l10n.localeName == 'ru' && genre.russian.isNotEmpty
+    ? genre.russian
+    : genre.name;
 
 /// The total for finished titles, aired of total while a title is airing.
 String? _episodesValue(AppLocalizations l10n, AnimeDetailsPreview head) {

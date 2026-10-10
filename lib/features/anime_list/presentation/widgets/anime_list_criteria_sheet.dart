@@ -10,6 +10,7 @@ import 'package:iris/features/anime_list/presentation/bloc/anime_list_bloc.dart'
 import 'package:iris/features/anime_list/presentation/bloc/anime_list_event.dart';
 import 'package:iris/features/anime_list/presentation/cubit/anime_genres_cubit.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
+import 'package:iris/shared/utils/anime_metadata_formatter.dart';
 import 'package:iris/shared/widgets/adaptive/show_adaptive_sheet.dart';
 import 'package:iris/shared/widgets/option_toggle.dart';
 import 'package:iris/shared/widgets/section_label.dart';
@@ -408,13 +409,8 @@ String animeStatusFilterLabel(AppLocalizations l10n, AnimeStatusFilter status) {
   }
 }
 
-String animeRatingFilterLabel(AnimeRatingFilter rating) => switch (rating) {
-  AnimeRatingFilter.g => 'G',
-  AnimeRatingFilter.pg => 'PG',
-  AnimeRatingFilter.pg13 => 'PG-13',
-  AnimeRatingFilter.r => 'R-17',
-  AnimeRatingFilter.rPlus => 'R+',
-};
+String animeRatingFilterLabel(AnimeRatingFilter rating) =>
+    formatAgeRating(rating.apiValue) ?? rating.apiValue;
 
 String animeDurationFilterLabel(
   AppLocalizations l10n,

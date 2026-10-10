@@ -301,7 +301,7 @@ class _EntryRow extends StatelessWidget {
     if (anime.status != 'ongoing' || at == null) return null;
     final when = formatNextEpisodeTime(l10n, at, DateTime.now());
     if (when == null) return null;
-    return l10n.profileListNextEpisode(anime.episodesAired + 1, when);
+    return l10n.animeNextEpisode(anime.episodesAired + 1, when);
   }
 }
 

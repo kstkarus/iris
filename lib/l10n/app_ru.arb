@@ -404,7 +404,7 @@
   "animeNextEpisodeToday": "сегодня в {time}",
   "animeNextEpisodeTomorrow": "завтра в {time}",
   "animeNextEpisodeInDays": "через {count, plural, one{{count} день} few{{count} дня} many{{count} дней} other{{count} дня}}",
-  "profileListNextEpisode": "{episode} серия {when}",
+  "animeNextEpisode": "{episode} серия {when}",
   "profileListEmpty": "Здесь пока пусто.",
   "profileListLoadError": "Список не загрузился.",
   "profileListLoading": "Загружаем список",
@@ -412,5 +412,10 @@
   "profileFriendsEmpty": "На Шикимори пока нет друзей.",
   "profileFriendsLoadError": "Друзья не загрузились.",
   "profileFriendsLoading": "Загружаем друзей",
-  "animeDetailsFriendsTitle": "Друзья"
+  "animeDetailsFriendsTitle": "Друзья",
+  "animeDetailsFactNextEpisode": "Следующая",
+  "animeDetailsFactStudio": "Студия",
+  "animeDetailsFactGenres": "Жанры",
+  "animeDetailsFactRating": "Рейтинг",
+  "animeDetailsDubsTitle": "Озвучка"
 }

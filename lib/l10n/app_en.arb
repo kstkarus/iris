@@ -726,8 +726,8 @@
       }
     }
   },
-  "profileListNextEpisode": "Episode {episode} {when}",
-  "@profileListNextEpisode": {
+  "animeNextEpisode": "Episode {episode} {when}",
+  "@animeNextEpisode": {
     "placeholders": {
       "episode": {
         "type": "int"
@@ -744,5 +744,10 @@
   "profileFriendsEmpty": "No friends on Shikimori yet.",
   "profileFriendsLoadError": "Friends did not load.",
   "profileFriendsLoading": "Loading friends",
-  "animeDetailsFriendsTitle": "Friends"
+  "animeDetailsFriendsTitle": "Friends",
+  "animeDetailsFactNextEpisode": "Next",
+  "animeDetailsFactStudio": "Studio",
+  "animeDetailsFactGenres": "Genres",
+  "animeDetailsFactRating": "Rated",
+  "animeDetailsDubsTitle": "Dubs"
 }

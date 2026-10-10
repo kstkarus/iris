@@ -2024,11 +2024,11 @@ abstract class AppLocalizations {
   /// **'in {count, plural, one{{count} day} other{{count} days}}'**
   String animeNextEpisodeInDays(int count);
 
-  /// No description provided for @profileListNextEpisode.
+  /// No description provided for @animeNextEpisode.
   ///
   /// In en, this message translates to:
   /// **'Episode {episode} {when}'**
-  String profileListNextEpisode(int episode, String when);
+  String animeNextEpisode(int episode, String when);
 
   /// No description provided for @profileListEmpty.
   ///
@@ -2077,6 +2077,36 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Friends'**
   String get animeDetailsFriendsTitle;
+
+  /// No description provided for @animeDetailsFactNextEpisode.
+  ///
+  /// In en, this message translates to:
+  /// **'Next'**
+  String get animeDetailsFactNextEpisode;
+
+  /// No description provided for @animeDetailsFactStudio.
+  ///
+  /// In en, this message translates to:
+  /// **'Studio'**
+  String get animeDetailsFactStudio;
+
+  /// No description provided for @animeDetailsFactGenres.
+  ///
+  /// In en, this message translates to:
+  /// **'Genres'**
+  String get animeDetailsFactGenres;
+
+  /// No description provided for @animeDetailsFactRating.
+  ///
+  /// In en, this message translates to:
+  /// **'Rated'**
+  String get animeDetailsFactRating;
+
+  /// No description provided for @animeDetailsDubsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Dubs'**
+  String get animeDetailsDubsTitle;
 }
 
 class _AppLocalizationsDelegate

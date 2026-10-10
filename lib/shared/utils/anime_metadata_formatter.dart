@@ -130,3 +130,15 @@ String? formatNextEpisodeTime(
     final count => l10n.animeNextEpisodeInDays(count),
   };
 }
+
+/// The age rating as it is printed (`PG-13`); null for one Shikimori does
+/// not know.
+String? formatAgeRating(String rating) => switch (rating) {
+  'g' => 'G',
+  'pg' => 'PG',
+  'pg_13' => 'PG-13',
+  'r' => 'R-17',
+  'r_plus' => 'R+',
+  'rx' => 'Rx',
+  _ => null,
+};

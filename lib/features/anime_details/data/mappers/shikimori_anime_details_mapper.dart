@@ -1,5 +1,6 @@
 import 'package:iris/features/anime_details/data/models/shikimori_anime_details_dto.dart';
 import 'package:iris/features/anime_details/domain/entities/anime_details.dart';
+import 'package:iris/features/anime_details/domain/entities/anime_genre_name.dart';
 import 'package:iris/features/anime_details/domain/entities/related_anime.dart';
 import 'package:iris/shared/utils/incomplete_date.dart';
 
@@ -22,6 +23,16 @@ AnimeDetails mapShikimoriAnimeDetailsToDomain(ShikimoriAnimeDetailsDto dto) {
     episodesAired: normalizedEpisodesAired,
     airedOn: _airedOn(dto.airedOn),
     posterOriginalUrl: dto.poster.originalUrl,
+    nextEpisodeAt: DateTime.tryParse(dto.nextEpisodeAt),
+    rating: dto.rating == 'none' ? '' : dto.rating,
+    studios: dto.studios,
+    genres: [
+      // Themes (school, military) are many and say little at a glance.
+      for (final genre in dto.genres)
+        if (genre.kind != 'theme' && genre.name.isNotEmpty)
+          AnimeGenreName(name: genre.name, russian: genre.russian),
+    ],
+    fandubbers: dto.fandubbers,
     related: [for (final item in dto.related) _mapRelated(item)],
   );
 }
