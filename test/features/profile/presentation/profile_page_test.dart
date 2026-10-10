@@ -28,6 +28,7 @@ void main() {
   late List<UserListEntry> opened;
   late FakeFriendsRepository friends;
   late List<Friend> openedFriends;
+  late int catalogOpens;
 
   setUp(() {
     lists = FakeUserListRepository({
@@ -41,6 +42,7 @@ void main() {
     opened = [];
     friends = FakeFriendsRepository(list: [testFriend('7')]);
     openedFriends = [];
+    catalogOpens = 0;
   });
 
   Future<AuthCubit> pumpPage(
@@ -75,6 +77,7 @@ void main() {
             child: ProfilePage(
               onOpenAnime: opened.add,
               onOpenFriend: openedFriends.add,
+              onBrowseCatalog: () => catalogOpens++,
             ),
           ),
         ),
@@ -208,6 +211,17 @@ void main() {
 
     expect(find.text('Nothing in “Dropped”'), findsOneWidget);
     expect(find.text('The status is set on an anime’s page.'), findsOneWidget);
+    // Nobody looks for something to drop.
+    expect(find.byKey(UserListView.browseCatalogKey), findsNothing);
+  });
+
+  testWidgets('an empty Watching list leads to the catalog', (tester) async {
+    lists.lists.remove(UserRateStatus.watching);
+    await pumpPage(tester, FakeAuthRepository(restored: testAccount));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(UserListView.browseCatalogKey));
+    expect(catalogOpens, 1);
   });
 
   testWidgets('a list that did not load can be tried again', (tester) async {

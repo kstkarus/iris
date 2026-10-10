@@ -427,5 +427,6 @@
   "profileListTab": "Список",
   "profileListEmptyHint": "Статус ставится на странице аниме.",
   "profileListProgress": "{watched} из {total} эп.",
-  "profileListWatched": "{watched} эп."
+  "profileListWatched": "{watched} эп.",
+  "profileListBrowseCatalog": "Открыть каталог"
 }

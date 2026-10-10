@@ -266,6 +266,7 @@ abstract final class AppRouter {
                             pathParameters: {'id': friend.id},
                             extra: friend,
                           ),
+                          onBrowseCatalog: () => context.goNamed('anime-list'),
                         ),
                       ),
                     );

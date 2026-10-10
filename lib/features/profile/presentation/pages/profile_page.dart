@@ -23,6 +23,7 @@ class ProfilePage extends StatelessWidget {
   const ProfilePage({
     required this.onOpenAnime,
     required this.onOpenFriend,
+    required this.onBrowseCatalog,
     super.key,
   });
 
@@ -31,6 +32,7 @@ class ProfilePage extends StatelessWidget {
 
   final ValueChanged<UserListEntry> onOpenAnime;
   final ValueChanged<Friend> onOpenFriend;
+  final VoidCallback onBrowseCatalog;
 
   @override
   Widget build(BuildContext context) {
@@ -54,6 +56,7 @@ class ProfilePage extends StatelessWidget {
                 header: _Account(account: account),
                 onOpen: onOpenAnime,
                 onOpenFriend: onOpenFriend,
+                onBrowseCatalog: onBrowseCatalog,
                 mine: true,
               ),
             },
@@ -109,9 +112,12 @@ class _Account extends StatelessWidget {
       nickname: account.nickname,
       avatarUrl: account.avatarUrl,
       // Rare, and costly to undo (signing in again goes through the
-      // browser): a quiet button out of the way of the list.
+      // browser): a quiet grey button out of the way of the list.
       trailing: TextButton(
         key: ProfilePage.signOutButtonKey,
+        style: TextButton.styleFrom(
+          foregroundColor: Theme.of(context).colorScheme.onSurfaceVariant,
+        ),
         onPressed: context.read<AuthCubit>().signOut,
         child: Text(l10n.profileSignOut),
       ),

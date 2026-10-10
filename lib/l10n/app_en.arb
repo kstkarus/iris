@@ -805,5 +805,6 @@
         "example": "Ctrl+V"
       }
     }
-  }
+  },
+  "profileListBrowseCatalog": "Browse the catalog"
 }

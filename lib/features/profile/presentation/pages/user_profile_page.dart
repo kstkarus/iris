@@ -22,11 +22,13 @@ class UserProfilePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final margin = WindowSizeClass.of(context).pageMargin;
+    final sizeClass = WindowSizeClass.of(context);
+    final margin = sizeClass.pageMargin;
     return Scaffold(
       appBar: const FramedAppBar(),
       body: Padding(
-        padding: EdgeInsets.symmetric(horizontal: margin),
+        // The same gap above the header as on the Profile tab.
+        padding: EdgeInsets.fromLTRB(margin, sizeClass.pageTop, margin, 0),
         child: MaxWidthBox(
           maxWidth: AdaptiveContentWidth.page,
           child: UserListView(

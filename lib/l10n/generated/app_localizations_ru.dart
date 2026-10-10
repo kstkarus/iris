@@ -1243,4 +1243,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String profileListWatched(int watched) {
     return '$watched эп.';
   }
+
+  @override
+  String get profileListBrowseCatalog => 'Открыть каталог';
 }

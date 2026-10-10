@@ -2167,6 +2167,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{watched} ep.'**
   String profileListWatched(int watched);
+
+  /// No description provided for @profileListBrowseCatalog.
+  ///
+  /// In en, this message translates to:
+  /// **'Browse the catalog'**
+  String get profileListBrowseCatalog;
 }
 
 class _AppLocalizationsDelegate

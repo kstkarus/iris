@@ -43,6 +43,7 @@ class UserListView extends StatefulWidget {
     required this.header,
     required this.onOpen,
     this.onOpenFriend,
+    this.onBrowseCatalog,
     this.mine = false,
     super.key,
   });
@@ -50,6 +51,7 @@ class UserListView extends StatefulWidget {
   static const statusButtonKey = Key('user_list_status_button');
   static const listTabKey = Key('user_list_tab_list');
   static const friendsTabKey = Key('user_list_tab_friends');
+  static const browseCatalogKey = Key('user_list_browse_catalog');
 
   /// The rest of the page loads this far from the end.
   static const _loadMoreExtent = 600.0;
@@ -57,6 +59,10 @@ class UserListView extends StatefulWidget {
   final Widget header;
   final ValueChanged<UserListEntry> onOpen;
   final ValueChanged<Friend>? onOpenFriend;
+
+  /// Where an empty Watching or Planned list leads: the catalog, to find
+  /// something to put there.
+  final VoidCallback? onBrowseCatalog;
 
   /// The signed-in user's own list: rows show what was changed since it
   /// was read (the rate book), and leave a status their anime has left.
@@ -111,6 +117,21 @@ class _UserListViewState extends State<UserListView> {
     );
   }
 
+  /// Only where an empty list is a gap to fill: nobody looks for
+  /// something to drop.
+  Widget? _browseCatalog(BuildContext context, UserRateStatus status) {
+    final onBrowse = widget.onBrowseCatalog;
+    if (onBrowse == null) return null;
+    if (status != UserRateStatus.watching && status != UserRateStatus.planned) {
+      return null;
+    }
+    return OutlinedButton(
+      key: UserListView.browseCatalogKey,
+      onPressed: onBrowse,
+      child: Text(AppLocalizations.of(context).profileListBrowseCatalog),
+    );
+  }
+
   List<Widget> _content(BuildContext context, UserListState state) {
     final l10n = AppLocalizations.of(context);
     final retry = context.read<UserListCubit>().retry;
@@ -136,6 +157,7 @@ class _UserListViewState extends State<UserListView> {
               ? MessageView(
                   title: l10n.profileListEmpty(status),
                   message: l10n.profileListEmptyHint,
+                  action: _browseCatalog(context, state.status),
                 )
               : MessageView(message: l10n.profileListEmpty(status)),
         ),
@@ -202,7 +224,8 @@ class _Bar extends StatelessWidget {
     required this.sections,
   });
 
-  /// [MarkedTab]'s own padding, pulled back over the page margin.
+  /// [MarkedTab]'s and the menu button's own padding, pulled back over the
+  /// page margin.
   static const _inset = 10.0;
 
   /// The same with or without the status menu, so switching to the
@@ -231,37 +254,43 @@ class _Bar extends StatelessWidget {
         children: [
           ConstrainedBox(
             constraints: const BoxConstraints(minHeight: _height),
-            child: Row(
-              children: [
-                if (sections != null)
-                  Transform.translate(
-                    offset: const Offset(-_inset, 0),
-                    child: Row(
-                      children: [
-                        MarkedTab(
-                          key: UserListView.listTabKey,
-                          label: l10n.profileListTab,
-                          selected: status != null,
-                          onTap: sections.onList,
-                        ),
-                        MarkedTab(
-                          key: UserListView.friendsTabKey,
-                          label: l10n.profileFriendsTab,
-                          selected: status == null,
-                          onTap: sections.onFriends,
-                        ),
-                      ],
+            // Everything starts at the margin and stays together: the menu
+            // filters the list, so it sits beside the tabs, not across a
+            // wide window from them.
+            child: Transform.translate(
+              offset: const Offset(-_inset, 0),
+              child: Row(
+                children: [
+                  if (sections != null) ...[
+                    MarkedTab(
+                      key: UserListView.listTabKey,
+                      label: l10n.profileListTab,
+                      selected: status != null,
+                      onTap: sections.onList,
                     ),
-                  ),
-                // Beside the tabs it ends the row; alone, it starts it.
-                if (sections != null) const Spacer(),
-                if (status != null)
-                  _StatusMenu(
-                    status: status,
-                    onSelected: onStatus,
-                    leading: sections == null,
-                  ),
-              ],
+                    MarkedTab(
+                      key: UserListView.friendsTabKey,
+                      label: l10n.profileFriendsTab,
+                      selected: status == null,
+                      onTap: sections.onFriends,
+                    ),
+                    if (status != null)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        child: SizedBox(
+                          height: 16,
+                          child: VerticalDivider(
+                            width: 1,
+                            thickness: 1,
+                            color: scheme.outline,
+                          ),
+                        ),
+                      ),
+                  ],
+                  if (status != null)
+                    _StatusMenu(status: status, onSelected: onStatus),
+                ],
+              ),
             ),
           ),
           Divider(height: 1, thickness: 1, color: scheme.outlineVariant),
@@ -273,54 +302,41 @@ class _Bar extends StatelessWidget {
 
 /// The shown status, which opens the list of statuses.
 class _StatusMenu extends StatelessWidget {
-  const _StatusMenu({
-    required this.status,
-    required this.onSelected,
-    required this.leading,
-  });
-
-  /// The button's own padding, pulled back over the page margin.
-  static const _inset = 12.0;
+  const _StatusMenu({required this.status, required this.onSelected});
 
   final UserRateStatus status;
   final ValueChanged<UserRateStatus> onSelected;
 
-  /// At the start of the bar rather than its end.
-  final bool leading;
-
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    return Transform.translate(
-      offset: Offset(leading ? -_inset : _inset, 0),
-      child: MenuAnchor(
-        alignmentOffset: const Offset(0, 4),
-        menuChildren: [
-          for (final option in userListStatuses)
-            MenuItemButton(
-              key: ValueKey('user_list_status_${option.name}'),
-              onPressed: () => onSelected(option),
-              leadingIcon: SizedBox.square(
-                dimension: 14,
-                child: option == status
-                    ? const PixelIcon(PixelGlyph.check, size: 14)
-                    : null,
-              ),
-              child: Text(userRateStatusLabel(l10n, option)),
+    return MenuAnchor(
+      alignmentOffset: const Offset(0, 4),
+      menuChildren: [
+        for (final option in userListStatuses)
+          MenuItemButton(
+            key: ValueKey('user_list_status_${option.name}'),
+            onPressed: () => onSelected(option),
+            leadingIcon: SizedBox.square(
+              dimension: 14,
+              child: option == status
+                  ? const PixelIcon(PixelGlyph.check, size: 14)
+                  : null,
             ),
-        ],
-        builder: (context, controller, _) => TextButton(
-          key: UserListView.statusButtonKey,
-          onPressed: () =>
-              controller.isOpen ? controller.close() : controller.open(),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(userRateStatusLabel(l10n, status)),
-              const SizedBox(width: 8),
-              const PixelIcon(PixelGlyph.expand, size: 10),
-            ],
+            child: Text(userRateStatusLabel(l10n, option)),
           ),
+      ],
+      builder: (context, controller, _) => TextButton(
+        key: UserListView.statusButtonKey,
+        onPressed: () =>
+            controller.isOpen ? controller.close() : controller.open(),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(userRateStatusLabel(l10n, status)),
+            const SizedBox(width: 8),
+            const PixelIcon(PixelGlyph.expand, size: 10),
+          ],
         ),
       ),
     );

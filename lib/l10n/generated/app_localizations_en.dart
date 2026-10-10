@@ -1227,4 +1227,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String profileListWatched(int watched) {
     return '$watched ep.';
   }
+
+  @override
+  String get profileListBrowseCatalog => 'Browse the catalog';
 }
