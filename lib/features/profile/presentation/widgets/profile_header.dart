@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import 'package:iris/shared/widgets/adaptive/window_size_class.dart';
 import 'package:iris/shared/widgets/display_title.dart';
-import 'package:iris/shared/widgets/segmented_bar.dart';
 import 'package:iris/shared/widgets/square_avatar.dart';
 
 /// Whose list the page shows: the picture beside the name, which is the
@@ -32,8 +31,6 @@ class ProfileHeader extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const BlockRule(),
-          SizedBox(height: compact ? 20 : 28),
           Row(
             children: [
               if (avatarUrl.isNotEmpty) ...[

@@ -26,7 +26,6 @@ import 'package:iris/shared/widgets/display_title.dart';
 import 'package:iris/shared/widgets/pixel_icon.dart';
 import 'package:iris/shared/widgets/search_field.dart';
 import 'package:iris/shared/widgets/search_toolbar.dart';
-import 'package:iris/shared/widgets/segmented_bar.dart';
 import 'package:iris/shared/widgets/status_views.dart';
 
 /// The catalog under a search field.
@@ -439,8 +438,8 @@ class _ResultsPane extends StatelessWidget {
   }
 }
 
-/// The catalog's one big word: what the list below is, by its order,
-/// opened by a heavy rule. Active filters follow it in small type. When the
+/// The catalog's one big word: what the list below is, by its order.
+/// Active filters follow it in small type. When the
 /// order or filters change, the words dissolve into the new ones while the
 /// grid below turns to noise.
 class _CatalogHeading extends StatelessWidget {
@@ -462,8 +461,6 @@ class _CatalogHeading extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const BlockRule(),
-        SizedBox(height: compact ? 20 : 28),
         DitherSwitcher(
           child: Column(
             key: ValueKey((heading, filters.join())),

@@ -384,9 +384,11 @@ class _EntryRow extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // Two lines: a season and its film often share the
+                  // first one (`Kono Subarashii Sekai ni Shukufuku…`).
                   Text(
                     anime.name,
-                    maxLines: 1,
+                    maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: theme.textTheme.titleSmall,
                   ),

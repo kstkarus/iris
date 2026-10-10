@@ -85,34 +85,6 @@ class SegmentedBar extends StatelessWidget {
   }
 }
 
-/// A heavy rule of solid blocks that opens a major part of a page, where a
-/// hairline would be too quiet.
-class BlockRule extends StatelessWidget {
-  const BlockRule({this.height = 12, super.key});
-
-  final double height;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return ExcludeSemantics(
-      child: SizedBox(
-        height: height,
-        width: double.infinity,
-        child: CustomPaint(
-          painter: _SegmentsPainter(
-            filled: 1,
-            segment: 84,
-            gap: 4,
-            color: scheme.onSurface.withValues(alpha: 0.86),
-            trackColor: Colors.transparent,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 /// A thin dashed separator: long dashes with short gaps, the rule that
 /// divides rows and table cells.
 class SegmentedRule extends StatelessWidget {

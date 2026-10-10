@@ -26,7 +26,6 @@ import 'package:iris/shared/widgets/poster_image.dart';
 import 'package:iris/shared/widgets/display_title.dart';
 import 'package:iris/shared/widgets/dithered_image.dart';
 import 'package:iris/shared/widgets/labeled_section.dart';
-import 'package:iris/shared/widgets/segmented_bar.dart';
 import 'package:iris/shared/widgets/spec_table.dart';
 import 'package:iris/shared/widgets/status_views.dart';
 
@@ -209,7 +208,6 @@ class _CompactLayout extends StatelessWidget {
           _Facts(head: head, labelWidth: 96),
           _MoreFacts(head: head, labelWidth: 96),
           const SizedBox(height: 40),
-          const Skeleton.keep(child: BlockRule(height: 10)),
           MyListSection(totalEpisodes: head.episodes),
           RecentlyWatchedSection(animeId: head.id),
           _Description(description: description, onRetry: onRetry),
@@ -308,7 +306,6 @@ class _TwoPaneLayout extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 48),
-          const Skeleton.keep(child: BlockRule()),
           _MoreFacts(head: head, labelWidth: labelWidth, top: 40),
           MyListSection(totalEpisodes: head.episodes, labelWidth: labelWidth),
           RecentlyWatchedSection(animeId: head.id, labelWidth: labelWidth),
