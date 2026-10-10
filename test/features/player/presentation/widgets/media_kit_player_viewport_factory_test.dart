@@ -166,6 +166,157 @@ void main() {
     },
   );
 
+  testWidgets('a hiccup mpv gets over is not shown as an error', (
+    tester,
+  ) async {
+    final firstFrameCompleter = Completer<void>();
+    final platformPlayer = _FakePlatformPlayer(
+      configuration: const PlayerConfiguration(),
+    );
+
+    await tester.pumpWidget(
+      _wrapViewport(
+        platformPlayer: platformPlayer,
+        firstFrameFuture: firstFrameCompleter.future,
+      ),
+    );
+    await tester.pump();
+
+    // A segment that did not load; mpv still has the file.
+    platformPlayer.emitError('tcp: ffurl_read returned 0xffffff99');
+    await tester.pump(const Duration(seconds: 3));
+    expect(find.text('Unable to start playback.'), findsNothing);
+
+    firstFrameCompleter.complete();
+    await tester.pump();
+    expect(find.text('Unable to start playback.'), findsNothing);
+    expect(platformPlayer.pauseCount, 0);
+  });
+
+  testWidgets('an error that ends the file is shown, with nothing behind it', (
+    tester,
+  ) async {
+    final platformPlayer = _FakePlatformPlayer(
+      configuration: const PlayerConfiguration(),
+    );
+
+    await tester.pumpWidget(
+      _wrapViewport(
+        platformPlayer: platformPlayer,
+        firstFrameFuture: Completer<void>().future,
+      ),
+    );
+    await tester.pump();
+
+    platformPlayer
+      ..emitError('Failed to recognize file format.')
+      ..nativeProperties['idle-active'] = 'yes';
+    await tester.pump(const Duration(seconds: 3));
+
+    expect(find.text('Unable to start playback.'), findsOneWidget);
+    expect(platformPlayer.pauseCount, 1);
+  });
+
+  testWidgets('retry after a failure goes on from where it stopped', (
+    tester,
+  ) async {
+    final platformPlayer = _FakePlatformPlayer(
+      configuration: const PlayerConfiguration(),
+    );
+
+    await tester.pumpWidget(_wrapViewport(platformPlayer: platformPlayer));
+    await tester.pump();
+    platformPlayer.emitPosition(const Duration(minutes: 2));
+    await _deliverPlayerEvent(tester);
+
+    platformPlayer
+      ..emitError('tcp: Connection reset by peer')
+      ..nativeProperties['idle-active'] = 'yes';
+    await tester.pump(const Duration(seconds: 3));
+    expect(find.text('Unable to start playback.'), findsOneWidget);
+
+    await tester.tap(find.text('Try Again'));
+    await tester.pump();
+
+    expect(platformPlayer.openCount, 2);
+    expect(
+      (platformPlayer.lastOpened! as Media).start,
+      const Duration(minutes: 2),
+    );
+  });
+
+  testWidgets('a stream mpv opens at the start is sent where it should be', (
+    tester,
+  ) async {
+    final platformPlayer = _FakePlatformPlayer(
+      configuration: const PlayerConfiguration(),
+    );
+
+    await tester.pumpWidget(_wrapViewport(platformPlayer: platformPlayer));
+    await tester.pump();
+    platformPlayer.emitPosition(const Duration(minutes: 2));
+    await _deliverPlayerEvent(tester);
+    platformPlayer
+      ..emitError('tcp: Connection reset by peer')
+      ..nativeProperties['idle-active'] = 'yes';
+    await tester.pump(const Duration(seconds: 3));
+
+    // mpv takes no notice of the start position and plays from 0.
+    platformPlayer.nativeProperties['time-pos'] = '0.000000';
+    await tester.tap(find.text('Try Again'));
+    await _deliverPlayerEvent(tester);
+    await tester.pump();
+
+    expect(platformPlayer.seeks, [const Duration(minutes: 2)]);
+  });
+
+  testWidgets('a stream opened where it should be is not sought again', (
+    tester,
+  ) async {
+    final platformPlayer = _FakePlatformPlayer(
+      configuration: const PlayerConfiguration(),
+    );
+
+    await tester.pumpWidget(_wrapViewport(platformPlayer: platformPlayer));
+    await tester.pump();
+    platformPlayer.emitPosition(const Duration(minutes: 2));
+    await _deliverPlayerEvent(tester);
+    platformPlayer
+      ..emitError('tcp: Connection reset by peer')
+      ..nativeProperties['idle-active'] = 'yes';
+    await tester.pump(const Duration(seconds: 3));
+
+    platformPlayer.nativeProperties['time-pos'] = '120.040000';
+    await tester.tap(find.text('Try Again'));
+    await _deliverPlayerEvent(tester);
+    await tester.pump();
+
+    expect(platformPlayer.seeks, isEmpty);
+  });
+
+  testWidgets('nothing plays behind the first-frame timeout', (tester) async {
+    final platformPlayer = _FakePlatformPlayer(
+      configuration: const PlayerConfiguration(),
+    );
+
+    await tester.pumpWidget(
+      _wrapViewport(
+        platformPlayer: platformPlayer,
+        firstFrameFuture: Completer<void>().future,
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 46));
+
+    expect(
+      find.text(
+        'The stream is open, but the player could not prepare the first frame.',
+      ),
+      findsOneWidget,
+    );
+    expect(platformPlayer.pauseCount, 1);
+  });
+
   testWidgets(
     'shows only startup status on the overlay while waiting for the first frame',
     (tester) async {
@@ -1865,13 +2016,8 @@ void main() {
           )
           .opacity;
       expect(find.text('Unable to start playback.'), findsOneWidget);
-      expect(controlsOpacity(), 0);
-
-      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
-      addTearDown(mouse.removePointer);
-      await mouse.addPointer(location: const Offset(400, 300));
-      await mouse.moveTo(const Offset(410, 300));
-      await tester.pump();
+      // mpv is paused behind the failure, so the controls come up with it.
+      await _deliverPlayerEvent(tester);
       expect(controlsOpacity(), 1);
 
       expect(
@@ -2356,6 +2502,17 @@ class _FakePlatformPlayer extends PlatformPlayer {
   void emitCompleted() {
     state = state.copyWith(completed: true);
     completedController.add(true);
+  }
+
+  /// An error line of mpv's log, as media_kit passes it on.
+  void emitError(String text) => errorController.add(text);
+
+  int pauseCount = 0;
+
+  @override
+  Future<void> pause() async {
+    pauseCount++;
+    emitPlaying(false);
   }
 
   void emitTracks(Tracks tracks) {

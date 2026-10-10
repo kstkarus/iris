@@ -114,6 +114,7 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
     MediaKitFirstFrameAwaiter? firstFrameAwaiter,
     this.startupTimeout = const Duration(seconds: 45),
     this.stopTimeout = const Duration(seconds: 3),
+    this.errorGrace = const Duration(seconds: 2),
   }) : _repository = repository,
        _playerBuilder = playerBuilder ?? _defaultPlayerBuilder,
        _videoControllerBuilder =
@@ -143,6 +144,10 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
   /// the player instead.
   final Duration stopTimeout;
 
+  /// How long after an error mpv logs the file is checked: the file it
+  /// ends goes within that, a hiccup it gets over stays.
+  final Duration errorGrace;
+
   final _events = StreamController<PlayerEngineEvent>.broadcast();
 
   SubtitlePreferences _subtitlePreferences;
@@ -161,6 +166,12 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
 
   /// A seek asked for before the file could take one, done once it can.
   Duration? _pendingSeek;
+
+  /// Where the file being opened should start; checked once it is ready.
+  Duration? _openTarget;
+
+  /// How far mpv may land from [_openTarget] before it is sent there.
+  static const _openTolerance = Duration(seconds: 5);
 
   /// Whether [PlayerEnginePlaybackStarted] went out for the open file.
   bool _startAnnounced = false;
@@ -189,6 +200,7 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
       const PlayerEngineStartupState.openingSource();
   Timer? _startupTimeoutTimer;
   int _startupGeneration = 0;
+  Timer? _errorCheckTimer;
 
   /// Reads the decoder state while a file is open, whatever carries it:
   /// an online stream has no transport stats to piggyback on.
@@ -348,6 +360,7 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
     _stopWatchingPlaybackStats();
     _stopWatchingDiagnostics();
     _cancelStartupTimeout();
+    _cancelErrorCheck();
     _updateStartupState(const PlayerEngineStartupState.openingSource());
     final player = _player;
     if (player == null) return;
@@ -406,6 +419,7 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
     _closed = true;
     _startupGeneration++;
     _cancelStartupTimeout();
+    _cancelErrorCheck();
     _stopWatchingDiagnostics();
     await _subtitlePreferencesSubscription?.cancel();
     await _decodingPreferencesSubscription?.cancel();
@@ -560,6 +574,7 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
       ..start();
     _rebufferCycleTracker.reset();
     _cancelStartupTimeout();
+    _cancelErrorCheck();
     _updateStartupState(const PlayerEngineStartupState.openingSource());
 
     developer.log(
@@ -569,6 +584,7 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
     try {
       await _applyNativePlayerProperties();
       _preferredTracksApplied = false;
+      _openTarget = _openPosition;
       await player.open(
         Media(
           session.streamUrl,
@@ -893,6 +909,43 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
     }
     // Errors of a stopped file (between files) are not playback failures.
     if (_session == null) return;
+    // mpv logs a hiccup it gets over (a segment that did not load, a frame
+    // that did not decode) as it logs one that ends the file: only a file
+    // mpv let go of is a failure.
+    final startupGeneration = _startupGeneration;
+    _errorCheckTimer?.cancel();
+    _errorCheckTimer = Timer(errorGrace, () {
+      unawaited(_failIfFileDropped(startupGeneration));
+    });
+  }
+
+  Future<void> _failIfFileDropped(int startupGeneration) async {
+    final platform = _player?.platform;
+    if (_closed ||
+        platform == null ||
+        startupGeneration != _startupGeneration ||
+        _startupState.phase == PlayerEnginePhase.failed) {
+      return;
+    }
+    final String idle;
+    try {
+      idle =
+          '${await (platform as dynamic).getProperty('idle-active', waitForInitialization: false)}';
+    } catch (_) {
+      return;
+    }
+    if (_closed || startupGeneration != _startupGeneration) return;
+    if (idle != 'yes') {
+      developer.log(
+        'mpv kept the file after an error; playback goes on.',
+        name: 'iris.player.media',
+      );
+      return;
+    }
+    developer.log(
+      'mpv dropped the file after an error.',
+      name: 'iris.player.media',
+    );
     _fail(PlayerEngineFailure.generic);
   }
 
@@ -1031,15 +1084,64 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
     );
     _cancelStartupTimeout();
     _updateStartupState(_startupState.copyWith(phase: PlayerEnginePhase.ready));
+    // A seek asked for during startup decides where playback is.
+    if (_pendingSeek != null) _openTarget = null;
     _applyPendingSeek();
+    unawaited(_checkOpenedAt(_startupGeneration));
     if (player.state.playing && !buffering.value) {
       _rebufferCycleTracker.markPlaybackStable();
     }
     unawaited(_loadChapters(_startupGeneration));
   }
 
+  /// The video gives way to the error; mpv, which may still get the file
+  /// going, is paused, so nothing plays behind it. Retry opens it anew.
+  /// mpv does not start every stream where asked (some HLS opens at 0
+  /// whatever the start), so once the file is ready it is sent there.
+  Future<void> _checkOpenedAt(int startupGeneration) async {
+    final target = _openTarget;
+    _openTarget = null;
+    final player = _player;
+    final platform = player?.platform;
+    if (target == null || player == null || platform == null) return;
+    final double? seconds;
+    try {
+      seconds = double.tryParse(
+        '${await (platform as dynamic).getProperty('time-pos', waitForInitialization: false)}',
+      );
+    } catch (_) {
+      return;
+    }
+    if (seconds == null ||
+        _closed ||
+        startupGeneration != _startupGeneration ||
+        _pendingSeek != null) {
+      return;
+    }
+    final actual = Duration(milliseconds: (seconds * 1000).round());
+    if ((actual - target).abs() <= _openTolerance) return;
+    developer.log(
+      'mpv opened the file at $actual instead of $target; seeking there.',
+      name: 'iris.player.media',
+    );
+    await player.seek(target);
+  }
+
   void _fail(PlayerEngineFailure failure) {
     _cancelStartupTimeout();
+    _cancelErrorCheck();
+    final player = _player;
+    if (player != null) {
+      unawaited(
+        player.pause().catchError((Object error) {
+          developer.log(
+            'media_kit failed to pause a failed file.',
+            name: 'iris.player.media',
+            error: error,
+          );
+        }),
+      );
+    }
     _updateStartupState(
       _startupState.copyWith(phase: PlayerEnginePhase.failed, failure: failure),
     );
@@ -1062,6 +1164,11 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
   void _cancelStartupTimeout() {
     _startupTimeoutTimer?.cancel();
     _startupTimeoutTimer = null;
+  }
+
+  void _cancelErrorCheck() {
+    _errorCheckTimer?.cancel();
+    _errorCheckTimer = null;
   }
 
   void _updateBufferMargin(PlayerPlaybackStats stats) {
