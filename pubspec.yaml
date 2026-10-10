@@ -49,6 +49,9 @@ dependencies:
   # Loading placeholders drawn from the real layouts; the app supplies the
   # pixel-noise effect and the dissolve.
   skeletonizer: ^3.0.0
+  flutter_web_auth_2: ^5.1.0
+  desktop_webview_window: ^0.3.0
+  flutter_secure_storage: ^11.2.0
 
 dev_dependencies:
   flutter_test:

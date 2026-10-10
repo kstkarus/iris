@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:get_it/get_it.dart';
 import 'package:go_router/go_router.dart';
 import 'package:path/path.dart' as path;
@@ -80,9 +81,12 @@ import 'package:iris/shared/network/aniskip_dio_factory.dart';
 import 'package:iris/shared/network/nyaa_api_client.dart';
 import 'package:iris/shared/network/nyaa_dio_factory.dart';
 import 'package:iris/shared/network/shikimori_graph_ql_client.dart';
+import 'package:iris/shared/network/shikimori_oauth_client.dart';
+import 'package:iris/shared/network/shikimori_oauth_config.dart';
 import 'package:iris/shared/network/video_server_dio_factory.dart';
 import 'package:iris/shared/network/yummy_anime_api_client.dart';
 import 'package:iris/shared/network/yummy_anime_dio_factory.dart';
+import 'package:iris/shared/storage/shikimori_session_store.dart';
 import 'package:iris/shared/storage/stream_cache_storage.dart';
 import 'package:iris/shared/torrent/torrent_activity_registry.dart';
 import 'package:iris/shared/window/windows_fullscreen.dart';
@@ -97,8 +101,28 @@ Future<void> configureDependencies({
     await serviceLocator.reset();
   }
 
+  if (!serviceLocator.isRegistered<ShikimoriSessionStore>()) {
+    serviceLocator.registerLazySingleton<ShikimoriSessionStore>(
+      () => ShikimoriSessionStore(const FlutterSecureStorage()),
+    );
+  }
+
+  if (!serviceLocator.isRegistered<ShikimoriOAuthClient>()) {
+    serviceLocator.registerLazySingleton<ShikimoriOAuthClient>(
+      () => ShikimoriOAuthClient(
+        dio: createShikimoriOAuthDio(),
+        config: const ShikimoriOAuthConfig.fromEnvironment(),
+      ),
+    );
+  }
+
   if (!serviceLocator.isRegistered<Dio>()) {
-    serviceLocator.registerLazySingleton<Dio>(createDio);
+    serviceLocator.registerLazySingleton<Dio>(
+      () => createDio(
+        session: serviceLocator<ShikimoriSessionStore>(),
+        oauth: serviceLocator<ShikimoriOAuthClient>(),
+      ),
+    );
   }
 
   if (!serviceLocator.isRegistered<ShikimoriGraphQlClient>()) {

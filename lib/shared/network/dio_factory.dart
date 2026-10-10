@@ -2,21 +2,44 @@ import 'package:dio/dio.dart';
 
 import 'package:iris/shared/network/rate_limit_interceptor.dart';
 import 'package:iris/shared/network/shikimori_api.dart';
+import 'package:iris/shared/network/shikimori_auth_interceptor.dart';
+import 'package:iris/shared/network/shikimori_oauth_client.dart';
+import 'package:iris/shared/storage/shikimori_session_store.dart';
 
-Dio createDio() {
-  final dio = Dio(
-    BaseOptions(
-      baseUrl: ShikimoriApi.baseUrl,
-      responseType: ResponseType.json,
-      contentType: Headers.jsonContentType,
-      connectTimeout: const Duration(seconds: 15),
-      receiveTimeout: const Duration(seconds: 15),
-      sendTimeout: const Duration(seconds: 15),
-      headers: const {'User-Agent': ShikimoriApi.userAgent},
-    ),
+/// The Shikimori API client; with a [session] and [oauth] it also signs
+/// requests in as the account (anonymous requests go as before).
+Dio createDio({ShikimoriSessionStore? session, ShikimoriOAuthClient? oauth}) {
+  final dio = _createShikimoriDio(contentType: Headers.jsonContentType);
+  if (session != null && oauth != null) {
+    dio.interceptors.add(
+      ShikimoriAuthInterceptor(dio: dio, store: session, oauth: oauth),
+    );
+  }
+  return dio
+    ..interceptors.add(
+      RateLimitInterceptor(dio: dio, limits: ShikimoriApi.rateLimits),
+    );
+}
+
+/// For [ShikimoriOAuthClient]: the same limits, no auth interceptor.
+Dio createShikimoriOAuthDio() {
+  final dio = _createShikimoriDio(
+    contentType: Headers.formUrlEncodedContentType,
   );
   return dio
     ..interceptors.add(
       RateLimitInterceptor(dio: dio, limits: ShikimoriApi.rateLimits),
     );
 }
+
+Dio _createShikimoriDio({required String contentType}) => Dio(
+  BaseOptions(
+    baseUrl: ShikimoriApi.baseUrl,
+    responseType: ResponseType.json,
+    contentType: contentType,
+    connectTimeout: const Duration(seconds: 15),
+    receiveTimeout: const Duration(seconds: 15),
+    sendTimeout: const Duration(seconds: 15),
+    headers: const {'User-Agent': ShikimoriApi.userAgent},
+  ),
+);
