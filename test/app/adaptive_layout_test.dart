@@ -214,7 +214,7 @@ void main() {
 
     final sections = tester
         .getRect(find.text('Catalog').first)
-        .expandToInclude(tester.getRect(find.text('Downloads').first));
+        .expandToInclude(tester.getRect(find.text('Profile').first));
     expect(sections.center.dx, closeTo(size.width / 2, 12));
     // The mark sits over the content's left edge: the frame is centred.
     final mark = tester.getRect(
@@ -232,7 +232,7 @@ void main() {
       expect(tester.takeException(), isNull);
       final bar = find.byKey(AppShellPage.navigationRailKey);
       final barRect = tester.getRect(bar);
-      for (final label in const ['Каталог', 'Раздачи', 'Загрузки']) {
+      for (final label in const ['Каталог', 'Раздачи', 'Загрузки', 'Профиль']) {
         final section = find.ancestor(
           of: find.descendant(of: bar, matching: find.text(label)),
           matching: find.byType(InkWell),
@@ -256,7 +256,7 @@ void main() {
     await _pumpMockApp(tester, const Size(320, 720));
 
     final bar = find.byKey(AppShellPage.navigationBarKey);
-    for (final label in const ['Каталог', 'Раздачи', 'Загрузки']) {
+    for (final label in const ['Каталог', 'Раздачи', 'Загрузки', 'Профиль']) {
       final text = find.descendant(of: bar, matching: find.text(label));
       final paragraph = tester.renderObject<RenderParagraph>(text);
       expect(paragraph.didExceedMaxLines, isFalse, reason: label);

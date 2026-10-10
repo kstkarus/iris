@@ -970,4 +970,41 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get animeRelationOther => 'Other';
+
+  @override
+  String get navigationProfile => 'Profile';
+
+  @override
+  String get profileSignInTitle => 'Your Shikimori list';
+
+  @override
+  String get profileSignInMessage =>
+      'Sign in to mark anime in your Shikimori list right from the app.';
+
+  @override
+  String get profileSignInButton => 'Sign in with Shikimori';
+
+  @override
+  String get profileSignInUnavailable => 'Sign-in is not set up in this build.';
+
+  @override
+  String get profileSigningIn => 'Waiting for Shikimori';
+
+  @override
+  String get profileSignInNetworkError =>
+      'Shikimori did not respond. Try again.';
+
+  @override
+  String get profileSignInRejected =>
+      'Shikimori did not let the app in. Try again.';
+
+  @override
+  String get profileSessionExpired =>
+      'Shikimori ended the session. Sign in again.';
+
+  @override
+  String get profileAccountCaption => 'Shikimori account';
+
+  @override
+  String get profileSignOut => 'Sign out';
 }

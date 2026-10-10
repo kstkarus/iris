@@ -602,5 +602,16 @@
   "animeRelationSpinOff": "Spin-off",
   "animeRelationSummary": "Summary",
   "animeRelationCharacter": "Shared characters",
-  "animeRelationOther": "Other"
+  "animeRelationOther": "Other",
+  "navigationProfile": "Profile",
+  "profileSignInTitle": "Your Shikimori list",
+  "profileSignInMessage": "Sign in to mark anime in your Shikimori list right from the app.",
+  "profileSignInButton": "Sign in with Shikimori",
+  "profileSignInUnavailable": "Sign-in is not set up in this build.",
+  "profileSigningIn": "Waiting for Shikimori",
+  "profileSignInNetworkError": "Shikimori did not respond. Try again.",
+  "profileSignInRejected": "Shikimori did not let the app in. Try again.",
+  "profileSessionExpired": "Shikimori ended the session. Sign in again.",
+  "profileAccountCaption": "Shikimori account",
+  "profileSignOut": "Sign out"
 }

@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:iris/app/di/service_locator.dart';
 import 'package:iris/app/router/app_shell_page.dart';
 import 'package:iris/entities/watch_progress/domain/watch_progress_repository.dart';
+import 'package:iris/features/auth/presentation/pages/profile_page.dart';
 import 'package:iris/features/anime_details/domain/repositories/anime_details_repository.dart';
 import 'package:iris/features/anime_details/presentation/cubit/anime_details_cubit.dart';
 import 'package:iris/features/anime_details/presentation/models/anime_details_preview.dart';
@@ -149,6 +150,15 @@ abstract final class AppRouter {
                       ),
                     );
                   },
+                ),
+              ],
+            ),
+            StatefulShellBranch(
+              routes: [
+                GoRoute(
+                  path: '/profile',
+                  name: 'profile',
+                  builder: (context, state) => const ProfilePage(),
                 ),
               ],
             ),

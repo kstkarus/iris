@@ -16,6 +16,7 @@ The project follows a feature-first structure with `FSD light` at the repository
 - optionally download a file for offline viewing and manage queued, active, paused, completed, and failed downloads
 - continue an active download while the Android app is minimized
 - view app, cache, and offline-content storage usage
+- sign in with a Shikimori account on the Profile tab
 - pick audio and subtitle tracks, customize subtitle appearance and decoding mode in the player
 
 ## Data Sources
@@ -25,12 +26,21 @@ The project follows a feature-first structure with `FSD light` at the repository
 The app currently reads public anime data from the Shikimori GraphQL API:
 
 - endpoint: `https://shikimori.io/api/graphql`
-- read-only integration
-- user authorization is not connected yet
+- the catalog is read anonymously; with a signed-in account the same client sends its token
 - every request carries `User-Agent: iris`, as Shikimori requires: the name of the app's registered OAuth application
 - requests are held on the client to Shikimori's limits (5 per second, 90 per minute); a `429` is retried once after `Retry-After`
 - a title page lists the rest of the franchise under Related: prequel and sequel first, then the other relations by air date; commercials, promo videos and music clips are left out, and lists longer than four rows fold after three
 - air dates show as much as Shikimori knows (the year, the month and year, or the day): it fills an unknown month or day with the first one
+
+### Shikimori Account
+
+The Profile tab (the fourth section) signs in with Shikimori's OAuth (authorization code flow, scope `user_rates`):
+
+- the sign-in page opens in a browser tab on Android, the system sheet on iOS and a WebView2 window on Windows, and comes back through the `iris://oauth/callback` redirect; a random `state` ties the redirect to the sign-in that asked for it
+- the tokens are kept in `flutter_secure_storage`; the account's id, nickname and avatar in preferences, so a session restored offline still shows whose it is
+- the access token lasts a day: the Shikimori Dio (`ShikimoriAuthInterceptor`) renews it a minute before it runs out, or once after a `401`, with one renewal shared by requests that need it together; a renewal Shikimori refuses ends the session and the tab asks to sign in again, a network failure keeps it
+- signing out forgets the session on the device; Shikimori has no endpoint to revoke it
+- without `config/shikimori.json` (see Development) the tab says sign-in is not set up
 
 ### Watch Sources
 
@@ -128,6 +138,7 @@ Current behavior:
 - `media_kit`
 - `libtorrent_flutter`
 - `shared_preferences`
+- `flutter_secure_storage`, `flutter_web_auth_2`
 
 ## Project Structure
 
@@ -145,6 +156,7 @@ lib/
     downloads/
     player/
     saved_torrents/
+    auth/
 ```
 
 Inside each feature:
@@ -190,7 +202,7 @@ flutter run -d windows
 
 On Windows, downloads are stored under `%APPDATA%\com.kstkarus\iris\offline_downloads`, and the Android-only foreground service and storage stats are no-ops.
 
-Adaptive layout follows the Material 3 window size classes (`lib/shared/widgets/adaptive/window_size_class.dart`): text tabs at the bottom below 600 dp, a top bar with the mark and the sections in small text from 600 dp (Ctrl+1..3 switch sections), multi-column grids and two-pane details/downloads on wider windows. Top-level pages have no app bar: the navigation already names the section. Every page, the top bar and sub-page bars included, keeps to one frame (`AdaptiveContentWidth.page`, 1600 dp, centred) with its content left-aligned inside, so the left edge stays put between pages: the mark and the back arrow sit over it and the sections are centred in the bar. Narrower measures apply only inside the frame, to text (the description, Recently watched) and forms. On the title page the column beside the cover keeps to the cover's height: the title gets the height its Russian name, action and facts leave (`HeadlineColumn`), so a long title sets smaller instead of pushing the facts below the cover; only when even its smallest size does not fit does the column run longer. The title page's bar shows only the way back until the anime's name has wholly scrolled under it; then the name develops in the bar, and dissolves when it comes back into view. Recently watched names its action by what it does: Continue, Watch for a file only looked at (it starts from the beginning), Play next for a finished one.
+Adaptive layout follows the Material 3 window size classes (`lib/shared/widgets/adaptive/window_size_class.dart`): text tabs at the bottom below 600 dp, a top bar with the mark and the sections in small text from 600 dp (Ctrl+1..4 switch sections), multi-column grids and two-pane details/downloads on wider windows. Top-level pages have no app bar: the navigation already names the section. Every page, the top bar and sub-page bars included, keeps to one frame (`AdaptiveContentWidth.page`, 1600 dp, centred) with its content left-aligned inside, so the left edge stays put between pages: the mark and the back arrow sit over it and the sections are centred in the bar. Narrower measures apply only inside the frame, to text (the description, Recently watched) and forms. On the title page the column beside the cover keeps to the cover's height: the title gets the height its Russian name, action and facts leave (`HeadlineColumn`), so a long title sets smaller instead of pushing the facts below the cover; only when even its smallest size does not fit does the column run longer. The title page's bar shows only the way back until the anime's name has wholly scrolled under it; then the name develops in the bar, and dissolves when it comes back into view. Recently watched names its action by what it does: Continue, Watch for a file only looked at (it starts from the beginning), Play next for a finished one.
 
 Search in the catalog is a mode entered by focusing the field, so the page changes once and not with every keystroke: the catalog scrolls its header (Continue watching and the heading) away and its grid sits under the field. Typed queries develop their results over the catalog; an emptied field brings the catalog grid back without leaving search. Cancel (on phones), Escape, Back, or leaving an empty field ends the search, and the catalog returns to where it was. Results come from their own `AnimeSearchBloc` with the catalog's sort and filters, so the catalog is never reloaded for a search.
 

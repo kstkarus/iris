@@ -25,6 +25,11 @@ import 'package:iris/features/anime_list/data/repositories/remote_anime_list_rep
 import 'package:iris/features/anime_list/domain/repositories/anime_list_repository.dart';
 import 'package:iris/features/anime_list/presentation/bloc/anime_list_bloc.dart';
 import 'package:iris/features/anime_list/presentation/bloc/anime_search_bloc.dart';
+import 'package:iris/features/auth/data/datasources/shikimori_account_data_source.dart';
+import 'package:iris/features/auth/data/datasources/web_authenticator.dart';
+import 'package:iris/features/auth/data/repositories/mock_auth_repository.dart';
+import 'package:iris/features/auth/data/repositories/shikimori_auth_repository.dart';
+import 'package:iris/features/auth/domain/repositories/auth_repository.dart';
 import 'package:iris/features/downloads/data/adapters/app_storage_usage_adapter.dart';
 import 'package:iris/features/downloads/data/adapters/download_foreground_service_adapter.dart';
 import 'package:iris/features/downloads/data/adapters/libtorrent_download_engine_adapter.dart';
@@ -166,6 +171,12 @@ Future<void> configureDependencies({
   }
 
   if (useMocks) {
+    if (!serviceLocator.isRegistered<AuthRepository>()) {
+      serviceLocator.registerLazySingleton<AuthRepository>(
+        MockAuthRepository.new,
+      );
+    }
+
     if (!serviceLocator.isRegistered<MockAnimeListDataSource>()) {
       serviceLocator.registerLazySingleton<MockAnimeListDataSource>(
         MockAnimeListDataSource.new,
@@ -278,6 +289,22 @@ Future<void> configureDependencies({
     if (!serviceLocator.isRegistered<TorrentActivityRegistry>()) {
       serviceLocator.registerLazySingleton<TorrentActivityRegistry>(
         TorrentActivityRegistry.new,
+      );
+    }
+
+    if (!serviceLocator.isRegistered<AuthRepository>()) {
+      serviceLocator.registerLazySingleton<AuthRepository>(
+        () => ShikimoriAuthRepository(
+          oauth: serviceLocator<ShikimoriOAuthClient>(),
+          session: serviceLocator<ShikimoriSessionStore>(),
+          accounts: ShikimoriAccountDataSource(
+            client: serviceLocator<ShikimoriGraphQlClient>(),
+          ),
+          authenticator: const FlutterWebAuthenticator(),
+          preferences: serviceLocator<SharedPreferences>(),
+          // flutter_web_auth_2's web flow needs a callback page iris lacks.
+          platformSupported: !kIsWeb,
+        ),
       );
     }
 

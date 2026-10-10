@@ -984,4 +984,41 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get animeRelationOther => 'Другое';
+
+  @override
+  String get navigationProfile => 'Профиль';
+
+  @override
+  String get profileSignInTitle => 'Список на Шикимори';
+
+  @override
+  String get profileSignInMessage =>
+      'Войдите, чтобы отмечать аниме в своём списке на Шикимори прямо из приложения.';
+
+  @override
+  String get profileSignInButton => 'Войти через Шикимори';
+
+  @override
+  String get profileSignInUnavailable => 'Вход не настроен в этой сборке.';
+
+  @override
+  String get profileSigningIn => 'Ждём Шикимори';
+
+  @override
+  String get profileSignInNetworkError =>
+      'Шикимори не ответил. Попробуйте ещё раз.';
+
+  @override
+  String get profileSignInRejected =>
+      'Шикимори не пустил приложение. Попробуйте ещё раз.';
+
+  @override
+  String get profileSessionExpired =>
+      'Шикимори завершил сессию. Войдите снова.';
+
+  @override
+  String get profileAccountCaption => 'Аккаунт Шикимори';
+
+  @override
+  String get profileSignOut => 'Выйти';
 }

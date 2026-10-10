@@ -1747,6 +1747,72 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Other'**
   String get animeRelationOther;
+
+  /// No description provided for @navigationProfile.
+  ///
+  /// In en, this message translates to:
+  /// **'Profile'**
+  String get navigationProfile;
+
+  /// No description provided for @profileSignInTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Your Shikimori list'**
+  String get profileSignInTitle;
+
+  /// No description provided for @profileSignInMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in to mark anime in your Shikimori list right from the app.'**
+  String get profileSignInMessage;
+
+  /// No description provided for @profileSignInButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in with Shikimori'**
+  String get profileSignInButton;
+
+  /// No description provided for @profileSignInUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign-in is not set up in this build.'**
+  String get profileSignInUnavailable;
+
+  /// No description provided for @profileSigningIn.
+  ///
+  /// In en, this message translates to:
+  /// **'Waiting for Shikimori'**
+  String get profileSigningIn;
+
+  /// No description provided for @profileSignInNetworkError.
+  ///
+  /// In en, this message translates to:
+  /// **'Shikimori did not respond. Try again.'**
+  String get profileSignInNetworkError;
+
+  /// No description provided for @profileSignInRejected.
+  ///
+  /// In en, this message translates to:
+  /// **'Shikimori did not let the app in. Try again.'**
+  String get profileSignInRejected;
+
+  /// No description provided for @profileSessionExpired.
+  ///
+  /// In en, this message translates to:
+  /// **'Shikimori ended the session. Sign in again.'**
+  String get profileSessionExpired;
+
+  /// No description provided for @profileAccountCaption.
+  ///
+  /// In en, this message translates to:
+  /// **'Shikimori account'**
+  String get profileAccountCaption;
+
+  /// No description provided for @profileSignOut.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign out'**
+  String get profileSignOut;
 }
 
 class _AppLocalizationsDelegate

@@ -357,5 +357,16 @@
   "animeRelationSpinOff": "Ответвление",
   "animeRelationSummary": "Пересказ",
   "animeRelationCharacter": "Общие персонажи",
-  "animeRelationOther": "Другое"
+  "animeRelationOther": "Другое",
+  "navigationProfile": "Профиль",
+  "profileSignInTitle": "Список на Шикимори",
+  "profileSignInMessage": "Войдите, чтобы отмечать аниме в своём списке на Шикимори прямо из приложения.",
+  "profileSignInButton": "Войти через Шикимори",
+  "profileSignInUnavailable": "Вход не настроен в этой сборке.",
+  "profileSigningIn": "Ждём Шикимори",
+  "profileSignInNetworkError": "Шикимори не ответил. Попробуйте ещё раз.",
+  "profileSignInRejected": "Шикимори не пустил приложение. Попробуйте ещё раз.",
+  "profileSessionExpired": "Шикимори завершил сессию. Войдите снова.",
+  "profileAccountCaption": "Аккаунт Шикимори",
+  "profileSignOut": "Выйти"
 }
