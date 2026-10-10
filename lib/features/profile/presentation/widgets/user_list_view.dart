@@ -1,25 +1,27 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import 'package:iris/entities/friend/domain/friend.dart';
 import 'package:iris/entities/user_rate/domain/user_rate.dart';
-import 'package:iris/entities/user_rate/presentation/user_rate_badge.dart';
 import 'package:iris/entities/user_rate/presentation/user_rate_book_cubit.dart';
 import 'package:iris/entities/user_rate/presentation/user_rate_status_label.dart';
 import 'package:iris/features/profile/domain/entities/user_list_entry.dart';
-import 'package:iris/entities/friend/domain/friend.dart';
 import 'package:iris/features/profile/presentation/cubit/friends_cubit.dart';
 import 'package:iris/features/profile/presentation/cubit/user_list_cubit.dart';
 import 'package:iris/features/profile/presentation/cubit/user_list_state.dart';
 import 'package:iris/features/profile/presentation/widgets/friend_list.dart';
+import 'package:iris/features/profile/presentation/widgets/list_grid.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/utils/anime_metadata_formatter.dart';
+import 'package:iris/shared/widgets/adaptive/adaptive_grid_row.dart';
 import 'package:iris/shared/widgets/app_skeleton.dart';
 import 'package:iris/shared/widgets/marked_tab.dart';
+import 'package:iris/shared/widgets/pixel_icon.dart';
 import 'package:iris/shared/widgets/poster_image.dart';
 import 'package:iris/shared/widgets/segmented_bar.dart';
 import 'package:iris/shared/widgets/status_views.dart';
 
-/// The statuses in the order Shikimori's own profile shows them.
+/// The statuses, what is being watched first.
 const userListStatuses = [
   UserRateStatus.watching,
   UserRateStatus.planned,
@@ -29,11 +31,13 @@ const userListStatuses = [
   UserRateStatus.rewatching,
 ];
 
-/// A user's list under [header]: a text tab per status, then the entries
-/// of the chosen one, read further as the page scrolls down.
+/// A user's list under [header], one status at a time, read further as the
+/// page scrolls down.
 ///
-/// Given [onOpenFriend], a last tab lists the user's friends (from a
-/// `FriendsCubit`).
+/// The bar with the status stays pinned once the header has scrolled away,
+/// so another status is one tap from anywhere in the list. Given
+/// [onOpenFriend], the bar also switches between the list and the user's
+/// friends (from a `FriendsCubit`).
 class UserListView extends StatefulWidget {
   const UserListView({
     required this.header,
@@ -43,6 +47,10 @@ class UserListView extends StatefulWidget {
     super.key,
   });
 
+  static const statusButtonKey = Key('user_list_status_button');
+  static const listTabKey = Key('user_list_tab_list');
+  static const friendsTabKey = Key('user_list_tab_friends');
+
   /// The rest of the page loads this far from the end.
   static const _loadMoreExtent = 600.0;
 
@@ -51,7 +59,7 @@ class UserListView extends StatefulWidget {
   final ValueChanged<Friend>? onOpenFriend;
 
   /// The signed-in user's own list: rows show what was changed since it
-  /// was read (the rate book), and leave a tab their anime has left.
+  /// was read (the rate book), and leave a status their anime has left.
   final bool mine;
 
   @override
@@ -61,10 +69,7 @@ class UserListView extends StatefulWidget {
 class _UserListViewState extends State<UserListView> {
   bool _friendsShown = false;
 
-  void _showStatus(UserRateStatus status) {
-    setState(() => _friendsShown = false);
-    context.read<UserListCubit>().select(status);
-  }
+  void _showList() => setState(() => _friendsShown = false);
 
   void _showFriends() {
     setState(() => _friendsShown = true);
@@ -88,11 +93,13 @@ class _UserListViewState extends State<UserListView> {
       child: CustomScrollView(
         slivers: [
           SliverToBoxAdapter(child: widget.header),
-          SliverToBoxAdapter(
-            child: _Tabs(
+          PinnedHeaderSliver(
+            child: _Bar(
               status: friendsShown ? null : state.status,
-              onStatus: _showStatus,
-              onFriends: onOpenFriend == null ? null : _showFriends,
+              onStatus: cubit.select,
+              sections: onOpenFriend == null
+                  ? null
+                  : (onList: _showList, onFriends: _showFriends),
             ),
           ),
           if (friendsShown)
@@ -119,81 +126,199 @@ class _UserListViewState extends State<UserListView> {
       ];
     }
     final loading = state.load == UserListLoad.loading;
-    if (!loading && state.entries.isEmpty) {
+    final entries = loading ? _standIns : _shown(context, state);
+    if (entries.isEmpty) {
+      final status = userRateStatusLabel(l10n, state.status);
       return [
         SliverFillRemaining(
           hasScrollBody: false,
-          child: MessageView(message: l10n.profileListEmpty),
+          child: widget.mine
+              ? MessageView(
+                  title: l10n.profileListEmpty(status),
+                  message: l10n.profileListEmptyHint,
+                )
+              : MessageView(message: l10n.profileListEmpty(status)),
         ),
       ];
     }
-    final entries = loading ? _standIns : state.entries;
     return [
-      SliverList.builder(
-        itemCount: entries.length,
-        // Each row develops out of its own noise when the list arrives.
-        itemBuilder: (context, index) => AppSkeleton(
-          enabled: loading,
-          semanticLabel: index == 0 ? l10n.profileListLoading : null,
-          child: _EntryRow(
-            entry: entries[index],
-            status: state.status,
-            mine: widget.mine && !loading,
-            onOpen: loading ? null : () => widget.onOpen(entries[index]),
-          ),
-        ),
+      SliverLayoutBuilder(
+        builder: (context, constraints) {
+          final columns = gridColumns(
+            constraints.crossAxisExtent,
+            minWidth: _EntryRow.minWidth,
+          );
+          return SliverList.builder(
+            itemCount: (entries.length / columns).ceil(),
+            // Each row develops out of its own noise when the list arrives.
+            itemBuilder: (context, row) => AppSkeleton(
+              enabled: loading,
+              semanticLabel: row == 0 ? l10n.profileListLoading : null,
+              child: AdaptiveGridRow(
+                columns: columns,
+                spacing: gridGap,
+                children: [
+                  for (final entry in entries.skip(row * columns).take(columns))
+                    _EntryRow(
+                      entry: entry,
+                      onOpen: loading ? null : () => widget.onOpen(entry),
+                    ),
+                ],
+              ),
+            ),
+          );
+        },
       ),
       SliverToBoxAdapter(
         child: _Footer(state: state, onRetry: retry),
       ),
     ];
   }
+
+  /// The entries as they are now: in the user's own list, an anime changed
+  /// elsewhere shows its latest entry, and one moved to another status (or
+  /// out of the list) leaves this one.
+  List<UserListEntry> _shown(BuildContext context, UserListState state) {
+    final book = widget.mine
+        ? context.watch<UserRateBookCubit?>()?.state
+        : null;
+    if (book == null || book.isEmpty) return state.entries;
+    return [
+      for (final entry in state.entries)
+        if (book.containsKey(entry.anime.id) ? book[entry.anime.id] : entry.rate
+            case final rate? when rate.status == state.status)
+          UserListEntry(rate: rate, anime: entry.anime),
+    ];
+  }
 }
 
-/// The page's views as the app's sections are: text tabs, the current one
-/// marked; they scroll sideways where they do not fit.
-class _Tabs extends StatelessWidget {
-  const _Tabs({
+/// What the page shows and, for the list, which status: the sections as
+/// text tabs (as the app's own), the status as a menu at the end, as it
+/// is one choice of six.
+class _Bar extends StatelessWidget {
+  const _Bar({
     required this.status,
     required this.onStatus,
-    required this.onFriends,
+    required this.sections,
   });
 
   /// [MarkedTab]'s own padding, pulled back over the page margin.
   static const _inset = 10.0;
 
+  /// The same with or without the status menu, so switching to the
+  /// friends does not move the content.
+  static const _height = 48.0;
+
   /// Null while the friends are shown.
   final UserRateStatus? status;
   final ValueChanged<UserRateStatus> onStatus;
-  final VoidCallback? onFriends;
+
+  /// The list and friends tabs; null on a page with only the list.
+  final ({VoidCallback onList, VoidCallback onFriends})? sections;
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final onFriends = this.onFriends;
-    return Padding(
-      padding: const EdgeInsets.only(top: 16, bottom: 8),
-      child: Transform.translate(
-        offset: const Offset(-_inset, 0),
-        child: SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          physics: const ClampingScrollPhysics(),
+    final scheme = Theme.of(context).colorScheme;
+    final sections = this.sections;
+    final status = this.status;
+    return ColoredBox(
+      // The list scrolls under it.
+      color: scheme.surface,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: _height),
+            child: Row(
+              children: [
+                if (sections != null)
+                  Transform.translate(
+                    offset: const Offset(-_inset, 0),
+                    child: Row(
+                      children: [
+                        MarkedTab(
+                          key: UserListView.listTabKey,
+                          label: l10n.profileListTab,
+                          selected: status != null,
+                          onTap: sections.onList,
+                        ),
+                        MarkedTab(
+                          key: UserListView.friendsTabKey,
+                          label: l10n.profileFriendsTab,
+                          selected: status == null,
+                          onTap: sections.onFriends,
+                        ),
+                      ],
+                    ),
+                  ),
+                // Beside the tabs it ends the row; alone, it starts it.
+                if (sections != null) const Spacer(),
+                if (status != null)
+                  _StatusMenu(
+                    status: status,
+                    onSelected: onStatus,
+                    leading: sections == null,
+                  ),
+              ],
+            ),
+          ),
+          Divider(height: 1, thickness: 1, color: scheme.outlineVariant),
+        ],
+      ),
+    );
+  }
+}
+
+/// The shown status, which opens the list of statuses.
+class _StatusMenu extends StatelessWidget {
+  const _StatusMenu({
+    required this.status,
+    required this.onSelected,
+    required this.leading,
+  });
+
+  /// The button's own padding, pulled back over the page margin.
+  static const _inset = 12.0;
+
+  final UserRateStatus status;
+  final ValueChanged<UserRateStatus> onSelected;
+
+  /// At the start of the bar rather than its end.
+  final bool leading;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return Transform.translate(
+      offset: Offset(leading ? -_inset : _inset, 0),
+      child: MenuAnchor(
+        alignmentOffset: const Offset(0, 4),
+        menuChildren: [
+          for (final option in userListStatuses)
+            MenuItemButton(
+              key: ValueKey('user_list_status_${option.name}'),
+              onPressed: () => onSelected(option),
+              leadingIcon: SizedBox.square(
+                dimension: 14,
+                child: option == status
+                    ? const PixelIcon(PixelGlyph.check, size: 14)
+                    : null,
+              ),
+              child: Text(userRateStatusLabel(l10n, option)),
+            ),
+        ],
+        builder: (context, controller, _) => TextButton(
+          key: UserListView.statusButtonKey,
+          onPressed: () =>
+              controller.isOpen ? controller.close() : controller.open(),
           child: Row(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              for (final tab in userListStatuses)
-                MarkedTab(
-                  key: ValueKey('user_list_tab_${tab.name}'),
-                  label: userRateStatusLabel(l10n, tab),
-                  selected: tab == status,
-                  onTap: () => onStatus(tab),
-                ),
-              if (onFriends != null)
-                MarkedTab(
-                  key: const ValueKey('user_list_tab_friends'),
-                  label: l10n.profileFriendsTab,
-                  selected: status == null,
-                  onTap: onFriends,
-                ),
+              Text(userRateStatusLabel(l10n, status)),
+              const SizedBox(width: 8),
+              const PixelIcon(PixelGlyph.expand, size: 10),
             ],
           ),
         ),
@@ -205,37 +330,25 @@ class _Tabs extends StatelessWidget {
 /// A small cover, the names, how far along and the score, and for an
 /// airing anime when the next episode comes.
 class _EntryRow extends StatelessWidget {
-  const _EntryRow({
-    required this.entry,
-    required this.status,
-    required this.mine,
-    required this.onOpen,
-  });
+  const _EntryRow({required this.entry, required this.onOpen});
 
+  /// Narrower than this, a second column would cut the names too short.
+  static const minWidth = 360.0;
   static const _posterWidth = 48.0;
 
   final UserListEntry entry;
-  final UserRateStatus status;
-  final bool mine;
   final VoidCallback? onOpen;
 
   @override
   Widget build(BuildContext context) {
     final anime = entry.anime;
-    final rate = mine
-        ? context.watchUserRate(anime.id, entry.rate)
-        : entry.rate;
-    // Moved to another status or out of the list since the tab was read.
-    if (rate == null || (mine && rate.status != status)) {
-      return const SizedBox.shrink();
-    }
-
+    final rate = entry.rate;
     final theme = Theme.of(context);
     final l10n = AppLocalizations.of(context);
     final muted = theme.colorScheme.onSurfaceVariant;
     final russian = anime.russian.trim();
     final facts = [
-      ?userRateProgress(rate, anime.episodes),
+      ?_episodes(l10n, rate, anime),
       if (rate.score > 0) l10n.userRateScore(rate.score),
     ].join(' · ');
     final next = _nextEpisode(l10n, anime);
@@ -294,6 +407,33 @@ class _EntryRow extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  /// How far along while the anime is under way; for a planned one, how
+  /// long it is; nothing once it is finished.
+  static String? _episodes(
+    AppLocalizations l10n,
+    UserRate rate,
+    ListedAnime anime,
+  ) {
+    switch (rate.status) {
+      case UserRateStatus.completed:
+        return null;
+      case UserRateStatus.planned:
+        return formatEpisodes(
+          l10n,
+          anime.status,
+          anime.episodes,
+          anime.episodesAired,
+        );
+      case UserRateStatus.watching ||
+          UserRateStatus.rewatching ||
+          UserRateStatus.onHold ||
+          UserRateStatus.dropped:
+        return anime.episodes > 0
+            ? l10n.profileListProgress(rate.episodes, anime.episodes)
+            : l10n.profileListWatched(rate.episodes);
+    }
   }
 
   static String? _nextEpisode(AppLocalizations l10n, ListedAnime anime) {

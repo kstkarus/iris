@@ -41,6 +41,17 @@ class PixelGlyph {
     '...#...',
   ]);
 
+  /// Opens a menu below.
+  static const expand = PixelGlyph._([
+    '.......',
+    '.......',
+    '#######',
+    '.#####.',
+    '..###..',
+    '...#...',
+    '.......',
+  ]);
+
   static const close = PixelGlyph._([
     '#.....#',
     '##...##',

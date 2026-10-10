@@ -7,13 +7,11 @@ import 'package:iris/features/auth/domain/entities/shikimori_account.dart';
 import 'package:iris/features/auth/presentation/cubit/auth_cubit.dart';
 import 'package:iris/features/auth/presentation/cubit/auth_state.dart';
 import 'package:iris/features/profile/domain/entities/user_list_entry.dart';
+import 'package:iris/features/profile/presentation/widgets/profile_header.dart';
 import 'package:iris/features/profile/presentation/widgets/user_list_view.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/widgets/adaptive/adaptive_content_width.dart';
 import 'package:iris/shared/widgets/adaptive/window_size_class.dart';
-import 'package:iris/shared/widgets/display_title.dart';
-import 'package:iris/shared/widgets/segmented_bar.dart';
-import 'package:iris/shared/widgets/square_avatar.dart';
 import 'package:iris/shared/widgets/status_views.dart';
 
 /// The Shikimori account: an invitation to sign in, or whose list the app
@@ -102,45 +100,22 @@ class _SignedOut extends StatelessWidget {
 class _Account extends StatelessWidget {
   const _Account({required this.account});
 
-  static const _avatarSize = 72.0;
-
   final ShikimoriAccount account;
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final theme = Theme.of(context);
-    final compact = WindowSizeClass.of(context).isCompact;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const BlockRule(),
-        SizedBox(height: compact ? 20 : 28),
-        if (account.avatarUrl.isNotEmpty) ...[
-          SquareAvatar(url: account.avatarUrl, size: _avatarSize),
-          const SizedBox(height: 20),
-        ],
-        DisplayTitle(
-          account.nickname,
-          maxSize: compact ? 56 : 144,
-          minSize: 32,
-          maxLines: 1,
-        ),
-        const SizedBox(height: 12),
-        Text(
-          l10n.profileAccountCaption.toUpperCase(),
-          style: theme.textTheme.labelSmall?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
-        ),
-        const SizedBox(height: 28),
-        OutlinedButton(
-          key: ProfilePage.signOutButtonKey,
-          onPressed: context.read<AuthCubit>().signOut,
-          child: Text(l10n.profileSignOut),
-        ),
-        SizedBox(height: compact ? 12 : 20),
-      ],
+    return ProfileHeader(
+      nickname: account.nickname,
+      avatarUrl: account.avatarUrl,
+      caption: l10n.profileAccountCaption,
+      // Rare, and costly to undo (signing in again goes through the
+      // browser): a quiet button out of the way of the list.
+      trailing: TextButton(
+        key: ProfilePage.signOutButtonKey,
+        onPressed: context.read<AuthCubit>().signOut,
+        child: Text(l10n.profileSignOut),
+      ),
     );
   }
 }

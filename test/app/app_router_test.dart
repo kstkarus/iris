@@ -73,7 +73,7 @@ void main() {
 
     expect(router.state.uri.path, '/user/9001');
     expect(find.text('mock_friend'), findsOneWidget);
-    expect(find.text('Nothing here yet.'), findsOneWidget);
+    expect(find.text('Nothing in “Watching”'), findsOneWidget);
   });
 
   test('torrent and player routes do not depend on a catalog title', () {

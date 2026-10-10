@@ -737,7 +737,7 @@
       }
     }
   },
-  "profileListEmpty": "Nothing here yet.",
+  "profileListEmpty": "Nothing in “{status}”",
   "profileListLoadError": "The list did not load.",
   "profileListLoading": "Loading the list",
   "profileFriendsTab": "Friends",
@@ -770,5 +770,34 @@
   "playerMarkAction": "Mark",
   "playerMarkFailed": "Shikimori did not save the mark.",
   "profileSigningInHint": "Finish signing in in the browser. Coming back here before that cancels it.",
-  "profileSignInPortBusy": "Another program holds port 43821, which sign-in needs. Close it and try again."
+  "profileSignInPortBusy": "Another program holds port 43821, which sign-in needs. Close it and try again.",
+  "profileListTab": "List",
+  "@profileListEmpty": {
+    "placeholders": {
+      "status": {
+        "type": "String"
+      }
+    }
+  },
+  "profileListEmptyHint": "The status is set on an anime’s page.",
+  "profileListProgress": "{watched} of {total} ep.",
+  "@profileListProgress": {
+    "placeholders": {
+      "watched": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "profileListWatched": "{watched} ep.",
+  "@profileListWatched": {
+    "placeholders": {
+      "watched": {
+        "type": "int"
+      }
+    }
+  },
+  "profileFriendCaption": "Friend on Shikimori"
 }

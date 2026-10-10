@@ -1163,7 +1163,9 @@ class AppLocalizationsRu extends AppLocalizations {
   }
 
   @override
-  String get profileListEmpty => 'Здесь пока пусто.';
+  String profileListEmpty(String status) {
+    return 'В «$status» пусто';
+  }
 
   @override
   String get profileListLoadError => 'Список не загрузился.';
@@ -1227,4 +1229,23 @@ class AppLocalizationsRu extends AppLocalizations {
   @override
   String get profileSignInPortBusy =>
       'Порт 43821, нужный для входа, занят другой программой. Закройте её и попробуйте снова.';
+
+  @override
+  String get profileListTab => 'Список';
+
+  @override
+  String get profileListEmptyHint => 'Статус ставится на странице аниме.';
+
+  @override
+  String profileListProgress(int watched, int total) {
+    return '$watched из $total эп.';
+  }
+
+  @override
+  String profileListWatched(int watched) {
+    return '$watched эп.';
+  }
+
+  @override
+  String get profileFriendCaption => 'Друг на Шикимори';
 }

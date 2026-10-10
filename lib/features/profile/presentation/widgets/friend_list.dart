@@ -3,7 +3,9 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:iris/entities/friend/domain/friend.dart';
 import 'package:iris/features/profile/presentation/cubit/friends_cubit.dart';
+import 'package:iris/features/profile/presentation/widgets/list_grid.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
+import 'package:iris/shared/widgets/adaptive/adaptive_grid_row.dart';
 import 'package:iris/shared/widgets/app_skeleton.dart';
 import 'package:iris/shared/widgets/square_avatar.dart';
 import 'package:iris/shared/widgets/status_views.dart';
@@ -46,17 +48,32 @@ List<Widget> friendListSlivers(
   }
   final loading = state is FriendsLoading;
   return [
-    SliverList.builder(
-      itemCount: friends.length,
-      // Each row develops out of its own noise when the friends arrive.
-      itemBuilder: (context, index) => AppSkeleton(
-        enabled: loading,
-        semanticLabel: index == 0 ? l10n.profileFriendsLoading : null,
-        child: _FriendRow(
-          friend: friends[index],
-          onOpen: loading ? null : () => onOpen(friends[index]),
-        ),
-      ),
+    SliverLayoutBuilder(
+      builder: (context, constraints) {
+        final columns = gridColumns(
+          constraints.crossAxisExtent,
+          minWidth: _FriendRow.minWidth,
+        );
+        return SliverList.builder(
+          itemCount: (friends.length / columns).ceil(),
+          // Each row develops out of its own noise when the friends arrive.
+          itemBuilder: (context, row) => AppSkeleton(
+            enabled: loading,
+            semanticLabel: row == 0 ? l10n.profileFriendsLoading : null,
+            child: AdaptiveGridRow(
+              columns: columns,
+              spacing: gridGap,
+              children: [
+                for (final friend in friends.skip(row * columns).take(columns))
+                  _FriendRow(
+                    friend: friend,
+                    onOpen: loading ? null : () => onOpen(friend),
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
     ),
     const SliverToBoxAdapter(child: SizedBox(height: 24)),
   ];
@@ -65,6 +82,7 @@ List<Widget> friendListSlivers(
 class _FriendRow extends StatelessWidget {
   const _FriendRow({required this.friend, required this.onOpen});
 
+  static const minWidth = 280.0;
   static const _avatarSize = 40.0;
 
   final Friend friend;

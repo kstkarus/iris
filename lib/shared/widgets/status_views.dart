@@ -53,7 +53,11 @@ class LoadingView extends StatelessWidget {
             ],
             for (final line in details) ...[
               const SizedBox(height: 4),
-              Text(line, style: theme.textTheme.bodySmall),
+              Text(
+                line,
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodySmall,
+              ),
             ],
           ],
         ),

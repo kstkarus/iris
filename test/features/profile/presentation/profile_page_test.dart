@@ -15,6 +15,7 @@ import 'package:iris/features/profile/domain/entities/user_list_entry.dart';
 import 'package:iris/features/profile/presentation/cubit/friends_cubit.dart';
 import 'package:iris/features/profile/presentation/cubit/user_list_cubit.dart';
 import 'package:iris/features/profile/presentation/pages/profile_page.dart';
+import 'package:iris/features/profile/presentation/widgets/user_list_view.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 
 import '../../../entities/friend/friend_test_doubles.dart';
@@ -163,11 +164,10 @@ void main() {
 
     expect(lists.requests.single.userId, testAccount.id);
     expect(find.text('Anime 1'), findsOneWidget);
-    expect(find.text('5/12 · SCORE: 8'), findsOneWidget);
+    expect(find.text('5 OF 12 EP. · SCORE: 8'), findsOneWidget);
     expect(find.text('Anime 3'), findsNothing);
 
-    await tester.tap(find.byKey(const ValueKey('user_list_tab_planned')));
-    await tester.pumpAndSettle();
+    await chooseStatus(tester, 'planned');
     expect(find.text('Anime 1'), findsNothing);
     expect(find.text('Anime 3'), findsOneWidget);
 
@@ -197,7 +197,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('6/12 · SCORE: 8'), findsOneWidget);
+    expect(find.text('6 OF 12 EP. · SCORE: 8'), findsOneWidget);
     expect(find.text('Anime 2'), findsNothing);
   });
 
@@ -205,10 +205,10 @@ void main() {
     await pumpPage(tester, FakeAuthRepository(restored: testAccount));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byKey(const ValueKey('user_list_tab_dropped')));
-    await tester.pumpAndSettle();
+    await chooseStatus(tester, 'dropped');
 
-    expect(find.text('Nothing here yet.'), findsOneWidget);
+    expect(find.text('Nothing in “Dropped”'), findsOneWidget);
+    expect(find.text('The status is set on an anime’s page.'), findsOneWidget);
   });
 
   testWidgets('a list that did not load can be tried again', (tester) async {
@@ -229,19 +229,22 @@ void main() {
     await tester.pumpAndSettle();
     expect(friends.friendReads, 0);
 
-    final friendsTab = find.byKey(const ValueKey('user_list_tab_friends'));
-    await tester.ensureVisible(friendsTab);
-    await tester.tap(friendsTab);
+    await tester.tap(find.byKey(UserListView.friendsTabKey));
     await tester.pumpAndSettle();
 
     expect(find.text('Anime 1'), findsNothing);
     await tester.tap(find.text('friend_7'));
     expect(openedFriends.single.id, '7');
 
-    final watchingTab = find.byKey(const ValueKey('user_list_tab_watching'));
-    await tester.ensureVisible(watchingTab);
-    await tester.tap(watchingTab);
+    await tester.tap(find.byKey(UserListView.listTabKey));
     await tester.pumpAndSettle();
     expect(find.text('Anime 1'), findsOneWidget);
   });
+}
+
+Future<void> chooseStatus(WidgetTester tester, String status) async {
+  await tester.tap(find.byKey(UserListView.statusButtonKey));
+  await tester.pumpAndSettle();
+  await tester.tap(find.byKey(ValueKey('user_list_status_$status')));
+  await tester.pumpAndSettle();
 }

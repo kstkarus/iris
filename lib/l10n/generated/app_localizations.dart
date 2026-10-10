@@ -2033,8 +2033,8 @@ abstract class AppLocalizations {
   /// No description provided for @profileListEmpty.
   ///
   /// In en, this message translates to:
-  /// **'Nothing here yet.'**
-  String get profileListEmpty;
+  /// **'Nothing in “{status}”'**
+  String profileListEmpty(String status);
 
   /// No description provided for @profileListLoadError.
   ///
@@ -2149,6 +2149,36 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Another program holds port 43821, which sign-in needs. Close it and try again.'**
   String get profileSignInPortBusy;
+
+  /// No description provided for @profileListTab.
+  ///
+  /// In en, this message translates to:
+  /// **'List'**
+  String get profileListTab;
+
+  /// No description provided for @profileListEmptyHint.
+  ///
+  /// In en, this message translates to:
+  /// **'The status is set on an anime’s page.'**
+  String get profileListEmptyHint;
+
+  /// No description provided for @profileListProgress.
+  ///
+  /// In en, this message translates to:
+  /// **'{watched} of {total} ep.'**
+  String profileListProgress(int watched, int total);
+
+  /// No description provided for @profileListWatched.
+  ///
+  /// In en, this message translates to:
+  /// **'{watched} ep.'**
+  String profileListWatched(int watched);
+
+  /// No description provided for @profileFriendCaption.
+  ///
+  /// In en, this message translates to:
+  /// **'Friend on Shikimori'**
+  String get profileFriendCaption;
 }
 
 class _AppLocalizationsDelegate

@@ -405,7 +405,7 @@
   "animeNextEpisodeTomorrow": "завтра в {time}",
   "animeNextEpisodeInDays": "через {count, plural, one{{count} день} few{{count} дня} many{{count} дней} other{{count} дня}}",
   "animeNextEpisode": "{episode} серия {when}",
-  "profileListEmpty": "Здесь пока пусто.",
+  "profileListEmpty": "В «{status}» пусто",
   "profileListLoadError": "Список не загрузился.",
   "profileListLoading": "Загружаем список",
   "profileFriendsTab": "Друзья",
@@ -424,5 +424,10 @@
   "playerMarkAction": "Отметить",
   "playerMarkFailed": "Шикимори не сохранил отметку.",
   "profileSigningInHint": "Закончите вход в браузере. Если вернуться сюда раньше, вход отменится.",
-  "profileSignInPortBusy": "Порт 43821, нужный для входа, занят другой программой. Закройте её и попробуйте снова."
+  "profileSignInPortBusy": "Порт 43821, нужный для входа, занят другой программой. Закройте её и попробуйте снова.",
+  "profileListTab": "Список",
+  "profileListEmptyHint": "Статус ставится на странице аниме.",
+  "profileListProgress": "{watched} из {total} эп.",
+  "profileListWatched": "{watched} эп.",
+  "profileFriendCaption": "Друг на Шикимори"
 }

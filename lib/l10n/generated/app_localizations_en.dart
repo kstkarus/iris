@@ -1147,7 +1147,9 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get profileListEmpty => 'Nothing here yet.';
+  String profileListEmpty(String status) {
+    return 'Nothing in “$status”';
+  }
 
   @override
   String get profileListLoadError => 'The list did not load.';
@@ -1211,4 +1213,23 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get profileSignInPortBusy =>
       'Another program holds port 43821, which sign-in needs. Close it and try again.';
+
+  @override
+  String get profileListTab => 'List';
+
+  @override
+  String get profileListEmptyHint => 'The status is set on an anime’s page.';
+
+  @override
+  String profileListProgress(int watched, int total) {
+    return '$watched of $total ep.';
+  }
+
+  @override
+  String profileListWatched(int watched) {
+    return '$watched ep.';
+  }
+
+  @override
+  String get profileFriendCaption => 'Friend on Shikimori';
 }
