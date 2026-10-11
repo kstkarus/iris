@@ -247,7 +247,7 @@ void main() {
     cubit.markCompleted();
     await Future<void>.delayed(Duration.zero);
 
-    expect((cubit.state as PlayerReady).completed, isTrue);
+    expect((cubit.state as PlayerReady).showResumeNotice, isFalse);
     expect(progress.saves.last.isFinished, isTrue);
   });
 
@@ -363,7 +363,7 @@ void main() {
     await Future<void>.delayed(Duration.zero);
 
     expect(progress.saves.last.isFinished, isTrue);
-    expect((cubit.state as PlayerReady).completed, isTrue);
+    expect((cubit.state as PlayerReady).showResumeNotice, isFalse);
     expect(
       cubit.trackPreferences,
       const PlayerTrackPreferences(audio: PreferredTrack(language: 'jpn')),

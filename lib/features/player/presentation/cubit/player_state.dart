@@ -41,7 +41,6 @@ final class PlayerReady extends PlayerState {
     this.showResumeNotice = false,
     this.startsOver = false,
     this.started = false,
-    this.completed = false,
     this.watched = false,
   });
 
@@ -60,9 +59,6 @@ final class PlayerReady extends PlayerState {
   /// The file is playing: its first frame was on screen.
   final bool started;
 
-  /// The file played to its end.
-  final bool completed;
-
   /// Playback reached the file's ending: it counts as watched.
   final bool watched;
 
@@ -70,7 +66,6 @@ final class PlayerReady extends PlayerState {
     bool? showResumeNotice,
     bool? startsOver,
     bool? started,
-    bool? completed,
     bool? watched,
   }) {
     return PlayerReady(
@@ -79,7 +74,6 @@ final class PlayerReady extends PlayerState {
       showResumeNotice: showResumeNotice ?? this.showResumeNotice,
       startsOver: startsOver ?? this.startsOver,
       started: started ?? this.started,
-      completed: completed ?? this.completed,
       watched: watched ?? this.watched,
     );
   }
@@ -96,7 +90,6 @@ final class PlayerReady extends PlayerState {
         other.showResumeNotice == showResumeNotice &&
         other.startsOver == startsOver &&
         other.started == started &&
-        other.completed == completed &&
         other.watched == watched;
   }
 
@@ -107,7 +100,6 @@ final class PlayerReady extends PlayerState {
     showResumeNotice,
     startsOver,
     started,
-    completed,
     watched,
   );
 }
