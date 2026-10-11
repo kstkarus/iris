@@ -1,24 +1,30 @@
 import 'dart:async';
-import 'dart:convert';
-import 'dart:developer' as developer;
 
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:iris/features/saved_torrents/data/models/saved_torrent_model.dart';
 import 'package:iris/features/saved_torrents/domain/entities/saved_torrent.dart';
 import 'package:iris/features/saved_torrents/domain/repositories/saved_torrents_repository.dart';
+import 'package:iris/shared/storage/json_list_preference.dart';
 import 'package:iris/shared/torrent/magnet_link.dart';
 
 class SharedPreferencesSavedTorrentsRepository
     implements SavedTorrentsRepository {
   SharedPreferencesSavedTorrentsRepository(
-    this._preferences, {
+    SharedPreferences preferences, {
     DateTime Function() now = DateTime.now,
-  }) : _now = now;
+  }) : _storage = JsonListPreference(
+         preferences,
+         'saved_torrents.items',
+         decode: SavedTorrentModel.fromJson,
+         encode: SavedTorrentModel.toJson,
+         logName: 'iris.saved_torrents.repository',
+         corruptedMessage:
+             'Saved torrents storage is corrupted; starting with an empty list.',
+       ),
+       _now = now;
 
-  static const _storageKey = 'saved_torrents.items';
-
-  final SharedPreferences _preferences;
+  final JsonListPreference<SavedTorrent> _storage;
   final DateTime Function() _now;
   final StreamController<List<SavedTorrent>> _changes =
       StreamController<List<SavedTorrent>>.broadcast();
@@ -102,38 +108,17 @@ class SharedPreferencesSavedTorrentsRepository
   }
 
   List<SavedTorrent> _read() {
-    final raw = _preferences.getString(_storageKey);
-    if (raw == null || raw.isEmpty) return [];
-    try {
-      final decoded = jsonDecode(raw);
-      if (decoded is! List) return [];
-      // Both spellings of one info-hash may have been saved before they were
-      // unified; the one added first stands.
-      final seen = <String>{};
-      return [
-        for (final entry in decoded)
-          if (SavedTorrentModel.fromJson(entry) case final torrent?
-              when seen.add(torrent.infoHash))
-            torrent,
-      ];
-    } on FormatException catch (error, stackTrace) {
-      developer.log(
-        'Saved torrents storage is corrupted; starting with an empty list.',
-        name: 'iris.saved_torrents.repository',
-        error: error,
-        stackTrace: stackTrace,
-      );
-      return [];
-    }
+    // Both spellings of one info-hash may have been saved before they were
+    // unified; the one added first stands.
+    final seen = <String>{};
+    return [
+      for (final torrent in _storage.read())
+        if (seen.add(torrent.infoHash)) torrent,
+    ];
   }
 
   Future<void> _write(List<SavedTorrent> torrents) async {
-    await _preferences.setString(
-      _storageKey,
-      jsonEncode([
-        for (final torrent in torrents) SavedTorrentModel.toJson(torrent),
-      ]),
-    );
+    await _storage.write(torrents);
     if (!_changes.isClosed) _changes.add(_sorted(torrents));
   }
 

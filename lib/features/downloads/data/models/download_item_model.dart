@@ -1,51 +1,33 @@
 import 'package:iris/features/downloads/domain/entities/download_item.dart';
 import 'package:iris/features/downloads/domain/entities/download_status.dart';
 
-class DownloadItemModel {
-  const DownloadItemModel({
-    required this.id,
-    required this.animeId,
-    required this.animeTitle,
-    required this.sourceTitle,
-    required this.magnet,
-    required this.fileIndex,
-    required this.fileName,
-    required this.relativePath,
-    required this.localPath,
-    required this.totalBytes,
-    required this.downloadedBytes,
-    required this.downloadRateBytesPerSecond,
-    required this.peers,
-    required this.status,
-    required this.createdAt,
-    this.errorMessage,
-    this.completedAt,
-  });
-
-  factory DownloadItemModel.fromDomain(DownloadItem item) {
-    return DownloadItemModel(
-      id: item.id,
-      animeId: item.animeId,
-      animeTitle: item.animeTitle,
-      sourceTitle: item.sourceTitle,
-      magnet: item.magnet,
-      fileIndex: item.fileIndex,
-      fileName: item.fileName,
-      relativePath: item.relativePath,
-      localPath: item.localPath,
-      totalBytes: item.totalBytes,
-      downloadedBytes: item.downloadedBytes,
-      downloadRateBytesPerSecond: item.downloadRateBytesPerSecond,
-      peers: item.peers,
-      status: item.status,
-      errorMessage: item.errorMessage,
-      createdAt: item.createdAt,
-      completedAt: item.completedAt,
-    );
+/// A download as the registry file stores it. Reading throws a
+/// [FormatException] on the first field that does not fit.
+abstract final class DownloadItemModel {
+  static Map<String, Object?> toJson(DownloadItem item) {
+    return {
+      'id': item.id,
+      'animeId': item.animeId,
+      'animeTitle': item.animeTitle,
+      'sourceTitle': item.sourceTitle,
+      'magnet': item.magnet,
+      'fileIndex': item.fileIndex,
+      'fileName': item.fileName,
+      'relativePath': item.relativePath,
+      'localPath': item.localPath,
+      'totalBytes': item.totalBytes,
+      'downloadedBytes': item.downloadedBytes,
+      'downloadRateBytesPerSecond': item.downloadRateBytesPerSecond,
+      'peers': item.peers,
+      'status': item.status.name,
+      'errorMessage': item.errorMessage,
+      'createdAt': item.createdAt.toIso8601String(),
+      'completedAt': item.completedAt?.toIso8601String(),
+    };
   }
 
-  factory DownloadItemModel.fromJson(Map<String, Object?> json) {
-    return DownloadItemModel(
+  static DownloadItem fromJson(Map<String, Object?> json) {
+    return DownloadItem(
       id: _readString(json, 'id'),
       animeId: _readString(json, 'animeId'),
       animeTitle: _readString(json, 'animeTitle'),
@@ -63,68 +45,6 @@ class DownloadItemModel {
       errorMessage: _readNullableString(json, 'errorMessage'),
       createdAt: _readDateTime(json, 'createdAt'),
       completedAt: _readNullableDateTime(json, 'completedAt'),
-    );
-  }
-
-  final String id;
-  final String animeId;
-  final String animeTitle;
-  final String sourceTitle;
-  final String magnet;
-  final int fileIndex;
-  final String fileName;
-  final String relativePath;
-  final String localPath;
-  final int totalBytes;
-  final int downloadedBytes;
-  final int downloadRateBytesPerSecond;
-  final int peers;
-  final DownloadStatus status;
-  final String? errorMessage;
-  final DateTime createdAt;
-  final DateTime? completedAt;
-
-  Map<String, Object?> toJson() {
-    return {
-      'id': id,
-      'animeId': animeId,
-      'animeTitle': animeTitle,
-      'sourceTitle': sourceTitle,
-      'magnet': magnet,
-      'fileIndex': fileIndex,
-      'fileName': fileName,
-      'relativePath': relativePath,
-      'localPath': localPath,
-      'totalBytes': totalBytes,
-      'downloadedBytes': downloadedBytes,
-      'downloadRateBytesPerSecond': downloadRateBytesPerSecond,
-      'peers': peers,
-      'status': status.name,
-      'errorMessage': errorMessage,
-      'createdAt': createdAt.toIso8601String(),
-      'completedAt': completedAt?.toIso8601String(),
-    };
-  }
-
-  DownloadItem toDomain() {
-    return DownloadItem(
-      id: id,
-      animeId: animeId,
-      animeTitle: animeTitle,
-      sourceTitle: sourceTitle,
-      magnet: magnet,
-      fileIndex: fileIndex,
-      fileName: fileName,
-      relativePath: relativePath,
-      localPath: localPath,
-      totalBytes: totalBytes,
-      downloadedBytes: downloadedBytes,
-      downloadRateBytesPerSecond: downloadRateBytesPerSecond,
-      peers: peers,
-      status: status,
-      errorMessage: errorMessage,
-      createdAt: createdAt,
-      completedAt: completedAt,
     );
   }
 }

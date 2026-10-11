@@ -1,23 +1,29 @@
 import 'dart:async';
-import 'dart:convert';
-import 'dart:developer' as developer;
 
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:iris/entities/watch_progress/data/watch_progress_model.dart';
 import 'package:iris/entities/watch_progress/domain/watch_progress.dart';
 import 'package:iris/entities/watch_progress/domain/watch_progress_repository.dart';
+import 'package:iris/shared/storage/json_list_preference.dart';
 
 class SharedPreferencesWatchProgressRepository
     implements WatchProgressRepository {
   SharedPreferencesWatchProgressRepository(
-    this._preferences, {
+    SharedPreferences preferences, {
     this.maxEntries = 500,
-  });
+  }) : _storage = JsonListPreference(
+         preferences,
+         'watch_progress.items',
+         decode: WatchProgressModel.fromJson,
+         encode: WatchProgressModel.toJson,
+         logName: 'iris.watch_progress.repository',
+         corruptedMessage:
+             'Watch progress storage is corrupted; starting with an empty '
+             'history.',
+       );
 
-  static const _storageKey = 'watch_progress.items';
-
-  final SharedPreferences _preferences;
+  final JsonListPreference<WatchProgress> _storage;
 
   /// Oldest records are dropped beyond this many files.
   final int maxEntries;
@@ -64,27 +70,8 @@ class SharedPreferencesWatchProgressRepository
 
   Future<void> close() => _changes.close();
 
-  List<WatchProgress> _items() => _cache ??= _sorted(_read());
-
-  List<WatchProgress> _read() {
-    final raw = _preferences.getString(_storageKey);
-    if (raw == null || raw.isEmpty) return [];
-    try {
-      final decoded = jsonDecode(raw);
-      if (decoded is! List) return [];
-      return _latestPerFile([
-        for (final entry in decoded) ?WatchProgressModel.fromJson(entry),
-      ]);
-    } on FormatException catch (error, stackTrace) {
-      developer.log(
-        'Watch progress storage is corrupted; starting with an empty history.',
-        name: 'iris.watch_progress.repository',
-        error: error,
-        stackTrace: stackTrace,
-      );
-      return [];
-    }
-  }
+  List<WatchProgress> _items() =>
+      _cache ??= _sorted(_latestPerFile(_storage.read()));
 
   Future<void> _write(List<WatchProgress> items) async {
     final sorted = _sorted(items);
@@ -92,10 +79,7 @@ class SharedPreferencesWatchProgressRepository
         ? List<WatchProgress>.unmodifiable(sorted.take(maxEntries))
         : sorted;
     _cache = kept;
-    await _preferences.setString(
-      _storageKey,
-      jsonEncode([for (final item in kept) WatchProgressModel.toJson(item)]),
-    );
+    await _storage.write(kept);
     if (!_changes.isClosed) _changes.add(kept);
   }
 

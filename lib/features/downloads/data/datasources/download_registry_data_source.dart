@@ -49,7 +49,7 @@ class DownloadRegistryDataSource {
 
         try {
           final json = entry.cast<String, Object?>();
-          downloads.add(DownloadItemModel.fromJson(json).toDomain());
+          downloads.add(DownloadItemModel.fromJson(json));
         } on Object {
           continue;
         }
@@ -67,10 +67,7 @@ class DownloadRegistryDataSource {
     final temporaryFile = _temporaryFile;
     try {
       final encoded = jsonEncode(
-        downloads
-            .map(DownloadItemModel.fromDomain)
-            .map((model) => model.toJson())
-            .toList(growable: false),
+        downloads.map(DownloadItemModel.toJson).toList(growable: false),
       );
       await temporaryFile.writeAsString(encoded, flush: true);
       await _replaceWith(temporaryFile);

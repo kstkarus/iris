@@ -25,15 +25,15 @@ void main() {
       completedAt: DateTime.utc(2026, 7, 11, 10),
     );
 
-    final json = DownloadItemModel.fromDomain(item).toJson();
-    final restored = DownloadItemModel.fromJson(json).toDomain();
+    final json = DownloadItemModel.toJson(item);
+    final restored = DownloadItemModel.fromJson(json);
 
     expect(restored, item);
     expect(json['status'], 'completed');
   });
 
   test('rejects an unknown download status', () {
-    final json = DownloadItemModel.fromDomain(
+    final json = DownloadItemModel.toJson(
       DownloadItem(
         id: 'id',
         animeId: '1',
@@ -51,7 +51,7 @@ void main() {
         status: DownloadStatus.queued,
         createdAt: DateTime.utc(2026),
       ),
-    ).toJson();
+    );
     json['status'] = 'unknown';
 
     expect(
