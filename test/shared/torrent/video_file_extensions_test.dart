@@ -46,4 +46,25 @@ void main() {
       }
     });
   });
+
+  group('videoFileExtension', () {
+    test('reads the last extension, lowercased and without the dot', () {
+      expect(videoFileExtension('Episode 01.MKV'), 'mkv');
+      expect(videoFileExtension('show.s01e01.1080p.mp4'), 'mp4');
+    });
+
+    test('is empty when the name has no extension', () {
+      expect(videoFileExtension('README'), '');
+      expect(videoFileExtension('name.'), '');
+      expect(videoFileExtension('.mkv'), '');
+    });
+  });
+
+  group('isVideoFileName', () {
+    test('accepts video files and rejects the rest', () {
+      expect(isVideoFileName('Episode 01.mkv'), isTrue);
+      expect(isVideoFileName('Episode 01.ass'), isFalse);
+      expect(isVideoFileName('mkv'), isFalse);
+    });
+  });
 }

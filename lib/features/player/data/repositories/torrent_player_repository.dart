@@ -65,7 +65,7 @@ class TorrentPlayerRepository implements PlayerRepository {
                 index: file.index,
                 name: file.name,
                 size: file.size,
-                extension: _extractExtension(file.name),
+                extension: videoFileExtension(file.name),
               ),
             )
             .toList()
@@ -129,14 +129,5 @@ PlayerPlaybackStats _mapPlaybackStats(PlaybackRuntimeStatsModel stats) {
 }
 
 bool _isSupportedVideoFile(TorrentFileDescriptor file) {
-  return file.isStreamable && isVideoExtension(_extractExtension(file.name));
-}
-
-String _extractExtension(String name) {
-  final dotIndex = name.lastIndexOf('.');
-  if (dotIndex < 0 || dotIndex == name.length - 1) {
-    return '';
-  }
-
-  return name.substring(dotIndex + 1).toLowerCase();
+  return file.isStreamable && isVideoFileName(file.name);
 }

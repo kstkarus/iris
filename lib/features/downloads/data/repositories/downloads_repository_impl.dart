@@ -817,14 +817,14 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
     final files =
         _engine
             .getFiles(torrentId)
-            .where((file) => file.isStreamable && _isSupportedVideo(file.name))
+            .where((file) => file.isStreamable && isVideoFileName(file.name))
             .map(
               (file) => DownloadableFile(
                 index: file.index,
                 name: file.name,
                 relativePath: file.relativePath,
                 size: file.size,
-                extension: _extension(file.name),
+                extension: videoFileExtension(file.name),
               ),
             )
             .toList()
@@ -933,14 +933,6 @@ class _PreparedRuntime {
   /// Null when the torrent is borrowed from the active download and must not
   /// be removed together with this source.
   final Directory? metadataDirectory;
-}
-
-bool _isSupportedVideo(String name) {
-  return isVideoExtension(_extension(name));
-}
-
-String _extension(String name) {
-  return path.extension(name).replaceFirst('.', '').toLowerCase();
 }
 
 String _createDownloadId(String magnet, int fileIndex) {
