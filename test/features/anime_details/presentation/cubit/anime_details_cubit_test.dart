@@ -2,56 +2,49 @@ import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:iris/entities/anime/domain/anime_summary.dart';
-
 import 'package:iris/features/anime_details/domain/entities/anime_details.dart';
 import 'package:iris/features/anime_details/domain/repositories/anime_details_repository.dart';
 import 'package:iris/features/anime_details/presentation/cubit/anime_details_cubit.dart';
 import 'package:iris/features/anime_details/presentation/cubit/anime_details_state.dart';
 
+import '../../anime_details_test_doubles.dart';
+
 void main() {
   group('AnimeDetailsCubit', () {
-    test('does not throw when closed before the details arrive', () async {
-      final pending = Completer<AnimeDetails>();
-      final cubit = AnimeDetailsCubit(
-        animeId: '5114',
-        repository: _PendingAnimeDetailsRepository(pending.future),
-      );
+    for (final fails in [false, true]) {
+      final outcome = fails ? 'the request fails' : 'the details arrive';
+      test('does not throw when closed before $outcome', () async {
+        final pending = Completer<AnimeDetails>();
+        final cubit = AnimeDetailsCubit(
+          animeId: '5114',
+          repository: PendingAnimeDetailsRepository(pending.future),
+        );
 
-      final load = cubit.loadAnime();
-      await cubit.close();
-      pending.complete(_details);
+        final load = cubit.loadAnime();
+        await cubit.close();
+        if (fails) {
+          pending.completeError(Exception('Repository failure'));
+        } else {
+          pending.complete(fmaDetails);
+        }
 
-      await expectLater(load, completes);
-    });
-
-    test('does not throw when closed before the request fails', () async {
-      final pending = Completer<AnimeDetails>();
-      final cubit = AnimeDetailsCubit(
-        animeId: '5114',
-        repository: _PendingAnimeDetailsRepository(pending.future),
-      );
-
-      final load = cubit.loadAnime();
-      await cubit.close();
-      pending.completeError(Exception('Repository failure'));
-
-      await expectLater(load, completes);
-    });
+        await expectLater(load, completes);
+      });
+    }
 
     test(
       'emits loading then success when repository returns details',
       () async {
         final cubit = AnimeDetailsCubit(
           animeId: '5114',
-          repository: _SuccessAnimeDetailsRepository(_details),
+          repository: const FixedAnimeDetailsRepository(),
         );
 
         expectLater(
           cubit.stream,
           emitsInOrder([
             const AnimeDetailsLoading(),
-            const AnimeDetailsSuccess(_details),
+            const AnimeDetailsSuccess(fmaDetails),
           ]),
         );
 
@@ -78,44 +71,9 @@ void main() {
   });
 }
 
-class _SuccessAnimeDetailsRepository implements AnimeDetailsRepository {
-  const _SuccessAnimeDetailsRepository(this.details);
-
-  final AnimeDetails details;
-
-  @override
-  Future<AnimeDetails> fetchAnimeDetails(String id) async => details;
-}
-
 class _FailureAnimeDetailsRepository implements AnimeDetailsRepository {
   @override
   Future<AnimeDetails> fetchAnimeDetails(String id) {
     throw Exception('Repository failure');
   }
 }
-
-class _PendingAnimeDetailsRepository implements AnimeDetailsRepository {
-  const _PendingAnimeDetailsRepository(this.pending);
-
-  final Future<AnimeDetails> pending;
-
-  @override
-  Future<AnimeDetails> fetchAnimeDetails(String id) => pending;
-}
-
-const _details = AnimeDetails(
-  anime: AnimeSummary(
-    id: '5114',
-    name: 'Fullmetal Alchemist: Brotherhood',
-    russian: 'Fullmetal Alchemist: Brotherhood RU',
-    kind: 'tv',
-    score: 9.12,
-    status: 'released',
-    episodes: 64,
-    episodesAired: 64,
-    airedOn: '2009-04-05',
-    posterUrl: 'https://shikimori.one/posters/5114/original.jpg',
-  ),
-  description:
-      'Two brothers search for a Philosopher\'s Stone after a failed ritual.',
-);
