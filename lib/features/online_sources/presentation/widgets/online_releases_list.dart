@@ -60,12 +60,9 @@ class OnlineReleasesList extends StatelessWidget {
           ),
           OnlineReleasesFailure() => (
             'failure',
-            MessageView(
+            RetryView(
               message: l10n.watchSourcesOnlineLoadError,
-              action: FilledButton(
-                onPressed: () => context.read<OnlineReleasesCubit>().load(),
-                child: Text(l10n.commonRetry),
-              ),
+              onRetry: () => context.read<OnlineReleasesCubit>().load(),
             ),
           ),
         };

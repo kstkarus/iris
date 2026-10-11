@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import 'package:iris/l10n/generated/app_localizations.dart';
+import 'package:iris/shared/widgets/segmented_bar.dart';
+
 /// A centred loading state: a short run of blocks sweeping across a bar and
 /// what is being waited for.
 class LoadingView extends StatelessWidget {
@@ -179,5 +182,101 @@ class MessageView extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+/// A [MessageView] for a failed load, with a button that tries again.
+class RetryView extends StatelessWidget {
+  const RetryView({
+    required this.message,
+    required this.onRetry,
+    this.quiet = false,
+    super.key,
+  });
+
+  final String message;
+  final VoidCallback onRetry;
+
+  /// A [TextButton] instead of a [FilledButton].
+  final bool quiet;
+
+  @override
+  Widget build(BuildContext context) {
+    final label = Text(AppLocalizations.of(context).commonRetry);
+    return MessageView(
+      message: message,
+      action: quiet
+          ? TextButton(onPressed: onRetry, child: label)
+          : FilledButton(onPressed: onRetry, child: label),
+    );
+  }
+}
+
+/// A failure in the flow of a page: the message, then a way to try again.
+class InlineRetry extends StatelessWidget {
+  const InlineRetry({
+    required this.message,
+    required this.onRetry,
+    this.style,
+    super.key,
+  });
+
+  final String message;
+  final VoidCallback onRetry;
+  final TextStyle? style;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(child: Text(message, style: style)),
+        const SizedBox(width: 12),
+        TextButton(
+          onPressed: onRetry,
+          child: Text(AppLocalizations.of(context).commonRetry),
+        ),
+      ],
+    );
+  }
+}
+
+/// The end of a paged list: a spinner while the next page loads, or why
+/// it did not, with a way to try again; [idle] otherwise.
+class PagingFooter extends StatelessWidget {
+  const PagingFooter({
+    required this.loadingMore,
+    required this.failed,
+    required this.failedMessage,
+    required this.onRetry,
+    this.idle = const SizedBox.shrink(),
+    super.key,
+  });
+
+  final bool loadingMore;
+  final bool failed;
+  final String failedMessage;
+  final VoidCallback onRetry;
+  final Widget idle;
+
+  @override
+  Widget build(BuildContext context) {
+    if (loadingMore) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 8),
+        child: Center(child: SizedBox(width: 120, child: BlockSpinner())),
+      );
+    }
+    if (failed) {
+      return Column(
+        children: [
+          const SegmentedRule(),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: InlineRetry(message: failedMessage, onRetry: onRetry),
+          ),
+        ],
+      );
+    }
+    return idle;
   }
 }

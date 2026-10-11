@@ -199,12 +199,9 @@ class _FailureState extends StatelessWidget {
         ? l10n.playerSourceUnsupported
         : l10n.playerSourceUnableToPrepare;
 
-    return MessageView(
+    return RetryView(
       message: message,
-      action: FilledButton(
-        onPressed: () => context.read<PlayerSourceCubit>().loadSource(),
-        child: Text(l10n.commonRetry),
-      ),
+      onRetry: () => context.read<PlayerSourceCubit>().loadSource(),
     );
   }
 }

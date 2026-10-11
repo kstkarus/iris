@@ -19,7 +19,6 @@ import 'package:iris/shared/widgets/app_skeleton.dart';
 import 'package:iris/shared/widgets/marked_tab.dart';
 import 'package:iris/shared/widgets/pixel_icon.dart';
 import 'package:iris/shared/widgets/poster_image.dart';
-import 'package:iris/shared/widgets/segmented_bar.dart';
 import 'package:iris/shared/widgets/status_views.dart';
 
 /// The statuses, what is being watched first.
@@ -140,9 +139,10 @@ class _UserListViewState extends State<UserListView> {
       return [
         SliverFillRemaining(
           hasScrollBody: false,
-          child: MessageView(
+          child: RetryView(
             message: l10n.profileListLoadError,
-            action: TextButton(onPressed: retry, child: Text(l10n.commonRetry)),
+            onRetry: retry,
+            quiet: true,
           ),
         ),
       ];
@@ -193,7 +193,13 @@ class _UserListViewState extends State<UserListView> {
         },
       ),
       SliverToBoxAdapter(
-        child: _Footer(state: state, onRetry: retry),
+        child: PagingFooter(
+          loadingMore: state.loadingMore,
+          failed: state.moreFailed,
+          failedMessage: l10n.profileListLoadError,
+          onRetry: retry,
+          idle: const SizedBox(height: 24),
+        ),
       ),
     ];
   }
@@ -461,42 +467,6 @@ class _EntryRow extends StatelessWidget {
     final when = formatNextEpisodeTime(l10n, at, DateTime.now());
     if (when == null) return null;
     return l10n.animeNextEpisode(anime.episodesAired + 1, when);
-  }
-}
-
-class _Footer extends StatelessWidget {
-  const _Footer({required this.state, required this.onRetry});
-
-  final UserListState state;
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    if (state.loadingMore) {
-      return const Padding(
-        padding: EdgeInsets.symmetric(vertical: 8),
-        child: Center(child: SizedBox(width: 120, child: BlockSpinner())),
-      );
-    }
-    if (state.moreFailed) {
-      final l10n = AppLocalizations.of(context);
-      return Column(
-        children: [
-          const SegmentedRule(),
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            child: Row(
-              children: [
-                Expanded(child: Text(l10n.profileListLoadError)),
-                const SizedBox(width: 12),
-                TextButton(onPressed: onRetry, child: Text(l10n.commonRetry)),
-              ],
-            ),
-          ),
-        ],
-      );
-    }
-    return const SizedBox(height: 24);
   }
 }
 

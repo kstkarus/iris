@@ -74,8 +74,9 @@ lib/
   `ShikimoriGraphQlClient.queryList`, `searchAll`
 - storage: `JsonListPreference`
 - widgets: `FoldingList` (show more / less), `SourceFactsLine`, `watchedFirst`,
-  `adaptiveColumnCount`, `status_views.dart` (loading / empty / error),
-  `PageFrame` (page body margins + width cap)
+  `adaptiveColumnCount`, `status_views.dart` (loading / empty / error,
+  `RetryView` / `InlineRetry` / `PagingFooter`), `PageFrame` (page body
+  margins + width cap)
 
 ### Layer responsibilities
 #### presentation/

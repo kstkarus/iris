@@ -498,12 +498,9 @@ class _FailureState extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
 
-    return MessageView(
+    return RetryView(
       message: l10n.animeListLoadError,
-      action: FilledButton(
-        onPressed: () => bloc.add(const AnimeListInitialRetryRequested()),
-        child: Text(l10n.commonRetry),
-      ),
+      onRetry: () => bloc.add(const AnimeListInitialRetryRequested()),
     );
   }
 }

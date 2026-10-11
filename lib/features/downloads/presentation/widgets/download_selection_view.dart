@@ -131,12 +131,9 @@ class _FailureState extends StatelessWidget {
       DownloadSelectionFailureType.unableToPrepare =>
         l10n.downloadSelectionUnableToPrepare,
     };
-    return MessageView(
+    return RetryView(
       message: message,
-      action: FilledButton(
-        onPressed: context.read<DownloadSelectionCubit>().load,
-        child: Text(l10n.commonRetry),
-      ),
+      onRetry: context.read<DownloadSelectionCubit>().load,
     );
   }
 }

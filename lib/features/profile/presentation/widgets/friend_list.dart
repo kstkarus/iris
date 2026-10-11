@@ -25,12 +25,10 @@ List<Widget> friendListSlivers(
       return [
         SliverFillRemaining(
           hasScrollBody: false,
-          child: MessageView(
+          child: RetryView(
             message: l10n.profileFriendsLoadError,
-            action: TextButton(
-              onPressed: cubit.load,
-              child: Text(l10n.commonRetry),
-            ),
+            onRetry: cubit.load,
+            quiet: true,
           ),
         ),
       ];

@@ -60,12 +60,9 @@ class _DownloadManagerViewState extends State<DownloadManagerView> {
         }
         if (state.hasError && state.downloads.isEmpty) {
           final l10n = AppLocalizations.of(context);
-          return MessageView(
+          return RetryView(
             message: l10n.downloadManagerUnableToLoad,
-            action: FilledButton(
-              onPressed: context.read<DownloadManagerCubit>().load,
-              child: Text(l10n.commonRetry),
-            ),
+            onRetry: context.read<DownloadManagerCubit>().load,
           );
         }
         final refresh = context.read<DownloadManagerCubit>().refreshStorage;

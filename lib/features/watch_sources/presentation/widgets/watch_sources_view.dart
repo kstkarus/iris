@@ -47,12 +47,9 @@ class WatchSourcesView extends StatelessWidget {
             child: _LoadedState(state: state),
           ),
           WatchSourcesEmpty() => MessageView(message: l10n.watchSourcesEmpty),
-          WatchSourcesFailure() => MessageView(
+          WatchSourcesFailure() => RetryView(
             message: l10n.watchSourcesLoadError,
-            action: FilledButton(
-              onPressed: () => context.read<WatchSourcesCubit>().loadSources(),
-              child: Text(l10n.commonRetry),
-            ),
+            onRetry: () => context.read<WatchSourcesCubit>().loadSources(),
           ),
         };
       },
