@@ -3,29 +3,33 @@
 ## Project overview
 - This repository contains a Flutter mobile app for watching anime.
 - Target audience: the owner of the app and a small circle of friends.
-- Primary platforms: Android and iOS.
+- Platforms: Android, iOS and Windows, all first-class. Layouts adapt between
+  phone and desktop widths.
 - Core product goals:
-  - browse anime titles
-  - open anime details
-  - watch episodes in an in-app player
-  - search and filter titles
-  - keep favorites and basic watch progress
+  - browse and filter the Shikimori catalog
+  - open anime details and the user's Shikimori lists / friends
+  - watch episodes from torrents or online sources in an in-app player
+  - download torrents for offline viewing
+  - keep watch progress
 - Favor a clean, maintainable codebase over premature scale or heavy enterprise patterns.
 
 ## Tech stack
-- Flutter + Dart
+- Flutter + Dart, localization via ARB files + `flutter gen-l10n` (`lib/l10n/`)
 - Routing: `go_router`
-- State management: `flutter_bloc`
-- Persistent state: `hydrated_bloc` (selective use only)
-- Networking: `dio`
+- State management: `flutter_bloc` (`Cubit` / `Bloc`)
+- Persistent state: `shared_preferences` (JSON lists via `JsonListPreference`)
+- Secure storage: `flutter_secure_storage` (Shikimori session)
+- OAuth: `flutter_web_auth_2`
+- Networking: `dio` (Shikimori REST + GraphQL, online sources)
 - Dependency injection: `get_it`
-- Models and unions: `freezed`, `freezed_annotation`, `json_serializable`, `json_annotation`
-- Video playback: `media_kit`, `media_kit_video`
-- Images: `cached_network_image`
-- Secure storage: `flutter_secure_storage`
-- Local formatting / dates: `intl`
-- Optional app helpers: `path_provider`, `connectivity_plus`, `wakelock_plus`
-- Testing: `flutter_test`, `bloc_test`, `mocktail`
+- Models: plain immutable Dart classes, JSON parsed by hand in `data/` with
+  `shared/utils/json_read.dart`; no code generation
+- Video playback: `media_kit`, `media_kit_video`, `media_kit_libs_video`
+- Torrents: `libtorrent_flutter` (version pinned on purpose, see `pubspec.yaml`)
+- Loading placeholders: `skeletonizer`
+- Files: `path_provider`, `path`
+- Formatting / dates: `intl`
+- Testing: `flutter_test` with hand-written fakes (shared ones in `test/helpers/`)
 
 ## Architecture
 Use **FSD light** for repo organization and **clean architecture inside each feature**.
@@ -42,51 +46,35 @@ Use **FSD light** for repo organization and **clean architecture inside each fea
 ### Repository shape
 ```text
 lib/
-  app/
-    router/
-    di/
-    theme/
-    bootstrap/
-  shared/
-    network/
-    storage/
-    utils/
-    constants/
-    widgets/
-  entities/
-    anime/
-    episode/
-    user/
-  features/
-    auth/
-      presentation/
-      domain/
-      data/
-    anime_list/
-      presentation/
-      domain/
-      data/
-    anime_details/
-      presentation/
-      domain/
-      data/
-    player/
-      presentation/
-      domain/
-      data/
-    search/
-      presentation/
-      domain/
-      data/
-    favorites/
-      presentation/
-      domain/
-      data/
-    profile/
-      presentation/
-      domain/
-      data/
+  app/          router/, di/, theme/, bootstrap/
+  l10n/         ARB files + generated localizations
+  shared/       network/, online/, torrent/, storage/, theme/, window/,
+                utils/, constants/, widgets/
+  entities/     anime/, friend/, user_rate/, watch_progress/
+  features/     each with presentation/, domain/, data/
+    anime_list/       catalog, filters, continue watching
+    anime_details/    title page
+    auth/             Shikimori sign-in
+    profile/          user lists, friends
+    watch_sources/    torrent releases for a title
+    online_sources/   online releases (AniLibria, yummy_anime)
+    saved_torrents/   torrents the user added by hand
+    downloads/        offline downloads
+    player/           playback
 ```
+
+### Shared helpers — reuse before writing new ones
+- equality: `sameList` / `sameSet` / `sameMap` (`shared/utils/equality.dart`)
+- JSON reading: `jsonMap`, `jsonString`, `jsonInt`… (`shared/utils/json_read.dart`), `enumByName`
+- one-at-a-time async work: `SerialQueue`
+- reduced motion: `motionDuration(context, duration)`
+- sizes / rates: `formatByteSize`, `formatTransferRate`
+- torrents: `isVideoFileName`, `unlessCancelled`
+- network: `createJsonApiDio` / `createShikimoriDio`, `ShikimoriRestClient`,
+  `ShikimoriGraphQlClient.queryList`, `searchAll`
+- storage: `JsonListPreference`
+- widgets: `FoldingList` (show more / less), `SourceFactsLine`, `watchedFirst`,
+  `adaptiveColumnCount`, `status_views.dart` (loading / empty / error)
 
 ### Layer responsibilities
 #### presentation/
@@ -112,13 +100,14 @@ lib/
 ## State management rules
 - Prefer `Cubit` for simple local screen logic.
 - Use `Bloc` when there are multiple event types, async orchestration, or complex flows.
-- Keep state immutable.
-- Use `Freezed` for bloc states/events where it improves clarity.
-- Persist only durable state with `hydrated_bloc`, such as:
-  - auth/session markers
-  - selected filters worth restoring
-  - favorites metadata if chosen for UX
-  - last watched episode / playback progress summary
+- Keep state immutable: `final` fields, `sealed` / `final class` hierarchies,
+  value equality via `==` / `hashCode` (with the shared equality helpers).
+- Persist only durable state, through a repository in `data/` backed by
+  `shared_preferences` (or `flutter_secure_storage` for secrets), such as:
+  - auth/session (secure storage)
+  - player and catalog preferences worth restoring
+  - saved torrents and downloads
+  - watch progress
 - Do **not** persist transient state, such as:
   - loading flags
   - snackbars / dialogs
@@ -233,10 +222,10 @@ flutter analyze
 flutter test
 ```
 
-When generated models change, run:
+When ARB files in `lib/l10n/` change, run:
 
 ```bash
-dart run build_runner build --delete-conflicting-outputs
+flutter gen-l10n
 ```
 
 Useful development commands:
@@ -254,8 +243,8 @@ A task is done when all of the following are true when applicable:
 - `flutter analyze` passes
 - relevant tests were added or updated
 - `flutter test` passes
-- generated code is refreshed if needed
-- public behavior changes are reflected in `README.md` or `docs/architecture.md` when necessary
+- localizations are regenerated if ARB files changed
+- public behavior changes are reflected in `README.md` when necessary
 
 ## Git workflow
 - Use Conventional Commits: `type(scope): description`
@@ -263,6 +252,8 @@ A task is done when all of the following are true when applicable:
 - Keep commits small and meaningful.
 - For larger features, prefer feature branches.
 - Keep `main` in a runnable state.
+- Do not commit `windows/flutter/generated_plugin*` changes that a local
+  build regenerates; restore them before committing.
 
 ## What to avoid
 - Do not put business logic in widgets.
@@ -273,11 +264,10 @@ A task is done when all of the following are true when applicable:
 - Do not add large docs inside this file; link out to `docs/` instead.
 
 ## Documentation map
-Keep this file short. If the repository grows, move durable details into:
+Keep this file short. Durable details go into:
 - `README.md` for setup and quickstart
-- `docs/architecture.md` for deeper architectural rules
-- `docs/decisions/` for major technical decisions
-- `docs/features/` for feature notes only when they become necessary
+- `docs/private/` (git-ignored) for the owner's roadmaps and decision notes
+- if shared docs become necessary: `docs/architecture.md`, `docs/decisions/`
 
 ## Agent behavior expectations
 When working in this repository:
