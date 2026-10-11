@@ -1,4 +1,5 @@
 import 'package:iris/features/downloads/domain/entities/downloadable_file.dart';
+import 'package:iris/shared/utils/equality.dart';
 
 class PreparedDownloadSource {
   const PreparedDownloadSource({
@@ -17,23 +18,9 @@ class PreparedDownloadSource {
 
     return other is PreparedDownloadSource &&
         other.sourceToken == sourceToken &&
-        _sameFiles(other.files, files);
+        sameList(other.files, files);
   }
 
   @override
   int get hashCode => Object.hash(sourceToken, Object.hashAll(files));
-}
-
-bool _sameFiles(List<DownloadableFile> first, List<DownloadableFile> second) {
-  if (first.length != second.length) {
-    return false;
-  }
-
-  for (var index = 0; index < first.length; index++) {
-    if (first[index] != second[index]) {
-      return false;
-    }
-  }
-
-  return true;
 }
