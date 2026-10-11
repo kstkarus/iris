@@ -104,14 +104,7 @@ class ContinueWatchingRow extends StatelessWidget {
 void _open(BuildContext context, WatchProgress progress) {
   context.pushNamed(
     'torrent-stream-files',
-    extra: AnimePlayerSourceArgs(
-      animeId: progress.animeId,
-      animeTitle: progress.displayTitle,
-      sourceTitle: progress.sourceTitle,
-      magnet: progress.magnet,
-      // A finished file opens the picker, which offers the next one.
-      autoOpenFileIndex: progress.isFinished ? null : progress.fileIndex,
-    ),
+    extra: AnimePlayerSourceArgs.resume(progress),
   );
 }
 

@@ -1,3 +1,5 @@
+import 'package:iris/entities/watch_progress/domain/watch_progress.dart';
+
 class AnimePlayerSourceArgs {
   const AnimePlayerSourceArgs({
     required this.animeId,
@@ -6,6 +8,17 @@ class AnimePlayerSourceArgs {
     required this.magnet,
     this.autoOpenFileIndex,
   });
+
+  /// Back to the torrent of [progress]; a finished file opens the picker,
+  /// which offers the next one.
+  AnimePlayerSourceArgs.resume(WatchProgress progress)
+    : this(
+        animeId: progress.animeId,
+        animeTitle: progress.displayTitle,
+        sourceTitle: progress.sourceTitle,
+        magnet: progress.magnet,
+        autoOpenFileIndex: progress.isFinished ? null : progress.fileIndex,
+      );
 
   final String animeId;
   final String animeTitle;
