@@ -35,6 +35,19 @@ void main() {
       );
     });
 
+    test('ignores display name and trackers', () {
+      expect(
+        torrentKeyFromMagnet('magnet:?xt=urn:btih:abc&tr=udp://a'),
+        torrentKeyFromMagnet('magnet:?dn=x&xt=urn:btih:ABC'),
+      );
+    });
+
+    test('falls back to a stable hash without btih', () {
+      const magnet = 'magnet:?dn=only-a-name';
+      expect(torrentKeyFromMagnet(magnet), torrentKeyFromMagnet(magnet));
+      expect(torrentKeyFromMagnet(magnet), isNotEmpty);
+    });
+
     test('matches the xt parameter name in any case, like MagnetLink', () {
       expect(torrentKeyFromMagnet('magnet:?XT=urn:btih:$hexHash'), hexKey);
     });
