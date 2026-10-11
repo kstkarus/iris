@@ -8,27 +8,6 @@ import 'package:iris/features/player/data/models/playback_runtime_stats_model.da
 import 'package:iris/shared/storage/stream_cache_storage.dart';
 
 void main() {
-  test(
-    'configures libtorrent session only once across repeated initialize calls',
-    () async {
-      final engine = _FakeEngineClient();
-      final adapter = LibtorrentEngineAdapterImpl(
-        engineClient: engine,
-        runtimeInitializer: () async {},
-      );
-
-      await adapter.initialize();
-      await adapter.initialize();
-
-      expect(engine.configureSessionCallCount, 1);
-      expect(engine.lastConfig, isNotNull);
-      expect(engine.lastConfig!.cacheSize, 256 * 1024 * 1024);
-      expect(engine.lastConfig!.readerReadAhead, 95);
-      expect(engine.lastConfig!.preloadCache, 60);
-      expect(engine.lastConfig!.responsiveMode, isTrue);
-    },
-  );
-
   test('adds magnets into the prepared stream cache folder', () async {
     final root = await Directory.systemTemp.createTemp('iris_engine_test_');
     addTearDown(() => root.delete(recursive: true));
@@ -103,9 +82,7 @@ class _FakeEngineClient implements LibtorrentEngineClient {
   @override
   void stopStream(int streamId) {}
 
-  BtConfig? lastConfig;
   String? lastSavePath;
-  int configureSessionCallCount = 0;
   int? startStreamTorrentId;
   int? startStreamFileIndex;
   int? startStreamMaxCacheBytes;
@@ -117,12 +94,6 @@ class _FakeEngineClient implements LibtorrentEngineClient {
   int addMagnet(String magnet, {String? savePath}) {
     lastSavePath = savePath;
     return 42;
-  }
-
-  @override
-  void configureSession(BtConfig config) {
-    configureSessionCallCount++;
-    lastConfig = config;
   }
 
   @override

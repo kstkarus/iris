@@ -11,9 +11,6 @@ import 'package:iris/shared/torrent/torrent_metadata_wait.dart';
 import 'package:iris/shared/utils/playback_runtime_initializer.dart';
 
 const torrentStreamCacheBytes = 256 * 1024 * 1024;
-const _torrentSessionCacheBytes = 256 * 1024 * 1024;
-const _torrentSessionReadAheadPercent = 95;
-const _torrentSessionPreloadPercent = 60;
 
 abstract interface class LibtorrentEngineAdapter {
   Future<void> initialize();
@@ -57,8 +54,6 @@ abstract interface class LibtorrentEngineClient {
   Map<int, TorrentInfo> get torrents;
 
   Stream<Map<int, TorrentInfo>> get torrentUpdates;
-
-  void configureSession(BtConfig config);
 }
 
 class LibtorrentEngineAdapterImpl implements LibtorrentEngineAdapter {
@@ -80,7 +75,6 @@ class LibtorrentEngineAdapterImpl implements LibtorrentEngineAdapter {
   /// Where streamed pieces are written; the engine default (system temp)
   /// when null.
   final StreamCacheStorage? _streamCache;
-  bool _sessionConfigured = false;
 
   @override
   int addMagnet(String magnet) {
@@ -139,22 +133,6 @@ class LibtorrentEngineAdapterImpl implements LibtorrentEngineAdapter {
     );
     await _runtimeInitializer();
     await _streamCache?.prepare();
-    if (_sessionConfigured) {
-      return;
-    }
-
-    _engineClient.configureSession(
-      const BtConfig(
-        cacheSize: _torrentSessionCacheBytes,
-        readerReadAhead: _torrentSessionReadAheadPercent,
-        preloadCache: _torrentSessionPreloadPercent,
-        responsiveMode: true,
-        // With IPv6 disabled the native bridge rebinds the session to
-        // 0.0.0.0:6881, overriding the listen interfaces set at init.
-        enableIpv6: true,
-      ),
-    );
-    _sessionConfigured = true;
   }
 
   @override
@@ -243,11 +221,6 @@ class _DefaultLibtorrentEngineClient implements LibtorrentEngineClient {
   @override
   int addMagnet(String magnet, {String? savePath}) =>
       _engine.addMagnet(magnet, savePath);
-
-  @override
-  void configureSession(BtConfig config) {
-    _engine.configureSession(config);
-  }
 
   @override
   bool disposeTorrent(int torrentId) => _engine.disposeTorrent(torrentId);
