@@ -268,15 +268,13 @@ class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
 
   Widget _decorateControls(VideoState video, Widget controls) {
     return _PlayerControlsFrame(
-      phase: widget.engine.phase,
+      engine: widget.engine,
       finishing: widget.engine.finishing,
       completed: widget.engine.completed,
       nextTitle: _nextTitle,
       onPlayNext: _playNext,
       skipSegment: widget.engine.skipSegment,
       onSkip: () => unawaited(widget.engine.skipCurrentSegment()),
-      openingLabel: AppLocalizations.of(context).playerPreparing,
-      bufferingLabel: AppLocalizations.of(context).playerBuffering,
       stats: widget.engine.playbackStats,
       onFullscreenRoute: (route) => _fullscreenRoute = route,
       onInlineShown: () => _onInlineControlsShown(video),
@@ -289,13 +287,13 @@ class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
     final l10n = AppLocalizations.of(context);
     final theme = Theme.of(context);
     final engine = widget.engine;
-    final startupState = engine.startupState;
     final chrome = widget.chrome;
     if (chrome != null) return _buildImmersive(l10n, chrome);
 
-    if (startupState.phase == PlayerEnginePhase.failed) {
+    if (engine.startupState.phase == PlayerEnginePhase.failed) {
       return _buildFailure(l10n);
     }
+    final startupLabel = _playerStartupLabel(l10n, engine);
 
     final videoFrame = AspectRatio(
       aspectRatio: 16 / 9,
@@ -313,13 +311,10 @@ class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
                 subtitleViewConfiguration: engine.subtitleViewConfiguration,
                 controlsThemes: _buildControlsThemes(l10n, theme.colorScheme),
               ),
-              if (engine.reconfiguring ||
-                  startupState.phase != PlayerEnginePhase.ready)
+              if (startupLabel != null)
                 _PlayerStartupOverlay(
                   key: const Key('player_viewport_loading_overlay'),
-                  label: startupState.phase == PlayerEnginePhase.openingSource
-                      ? l10n.playerPreparing
-                      : l10n.playerBuffering,
+                  label: startupLabel,
                   stats: engine.playbackStats,
                 ),
             ],
@@ -384,28 +379,13 @@ class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
       );
       failure = null;
     }
-    final String? startupLabel;
-    if (startupState.phase == PlayerEnginePhase.failed) {
-      startupLabel = null;
-    } else if (startupState.phase == PlayerEnginePhase.openingSource) {
-      startupLabel = l10n.playerPreparing;
-    } else if (engine.reconfiguring ||
-        startupState.phase != PlayerEnginePhase.ready ||
-        // Ready can come from the file's header alone; the stream may take
-        // seconds more to show a picture, and a black screen would hide it.
-        !startupState.firstFrameRendered) {
-      startupLabel = l10n.playerBuffering;
-    } else {
-      startupLabel = null;
-    }
-
     return PlayerImmersiveControls(
       engine: engine,
       chrome: chrome,
       next: widget.next,
       video: video,
       failure: failure,
-      startupLabel: startupLabel,
+      startupLabel: _playerStartupLabel(l10n, engine),
       statsPanel: _buildStatsPanel(immersive: true),
       fullscreen: _windowFullscreen,
       onToggleFullscreen: _toggleWindowFullscreen,
@@ -539,7 +519,7 @@ class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
       seekGesture: true,
       seekOnDoubleTap: true,
       bufferingIndicatorBuilder: (context) => _PlayerControlsBufferingOverlay(
-        startupPhaseListenable: widget.engine.phase,
+        engine: widget.engine,
         label: l10n.playerBuffering,
       ),
     );
@@ -592,6 +572,26 @@ class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
       },
     );
   }
+}
+
+/// What the player waits for before the picture shows, or null once it
+/// does; the same in every layout.
+String? _playerStartupLabel(
+  AppLocalizations l10n,
+  MediaKitPlayerEngine engine,
+) {
+  final state = engine.startupState;
+  return switch (state.phase) {
+    PlayerEnginePhase.failed => null,
+    PlayerEnginePhase.openingSource => l10n.playerPreparing,
+    PlayerEnginePhase.waitingForFirstFrame => l10n.playerBuffering,
+    // Ready can come from the file's header alone; the stream may take
+    // seconds more to show a picture, and a black screen would hide it.
+    PlayerEnginePhase.ready =>
+      engine.reconfiguring || !state.firstFrameRendered
+          ? l10n.playerBuffering
+          : null,
+  };
 }
 
 Widget _defaultVideoSurfaceBuilder({

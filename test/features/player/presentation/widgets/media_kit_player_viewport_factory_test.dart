@@ -99,37 +99,49 @@ void main() {
     },
   );
 
-  testWidgets(
-    'marks viewport ready when duration and a real video track are discovered before the first frame',
-    (tester) async {
-      final firstFrameCompleter = Completer<void>();
-      final platformPlayer = _FakePlatformPlayer(
-        configuration: const PlayerConfiguration(),
-      );
+  testWidgets('becomes ready from the duration and a real video track, '
+      'and keeps buffering on screen until the first frame', (tester) async {
+    final firstFrameCompleter = Completer<void>();
+    final platformPlayer = _FakePlatformPlayer(
+      configuration: const PlayerConfiguration(),
+    );
+    late MediaKitPlayerEngine engine;
 
-      await tester.pumpWidget(
-        _wrapViewport(
-          platformPlayer: platformPlayer,
-          firstFrameFuture: firstFrameCompleter.future,
-        ),
-      );
-      await tester.pump();
+    await tester.pumpWidget(
+      _wrapViewport(
+        platformPlayer: platformPlayer,
+        firstFrameFuture: firstFrameCompleter.future,
+        onEngine: (value) => engine = value,
+      ),
+    );
+    await tester.pump();
 
-      platformPlayer.emitDuration(const Duration(minutes: 107));
-      platformPlayer.emitTracks(
-        const Tracks(
-          video: [
-            VideoTrack('auto', null, null),
-            VideoTrack('no', null, null),
-            VideoTrack('1', 'Main Video', 'jpn'),
-          ],
-        ),
-      );
-      await tester.pump();
+    platformPlayer.emitDuration(const Duration(minutes: 107));
+    platformPlayer.emitTracks(
+      const Tracks(
+        video: [
+          VideoTrack('auto', null, null),
+          VideoTrack('no', null, null),
+          VideoTrack('1', 'Main Video', 'jpn'),
+        ],
+      ),
+    );
+    await tester.pump();
 
-      expect(find.text('Buffering'), findsNothing);
-    },
-  );
+    expect(engine.phase.value, PlayerEnginePhase.ready);
+    // As on desktop: a black frame alone would hide that the stream waits.
+    expect(find.text('Buffering'), findsOneWidget);
+    expect(
+      find.byKey(const Key('player_viewport_loading_overlay')),
+      findsOneWidget,
+    );
+
+    firstFrameCompleter.complete();
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.text('Buffering'), findsNothing);
+  });
 
   testWidgets('a hiccup mpv gets over is not shown as an error', (
     tester,

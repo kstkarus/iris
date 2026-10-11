@@ -50,21 +50,23 @@ class _PlayerStartupOverlay extends StatelessWidget {
   }
 }
 
+/// mpv's buffering once playing; the startup overlay speaks until then.
 class _PlayerControlsBufferingOverlay extends StatelessWidget {
   const _PlayerControlsBufferingOverlay({
-    required this.startupPhaseListenable,
+    required this.engine,
     required this.label,
   });
 
-  final ValueListenable<PlayerEnginePhase> startupPhaseListenable;
+  final MediaKitPlayerEngine engine;
   final String label;
 
   @override
   Widget build(BuildContext context) {
-    return ValueListenableBuilder<PlayerEnginePhase>(
-      valueListenable: startupPhaseListenable,
-      builder: (context, phase, child) {
-        if (phase != PlayerEnginePhase.ready) {
+    return ListenableBuilder(
+      listenable: engine,
+      builder: (context, child) {
+        if (engine.startupState.phase != PlayerEnginePhase.ready ||
+            _playerStartupLabel(AppLocalizations.of(context), engine) != null) {
           return const SizedBox.shrink();
         }
 

@@ -6,30 +6,27 @@ part of '../media_kit_player_viewport_factory.dart';
 /// reports the full-screen route.
 class _PlayerControlsFrame extends StatefulWidget {
   const _PlayerControlsFrame({
-    required this.phase,
+    required this.engine,
     required this.finishing,
     required this.completed,
     required this.nextTitle,
     required this.onPlayNext,
     required this.skipSegment,
     required this.onSkip,
-    required this.openingLabel,
-    required this.bufferingLabel,
     required this.stats,
     required this.onFullscreenRoute,
     required this.onInlineShown,
     required this.child,
   });
 
-  final ValueListenable<PlayerEnginePhase> phase;
+  /// For the startup progress.
+  final MediaKitPlayerEngine engine;
   final ValueListenable<bool> finishing;
   final ValueListenable<bool> completed;
   final ValueListenable<String?> nextTitle;
   final VoidCallback onPlayNext;
   final ValueListenable<PlayerSkipSegment?> skipSegment;
   final VoidCallback onSkip;
-  final String openingLabel;
-  final String bufferingLabel;
   final ValueListenable<PlayerPlaybackStats?> stats;
   final ValueChanged<ModalRoute<Object?>> onFullscreenRoute;
   final VoidCallback onInlineShown;
@@ -98,20 +95,18 @@ class _PlayerControlsFrameState extends State<_PlayerControlsFrame> {
             // Progress only: the controls (exit full screen, volume) stay
             // usable.
             IgnorePointer(
-              child: ValueListenableBuilder<PlayerEnginePhase>(
-                valueListenable: widget.phase,
-                builder: (context, phase, _) => switch (phase) {
-                  PlayerEnginePhase.openingSource => _PlayerStartupOverlay(
-                    label: widget.openingLabel,
+              child: ListenableBuilder(
+                listenable: widget.engine,
+                builder: (context, _) {
+                  final label = _playerStartupLabel(
+                    AppLocalizations.of(context),
+                    widget.engine,
+                  );
+                  if (label == null) return const SizedBox.shrink();
+                  return _PlayerStartupOverlay(
+                    label: label,
                     stats: widget.stats,
-                  ),
-                  PlayerEnginePhase.waitingForFirstFrame =>
-                    _PlayerStartupOverlay(
-                      label: widget.bufferingLabel,
-                      stats: widget.stats,
-                    ),
-                  PlayerEnginePhase.ready ||
-                  PlayerEnginePhase.failed => const SizedBox.shrink(),
+                  );
                 },
               ),
             ),
