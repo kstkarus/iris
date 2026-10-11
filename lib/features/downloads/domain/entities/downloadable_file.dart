@@ -4,14 +4,12 @@ class DownloadableFile {
     required this.name,
     required this.relativePath,
     required this.size,
-    required this.extension,
   });
 
   final int index;
   final String name;
   final String relativePath;
   final int size;
-  final String extension;
 
   @override
   bool operator ==(Object other) {
@@ -23,10 +21,9 @@ class DownloadableFile {
         other.index == index &&
         other.name == name &&
         other.relativePath == relativePath &&
-        other.size == size &&
-        other.extension == extension;
+        other.size == size;
   }
 
   @override
-  int get hashCode => Object.hash(index, name, relativePath, size, extension);
+  int get hashCode => Object.hash(index, name, relativePath, size);
 }

@@ -25,9 +25,6 @@ class MockDownloadsRepository implements DownloadsRepository {
   Future<bool> clearCache() async => true;
 
   @override
-  Future<List<DownloadItem>> currentDownloads() async => List.of(_items);
-
-  @override
   Future<bool> delete({required String id}) async {
     _items.removeWhere((item) => item.id == id);
     _emit();
@@ -93,14 +90,10 @@ class MockDownloadsRepository implements DownloadsRepository {
           name: 'episode-01.mkv',
           relativePath: 'episode-01.mkv',
           size: 734003200,
-          extension: 'mkv',
         ),
       ],
     );
   }
-
-  @override
-  Future<void> restore() async {}
 
   @override
   Future<void> resume({required String id}) =>

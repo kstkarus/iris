@@ -126,13 +126,7 @@ void main() {
       ),
     );
     final activeTorrentId = engine.addCalls.last.id;
-    engine.emit({
-      activeTorrentId: _torrent(
-        activeTorrentId,
-        downloadedBytes: item.totalBytes,
-        isFinished: true,
-      ),
-    });
+    engine.emit({activeTorrentId: _torrent(isFinished: true)});
     await completed.timeout(const Duration(seconds: 2));
 
     final restored = await repository.findCompletedById(id: item.id);
@@ -316,15 +310,7 @@ void main() {
     await _waitFor(() => engine.priorityCalls.isNotEmpty);
     final activeTorrentId = engine.addCalls.last.id;
 
-    engine.emit({
-      activeTorrentId: _torrent(
-        activeTorrentId,
-        // Boundary pieces of neighbouring files inflate raw done-bytes.
-        downloadedBytes: item.totalBytes + 10,
-        isFinished: false,
-        progress: 0.5,
-      ),
-    });
+    engine.emit({activeTorrentId: _torrent(isFinished: false, progress: 0.5)});
     await Future<void>.delayed(const Duration(milliseconds: 50));
     final items = await repository.currentDownloads();
 
@@ -347,13 +333,7 @@ void main() {
 
     // Whole-torrent state before priorities are applied must not finish or
     // fail the download.
-    engine.emit({
-      activeTorrentId: _torrent(
-        activeTorrentId,
-        downloadedBytes: 0,
-        isFinished: true,
-      ),
-    });
+    engine.emit({activeTorrentId: _torrent(isFinished: true)});
     await Future<void>.delayed(const Duration(milliseconds: 20));
     expect(
       (await repository.currentDownloads()).single.status,
@@ -559,13 +539,7 @@ void main() {
     await File(first.localPath).parent.create(recursive: true);
     await File(first.localPath).writeAsBytes(List.filled(first.totalBytes, 1));
     foregroundService.updateGate = Completer<void>();
-    engine.emit({
-      firstTorrentId: _torrent(
-        firstTorrentId,
-        downloadedBytes: first.totalBytes,
-        isFinished: true,
-      ),
-    });
+    engine.emit({firstTorrentId: _torrent(isFinished: true)});
     await _waitFor(() => foregroundService.updateCount == 1);
     await repository.pause(id: first.id);
     await _waitFor(() => engine.priorityCalls.length == 2);
@@ -586,14 +560,7 @@ void main() {
       isEmpty,
     );
 
-    engine.emit({
-      secondTorrentId: _torrent(
-        secondTorrentId,
-        downloadedBytes: 0,
-        isFinished: false,
-        progress: 0.5,
-      ),
-    });
+    engine.emit({secondTorrentId: _torrent(isFinished: false, progress: 0.5)});
     await Future<void>.delayed(const Duration(milliseconds: 20));
     expect(
       (await repository.currentDownloads()).last.downloadedBytes,
@@ -1189,9 +1156,6 @@ class _FakeDownloadEngine implements LibtorrentDownloadEngineAdapter {
   }
 
   @override
-  DownloadEngineTorrent? getTorrent(int torrentId) => null;
-
-  @override
   List<DownloadEngineFile> getFiles(int torrentId) => files;
 
   @override
@@ -1264,19 +1228,12 @@ class _FakeForegroundService implements DownloadForegroundServiceAdapter {
 }
 
 class _FakeStorageUsageAdapter implements AppStorageUsageAdapter {
-  const _FakeStorageUsageAdapter({this.usage = _androidUsage});
+  const _FakeStorageUsageAdapter({this.usage = 300});
 
-  static const _androidUsage = AppStorageUsage(
-    appBytes: 100,
-    dataBytes: 200,
-    cacheBytes: 25,
-    totalBytes: 300,
-  );
-
-  final AppStorageUsage? usage;
+  final int? usage;
 
   @override
-  Future<AppStorageUsage?> getUsage() async => usage;
+  Future<int?> totalBytes() async => usage;
 }
 
 class _CountingRegistry extends DownloadRegistryDataSource {
@@ -1329,21 +1286,11 @@ class _RemoveCall {
   int get hashCode => Object.hash(torrentId, deleteFiles);
 }
 
-DownloadEngineTorrent _torrent(
-  int id, {
-  required int downloadedBytes,
-  required bool isFinished,
-  double? progress,
-}) {
+DownloadEngineTorrent _torrent({required bool isFinished, double? progress}) {
   return DownloadEngineTorrent(
-    id: id,
     progress: progress ?? (isFinished ? 1 : 0.5),
     downloadRateBytesPerSecond: isFinished ? 0 : 1024,
-    downloadedBytes: downloadedBytes,
-    wantedBytes: downloadedBytes,
     peers: 4,
-    hasMetadata: true,
-    isPaused: false,
     isFinished: isFinished,
     hasError: false,
     errorMessage: '',

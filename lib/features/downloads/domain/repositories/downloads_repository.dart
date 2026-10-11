@@ -23,8 +23,6 @@ abstract interface class DownloadsRepository {
 
   Stream<List<DownloadItem>> watchDownloads();
 
-  Future<List<DownloadItem>> currentDownloads();
-
   Future<void> pause({required String id});
 
   Future<void> resume({required String id});
@@ -42,6 +40,4 @@ abstract interface class DownloadsRepository {
   /// Removes temporary streaming data. Returns false when nothing could be
   /// cleared because a torrent is being streamed right now.
   Future<bool> clearCache();
-
-  Future<void> restore();
 }

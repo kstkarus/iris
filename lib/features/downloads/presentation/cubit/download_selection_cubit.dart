@@ -58,13 +58,11 @@ class DownloadSelectionCubit extends Cubit<DownloadSelectionState> {
         error: error,
         stackTrace: stackTrace,
       );
-      if (_isCurrent(attempt)) {
-        emit(
-          const DownloadSelectionFailure(
-            DownloadSelectionFailureType.unableToPrepare,
-          ),
-        );
-      }
+      emit(
+        const DownloadSelectionFailure(
+          DownloadSelectionFailureType.unableToPrepare,
+        ),
+      );
     }
   }
 

@@ -23,27 +23,17 @@ class DownloadEngineFile {
 
 class DownloadEngineTorrent {
   const DownloadEngineTorrent({
-    required this.id,
     required this.progress,
     required this.downloadRateBytesPerSecond,
-    required this.downloadedBytes,
-    required this.wantedBytes,
     required this.peers,
-    required this.hasMetadata,
-    required this.isPaused,
     required this.isFinished,
     required this.hasError,
     required this.errorMessage,
   });
 
-  final int id;
   final double progress;
   final int downloadRateBytesPerSecond;
-  final int downloadedBytes;
-  final int wantedBytes;
   final int peers;
-  final bool hasMetadata;
-  final bool isPaused;
   final bool isFinished;
   final bool hasError;
   final String errorMessage;
@@ -73,8 +63,6 @@ abstract interface class LibtorrentDownloadEngineAdapter {
 
   void remove(int torrentId, {required bool deleteFiles});
 
-  DownloadEngineTorrent? getTorrent(int torrentId);
-
   Stream<Map<int, DownloadEngineTorrent>> get torrentUpdates;
 }
 
@@ -94,12 +82,6 @@ class LibtorrentDownloadEngineAdapterImpl
     required bool metadataOnly,
   }) {
     return _engine.addMagnet(magnet, savePath, metadataOnly);
-  }
-
-  @override
-  DownloadEngineTorrent? getTorrent(int torrentId) {
-    final torrent = _engine.torrents[torrentId];
-    return torrent == null ? null : _mapTorrent(torrent);
   }
 
   @override
@@ -158,14 +140,9 @@ class LibtorrentDownloadEngineAdapterImpl
 
 DownloadEngineTorrent _mapTorrent(TorrentInfo torrent) {
   return DownloadEngineTorrent(
-    id: torrent.id,
     progress: torrent.progress,
     downloadRateBytesPerSecond: torrent.downloadRate,
-    downloadedBytes: torrent.totalDone,
-    wantedBytes: torrent.totalWanted,
     peers: torrent.numPeers,
-    hasMetadata: torrent.hasMetadata,
-    isPaused: torrent.isPaused,
     // Not `state.isDone`: the native bridge passes libtorrent 2.x states
     // (1-based) through 0-based constants, so `downloading` decodes as
     // `finished`. The native finished flag is computed from progress.

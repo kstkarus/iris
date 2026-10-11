@@ -444,7 +444,6 @@ Future<MockDownloadsRepository> _repositoryWithDownloads({
         name: 'episode-0$index.mkv',
         relativePath: 'episode-0$index.mkv',
         size: 734003200,
-        extension: 'mkv',
       ),
       animeId: '5114',
       animeTitle: 'Fullmetal Alchemist: Brotherhood',
@@ -468,9 +467,6 @@ class _ScriptedDownloadsRepository extends MockDownloadsRepository {
   List<DownloadItem> _items;
 
   void push(List<DownloadItem> items) => _changes.add(_items = items);
-
-  @override
-  Future<List<DownloadItem>> currentDownloads() async => _items;
 
   @override
   Stream<List<DownloadItem>> watchDownloads() async* {

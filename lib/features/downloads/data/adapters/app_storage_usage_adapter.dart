@@ -4,22 +4,10 @@ import 'package:flutter/services.dart';
 
 import 'package:iris/shared/utils/json_read.dart';
 
-class AppStorageUsage {
-  const AppStorageUsage({
-    required this.appBytes,
-    required this.dataBytes,
-    required this.cacheBytes,
-    required this.totalBytes,
-  });
-
-  final int appBytes;
-  final int dataBytes;
-  final int cacheBytes;
-  final int totalBytes;
-}
-
 abstract interface class AppStorageUsageAdapter {
-  Future<AppStorageUsage?> getUsage();
+  /// What the app takes on the device in all; null where the platform does
+  /// not tell.
+  Future<int?> totalBytes();
 }
 
 class MethodChannelAppStorageUsageAdapter implements AppStorageUsageAdapter {
@@ -28,18 +16,13 @@ class MethodChannelAppStorageUsageAdapter implements AppStorageUsageAdapter {
   static const _channel = MethodChannel('iris/app_storage_stats');
 
   @override
-  Future<AppStorageUsage?> getUsage() async {
+  Future<int?> totalBytes() async {
     try {
       final result = await _channel.invokeMapMethod<String, Object?>(
         'getUsage',
       );
       if (result == null) return null;
-      return AppStorageUsage(
-        appBytes: jsonInt(result['appBytes']),
-        dataBytes: jsonInt(result['dataBytes']),
-        cacheBytes: jsonInt(result['cacheBytes']),
-        totalBytes: jsonInt(result['totalBytes']),
-      );
+      return jsonInt(result['totalBytes']);
     } catch (error, stackTrace) {
       developer.log(
         'Unable to read Android app storage usage.',

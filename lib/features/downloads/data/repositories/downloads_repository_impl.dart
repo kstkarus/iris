@@ -87,11 +87,11 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
     // Only the stream folder: it is what clearCache empties. The rest of the
     // Android app cache, such as posters, still counts in the total.
     final cacheBytes = await _streamCache?.sizeBytes() ?? 0;
-    final appUsage = await _storageUsageAdapter.getUsage();
+    final appBytes = await _storageUsageAdapter.totalBytes();
     return DownloadStorageUsage(
       downloadsBytes: downloadsBytes,
       cacheBytes: cacheBytes,
-      totalBytes: appUsage?.totalBytes ?? downloadsBytes + cacheBytes,
+      totalBytes: appBytes ?? downloadsBytes + cacheBytes,
     );
   }
 
@@ -104,7 +104,6 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
     return streamCache.clear();
   }
 
-  @override
   Future<List<DownloadItem>> currentDownloads() async {
     await restore();
     return List<DownloadItem>.unmodifiable(_downloads);
@@ -338,7 +337,6 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
     }
   }
 
-  @override
   Future<void> restore() {
     if (_restored) return Future<void>.value();
     // Concurrent first calls share one read of the registry.
@@ -806,7 +804,6 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
                 name: file.name,
                 relativePath: file.relativePath,
                 size: file.size,
-                extension: videoFileExtension(file.name),
               ),
             )
             .toList()
