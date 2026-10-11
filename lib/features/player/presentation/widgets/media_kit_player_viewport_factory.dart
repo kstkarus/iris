@@ -26,6 +26,7 @@ import 'package:iris/features/player/presentation/widgets/player_track_selector_
 import 'package:iris/features/player/presentation/widgets/player_viewport_factory.dart';
 import 'package:iris/features/player/presentation/widgets/player_wait_indicator.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
+import 'package:iris/shared/utils/desktop_platform.dart';
 import 'package:iris/shared/widgets/pixel_icon.dart';
 
 export 'package:iris/features/player/presentation/playback/media_kit_player_engine.dart'
@@ -497,7 +498,7 @@ class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
     AppLocalizations l10n,
     ColorScheme colorScheme,
   ) {
-    if (isDesktopPlayerPlatform()) {
+    if (isDesktopPlatform) {
       final desktopTheme = _buildDesktopControlsTheme(l10n, colorScheme);
       return MediaKitDesktopVideoControlsThemes(
         normal: desktopTheme,

@@ -1,32 +1,14 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'package:iris/features/player/presentation/widgets/player_popover.dart';
-
-/// Material 3 "medium" window class lower bound.
-const playerWideLayoutMinWidth = 600.0;
-
-/// Maximum width of player dialogs on wide windows (M3 basic dialog).
-const playerDialogMaxWidth = 560.0;
-
-bool isDesktopPlayerPlatform([TargetPlatform? platform]) {
-  return switch (platform ?? defaultTargetPlatform) {
-    TargetPlatform.windows ||
-    TargetPlatform.linux ||
-    TargetPlatform.macOS => true,
-    TargetPlatform.android ||
-    TargetPlatform.iOS ||
-    TargetPlatform.fuchsia => false,
-  };
-}
-
-bool isPlayerWideWidth(double width) => width >= playerWideLayoutMinWidth;
+import 'package:iris/shared/utils/desktop_platform.dart';
+import 'package:iris/shared/widgets/adaptive/adaptive_content_width.dart';
+import 'package:iris/shared/widgets/adaptive/window_size_class.dart';
 
 /// Wide windows and desktop platforms show player panels as popovers or
 /// dialogs.
-bool usesPlayerDialogPresentation(BuildContext context) {
-  return isDesktopPlayerPlatform() ||
-      isPlayerWideWidth(MediaQuery.sizeOf(context).width);
+bool _usesDialogPresentation(BuildContext context) {
+  return isDesktopPlatform || !WindowSizeClass.of(context).isCompact;
 }
 
 /// Shows player settings panels as a modal bottom sheet on compact windows.
@@ -40,12 +22,12 @@ Future<T?> showPlayerAdaptiveSheet<T>({
   required BuildContext context,
   required WidgetBuilder builder,
   BuildContext? anchor,
-  double popoverWidth = playerDialogMaxWidth,
+  double popoverWidth = AdaptiveContentWidth.form,
   String? semanticsLabel,
   bool isScrollControlled = false,
   Color? barrierColor,
 }) {
-  if (usesPlayerDialogPresentation(context)) {
+  if (_usesDialogPresentation(context)) {
     if (anchor != null && anchor.mounted) {
       return showPlayerPopover<T>(
         anchor: anchor,
@@ -63,7 +45,9 @@ Future<T?> showPlayerAdaptiveSheet<T>({
         clipBehavior: Clip.antiAlias,
         insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: playerDialogMaxWidth),
+          constraints: const BoxConstraints(
+            maxWidth: AdaptiveContentWidth.form,
+          ),
           child: builder(dialogContext),
         ),
       ),
