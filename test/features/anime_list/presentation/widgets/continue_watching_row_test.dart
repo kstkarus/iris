@@ -5,6 +5,7 @@ import 'package:iris/entities/watch_progress/domain/watch_progress.dart';
 import 'package:iris/features/anime_list/presentation/widgets/continue_watching_row.dart';
 
 import '../../../../helpers/test_app.dart';
+import '../../../../helpers/test_window.dart';
 
 void main() {
   test('leaves out files only looked at, keeping the one being watched', () {
@@ -21,9 +22,7 @@ void main() {
   testWidgets('folds the rows after the first one under a toggle', (
     tester,
   ) async {
-    tester.view.physicalSize = const Size(1280, 1600);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
+    setTestWindowSize(tester, const Size(1280, 1600));
     final items = [
       for (var index = 0; index < 5; index++)
         _progress('t$index', seconds: 600 + index * 60, minute: 50 - index),
@@ -47,9 +46,7 @@ void main() {
   });
 
   testWidgets('shows a single extra row instead of folding it', (tester) async {
-    tester.view.physicalSize = const Size(1280, 1200);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
+    setTestWindowSize(tester, const Size(1280, 1200));
 
     await tester.pumpWidget(
       _app(

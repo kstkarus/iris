@@ -8,6 +8,7 @@ import 'package:iris/features/anime_details/presentation/widgets/recently_watche
 
 import '../../../../helpers/fake_watch_progress_repository.dart';
 import '../../../../helpers/test_app.dart';
+import '../../../../helpers/test_window.dart';
 
 WatchProgress _progress(
   String torrentKey, {
@@ -93,9 +94,7 @@ void main() {
   });
 
   testWidgets('keeps the button by its row on a wide window', (tester) async {
-    tester.view.physicalSize = const Size(1800, 900);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
+    setTestWindowSize(tester, const Size(1800, 900));
     await pump(tester, [_progress('aaa')]);
 
     final button = tester.getRect(find.byType(OutlinedButton));
