@@ -28,14 +28,6 @@ class UserRate {
   /// 1 to [maxScore]; 0 when not rated.
   final int score;
 
-  UserRate copyWith({UserRateStatus? status, int? episodes, int? score}) =>
-      UserRate(
-        id: id,
-        status: status ?? this.status,
-        episodes: episodes ?? this.episodes,
-        score: score ?? this.score,
-      );
-
   @override
   bool operator ==(Object other) =>
       other is UserRate &&

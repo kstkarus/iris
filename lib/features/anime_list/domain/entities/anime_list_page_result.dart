@@ -14,20 +14,6 @@ class AnimeListPageResult {
   final bool hasMore;
   final String query;
 
-  AnimeListPageResult copyWith({
-    List<AnimeListItem>? items,
-    int? page,
-    bool? hasMore,
-    String? query,
-  }) {
-    return AnimeListPageResult(
-      items: items ?? this.items,
-      page: page ?? this.page,
-      hasMore: hasMore ?? this.hasMore,
-      query: query ?? this.query,
-    );
-  }
-
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) {

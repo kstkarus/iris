@@ -65,25 +65,6 @@ class WatchProgress {
     return position;
   }
 
-  WatchProgress copyWith({
-    Duration? position,
-    Duration? duration,
-    DateTime? updatedAt,
-  }) {
-    return WatchProgress(
-      torrentKey: torrentKey,
-      fileIndex: fileIndex,
-      fileName: fileName,
-      magnet: magnet,
-      sourceTitle: sourceTitle,
-      position: position ?? this.position,
-      duration: duration ?? this.duration,
-      updatedAt: updatedAt ?? this.updatedAt,
-      animeId: animeId,
-      animeTitle: animeTitle,
-    );
-  }
-
   @override
   bool operator ==(Object other) {
     return other is WatchProgress &&

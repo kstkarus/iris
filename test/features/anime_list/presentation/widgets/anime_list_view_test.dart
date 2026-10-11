@@ -397,7 +397,7 @@ void main() {
 
   testWidgets('loads the next page near the end of the list', (tester) async {
     final repository = _TrackingAnimeListRepository(
-      resultsByQuery: {'': _pageOneResult.copyWith(hasMore: true)},
+      resultsByQuery: {'': _withHasMore(_pageOneResult, true)},
       pagedResults: {2: _pageTwoResult},
     );
     final bloc = AnimeListBloc(repository: repository);
@@ -513,7 +513,7 @@ void main() {
       setTestWindowSize(tester, entry.value);
       final bloc = AnimeListBloc(
         repository: _SuccessAnimeListRepository(
-          initialResult: _pageOneResult.copyWith(hasMore: false),
+          initialResult: _withHasMore(_pageOneResult, false),
         ),
       );
 
@@ -678,12 +678,20 @@ class _LoadMoreFailureAnimeListRepository implements AnimeListRepository {
     required AnimeListQuery query,
   }) async {
     if (query.page == 1) {
-      return initialResult.copyWith(hasMore: true);
+      return _withHasMore(initialResult, true);
     }
 
     throw Exception('Load more failure');
   }
 }
+
+AnimeListPageResult _withHasMore(AnimeListPageResult result, bool hasMore) =>
+    AnimeListPageResult(
+      items: result.items,
+      page: result.page,
+      hasMore: hasMore,
+      query: result.query,
+    );
 
 class _RepositoryCall {
   const _RepositoryCall({required this.query});
