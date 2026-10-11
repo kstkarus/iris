@@ -20,6 +20,7 @@ import 'package:iris/features/anime_list/presentation/pages/anime_list_page.dart
 import 'package:iris/features/anime_list/presentation/widgets/anime_card.dart';
 import 'package:iris/features/anime_list/presentation/widgets/anime_list_view.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
+import 'package:iris/shared/widgets/adaptive/adaptive_content_width.dart';
 import 'package:iris/shared/widgets/app_skeleton.dart';
 import 'package:iris/shared/widgets/search_field.dart';
 import 'package:iris/shared/widgets/search_toolbar.dart';
@@ -511,7 +512,7 @@ void main() {
       // Covers sit side by side even on phones, with the filters button on
       // the search field's row.
       expect(second.dy, first.dy);
-      expect(search.width, lessThanOrEqualTo(560));
+      expect(search.width, lessThanOrEqualTo(AdaptiveContentWidth.form));
       expect(tester.takeException(), isNull);
     });
   }

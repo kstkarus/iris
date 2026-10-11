@@ -21,6 +21,7 @@ class AppShellPage extends StatelessWidget {
 
   static const navigationBarKey = Key('app_shell_navigation_bar');
   static const topBarKey = Key('app_shell_top_bar');
+  static const wordmarkKey = Key('app_shell_wordmark');
 
   final StatefulNavigationShell navigationShell;
 
@@ -137,7 +138,10 @@ class _TopBar extends StatelessWidget {
                           Expanded(
                             child: Align(
                               alignment: AlignmentDirectional.centerStart,
-                              child: _Wordmark(appName: appName),
+                              child: _Wordmark(
+                                key: AppShellPage.wordmarkKey,
+                                appName: appName,
+                              ),
                             ),
                           ),
                           for (var index = 0; index < labels.length; index++)
@@ -162,7 +166,7 @@ class _TopBar extends StatelessWidget {
 }
 
 class _Wordmark extends StatelessWidget {
-  const _Wordmark({required this.appName});
+  const _Wordmark({required this.appName, super.key});
 
   final String appName;
 

@@ -192,9 +192,7 @@ void main() {
         .expandToInclude(tester.getRect(find.text('Profile').first));
     expect(sections.center.dx, closeTo(size.width / 2, 12));
     // The mark sits over the content's left edge: the frame is centred.
-    final mark = tester.getRect(
-      find.ancestor(of: find.text('iris'), matching: find.byType(Row)).first,
-    );
+    final mark = tester.getRect(find.byKey(AppShellPage.wordmarkKey));
     expect(mark.left, (size.width - AdaptiveContentWidth.page) / 2);
   });
 
