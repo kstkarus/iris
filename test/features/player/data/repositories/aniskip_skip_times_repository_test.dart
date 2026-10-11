@@ -6,6 +6,8 @@ import 'package:iris/features/player/domain/entities/player_skip_segment.dart';
 import 'package:iris/shared/network/aniskip_api_client.dart';
 import 'package:iris/shared/network/aniskip_dio_factory.dart';
 
+import '../../../../helpers/fake_http_adapter.dart';
+
 void main() {
   late List<RequestOptions> requests;
 
@@ -13,23 +15,9 @@ void main() {
     int statusCode,
     Map<String, dynamic> body,
   ) {
-    requests = [];
-    final dio = createAniSkipDio();
-    dio.interceptors.add(
-      InterceptorsWrapper(
-        onRequest: (options, handler) {
-          requests.add(options);
-          handler.resolve(
-            Response<dynamic>(
-              requestOptions: options,
-              statusCode: statusCode,
-              data: body,
-            ),
-            true,
-          );
-        },
-      ),
-    );
+    final adapter = FakeHttpAdapter((_) => FakeReply(statusCode, body));
+    requests = adapter.requests;
+    final dio = createAniSkipDio()..httpClientAdapter = adapter;
     return AniSkipSkipTimesRepository(client: AniSkipApiClient(dio: dio));
   }
 

@@ -8,13 +8,15 @@ import 'package:iris/features/anime_details/domain/entities/anime_details.dart';
 import 'package:iris/shared/network/network_exceptions.dart';
 import 'package:iris/shared/network/shikimori_graph_ql_client.dart';
 
+import '../../../../helpers/fake_http_adapter.dart';
+
 void main() {
   test('maps remote anime details and sanitizes description', () async {
     final repository = RemoteAnimeDetailsRepository(
       dataSource: RemoteAnimeDetailsDataSource(
         client: ShikimoriGraphQlClient(
-          dio: _buildDioWithResponse(
-            data: {
+          dio: fakeDio(
+            (_) => FakeReply(200, {
               'data': {
                 'animes': [
                   {
@@ -36,7 +38,7 @@ void main() {
                   },
                 ],
               },
-            },
+            }),
           ),
         ),
       ),
@@ -68,10 +70,10 @@ void main() {
     final repository = RemoteAnimeDetailsRepository(
       dataSource: RemoteAnimeDetailsDataSource(
         client: ShikimoriGraphQlClient(
-          dio: _buildDioWithResponse(
-            data: {
+          dio: fakeDio(
+            (_) => FakeReply(200, {
               'data': {'animes': []},
-            },
+            }),
           ),
         ),
       ),
@@ -87,8 +89,8 @@ void main() {
     final repository = RemoteAnimeDetailsRepository(
       dataSource: RemoteAnimeDetailsDataSource(
         client: ShikimoriGraphQlClient(
-          dio: _buildDioWithError(
-            DioException(
+          dio: fakeDio(
+            (_) => throw DioException(
               requestOptions: RequestOptions(path: '/api/graphql'),
               type: DioExceptionType.receiveTimeout,
             ),
@@ -102,38 +104,4 @@ void main() {
       throwsA(isA<NetworkRequestException>()),
     );
   });
-}
-
-Dio _buildDioWithResponse({required Object? data}) {
-  final dio = Dio();
-
-  dio.interceptors.add(
-    InterceptorsWrapper(
-      onRequest: (options, handler) {
-        handler.resolve(
-          Response<dynamic>(
-            requestOptions: options,
-            data: data,
-            statusCode: 200,
-          ),
-        );
-      },
-    ),
-  );
-
-  return dio;
-}
-
-Dio _buildDioWithError(DioException error) {
-  final dio = Dio();
-
-  dio.interceptors.add(
-    InterceptorsWrapper(
-      onRequest: (options, handler) {
-        handler.reject(error);
-      },
-    ),
-  );
-
-  return dio;
 }

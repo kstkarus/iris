@@ -4,17 +4,19 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:iris/shared/network/network_exceptions.dart';
 import 'package:iris/shared/network/shikimori_graph_ql_client.dart';
 
+import '../../helpers/fake_http_adapter.dart';
+
 void main() {
   test('returns data when GraphQL response is successful', () async {
     final client = ShikimoriGraphQlClient(
-      dio: _buildDioWithResponse(
-        data: {
+      dio: fakeDio(
+        (_) => FakeReply(200, {
           'data': {
             'animes': [
               {'id': '1'},
             ],
           },
-        },
+        }),
       ),
     );
 
@@ -31,12 +33,12 @@ void main() {
     'throws remote response exception when GraphQL returns errors',
     () async {
       final client = ShikimoriGraphQlClient(
-        dio: _buildDioWithResponse(
-          data: {
+        dio: fakeDio(
+          (_) => FakeReply(200, {
             'errors': [
               {'message': 'GraphQL failure'},
             ],
-          },
+          }),
         ),
       );
 
@@ -55,8 +57,8 @@ void main() {
 
   test('throws network request exception when Dio throws a timeout', () async {
     final client = ShikimoriGraphQlClient(
-      dio: _buildDioWithError(
-        DioException(
+      dio: fakeDio(
+        (_) => throw DioException(
           requestOptions: RequestOptions(path: '/api/graphql'),
           type: DioExceptionType.connectionTimeout,
         ),
@@ -71,15 +73,15 @@ void main() {
 
   test('queryList returns the list field and rejects anything else', () async {
     final client = ShikimoriGraphQlClient(
-      dio: _buildDioWithResponse(
-        data: {
+      dio: fakeDio(
+        (_) => FakeReply(200, {
           'data': {
             'animes': [
               {'id': '1'},
             ],
             'genres': null,
           },
-        },
+        }),
       ),
     );
 
@@ -96,7 +98,7 @@ void main() {
     'throws remote response exception for an unexpected payload shape',
     () async {
       final client = ShikimoriGraphQlClient(
-        dio: _buildDioWithResponse(data: 'unexpected'),
+        dio: fakeDio((_) => FakeReply(200, 'unexpected')),
       );
 
       expect(
@@ -105,38 +107,4 @@ void main() {
       );
     },
   );
-}
-
-Dio _buildDioWithResponse({required Object? data}) {
-  final dio = Dio();
-
-  dio.interceptors.add(
-    InterceptorsWrapper(
-      onRequest: (options, handler) {
-        handler.resolve(
-          Response<dynamic>(
-            requestOptions: options,
-            data: data,
-            statusCode: 200,
-          ),
-        );
-      },
-    ),
-  );
-
-  return dio;
-}
-
-Dio _buildDioWithError(DioException error) {
-  final dio = Dio();
-
-  dio.interceptors.add(
-    InterceptorsWrapper(
-      onRequest: (options, handler) {
-        handler.reject(error);
-      },
-    ),
-  );
-
-  return dio;
 }

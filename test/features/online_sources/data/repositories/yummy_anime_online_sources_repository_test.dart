@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -15,11 +14,10 @@ import 'package:iris/shared/network/network_exceptions.dart';
 import 'package:iris/shared/network/video_server_dio_factory.dart';
 import 'package:iris/shared/network/yummy_anime_api_client.dart';
 
-/// Recorded from the live API (trimmed: three tracks, two episodes).
-Object? _json(String name) =>
-    jsonDecode(File('test/fixtures/$name').readAsStringSync());
+import '../../../../helpers/fake_http_adapter.dart';
 
-String _text(String name) => File('test/fixtures/$name').readAsStringSync();
+/// Recorded from the live API (trimmed: three tracks, two episodes).
+Object? _json(String name) => jsonDecode(readFixture(name));
 
 const _frierenShikimoriId = '52991';
 final _anilibriaId = '10661:${Uri.encodeComponent('Озвучка AniLibria')}';
@@ -31,63 +29,37 @@ void main() {
     bool kodikDown = false,
     bool aksorDown = false,
   }) {
-    final api = Dio(BaseOptions(baseUrl: 'https://api.yani.tv'));
-    api.interceptors.add(
-      InterceptorsWrapper(
-        onRequest: (options, handler) {
-          requests.add(options.uri);
-          final Object? data = switch (options.uri.path) {
-            '/anime' => _json('yummy_anime/search_frieren.json'),
-            '/anime/10661/videos' => _json('yummy_anime/videos_10661.json'),
-            _ => null,
-          };
-          if (data == null) {
-            handler.reject(
-              DioException(
-                requestOptions: options,
-                type: DioExceptionType.badResponse,
-                response: Response(requestOptions: options, statusCode: 404),
-              ),
-            );
-            return;
-          }
-          handler.resolve(
-            Response(requestOptions: options, statusCode: 200, data: data),
-          );
-        },
-      ),
-    );
-    final players = createVideoServerDio();
-    players.interceptors.add(
-      InterceptorsWrapper(
-        onRequest: (options, handler) {
-          requests.add(options.uri);
-          final uri = options.uri;
-          final (int status, String body) = switch (uri.host) {
-            'player.aksor.tv' when aksorDown => (503, ''),
-            'player.aksor.tv' => (200, _text('aksor/video.json')),
-            'kodikplayer.com' when kodikDown => (503, ''),
-            'kodikplayer.com' when uri.path.startsWith('/assets/') => (
-              200,
-              _text('kodik/player.js'),
-            ),
-            'kodikplayer.com' when uri.path == '/ftor' => (
-              200,
-              _text('kodik/api.json'),
-            ),
-            'kodikplayer.com' => (200, _text('kodik/page.html')),
-            _ => (404, ''),
-          };
-          handler.resolve(
-            Response<String>(
-              requestOptions: options,
-              statusCode: status,
-              data: body,
-            ),
-          );
-        },
-      ),
-    );
+    final api = Dio(BaseOptions(baseUrl: 'https://api.yani.tv'))
+      ..httpClientAdapter = FakeHttpAdapter((options) {
+        requests.add(options.uri);
+        final Object? data = switch (options.uri.path) {
+          '/anime' => _json('yummy_anime/search_frieren.json'),
+          '/anime/10661/videos' => _json('yummy_anime/videos_10661.json'),
+          _ => null,
+        };
+        return data == null ? const FakeReply(404) : FakeReply(200, data);
+      });
+    final players = createVideoServerDio()
+      ..httpClientAdapter = FakeHttpAdapter((options) {
+        requests.add(options.uri);
+        final uri = options.uri;
+        final (int status, String body) = switch (uri.host) {
+          'player.aksor.tv' when aksorDown => (503, ''),
+          'player.aksor.tv' => (200, readFixture('aksor/video.json')),
+          'kodikplayer.com' when kodikDown => (503, ''),
+          'kodikplayer.com' when uri.path.startsWith('/assets/') => (
+            200,
+            readFixture('kodik/player.js'),
+          ),
+          'kodikplayer.com' when uri.path == '/ftor' => (
+            200,
+            readFixture('kodik/api.json'),
+          ),
+          'kodikplayer.com' => (200, readFixture('kodik/page.html')),
+          _ => (404, ''),
+        };
+        return FakeReply.text(status, body);
+      });
     return YummyAnimeOnlineSourcesRepository(
       dataSource: YummyAnimeDataSource(client: YummyAnimeApiClient(dio: api)),
       kodik: KodikDataSource(dio: players),

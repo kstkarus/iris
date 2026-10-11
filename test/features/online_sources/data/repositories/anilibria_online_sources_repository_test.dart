@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -11,9 +10,11 @@ import 'package:iris/features/online_sources/domain/entities/online_stream.dart'
 import 'package:iris/shared/network/anilibria_api_client.dart';
 import 'package:iris/shared/network/network_exceptions.dart';
 
+import '../../../../helpers/fake_http_adapter.dart';
+
 /// Recorded from the live API (trimmed; CDN hosts replaced).
 Object? _fixture(String name) =>
-    jsonDecode(File('test/fixtures/anilibria/$name.json').readAsStringSync());
+    jsonDecode(readFixture('anilibria/$name.json'));
 
 const _frierenShikimoriId = '52991';
 
@@ -27,49 +28,28 @@ void main() {
     Set<String> failingQueries = const {},
     Object? release,
   }) {
-    final dio = Dio();
-    dio.interceptors.add(
-      InterceptorsWrapper(
-        onRequest: (options, handler) {
-          requests.add(options);
-          final path = options.path;
-          final query = options.queryParameters['query'] as String?;
-          if (query != null && failingQueries.contains(query)) {
-            handler.reject(
-              DioException(
-                requestOptions: options,
-                type: DioExceptionType.connectionError,
-              ),
-            );
-            return;
-          }
-          final Object? data;
-          if (path == '/app/search/releases') {
-            data = searchResults?[query] ?? _fixture('search_frieren');
-          } else if (path == '/anime/releases/9542') {
-            data = release ?? _fixture('release_9542');
-          } else if (path.startsWith('/anime/releases/episodes/')) {
-            data = _fixture('episode_1');
-          } else {
-            handler.reject(
-              DioException(
-                requestOptions: options,
-                type: DioExceptionType.badResponse,
-                response: Response(requestOptions: options, statusCode: 404),
-              ),
-            );
-            return;
-          }
-          handler.resolve(
-            Response<dynamic>(
-              requestOptions: options,
-              statusCode: 200,
-              data: data,
-            ),
-          );
-        },
-      ),
-    );
+    final dio = fakeDio((options) {
+      requests.add(options);
+      final path = options.path;
+      final query = options.queryParameters['query'] as String?;
+      if (query != null && failingQueries.contains(query)) {
+        throw DioException(
+          requestOptions: options,
+          type: DioExceptionType.connectionError,
+        );
+      }
+      final Object? data;
+      if (path == '/app/search/releases') {
+        data = searchResults?[query] ?? _fixture('search_frieren');
+      } else if (path == '/anime/releases/9542') {
+        data = release ?? _fixture('release_9542');
+      } else if (path.startsWith('/anime/releases/episodes/')) {
+        data = _fixture('episode_1');
+      } else {
+        return const FakeReply(404);
+      }
+      return FakeReply(200, data!);
+    });
     return AnilibriaOnlineSourcesRepository(
       dataSource: AnilibriaDataSource(client: AnilibriaApiClient(dio: dio)),
     );
