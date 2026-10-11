@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:iris/entities/anime/domain/anime_summary.dart';
 import 'package:iris/features/anime_list/data/datasources/remote_anime_list_data_source.dart';
 import 'package:iris/features/anime_list/data/repositories/remote_anime_list_repository.dart';
 import 'package:iris/features/anime_list/domain/entities/anime_list_item.dart';
@@ -22,7 +23,6 @@ void main() {
                   'animes': [
                     {
                       'id': '52299',
-                      'malId': '52299',
                       'name': 'Solo Leveling',
                       'russian': 'Solo Leveling RU',
                       'kind': 'tv',
@@ -34,8 +34,6 @@ void main() {
                       'poster': {
                         'mainUrl':
                             'https://shikimori.one/posters/52299/main.webp',
-                        'originalUrl':
-                            'https://shikimori.one/posters/52299/original.jpg',
                       },
                     },
                   ],
@@ -55,16 +53,18 @@ void main() {
         const AnimeListPageResult(
           items: [
             AnimeListItem(
-              id: '52299',
-              name: 'Solo Leveling',
-              russian: 'Solo Leveling RU',
-              kind: 'tv',
-              score: 8.34,
-              status: 'released',
-              episodes: 12,
-              episodesAired: 12,
-              airedOn: '2024-01-07',
-              posterMainUrl: 'https://shikimori.one/posters/52299/main.webp',
+              anime: AnimeSummary(
+                id: '52299',
+                name: 'Solo Leveling',
+                russian: 'Solo Leveling RU',
+                kind: 'tv',
+                score: 8.34,
+                status: 'released',
+                episodes: 12,
+                episodesAired: 12,
+                airedOn: '2024-01-07',
+                posterUrl: 'https://shikimori.one/posters/52299/main.webp',
+              ),
             ),
           ],
           page: 1,

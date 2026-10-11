@@ -1,3 +1,4 @@
+import 'package:iris/entities/anime/data/shikimori_anime_summary.dart';
 import 'package:iris/features/anime_list/domain/entities/anime_list_query.dart';
 import 'package:iris/features/anime_list/data/models/shikimori_anime_dto.dart';
 import 'package:iris/shared/network/network_exceptions.dart';
@@ -24,14 +25,12 @@ class RemoteAnimeListDataSource {
       );
     }
 
-    return items
-        .whereType<Map<String, dynamic>>()
-        .map(ShikimoriAnimeDto.fromJson)
-        .toList(growable: false);
+    return [for (final item in items) ?ShikimoriAnimeDto.tryParse(item)];
   }
 }
 
-const _animePageQuery = r'''
+const _animePageQuery =
+    r'''
 query AnimePage(
   $page: Int!,
   $limit: Int!,
@@ -59,25 +58,11 @@ query AnimePage(
     duration: $duration,
     censored: true
   ) {
-    id
-    malId
-    name
-    russian
-    english
-    kind
-    score
-    status
-    episodes
-    episodesAired
-    airedOn {
-      year
-      month
-      day
-      date
-    }
+'''
+    '$shikimoriAnimeSummaryFields'
+    r'''
     poster {
       mainUrl
-      originalUrl
     }
     userRate {
       id

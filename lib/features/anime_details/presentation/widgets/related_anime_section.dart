@@ -36,16 +36,18 @@ const _relationOrder = [
 /// The related anime worth listing, in the order they are listed: by
 /// relation, then by air date, undated last.
 List<RelatedAnime> relatedToShow(List<RelatedAnime> related) {
-  final shown = related.where((anime) => !_promoKinds.contains(anime.kind));
+  final shown = related.where((item) => !_promoKinds.contains(item.anime.kind));
   return shown.toList()..sort((a, b) {
     final byRelation = _relationOrder
         .indexOf(a.relation)
         .compareTo(_relationOrder.indexOf(b.relation));
     if (byRelation != 0) return byRelation;
-    if (a.airedOn.isEmpty != b.airedOn.isEmpty) {
-      return a.airedOn.isEmpty ? 1 : -1;
+    final aAiredOn = a.anime.airedOn;
+    final bAiredOn = b.anime.airedOn;
+    if (aAiredOn.isEmpty != bAiredOn.isEmpty) {
+      return aAiredOn.isEmpty ? 1 : -1;
     }
-    return a.airedOn.compareTo(b.airedOn);
+    return aAiredOn.compareTo(bAiredOn);
   });
 }
 
@@ -129,9 +131,9 @@ class _RelatedAnimeSectionState extends State<RelatedAnimeSection> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        for (final (index, anime) in shown.indexed) ...[
+                        for (final (index, item) in shown.indexed) ...[
                           if (index > 0) const SegmentedRule(),
-                          _RelatedRow(anime: anime, first: index == 0),
+                          _RelatedRow(related: item, first: index == 0),
                         ],
                       ],
                     ),
@@ -159,9 +161,9 @@ class _RelatedAnimeSectionState extends State<RelatedAnimeSection> {
 /// The relation, kind and year over the title, as the row's caption;
 /// the Russian title under it when it says something else.
 class _RelatedRow extends StatelessWidget {
-  const _RelatedRow({required this.anime, required this.first});
+  const _RelatedRow({required this.related, required this.first});
 
-  final RelatedAnime anime;
+  final RelatedAnime related;
 
   /// The first row starts level with the section label.
   final bool first;
@@ -171,9 +173,10 @@ class _RelatedRow extends StatelessWidget {
     final l10n = AppLocalizations.of(context);
     final theme = Theme.of(context);
     final muted = theme.colorScheme.onSurfaceVariant;
+    final anime = related.anime;
     final year = yearOfIsoDate(anime.airedOn)?.toString() ?? '';
     final caption = [
-      formatAnimeRelation(l10n, anime.relation),
+      formatAnimeRelation(l10n, related.relation),
       if (anime.kind.isNotEmpty) formatAnimeKind(l10n, anime.kind),
       if (year.isNotEmpty) year,
     ].join(' · ');
@@ -187,7 +190,7 @@ class _RelatedRow extends StatelessWidget {
         onTap: () => context.pushNamed(
           'anime-details',
           pathParameters: {'id': anime.id},
-          extra: AnimeDetailsPreview.fromRelated(anime),
+          extra: AnimeDetailsPreview.fromSummary(anime),
         ),
         child: Padding(
           padding: EdgeInsets.only(top: first ? 0 : 12, bottom: 12),

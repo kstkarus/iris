@@ -2,28 +2,19 @@ import 'package:iris/features/anime_details/data/models/shikimori_anime_details_
 import 'package:iris/features/anime_details/domain/entities/anime_details.dart';
 import 'package:iris/features/anime_details/domain/entities/anime_genre_name.dart';
 import 'package:iris/features/anime_details/domain/entities/related_anime.dart';
-import 'package:iris/shared/utils/incomplete_date.dart';
 
 AnimeDetails mapShikimoriAnimeDetailsToDomain(ShikimoriAnimeDetailsDto dto) {
+  final anime = dto.anime;
   final normalizedEpisodesAired =
-      dto.status == 'released' && dto.episodes > 0 && dto.episodesAired <= 0
-      ? dto.episodes
-      : dto.episodesAired;
+      anime.status == 'released' &&
+          anime.episodes > 0 &&
+          anime.episodesAired <= 0
+      ? anime.episodes
+      : anime.episodesAired;
 
   return AnimeDetails(
-    id: dto.id,
-    name: dto.name,
-    russian: dto.russian,
-    english: dto.english,
+    anime: anime.copyWith(episodesAired: normalizedEpisodesAired),
     description: sanitizeShikimoriDescription(dto.description),
-    kind: dto.kind,
-    score: dto.score,
-    status: dto.status,
-    episodes: dto.episodes,
-    episodesAired: normalizedEpisodesAired,
-    airedOn: _airedOn(dto.airedOn),
-    posterOriginalUrl: dto.poster.originalUrl,
-    nextEpisodeAt: DateTime.tryParse(dto.nextEpisodeAt),
     rating: dto.rating == 'none' ? '' : dto.rating,
     studios: dto.studios,
     genres: [
@@ -33,31 +24,15 @@ AnimeDetails mapShikimoriAnimeDetailsToDomain(ShikimoriAnimeDetailsDto dto) {
           AnimeGenreName(name: genre.name, russian: genre.russian),
     ],
     fandubbers: dto.fandubbers,
-    related: [for (final item in dto.related) _mapRelated(item)],
+    related: [
+      for (final item in dto.related)
+        RelatedAnime(
+          relation: mapShikimoriRelation(item.relationKind),
+          anime: item.anime,
+        ),
+    ],
   );
 }
-
-RelatedAnime _mapRelated(ShikimoriRelatedAnimeDto dto) => RelatedAnime(
-  relation: mapShikimoriRelation(dto.relationKind),
-  id: dto.id,
-  name: dto.name,
-  russian: dto.russian,
-  english: dto.english,
-  kind: dto.kind,
-  score: dto.score,
-  status: dto.status,
-  episodes: dto.episodes,
-  episodesAired: dto.episodesAired,
-  airedOn: _airedOn(dto.airedOn),
-  posterUrl: dto.posterMainUrl,
-);
-
-String _airedOn(ShikimoriDetailsAiredOnDto date) => incompleteIsoDate(
-  year: date.year,
-  month: date.month,
-  day: date.day,
-  date: date.date,
-);
 
 /// Kinds this app does not know yet read as [AnimeRelation.other].
 AnimeRelation mapShikimoriRelation(String kind) => switch (kind) {

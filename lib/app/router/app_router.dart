@@ -72,22 +72,8 @@ void _openListed(BuildContext context, UserListEntry entry) =>
     context.pushNamed(
       'anime-details',
       pathParameters: {'id': entry.anime.id},
-      extra: _listedPreview(entry.anime),
+      extra: AnimeDetailsPreview.fromSummary(entry.anime),
     );
-
-AnimeDetailsPreview _listedPreview(ListedAnime anime) => AnimeDetailsPreview(
-  id: anime.id,
-  name: anime.name,
-  russian: anime.russian,
-  kind: anime.kind,
-  score: anime.score,
-  status: anime.status,
-  episodes: anime.episodes,
-  episodesAired: anime.episodesAired,
-  airedOn: anime.airedOn,
-  posterUrl: anime.posterUrl,
-  nextEpisodeAt: anime.nextEpisodeAt,
-);
 
 abstract final class AppRouter {
   static GoRouter createRouter() {
@@ -304,7 +290,8 @@ abstract final class AppRouter {
             final animeId = state.pathParameters['id'] ?? '';
             // Optional: a deep link opens the page without a preview.
             final preview = switch (state.extra) {
-              final AnimeDetailsPreview preview when preview.id == animeId =>
+              final AnimeDetailsPreview preview
+                  when preview.anime.id == animeId =>
                 preview,
               _ => null,
             };

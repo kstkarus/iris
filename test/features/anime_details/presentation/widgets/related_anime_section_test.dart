@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import 'package:iris/entities/anime/domain/anime_summary.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:iris/features/anime_details/domain/entities/related_anime.dart';
@@ -19,7 +21,7 @@ void main() {
       _anime('prequel', AnimeRelation.prequel),
     ]);
 
-    expect(shown.map((anime) => anime.id), [
+    expect(shown.map((related) => related.anime.id), [
       'prequel',
       'sequel',
       'side-early',
@@ -82,8 +84,12 @@ void main() {
     expect(
       opened,
       isA<AnimeDetailsPreview>()
-          .having((preview) => preview.id, 'id', '59978')
-          .having((preview) => preview.posterUrl, 'poster', 'poster-59978'),
+          .having((preview) => preview.anime.id, 'id', '59978')
+          .having(
+            (preview) => preview.anime.posterUrl,
+            'poster',
+            'poster-59978',
+          ),
     );
   });
 
@@ -144,14 +150,16 @@ RelatedAnime _anime(
   String airedOn = '2023-01-01',
 }) => RelatedAnime(
   relation: relation,
-  id: id,
-  name: name.isEmpty ? 'Title $id' : name,
-  russian: russian,
-  kind: kind,
-  score: 0,
-  status: 'released',
-  episodes: 12,
-  episodesAired: 12,
-  airedOn: airedOn,
-  posterUrl: 'poster-$id',
+  anime: AnimeSummary(
+    id: id,
+    name: name.isEmpty ? 'Title $id' : name,
+    russian: russian,
+    kind: kind,
+    score: 0,
+    status: 'released',
+    episodes: 12,
+    episodesAired: 12,
+    airedOn: airedOn,
+    posterUrl: 'poster-$id',
+  ),
 );

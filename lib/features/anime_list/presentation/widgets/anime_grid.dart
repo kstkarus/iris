@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:iris/entities/anime/domain/anime_summary.dart';
 import 'package:iris/features/anime_details/presentation/models/anime_details_preview.dart';
 import 'package:iris/features/anime_list/domain/entities/anime_list_item.dart';
 import 'package:iris/features/anime_list/presentation/bloc/anime_list_bloc.dart';
@@ -158,8 +159,8 @@ class _AnimeGridState extends State<AnimeGrid> {
                   item: item,
                   onTap: () => context.pushNamed(
                     'anime-details',
-                    pathParameters: {'id': item.id},
-                    extra: _preview(item),
+                    pathParameters: {'id': item.anime.id},
+                    extra: AnimeDetailsPreview.fromSummary(item.anime),
                   ),
                 ),
             ],
@@ -216,54 +217,45 @@ class _ListFooter extends StatelessWidget {
 /// of different lengths so the rows do not repeat one shape.
 const _standInItems = [
   AnimeListItem(
-    id: '',
-    name: 'An anime title',
-    russian: 'Its name in Russian',
-    kind: 'tv',
-    score: 8.5,
-    status: 'released',
-    episodes: 24,
-    episodesAired: 24,
-    airedOn: '2020-01-01',
-    posterMainUrl: '',
+    anime: AnimeSummary(
+      id: '',
+      name: 'An anime title',
+      russian: 'Its name in Russian',
+      kind: 'tv',
+      score: 8.5,
+      status: 'released',
+      episodes: 24,
+      episodesAired: 24,
+      airedOn: '2020-01-01',
+      posterUrl: '',
+    ),
   ),
   AnimeListItem(
-    id: '',
-    name: 'A rather longer anime title',
-    russian: 'Name',
-    kind: 'movie',
-    score: 7.9,
-    status: 'released',
-    episodes: 1,
-    episodesAired: 1,
-    airedOn: '2018-01-01',
-    posterMainUrl: '',
+    anime: AnimeSummary(
+      id: '',
+      name: 'A rather longer anime title',
+      russian: 'Name',
+      kind: 'movie',
+      score: 7.9,
+      status: 'released',
+      episodes: 1,
+      episodesAired: 1,
+      airedOn: '2018-01-01',
+      posterUrl: '',
+    ),
   ),
   AnimeListItem(
-    id: '',
-    name: 'Title',
-    russian: 'A longer name in Russian',
-    kind: 'tv',
-    score: 8.1,
-    status: 'ongoing',
-    episodes: 12,
-    episodesAired: 6,
-    airedOn: '2026-01-01',
-    posterMainUrl: '',
+    anime: AnimeSummary(
+      id: '',
+      name: 'Title',
+      russian: 'A longer name in Russian',
+      kind: 'tv',
+      score: 8.1,
+      status: 'ongoing',
+      episodes: 12,
+      episodesAired: 6,
+      airedOn: '2026-01-01',
+      posterUrl: '',
+    ),
   ),
 ];
-
-/// What the title page can show at once, before its details load.
-AnimeDetailsPreview _preview(AnimeListItem item) => AnimeDetailsPreview(
-  id: item.id,
-  name: item.name,
-  russian: item.russian,
-  english: item.english,
-  kind: item.kind,
-  score: item.score,
-  status: item.status,
-  episodes: item.episodes,
-  episodesAired: item.episodesAired,
-  airedOn: item.airedOn,
-  posterUrl: item.posterMainUrl,
-);

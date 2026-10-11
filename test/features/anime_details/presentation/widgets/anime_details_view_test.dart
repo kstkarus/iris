@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:iris/entities/anime/domain/anime_summary.dart';
+
 import 'package:iris/features/anime_details/domain/entities/anime_details.dart';
 import 'package:iris/features/anime_details/domain/entities/anime_genre_name.dart';
 import 'package:iris/features/anime_details/domain/repositories/anime_details_repository.dart';
@@ -50,9 +52,12 @@ void main() {
     await tester.pumpWidget(_app(cubit..loadAnime(), preview: _preview));
     await tester.pump();
 
-    expect(find.text(_details.name), findsOneWidget);
+    expect(find.text(_details.anime.name), findsOneWidget);
     expect(find.text('64'), findsOneWidget);
-    expect(_skeletonAround(tester, find.text(_details.name)).enabled, isFalse);
+    expect(
+      _skeletonAround(tester, find.text(_details.anime.name)).enabled,
+      isFalse,
+    );
     final button = find.widgetWithText(FilledButton, 'Choose source');
     expect(tester.widget<FilledButton>(button).onPressed, isNotNull);
     expect(_skeletonAround(tester, _standIn).enabled, isTrue);
@@ -66,17 +71,19 @@ void main() {
       animeId: '5114',
       repository: _PendingAnimeDetailsRepository(),
     );
-    final preview = AnimeDetailsPreview(
-      id: _preview.id,
-      name: 'Re:Zero kara Hajimeru Isekai Seikatsu 4th Season',
-      russian: _preview.russian,
-      kind: _preview.kind,
-      score: _preview.score,
-      status: _preview.status,
-      episodes: _preview.episodes,
-      episodesAired: _preview.episodesAired,
-      airedOn: _preview.airedOn,
-      posterUrl: _preview.posterUrl,
+    final preview = AnimeDetailsPreview.fromSummary(
+      AnimeSummary(
+        id: _preview.anime.id,
+        name: 'Re:Zero kara Hajimeru Isekai Seikatsu 4th Season',
+        russian: _preview.anime.russian,
+        kind: _preview.anime.kind,
+        score: _preview.anime.score,
+        status: _preview.anime.status,
+        episodes: _preview.anime.episodes,
+        episodesAired: _preview.anime.episodesAired,
+        airedOn: _preview.anime.airedOn,
+        posterUrl: _preview.anime.posterUrl,
+      ),
     );
 
     await tester.pumpWidget(_app(cubit..loadAnime(), preview: preview));
@@ -110,17 +117,8 @@ void main() {
 
     details.complete(
       AnimeDetails(
-        id: _details.id,
-        name: _details.name,
-        russian: _details.russian,
+        anime: _details.anime,
         description: _details.description,
-        kind: _details.kind,
-        score: _details.score,
-        status: _details.status,
-        episodes: _details.episodes,
-        episodesAired: _details.episodesAired,
-        airedOn: _details.airedOn,
-        posterOriginalUrl: _details.posterOriginalUrl,
         studios: const ['Bones'],
         rating: 'r',
       ),
@@ -149,7 +147,7 @@ void main() {
 
     await tester.pump(DitherTransition.duration);
     expect(_standIn, findsNothing);
-    expect(find.text(_details.name), findsOneWidget);
+    expect(find.text(_details.anime.name), findsOneWidget);
   });
 
   testWidgets('shows anime details when loading succeeds', (tester) async {
@@ -198,18 +196,20 @@ void main() {
     tester,
   ) async {
     final airing = AnimeDetails(
-      id: '5114',
-      name: 'Airing',
-      russian: 'Выходит',
+      anime: AnimeSummary(
+        id: '5114',
+        name: 'Airing',
+        russian: 'Выходит',
+        kind: 'tv',
+        score: 8,
+        status: 'ongoing',
+        episodes: 12,
+        episodesAired: 6,
+        airedOn: '2026-07',
+        posterUrl: '',
+        nextEpisodeAt: DateTime.now().add(const Duration(days: 3)),
+      ),
       description: 'About it.',
-      kind: 'tv',
-      score: 8,
-      status: 'ongoing',
-      episodes: 12,
-      episodesAired: 6,
-      airedOn: '2026-07',
-      posterOriginalUrl: '',
-      nextEpisodeAt: DateTime.now().add(const Duration(days: 3)),
       rating: 'pg_13',
       studios: const ['Bones', 'MAPPA'],
       genres: const [
@@ -247,18 +247,20 @@ void main() {
       animeId: '5114',
       repository: _SuccessAnimeDetailsRepository(
         AnimeDetails(
-          id: '5114',
-          name: 'Done',
-          russian: '',
+          anime: AnimeSummary(
+            id: '5114',
+            name: 'Done',
+            russian: '',
+            kind: 'tv',
+            score: 8,
+            status: 'released',
+            episodes: 12,
+            episodesAired: 12,
+            airedOn: '2020',
+            posterUrl: '',
+            nextEpisodeAt: DateTime.now().add(const Duration(days: 3)),
+          ),
           description: 'About it.',
-          kind: 'tv',
-          score: 8,
-          status: 'released',
-          episodes: 12,
-          episodesAired: 12,
-          airedOn: '2020',
-          posterOriginalUrl: '',
-          nextEpisodeAt: DateTime.now().add(const Duration(days: 3)),
           fandubbers: dubs,
         ),
       ),
@@ -420,11 +422,17 @@ void main() {
     setTestWindowSize(tester, TestWindowSizes.phone);
     await _pumpPage(tester);
     // The heading, and the cover named after the anime.
-    final before = find.bySemanticsLabel(_longDetails.name).evaluate().length;
+    final before = find
+        .bySemanticsLabel(_longDetails.anime.name)
+        .evaluate()
+        .length;
     await _scrollBy(tester, _nameBelowBar(tester) + 4);
 
     expect(_barTitle, findsOneWidget);
-    expect(find.bySemanticsLabel(_longDetails.name), findsNWidgets(before));
+    expect(
+      find.bySemanticsLabel(_longDetails.anime.name),
+      findsNWidgets(before),
+    );
     semantics.dispose();
   });
 
@@ -449,7 +457,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      final title = tester.getRect(find.text(_longDetails.name));
+      final title = tester.getRect(find.text(_longDetails.anime.name));
       final poster = tester.getRect(find.byType(DitheredImage).first);
       final description = tester.getRect(find.text(_longDetails.description));
       if (entry.value.width < 840) {
@@ -485,7 +493,7 @@ Future<void> _pumpPage(WidgetTester tester) async {
 /// The anime name in the bar, not on the page.
 Finder get _barTitle => find.descendant(
   of: find.byType(AppBar),
-  matching: find.text(_longDetails.name),
+  matching: find.text(_longDetails.anime.name),
 );
 
 /// Scrolls the page by [dy] and waits for the bar to settle.
@@ -506,7 +514,7 @@ double _nameBelowBar(WidgetTester tester) {
   final name = tester.getRect(
     find.descendant(
       of: find.byType(SingleChildScrollView).first,
-      matching: find.text(_longDetails.name),
+      matching: find.text(_longDetails.anime.name),
     ),
   );
   return name.bottom - tester.getRect(find.byType(AppBar)).bottom;
@@ -576,43 +584,38 @@ class _ToggleAnimeDetailsRepository implements AnimeDetailsRepository {
 }
 
 const _details = AnimeDetails(
-  id: '5114',
-  name: 'Fullmetal Alchemist: Brotherhood',
-  russian: 'Fullmetal Alchemist: Brotherhood RU',
+  anime: AnimeSummary(
+    id: '5114',
+    name: 'Fullmetal Alchemist: Brotherhood',
+    russian: 'Fullmetal Alchemist: Brotherhood RU',
+    kind: 'tv',
+    score: 9.12,
+    status: 'released',
+    episodes: 64,
+    episodesAired: 64,
+    airedOn: '2009-04-05',
+    posterUrl: 'https://shikimori.one/posters/5114/original.jpg',
+  ),
   description:
       'Two brothers search for a Philosopher\'s Stone after a failed ritual.',
-  kind: 'tv',
-  score: 9.12,
-  status: 'released',
-  episodes: 64,
-  episodesAired: 64,
-  airedOn: '2009-04-05',
-  posterOriginalUrl: 'https://shikimori.one/posters/5114/original.jpg',
 );
 
-final _preview = AnimeDetailsPreview(
-  id: _details.id,
-  name: _details.name,
-  russian: _details.russian,
-  kind: _details.kind,
-  score: _details.score,
-  status: _details.status,
-  episodes: _details.episodes,
-  episodesAired: _details.episodesAired,
-  airedOn: _details.airedOn,
-  posterUrl: 'https://shikimori.one/posters/5114/main.jpg',
+final _preview = AnimeDetailsPreview.fromSummary(
+  AnimeSummary(
+    id: _details.anime.id,
+    name: _details.anime.name,
+    russian: _details.anime.russian,
+    kind: _details.anime.kind,
+    score: _details.anime.score,
+    status: _details.anime.status,
+    episodes: _details.anime.episodes,
+    episodesAired: _details.anime.episodesAired,
+    airedOn: _details.anime.airedOn,
+    posterUrl: 'https://shikimori.one/posters/5114/main.jpg',
+  ),
 );
 
 final _longDetails = AnimeDetails(
-  id: _details.id,
-  name: _details.name,
-  russian: _details.russian,
+  anime: _details.anime,
   description: List.filled(40, _details.description).join(' '),
-  kind: _details.kind,
-  score: _details.score,
-  status: _details.status,
-  episodes: _details.episodes,
-  episodesAired: _details.episodesAired,
-  airedOn: _details.airedOn,
-  posterOriginalUrl: _details.posterOriginalUrl,
 );

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import 'package:iris/entities/anime/domain/anime_summary.dart';
 import 'package:iris/entities/friend/domain/friend.dart';
 import 'package:iris/entities/user_rate/domain/user_rate.dart';
 import 'package:iris/entities/user_rate/presentation/user_rate_book_cubit.dart';
@@ -432,7 +433,7 @@ class _EntryRow extends StatelessWidget {
   static String? _episodes(
     AppLocalizations l10n,
     UserRate rate,
-    ListedAnime anime,
+    AnimeSummary anime,
   ) {
     switch (rate.status) {
       case UserRateStatus.completed:
@@ -454,7 +455,7 @@ class _EntryRow extends StatelessWidget {
     }
   }
 
-  static String? _nextEpisode(AppLocalizations l10n, ListedAnime anime) {
+  static String? _nextEpisode(AppLocalizations l10n, AnimeSummary anime) {
     final at = anime.nextEpisodeAt;
     if (anime.status != 'ongoing' || at == null) return null;
     final when = formatNextEpisodeTime(l10n, at, DateTime.now());
@@ -504,7 +505,7 @@ class _Footer extends StatelessWidget {
 const _standIns = [
   UserListEntry(
     rate: UserRate(id: '', status: UserRateStatus.watching, episodes: 5),
-    anime: ListedAnime(
+    anime: AnimeSummary(
       id: '',
       name: 'An anime title',
       russian: 'Its name in Russian',
@@ -519,7 +520,7 @@ const _standIns = [
   ),
   UserListEntry(
     rate: UserRate(id: '', status: UserRateStatus.watching, episodes: 11),
-    anime: ListedAnime(
+    anime: AnimeSummary(
       id: '',
       name: 'A rather longer anime title',
       russian: 'Name',
@@ -534,7 +535,7 @@ const _standIns = [
   ),
   UserListEntry(
     rate: UserRate(id: '', status: UserRateStatus.watching, episodes: 2),
-    anime: ListedAnime(
+    anime: AnimeSummary(
       id: '',
       name: 'Title',
       russian: 'A longer name in Russian',

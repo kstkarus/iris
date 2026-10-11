@@ -60,22 +60,9 @@ class MockAnimeListRepository implements AnimeListRepository {
   }
 
   AnimeListItem _withUserRate(AnimeListItem item) {
-    final rate = userRates?.rates[item.id];
+    final rate = userRates?.rates[item.anime.id];
     if (rate == null) return item;
-    return AnimeListItem(
-      id: item.id,
-      name: item.name,
-      russian: item.russian,
-      english: item.english,
-      kind: item.kind,
-      score: item.score,
-      status: item.status,
-      episodes: item.episodes,
-      episodesAired: item.episodesAired,
-      airedOn: item.airedOn,
-      posterMainUrl: item.posterMainUrl,
-      userRate: rate,
-    );
+    return AnimeListItem(anime: item.anime, userRate: rate);
   }
 }
 
@@ -85,23 +72,23 @@ bool _matchesSearch(AnimeListItem item, String? search) {
     return true;
   }
 
-  return item.name.toLowerCase().contains(normalizedQuery) ||
-      item.russian.toLowerCase().contains(normalizedQuery);
+  return item.anime.name.toLowerCase().contains(normalizedQuery) ||
+      item.anime.russian.toLowerCase().contains(normalizedQuery);
 }
 
 bool _matchesFilters(AnimeListItem item, AnimeListFilters filters) {
   final matchesKind =
       filters.kinds.isEmpty ||
-      filters.kinds.any((kind) => kind.apiValue == item.kind);
+      filters.kinds.any((kind) => kind.apiValue == item.anime.kind);
   final matchesStatus =
       filters.statuses.isEmpty ||
-      filters.statuses.any((status) => status.apiValue == item.status);
+      filters.statuses.any((status) => status.apiValue == item.anime.status);
 
   final status = item.userRate?.status;
   final matchesMyList =
       (filters.myList.isEmpty || filters.myList.contains(status)) &&
       (!filters.hideCompleted || status != UserRateStatus.completed);
-  final year = yearOfIsoDate(item.airedOn);
+  final year = yearOfIsoDate(item.anime.airedOn);
   final matchesSeason =
       filters.seasons.isEmpty ||
       (year != null &&
@@ -125,8 +112,8 @@ int _compareBySort(
     case AnimeListSortOption.popularity:
       return 0;
     case AnimeListSortOption.score:
-      return right.score.compareTo(left.score);
+      return right.anime.score.compareTo(left.anime.score);
     case AnimeListSortOption.airedOn:
-      return right.airedOn.compareTo(left.airedOn);
+      return right.anime.airedOn.compareTo(left.anime.airedOn);
   }
 }

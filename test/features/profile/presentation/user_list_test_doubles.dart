@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:iris/entities/anime/domain/anime_summary.dart';
 import 'package:iris/entities/user_rate/domain/user_rate.dart';
 import 'package:iris/features/profile/domain/entities/user_list_entry.dart';
 import 'package:iris/features/profile/domain/repositories/user_list_repository.dart';
@@ -13,7 +14,7 @@ UserListEntry listEntry(
   DateTime? nextEpisodeAt,
 }) => UserListEntry(
   rate: UserRate(id: 'r$id', status: status, episodes: episodes, score: score),
-  anime: ListedAnime(
+  anime: AnimeSummary(
     id: id,
     name: 'Anime $id',
     russian: '',

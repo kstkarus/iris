@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 
+import 'package:iris/entities/anime/domain/anime_summary.dart';
 import 'package:iris/features/anime_details/domain/entities/related_anime.dart';
 import 'package:iris/features/anime_details/presentation/cubit/anime_details_cubit.dart';
 import 'package:iris/features/anime_details/presentation/cubit/anime_details_state.dart';
@@ -72,17 +73,19 @@ class AnimeDetailsView extends StatelessWidget {
 }
 
 /// Stand-ins that give the noise the shape of a typical title.
-const _standInHead = AnimeDetailsPreview(
-  id: '',
-  name: 'A typical anime title',
-  russian: 'Its name in Russian',
-  kind: 'tv',
-  score: 8.5,
-  status: 'released',
-  episodes: 24,
-  episodesAired: 24,
-  airedOn: '2020-01-01',
-  posterUrl: '',
+const _standInHead = AnimeDetailsPreview.fromSummary(
+  AnimeSummary(
+    id: '',
+    name: 'A typical anime title',
+    russian: 'Its name in Russian',
+    kind: 'tv',
+    score: 8.5,
+    status: 'released',
+    episodes: 24,
+    episodesAired: 24,
+    airedOn: '2020-01-01',
+    posterUrl: '',
+  ),
 );
 final _standInDescription = List.filled(
   6,
@@ -164,7 +167,7 @@ class _Halftone extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final url = head.posterUrl;
+    final url = head.anime.posterUrl;
     if (url.isEmpty) {
       return ColoredBox(color: Theme.of(context).colorScheme.surfaceContainer);
     }
@@ -172,7 +175,7 @@ class _Halftone extends StatelessWidget {
     return DitheredImage(
       image: NetworkImage(url),
       alignment: alignment,
-      semanticLabel: head.name,
+      semanticLabel: head.anime.name,
       showOriginalLabel: l10n.animeDetailsShowCover,
       showHalftoneLabel: l10n.animeDetailsShowHalftone,
     );
@@ -217,13 +220,13 @@ class _CompactLayout extends StatelessWidget {
           _Facts(head: head, labelWidth: 96),
           _MoreFacts(head: head, loading: loading, labelWidth: 96),
           const SizedBox(height: 40),
-          MyListSection(totalEpisodes: head.episodes),
-          RecentlyWatchedSection(animeId: head.id),
+          MyListSection(totalEpisodes: head.anime.episodes),
+          RecentlyWatchedSection(animeId: head.anime.id),
           _Description(description: description, onRetry: onRetry),
           DubsSection(dubs: dubs),
           RelatedAnimeSection(related: related),
           // Last: it arrives a while after the page, and shifts nothing.
-          FriendsSection(totalEpisodes: head.episodes),
+          FriendsSection(totalEpisodes: head.anime.episodes),
         ],
       ),
     );
@@ -285,7 +288,7 @@ class _TwoPaneLayout extends StatelessWidget {
                   builder: (context, constraints) => HeadlineColumn(
                     height: posterWidth / PosterImage.aspectRatio,
                     minHeadlineHeight: displayTitleHeight(
-                      head.name,
+                      head.anime.name,
                       base: Theme.of(context).textTheme.displayLarge!,
                       size: _minTitleSize,
                       width: constraints.maxWidth,
@@ -293,7 +296,7 @@ class _TwoPaneLayout extends StatelessWidget {
                     ),
                     headline: HeadlineAnchor(
                       child: DisplayTitle(
-                        head.name,
+                        head.anime.name,
                         maxSize: titleSize,
                         minSize: _minTitleSize,
                       ),
@@ -323,8 +326,14 @@ class _TwoPaneLayout extends StatelessWidget {
             labelWidth: labelWidth,
             top: 40,
           ),
-          MyListSection(totalEpisodes: head.episodes, labelWidth: labelWidth),
-          RecentlyWatchedSection(animeId: head.id, labelWidth: labelWidth),
+          MyListSection(
+            totalEpisodes: head.anime.episodes,
+            labelWidth: labelWidth,
+          ),
+          RecentlyWatchedSection(
+            animeId: head.anime.id,
+            labelWidth: labelWidth,
+          ),
           _Description(
             description: description,
             labelWidth: labelWidth,
@@ -332,7 +341,10 @@ class _TwoPaneLayout extends StatelessWidget {
           ),
           DubsSection(dubs: dubs, labelWidth: labelWidth),
           RelatedAnimeSection(related: related, labelWidth: labelWidth),
-          FriendsSection(totalEpisodes: head.episodes, labelWidth: labelWidth),
+          FriendsSection(
+            totalEpisodes: head.anime.episodes,
+            labelWidth: labelWidth,
+          ),
         ],
       ),
     );
@@ -351,7 +363,7 @@ class _Titles extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         HeadlineAnchor(
-          child: DisplayTitle(head.name, maxSize: maxSize, maxLines: 4),
+          child: DisplayTitle(head.anime.name, maxSize: maxSize, maxLines: 4),
         ),
         _RussianTitle(head: head),
       ],
@@ -367,12 +379,12 @@ class _RussianTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (head.russian.isEmpty) return const SizedBox.shrink();
+    if (head.anime.russian.isEmpty) return const SizedBox.shrink();
     final theme = Theme.of(context);
     return Padding(
       padding: const EdgeInsets.only(top: 14),
       child: Text(
-        head.russian,
+        head.anime.russian,
         style: theme.textTheme.titleMedium?.copyWith(
           color: theme.colorScheme.onSurfaceVariant,
           fontWeight: FontWeight.w400,
@@ -395,21 +407,24 @@ class _Facts extends StatelessWidget {
     return SpecTable(
       labelWidth: labelWidth,
       rows: [
-        SpecRow(l10n.animeDetailsFactKind, formatAnimeKind(l10n, head.kind)),
+        SpecRow(
+          l10n.animeDetailsFactKind,
+          formatAnimeKind(l10n, head.anime.kind),
+        ),
         SpecRow(
           l10n.animeDetailsFactStatus,
-          formatAnimeStatus(l10n, head.status),
+          formatAnimeStatus(l10n, head.anime.status),
         ),
         if (episodes != null) SpecRow(l10n.animeDetailsFactEpisodes, episodes),
-        if (head.score > 0)
+        if (head.anime.score > 0)
           SpecRow(
             l10n.animeDetailsFactScore,
-            formatAnimeScoreValue(l10n, head.score),
+            formatAnimeScoreValue(l10n, head.anime.score),
           ),
-        if (head.airedOn.isNotEmpty)
+        if (head.anime.airedOn.isNotEmpty)
           SpecRow(
             l10n.animeDetailsFactAired,
-            formatAiredOn(l10n, head.airedOn),
+            formatAiredOn(l10n, head.anime.airedOn),
           ),
       ],
     );
@@ -457,7 +472,7 @@ class _MoreFacts extends StatelessWidget {
   }
 
   List<SpecRow> _standIns(AppLocalizations l10n) => [
-    if (head.status == 'ongoing')
+    if (head.anime.status == 'ongoing')
       SpecRow(l10n.animeDetailsFactNextEpisode, 'Episode 7 in 3 days'),
     SpecRow(l10n.animeDetailsFactStudio, 'Studio name'),
     SpecRow(l10n.animeDetailsFactGenres, 'Action, Drama, Fantasy'),
@@ -482,13 +497,13 @@ class _MoreFacts extends StatelessWidget {
 
 /// The next episode of an airing title, while its date is ahead.
 SpecRow? _nextEpisodeRow(AppLocalizations l10n, AnimeDetailsPreview head) {
-  final at = head.nextEpisodeAt;
-  if (head.status != 'ongoing' || at == null) return null;
+  final at = head.anime.nextEpisodeAt;
+  if (head.anime.status != 'ongoing' || at == null) return null;
   final when = formatNextEpisodeTime(l10n, at, DateTime.now());
   if (when == null) return null;
   return SpecRow(
     l10n.animeDetailsFactNextEpisode,
-    l10n.animeNextEpisode(head.episodesAired + 1, when),
+    l10n.animeNextEpisode(head.anime.episodesAired + 1, when),
   );
 }
 
@@ -501,9 +516,9 @@ String _genreName(AppLocalizations l10n, AnimeGenreName genre) =>
 /// The total for finished titles, aired of total while a title is airing.
 String? _episodesValue(AppLocalizations l10n, AnimeDetailsPreview head) {
   final numbers = NumberFormat.decimalPattern(l10n.localeName);
-  final total = head.episodes;
-  final aired = head.episodesAired;
-  if (total > 0 && (head.status == 'released' || aired >= total)) {
+  final total = head.anime.episodes;
+  final aired = head.anime.episodesAired;
+  if (total > 0 && (head.anime.status == 'released' || aired >= total)) {
     return numbers.format(total);
   }
   if (total > 0) {
@@ -528,11 +543,11 @@ class _WatchSourcesButton extends StatelessWidget {
       child: FilledButton(
         onPressed: () => context.pushNamed(
           'anime-watch-sources',
-          pathParameters: {'id': head.id},
+          pathParameters: {'id': head.anime.id},
           extra: AnimeWatchSourcesArgs.forAnime(
-            animeId: head.id,
-            name: head.name,
-            english: head.english,
+            animeId: head.anime.id,
+            name: head.anime.name,
+            english: head.anime.english,
           ),
         ),
         child: Text(

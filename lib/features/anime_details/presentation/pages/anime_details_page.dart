@@ -92,11 +92,11 @@ class _BarTitle extends StatelessWidget {
   Widget build(BuildContext context) {
     final loaded = context.select<AnimeDetailsCubit, String?>(
       (cubit) => switch (cubit.state) {
-        AnimeDetailsSuccess(:final details) => details.name,
+        AnimeDetailsSuccess(:final details) => details.anime.name,
         _ => null,
       },
     );
-    final name = loaded ?? preview?.name ?? '';
+    final name = loaded ?? preview?.anime.name ?? '';
     return ExcludeSemantics(
       child: ValueListenableBuilder<bool>(
         valueListenable: shown,
