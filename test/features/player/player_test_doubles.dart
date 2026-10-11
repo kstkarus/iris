@@ -9,6 +9,8 @@ import 'package:iris/features/player/domain/repositories/player_decoding_prefere
 import 'package:iris/features/player/domain/repositories/subtitle_preferences_repository.dart';
 import 'package:iris/features/player/presentation/cubit/player_cubit.dart';
 import 'package:iris/features/player/presentation/cubit/player_decoding_preferences_cubit.dart';
+import 'package:iris/features/player/presentation/cubit/player_source_cubit.dart';
+import 'package:iris/features/player/presentation/cubit/player_source_state.dart';
 import 'package:iris/features/player/presentation/cubit/player_state.dart';
 import 'package:iris/features/player/presentation/cubit/player_subtitle_preferences_cubit.dart';
 import 'package:iris/features/player/presentation/playback/player_engine.dart';
@@ -48,6 +50,35 @@ class FakePlayerCubit extends PlayerCubit {
   @override
   Future<void> playFile(PlayerVideoFile file) async {
     playedFiles.add(file.index);
+  }
+}
+
+/// A [PlayerSourceCubit] whose state the test pushes, recording session
+/// ownership hand-offs.
+class FakePlayerSourceCubit extends PlayerSourceCubit {
+  FakePlayerSourceCubit([PlayerSourceState? initialState])
+    : super(
+        magnet: 'magnet:?xt=urn:btih:test-source',
+        repository: StubPlayerRepository(),
+      ) {
+    if (initialState != null) emit(initialState);
+  }
+
+  bool didTransferOwnership = false;
+  bool didReclaimOwnership = false;
+
+  void push(PlayerSourceState next) => emit(next);
+
+  @override
+  void transferSessionOwnership() {
+    didTransferOwnership = true;
+    super.transferSessionOwnership();
+  }
+
+  @override
+  void reclaimSessionOwnership() {
+    didReclaimOwnership = true;
+    super.reclaimSessionOwnership();
   }
 }
 

@@ -10,8 +10,8 @@ import 'package:iris/features/player/presentation/cubit/player_source_state.dart
 import 'package:iris/features/player/presentation/models/anime_player_source_args.dart';
 import 'package:iris/features/player/presentation/pages/player_source_page.dart';
 
-import '../../../../helpers/fake_player_repository.dart';
 import '../../../../helpers/test_app.dart';
+import '../../player_test_doubles.dart';
 
 void main() {
   testWidgets('opens player immediately when only one file is available', (
@@ -19,7 +19,7 @@ void main() {
   ) async {
     final cubit = await _pumpFilesPage(tester, withPlayerRoute: true);
 
-    cubit.emitReady(_singleFileSource);
+    cubit.push(const PlayerSourceReady(_singleFileSource));
     await tester.pumpAndSettle();
 
     expect(find.text('Player Route'), findsOneWidget);
@@ -31,7 +31,7 @@ void main() {
   ) async {
     final cubit = await _pumpFilesPage(tester, withPlayerRoute: false);
 
-    cubit.emitReady(_singleFileSource);
+    cubit.push(const PlayerSourceReady(_singleFileSource));
     await tester.pump();
 
     expect(cubit.didTransferOwnership, isTrue);
@@ -41,18 +41,18 @@ void main() {
 }
 
 /// Without the player route, opening the player throws.
-Future<_TestPlayerSourceCubit> _pumpFilesPage(
+Future<FakePlayerSourceCubit> _pumpFilesPage(
   WidgetTester tester, {
   required bool withPlayerRoute,
 }) async {
-  late _TestPlayerSourceCubit cubit;
+  late FakePlayerSourceCubit cubit;
   final router = GoRouter(
     initialLocation: '/files',
     routes: [
       GoRoute(
         path: '/files',
         builder: (context, state) {
-          cubit = _TestPlayerSourceCubit();
+          cubit = FakePlayerSourceCubit();
           return BlocProvider<PlayerSourceCubit>.value(
             value: cubit,
             child: const PlayerSourcePage(
@@ -92,30 +92,3 @@ const _singleFileSource = PreparedPlayerSource(
     ),
   ],
 );
-
-class _TestPlayerSourceCubit extends PlayerSourceCubit {
-  _TestPlayerSourceCubit()
-    : super(
-        magnet: 'magnet:?xt=urn:btih:test-source',
-        repository: StubPlayerRepository(),
-      );
-
-  bool didTransferOwnership = false;
-  bool didReclaimOwnership = false;
-
-  void emitReady(PreparedPlayerSource source) {
-    emit(PlayerSourceReady(source));
-  }
-
-  @override
-  void transferSessionOwnership() {
-    didTransferOwnership = true;
-    super.transferSessionOwnership();
-  }
-
-  @override
-  void reclaimSessionOwnership() {
-    didReclaimOwnership = true;
-    super.reclaimSessionOwnership();
-  }
-}

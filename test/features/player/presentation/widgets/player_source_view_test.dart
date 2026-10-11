@@ -9,14 +9,14 @@ import 'package:iris/features/player/presentation/cubit/player_source_cubit.dart
 import 'package:iris/features/player/presentation/cubit/player_source_state.dart';
 import 'package:iris/features/player/presentation/widgets/player_source_view.dart';
 
-import '../../../../helpers/fake_player_repository.dart';
 import '../../../../helpers/test_app.dart';
+import '../../player_test_doubles.dart';
 
 void main() {
   testWidgets('shows loading state while source is being prepared', (
     tester,
   ) async {
-    final cubit = _FakePlayerSourceCubit(const PlayerSourceLoading());
+    final cubit = FakePlayerSourceCubit(const PlayerSourceLoading());
 
     await tester.pumpWidget(_wrap(cubit: cubit));
 
@@ -26,7 +26,7 @@ void main() {
   testWidgets('lists files with sizes and opens the tapped one', (
     tester,
   ) async {
-    final cubit = _FakePlayerSourceCubit(
+    final cubit = FakePlayerSourceCubit(
       const PlayerSourceReady(
         PreparedPlayerSource(
           sessionId: '42',
@@ -68,7 +68,7 @@ void main() {
   ) async {
     await tester.pumpWidget(
       _wrap(
-        cubit: _FakePlayerSourceCubit(
+        cubit: FakePlayerSourceCubit(
           const PlayerSourceReady(
             PreparedPlayerSource(
               sessionId: 'online:anilibria/9542',
@@ -112,7 +112,7 @@ void main() {
   ) async {
     await tester.pumpWidget(
       _wrap(
-        cubit: _FakePlayerSourceCubit(
+        cubit: FakePlayerSourceCubit(
           const PlayerSourceReady(
             PreparedPlayerSource(
               sessionId: 'online:yummy_anime/10661:AniDUB',
@@ -149,7 +149,7 @@ void main() {
   ) async {
     await tester.pumpWidget(
       _wrap(
-        cubit: _FakePlayerSourceCubit(const PlayerSourceLoading()),
+        cubit: FakePlayerSourceCubit(const PlayerSourceLoading()),
         isOnline: true,
       ),
     );
@@ -163,7 +163,7 @@ void main() {
     final selected = <int>[];
     await tester.pumpWidget(
       _wrap(
-        cubit: _FakePlayerSourceCubit(
+        cubit: FakePlayerSourceCubit(
           const PlayerSourceReady(
             PreparedPlayerSource(sessionId: '42', files: _episodes),
           ),
@@ -186,7 +186,7 @@ void main() {
   testWidgets('offers the next file after a finished one', (tester) async {
     await tester.pumpWidget(
       _wrap(
-        cubit: _FakePlayerSourceCubit(
+        cubit: FakePlayerSourceCubit(
           const PlayerSourceReady(
             PreparedPlayerSource(sessionId: '42', files: _episodes),
           ),
@@ -204,7 +204,7 @@ void main() {
   });
 
   testWidgets('shows unsupported-source failure state', (tester) async {
-    final cubit = _FakePlayerSourceCubit(
+    final cubit = FakePlayerSourceCubit(
       const PlayerSourceFailure(PlayerSourceFailureType.unsupportedSource),
     );
 
@@ -218,7 +218,7 @@ void main() {
 }
 
 Widget _wrap({
-  required _FakePlayerSourceCubit cubit,
+  required FakePlayerSourceCubit cubit,
   Map<int, WatchProgress> progressByFile = const {},
   ValueChanged<PlayerVideoFile>? onFileSelected,
   bool isOnline = false,
@@ -253,14 +253,4 @@ WatchProgress _progress(int fileIndex, int seconds, {int minute = 0}) {
     duration: const Duration(minutes: 24),
     updatedAt: DateTime.utc(2026, 10, 4, 12, minute),
   );
-}
-
-class _FakePlayerSourceCubit extends PlayerSourceCubit {
-  _FakePlayerSourceCubit(PlayerSourceState initialState)
-    : super(
-        magnet: 'magnet:?xt=urn:btih:test-source',
-        repository: StubPlayerRepository(),
-      ) {
-    emit(initialState);
-  }
 }
