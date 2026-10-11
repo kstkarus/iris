@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:iris/entities/watch_progress/domain/watch_progress.dart';
 import 'package:iris/features/player/domain/entities/player_video_file.dart';
 import 'package:iris/features/player/domain/player_episode_names.dart';
-import 'package:iris/features/player/presentation/widgets/player_immersive_controls.dart';
+import 'package:iris/features/player/presentation/widgets/player_colors.dart';
 import 'package:iris/features/player/presentation/widgets/reveal_after_layout.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/utils/duration_formatter.dart';
