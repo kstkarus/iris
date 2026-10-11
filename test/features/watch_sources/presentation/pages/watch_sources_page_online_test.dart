@@ -16,7 +16,6 @@ import 'package:iris/features/player/presentation/models/anime_player_source_arg
 import 'package:iris/features/watch_sources/domain/entities/watch_source_item.dart';
 import 'package:iris/features/watch_sources/domain/entities/watch_sources_tab.dart';
 import 'package:iris/features/watch_sources/domain/repositories/watch_sources_repository.dart';
-import 'package:iris/features/watch_sources/domain/repositories/watch_sources_tab_repository.dart';
 import 'package:iris/features/watch_sources/presentation/cubit/watch_sources_cubit.dart';
 import 'package:iris/features/watch_sources/presentation/cubit/watch_sources_tab_cubit.dart';
 import 'package:iris/features/watch_sources/presentation/models/anime_watch_sources_args.dart';
@@ -26,6 +25,7 @@ import 'package:iris/shared/online/online_source_link.dart';
 import '../../../../helpers/fake_watch_progress_repository.dart';
 import '../../../../helpers/test_app.dart';
 import '../../../../helpers/test_window.dart';
+import '../../watch_sources_test_doubles.dart';
 
 const _link = 'online:anilibria/9542?anime=52991';
 
@@ -72,7 +72,7 @@ void main() {
   });
 
   testWidgets('a tap shows the torrents and is remembered', (tester) async {
-    final tabs = _TabMemory();
+    final tabs = MemoryWatchSourcesTabRepository();
     await _pumpPage(tester, online: _FakeOnlineSources.found(), tabs: tabs);
 
     await tester.tap(find.text('Torrents'));
@@ -87,7 +87,7 @@ void main() {
     await _pumpPage(
       tester,
       online: _FakeOnlineSources.found(),
-      tabs: _TabMemory(WatchSourcesTab.torrents),
+      tabs: MemoryWatchSourcesTabRepository(WatchSourcesTab.torrents),
     );
 
     expect(find.text('[SubsPlease] Frieren'), findsOneWidget);
@@ -100,7 +100,7 @@ void main() {
     await _pumpPage(
       tester,
       online: _FakeOnlineSources.found(),
-      tabs: _TabMemory(WatchSourcesTab.torrents),
+      tabs: MemoryWatchSourcesTabRepository(WatchSourcesTab.torrents),
     );
 
     await tester.enterText(find.byType(TextField), 'subs');
@@ -234,7 +234,7 @@ void main() {
       online: _FakeOnlineSources.found(),
       torrents: const _Torrents.none(),
       // The chosen tab has nothing: the page shows what there is.
-      tabs: _TabMemory(WatchSourcesTab.torrents),
+      tabs: MemoryWatchSourcesTabRepository(WatchSourcesTab.torrents),
     );
     await tester.pumpAndSettle();
 
@@ -245,7 +245,7 @@ void main() {
   testWidgets('dissolves the tabs when nothing is found online', (
     tester,
   ) async {
-    final tabs = _TabMemory();
+    final tabs = MemoryWatchSourcesTabRepository();
     final online = _FakeOnlineSources.pending();
     await _pumpPage(tester, online: online, tabs: tabs);
 
@@ -267,7 +267,7 @@ void main() {
     await _pumpPage(
       tester,
       online: online,
-      tabs: _TabMemory(WatchSourcesTab.torrents),
+      tabs: MemoryWatchSourcesTabRepository(WatchSourcesTab.torrents),
     );
 
     await tester.enterText(find.byType(TextField), 'subs');
@@ -353,7 +353,7 @@ Future<_RecordedNavigation> _pumpPage(
   WidgetTester tester, {
   required _FakeOnlineSources online,
   _Torrents torrents = const _Torrents(),
-  _TabMemory? tabs,
+  MemoryWatchSourcesTabRepository? tabs,
   List<WatchProgress> history = const [],
 }) async {
   final navigation = _RecordedNavigation();
@@ -385,8 +385,9 @@ Future<_RecordedNavigation> _pumpPage(
               )..load(),
             ),
             BlocProvider(
-              create: (_) =>
-                  WatchSourcesTabCubit(repository: tabs ?? _TabMemory()),
+              create: (_) => WatchSourcesTabCubit(
+                repository: tabs ?? MemoryWatchSourcesTabRepository(),
+              ),
             ),
             BlocProvider(
               create: (_) => WatchProgressCubit(
@@ -413,18 +414,6 @@ Future<_RecordedNavigation> _pumpPage(
   await tester.pump();
   await tester.pump(const Duration(seconds: 1));
   return navigation;
-}
-
-class _TabMemory implements WatchSourcesTabRepository {
-  _TabMemory([this.tab]);
-
-  WatchSourcesTab? tab;
-
-  @override
-  WatchSourcesTab? loadTab() => tab;
-
-  @override
-  Future<void> saveTab(WatchSourcesTab tab) async => this.tab = tab;
 }
 
 class _FakeOnlineSources implements OnlineReleasesSearch {
