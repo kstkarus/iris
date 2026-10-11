@@ -77,7 +77,7 @@ lib/
   `adaptiveColumnCount`, `status_views.dart` (loading / empty / error,
   `RetryView` / `InlineRetry` / `PagingFooter`), `PageFrame` (page body
   margins + width cap), `CheckedMenuItem` + `MenuController.toggle`,
-  `TapRow` (tappable list row)
+  `TapRow` (tappable list row), `CaptionText` (small upper-case caption)
 
 ### Layer responsibilities
 #### presentation/

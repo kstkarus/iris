@@ -6,6 +6,7 @@ import 'package:iris/entities/user_rate/presentation/user_rate_badge.dart';
 import 'package:iris/entities/user_rate/presentation/user_rate_status_label.dart';
 import 'package:iris/features/anime_details/presentation/cubit/friend_rates_cubit.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
+import 'package:iris/shared/widgets/caption_text.dart';
 import 'package:iris/shared/widgets/labeled_section.dart';
 import 'package:iris/shared/widgets/square_avatar.dart';
 import 'package:iris/shared/widgets/dither_switcher.dart';
@@ -90,13 +91,7 @@ class _FriendRow extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.bodyMedium,
                 ),
-                Text(
-                  facts.toUpperCase(),
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                    fontFeatures: const [FontFeature.tabularFigures()],
-                  ),
-                ),
+                CaptionText(facts, tabular: true),
               ],
             ),
           ),

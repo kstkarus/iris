@@ -16,6 +16,7 @@ import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/utils/anime_metadata_formatter.dart';
 import 'package:iris/shared/widgets/adaptive/adaptive_grid_row.dart';
 import 'package:iris/shared/widgets/app_skeleton.dart';
+import 'package:iris/shared/widgets/caption_text.dart';
 import 'package:iris/shared/widgets/checked_menu_item.dart';
 import 'package:iris/shared/widgets/marked_tab.dart';
 import 'package:iris/shared/widgets/pixel_icon.dart';
@@ -403,22 +404,11 @@ class _EntryRow extends StatelessWidget {
                     ),
                   if (facts.isNotEmpty) ...[
                     const SizedBox(height: 4),
-                    Text(
-                      facts.toUpperCase(),
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: muted,
-                        fontFeatures: const [FontFeature.tabularFigures()],
-                      ),
-                    ),
+                    CaptionText(facts, tabular: true),
                   ],
                   if (next != null) ...[
                     const SizedBox(height: 2),
-                    Text(
-                      next.toUpperCase(),
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: theme.colorScheme.tertiary,
-                      ),
-                    ),
+                    CaptionText(next, color: theme.colorScheme.tertiary),
                   ],
                 ],
               ),

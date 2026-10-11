@@ -9,6 +9,7 @@ import 'package:iris/features/player/presentation/models/anime_player_source_arg
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/utils/duration_formatter.dart';
 import 'package:iris/shared/utils/file_display_name.dart';
+import 'package:iris/shared/widgets/caption_text.dart';
 import 'package:iris/shared/widgets/display_title.dart';
 import 'package:iris/shared/widgets/fold_row.dart';
 import 'package:iris/shared/widgets/pixel_icon.dart';
@@ -173,14 +174,10 @@ class _PositionPanel extends StatelessWidget {
             Row(
               children: [
                 Expanded(
-                  child: Text(
-                    (finished
-                            ? l10n.continueWatchingFinishedLabel
-                            : l10n.continueWatchingStoppedAtLabel)
-                        .toUpperCase(),
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: scheme.onSurfaceVariant,
-                    ),
+                  child: CaptionText(
+                    finished
+                        ? l10n.continueWatchingFinishedLabel
+                        : l10n.continueWatchingStoppedAtLabel,
                   ),
                 ),
                 _RemoveMenu(progress: progress),

@@ -8,6 +8,7 @@ import 'package:iris/features/player/presentation/widgets/reveal_after_layout.da
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/utils/byte_size_formatter.dart';
 import 'package:iris/shared/utils/file_display_name.dart';
+import 'package:iris/shared/widgets/caption_text.dart';
 import 'package:iris/shared/widgets/segmented_bar.dart';
 
 /// The torrent's video files as numbered rows with watch progress; the
@@ -177,11 +178,9 @@ class _EpisodeRow extends StatelessWidget {
                       ),
                     if (isCurrent) ...[
                       const SizedBox(height: 6),
-                      Text(
-                        l10n.playerNowPlaying.toUpperCase(),
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          color: scheme.tertiary,
-                        ),
+                      CaptionText(
+                        l10n.playerNowPlaying,
+                        color: scheme.tertiary,
                       ),
                     ] else if (progress != null) ...[
                       const SizedBox(height: 10),
