@@ -112,14 +112,16 @@ class PixelGlyph {
     '.......',
   ]);
 
+  /// Centred by its bounds: a triangle looks heavier at its flat side, so
+  /// one drawn from the grid's first column reads as off to the left.
   static const play = PixelGlyph._([
-    '.#.....',
-    '.##....',
-    '.###...',
-    '.####..',
-    '.###...',
-    '.##....',
-    '.#.....',
+    '..#....',
+    '..##...',
+    '..###..',
+    '..####.',
+    '..###..',
+    '..##...',
+    '..#....',
   ]);
 
   static const pause = PixelGlyph._([
@@ -314,13 +316,15 @@ class PixelGlyph {
 /// [IconTheme] like [Icon].
 ///
 /// Pixels are whole logical pixels, so the glyph may be a little smaller
-/// than [size]; it stays centred.
+/// than [size]; it stays centred. With [fineGrain] they are whole device
+/// pixels instead, for a size between multiples of seven on a dense screen.
 class PixelIcon extends StatelessWidget {
   const PixelIcon(
     this.glyph, {
     this.size,
     this.color,
     this.semanticLabel,
+    this.fineGrain = false,
     super.key,
   });
 
@@ -328,6 +332,7 @@ class PixelIcon extends StatelessWidget {
   final double? size;
   final Color? color;
   final String? semanticLabel;
+  final bool fineGrain;
 
   @override
   Widget build(BuildContext context) {
@@ -344,7 +349,14 @@ class PixelIcon extends StatelessWidget {
       child: SizedBox.square(
         dimension: size,
         child: CustomPaint(
-          painter: _PixelGlyphPainter(glyph: glyph, color: color, size: size),
+          painter: _PixelGlyphPainter(
+            glyph: glyph,
+            color: color,
+            size: size,
+            pixelRatio: fineGrain
+                ? MediaQuery.maybeDevicePixelRatioOf(context) ?? 1
+                : 1,
+          ),
         ),
       ),
     );
@@ -361,6 +373,7 @@ class _PixelGlyphPainter extends CustomPainter {
     required this.glyph,
     required this.color,
     required this.size,
+    required this.pixelRatio,
   });
 
   final PixelGlyph glyph;
@@ -370,13 +383,19 @@ class _PixelGlyphPainter extends CustomPainter {
   /// input decoration does), and the glyph keeps to this size, centred.
   final double size;
 
+  /// What a cell is a whole number of: 1 for logical pixels, the device's
+  /// ratio for its own.
+  final double pixelRatio;
+
   @override
   void paint(Canvas canvas, Size canvasSize) {
     const grid = PixelGlyph.gridSize;
-    final cell = (size / grid).roundToDouble().clamp(1.0, 64.0);
+    double snap(double value) =>
+        (value * pixelRatio).roundToDouble() / pixelRatio;
+    final cell = snap(size / grid).clamp(1 / pixelRatio, 64.0);
     final origin = Offset(
-      ((canvasSize.width - cell * grid) / 2).roundToDouble(),
-      ((canvasSize.height - cell * grid) / 2).roundToDouble(),
+      snap((canvasSize.width - cell * grid) / 2),
+      snap((canvasSize.height - cell * grid) / 2),
     );
     final path = Path();
     for (var y = 0; y < grid; y++) {
@@ -393,5 +412,8 @@ class _PixelGlyphPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_PixelGlyphPainter old) =>
-      old.glyph != glyph || old.color != color || old.size != size;
+      old.glyph != glyph ||
+      old.color != color ||
+      old.size != size ||
+      old.pixelRatio != pixelRatio;
 }

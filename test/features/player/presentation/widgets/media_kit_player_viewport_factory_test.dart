@@ -1956,6 +1956,19 @@ void main() {
           expect(button.right, lessThanOrEqualTo(size.width), reason: key);
           expect(button.bottom, lessThanOrEqualTo(size.height), reason: key);
         }
+        // The lock sits in the top corner opposite the way back, ending in
+        // line with the bar's last button.
+        final back = tester.getRect(
+          find.byKey(const Key('player_back_button')),
+        );
+        final lock = tester.getRect(
+          find.byKey(const Key('player_lock_button')),
+        );
+        final settings = tester.getRect(
+          find.byKey(const Key('player_settings_button')),
+        );
+        expect(lock.center.dy, back.center.dy);
+        expect(lock.right, settings.right);
         // The phone's own buttons and screen do these.
         expect(find.byKey(const Key('player_mute_button')), findsNothing);
         expect(find.byKey(const Key('player_fullscreen_button')), findsNothing);

@@ -31,9 +31,10 @@ class _ShadowedGlyph extends StatelessWidget {
 /// "−10" / "+10": the seek step as a figure, which says more than any
 /// arrow could.
 class _SeekFigure extends StatelessWidget {
-  const _SeekFigure(this.text);
+  const _SeekFigure(this.text, {required this.size});
 
   final String text;
+  final double size;
 
   @override
   Widget build(BuildContext context) {
@@ -41,6 +42,7 @@ class _SeekFigure extends StatelessWidget {
       text,
       style: Theme.of(context).textTheme.headlineSmall?.copyWith(
         color: Colors.white,
+        fontSize: size,
         fontWeight: FontWeight.w500,
         fontFeatures: const [FontFeature.tabularFigures()],
       ),
@@ -78,7 +80,7 @@ class _CenterButtons extends StatelessWidget {
       children: [
         _GlyphButton(
           key: const Key('player_seek_backward_button'),
-          glyph: _SeekFigure('\u2212$seconds'),
+          glyph: _SeekFigure('\u2212$seconds', size: metrics.seekFigure),
           iconSize: 44,
           size: seekSize,
           label: l10n.playerSeekBackward(seconds),
@@ -106,7 +108,7 @@ class _CenterButtons extends StatelessWidget {
         gap,
         _GlyphButton(
           key: const Key('player_seek_forward_button'),
-          glyph: _SeekFigure('+$seconds'),
+          glyph: _SeekFigure('+$seconds', size: metrics.seekFigure),
           iconSize: 44,
           size: seekSize,
           label: l10n.playerSeekForward(seconds),

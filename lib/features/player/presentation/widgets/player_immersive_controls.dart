@@ -51,7 +51,7 @@ typedef PlayerPanelOpener = Future<void> Function(BuildContext anchor);
 /// while longer, and the buttons are finger-sized; the volume and full
 /// screen are the phone's own. The video takes a phone's gestures too
 /// (see [_TouchGestures]): double taps at the sides seek, a long press
-/// plays at 2×, a pinch fills the screen. The lock in the bar stops every
+/// plays at 2×, a pinch fills the screen. The lock at the top stops every
 /// touch, and Back, while playback goes on; a tap shows the way to unlock
 /// for a few seconds. The titles show only while paused, as in streaming
 /// apps, and the subtitles move above whatever the controls
@@ -637,6 +637,7 @@ class _PlayerImmersiveControlsState extends State<PlayerImmersiveControls> {
               statsPanel: widget.statsPanel,
               metrics: metrics,
               insets: _insets,
+              onLock: _touch ? _lockScreen : null,
             ),
           ),
         ),
@@ -680,7 +681,6 @@ class _PlayerImmersiveControlsState extends State<PlayerImmersiveControls> {
                   _showPanel(#settings, widget.onShowSettings, anchor),
               onToggleFullscreen: widget.onToggleFullscreen,
               onEpisodes: widget.chrome.episodes == null ? null : _openEpisodes,
-              onLock: _touch ? _lockScreen : null,
             ),
           ),
         ),
@@ -820,6 +820,7 @@ class _TopBar extends StatelessWidget {
     required this.statsPanel,
     required this.metrics,
     required this.insets,
+    required this.onLock,
   });
 
   final PlayerChrome chrome;
@@ -827,15 +828,19 @@ class _TopBar extends StatelessWidget {
   final _ControlsMetrics metrics;
   final EdgeInsets insets;
 
+  /// Locks the screen; by touch only, in the corner opposite the way back.
+  final VoidCallback? onLock;
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     return Padding(
-      // The arrow's glyph starts in line with the titles and the timeline.
+      // The arrow's glyph starts in line with the titles and the timeline,
+      // the lock's ends in line with the bar's last glyph.
       padding: EdgeInsets.fromLTRB(
         insets.left - metrics.backButtonInset,
         insets.top,
-        insets.right,
+        insets.right - (onLock == null ? 0 : metrics.barButtonInset),
         insets.top,
       ),
       child: Row(
@@ -846,13 +851,23 @@ class _TopBar extends StatelessWidget {
           _GlyphButton(
             key: const Key('player_back_button'),
             glyph: const PixelIcon(PixelGlyph.arrowLeft),
-            iconSize: 28,
+            iconSize: metrics.backGlyph,
             size: Size.square(metrics.backButton),
             label: l10n.playerBack,
             onPressed: chrome.onBack,
           ),
           const SizedBox(width: 12),
           statsPanel,
+          if (onLock case final onLock?) ...[
+            const SizedBox(width: 12),
+            _BarButton(
+              key: const Key('player_lock_button'),
+              metrics: metrics,
+              glyph: PixelGlyph.lock,
+              label: l10n.playerLockScreen,
+              onPressed: onLock,
+            ),
+          ],
         ],
       ),
     );

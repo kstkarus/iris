@@ -1,7 +1,8 @@
 part of '../player_immersive_controls.dart';
 
 /// The screen's brightness by touch: a square-cut vertical track under a
-/// sun, as tall as the room between the top and bottom controls allows.
+/// sun, centred in the room between the top and bottom controls and
+/// short of filling it.
 /// Dragging or tapping along it sets the brightness; [onActive] tells while
 /// a finger drags, so the controls stay meanwhile.
 class _BrightnessSlider extends StatefulWidget {
@@ -12,11 +13,12 @@ class _BrightnessSlider extends StatefulWidget {
 
   /// How far the glyph sits inside the target, so it lines up with the
   /// titles below.
-  static const glyphInset = 14.0;
+  static const glyphInset = 15.0;
 
-  static const _glyphSize = 21.0;
+  /// The bar's glyph size by touch.
+  static const _glyphSize = 18.0;
   static const _gap = 12.0;
-  static const _maxTrack = 160.0;
+  static const _maxTrack = 104.0;
   static const _minTrack = 48.0;
   static const _step = 0.1;
 
@@ -99,6 +101,7 @@ class _BrightnessSliderState extends State<_BrightnessSlider> {
                     PixelGlyph.brightness,
                     size: _BrightnessSlider._glyphSize,
                     color: Colors.white,
+                    fineGrain: true,
                   ),
                 ),
                 const SizedBox(height: _BrightnessSlider._gap),

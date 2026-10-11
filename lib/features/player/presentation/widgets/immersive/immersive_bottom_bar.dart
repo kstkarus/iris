@@ -21,7 +21,6 @@ class _BottomSection extends StatelessWidget {
     required this.onShowSettings,
     required this.onToggleFullscreen,
     required this.onEpisodes,
-    required this.onLock,
   });
 
   static const titleAnimation = Duration(milliseconds: 200);
@@ -58,9 +57,6 @@ class _BottomSection extends StatelessWidget {
   final VoidCallback onToggleFullscreen;
   final VoidCallback? onEpisodes;
 
-  /// Locks the screen; by touch only.
-  final VoidCallback? onLock;
-
   @override
   Widget build(BuildContext context) {
     final buttonInset = metrics.barButtonInset;
@@ -93,7 +89,6 @@ class _BottomSection extends StatelessWidget {
             onShowSettings: onShowSettings,
             onToggleFullscreen: onToggleFullscreen,
             onEpisodes: onEpisodes,
-            onLock: onLock,
           );
           return Column(
             mainAxisSize: MainAxisSize.min,
@@ -371,7 +366,6 @@ class _BarButtons extends StatelessWidget {
     required this.onShowSettings,
     required this.onToggleFullscreen,
     required this.onEpisodes,
-    required this.onLock,
   });
 
   final Player player;
@@ -385,30 +379,27 @@ class _BarButtons extends StatelessWidget {
   final ValueChanged<BuildContext> onShowSettings;
   final VoidCallback onToggleFullscreen;
   final VoidCallback? onEpisodes;
-  final VoidCallback? onLock;
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final next = this.next;
     final onEpisodes = this.onEpisodes;
-    final onLock = this.onLock;
-    final size = metrics.barButton;
     final touch = metrics.touch;
     final playback = [
       if (next != null)
         _BarButton(
           key: const Key('player_next_file_button'),
-          size: size,
-          glyph: const PixelIcon(PixelGlyph.skipNext),
+          metrics: metrics,
+          glyph: PixelGlyph.skipNext,
           label: '${l10n.playerPlayNext}: ${next.title}',
           onPressed: next.play,
         ),
       if (onEpisodes != null)
         _BarButton(
           key: const Key('player_episodes_button'),
-          size: size,
-          glyph: const PixelIcon(PixelGlyph.episodes),
+          metrics: metrics,
+          glyph: PixelGlyph.episodes,
           label: l10n.playerEpisodesTitle,
           onPressed: onEpisodes,
         ),
@@ -418,8 +409,8 @@ class _BarButtons extends StatelessWidget {
       Builder(
         builder: (anchor) => _BarButton(
           key: const Key('player_tracks_button'),
-          size: size,
-          glyph: const PixelIcon(PixelGlyph.subtitles),
+          metrics: metrics,
+          glyph: PixelGlyph.subtitles,
           label: l10n.playerAudioAndSubtitles,
           selected: openPanel == #tracks,
           onPressed: () => onShowTracks(anchor),
@@ -428,32 +419,23 @@ class _BarButtons extends StatelessWidget {
       Builder(
         builder: (anchor) => _BarButton(
           key: const Key('player_settings_button'),
-          size: size,
-          glyph: const PixelIcon(PixelGlyph.settings),
+          metrics: metrics,
+          glyph: PixelGlyph.settings,
           label: l10n.playerSettingsTitle,
           selected: openPanel == #settings,
           onPressed: () => onShowSettings(anchor),
         ),
       ),
-      if (onLock != null)
-        _BarButton(
-          key: const Key('player_lock_button'),
-          size: size,
-          glyph: const PixelIcon(PixelGlyph.lock),
-          label: l10n.playerLockScreen,
-          onPressed: onLock,
-        ),
       // A phone's player is always full screen.
       if (!touch)
         ValueListenableBuilder<bool>(
           valueListenable: fullscreen,
           builder: (context, isFullscreen, _) => _BarButton(
             key: const Key('player_fullscreen_button'),
-            size: size,
-            glyph: PixelIcon(
-              isFullscreen ? PixelGlyph.fullscreenExit : PixelGlyph.fullscreen,
-              key: ValueKey(isFullscreen),
-            ),
+            metrics: metrics,
+            glyph: isFullscreen
+                ? PixelGlyph.fullscreenExit
+                : PixelGlyph.fullscreen,
             label: isFullscreen
                 ? l10n.playerExitFullscreen
                 : l10n.playerEnterFullscreen,
@@ -468,7 +450,7 @@ class _BarButtons extends StatelessWidget {
         [
           _VolumeControl(
             player: player,
-            size: size,
+            metrics: metrics,
             onToggleMute: onToggleMute,
             onVolume: onVolume,
           ),
@@ -492,22 +474,22 @@ class _BarButtons extends StatelessWidget {
 
 const _barGroupGap = 20.0;
 
-/// A button of the bottom bar. Pixel glyphs all fill their 7×7 grid, so
-/// one size fits every button.
+/// A button of the bottom bar, and the lock at the top by touch. Pixel
+/// glyphs all fill their 7×7 grid, so one size fits every button.
 class _BarButton extends StatelessWidget {
   const _BarButton({
     required this.glyph,
     required this.label,
     required this.onPressed,
-    required this.size,
+    required this.metrics,
     this.selected = false,
     super.key,
   });
 
-  static const glyphSize = 24.0;
+  final _ControlsMetrics metrics;
 
-  final Size size;
-  final Widget glyph;
+  /// Its state's glyph; it cross-fades when the state changes it.
+  final PixelGlyph glyph;
   final String label;
   final bool selected;
   final VoidCallback onPressed;
@@ -515,9 +497,9 @@ class _BarButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return _GlyphButton(
-      glyph: glyph,
-      iconSize: glyphSize,
-      size: size,
+      glyph: PixelIcon(glyph, key: ValueKey(glyph), fineGrain: metrics.touch),
+      iconSize: metrics.barGlyph,
+      size: metrics.barButton,
       label: label,
       selected: selected,
       onPressed: onPressed,
@@ -529,13 +511,13 @@ class _BarButton extends StatelessWidget {
 class _VolumeControl extends StatefulWidget {
   const _VolumeControl({
     required this.player,
-    required this.size,
+    required this.metrics,
     required this.onToggleMute,
     required this.onVolume,
   });
 
   final Player player;
-  final Size size;
+  final _ControlsMetrics metrics;
   final VoidCallback onToggleMute;
   final ValueChanged<double> onVolume;
 
@@ -590,15 +572,12 @@ class _VolumeControlState extends State<_VolumeControl> {
               ),
               _BarButton(
                 key: const Key('player_mute_button'),
-                size: widget.size,
-                glyph: () {
-                  final glyph = muted
-                      ? PixelGlyph.volumeOff
-                      : volume < 50
-                      ? PixelGlyph.volumeDown
-                      : PixelGlyph.volumeUp;
-                  return PixelIcon(glyph, key: ValueKey(glyph));
-                }(),
+                metrics: widget.metrics,
+                glyph: muted
+                    ? PixelGlyph.volumeOff
+                    : volume < 50
+                    ? PixelGlyph.volumeDown
+                    : PixelGlyph.volumeUp,
                 label: muted ? l10n.playerUnmute : l10n.playerMute,
                 onPressed: widget.onToggleMute,
               ),
