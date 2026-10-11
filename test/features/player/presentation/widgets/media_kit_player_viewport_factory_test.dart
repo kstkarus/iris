@@ -1808,6 +1808,51 @@ void main() {
       expect(platformPlayer.nativeProperties['sub-pos'], '100');
     });
 
+    testWidgets('move subtitles drawn by Flutter above the visible controls '
+        'too', (tester) async {
+      setTestWindowSize(tester, TestWindowSizes.landscape);
+      // Without libass, media_kit draws the subtitles in a SubtitleView.
+      final platformPlayer = _FakePlatformPlayer(
+        configuration: const PlayerConfiguration(libass: false),
+      );
+      await tester.pumpWidget(
+        _wrapViewport(
+          platformPlayer: platformPlayer,
+          chrome: chrome(),
+          realVideoSurface: true,
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pump();
+
+      double subtitleBottom() => tester
+          .state<SubtitleViewState>(find.byType(SubtitleView))
+          .padding
+          .bottom;
+      final seekBar = tester.getRect(find.byKey(const Key('player_seek_bar')));
+      final view = tester.getRect(find.byType(SubtitleView));
+      expect(
+        view.bottom - subtitleBottom(),
+        lessThanOrEqualTo(seekBar.top),
+        reason: 'the subtitles stand above the timeline',
+      );
+
+      platformPlayer.emitPlaying(true);
+      await _deliverPlayerEvent(tester);
+      await tester.pump(const Duration(seconds: 3));
+      await tester.pump(const Duration(milliseconds: 250));
+      expect(
+        subtitleBottom(),
+        tester
+            .widget<Video>(find.byType(Video))
+            .subtitleViewConfiguration
+            .padding
+            .bottom,
+        reason: 'they come down once the controls have faded',
+      );
+    });
+
     testWidgets('retry a failed start over visible controls, with no centre '
         'buttons, and the back button still works', (tester) async {
       setTestWindowSize(tester, TestWindowSizes.landscape);
@@ -1958,6 +2003,7 @@ Widget _wrapViewport({
   MediaKitPlayerBuilder? playerBuilder,
   MediaKitVideoControllerBuilder? videoControllerBuilder,
   MediaKitVideoSurfaceBuilder? videoSurfaceBuilder,
+  bool realVideoSurface = false,
   ValueChanged<MediaKitPlayerEngine>? onEngine,
   PlayerNextFile? next,
   PlayerChrome? chrome,
@@ -1992,7 +2038,10 @@ Widget _wrapViewport({
           player: player,
           firstFrameFuture: effectiveFirstFrameFuture,
         ),
-    videoSurfaceBuilder: videoSurfaceBuilder ?? _blackSurface,
+    // The app's own surface: media_kit's Video.
+    videoSurfaceBuilder: realVideoSurface
+        ? null
+        : videoSurfaceBuilder ?? _blackSurface,
   );
 
   return testApp(

@@ -613,11 +613,8 @@ Widget _defaultVideoSurfaceBuilder({
         fullscreen: fullscreen,
         child: video,
       ),
-    MediaKitImmersiveVideoControlsThemes() => Video(
-      key: const Key('player_video_surface'),
-      controller: controller,
-      controls: NoVideoControls,
-      subtitleViewConfiguration: subtitleViewConfiguration,
-    ),
+    // Its controls draw nothing; they keep the Flutter subtitles (no
+    // libass) clear of the immersive controls.
+    MediaKitImmersiveVideoControlsThemes() => video,
   };
 }
