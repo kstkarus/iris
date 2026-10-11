@@ -17,6 +17,7 @@ import 'package:iris/features/player/presentation/cubit/player_decoding_preferen
 import 'package:iris/features/player/presentation/cubit/player_subtitle_preferences_cubit.dart';
 import 'package:iris/features/player/presentation/playback/media_kit_player_engine.dart';
 import 'package:iris/features/player/presentation/widgets/media_kit_player_viewport_factory.dart';
+import 'package:iris/features/player/presentation/widgets/player_auto_hiding_offer.dart';
 import 'package:iris/features/player/presentation/widgets/player_immersive_controls.dart';
 import 'package:iris/features/player/presentation/widgets/player_viewport_factory.dart';
 import 'package:iris/features/player/presentation/widgets/player_overlay_preferences.dart';
@@ -578,8 +579,9 @@ void main() {
     expect(find.text('Buffering'), findsNothing);
   });
 
-  testWidgets('offers the next file in the credits until the controls '
-      'would hide', (tester) async {
+  testWidgets('offers the next file in the credits for 8 s, then with the '
+      'controls', (tester) async {
+    setTestWindowSize(tester, TestWindowSizes.landscape);
     late _FakePlatformPlayer platformPlayer;
 
     await tester.pumpWidget(
@@ -594,6 +596,7 @@ void main() {
     await tester.pump();
     platformPlayer.emitDuration(const Duration(minutes: 24));
     platformPlayer.emitPosition(const Duration(minutes: 20));
+    platformPlayer.emitPlaying(true);
     await _deliverPlayerEvent(tester);
     expect(find.byKey(_nextPrompt), findsNothing);
 
@@ -602,25 +605,121 @@ void main() {
     expect(find.text('Next episode'), findsOneWidget);
     expect(find.text('Episode 3'), findsOneWidget);
     expect(_nextPromptOpacity(tester), 1);
+    expect(_nextPromptCountdown(), findsOneWidget);
 
-    // The countdown starts with the next frame.
+    // The countdown starts with the next frame; the controls went before.
     await tester.pump();
-    await tester.pump(const Duration(seconds: 8));
+    await tester.pump(const Duration(seconds: 7));
+    expect(_controlsOpacity(tester), 0);
+    expect(_nextPromptOpacity(tester), 1, reason: 'its first 8 s');
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pump();
     expect(_nextPromptOpacity(tester), 0);
 
+    // From then on it comes and goes with the controls, without a count.
     final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
-    await mouse.addPointer(location: const Offset(10, 10));
-    await mouse.moveTo(const Offset(20, 20));
+    addTearDown(mouse.removePointer);
+    // Over the video, clear of the bars that hold the controls.
+    await mouse.addPointer(location: const Offset(300, 300));
+    await mouse.moveTo(const Offset(310, 300));
     await tester.pump();
+    expect(_controlsOpacity(tester), 1);
     expect(_nextPromptOpacity(tester), 1);
+    expect(_nextPromptCountdown(), findsNothing);
+    await tester.pump(PlayerImmersiveControls.hideAfter);
+    expect(_controlsOpacity(tester), 0);
+    expect(_nextPromptOpacity(tester), 0);
+
+    // Resting on it keeps the controls, and the offer with them.
+    await mouse.moveTo(tester.getCenter(find.byKey(_nextPrompt)));
     await tester.pump();
-    await tester.pump(const Duration(seconds: 3));
+    await tester.pump(const Duration(seconds: 5));
+    expect(_controlsOpacity(tester), 1);
+    expect(_nextPromptOpacity(tester), 1);
+    await mouse.moveTo(const Offset(300, 300));
+    await tester.pump(PlayerImmersiveControls.hideAfter);
     expect(_nextPromptOpacity(tester), 0);
 
     platformPlayer.emitPosition(const Duration(minutes: 10));
     await _deliverPlayerEvent(tester);
     expect(find.byKey(_nextPrompt), findsNothing);
-    await mouse.removePointer();
+  });
+
+  testWidgets('by touch, offers the next file with the controls a tap '
+      'brings up', (tester) async {
+    setTestWindowSize(tester, const Size(844, 390));
+    late _FakePlatformPlayer platformPlayer;
+
+    await tester.pumpWidget(
+      _wrapViewport(
+        input: PlayerInputMode.touch,
+        playerBuilder: (configuration) {
+          platformPlayer = _FakePlatformPlayer(configuration: configuration);
+          return Player(platformPlayer: platformPlayer);
+        },
+        next: PlayerNextFile(title: 'Episode 3', play: () {}),
+      ),
+    );
+    await tester.pump();
+    platformPlayer.emitDuration(const Duration(minutes: 24));
+    platformPlayer.emitPosition(const Duration(minutes: 22));
+    platformPlayer.emitPlaying(true);
+    await _deliverPlayerEvent(tester);
+    await tester.pump();
+    await tester.pump(PlayerAutoHidingOffer.shownAtStart);
+    await tester.pump();
+    expect(_nextPromptOpacity(tester), 0);
+
+    final video = find.byKey(const Key('player_immersive_tap_layer'));
+    await tester.tapAt(tester.getTopLeft(video) + const Offset(200, 120));
+    await tester.pump();
+    expect(_nextPromptOpacity(tester), 1);
+    expect(_nextPromptCountdown(), findsNothing);
+
+    await tester.tapAt(tester.getTopLeft(video) + const Offset(200, 120));
+    await tester.pump();
+    expect(_nextPromptOpacity(tester), 0, reason: 'hidden with the controls');
+  });
+
+  testWidgets('offers the fixed skip for 8 s, then with the controls', (
+    tester,
+  ) async {
+    setTestWindowSize(tester, TestWindowSizes.landscape);
+    late _FakePlatformPlayer platformPlayer;
+    await tester.pumpWidget(
+      _wrapViewport(
+        playerBuilder: (configuration) {
+          platformPlayer = _FakePlatformPlayer(configuration: configuration);
+          return Player(platformPlayer: platformPlayer);
+        },
+      ),
+    );
+    await tester.pump();
+    platformPlayer.emitDuration(const Duration(minutes: 24));
+    platformPlayer.emitPosition(const Duration(seconds: 40));
+    platformPlayer.emitPlaying(true);
+    await _deliverPlayerEvent(tester);
+    double skipOpacity() => tester
+        .widget<AnimatedOpacity>(
+          find.ancestor(
+            of: find.byKey(const Key('player_skip_forward_button')),
+            matching: find.byType(AnimatedOpacity),
+          ),
+        )
+        .opacity;
+    expect(skipOpacity(), 1);
+
+    await tester.pump();
+    await tester.pump(PlayerAutoHidingOffer.shownAtStart);
+    await tester.pump();
+    expect(skipOpacity(), 0);
+
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    addTearDown(mouse.removePointer);
+    await mouse.addPointer(location: const Offset(10, 10));
+    await mouse.moveTo(const Offset(20, 20));
+    await tester.pump();
+    expect(skipOpacity(), 1);
   });
 
   testWidgets('offers to skip the opening named by a chapter', (tester) async {
@@ -2121,6 +2220,13 @@ Future<void> _deliverPlayerEvent(WidgetTester tester) async {
   await tester.pump();
   await tester.pump();
 }
+
+double _controlsOpacity(WidgetTester tester) => tester
+    .widget<AnimatedOpacity>(find.byKey(const Key('player_immersive_controls')))
+    .opacity;
+
+/// The time an offer has left, drawn while it counts down.
+Finder _nextPromptCountdown() => find.byKey(const Key('player_countdown_bar'));
 
 double _nextPromptOpacity(WidgetTester tester) {
   return tester

@@ -18,7 +18,6 @@ void main() {
           body: Center(
             child: PlayerCountdown(
               duration: duration,
-              afterHold: const Duration(seconds: 3),
               onElapsed: onElapsed,
               child: const PlayerCountdownBar(
                 color: Colors.white,
@@ -98,10 +97,12 @@ void main() {
     expect(barShare(tester), 1);
     expect(elapsed, 0);
 
-    // Leaving gives the shorter time after a hold.
+    // Leaving starts the count over.
     await mouse.moveTo(Offset.zero);
     await tester.pump();
-    await tester.pump(const Duration(seconds: 3));
+    await tester.pump(const Duration(seconds: 7));
+    expect(elapsed, 0);
+    await tester.pump(const Duration(seconds: 1));
     expect(elapsed, 1);
     await mouse.removePointer();
   });

@@ -109,7 +109,6 @@ class PlayerImmersiveControls extends StatefulWidget {
 
 class _PlayerImmersiveControlsState extends State<PlayerImmersiveControls> {
   final _focusNode = FocusNode(debugLabel: 'player_immersive_controls');
-  final _activity = PlayerPointerActivity();
 
   /// What keeps the controls on screen besides a paused player.
   final _holds = <Object>{};
@@ -118,7 +117,11 @@ class _PlayerImmersiveControlsState extends State<PlayerImmersiveControls> {
   StreamSubscription<bool>? _playingSubscription;
   bool _playing = false;
 
-  bool _controlsVisible = true;
+  /// The offers over the video follow it once their first showing is over.
+  final _visibility = ValueNotifier<bool>(true);
+  bool get _controlsVisible => _visibility.value;
+  set _controlsVisible(bool visible) => _visibility.value = visible;
+
   bool _episodesOpen = false;
 
   /// The panel open from the bar; its button shows it, and the controls
@@ -167,7 +170,7 @@ class _PlayerImmersiveControlsState extends State<PlayerImmersiveControls> {
     _hideTimer?.cancel();
     _lowerSubtitlesTimer?.cancel();
     _volumeHudTimer?.cancel();
-    _activity.dispose();
+    _visibility.dispose();
     _focusNode.dispose();
     super.dispose();
   }
@@ -250,7 +253,6 @@ class _PlayerImmersiveControlsState extends State<PlayerImmersiveControls> {
   }
 
   void _showControls() {
-    _activity.ping();
     if (!_controlsVisible) setState(() => _controlsVisible = true);
     _restartHideTimer();
   }
@@ -269,7 +271,6 @@ class _PlayerImmersiveControlsState extends State<PlayerImmersiveControls> {
   /// A finger on the screen keeps visible controls a while longer; showing
   /// hidden ones is the tap's to decide.
   void _onTouchDown() {
-    _activity.ping();
     if (_controlsVisible) _restartHideTimer();
   }
 
@@ -608,7 +609,8 @@ class _PlayerImmersiveControlsState extends State<PlayerImmersiveControls> {
     );
   }
 
-  /// Skip and next-episode offers sit above the timeline on the right.
+  /// Skip and next-episode offers sit above the timeline on the right. A
+  /// pointer resting on them keeps the controls, and so the offers, up.
   Widget _buildOffers(BuildContext context) {
     final engine = widget.engine;
     final next = widget.next;
@@ -616,37 +618,41 @@ class _PlayerImmersiveControlsState extends State<PlayerImmersiveControls> {
     return Positioned(
       right: _insets.right,
       bottom: _offerClearance,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          PlayerSkipSegmentOffer(
-            segment: engine.skipSegment,
-            activity: _activity,
-            fallback: _SkipForwardOffer(
-              engine: engine,
-              visible: _controlsVisible,
-            ),
-            plate: (label, _) => _OfferButton.outlined(
-              key: const Key('player_skip_segment_button'),
-              label: label,
-              onPressed: () => unawaited(engine.skipCurrentSegment()),
-            ),
-          ),
-          if (next != null)
-            PlayerNextOffer(
-              finishing: engine.finishing,
-              completed: engine.completed,
-              title: next.title,
-              activity: _activity,
-              plate: (label, detail) => _OfferButton.filled(
-                key: const Key('player_next_file_prompt'),
+      child: MouseRegion(
+        onEnter: (_) => _setHold(#offers, true),
+        onExit: (_) => _setHold(#offers, false),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            PlayerSkipSegmentOffer(
+              segment: engine.skipSegment,
+              controlsVisible: _visibility,
+              fallback: _SkipForwardOffer(
+                engine: engine,
+                controlsVisible: _visibility,
+              ),
+              plate: (label, _) => _OfferButton.outlined(
+                key: const Key('player_skip_segment_button'),
                 label: label,
-                detail: detail,
-                onPressed: next.play,
+                onPressed: () => unawaited(engine.skipCurrentSegment()),
               ),
             ),
-        ],
+            if (next != null)
+              PlayerNextOffer(
+                finishing: engine.finishing,
+                completed: engine.completed,
+                title: next.title,
+                controlsVisible: _visibility,
+                plate: (label, detail) => _OfferButton.filled(
+                  key: const Key('player_next_file_prompt'),
+                  label: label,
+                  detail: detail,
+                  onPressed: next.play,
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }

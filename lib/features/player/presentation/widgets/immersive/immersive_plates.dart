@@ -140,13 +140,16 @@ class _NoticeCard extends StatelessWidget {
   }
 }
 
-/// "+85 s" early in a file with no known opening; part of the controls, so
-/// it hides with them.
+/// "+85 s" early in a file with no known opening, shown at first and then
+/// with the controls, as the other offers.
 class _SkipForwardOffer extends StatelessWidget {
-  const _SkipForwardOffer({required this.engine, required this.visible});
+  const _SkipForwardOffer({
+    required this.engine,
+    required this.controlsVisible,
+  });
 
   final MediaKitPlayerEngine engine;
-  final bool visible;
+  final ValueListenable<bool> controlsVisible;
 
   @override
   Widget build(BuildContext context) {
@@ -156,18 +159,14 @@ class _SkipForwardOffer extends StatelessWidget {
       valueListenable: engine.skipForwardOffered,
       builder: (context, offered, _) {
         if (!offered) return const SizedBox.shrink();
-        return IgnorePointer(
-          ignoring: !visible,
-          child: AnimatedOpacity(
-            opacity: visible ? 1 : 0,
-            duration: _controlsFade,
-            child: Semantics(
-              label: l10n.playerSkipForwardTooltip(seconds),
-              child: _OfferButton.outlined(
-                key: const Key('player_skip_forward_button'),
-                label: l10n.playerSkipForward(seconds),
-                onPressed: () => unawaited(engine.skipForward()),
-              ),
+        return PlayerAutoHidingOffer(
+          controlsVisible: controlsVisible,
+          child: Semantics(
+            label: l10n.playerSkipForwardTooltip(seconds),
+            child: _OfferButton.outlined(
+              key: const Key('player_skip_forward_button'),
+              label: l10n.playerSkipForward(seconds),
+              onPressed: () => unawaited(engine.skipForward()),
             ),
           ),
         );

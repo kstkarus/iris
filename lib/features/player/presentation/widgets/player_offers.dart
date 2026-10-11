@@ -9,19 +9,19 @@ import 'package:iris/l10n/generated/app_localizations.dart';
 /// its own.
 typedef PlayerOfferPlate = Widget Function(String label, String? detail);
 
-/// "Skip opening" or "Skip recap" while one plays, shown like the controls;
-/// [fallback] otherwise.
+/// "Skip opening" or "Skip recap" while one plays, shown at first and then
+/// with the controls; [fallback] otherwise.
 class PlayerSkipSegmentOffer extends StatelessWidget {
   const PlayerSkipSegmentOffer({
     required this.segment,
-    required this.activity,
+    required this.controlsVisible,
     required this.plate,
     this.fallback = const SizedBox.shrink(),
     super.key,
   });
 
   final ValueListenable<PlayerSkipSegment?> segment;
-  final Listenable activity;
+  final ValueListenable<bool> controlsVisible;
   final PlayerOfferPlate plate;
   final Widget fallback;
 
@@ -34,7 +34,7 @@ class PlayerSkipSegmentOffer extends StatelessWidget {
         if (segment == null) return fallback;
         return PlayerAutoHidingOffer(
           key: ValueKey(segment),
-          activity: activity,
+          controlsVisible: controlsVisible,
           child: plate(
             segment.kind == PlayerSkipKind.recap
                 ? l10n.playerSkipRecap
@@ -54,7 +54,7 @@ class PlayerNextOffer extends StatelessWidget {
     required this.finishing,
     required this.completed,
     required this.title,
-    required this.activity,
+    required this.controlsVisible,
     required this.plate,
     super.key,
   });
@@ -64,7 +64,7 @@ class PlayerNextOffer extends StatelessWidget {
 
   /// Null when there is no next file.
   final String? title;
-  final Listenable activity;
+  final ValueListenable<bool> controlsVisible;
   final PlayerOfferPlate plate;
 
   @override
@@ -79,7 +79,7 @@ class PlayerNextOffer extends StatelessWidget {
           return const SizedBox.shrink();
         }
         return PlayerAutoHidingOffer(
-          activity: activity,
+          controlsVisible: controlsVisible,
           // Once the file has ended there is nothing left to cover.
           pinned: completed,
           child: plate(l10n.playerPlayNext, title),

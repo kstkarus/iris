@@ -1,29 +1,25 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 
 import 'package:iris/features/player/presentation/widgets/player_countdown.dart';
 
-/// Pointer movement or a tap over the player.
-class PlayerPointerActivity extends ChangeNotifier {
-  void ping() => notifyListeners();
-}
-
-/// Shows [child] for a while when it appears, then again briefly after
-/// pointer activity, like the player controls; [pinned] keeps it shown.
+/// Shows [child] for [shownAtStart] when it appears, counting down, and
+/// from then on exactly while the player's controls are visible, without a
+/// countdown; [pinned] keeps it shown.
 ///
-/// A [PlayerCountdownBar] in [child] shows the time left; resting the
-/// pointer on it keeps it shown.
+/// A [PlayerCountdownBar] in [child] shows the time left at the start;
+/// resting the pointer on it, or the focus inside it, holds it.
 class PlayerAutoHidingOffer extends StatefulWidget {
   const PlayerAutoHidingOffer({
-    required this.activity,
+    required this.controlsVisible,
     required this.child,
     this.pinned = false,
     super.key,
   });
 
   static const shownAtStart = Duration(seconds: 8);
-  static const shownOnActivity = Duration(seconds: 3);
 
-  final Listenable activity;
+  final ValueListenable<bool> controlsVisible;
   final bool pinned;
   final Widget child;
 
@@ -32,53 +28,34 @@ class PlayerAutoHidingOffer extends StatefulWidget {
 }
 
 class _PlayerAutoHidingOfferState extends State<PlayerAutoHidingOffer> {
-  bool _shown = true;
-  bool _holdingAtStart = true;
-  Duration _showing = PlayerAutoHidingOffer.shownAtStart;
-  int _generation = 0;
+  /// The first showing, on its own; after it the offer goes with the
+  /// controls.
+  bool _intro = true;
 
-  @override
-  void initState() {
-    super.initState();
-    widget.activity.addListener(_onActivity);
-  }
-
-  @override
-  void dispose() {
-    widget.activity.removeListener(_onActivity);
-    super.dispose();
-  }
-
-  void _onActivity() {
-    // Activity must not cut the first, longer showing short.
-    if (_holdingAtStart) return;
-    setState(() {
-      _shown = true;
-      _showing = PlayerAutoHidingOffer.shownOnActivity;
-      _generation++;
-    });
-  }
-
-  void _hide() {
-    _holdingAtStart = false;
-    if (mounted) setState(() => _shown = false);
+  void _endIntro() {
+    if (mounted) setState(() => _intro = false);
   }
 
   @override
   Widget build(BuildContext context) {
-    final visible = _shown || widget.pinned;
+    final pinned = widget.pinned;
     return PlayerCountdown(
-      duration: _shown && !widget.pinned ? _showing : null,
-      afterHold: PlayerAutoHidingOffer.shownOnActivity,
-      generation: _generation,
-      onElapsed: _hide,
-      child: IgnorePointer(
-        ignoring: !visible,
-        child: AnimatedOpacity(
-          opacity: visible ? 1 : 0,
-          duration: const Duration(milliseconds: 200),
-          child: widget.child,
-        ),
+      duration: _intro && !pinned ? PlayerAutoHidingOffer.shownAtStart : null,
+      onElapsed: _endIntro,
+      child: ValueListenableBuilder<bool>(
+        valueListenable: widget.controlsVisible,
+        builder: (context, controlsVisible, child) {
+          final visible = pinned || _intro || controlsVisible;
+          return IgnorePointer(
+            ignoring: !visible,
+            child: AnimatedOpacity(
+              opacity: visible ? 1 : 0,
+              duration: const Duration(milliseconds: 200),
+              child: child,
+            ),
+          );
+        },
+        child: widget.child,
       ),
     );
   }

@@ -3,26 +3,18 @@ import 'package:flutter/material.dart';
 /// Counts down the time an offer or a message over the video has left and
 /// calls [onElapsed] when it runs out. A [PlayerCountdownBar] inside [child]
 /// draws what is left; while the pointer rests on the bar's plate or the
-/// focus is inside it, the countdown holds full and starts again on leaving.
+/// focus is inside it, the countdown holds full and starts over on leaving.
 class PlayerCountdown extends StatefulWidget {
   const PlayerCountdown({
     required this.duration,
     required this.onElapsed,
     required this.child,
-    this.afterHold,
-    this.generation = 0,
     super.key,
   });
 
   /// Null while nothing counts down: the message waits for the file, or the
   /// offer is pinned or hidden.
   final Duration? duration;
-
-  /// What is left after a hold ends; [duration] by default.
-  final Duration? afterHold;
-
-  /// A new value starts the count again from full.
-  final int generation;
   final VoidCallback onElapsed;
   final Widget child;
 
@@ -52,8 +44,7 @@ class _PlayerCountdownState extends State<PlayerCountdown>
       _controller
         ..stop()
         ..value = 1;
-    } else if (oldWidget.duration == null ||
-        widget.generation != oldWidget.generation) {
+    } else if (oldWidget.duration == null) {
       if (_holds.isEmpty) _start(widget.duration);
     }
   }
@@ -89,7 +80,7 @@ class _PlayerCountdownState extends State<PlayerCountdown>
           ..value = 1;
       }
     } else if (_holds.remove(reason) && _holds.isEmpty) {
-      _start(widget.afterHold ?? widget.duration);
+      _start(widget.duration);
     }
   }
 
