@@ -43,7 +43,9 @@ class FriendsCubit extends Cubit<FriendsState> {
     if (_asked) load();
   }
 
-  /// Reads the friends, unless they are read or being read.
+  /// Reads the friends, unless they are read. A call while they are being
+  /// read asks again and drops the earlier answer; the repository keeps the
+  /// request, so no second one goes out.
   Future<void> load() async {
     _asked = true;
     final userId = _userId;

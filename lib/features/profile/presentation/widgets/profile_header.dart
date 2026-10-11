@@ -28,26 +28,21 @@ class ProfileHeader extends StatelessWidget {
     final trailing = this.trailing;
     return Padding(
       padding: EdgeInsets.only(bottom: compact ? 12 : 20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+      child: Row(
         children: [
-          Row(
-            children: [
-              if (avatarUrl.isNotEmpty) ...[
-                SquareAvatar(url: avatarUrl, size: avatarSize),
-                SizedBox(width: compact ? 16 : 24),
-              ],
-              Expanded(
-                child: DisplayTitle(
-                  nickname,
-                  maxSize: compact ? 40 : 64,
-                  minSize: 24,
-                  maxLines: 1,
-                ),
-              ),
-              if (trailing != null) ...[const SizedBox(width: 12), trailing],
-            ],
+          if (avatarUrl.isNotEmpty) ...[
+            SquareAvatar(url: avatarUrl, size: avatarSize),
+            SizedBox(width: compact ? 16 : 24),
+          ],
+          Expanded(
+            child: DisplayTitle(
+              nickname,
+              maxSize: compact ? 40 : 64,
+              minSize: 24,
+              maxLines: 1,
+            ),
           ),
+          if (trailing != null) ...[const SizedBox(width: 12), trailing],
         ],
       ),
     );

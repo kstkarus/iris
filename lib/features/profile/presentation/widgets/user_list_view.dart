@@ -22,7 +22,7 @@ import 'package:iris/shared/widgets/segmented_bar.dart';
 import 'package:iris/shared/widgets/status_views.dart';
 
 /// The statuses, what is being watched first.
-const userListStatuses = [
+const _userListStatuses = [
   UserRateStatus.watching,
   UserRateStatus.planned,
   UserRateStatus.completed,
@@ -313,7 +313,7 @@ class _StatusMenu extends StatelessWidget {
     return MenuAnchor(
       alignmentOffset: const Offset(0, 4),
       menuChildren: [
-        for (final option in userListStatuses)
+        for (final option in _userListStatuses)
           MenuItemButton(
             key: ValueKey('user_list_status_${option.name}'),
             onPressed: () => onSelected(option),
