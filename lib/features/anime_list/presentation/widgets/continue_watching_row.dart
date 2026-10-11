@@ -14,6 +14,7 @@ import 'package:iris/shared/widgets/fold_row.dart';
 import 'package:iris/shared/widgets/pixel_icon.dart';
 import 'package:iris/shared/widgets/section_label.dart';
 import 'package:iris/shared/widgets/segmented_bar.dart';
+import 'package:iris/shared/widgets/tap_row.dart';
 
 /// The latest file of each recently watched torrent, from the catalog and
 /// from saved torrents alike. Files only looked at are left out before the
@@ -251,72 +252,67 @@ class _QueuedRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Material(
-      // Ink paints on the nearest Material: this one scrolls with the row,
-      // so the list's edge clips the highlight.
-      type: MaterialType.transparency,
-      child: InkWell(
-        key: ValueKey('continue_watching_${progress.torrentKey}'),
-        onTap: () => _open(context, progress),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 10),
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final wide = constraints.maxWidth >= 720;
-              final names = Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    progress.displayTitle,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.titleSmall,
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    fileDisplayName(progress.fileName),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.bodySmall,
-                  ),
-                  if (!wide) ...[
-                    const SizedBox(height: 6),
-                    WatchProgressLine(progress: progress, timesOnly: true),
-                  ],
+    return TapRow(
+      inkKey: ValueKey('continue_watching_${progress.torrentKey}'),
+      onTap: () => _open(context, progress),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final wide = constraints.maxWidth >= 720;
+            final names = Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  progress.displayTitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.titleSmall,
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  fileDisplayName(progress.fileName),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodySmall,
+                ),
+                if (!wide) ...[
+                  const SizedBox(height: 6),
+                  WatchProgressLine(progress: progress, timesOnly: true),
                 ],
-              );
-              return Row(
-                children: [
+              ],
+            );
+            return Row(
+              children: [
+                SizedBox(
+                  width: 44,
+                  child: Text(
+                    number.toString().padLeft(2, '0'),
+                    style: theme.textTheme.labelMedium?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+                Expanded(child: names),
+                if (wide) ...[
+                  const SizedBox(width: 24),
                   SizedBox(
-                    width: 44,
-                    child: Text(
-                      number.toString().padLeft(2, '0'),
-                      style: theme.textTheme.labelMedium?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
+                    width: 200,
+                    child: WatchProgressLine(
+                      progress: progress,
+                      timesOnly: true,
                     ),
                   ),
-                  Expanded(child: names),
-                  if (wide) ...[
-                    const SizedBox(width: 24),
-                    SizedBox(
-                      width: 200,
-                      child: WatchProgressLine(
-                        progress: progress,
-                        timesOnly: true,
-                      ),
-                    ),
-                  ],
-                  _RemoveMenu(progress: progress),
-                  if (wide)
-                    const Padding(
-                      padding: EdgeInsets.only(left: 4, right: 8),
-                      child: PixelIcon(PixelGlyph.arrowRight, size: 16),
-                    ),
                 ],
-              );
-            },
-          ),
+                _RemoveMenu(progress: progress),
+                if (wide)
+                  const Padding(
+                    padding: EdgeInsets.only(left: 4, right: 8),
+                    child: PixelIcon(PixelGlyph.arrowRight, size: 16),
+                  ),
+              ],
+            );
+          },
         ),
       ),
     );

@@ -17,6 +17,7 @@ import 'package:iris/shared/widgets/dither_switcher.dart';
 import 'package:iris/shared/widgets/segmented_bar.dart';
 import 'package:iris/shared/widgets/source_facts_line.dart';
 import 'package:iris/shared/widgets/status_views.dart';
+import 'package:iris/shared/widgets/tap_row.dart';
 
 /// The anime's releases on video servers, one row per dub, the dubs the
 /// user watched from first. A row opens the release's episodes in the
@@ -200,24 +201,21 @@ class _ReleaseRow extends StatelessWidget {
       if (quality != null) l10n.watchSourcesOnlineBestQuality(quality),
     ].join(' · ');
 
-    return Material(
-      type: MaterialType.transparency,
-      child: InkWell(
-        key: ValueKey('online_release_${release.provider.name}_${release.id}'),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(release.dub, style: theme.textTheme.bodyMedium),
-              const SizedBox(height: 4),
-              SourceFactsLine(
-                watched: watched,
-                facts: facts.isEmpty ? null : facts,
-              ),
-            ],
-          ),
+    return TapRow(
+      inkKey: ValueKey('online_release_${release.provider.name}_${release.id}'),
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(release.dub, style: theme.textTheme.bodyMedium),
+            const SizedBox(height: 4),
+            SourceFactsLine(
+              watched: watched,
+              facts: facts.isEmpty ? null : facts,
+            ),
+          ],
         ),
       ),
     );

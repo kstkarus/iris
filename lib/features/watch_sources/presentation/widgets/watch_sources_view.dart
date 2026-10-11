@@ -24,6 +24,7 @@ import 'package:iris/shared/widgets/search_toolbar.dart';
 import 'package:iris/shared/widgets/segmented_bar.dart';
 import 'package:iris/shared/widgets/source_facts_line.dart';
 import 'package:iris/shared/widgets/status_views.dart';
+import 'package:iris/shared/widgets/tap_row.dart';
 
 /// A title's releases. While they load, the page is pixel noise in the
 /// shape of the table; the releases develop out of it when they arrive.
@@ -414,34 +415,29 @@ class _WatchSourceRow extends StatelessWidget {
       child: Text(text, textAlign: TextAlign.end, style: cellStyle),
     );
 
-    return Material(
-      // Ink paints on the nearest Material: this one scrolls with the row,
-      // so the list's edge clips the highlight.
-      type: MaterialType.transparency,
-      child: InkWell(
-        key: const Key('watch_source_watch_button'),
-        onTap: () => _openStreaming(context),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(12, 12, 0, 12),
-          child: Row(
-            children: [
-              Expanded(child: title),
-              if (tabular) ...[
-                cell(item.size, _Columns.size),
-                cell(numbers.format(item.seeders), _Columns.seeders),
-                cell(numbers.format(item.downloads), _Columns.downloads),
-                cell(date, _Columns.date),
-                const SizedBox(width: 4),
-              ] else
-                const SizedBox(width: 8),
-              IconButton(
-                key: const Key('watch_source_download_button'),
-                tooltip: l10n.downloadsOpenButton,
-                icon: const PixelIcon(PixelGlyph.download, size: 18),
-                onPressed: () => _openDownload(context),
-              ),
-            ],
-          ),
+    return TapRow(
+      inkKey: const Key('watch_source_watch_button'),
+      onTap: () => _openStreaming(context),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 12, 0, 12),
+        child: Row(
+          children: [
+            Expanded(child: title),
+            if (tabular) ...[
+              cell(item.size, _Columns.size),
+              cell(numbers.format(item.seeders), _Columns.seeders),
+              cell(numbers.format(item.downloads), _Columns.downloads),
+              cell(date, _Columns.date),
+              const SizedBox(width: 4),
+            ] else
+              const SizedBox(width: 8),
+            IconButton(
+              key: const Key('watch_source_download_button'),
+              tooltip: l10n.downloadsOpenButton,
+              icon: const PixelIcon(PixelGlyph.download, size: 18),
+              onPressed: () => _openDownload(context),
+            ),
+          ],
         ),
       ),
     );
