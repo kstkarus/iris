@@ -1,4 +1,5 @@
 import 'package:iris/features/online_sources/data/models/anilibria_episode_dto.dart';
+import 'package:iris/shared/utils/json_read.dart';
 
 /// A release as AniLibria's API gives it: a search result (no episodes) or
 /// the full release.
@@ -22,9 +23,9 @@ class AnilibriaReleaseDto {
     final shikimori = json['shikimori'];
     final episodes = json['episodes'];
     return AnilibriaReleaseDto(
-      id: _int(json['id']) ?? 0,
+      id: jsonIntOrNull(json['id']) ?? 0,
       title: name is Map ? name['main']?.toString() ?? '' : '',
-      shikimoriId: shikimori is Map ? _int(shikimori['id']) : null,
+      shikimoriId: shikimori is Map ? jsonIntOrNull(shikimori['id']) : null,
       episodes: [
         if (episodes is List)
           for (final episode in episodes)
@@ -33,10 +34,4 @@ class AnilibriaReleaseDto {
       ],
     );
   }
-}
-
-int? _int(Object? value) {
-  if (value is int) return value;
-  if (value is num) return value.toInt();
-  return int.tryParse(value?.toString() ?? '');
 }
