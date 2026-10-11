@@ -3,6 +3,8 @@ part of '../player_immersive_controls.dart';
 class _BottomSection extends StatelessWidget {
   const _BottomSection({
     required this.chrome,
+    required this.metrics,
+    required this.insets,
     required this.showTitle,
     required this.onTitleHeight,
     required this.onBarHeight,
@@ -21,23 +23,17 @@ class _BottomSection extends StatelessWidget {
     required this.onEpisodes,
   });
 
-  static const _leftPadding = _sideInset;
-
-  /// Less than on the left: the last button's glyph, not its hit area,
-  /// ends in line with the offers above.
-  static const _rightPadding = 34.0;
-  static const _buttonInset = _leftPadding - _rightPadding;
-  static const bottomPadding = 24.0;
   static const titleAnimation = Duration(milliseconds: 200);
-  static const _barHeight = PlayerSeekBar.height;
-
-  /// Where offers over the video stop, clear of the timeline.
-  static const offerClearance = bottomPadding + _barHeight + 24;
 
   /// Narrower windows put the buttons on their own row.
   static const _singleRowMinWidth = 720.0;
 
   final PlayerChrome chrome;
+  final _ControlsMetrics metrics;
+
+  /// From the screen's edges; on the right less the last button's room
+  /// around its glyph, so the glyph ends in line with the offers above.
+  final EdgeInsets insets;
 
   /// The titles take room only while paused.
   final bool showTitle;
@@ -63,24 +59,27 @@ class _BottomSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final buttonInset = metrics.barButtonInset;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        _leftPadding,
+      padding: EdgeInsets.fromLTRB(
+        insets.left,
         0,
-        _rightPadding,
-        bottomPadding,
+        insets.right - buttonInset,
+        insets.bottom,
       ),
       child: LayoutBuilder(
         builder: (context, constraints) {
           final singleRow = constraints.maxWidth >= _singleRowMinWidth;
           final timeline = _Timeline(
             player: player,
+            metrics: metrics,
             accent: accent,
             onSeek: onSeek,
             onSeekActive: onSeekActive,
           );
           final buttons = _BarButtons(
             player: player,
+            metrics: metrics,
             next: next,
             fullscreen: fullscreen,
             onToggleMute: onToggleMute,
@@ -108,7 +107,10 @@ class _BottomSection extends StatelessWidget {
                               maxWidth:
                                   constraints.maxWidth * (singleRow ? 0.55 : 1),
                             ),
-                            child: _TitleBlock(chrome: chrome),
+                            child: _TitleBlock(
+                              chrome: chrome,
+                              touch: metrics.touch,
+                            ),
                           ),
                         ),
                       )
@@ -129,7 +131,7 @@ class _BottomSection extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           Padding(
-                            padding: const EdgeInsets.only(right: _buttonInset),
+                            padding: EdgeInsets.only(right: buttonInset),
                             child: timeline,
                           ),
                           Align(
@@ -148,9 +150,12 @@ class _BottomSection extends StatelessWidget {
 }
 
 class _TitleBlock extends StatelessWidget {
-  const _TitleBlock({required this.chrome});
+  const _TitleBlock({required this.chrome, required this.touch});
 
   final PlayerChrome chrome;
+
+  /// A phone's screen gives the titles less room.
+  final bool touch;
 
   @override
   Widget build(BuildContext context) {
@@ -160,9 +165,13 @@ class _TitleBlock extends StatelessWidget {
     final title = chrome.title;
     final titleDetail = chrome.titleDetail;
     // File names can be long; episode labels get the full display size.
-    final titleStyle = title.length > 32
-        ? theme.textTheme.headlineSmall
-        : theme.textTheme.displaySmall;
+    final long = title.length > 32;
+    final titleStyle = touch
+        ? (long ? theme.textTheme.titleLarge : theme.textTheme.headlineSmall)
+        : (long ? theme.textTheme.headlineSmall : theme.textTheme.displaySmall);
+    final detailStyle = touch
+        ? theme.textTheme.titleLarge
+        : theme.textTheme.headlineSmall;
 
     return Column(
       key: const Key('player_title_block'),
@@ -191,7 +200,7 @@ class _TitleBlock extends StatelessWidget {
                   style: TextStyle(
                     color: Colors.white54,
                     fontWeight: FontWeight.w400,
-                    fontSize: theme.textTheme.headlineSmall?.fontSize,
+                    fontSize: detailStyle?.fontSize,
                   ),
                 ),
             ],
@@ -222,12 +231,14 @@ class _TitleBlock extends StatelessWidget {
 class _Timeline extends StatelessWidget {
   const _Timeline({
     required this.player,
+    required this.metrics,
     required this.accent,
     required this.onSeek,
     required this.onSeekActive,
   });
 
   final Player player;
+  final _ControlsMetrics metrics;
   final Color accent;
   final ValueChanged<Duration> onSeek;
   final ValueChanged<bool> onSeekActive;
@@ -262,7 +273,11 @@ class _Timeline extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 16),
-                    _TimeReadout(position: position, duration: duration),
+                    _TimeReadout(
+                      position: position,
+                      duration: duration,
+                      height: metrics.barButton.height,
+                    ),
                   ],
                 );
               },
@@ -277,10 +292,17 @@ class _Timeline extends StatelessWidget {
 /// Time left as `−17:34`; a click switches to where playback is and the
 /// file's length, `5:23 / 23:00`, and back.
 class _TimeReadout extends StatefulWidget {
-  const _TimeReadout({required this.position, required this.duration});
+  const _TimeReadout({
+    required this.position,
+    required this.duration,
+    required this.height,
+  });
 
   final Duration position;
   final Duration duration;
+
+  /// As tall as the bar's buttons, to sit on their line.
+  final double height;
 
   @override
   State<_TimeReadout> createState() => _TimeReadoutState();
@@ -316,7 +338,7 @@ class _TimeReadoutState extends State<_TimeReadout> {
         behavior: HitTestBehavior.opaque,
         onTap: () => setState(() => _elapsed = !_elapsed),
         child: SizedBox(
-          height: _barButtonSize,
+          height: widget.height,
           child: Center(
             child: Text(
               text,
@@ -331,11 +353,10 @@ class _TimeReadoutState extends State<_TimeReadout> {
   }
 }
 
-const _barButtonSize = 40.0;
-
 class _BarButtons extends StatelessWidget {
   const _BarButtons({
     required this.player,
+    required this.metrics,
     required this.next,
     required this.fullscreen,
     required this.onToggleMute,
@@ -348,6 +369,7 @@ class _BarButtons extends StatelessWidget {
   });
 
   final Player player;
+  final _ControlsMetrics metrics;
   final PlayerNextFile? next;
   final ValueListenable<bool> fullscreen;
   final VoidCallback onToggleMute;
@@ -363,10 +385,13 @@ class _BarButtons extends StatelessWidget {
     final l10n = AppLocalizations.of(context);
     final next = this.next;
     final onEpisodes = this.onEpisodes;
+    final size = metrics.barButton;
+    final touch = metrics.touch;
     final playback = [
       if (next != null)
         _BarButton(
           key: const Key('player_next_file_button'),
+          size: size,
           glyph: const PixelIcon(PixelGlyph.skipNext),
           label: '${l10n.playerPlayNext}: ${next.title}',
           onPressed: next.play,
@@ -374,6 +399,7 @@ class _BarButtons extends StatelessWidget {
       if (onEpisodes != null)
         _BarButton(
           key: const Key('player_episodes_button'),
+          size: size,
           glyph: const PixelIcon(PixelGlyph.episodes),
           label: l10n.playerEpisodesTitle,
           onPressed: onEpisodes,
@@ -384,6 +410,7 @@ class _BarButtons extends StatelessWidget {
       Builder(
         builder: (anchor) => _BarButton(
           key: const Key('player_tracks_button'),
+          size: size,
           glyph: const PixelIcon(PixelGlyph.subtitles),
           label: l10n.playerAudioAndSubtitles,
           selected: openPanel == #tracks,
@@ -393,36 +420,43 @@ class _BarButtons extends StatelessWidget {
       Builder(
         builder: (anchor) => _BarButton(
           key: const Key('player_settings_button'),
+          size: size,
           glyph: const PixelIcon(PixelGlyph.settings),
           label: l10n.playerSettingsTitle,
           selected: openPanel == #settings,
           onPressed: () => onShowSettings(anchor),
         ),
       ),
-      ValueListenableBuilder<bool>(
-        valueListenable: fullscreen,
-        builder: (context, isFullscreen, _) => _BarButton(
-          key: const Key('player_fullscreen_button'),
-          glyph: PixelIcon(
-            isFullscreen ? PixelGlyph.fullscreenExit : PixelGlyph.fullscreen,
-            key: ValueKey(isFullscreen),
+      // A phone's player is always full screen.
+      if (!touch)
+        ValueListenableBuilder<bool>(
+          valueListenable: fullscreen,
+          builder: (context, isFullscreen, _) => _BarButton(
+            key: const Key('player_fullscreen_button'),
+            size: size,
+            glyph: PixelIcon(
+              isFullscreen ? PixelGlyph.fullscreenExit : PixelGlyph.fullscreen,
+              key: ValueKey(isFullscreen),
+            ),
+            label: isFullscreen
+                ? l10n.playerExitFullscreen
+                : l10n.playerEnterFullscreen,
+            onPressed: onToggleFullscreen,
           ),
-          label: isFullscreen
-              ? l10n.playerExitFullscreen
-              : l10n.playerEnterFullscreen,
-          onPressed: onToggleFullscreen,
         ),
-      ),
     ];
-    // Volume, then what to watch, then how to watch it.
+    // Volume, then what to watch, then how to watch it. A phone keeps the
+    // volume on its own buttons.
     final groups = [
-      [
-        _VolumeControl(
-          player: player,
-          onToggleMute: onToggleMute,
-          onVolume: onVolume,
-        ),
-      ],
+      if (!touch)
+        [
+          _VolumeControl(
+            player: player,
+            size: size,
+            onToggleMute: onToggleMute,
+            onVolume: onVolume,
+          ),
+        ],
       playback,
       view,
     ].where((group) => group.isNotEmpty);
@@ -449,12 +483,14 @@ class _BarButton extends StatelessWidget {
     required this.glyph,
     required this.label,
     required this.onPressed,
+    required this.size,
     this.selected = false,
     super.key,
   });
 
   static const glyphSize = 24.0;
 
+  final Size size;
   final Widget glyph;
   final String label;
   final bool selected;
@@ -465,7 +501,7 @@ class _BarButton extends StatelessWidget {
     return _GlyphButton(
       glyph: glyph,
       iconSize: glyphSize,
-      size: const Size(_barButtonSize + 4, _barButtonSize),
+      size: size,
       label: label,
       selected: selected,
       onPressed: onPressed,
@@ -477,11 +513,13 @@ class _BarButton extends StatelessWidget {
 class _VolumeControl extends StatefulWidget {
   const _VolumeControl({
     required this.player,
+    required this.size,
     required this.onToggleMute,
     required this.onVolume,
   });
 
   final Player player;
+  final Size size;
   final VoidCallback onToggleMute;
   final ValueChanged<double> onVolume;
 
@@ -536,6 +574,7 @@ class _VolumeControlState extends State<_VolumeControl> {
               ),
               _BarButton(
                 key: const Key('player_mute_button'),
+                size: widget.size,
                 glyph: () {
                   final glyph = muted
                       ? PixelGlyph.volumeOff

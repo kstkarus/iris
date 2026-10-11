@@ -2,7 +2,6 @@ part of '../media_kit_player_viewport_factory.dart';
 
 class _PlayerControlsStatsPanel extends StatelessWidget {
   const _PlayerControlsStatsPanel({
-    required this.immersive,
     required this.listenable,
     required this.diagnosticsListenable,
     required this.startupPhaseListenable,
@@ -17,7 +16,6 @@ class _PlayerControlsStatsPanel extends StatelessWidget {
   final ValueListenable<Track> trackListenable;
   final ValueListenable<PlayerBufferMarginState> bufferMarginStateListenable;
   final ValueListenable<bool> isBufferingListenable;
-  final bool immersive;
 
   @override
   Widget build(BuildContext context) {
@@ -38,8 +36,7 @@ class _PlayerControlsStatsPanel extends StatelessWidget {
         final detailed = playerDetailedStatsEnabled.value;
         final buffering = isBufferingListenable.value;
         final bufferMargin = bufferMarginStateListenable.value;
-        if (immersive &&
-            !detailed &&
+        if (!detailed &&
             !buffering &&
             bufferMargin != PlayerBufferMarginState.insufficient) {
           return const SizedBox.shrink();
@@ -54,7 +51,7 @@ class _PlayerControlsStatsPanel extends StatelessWidget {
           bufferMarginState: bufferMargin,
           isBuffering: buffering,
           detailed: detailed,
-          immersive: immersive,
+          immersive: true,
         );
       },
     );

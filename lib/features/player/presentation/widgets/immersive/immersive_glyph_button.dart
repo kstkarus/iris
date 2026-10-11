@@ -52,6 +52,7 @@ class _CenterButtons extends StatelessWidget {
   const _CenterButtons({
     required this.playing,
     required this.engine,
+    required this.metrics,
     required this.starting,
     required this.onPlayPause,
     required this.onBackward,
@@ -60,6 +61,7 @@ class _CenterButtons extends StatelessWidget {
 
   final bool playing;
   final MediaKitPlayerEngine engine;
+  final _ControlsMetrics metrics;
   final bool starting;
   final VoidCallback onPlayPause;
   final VoidCallback onBackward;
@@ -69,6 +71,8 @@ class _CenterButtons extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final seconds = PlayerImmersiveControls.seekStep.inSeconds;
+    final seekSize = Size.square(metrics.seekButton);
+    final gap = SizedBox(width: metrics.centerGap);
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -76,11 +80,11 @@ class _CenterButtons extends StatelessWidget {
           key: const Key('player_seek_backward_button'),
           glyph: _SeekFigure('\u2212$seconds'),
           iconSize: 44,
-          size: const Size.square(60),
+          size: seekSize,
           label: l10n.playerSeekBackward(seconds),
           onPressed: onBackward,
         ),
-        const SizedBox(width: 48),
+        gap,
         ListenableBuilder(
           listenable: Listenable.merge([engine.buffering, engine.phase]),
           builder: (context, _) {
@@ -89,20 +93,22 @@ class _CenterButtons extends StatelessWidget {
                 engine.buffering.value ||
                 engine.phase.value != PlayerEnginePhase.ready;
             // The spinner takes the button's place while the stream waits.
-            if (waiting) return const SizedBox.square(dimension: 96);
+            if (waiting) return SizedBox.square(dimension: metrics.playBox);
             return _PlayPauseButton(
               playing: playing,
+              size: metrics.playBox,
+              glyphSize: metrics.playGlyph,
               label: playing ? l10n.playerPauseButton : l10n.playerPlayButton,
               onPressed: onPlayPause,
             );
           },
         ),
-        const SizedBox(width: 48),
+        gap,
         _GlyphButton(
           key: const Key('player_seek_forward_button'),
           glyph: _SeekFigure('+$seconds'),
           iconSize: 44,
-          size: const Size.square(60),
+          size: seekSize,
           label: l10n.playerSeekForward(seconds),
           onPressed: onForward,
         ),
@@ -114,11 +120,15 @@ class _CenterButtons extends StatelessWidget {
 class _PlayPauseButton extends StatefulWidget {
   const _PlayPauseButton({
     required this.playing,
+    required this.size,
+    required this.glyphSize,
     required this.label,
     required this.onPressed,
   });
 
   final bool playing;
+  final double size;
+  final double glyphSize;
   final String label;
   final VoidCallback onPressed;
 
@@ -145,8 +155,8 @@ class _PlayPauseButtonState extends State<_PlayPauseButton> {
             scale: _hovered ? 1.08 : 1,
             duration: const Duration(milliseconds: 150),
             child: Container(
-              width: 96,
-              height: 96,
+              width: widget.size,
+              height: widget.size,
               decoration: BoxDecoration(
                 color: _hovered ? Colors.white12 : Colors.black38,
                 border: Border.all(color: Colors.white, width: 3),
@@ -156,7 +166,7 @@ class _PlayPauseButtonState extends State<_PlayPauseButton> {
                   child: PixelIcon(
                     widget.playing ? PixelGlyph.pause : PixelGlyph.play,
                     key: ValueKey(widget.playing),
-                    size: 42,
+                    size: widget.glyphSize,
                     color: Colors.white,
                   ),
                 ),

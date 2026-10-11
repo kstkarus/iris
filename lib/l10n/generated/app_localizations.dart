@@ -1304,18 +1304,6 @@ abstract class AppLocalizations {
   /// **'Episodes'**
   String get playerEpisodesTitle;
 
-  /// No description provided for @playerShowEpisodes.
-  ///
-  /// In en, this message translates to:
-  /// **'Show episodes'**
-  String get playerShowEpisodes;
-
-  /// No description provided for @playerHideEpisodes.
-  ///
-  /// In en, this message translates to:
-  /// **'Hide episodes'**
-  String get playerHideEpisodes;
-
   /// No description provided for @playerNowPlaying.
   ///
   /// In en, this message translates to:

@@ -17,6 +17,7 @@ import 'package:iris/features/player/presentation/cubit/player_decoding_preferen
 import 'package:iris/features/player/presentation/cubit/player_subtitle_preferences_cubit.dart';
 import 'package:iris/features/player/presentation/playback/media_kit_player_engine.dart';
 import 'package:iris/features/player/presentation/widgets/media_kit_player_viewport_factory.dart';
+import 'package:iris/features/player/presentation/widgets/player_immersive_controls.dart';
 import 'package:iris/features/player/presentation/widgets/player_viewport_factory.dart';
 import 'package:iris/features/player/presentation/widgets/player_overlay_preferences.dart';
 import 'package:iris/features/player/presentation/widgets/player_track_selector_sheet.dart';
@@ -28,49 +29,21 @@ import '../../../../helpers/test_window.dart';
 import '../../player_test_doubles.dart';
 
 void main() {
-  testWidgets(
-    'keeps the track menu button available before and after viewport readiness',
-    (tester) async {
-      final firstFrameCompleter = Completer<void>();
-      final platformPlayer = _FakePlatformPlayer(
-        configuration: const PlayerConfiguration(),
-      );
+  testWidgets('keeps the tracks button available before and after the '
+      'first frame', (tester) async {
+    final firstFrameCompleter = Completer<void>();
+    await tester.pumpWidget(
+      _wrapViewport(firstFrameFuture: firstFrameCompleter.future),
+    );
+    await tester.pump();
 
-      await tester.pumpWidget(
-        _wrapViewport(
-          platformPlayer: platformPlayer,
-          firstFrameFuture: firstFrameCompleter.future,
-          videoSurfaceBuilder:
-              ({
-                required controller,
-                required subtitleViewConfiguration,
-                required controlsThemes,
-              }) {
-                return Column(
-                  children: [
-                    Row(children: controlsThemes.topButtonBar),
-                    const Expanded(child: _videoSurface),
-                  ],
-                );
-              },
-        ),
-      );
-      await tester.pump();
+    expect(find.byKey(const Key('player_tracks_button')), findsOneWidget);
 
-      expect(
-        find.byKey(const Key('player_track_selector_button')),
-        findsOneWidget,
-      );
+    firstFrameCompleter.complete();
+    await tester.pump();
 
-      firstFrameCompleter.complete();
-      await tester.pump();
-
-      expect(
-        find.byKey(const Key('player_track_selector_button')),
-        findsOneWidget,
-      );
-    },
-  );
+    expect(find.byKey(const Key('player_tracks_button')), findsOneWidget);
+  });
 
   testWidgets(
     'keeps viewport in local buffering state until the first frame is rendered',
@@ -131,10 +104,7 @@ void main() {
     expect(engine.phase.value, PlayerEnginePhase.ready);
     // As on desktop: a black frame alone would hide that the stream waits.
     expect(find.text('Buffering'), findsOneWidget);
-    expect(
-      find.byKey(const Key('player_viewport_loading_overlay')),
-      findsOneWidget,
-    );
+    expect(find.byKey(const Key('player_startup_label')), findsOneWidget);
 
     firstFrameCompleter.complete();
     await tester.pump();
@@ -296,61 +266,6 @@ void main() {
       expect(find.text('3.0 MB/s'), findsNothing);
       expect(find.text('8'), findsNothing);
       expect(find.text('53%'), findsNothing);
-
-      repository.finishCancel();
-    },
-  );
-
-  testWidgets(
-    'keeps top stats visible after readiness even when controls keep the initial theme instance',
-    (tester) async {
-      final platformPlayer = _FakePlatformPlayer(
-        configuration: const PlayerConfiguration(),
-      );
-      final repository = _LateStatsPlayerRepository();
-
-      await tester.pumpWidget(
-        _wrapViewport(
-          platformPlayer: platformPlayer,
-          firstFrameFuture: Future<void>.value(),
-          repository: repository,
-          videoSurfaceBuilder:
-              ({
-                required controller,
-                required subtitleViewConfiguration,
-                required controlsThemes,
-              }) {
-                return _StickyTopBarSurface(
-                  topButtonBar: controlsThemes.topButtonBar,
-                );
-              },
-        ),
-      );
-      await tester.pump();
-
-      repository.emitStat(
-        const PlayerPlaybackStats(
-          downloadRateBytesPerSecond: 0,
-          appMemoryBytes: null,
-          activePeers: 0,
-          bufferSeconds: 0,
-          bufferPieces: 0,
-          readaheadWindow: 30,
-        ),
-      );
-      await tester.pump();
-
-      expect(
-        find.byKey(const Key('player_track_selector_button')),
-        findsOneWidget,
-      );
-      expect(find.text('0 B/s'), findsOneWidget);
-      // Peers are a technical detail, hidden until the user turns it on.
-      expect(find.text('0'), findsNothing);
-      playerDetailedStatsEnabled.value = true;
-      addTearDown(() => playerDetailedStatsEnabled.value = false);
-      await tester.pump();
-      expect(find.text('0'), findsOneWidget);
 
       repository.finishCancel();
     },
@@ -631,7 +546,7 @@ void main() {
             ({
               required controller,
               required subtitleViewConfiguration,
-              required controlsThemes,
+              required controls,
             }) {
               controllers.add(controller);
               return _videoSurface;
@@ -674,7 +589,6 @@ void main() {
           return Player(platformPlayer: platformPlayer);
         },
         next: PlayerNextFile(title: 'Episode 3', play: () {}),
-        videoSurfaceBuilder: _pageLayerOnly,
       ),
     );
     await tester.pump();
@@ -723,12 +637,7 @@ void main() {
       'chapter-list/2/time': '185.500000',
     });
 
-    await tester.pumpWidget(
-      _wrapViewport(
-        platformPlayer: platformPlayer,
-        videoSurfaceBuilder: _pageLayerOnly,
-      ),
-    );
+    await tester.pumpWidget(_wrapViewport(platformPlayer: platformPlayer));
     await tester.pump();
     platformPlayer.emitDuration(const Duration(minutes: 24));
     platformPlayer.emitPosition(const Duration(seconds: 30));
@@ -762,7 +671,6 @@ void main() {
         },
         onEngine: (value) => engine = value,
         next: PlayerNextFile(title: 'Episode 3', play: () {}),
-        videoSurfaceBuilder: _pageLayerOnly,
       ),
     );
     await tester.pump();
@@ -892,7 +800,6 @@ void main() {
           return Player(platformPlayer: platformPlayer);
         },
         next: PlayerNextFile(title: 'Episode 3', play: () => played++),
-        videoSurfaceBuilder: _pageLayerOnly,
       ),
     );
     await tester.pump();
@@ -929,120 +836,6 @@ void main() {
     expect(createdPlayers.first.disposed, isTrue);
   });
 
-  testWidgets('keeps touch video controls on Android', (tester) async {
-    MediaKitVideoControlsThemes? capturedThemes;
-
-    await tester.pumpWidget(
-      _wrapViewport(
-        videoSurfaceBuilder:
-            ({
-              required controller,
-              required subtitleViewConfiguration,
-              required controlsThemes,
-            }) {
-              capturedThemes = controlsThemes;
-              return _TopBarSurface(topButtonBar: controlsThemes.topButtonBar);
-            },
-      ),
-    );
-    await tester.pump();
-
-    final themes = capturedThemes;
-    expect(themes, isA<MediaKitMobileVideoControlsThemes>());
-    final mobileThemes = themes! as MediaKitMobileVideoControlsThemes;
-    expect(mobileThemes.normal.seekGesture, isTrue);
-    expect(mobileThemes.normal.volumeGesture, isTrue);
-    // Tracks and settings, each one tap away.
-    expect(
-      find.byKey(const Key('player_track_selector_button')),
-      findsOneWidget,
-    );
-    expect(find.byKey(const Key('player_settings_button')), findsOneWidget);
-
-    await tester.tap(find.byKey(const Key('player_settings_button')));
-    await tester.pumpAndSettle();
-    expect(find.text('SUBTITLE APPEARANCE'), findsOneWidget);
-  }, variant: TargetPlatformVariant.only(TargetPlatform.android));
-
-  testWidgets('opens the track selector as a popover of its button on '
-      'desktop', (tester) async {
-    setTestWindowSize(tester, TestWindowSizes.landscape);
-    await tester.pumpWidget(
-      _wrapViewport(
-        videoSurfaceBuilder:
-            ({
-              required controller,
-              required subtitleViewConfiguration,
-              required controlsThemes,
-            }) {
-              return _TopBarSurface(topButtonBar: controlsThemes.topButtonBar);
-            },
-      ),
-    );
-    await tester.pump();
-
-    final button = tester.getRect(
-      find.byKey(const Key('player_track_selector_button')),
-    );
-    await tester.tap(find.byKey(const Key('player_track_selector_button')));
-    await tester.pumpAndSettle();
-
-    final popover = find.byKey(const Key('player_popover'));
-    expect(popover, findsOneWidget);
-    expect(find.byKey(const Key('player_adaptive_sheet_dialog')), findsNothing);
-    expect(find.byType(BottomSheet), findsNothing);
-    expect(
-      find.descendant(
-        of: popover,
-        matching: find.byType(PlayerTrackSelectorSheet),
-      ),
-      findsOneWidget,
-    );
-    // Its button names it.
-    expect(find.text('Audio & subtitles'), findsNothing);
-    // Out of the button at the top, ending in line with it at most and
-    // clear of the window's edge.
-    final rect = tester.getRect(popover);
-    expect(rect.top, greaterThan(button.bottom));
-    expect(rect.right, lessThanOrEqualTo(button.right + 0.5));
-    expect(rect.right, lessThan(TestWindowSizes.landscape.width));
-    // The video stays undimmed.
-    expect(
-      tester.widget<ModalBarrier>(find.byType(ModalBarrier).last).color,
-      isNull,
-    );
-
-    await tester.tapAt(const Offset(40, 600));
-    await tester.pumpAndSettle();
-    expect(popover, findsNothing);
-  }, variant: TargetPlatformVariant.only(TargetPlatform.windows));
-
-  testWidgets('opens the track selector as a bottom sheet on compact phones', (
-    tester,
-  ) async {
-    setTestWindowSize(tester, const Size(400, 800));
-
-    await tester.pumpWidget(
-      _wrapViewport(
-        videoSurfaceBuilder:
-            ({
-              required controller,
-              required subtitleViewConfiguration,
-              required controlsThemes,
-            }) {
-              return _TopBarSurface(topButtonBar: controlsThemes.topButtonBar);
-            },
-      ),
-    );
-    await tester.pump();
-
-    await tester.tap(find.byKey(const Key('player_track_selector_button')));
-    await tester.pumpAndSettle();
-
-    expect(find.byType(BottomSheet), findsOneWidget);
-    expect(find.byKey(const Key('player_adaptive_sheet_dialog')), findsNothing);
-  });
-
   testWidgets('opens the session stream', (tester) async {
     final platformPlayer = _FakePlatformPlayer(
       configuration: const PlayerConfiguration(),
@@ -1062,39 +855,6 @@ void main() {
       (platformPlayer.lastOpened! as Media).uri,
       'https://video.example/episode/1.m3u8',
     );
-  });
-
-  testWidgets('fits a 16:9 video frame into a wide window without overflow', (
-    tester,
-  ) async {
-    setTestWindowSize(tester, const Size(1600, 700));
-
-    await tester.pumpWidget(_wrapViewport());
-    await tester.pump();
-
-    expect(tester.takeException(), isNull);
-    final videoSize = tester.getSize(
-      find.byKey(const Key('player_video_surface')),
-    );
-    expect(videoSize.width / videoSize.height, closeTo(16 / 9, 0.01));
-    expect(videoSize.height, lessThanOrEqualTo(700));
-    expect(videoSize.width, lessThan(1600));
-  });
-
-  testWidgets('keeps a full-width 16:9 video frame on portrait phones', (
-    tester,
-  ) async {
-    setTestWindowSize(tester, const Size(400, 800));
-
-    await tester.pumpWidget(_wrapViewport());
-    await tester.pump();
-
-    expect(tester.takeException(), isNull);
-    final videoSize = tester.getSize(
-      find.byKey(const Key('player_video_surface')),
-    );
-    expect(videoSize.width, 400);
-    expect(videoSize.height, closeTo(400 * 9 / 16, 0.01));
   });
 
   testWidgets('keep the playback stats coming when the next file opens on the '
@@ -1158,7 +918,6 @@ void main() {
     ) async {
       setTestWindowSize(tester, TestWindowSizes.landscape);
       var backs = 0;
-      MediaKitVideoControlsThemes? themes;
 
       await tester.pumpWidget(
         _wrapViewport(
@@ -1167,16 +926,14 @@ void main() {
               ({
                 required controller,
                 required subtitleViewConfiguration,
-                required controlsThemes,
+                required controls,
               }) {
-                themes = controlsThemes;
                 return _videoSurface;
               },
         ),
       );
       await tester.pump();
 
-      expect(themes, isA<MediaKitImmersiveVideoControlsThemes>());
       expect(
         tester.getSize(find.byKey(const Key('player_video_surface'))),
         TestWindowSizes.landscape,
@@ -2042,22 +1799,287 @@ void main() {
       expect(backs, 1);
     });
   });
-}
 
-class _TopBarSurface extends StatelessWidget {
-  const _TopBarSurface({required this.topButtonBar});
-
-  final List<Widget> topButtonBar;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        SizedBox(height: 56, child: Row(children: topButtonBar)),
-        const Expanded(child: _videoSurface),
-      ],
+  group('touch controls', () {
+    const phone = Size(844, 390);
+    PlayerChrome chrome({PlayerEpisodesBuilder? episodes}) => PlayerChrome(
+      title: 'Episode 11',
+      overline: 'Frieren',
+      details: '[SubsPlease] Frieren · 11 of 28',
+      onBack: () {},
+      episodes: episodes,
     );
-  }
+    double opacity(WidgetTester tester) => tester
+        .widget<AnimatedOpacity>(
+          find.byKey(const Key('player_immersive_controls')),
+        )
+        .opacity;
+
+    for (final size in const [phone, Size(1280, 800)]) {
+      testWidgets('fit a ${size.width.toInt()}x${size.height.toInt()} screen '
+          'with finger-sized buttons', (tester) async {
+        setTestWindowSize(tester, size);
+        await tester.pumpWidget(
+          _wrapViewport(
+            input: PlayerInputMode.touch,
+            chrome: chrome(episodes: (context, close) => const SizedBox()),
+            next: PlayerNextFile(title: 'Episode 12', play: () {}),
+          ),
+        );
+        await tester.pump();
+
+        expect(tester.takeException(), isNull);
+        for (final key in const [
+          'player_back_button',
+          'player_seek_backward_button',
+          'player_seek_forward_button',
+          'player_play_pause_button',
+          'player_next_file_button',
+          'player_episodes_button',
+          'player_tracks_button',
+          'player_settings_button',
+        ]) {
+          final button = tester.getRect(find.byKey(Key(key)));
+          expect(button.width, greaterThanOrEqualTo(48), reason: key);
+          expect(button.height, greaterThanOrEqualTo(48), reason: key);
+          expect(button.left, greaterThanOrEqualTo(0), reason: key);
+          expect(button.right, lessThanOrEqualTo(size.width), reason: key);
+          expect(button.bottom, lessThanOrEqualTo(size.height), reason: key);
+        }
+        // The phone's own buttons and screen do these.
+        expect(find.byKey(const Key('player_mute_button')), findsNothing);
+        expect(find.byKey(const Key('player_fullscreen_button')), findsNothing);
+      });
+    }
+
+    testWidgets('show and hide on a tap on the video, also while paused', (
+      tester,
+    ) async {
+      setTestWindowSize(tester, phone);
+      final platformPlayer = _FakePlatformPlayer(
+        configuration: const PlayerConfiguration(),
+      );
+      await tester.pumpWidget(
+        _wrapViewport(
+          platformPlayer: platformPlayer,
+          input: PlayerInputMode.touch,
+          chrome: chrome(),
+        ),
+      );
+      await tester.pump();
+      final video = find.byKey(const Key('player_immersive_tap_layer'));
+      expect(opacity(tester), 1, reason: 'paused');
+
+      await tester.tapAt(tester.getTopLeft(video) + const Offset(200, 120));
+      await tester.pump();
+      expect(opacity(tester), 0, reason: 'hidden at once, though paused');
+      expect(platformPlayer.playOrPauseCount, 0, reason: 'a tap only shows');
+
+      await tester.tapAt(tester.getTopLeft(video) + const Offset(200, 120));
+      await tester.pump();
+      expect(opacity(tester), 1);
+
+      platformPlayer.emitPlaying(true);
+      await _deliverPlayerEvent(tester);
+      await tester.pump(PlayerImmersiveControls.hideAfter);
+      expect(opacity(tester), 0, reason: 'playing hides them');
+      await tester.tapAt(tester.getTopLeft(video) + const Offset(200, 120));
+      await tester.pump();
+      expect(opacity(tester), 1);
+    });
+
+    testWidgets('stay a while longer after a touch on them', (tester) async {
+      setTestWindowSize(tester, phone);
+      final platformPlayer = _FakePlatformPlayer(
+        configuration: const PlayerConfiguration(),
+      );
+      await tester.pumpWidget(
+        _wrapViewport(
+          platformPlayer: platformPlayer,
+          input: PlayerInputMode.touch,
+          chrome: chrome(),
+        ),
+      );
+      await tester.pump();
+      platformPlayer.emitPlaying(true);
+      await _deliverPlayerEvent(tester);
+
+      await tester.pump(const Duration(seconds: 2));
+      await tester.tap(find.byKey(const Key('player_time_toggle')));
+      await tester.pump(const Duration(seconds: 2));
+      expect(opacity(tester), 1, reason: 'the touch restarted the wait');
+
+      await tester.pump(const Duration(milliseconds: 1100));
+      expect(opacity(tester), 0);
+    });
+
+    testWidgets('stay while a finger drags along the timeline', (tester) async {
+      setTestWindowSize(tester, phone);
+      final platformPlayer = _FakePlatformPlayer(
+        configuration: const PlayerConfiguration(),
+      );
+      await tester.pumpWidget(
+        _wrapViewport(
+          platformPlayer: platformPlayer,
+          input: PlayerInputMode.touch,
+          chrome: chrome(),
+        ),
+      );
+      await tester.pump();
+      platformPlayer.emitDuration(const Duration(minutes: 24));
+      platformPlayer.emitPlaying(true);
+      await _deliverPlayerEvent(tester);
+
+      final drag = await tester.startGesture(
+        tester.getCenter(find.byKey(const Key('player_seek_bar'))),
+      );
+      await drag.moveBy(const Offset(40, 0));
+      await tester.pump(const Duration(seconds: 5));
+      expect(opacity(tester), 1);
+
+      await drag.up();
+      await tester.pump(PlayerImmersiveControls.hideAfter);
+      await tester.pump();
+      expect(opacity(tester), 0);
+    });
+
+    testWidgets('leave full screen to the phone: no double tap, no F key', (
+      tester,
+    ) async {
+      setTestWindowSize(tester, phone);
+      var entered = 0;
+      await tester.pumpWidget(
+        _wrapViewport(
+          input: PlayerInputMode.touch,
+          chrome: chrome(),
+          enterNativeFullscreen: () async => entered++,
+        ),
+      );
+      await tester.pump();
+
+      final video = find.byKey(const Key('player_immersive_tap_layer'));
+      final spot = tester.getTopLeft(video) + const Offset(200, 120);
+      await tester.tapAt(spot);
+      await tester.pump(const Duration(milliseconds: 50));
+      await tester.tapAt(spot);
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyF);
+      await tester.pump();
+
+      expect(entered, 0);
+    });
+
+    testWidgets('keep clear of a camera cutout at the side', (tester) async {
+      setTestWindowSize(tester, phone);
+      tester.view.padding = const FakeViewPadding(left: 60, right: 30);
+      await tester.pumpWidget(
+        _wrapViewport(input: PlayerInputMode.touch, chrome: chrome()),
+      );
+      await tester.pump();
+
+      expect(
+        tester.getRect(find.byKey(const Key('player_back_button'))).left,
+        greaterThanOrEqualTo(60),
+      );
+      expect(
+        tester.getRect(find.byKey(const Key('player_seek_bar'))).left,
+        greaterThanOrEqualTo(60 + 24),
+      );
+      expect(
+        tester.getRect(find.byKey(const Key('player_settings_button'))).right,
+        lessThanOrEqualTo(phone.width - 30),
+      );
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('open the tracks as a popover of their button on a phone '
+        'held sideways', (tester) async {
+      setTestWindowSize(tester, phone);
+      await tester.pumpWidget(
+        _wrapViewport(input: PlayerInputMode.touch, chrome: chrome()),
+      );
+      await tester.pump();
+
+      await tester.tap(find.byKey(const Key('player_tracks_button')));
+      await tester.pumpAndSettle();
+
+      final popover = find.byKey(const Key('player_popover'));
+      expect(
+        find.descendant(
+          of: popover,
+          matching: find.byType(PlayerTrackSelectorSheet),
+        ),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('change the speed from the settings', (tester) async {
+      setTestWindowSize(tester, phone);
+      final platformPlayer = _FakePlatformPlayer(
+        configuration: const PlayerConfiguration(),
+      );
+      await tester.pumpWidget(
+        _wrapViewport(
+          platformPlayer: platformPlayer,
+          input: PlayerInputMode.touch,
+          chrome: chrome(),
+        ),
+      );
+      await tester.pump();
+
+      await tester.tap(find.byKey(const Key('player_settings_button')));
+      await tester.pumpAndSettle();
+      expect(find.text('Playback speed'), findsOneWidget);
+      expect(find.text('SUBTITLE APPEARANCE'), findsOneWidget);
+
+      await tester.tap(find.text('1.5×'));
+      await tester.pump();
+      expect(platformPlayer.rates, [1.5]);
+    });
+
+    testWidgets('close the open episodes on back before leaving', (
+      tester,
+    ) async {
+      setTestWindowSize(tester, phone);
+      var leaves = 0;
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        (call) async {
+          if (call.method == 'SystemNavigator.pop') leaves++;
+          return null;
+        },
+      );
+      addTearDown(
+        () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          SystemChannels.platform,
+          null,
+        ),
+      );
+      await tester.pumpWidget(
+        _wrapViewport(
+          input: PlayerInputMode.touch,
+          chrome: chrome(
+            episodes: (context, close) => const Text('Episode list'),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      await tester.tap(find.byKey(const Key('player_episodes_button')));
+      await tester.pumpAndSettle();
+      expect(find.text('Episode list'), findsOneWidget);
+
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(find.text('Episode list'), findsNothing);
+      expect(leaves, 0, reason: 'the player stays');
+
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(leaves, 1);
+    });
+  });
 }
 
 const _videoSurface = ColoredBox(
@@ -2069,25 +2091,13 @@ const _videoSurface = ColoredBox(
 Widget _blackSurface({
   required VideoController controller,
   required SubtitleViewConfiguration subtitleViewConfiguration,
-  required MediaKitVideoControlsThemes controlsThemes,
+  required VideoControlsBuilder controls,
 }) {
   return _videoSurface;
 }
 
 const _nextPrompt = Key('player_next_file_prompt');
 const _skipSegmentButton = Key('player_skip_segment_button');
-
-/// Renders only the page's layer over the media_kit controls.
-Widget _pageLayerOnly({
-  required VideoController controller,
-  required SubtitleViewConfiguration subtitleViewConfiguration,
-  required MediaKitVideoControlsThemes controlsThemes,
-}) {
-  return controlsThemes.decorateControls!(
-    VideoState(),
-    const SizedBox.expand(),
-  );
-}
 
 /// Plays to 2:00, then the stream fails and mpv goes idle.
 Future<_FakePlatformPlayer> _failMidStream(WidgetTester tester) async {
@@ -2135,7 +2145,8 @@ Widget _wrapViewport({
   bool realVideoSurface = false,
   ValueChanged<MediaKitPlayerEngine>? onEngine,
   PlayerNextFile? next,
-  PlayerChrome? chrome,
+  PlayerChrome chrome = _plainChrome,
+  PlayerInputMode input = PlayerInputMode.pointer,
   NativeFullscreenToggle? enterNativeFullscreen,
   NativeFullscreenToggle? exitNativeFullscreen,
   PlayerSession session = _session,
@@ -2192,11 +2203,16 @@ Widget _wrapViewport({
           onEngine: onEngine,
           next: next,
           chrome: chrome,
+          input: input,
         ),
       ),
     ),
   );
 }
+
+void _stayOnPage() {}
+
+const _plainChrome = PlayerChrome(title: 'Episode 11', onBack: _stayOnPage);
 
 const _session = PlayerSession(
   sessionId: '42',
@@ -2211,9 +2227,10 @@ class _EngineHost extends StatefulWidget {
     required this.subtitleCubit,
     required this.decodingCubit,
     this.session = _session,
+    required this.chrome,
+    required this.input,
     this.onEngine,
     this.next,
-    this.chrome,
   });
 
   final MediaKitPlayerViewportFactory factory;
@@ -2222,7 +2239,8 @@ class _EngineHost extends StatefulWidget {
   final PlayerDecodingPreferencesCubit decodingCubit;
   final ValueChanged<MediaKitPlayerEngine>? onEngine;
   final PlayerNextFile? next;
-  final PlayerChrome? chrome;
+  final PlayerChrome chrome;
+  final PlayerInputMode input;
 
   @override
   State<_EngineHost> createState() => _EngineHostState();
@@ -2253,6 +2271,7 @@ class _EngineHostState extends State<_EngineHost> {
       engine: _engine,
       next: widget.next,
       chrome: widget.chrome,
+      input: widget.input,
     );
   }
 }
@@ -2315,31 +2334,6 @@ class _SwitchingStatsPlayerRepository extends StubPlayerRepository {
     final controller = StreamController<PlayerPlaybackStats>();
     _streams.add(controller);
     return controller.stream;
-  }
-}
-
-class _StickyTopBarSurface extends StatefulWidget {
-  const _StickyTopBarSurface({required this.topButtonBar});
-
-  final List<Widget> topButtonBar;
-
-  @override
-  State<_StickyTopBarSurface> createState() => _StickyTopBarSurfaceState();
-}
-
-class _StickyTopBarSurfaceState extends State<_StickyTopBarSurface> {
-  late final List<Widget> _initialTopButtonBar = List<Widget>.from(
-    widget.topButtonBar,
-  );
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Row(children: _initialTopButtonBar),
-        const Expanded(child: _videoSurface),
-      ],
-    );
   }
 }
 

@@ -72,16 +72,54 @@ void main() {
     await tester.tap(find.text('Try Again'));
     expect(cubit.loadCalls, 1);
   });
+
+  for (final state in const [PlayerPreparing(), PlayerFailure()]) {
+    testWidgets('keeps a way back while ${state.runtimeType} has no player', (
+      tester,
+    ) async {
+      var backs = 0;
+      final cubit = FakePlayerCubit(state, source: fmaPlayerSource);
+
+      await tester.pumpWidget(_wrap(cubit: cubit, onBack: () => backs++));
+      await tester.tap(find.byKey(const Key('player_back_button')));
+
+      expect(backs, 1);
+    });
+  }
+
+  testWidgets('passes the input on to the viewport', (tester) async {
+    final cubit = FakePlayerCubit(
+      const PlayerReady(
+        PlayerSession(
+          sessionId: '42',
+          streamUrl: 'http://127.0.0.1:8080/stream/2',
+        ),
+      ),
+      source: fmaPlayerSource,
+    );
+
+    await tester.pumpWidget(_wrap(cubit: cubit, input: PlayerInputMode.touch));
+
+    expect(find.text('input: touch'), findsOneWidget);
+  });
 }
 
 Widget _wrap({
   required FakePlayerCubit cubit,
   PlayerViewportFactory factory = const FakePlayerViewportFactory(),
+  PlayerInputMode input = PlayerInputMode.pointer,
+  VoidCallback? onBack,
 }) {
   return testApp(
     BlocProvider<PlayerCubit>.value(
       value: cubit,
-      child: Scaffold(body: PlayerView(viewportFactory: factory)),
+      child: Scaffold(
+        body: PlayerView(
+          viewportFactory: factory,
+          input: input,
+          chrome: PlayerChrome(title: 'Episode 2', onBack: onBack ?? () {}),
+        ),
+      ),
     ),
   );
 }

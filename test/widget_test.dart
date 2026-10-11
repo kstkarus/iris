@@ -107,7 +107,7 @@ void main() {
 
     // The mock player reports 5:00 of 24:00; leaving keeps that progress.
     await tester.pumpAndSettle();
-    await tester.pageBack();
+    await tester.tap(find.byKey(const Key('player_back_button')));
     await tester.pumpAndSettle();
     expect(find.text('Episode 1 · 5:00 / 24:00'), findsOneWidget);
     // The default test window is too narrow for the row's verb label; the
@@ -152,22 +152,24 @@ void main() {
     expect(find.text('Resumed from 5:00'), findsOneWidget);
     expect(find.text('Start over'), findsOneWidget);
 
-    // On this landscape window the episodes pane sits beside the video and
-    // switches files in place.
-    final episodes = find.byKey(const Key('player_episodes_pane'));
-    expect(episodes, findsOneWidget);
+    // The episodes drawer switches files in place.
+    expect(find.byKey(const Key('player_title')), findsOneWidget);
+    expect(find.text('Episode 1'), findsOneWidget);
+    await _tapVisible(tester, find.byKey(const Key('player_episodes_button')));
+    await tester.pumpAndSettle();
+    final current = find.byKey(const ValueKey('player_episode_card_0'));
     expect(
-      find.descendant(of: episodes, matching: find.text('NOW PLAYING')),
+      find.descendant(of: current, matching: find.text('NOW PLAYING')),
       findsOneWidget,
     );
-    await _tapVisible(tester, find.byKey(const ValueKey('player_episode_1')));
+    await _tapVisible(
+      tester,
+      find.byKey(const ValueKey('player_episode_card_1')),
+    );
     await tester.pumpAndSettle();
     expect(
-      find.descendant(
-        of: find.byType(AppBar),
-        matching: find.text('episode-02'),
-      ),
-      findsOneWidget,
+      tester.widget<Text>(find.byKey(const Key('player_title'))).data,
+      'Episode 2',
     );
     expect(_playerSurface, findsOneWidget);
   });

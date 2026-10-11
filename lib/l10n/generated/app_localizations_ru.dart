@@ -699,12 +699,6 @@ class AppLocalizationsRu extends AppLocalizations {
   String get playerEpisodesTitle => 'Серии';
 
   @override
-  String get playerShowEpisodes => 'Показать серии';
-
-  @override
-  String get playerHideEpisodes => 'Скрыть серии';
-
-  @override
   String get playerNowPlaying => 'Сейчас';
 
   @override

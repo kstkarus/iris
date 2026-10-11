@@ -8,6 +8,8 @@ import 'package:iris/features/player/domain/entities/player_track_preferences.da
 import 'package:iris/features/player/presentation/cubit/player_decoding_preferences_cubit.dart';
 import 'package:iris/features/player/presentation/cubit/player_subtitle_preferences_cubit.dart';
 import 'package:iris/features/player/presentation/playback/player_engine.dart';
+import 'package:iris/features/player/presentation/widgets/player_countdown.dart';
+import 'package:iris/features/player/presentation/widgets/player_episodes_drawer.dart';
 import 'package:iris/features/player/presentation/widgets/player_viewport_factory.dart';
 import 'package:iris/shared/widgets/pixel_icon.dart';
 
@@ -30,37 +32,109 @@ class MockPlayerViewportFactory implements PlayerViewportFactory {
   @override
   Widget build({
     required PlayerEngine engine,
+    required PlayerChrome chrome,
+    PlayerInputMode input = PlayerInputMode.pointer,
     PlayerNextFile? next,
-    PlayerChrome? chrome,
   }) {
-    final surface = Center(
-      child: Container(
-        key: const Key('mock_player_surface'),
-        width: double.infinity,
-        height: 220,
-        color: Colors.black,
-        alignment: Alignment.center,
-        child: const Text(
-          'Mock Player Surface',
-          style: TextStyle(color: Colors.white),
-        ),
-      ),
-    );
-    if (chrome == null) return surface;
+    return _MockPlayerChrome(chrome: chrome);
+  }
+}
+
+/// A black surface with the chrome's title, notice, way back and episodes
+/// drawer, so the app's flows can be driven without a media engine.
+class _MockPlayerChrome extends StatefulWidget {
+  const _MockPlayerChrome({required this.chrome});
+
+  final PlayerChrome chrome;
+
+  @override
+  State<_MockPlayerChrome> createState() => _MockPlayerChromeState();
+}
+
+class _MockPlayerChromeState extends State<_MockPlayerChrome> {
+  bool _episodesOpen = false;
+
+  void _setEpisodesOpen(bool open) => setState(() => _episodesOpen = open);
+
+  @override
+  Widget build(BuildContext context) {
+    final chrome = widget.chrome;
+    final episodes = chrome.episodes;
+    final notice = chrome.notice;
     return Stack(
       fit: StackFit.expand,
       children: [
-        surface,
+        Center(
+          child: Container(
+            key: const Key('mock_player_surface'),
+            width: double.infinity,
+            height: 220,
+            color: Colors.black,
+            alignment: Alignment.center,
+            child: const Text(
+              'Mock Player Surface',
+              style: TextStyle(color: Colors.white),
+            ),
+          ),
+        ),
         Positioned(
           left: 24,
           top: 20,
-          child: IconButton(
-            key: const Key('player_back_button'),
-            color: Colors.white,
-            icon: const PixelIcon(PixelGlyph.arrowLeft),
-            onPressed: chrome.onBack,
+          right: 24,
+          child: Row(
+            children: [
+              IconButton(
+                key: const Key('player_back_button'),
+                color: Colors.white,
+                icon: const PixelIcon(PixelGlyph.arrowLeft),
+                onPressed: chrome.onBack,
+              ),
+              Expanded(
+                child: Text(
+                  chrome.title,
+                  key: const Key('player_title'),
+                  style: const TextStyle(color: Colors.white),
+                ),
+              ),
+              if (episodes != null)
+                IconButton(
+                  key: const Key('player_episodes_button'),
+                  color: Colors.white,
+                  icon: const PixelIcon(PixelGlyph.episodes),
+                  onPressed: () => _setEpisodesOpen(true),
+                ),
+            ],
           ),
         ),
+        if (notice != null)
+          Positioned(
+            left: 24,
+            bottom: 24,
+            child: PlayerCountdown(
+              duration: notice.timeout,
+              onElapsed: notice.onTimeout,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    notice.message,
+                    style: const TextStyle(color: Colors.white),
+                  ),
+                  TextButton(
+                    key: const Key('player_notice_action'),
+                    onPressed: notice.onAction,
+                    child: Text(notice.actionLabel),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        if (_episodesOpen && episodes != null)
+          PlayerEpisodesDrawer(
+            onClose: () => _setEpisodesOpen(false),
+            builder: episodes,
+            caption: chrome.episodesCaption,
+          ),
       ],
     );
   }

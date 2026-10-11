@@ -7,11 +7,15 @@ class _BufferingSpinner extends StatelessWidget {
     required this.engine,
     required this.color,
     required this.startupLabel,
+    required this.playBox,
   });
 
   final MediaKitPlayerEngine engine;
   final Color color;
   final String? startupLabel;
+
+  /// The play button's size, whose place the spinner takes.
+  final double playBox;
 
   @override
   Widget build(BuildContext context) {
@@ -38,8 +42,8 @@ class _BufferingSpinner extends StatelessWidget {
               if (label != null)
                 Center(
                   child: Padding(
-                    // Below the 96 px play button's place.
-                    padding: const EdgeInsets.only(top: 148),
+                    // Below the play button's place.
+                    padding: EdgeInsets.only(top: playBox + 52),
                     child: PlayerWaitLabel(
                       label: label,
                       stats: engine.playbackStats,

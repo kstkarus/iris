@@ -82,8 +82,8 @@ class FakePlayerSourceCubit extends PlayerSourceCubit {
   }
 }
 
-/// Builds a black `player_video_surface`. With [PlayerChrome], it also
-/// writes the chrome out as text, so tests can read what the page passed.
+/// Builds a black `player_video_surface` and writes the chrome and the
+/// input out as text, so tests can read what the page passed.
 class FakePlayerViewportFactory implements PlayerViewportFactory {
   const FakePlayerViewportFactory();
 
@@ -98,11 +98,11 @@ class FakePlayerViewportFactory implements PlayerViewportFactory {
   @override
   Widget build({
     required PlayerEngine engine,
+    required PlayerChrome chrome,
+    PlayerInputMode input = PlayerInputMode.pointer,
     PlayerNextFile? next,
-    PlayerChrome? chrome,
   }) {
     const surface = _FakeVideoSurface(key: Key('player_video_surface'));
-    if (chrome == null) return surface;
     final episodes = chrome.episodes;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -113,6 +113,7 @@ class FakePlayerViewportFactory implements PlayerViewportFactory {
         Text('title: ${chrome.title}'),
         Text('titleDetail: ${chrome.titleDetail}'),
         Text('episodes: ${chrome.episodesCaption}'),
+        Text('input: ${input.name}'),
         if (chrome.notice case final notice?)
           // Counts down as the immersive player's notice does.
           PlayerCountdown(

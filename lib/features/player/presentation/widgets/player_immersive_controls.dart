@@ -27,10 +27,7 @@ part 'immersive/immersive_glyph_button.dart';
 part 'immersive/immersive_bottom_bar.dart';
 part 'immersive/immersive_plates.dart';
 part 'immersive/height_reporter.dart';
-
-/// The controls' margin at the left and right of the video: the titles,
-/// the timeline, the notice and the offers keep to it.
-const _sideInset = 48.0;
+part 'immersive/controls_metrics.dart';
 
 /// How fast the controls, and what hides with them, fade.
 const _controlsFade = Duration(milliseconds: 250);
@@ -43,10 +40,14 @@ typedef PlayerPanelOpener = Future<void> Function(BuildContext anchor);
 /// the episodes at the top, play and ±10 s in the middle, the titles and
 /// the timeline at the bottom, the episodes in a drawer on the right.
 ///
-/// They hide with the cursor after a few seconds of playback without
-/// pointer activity and stay while paused, hovered or with the drawer open.
-/// The titles show only while paused, as in streaming apps, and the
-/// subtitles move above whatever the controls cover at the bottom.
+/// With a pointer they hide with the cursor after a few seconds of
+/// playback without pointer activity and stay while paused, hovered or
+/// with the drawer open; a click on the video plays or pauses. By touch a
+/// tap on the video shows or hides them, a touch on them keeps them a
+/// while longer, and the buttons are finger-sized; the volume and full
+/// screen are the phone's own. The titles show only while paused, as in
+/// streaming apps, and the subtitles move above whatever the controls
+/// cover at the bottom. Back closes the open drawer first.
 ///
 /// Keyboard: Space/K play-pause, ←/→ and J/L ∓10 s, ↑/↓ volume, M mute,
 /// F full screen, N next episode, S skip, E episodes, Esc closes the drawer
@@ -63,6 +64,7 @@ class PlayerImmersiveControls extends StatefulWidget {
     required this.onToggleFullscreen,
     required this.onShowTracks,
     required this.onShowSettings,
+    this.input = PlayerInputMode.pointer,
     this.onSubtitleClearance,
     this.next,
     super.key,
@@ -74,6 +76,7 @@ class PlayerImmersiveControls extends StatefulWidget {
 
   final MediaKitPlayerEngine engine;
   final PlayerChrome chrome;
+  final PlayerInputMode input;
 
   /// The video, drawn on black.
   final Widget video;
@@ -122,6 +125,9 @@ class _PlayerImmersiveControlsState extends State<PlayerImmersiveControls> {
   /// stay while it is open.
   Object? _openPanel;
   Timer? _hideTimer;
+
+  /// The controls' margins from the screen's edges, past a camera cutout.
+  EdgeInsets _insets = EdgeInsets.zero;
 
   /// The bottom controls' parts at their full sizes, so the subtitles move
   /// once per change, not with every frame of the titles' animation.
@@ -187,9 +193,16 @@ class _PlayerImmersiveControlsState extends State<PlayerImmersiveControls> {
     if (playing) _restartHideTimer();
   }
 
+  bool get _touch => widget.input == PlayerInputMode.touch;
+
   /// The bottom controls' height once the titles finish showing or hiding.
   double get _bottomHeight =>
-      _barHeight + _BottomSection.bottomPadding + (_playing ? 0 : _titleHeight);
+      _barHeight + _insets.bottom + (_playing ? 0 : _titleHeight);
+
+  /// Where offers over the video stop, clear of the timeline and, on a
+  /// narrow screen, of the buttons under it.
+  double get _offerClearance =>
+      _insets.bottom + math.max(_barHeight, PlayerSeekBar.height) + 24;
 
   /// Just above the bottom controls, with a little air.
   double get _subtitleClearanceAbove => _bottomHeight + 12;
@@ -240,6 +253,24 @@ class _PlayerImmersiveControlsState extends State<PlayerImmersiveControls> {
     _activity.ping();
     if (!_controlsVisible) setState(() => _controlsVisible = true);
     _restartHideTimer();
+  }
+
+  /// A tap on the video by touch: hides the controls at once, also while
+  /// paused, or shows them for a while.
+  void _toggleControls() {
+    if (!_controlsVisible) {
+      _showControls();
+      return;
+    }
+    _hideTimer?.cancel();
+    setState(() => _controlsVisible = false);
+  }
+
+  /// A finger on the screen keeps visible controls a while longer; showing
+  /// hidden ones is the tap's to decide.
+  void _onTouchDown() {
+    _activity.ping();
+    if (_controlsVisible) _restartHideTimer();
   }
 
   void _restartHideTimer() {
@@ -385,7 +416,7 @@ class _PlayerImmersiveControlsState extends State<PlayerImmersiveControls> {
       if (widget.failure != null) return KeyEventResult.ignored;
       _togglePlay();
       _showControls();
-    } else if (key == LogicalKeyboardKey.keyF) {
+    } else if (key == LogicalKeyboardKey.keyF && !_touch) {
       widget.onToggleFullscreen();
     } else if (key == LogicalKeyboardKey.keyM) {
       _toggleMute();
@@ -414,6 +445,8 @@ class _PlayerImmersiveControlsState extends State<PlayerImmersiveControls> {
     final accent = playerAccentColor(Theme.of(context).colorScheme);
     final player = _player;
     final visible = _controlsVisible;
+    final metrics = _ControlsMetrics.of(widget.input);
+    _insets = metrics.insets(MediaQuery.paddingOf(context));
     _reportSubtitleClearance();
 
     final controls = Focus(
@@ -424,7 +457,7 @@ class _PlayerImmersiveControlsState extends State<PlayerImmersiveControls> {
         cursor: visible ? MouseCursor.defer : SystemMouseCursors.none,
         onHover: (_) => _showControls(),
         child: Listener(
-          onPointerDown: (_) => _showControls(),
+          onPointerDown: (_) => _touch ? _onTouchDown() : _showControls(),
           onPointerSignal: _onPointerSignal,
           child: Stack(
             fit: StackFit.expand,
@@ -443,13 +476,14 @@ class _PlayerImmersiveControlsState extends State<PlayerImmersiveControls> {
                 GestureDetector(
                   key: const Key('player_immersive_tap_layer'),
                   behavior: HitTestBehavior.opaque,
-                  onTap: _togglePlay,
-                  onDoubleTap: widget.onToggleFullscreen,
+                  onTap: _touch ? _toggleControls : _togglePlay,
+                  onDoubleTap: _touch ? null : widget.onToggleFullscreen,
                 ),
                 _BufferingSpinner(
                   engine: widget.engine,
                   color: accent,
                   startupLabel: widget.startupLabel,
+                  playBox: metrics.playBox,
                 ),
               ],
               IgnorePointer(
@@ -460,7 +494,7 @@ class _PlayerImmersiveControlsState extends State<PlayerImmersiveControls> {
                   duration: _controlsFade,
                   child: player == null
                       ? const SizedBox.shrink()
-                      : _buildControls(context, player, accent),
+                      : _buildControls(context, player, accent, metrics),
                 ),
               ),
               // Above the controls: the message and its retry take the taps
@@ -469,10 +503,10 @@ class _PlayerImmersiveControlsState extends State<PlayerImmersiveControls> {
               _buildOffers(context),
               if (widget.chrome.notice case final notice?)
                 Positioned(
-                  left: _sideInset,
+                  left: _insets.left,
                   bottom: _barHeight > 0
                       ? _subtitleClearanceAbove
-                      : _BottomSection.offerClearance,
+                      : _offerClearance,
                   child: _NoticeCard(notice: notice, accent: accent),
                 ),
               if (_volumeHud case final volume?)
@@ -493,12 +527,23 @@ class _PlayerImmersiveControlsState extends State<PlayerImmersiveControls> {
         _viewSize = constraints.biggest;
         // Hover tooltips get in the way over video (the stats chips have
         // some); the controls label themselves for screen readers instead.
-        return TooltipVisibility(visible: false, child: controls);
+        return PopScope(
+          canPop: !_episodesOpen,
+          onPopInvokedWithResult: (didPop, _) {
+            if (!didPop) _closeEpisodes();
+          },
+          child: TooltipVisibility(visible: false, child: controls),
+        );
       },
     );
   }
 
-  Widget _buildControls(BuildContext context, Player player, Color accent) {
+  Widget _buildControls(
+    BuildContext context,
+    Player player,
+    Color accent,
+    _ControlsMetrics metrics,
+  ) {
     return Stack(
       fit: StackFit.expand,
       children: [
@@ -511,6 +556,8 @@ class _PlayerImmersiveControlsState extends State<PlayerImmersiveControls> {
             child: _TopBar(
               chrome: widget.chrome,
               statsPanel: widget.statsPanel,
+              metrics: metrics,
+              insets: _insets,
             ),
           ),
         ),
@@ -520,6 +567,7 @@ class _PlayerImmersiveControlsState extends State<PlayerImmersiveControls> {
             child: _CenterButtons(
               playing: _playing,
               engine: widget.engine,
+              metrics: metrics,
               starting: widget.startupLabel != null,
               onPlayPause: _togglePlay,
               onBackward: () => _seekBy(-PlayerImmersiveControls.seekStep),
@@ -533,6 +581,8 @@ class _PlayerImmersiveControlsState extends State<PlayerImmersiveControls> {
             onExit: (_) => _setHold(#bottom, false),
             child: _BottomSection(
               chrome: widget.chrome,
+              metrics: metrics,
+              insets: _insets,
               showTitle: !_playing,
               onTitleHeight: _onTitleHeight,
               onBarHeight: _onBarHeight,
@@ -564,8 +614,8 @@ class _PlayerImmersiveControlsState extends State<PlayerImmersiveControls> {
     final next = widget.next;
 
     return Positioned(
-      right: _sideInset,
-      bottom: _BottomSection.offerClearance,
+      right: _insets.right,
+      bottom: _offerClearance,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.end,
@@ -664,17 +714,29 @@ class _Scrims extends StatelessWidget {
 }
 
 class _TopBar extends StatelessWidget {
-  const _TopBar({required this.chrome, required this.statsPanel});
+  const _TopBar({
+    required this.chrome,
+    required this.statsPanel,
+    required this.metrics,
+    required this.insets,
+  });
 
   final PlayerChrome chrome;
   final Widget statsPanel;
+  final _ControlsMetrics metrics;
+  final EdgeInsets insets;
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     return Padding(
       // The arrow's glyph starts in line with the titles and the timeline.
-      padding: const EdgeInsets.fromLTRB(36, 20, 48, 20),
+      padding: EdgeInsets.fromLTRB(
+        insets.left - metrics.backButtonInset,
+        insets.top,
+        insets.right,
+        insets.top,
+      ),
       child: Row(
         // A first row of details sits on the arrow's axis; more rows of
         // them grow downwards.
@@ -684,7 +746,7 @@ class _TopBar extends StatelessWidget {
             key: const Key('player_back_button'),
             glyph: const PixelIcon(PixelGlyph.arrowLeft),
             iconSize: 28,
-            size: const Size.square(44),
+            size: Size.square(metrics.backButton),
             label: l10n.playerBack,
             onPressed: chrome.onBack,
           ),

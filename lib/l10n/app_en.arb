@@ -379,8 +379,6 @@
   "recentlyWatchedTitle": "Recently watched",
   "watchSourceUsedBadge": "You watched this",
   "playerEpisodesTitle": "Episodes",
-  "playerShowEpisodes": "Show episodes",
-  "playerHideEpisodes": "Hide episodes",
   "playerNowPlaying": "Now playing",
   "playerDetailedStats": "Technical details",
   "playerDetailedStatsHint": "Peers, decoder and codecs over the video",

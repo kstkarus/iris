@@ -692,12 +692,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get playerEpisodesTitle => 'Episodes';
 
   @override
-  String get playerShowEpisodes => 'Show episodes';
-
-  @override
-  String get playerHideEpisodes => 'Hide episodes';
-
-  @override
   String get playerNowPlaying => 'Now playing';
 
   @override

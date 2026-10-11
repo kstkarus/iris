@@ -181,6 +181,46 @@ void main() {
     });
   }
 
+  testWidgets('the pages under the player turn with the phone without '
+      'overflow', (tester) async {
+    await pumpMockApp(tester, size: TestWindowSizes.phone);
+    await tester.ensureVisible(find.text(_firstTitle));
+    await tester.pump();
+    await tester.tap(find.text(_firstTitle));
+    await pumpUntilVisible(
+      tester,
+      find.widgetWithText(FilledButton, 'Choose source'),
+    );
+    await tester.pumpAndSettle();
+    await _openWatchSources(tester);
+    await _tapAndSettle(tester, find.byKey(_sourceWatchButton).first);
+    await pumpUntilVisible(tester, find.text('episode-01'));
+    await tester.pumpAndSettle();
+    await _tapAndSettle(tester, find.text('episode-01').first);
+    await pumpUntilVisible(
+      tester,
+      find.byKey(const Key('mock_player_surface')),
+    );
+
+    // The player turns the phone sideways; the pages below lay out again.
+    final landscape = Size(
+      TestWindowSizes.phone.height,
+      TestWindowSizes.phone.width,
+    );
+    setTestWindowSize(tester, landscape);
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+
+    await tester.tap(find.byKey(const Key('player_back_button')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('mock_player_surface')), findsNothing);
+    expect(tester.takeException(), isNull);
+
+    setTestWindowSize(tester, TestWindowSizes.phone);
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('the top bar keeps to the page frame, sections centred', (
     tester,
   ) async {

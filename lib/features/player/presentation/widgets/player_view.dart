@@ -9,13 +9,19 @@ import 'package:iris/shared/widgets/status_views.dart';
 import 'package:iris/shared/widgets/pixel_icon.dart';
 
 class PlayerView extends StatelessWidget {
-  const PlayerView({required this.viewportFactory, this.chrome, super.key});
+  const PlayerView({
+    required this.viewportFactory,
+    required this.chrome,
+    this.input = PlayerInputMode.pointer,
+    super.key,
+  });
 
   final PlayerViewportFactory viewportFactory;
 
-  /// Immersive mode: passed to the viewport, and the loading and failure
-  /// states get a way back since there is no app bar.
-  final PlayerChrome? chrome;
+  /// Passed to the viewport; the loading and failure states take its way
+  /// back, as the page has no app bar.
+  final PlayerChrome chrome;
+  final PlayerInputMode input;
 
   @override
   Widget build(BuildContext context) {
@@ -28,6 +34,7 @@ class PlayerView extends StatelessWidget {
             return viewportFactory.build(
               engine: cubit.engine,
               chrome: chrome,
+              input: input,
               next: switch (cubit.source.nextFile) {
                 final next? => PlayerNextFile(
                   title: next.displayName,
@@ -41,21 +48,21 @@ class PlayerView extends StatelessWidget {
           case PlayerFailure():
             status = const _FailureState();
         }
-        final immersive = chrome;
-        if (immersive == null) return status;
+        // Clear of a camera cutout at the side of a phone in landscape.
+        final safe = MediaQuery.paddingOf(context);
         return Stack(
           fit: StackFit.expand,
           children: [
             status,
             Positioned(
-              left: 24,
-              top: 20,
+              left: 24 + safe.left,
+              top: 20 + safe.top,
               child: IconButton(
                 key: const Key('player_back_button'),
                 tooltip: AppLocalizations.of(context).playerBack,
                 iconSize: 28,
                 icon: const PixelIcon(PixelGlyph.arrowLeft),
-                onPressed: immersive.onBack,
+                onPressed: chrome.onBack,
               ),
             ),
           ],

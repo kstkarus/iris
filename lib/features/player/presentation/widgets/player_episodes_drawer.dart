@@ -54,7 +54,12 @@ class PlayerEpisodesDrawer extends StatelessWidget {
               child: Align(
                 alignment: Alignment.centerRight,
                 child: Padding(
-                  padding: const EdgeInsets.all(16),
+                  // Clear of a camera cutout at the side of a phone.
+                  padding:
+                      const EdgeInsets.all(16) +
+                      MediaQuery.paddingOf(
+                        context,
+                      ).copyWith(left: 0, bottom: 0),
                   child: SizedBox(
                     key: const Key('player_episodes_drawer'),
                     width: width,

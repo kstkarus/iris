@@ -145,6 +145,15 @@ lib/
 - Keep playback coordination inside the `player` feature.
 - Preserve screen wake state only during active video playback.
 - Treat player lifecycle carefully: pause/resume/dispose explicitly.
+- One player layout on every platform: the video fills the screen under the
+  app's own immersive controls (no media_kit controls). `PlayerInputMode`
+  (`pointer` on desktop, `touch` on Android/iOS) only sizes them and drops
+  what a phone does itself (volume, full screen).
+- On phones and tablets the player is always landscape and immersive:
+  `PlayerScreenMode` (`shared/window/player_screen_mode.dart`, from DI) enters
+  on open and on app resume, and leaves (free rotation, edge-to-edge) as the
+  page pops. Desktop gets `NoPlayerScreenMode` and switches window full
+  screen from the controls.
 
 ### Playback startup contract (torrent -> mpv)
 This contract is binding. Reference implementations: peerflix, WebTorrent, libtorrent

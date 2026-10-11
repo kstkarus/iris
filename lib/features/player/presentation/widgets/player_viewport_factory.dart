@@ -4,6 +4,10 @@ import 'package:iris/features/player/presentation/cubit/player_decoding_preferen
 import 'package:iris/features/player/presentation/cubit/player_subtitle_preferences_cubit.dart';
 import 'package:iris/features/player/presentation/playback/player_engine.dart';
 
+/// How the viewer drives the player: a mouse and keyboard (desktop), or a
+/// finger (phones and tablets). One layout serves both, sized for each.
+enum PlayerInputMode { pointer, touch }
+
 /// The file after the playing one.
 class PlayerNextFile {
   const PlayerNextFile({required this.title, required this.play});
@@ -37,8 +41,8 @@ class PlayerNotice {
   final VoidCallback onTimeout;
 }
 
-/// What the immersive player draws around the video: the titles, the way
-/// back and the episodes drawer.
+/// What the player draws around the video: the titles, the way back and
+/// the episodes drawer.
 class PlayerChrome {
   const PlayerChrome({
     required this.title,
@@ -83,18 +87,19 @@ abstract interface class PlayerViewportFactory {
     required PlayerDecodingPreferencesCubit decodingPreferences,
   });
 
-  /// Renders [engine]. The widget owns nothing, so rebuilding or moving it
-  /// (layout changes, full screen) never interrupts playback.
+  /// Renders [engine], filling its box, with immersive controls drawn
+  /// over the video: [chrome]'s titles, the way back and the episodes
+  /// drawer. The widget owns nothing, so rebuilding it (rotation, window
+  /// resize, full screen) never interrupts playback.
   ///
-  /// [next] is offered in the player's own controls and when a file ends,
-  /// also in full screen; null when there is no next file.
-  ///
-  /// With [chrome] the widget fills its box and draws immersive controls
-  /// (titles, back, episodes drawer, keyboard shortcuts) over the video;
-  /// full screen then only switches the window, without a separate route.
+  /// [input] sizes the controls for a pointer or a finger; only a pointer
+  /// gets keyboard full screen and the volume, which phones keep on their
+  /// own buttons. [next] is offered in the controls and when a file ends;
+  /// null when there is no next file.
   Widget build({
     required PlayerEngine engine,
+    required PlayerChrome chrome,
+    PlayerInputMode input = PlayerInputMode.pointer,
     PlayerNextFile? next,
-    PlayerChrome? chrome,
   });
 }

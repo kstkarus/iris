@@ -108,6 +108,7 @@ import 'package:iris/shared/network/yummy_anime_api_client.dart';
 import 'package:iris/shared/storage/shikimori_session_store.dart';
 import 'package:iris/shared/storage/stream_cache_storage.dart';
 import 'package:iris/shared/torrent/torrent_activity_registry.dart';
+import 'package:iris/shared/window/player_screen_mode.dart';
 import 'package:iris/shared/window/windows_fullscreen.dart';
 
 final serviceLocator = GetIt.instance;
@@ -460,7 +461,14 @@ Future<void> _registerDownloads(Directory supportDirectory) async {
 
 /// Registrations that are the same with and without mocks.
 void _registerCommon() {
+  final phone =
+      !kIsWeb &&
+      (defaultTargetPlatform == TargetPlatform.android ||
+          defaultTargetPlatform == TargetPlatform.iOS);
   serviceLocator
+    ..registerLazySingleton<PlayerScreenMode>(
+      () => phone ? const PhonePlayerScreenMode() : const NoPlayerScreenMode(),
+    )
     ..registerLazySingleton<MarkEpisodeWatched>(
       () => MarkEpisodeWatched(serviceLocator<UserRateRepository>()),
     )
