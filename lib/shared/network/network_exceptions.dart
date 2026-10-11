@@ -2,12 +2,18 @@ class NetworkRequestException implements Exception {
   const NetworkRequestException(this.message);
 
   final String message;
+
+  @override
+  String toString() => 'NetworkRequestException: $message';
 }
 
 class RemoteResponseException implements Exception {
   const RemoteResponseException(this.message);
 
   final String message;
+
+  @override
+  String toString() => '$runtimeType: $message';
 }
 
 class ResourceNotFoundException extends RemoteResponseException {

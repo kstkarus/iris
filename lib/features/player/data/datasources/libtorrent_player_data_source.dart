@@ -361,7 +361,7 @@ class LibtorrentPlayerDataSource {
       }
 
       developer.log(
-        'Background playback HTTP probe could not confirm a playable media container. sessionId=$sessionId url=$url status=${lastResult?.statusCode} firstBytesHex=${lastResult == null ? 'none' : formatBytesHex(lastResult.firstBytes)}',
+        'Background playback HTTP probe could not confirm a playable media container. sessionId=$sessionId url=$url status=${lastResult?.statusCode} firstBytesHex=${lastResult == null ? 'none' : formatBytesHex(lastResult.firstBytes)} error=${lastResult?.error}',
         name: 'iris.player.datasource',
       );
     } catch (error, stackTrace) {

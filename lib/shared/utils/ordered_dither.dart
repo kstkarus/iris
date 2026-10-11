@@ -2,10 +2,10 @@ import 'dart:math' as math;
 import 'dart:typed_data';
 
 /// 4×4 Bayer thresholds, 0…15: the classic ordered-dither screen.
-const bayer4 = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
+const _bayer4 = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
 
 /// The Bayer threshold (0…15) of grid cell ([x], [y]).
-int bayerLevel(int x, int y) => bayer4[(y & 3) * 4 + (x & 3)];
+int bayerLevel(int x, int y) => _bayer4[(y & 3) * 4 + (x & 3)];
 
 /// Colour (RGB, 0…1, three values per cell) of [rgba] scaled to cover a
 /// [width]×[height] grid, like [BoxFit.cover]: each grid cell averages the

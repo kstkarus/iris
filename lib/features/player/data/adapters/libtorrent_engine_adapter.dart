@@ -150,7 +150,7 @@ class LibtorrentEngineAdapterImpl implements LibtorrentEngineAdapter {
         preloadCache: _torrentSessionPreloadPercent,
         responsiveMode: true,
         // With IPv6 disabled the native bridge rebinds the session to
-        // 0.0.0.0:6881, overriding torrentListenInterfaces.
+        // 0.0.0.0:6881, overriding the listen interfaces set at init.
         enableIpv6: true,
       ),
     );

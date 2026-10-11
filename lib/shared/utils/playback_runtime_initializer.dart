@@ -6,9 +6,9 @@ import 'package:media_kit/media_kit.dart';
 /// Fixed listen port instead of libtorrent's random `:0` default: on Windows
 /// a random port often lands in ranges reserved by Hyper-V/WSL and the bind
 /// fails. libtorrent falls back to an OS-assigned port if this one is busy.
-const torrentListenPort = 6890;
-const torrentListenInterfaces =
-    '0.0.0.0:$torrentListenPort,[::]:$torrentListenPort';
+const _torrentListenPort = 6890;
+const _torrentListenInterfaces =
+    '0.0.0.0:$_torrentListenPort,[::]:$_torrentListenPort';
 
 abstract final class PlaybackRuntimeInitializer {
   static bool _initialized = false;
@@ -27,7 +27,7 @@ abstract final class PlaybackRuntimeInitializer {
       name: 'iris.player.runtime',
     );
     MediaKit.ensureInitialized();
-    await LibtorrentFlutter.init(listenInterface: torrentListenInterfaces);
+    await LibtorrentFlutter.init(listenInterface: _torrentListenInterfaces);
     _initialized = true;
     developer.log(
       'Playback runtime initialized successfully.',
