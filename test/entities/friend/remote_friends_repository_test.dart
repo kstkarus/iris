@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:iris/entities/friend/data/remote_friends_repository.dart';
 import 'package:iris/entities/friend/domain/friend.dart';
 import 'package:iris/entities/user_rate/domain/user_rate.dart';
+import 'package:iris/shared/network/shikimori_rest_client.dart';
 
 import '../../helpers/fake_http_adapter.dart';
 
@@ -14,8 +15,10 @@ void main() {
   RemoteFriendsRepository repository() {
     adapter = FakeHttpAdapter((options) => server(options));
     return RemoteFriendsRepository(
-      dio: Dio(BaseOptions(baseUrl: 'https://shikimori.io'))
-        ..httpClientAdapter = adapter,
+      client: ShikimoriRestClient(
+        dio: Dio(BaseOptions(baseUrl: 'https://shikimori.io'))
+          ..httpClientAdapter = adapter,
+      ),
     );
   }
 

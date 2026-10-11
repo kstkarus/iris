@@ -94,19 +94,20 @@ import 'package:iris/features/watch_sources/data/repositories/remote_watch_sourc
 import 'package:iris/features/watch_sources/data/repositories/shared_preferences_watch_sources_tab_repository.dart';
 import 'package:iris/features/watch_sources/domain/repositories/watch_sources_repository.dart';
 import 'package:iris/features/watch_sources/domain/repositories/watch_sources_tab_repository.dart';
+import 'package:iris/shared/network/anilibria_api.dart';
 import 'package:iris/shared/network/anilibria_api_client.dart';
-import 'package:iris/shared/network/anilibria_dio_factory.dart';
 import 'package:iris/shared/network/dio_factory.dart';
 import 'package:iris/shared/network/aniskip_api_client.dart';
 import 'package:iris/shared/network/aniskip_dio_factory.dart';
+import 'package:iris/shared/network/nyaa_api.dart';
 import 'package:iris/shared/network/nyaa_api_client.dart';
-import 'package:iris/shared/network/nyaa_dio_factory.dart';
 import 'package:iris/shared/network/shikimori_graph_ql_client.dart';
 import 'package:iris/shared/network/shikimori_oauth_client.dart';
 import 'package:iris/shared/network/shikimori_oauth_config.dart';
+import 'package:iris/shared/network/shikimori_rest_client.dart';
 import 'package:iris/shared/network/video_server_dio_factory.dart';
+import 'package:iris/shared/network/yummy_anime_api.dart';
 import 'package:iris/shared/network/yummy_anime_api_client.dart';
-import 'package:iris/shared/network/yummy_anime_dio_factory.dart';
 import 'package:iris/shared/storage/shikimori_session_store.dart';
 import 'package:iris/shared/storage/stream_cache_storage.dart';
 import 'package:iris/shared/torrent/torrent_activity_registry.dart';
@@ -122,562 +123,386 @@ Future<void> configureDependencies({
     await serviceLocator.reset();
   }
 
-  if (!serviceLocator.isRegistered<ShikimoriSessionStore>()) {
-    serviceLocator.registerLazySingleton<ShikimoriSessionStore>(
-      () => ShikimoriSessionStore(const FlutterSecureStorage()),
+  _registerNetwork();
+  serviceLocator
+    ..registerLazySingleton<GoRouter>(AppRouter.createRouter)
+    ..registerSingleton<SharedPreferences>(
+      await SharedPreferences.getInstance(),
     );
+
+  if (useMocks) {
+    _registerMocks();
+  } else {
+    await _registerReal();
   }
 
-  if (!serviceLocator.isRegistered<ShikimoriOAuthConfig>()) {
-    // Desktop has no app links: the default browser comes back to a
-    // server the app runs on its own machine.
-    final loopback =
-        !kIsWeb &&
-        (defaultTargetPlatform == TargetPlatform.windows ||
-            defaultTargetPlatform == TargetPlatform.linux);
-    serviceLocator.registerSingleton<ShikimoriOAuthConfig>(
+  _registerCommon();
+}
+
+void _registerNetwork() {
+  // Desktop has no app links: the default browser comes back to a
+  // server the app runs on its own machine.
+  final loopback =
+      !kIsWeb &&
+      (defaultTargetPlatform == TargetPlatform.windows ||
+          defaultTargetPlatform == TargetPlatform.linux);
+
+  serviceLocator
+    ..registerLazySingleton<ShikimoriSessionStore>(
+      () => ShikimoriSessionStore(const FlutterSecureStorage()),
+    )
+    ..registerSingleton<ShikimoriOAuthConfig>(
       ShikimoriOAuthConfig.fromEnvironment(
         redirectUri: loopback
             ? ShikimoriOAuthConfig.loopbackRedirectUri
             : ShikimoriOAuthConfig.appRedirectUri,
       ),
-    );
-  }
-
-  if (!serviceLocator.isRegistered<ShikimoriOAuthClient>()) {
-    serviceLocator.registerLazySingleton<ShikimoriOAuthClient>(
+    )
+    ..registerLazySingleton<ShikimoriOAuthClient>(
       () => ShikimoriOAuthClient(
         dio: createShikimoriOAuthDio(),
         config: serviceLocator<ShikimoriOAuthConfig>(),
       ),
-    );
-  }
-
-  if (!serviceLocator.isRegistered<Dio>()) {
-    serviceLocator.registerLazySingleton<Dio>(
-      () => createDio(
+    )
+    ..registerLazySingleton<Dio>(
+      () => createShikimoriDio(
         session: serviceLocator<ShikimoriSessionStore>(),
         oauth: serviceLocator<ShikimoriOAuthClient>(),
       ),
-    );
-  }
-
-  if (!serviceLocator.isRegistered<ShikimoriGraphQlClient>()) {
-    serviceLocator.registerLazySingleton<ShikimoriGraphQlClient>(
+    )
+    ..registerLazySingleton<ShikimoriGraphQlClient>(
       () => ShikimoriGraphQlClient(dio: serviceLocator<Dio>()),
-    );
-  }
-
-  if (!serviceLocator.isRegistered<NyaaApiClient>()) {
-    serviceLocator.registerLazySingleton<NyaaApiClient>(
-      () => NyaaApiClient(dio: createNyaaDio()),
-    );
-  }
-
-  if (!serviceLocator.isRegistered<AnilibriaApiClient>()) {
-    serviceLocator.registerLazySingleton<AnilibriaApiClient>(
-      () => AnilibriaApiClient(dio: createAnilibriaDio()),
-    );
-  }
-
-  if (!serviceLocator.isRegistered<YummyAnimeApiClient>()) {
-    serviceLocator.registerLazySingleton<YummyAnimeApiClient>(
-      () => YummyAnimeApiClient(dio: createYummyAnimeDio()),
-    );
-  }
-
-  if (!serviceLocator.isRegistered<AniSkipApiClient>()) {
-    serviceLocator.registerLazySingleton<AniSkipApiClient>(
+    )
+    ..registerLazySingleton<ShikimoriRestClient>(
+      () => ShikimoriRestClient(dio: serviceLocator<Dio>()),
+    )
+    ..registerLazySingleton<NyaaApiClient>(
+      () => NyaaApiClient(dio: createJsonApiDio(baseUrl: NyaaApi.baseUrl)),
+    )
+    ..registerLazySingleton<AnilibriaApiClient>(
+      () => AnilibriaApiClient(
+        dio: createJsonApiDio(baseUrl: AnilibriaApi.baseUrl),
+      ),
+    )
+    ..registerLazySingleton<YummyAnimeApiClient>(
+      () => YummyAnimeApiClient(
+        dio: createJsonApiDio(
+          baseUrl: YummyAnimeApi.baseUrl,
+          // A long-running anime lists thousands of videos.
+          receiveTimeout: const Duration(seconds: 30),
+        ),
+      ),
+    )
+    ..registerLazySingleton<AniSkipApiClient>(
       () => AniSkipApiClient(dio: createAniSkipDio()),
     );
-  }
+}
 
-  if (!serviceLocator.isRegistered<GoRouter>()) {
-    serviceLocator.registerLazySingleton<GoRouter>(AppRouter.createRouter);
-  }
-
-  if (!serviceLocator.isRegistered<SharedPreferences>()) {
-    serviceLocator.registerSingleton<SharedPreferences>(
-      await SharedPreferences.getInstance(),
+void _registerMocks() {
+  serviceLocator
+    ..registerLazySingleton<AuthRepository>(MockAuthRepository.new)
+    ..registerLazySingleton<UserRateRepository>(MockUserRateRepository.new)
+    ..registerLazySingleton<MockAnimeListDataSource>(
+      MockAnimeListDataSource.new,
+    )
+    ..registerLazySingleton<MockAnimeDetailsDataSource>(
+      MockAnimeDetailsDataSource.new,
+    )
+    ..registerLazySingleton<MockWatchSourcesDataSource>(
+      MockWatchSourcesDataSource.new,
+    )
+    ..registerLazySingleton<AnimeListRepository>(
+      () => MockAnimeListRepository(
+        dataSource: serviceLocator<MockAnimeListDataSource>(),
+        userRates: _mockUserRates(),
+      ),
+    )
+    ..registerLazySingleton<FriendsRepository>(MockFriendsRepository.new)
+    ..registerLazySingleton<UserListRepository>(
+      () => MockUserListRepository(
+        rates: _mockUserRates(),
+        titles: () async => [
+          for (final dto
+              in await serviceLocator<MockAnimeListDataSource>()
+                  .fetchPopularAnime())
+            _listedAnime(mapShikimoriAnimeToDomain(dto)),
+        ],
+      ),
+    )
+    ..registerLazySingleton<AnimeGenresRepository>(
+      MockAnimeGenresRepository.new,
+    )
+    ..registerLazySingleton<AnimeDetailsRepository>(
+      () => MockAnimeDetailsRepository(
+        dataSource: serviceLocator<MockAnimeDetailsDataSource>(),
+      ),
+    )
+    ..registerLazySingleton<WatchSourcesRepository>(
+      () => MockWatchSourcesRepository(
+        dataSource: serviceLocator<MockWatchSourcesDataSource>(),
+      ),
+    )
+    ..registerLazySingleton<DownloadsRepository>(MockDownloadsRepository.new)
+    ..registerLazySingleton<OnlineSourcesRepository>(
+      MockOnlineSourcesRepository.new,
+    )
+    ..registerLazySingleton<OnlineReleasesSearch>(
+      MockOnlineSourcesRepository.new,
+    )
+    ..registerLazySingleton<PlayerRepository>(MockPlayerRepository.new)
+    ..registerLazySingleton<PlayerSkipTimesRepository>(
+      MockPlayerSkipTimesRepository.new,
+    )
+    ..registerLazySingleton<PlayerViewportFactory>(
+      MockPlayerViewportFactory.new,
     );
-  }
+}
 
-  if (useMocks) {
-    if (!serviceLocator.isRegistered<AuthRepository>()) {
-      serviceLocator.registerLazySingleton<AuthRepository>(
-        MockAuthRepository.new,
-      );
-    }
+/// The mock user rates, which the mock catalog and lists read directly.
+MockUserRateRepository _mockUserRates() =>
+    serviceLocator<UserRateRepository>() as MockUserRateRepository;
 
-    if (!serviceLocator.isRegistered<UserRateRepository>()) {
-      serviceLocator.registerLazySingleton<UserRateRepository>(
-        MockUserRateRepository.new,
-      );
-    }
+Future<void> _registerReal() async {
+  final supportDirectory = await getApplicationSupportDirectory();
+  final temporaryDirectory = await getTemporaryDirectory();
 
-    if (!serviceLocator.isRegistered<MarkEpisodeWatched>()) {
-      serviceLocator.registerLazySingleton<MarkEpisodeWatched>(
-        () => MarkEpisodeWatched(serviceLocator<UserRateRepository>()),
-      );
-    }
+  final streamCache = StreamCacheStorage(
+    directory: Directory(path.join(temporaryDirectory.path, 'iris', 'stream')),
+  );
+  serviceLocator.registerSingleton<StreamCacheStorage>(streamCache);
+  // Leftovers of a crashed or killed session are useless after restart.
+  unawaited(streamCache.prepare());
 
-    if (!serviceLocator.isRegistered<MockAnimeListDataSource>()) {
-      serviceLocator.registerLazySingleton<MockAnimeListDataSource>(
-        MockAnimeListDataSource.new,
-      );
-    }
-
-    if (!serviceLocator.isRegistered<MockAnimeDetailsDataSource>()) {
-      serviceLocator.registerLazySingleton<MockAnimeDetailsDataSource>(
-        MockAnimeDetailsDataSource.new,
-      );
-    }
-
-    if (!serviceLocator.isRegistered<MockWatchSourcesDataSource>()) {
-      serviceLocator.registerLazySingleton<MockWatchSourcesDataSource>(
-        MockWatchSourcesDataSource.new,
-      );
-    }
-
-    if (!serviceLocator.isRegistered<AnimeListRepository>()) {
-      serviceLocator.registerLazySingleton<AnimeListRepository>(
-        () => MockAnimeListRepository(
-          dataSource: serviceLocator<MockAnimeListDataSource>(),
-          userRates: switch (serviceLocator<UserRateRepository>()) {
-            final MockUserRateRepository mock => mock,
-            _ => null,
-          },
-        ),
-      );
-    }
-
-    if (!serviceLocator.isRegistered<FriendsRepository>()) {
-      serviceLocator.registerLazySingleton<FriendsRepository>(
-        MockFriendsRepository.new,
-      );
-    }
-
-    if (!serviceLocator.isRegistered<UserListRepository>()) {
-      serviceLocator.registerLazySingleton<UserListRepository>(
-        () => MockUserListRepository(
-          rates: switch (serviceLocator<UserRateRepository>()) {
-            final MockUserRateRepository mock => mock,
-            _ => MockUserRateRepository(),
-          },
-          titles: () async => [
-            for (final dto
-                in await serviceLocator<MockAnimeListDataSource>()
-                    .fetchPopularAnime())
-              _listedAnime(mapShikimoriAnimeToDomain(dto)),
-          ],
-        ),
-      );
-    }
-
-    if (!serviceLocator.isRegistered<AnimeGenresRepository>()) {
-      serviceLocator.registerLazySingleton<AnimeGenresRepository>(
-        MockAnimeGenresRepository.new,
-      );
-    }
-
-    if (!serviceLocator.isRegistered<AnimeDetailsRepository>()) {
-      serviceLocator.registerLazySingleton<AnimeDetailsRepository>(
-        () => MockAnimeDetailsRepository(
-          dataSource: serviceLocator<MockAnimeDetailsDataSource>(),
-        ),
-      );
-    }
-
-    if (!serviceLocator.isRegistered<WatchSourcesRepository>()) {
-      serviceLocator.registerLazySingleton<WatchSourcesRepository>(
-        () => MockWatchSourcesRepository(
-          dataSource: serviceLocator<MockWatchSourcesDataSource>(),
-        ),
-      );
-    }
-
-    if (!serviceLocator.isRegistered<DownloadsRepository>()) {
-      serviceLocator.registerLazySingleton<DownloadsRepository>(
-        MockDownloadsRepository.new,
-      );
-    }
-
-    if (!serviceLocator.isRegistered<OnlineSourcesRepository>()) {
-      serviceLocator
-        ..registerLazySingleton<OnlineSourcesRepository>(
-          MockOnlineSourcesRepository.new,
-        )
-        ..registerLazySingleton<OnlineReleasesSearch>(
-          MockOnlineSourcesRepository.new,
-        );
-    }
-
-    if (!serviceLocator.isRegistered<PlayerRepository>()) {
-      serviceLocator.registerLazySingleton<PlayerRepository>(
-        MockPlayerRepository.new,
-      );
-    }
-
-    if (!serviceLocator.isRegistered<PlayerSkipTimesRepository>()) {
-      serviceLocator.registerLazySingleton<PlayerSkipTimesRepository>(
-        MockPlayerSkipTimesRepository.new,
-      );
-    }
-
-    if (!serviceLocator.isRegistered<PlayerViewportFactory>()) {
-      serviceLocator.registerLazySingleton<PlayerViewportFactory>(
-        MockPlayerViewportFactory.new,
-      );
-    }
-
-    if (!serviceLocator.isRegistered<SubtitlePreferencesRepository>()) {
-      serviceLocator.registerLazySingleton<SubtitlePreferencesRepository>(
-        () => SharedPreferencesSubtitlePreferencesRepository(
-          serviceLocator<SharedPreferences>(),
-        ),
-      );
-    }
-
-    if (!serviceLocator.isRegistered<PlayerDecodingPreferencesRepository>()) {
-      serviceLocator.registerLazySingleton<PlayerDecodingPreferencesRepository>(
-        () => PlayerDecodingPreferencesRepositoryImpl(
-          serviceLocator<SharedPreferences>(),
-        ),
-      );
-    }
-  } else {
-    final supportDirectory = await getApplicationSupportDirectory();
-    final downloadsDirectory = Directory(
-      path.join(supportDirectory.path, 'offline_downloads'),
-    );
-    final temporaryDirectory = await getTemporaryDirectory();
-
-    if (!serviceLocator.isRegistered<StreamCacheStorage>()) {
-      final streamCache = StreamCacheStorage(
-        directory: Directory(
-          path.join(temporaryDirectory.path, 'iris', 'stream'),
-        ),
-      );
-      serviceLocator.registerSingleton<StreamCacheStorage>(streamCache);
-      // Leftovers of a crashed or killed session are useless after restart.
-      unawaited(streamCache.prepare());
-    }
-
-    if (!serviceLocator.isRegistered<TorrentActivityRegistry>()) {
-      serviceLocator.registerLazySingleton<TorrentActivityRegistry>(
-        TorrentActivityRegistry.new,
-      );
-    }
-
-    if (!serviceLocator.isRegistered<AuthRepository>()) {
-      serviceLocator.registerLazySingleton<AuthRepository>(
-        () => ShikimoriAuthRepository(
-          oauth: serviceLocator<ShikimoriOAuthClient>(),
-          session: serviceLocator<ShikimoriSessionStore>(),
-          accounts: ShikimoriAccountDataSource(
-            client: serviceLocator<ShikimoriGraphQlClient>(),
-          ),
-          authenticator: FlutterWebAuthenticator(
-            callbackUrlScheme:
-                serviceLocator<ShikimoriOAuthConfig>().callbackUrlScheme,
-          ),
-          preferences: serviceLocator<SharedPreferences>(),
-          // flutter_web_auth_2's web flow needs a callback page iris lacks.
-          platformSupported: !kIsWeb,
-        ),
-      );
-    }
-
-    if (!serviceLocator.isRegistered<UserRateRepository>()) {
-      serviceLocator.registerLazySingleton<UserRateRepository>(
-        () => RemoteUserRateRepository(
-          graphQl: serviceLocator<ShikimoriGraphQlClient>(),
-          dio: serviceLocator<Dio>(),
-        ),
-      );
-    }
-
-    if (!serviceLocator.isRegistered<MarkEpisodeWatched>()) {
-      serviceLocator.registerLazySingleton<MarkEpisodeWatched>(
-        () => MarkEpisodeWatched(serviceLocator<UserRateRepository>()),
-      );
-    }
-
-    if (!serviceLocator.isRegistered<FriendsRepository>()) {
-      serviceLocator.registerLazySingleton<FriendsRepository>(
-        () => RemoteFriendsRepository(dio: serviceLocator<Dio>()),
-      );
-    }
-
-    if (!serviceLocator.isRegistered<UserListRepository>()) {
-      serviceLocator.registerLazySingleton<UserListRepository>(
-        () => RemoteUserListRepository(
+  serviceLocator
+    ..registerLazySingleton<TorrentActivityRegistry>(
+      TorrentActivityRegistry.new,
+    )
+    ..registerLazySingleton<AuthRepository>(
+      () => ShikimoriAuthRepository(
+        oauth: serviceLocator<ShikimoriOAuthClient>(),
+        session: serviceLocator<ShikimoriSessionStore>(),
+        accounts: ShikimoriAccountDataSource(
           client: serviceLocator<ShikimoriGraphQlClient>(),
         ),
-      );
-    }
-
-    if (!serviceLocator.isRegistered<AnimeGenresRepository>()) {
-      serviceLocator.registerLazySingleton<AnimeGenresRepository>(
-        () => RemoteAnimeGenresRepository(
-          client: serviceLocator<ShikimoriGraphQlClient>(),
+        authenticator: FlutterWebAuthenticator(
+          callbackUrlScheme:
+              serviceLocator<ShikimoriOAuthConfig>().callbackUrlScheme,
         ),
-      );
-    }
-
-    if (!serviceLocator.isRegistered<RemoteAnimeListDataSource>()) {
-      serviceLocator.registerLazySingleton<RemoteAnimeListDataSource>(
-        () => RemoteAnimeListDataSource(
-          client: serviceLocator<ShikimoriGraphQlClient>(),
-        ),
-      );
-    }
-
-    if (!serviceLocator.isRegistered<RemoteAnimeDetailsDataSource>()) {
-      serviceLocator.registerLazySingleton<RemoteAnimeDetailsDataSource>(
-        () => RemoteAnimeDetailsDataSource(
-          client: serviceLocator<ShikimoriGraphQlClient>(),
-        ),
-      );
-    }
-
-    if (!serviceLocator.isRegistered<RemoteWatchSourcesDataSource>()) {
-      serviceLocator.registerLazySingleton<RemoteWatchSourcesDataSource>(
-        () => RemoteWatchSourcesDataSource(
-          client: serviceLocator<NyaaApiClient>(),
-        ),
-      );
-    }
-
-    if (!serviceLocator.isRegistered<LibtorrentEngineAdapter>()) {
-      serviceLocator.registerLazySingleton<LibtorrentEngineAdapter>(
-        () => LibtorrentEngineAdapterImpl(
-          streamCache: serviceLocator<StreamCacheStorage>(),
-        ),
-      );
-    }
-
-    if (!serviceLocator.isRegistered<PlayerRuntimeMemoryAdapter>()) {
-      serviceLocator.registerLazySingleton<PlayerRuntimeMemoryAdapter>(
-        MethodChannelPlayerRuntimeMemoryAdapter.new,
-      );
-    }
-
-    if (!serviceLocator.isRegistered<LibtorrentDownloadEngineAdapter>()) {
-      serviceLocator.registerLazySingleton<LibtorrentDownloadEngineAdapter>(
-        LibtorrentDownloadEngineAdapterImpl.new,
-      );
-    }
-
-    if (!serviceLocator.isRegistered<DownloadForegroundServiceAdapter>()) {
-      serviceLocator.registerLazySingleton<DownloadForegroundServiceAdapter>(
-        () => defaultTargetPlatform == TargetPlatform.android && !kIsWeb
-            ? const MethodChannelDownloadForegroundServiceAdapter()
-            : const NoopDownloadForegroundServiceAdapter(),
-      );
-    }
-
-    if (!serviceLocator.isRegistered<AppStorageUsageAdapter>()) {
-      serviceLocator.registerLazySingleton<AppStorageUsageAdapter>(
-        MethodChannelAppStorageUsageAdapter.new,
-      );
-    }
-
-    if (!serviceLocator.isRegistered<DownloadRegistryDataSource>()) {
-      serviceLocator.registerLazySingleton<DownloadRegistryDataSource>(
-        () => DownloadRegistryDataSource(
-          registryFile: File(
-            path.join(supportDirectory.path, 'downloads_registry.json'),
-          ),
-        ),
-      );
-    }
-
-    if (!serviceLocator.isRegistered<DownloadsRepository>()) {
-      final repository = DownloadsRepositoryImpl(
-        engine: serviceLocator<LibtorrentDownloadEngineAdapter>(),
-        registry: serviceLocator<DownloadRegistryDataSource>(),
-        downloadsDirectory: downloadsDirectory,
-        foregroundService: serviceLocator<DownloadForegroundServiceAdapter>(),
-        storageUsageAdapter: serviceLocator<AppStorageUsageAdapter>(),
+        preferences: serviceLocator<SharedPreferences>(),
+        // flutter_web_auth_2's web flow needs a callback page iris lacks.
+        platformSupported: !kIsWeb,
+      ),
+    )
+    ..registerLazySingleton<UserRateRepository>(
+      () => RemoteUserRateRepository(
+        graphQl: serviceLocator<ShikimoriGraphQlClient>(),
+        rest: serviceLocator<ShikimoriRestClient>(),
+      ),
+    )
+    ..registerLazySingleton<FriendsRepository>(
+      () => RemoteFriendsRepository(
+        client: serviceLocator<ShikimoriRestClient>(),
+      ),
+    )
+    ..registerLazySingleton<UserListRepository>(
+      () => RemoteUserListRepository(
+        client: serviceLocator<ShikimoriGraphQlClient>(),
+      ),
+    )
+    ..registerLazySingleton<AnimeGenresRepository>(
+      () => RemoteAnimeGenresRepository(
+        client: serviceLocator<ShikimoriGraphQlClient>(),
+      ),
+    )
+    ..registerLazySingleton<RemoteAnimeListDataSource>(
+      () => RemoteAnimeListDataSource(
+        client: serviceLocator<ShikimoriGraphQlClient>(),
+      ),
+    )
+    ..registerLazySingleton<RemoteAnimeDetailsDataSource>(
+      () => RemoteAnimeDetailsDataSource(
+        client: serviceLocator<ShikimoriGraphQlClient>(),
+      ),
+    )
+    ..registerLazySingleton<RemoteWatchSourcesDataSource>(
+      () =>
+          RemoteWatchSourcesDataSource(client: serviceLocator<NyaaApiClient>()),
+    )
+    ..registerLazySingleton<LibtorrentEngineAdapter>(
+      () => LibtorrentEngineAdapterImpl(
         streamCache: serviceLocator<StreamCacheStorage>(),
+      ),
+    )
+    ..registerLazySingleton<PlayerRuntimeMemoryAdapter>(
+      MethodChannelPlayerRuntimeMemoryAdapter.new,
+    );
+
+  await _registerDownloads(supportDirectory);
+
+  serviceLocator
+    ..registerLazySingleton<LibtorrentPlayerDataSource>(
+      () => LibtorrentPlayerDataSource(
+        engine: serviceLocator<LibtorrentEngineAdapter>(),
+        memoryAdapter: serviceLocator<PlayerRuntimeMemoryAdapter>(),
         activityRegistry: serviceLocator<TorrentActivityRegistry>(),
-      );
-      serviceLocator.registerSingleton<DownloadsRepository>(
-        repository,
-        dispose: (_) => repository.close(),
-      );
-      await repository.restore();
-    }
-
-    if (!serviceLocator.isRegistered<LibtorrentPlayerDataSource>()) {
-      serviceLocator.registerLazySingleton<LibtorrentPlayerDataSource>(
-        () => LibtorrentPlayerDataSource(
-          engine: serviceLocator<LibtorrentEngineAdapter>(),
-          memoryAdapter: serviceLocator<PlayerRuntimeMemoryAdapter>(),
-          activityRegistry: serviceLocator<TorrentActivityRegistry>(),
-        ),
-      );
-    }
-
-    if (!serviceLocator.isRegistered<AnimeListRepository>()) {
-      serviceLocator.registerLazySingleton<AnimeListRepository>(
-        () => RemoteAnimeListRepository(
-          dataSource: serviceLocator<RemoteAnimeListDataSource>(),
-        ),
-      );
-    }
-
-    if (!serviceLocator.isRegistered<AnimeDetailsRepository>()) {
-      serviceLocator.registerLazySingleton<AnimeDetailsRepository>(
-        () => RemoteAnimeDetailsRepository(
-          dataSource: serviceLocator<RemoteAnimeDetailsDataSource>(),
-        ),
-      );
-    }
-
-    if (!serviceLocator.isRegistered<WatchSourcesRepository>()) {
-      serviceLocator.registerLazySingleton<WatchSourcesRepository>(
-        () => RemoteWatchSourcesRepository(
-          dataSource: serviceLocator<RemoteWatchSourcesDataSource>(),
-        ),
-      );
-    }
-
-    if (!serviceLocator.isRegistered<CombinedOnlineSourcesRepository>()) {
-      serviceLocator.registerLazySingleton<CombinedOnlineSourcesRepository>(() {
-        final videoServers = createVideoServerDio();
-        return CombinedOnlineSourcesRepository(
-          // AniLibria first: its own release is better than a copy.
-          providers: {
-            OnlineProvider.anilibria: AnilibriaOnlineSourcesRepository(
-              dataSource: AnilibriaDataSource(
-                client: serviceLocator<AnilibriaApiClient>(),
-              ),
+      ),
+    )
+    ..registerLazySingleton<AnimeListRepository>(
+      () => RemoteAnimeListRepository(
+        dataSource: serviceLocator<RemoteAnimeListDataSource>(),
+      ),
+    )
+    ..registerLazySingleton<AnimeDetailsRepository>(
+      () => RemoteAnimeDetailsRepository(
+        dataSource: serviceLocator<RemoteAnimeDetailsDataSource>(),
+      ),
+    )
+    ..registerLazySingleton<WatchSourcesRepository>(
+      () => RemoteWatchSourcesRepository(
+        dataSource: serviceLocator<RemoteWatchSourcesDataSource>(),
+      ),
+    )
+    ..registerLazySingleton<CombinedOnlineSourcesRepository>(() {
+      final videoServers = createVideoServerDio();
+      return CombinedOnlineSourcesRepository(
+        // AniLibria first: its own release is better than a copy.
+        providers: {
+          OnlineProvider.anilibria: AnilibriaOnlineSourcesRepository(
+            dataSource: AnilibriaDataSource(
+              client: serviceLocator<AnilibriaApiClient>(),
             ),
-            OnlineProvider.yummyAnime: YummyAnimeOnlineSourcesRepository(
-              dataSource: YummyAnimeDataSource(
-                client: serviceLocator<YummyAnimeApiClient>(),
-              ),
-              kodik: KodikDataSource(dio: videoServers),
-              aksor: AksorDataSource(dio: videoServers),
+          ),
+          OnlineProvider.yummyAnime: YummyAnimeOnlineSourcesRepository(
+            dataSource: YummyAnimeDataSource(
+              client: serviceLocator<YummyAnimeApiClient>(),
             ),
-          },
-        );
-      });
-    }
+            kodik: KodikDataSource(dio: videoServers),
+            aksor: AksorDataSource(dio: videoServers),
+          ),
+        },
+      );
+    })
     // One repository behind both: the search shows sites as they answer,
     // the player opens what it found.
-    if (!serviceLocator.isRegistered<OnlineSourcesRepository>()) {
-      serviceLocator.registerLazySingleton<OnlineSourcesRepository>(
-        () => serviceLocator<CombinedOnlineSourcesRepository>(),
-      );
-    }
-    if (!serviceLocator.isRegistered<OnlineReleasesSearch>()) {
-      serviceLocator.registerLazySingleton<OnlineReleasesSearch>(
-        () => serviceLocator<CombinedOnlineSourcesRepository>(),
-      );
-    }
-
-    if (!serviceLocator.isRegistered<PlayerRepository>()) {
-      serviceLocator.registerLazySingleton<PlayerRepository>(
-        () => StreamingOrLocalPlayerRepository(
-          streaming: TorrentPlayerRepository(
-            dataSource: serviceLocator<LibtorrentPlayerDataSource>(),
-          ),
-          online: OnlinePlayerRepository(
-            repository: serviceLocator<OnlineSourcesRepository>(),
-          ),
-          local: LocalPlayerRepository(
-            downloadsRepository: serviceLocator<DownloadsRepository>(),
-            memoryAdapter: serviceLocator<PlayerRuntimeMemoryAdapter>(),
-          ),
+    ..registerLazySingleton<OnlineSourcesRepository>(
+      () => serviceLocator<CombinedOnlineSourcesRepository>(),
+    )
+    ..registerLazySingleton<OnlineReleasesSearch>(
+      () => serviceLocator<CombinedOnlineSourcesRepository>(),
+    )
+    ..registerLazySingleton<PlayerRepository>(
+      () => StreamingOrLocalPlayerRepository(
+        streaming: TorrentPlayerRepository(
+          dataSource: serviceLocator<LibtorrentPlayerDataSource>(),
         ),
-      );
-    }
-
-    if (!serviceLocator.isRegistered<PlayerSkipTimesRepository>()) {
-      serviceLocator.registerLazySingleton<PlayerSkipTimesRepository>(
-        () => AniSkipSkipTimesRepository(
-          client: serviceLocator<AniSkipApiClient>(),
+        online: OnlinePlayerRepository(
+          repository: serviceLocator<OnlineSourcesRepository>(),
         ),
-      );
-    }
-
-    if (!serviceLocator.isRegistered<PlayerViewportFactory>()) {
-      serviceLocator.registerLazySingleton<PlayerViewportFactory>(
-        () => defaultTargetPlatform == TargetPlatform.windows && !kIsWeb
-            ? MediaKitPlayerViewportFactory(
-                repository: serviceLocator<PlayerRepository>(),
-                enterNativeFullscreen: WindowsFullscreen.enter,
-                exitNativeFullscreen: WindowsFullscreen.exit,
-              )
-            : MediaKitPlayerViewportFactory(
-                repository: serviceLocator<PlayerRepository>(),
-              ),
-      );
-    }
-
-    if (!serviceLocator.isRegistered<SubtitlePreferencesRepository>()) {
-      serviceLocator.registerLazySingleton<SubtitlePreferencesRepository>(
-        () => SharedPreferencesSubtitlePreferencesRepository(
-          serviceLocator<SharedPreferences>(),
+        local: LocalPlayerRepository(
+          downloadsRepository: serviceLocator<DownloadsRepository>(),
+          memoryAdapter: serviceLocator<PlayerRuntimeMemoryAdapter>(),
         ),
-      );
-    }
+      ),
+    )
+    ..registerLazySingleton<PlayerSkipTimesRepository>(
+      () => AniSkipSkipTimesRepository(
+        client: serviceLocator<AniSkipApiClient>(),
+      ),
+    )
+    ..registerLazySingleton<PlayerViewportFactory>(
+      () => defaultTargetPlatform == TargetPlatform.windows && !kIsWeb
+          ? MediaKitPlayerViewportFactory(
+              repository: serviceLocator<PlayerRepository>(),
+              enterNativeFullscreen: WindowsFullscreen.enter,
+              exitNativeFullscreen: WindowsFullscreen.exit,
+            )
+          : MediaKitPlayerViewportFactory(
+              repository: serviceLocator<PlayerRepository>(),
+            ),
+    );
+}
 
-    if (!serviceLocator.isRegistered<PlayerDecodingPreferencesRepository>()) {
-      serviceLocator.registerLazySingleton<PlayerDecodingPreferencesRepository>(
-        () => PlayerDecodingPreferencesRepositoryImpl(
-          serviceLocator<SharedPreferences>(),
+Future<void> _registerDownloads(Directory supportDirectory) async {
+  serviceLocator
+    ..registerLazySingleton<LibtorrentDownloadEngineAdapter>(
+      LibtorrentDownloadEngineAdapterImpl.new,
+    )
+    ..registerLazySingleton<DownloadForegroundServiceAdapter>(
+      () => defaultTargetPlatform == TargetPlatform.android && !kIsWeb
+          ? const MethodChannelDownloadForegroundServiceAdapter()
+          : const NoopDownloadForegroundServiceAdapter(),
+    )
+    ..registerLazySingleton<AppStorageUsageAdapter>(
+      MethodChannelAppStorageUsageAdapter.new,
+    )
+    ..registerLazySingleton<DownloadRegistryDataSource>(
+      () => DownloadRegistryDataSource(
+        registryFile: File(
+          path.join(supportDirectory.path, 'downloads_registry.json'),
         ),
-      );
-    }
-  }
+      ),
+    );
 
-  if (!serviceLocator.isRegistered<WatchProgressRepository>()) {
-    serviceLocator.registerLazySingleton<WatchProgressRepository>(
+  final repository = DownloadsRepositoryImpl(
+    engine: serviceLocator<LibtorrentDownloadEngineAdapter>(),
+    registry: serviceLocator<DownloadRegistryDataSource>(),
+    downloadsDirectory: Directory(
+      path.join(supportDirectory.path, 'offline_downloads'),
+    ),
+    foregroundService: serviceLocator<DownloadForegroundServiceAdapter>(),
+    storageUsageAdapter: serviceLocator<AppStorageUsageAdapter>(),
+    streamCache: serviceLocator<StreamCacheStorage>(),
+    activityRegistry: serviceLocator<TorrentActivityRegistry>(),
+  );
+  serviceLocator.registerSingleton<DownloadsRepository>(
+    repository,
+    dispose: (_) => repository.close(),
+  );
+  await repository.restore();
+}
+
+/// Registrations that are the same with and without mocks.
+void _registerCommon() {
+  serviceLocator
+    ..registerLazySingleton<MarkEpisodeWatched>(
+      () => MarkEpisodeWatched(serviceLocator<UserRateRepository>()),
+    )
+    ..registerLazySingleton<SubtitlePreferencesRepository>(
+      () => SharedPreferencesSubtitlePreferencesRepository(
+        serviceLocator<SharedPreferences>(),
+      ),
+    )
+    ..registerLazySingleton<PlayerDecodingPreferencesRepository>(
+      () => PlayerDecodingPreferencesRepositoryImpl(
+        serviceLocator<SharedPreferences>(),
+      ),
+    )
+    ..registerLazySingleton<WatchProgressRepository>(
       () => SharedPreferencesWatchProgressRepository(
         serviceLocator<SharedPreferences>(),
       ),
-    );
-  }
-
-  if (!serviceLocator.isRegistered<PlayerTrackPreferencesRepository>()) {
-    serviceLocator.registerLazySingleton<PlayerTrackPreferencesRepository>(
+    )
+    ..registerLazySingleton<PlayerTrackPreferencesRepository>(
       () => SharedPreferencesTrackPreferencesRepository(
         serviceLocator<SharedPreferences>(),
       ),
-    );
-  }
-
-  if (!serviceLocator.isRegistered<WatchSourcesTabRepository>()) {
-    serviceLocator.registerLazySingleton<WatchSourcesTabRepository>(
+    )
+    ..registerLazySingleton<WatchSourcesTabRepository>(
       () => SharedPreferencesWatchSourcesTabRepository(
         serviceLocator<SharedPreferences>(),
       ),
-    );
-  }
-
-  if (!serviceLocator.isRegistered<SavedTorrentsRepository>()) {
-    serviceLocator.registerLazySingleton<SavedTorrentsRepository>(
+    )
+    ..registerLazySingleton<SavedTorrentsRepository>(
       () => SharedPreferencesSavedTorrentsRepository(
         serviceLocator<SharedPreferences>(),
       ),
-    );
-  }
-
-  if (!serviceLocator.isRegistered<AnimeListBloc>()) {
-    serviceLocator.registerFactory<AnimeListBloc>(
+    )
+    ..registerFactory<AnimeListBloc>(
       () => AnimeListBloc(repository: serviceLocator<AnimeListRepository>()),
-    );
-  }
-
-  if (!serviceLocator.isRegistered<AnimeSearchBloc>()) {
-    serviceLocator.registerFactory<AnimeSearchBloc>(
+    )
+    ..registerFactory<AnimeSearchBloc>(
       () => AnimeSearchBloc(repository: serviceLocator<AnimeListRepository>()),
     );
-  }
 }
 
 /// A mock catalog title as the mock list shows it.

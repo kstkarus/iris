@@ -15,10 +15,11 @@ import 'package:iris/features/online_sources/data/repositories/yummy_anime_onlin
 import 'package:iris/features/online_sources/domain/entities/online_provider.dart';
 import 'package:iris/features/online_sources/domain/repositories/online_sources_repository.dart';
 import 'package:iris/shared/network/anilibria_api_client.dart';
-import 'package:iris/shared/network/anilibria_dio_factory.dart';
+import 'package:iris/shared/network/anilibria_api.dart';
+import 'package:iris/shared/network/dio_factory.dart';
 import 'package:iris/shared/network/video_server_dio_factory.dart';
+import 'package:iris/shared/network/yummy_anime_api.dart';
 import 'package:iris/shared/network/yummy_anime_api_client.dart';
-import 'package:iris/shared/network/yummy_anime_dio_factory.dart';
 
 /// Releases per provider whose first episode is resolved.
 const _resolvedPerProvider = 3;
@@ -30,12 +31,19 @@ Future<void> main(List<String> args) async {
   final providers = <OnlineProvider, OnlineSourcesRepository>{
     OnlineProvider.anilibria: AnilibriaOnlineSourcesRepository(
       dataSource: AnilibriaDataSource(
-        client: AnilibriaApiClient(dio: createAnilibriaDio()),
+        client: AnilibriaApiClient(
+          dio: createJsonApiDio(baseUrl: AnilibriaApi.baseUrl),
+        ),
       ),
     ),
     OnlineProvider.yummyAnime: YummyAnimeOnlineSourcesRepository(
       dataSource: YummyAnimeDataSource(
-        client: YummyAnimeApiClient(dio: createYummyAnimeDio()),
+        client: YummyAnimeApiClient(
+          dio: createJsonApiDio(
+            baseUrl: YummyAnimeApi.baseUrl,
+            receiveTimeout: const Duration(seconds: 30),
+          ),
+        ),
       ),
       kodik: KodikDataSource(dio: videoServers),
       aksor: AksorDataSource(dio: videoServers),

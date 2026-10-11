@@ -9,7 +9,8 @@ import 'package:iris/shared/storage/shikimori_session_store.dart';
 /// Shikimori's OAuth endpoints: the page that asks the user, and the token
 /// exchange behind it.
 ///
-/// Its Dio must not carry the auth interceptor, which calls [refresh].
+/// Its Dio (`createShikimoriOAuthDio`) sends forms, and must not carry the
+/// auth interceptor, which calls [refresh].
 class ShikimoriOAuthClient {
   ShikimoriOAuthClient({
     required Dio dio,
@@ -60,7 +61,6 @@ class ShikimoriOAuthClient {
           'client_id': _config.clientId,
           'client_secret': _config.clientSecret,
         },
-        options: Options(contentType: Headers.formUrlEncodedContentType),
       );
     } on DioException catch (error) {
       if (_isInvalidGrant(error.response)) {

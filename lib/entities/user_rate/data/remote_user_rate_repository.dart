@@ -1,13 +1,11 @@
 import 'dart:async';
 
-import 'package:dio/dio.dart';
-
 import 'package:iris/entities/user_rate/data/user_rate_dto.dart';
 import 'package:iris/entities/user_rate/domain/user_rate.dart';
 import 'package:iris/entities/user_rate/domain/user_rate_repository.dart';
-import 'package:iris/shared/network/dio_exception_mapper.dart';
 import 'package:iris/shared/network/network_exceptions.dart';
 import 'package:iris/shared/network/shikimori_graph_ql_client.dart';
+import 'package:iris/shared/network/shikimori_rest_client.dart';
 
 /// Reads the entry through GraphQL (`Anime.userRate`) and writes it through
 /// REST: Shikimori's GraphQL API has no mutations.
@@ -16,14 +14,14 @@ import 'package:iris/shared/network/shikimori_graph_ql_client.dart';
 class RemoteUserRateRepository implements UserRateRepository {
   RemoteUserRateRepository({
     required ShikimoriGraphQlClient graphQl,
-    required Dio dio,
+    required ShikimoriRestClient rest,
   }) : _graphQl = graphQl,
-       _dio = dio;
+       _rest = rest;
 
   static const _ratesPath = '/api/v2/user_rates';
 
   final ShikimoriGraphQlClient _graphQl;
-  final Dio _dio;
+  final ShikimoriRestClient _rest;
   final _changes = StreamController<UserRateChange>.broadcast();
 
   @override
@@ -61,28 +59,20 @@ class RemoteUserRateRepository implements UserRateRepository {
       'episodes': episodes,
       'score': score,
     };
-    final Response<dynamic> response;
-    try {
-      response = rateId == null
-          ? await _dio.post<dynamic>(
-              _ratesPath,
-              data: {
-                'user_rate': {
-                  'user_id': userId,
-                  'target_id': animeId,
-                  'target_type': 'Anime',
-                  ...fields,
-                },
+    final data = rateId == null
+        ? await _rest.post(
+            _ratesPath,
+            data: {
+              'user_rate': {
+                'user_id': userId,
+                'target_id': animeId,
+                'target_type': 'Anime',
+                ...fields,
               },
-            )
-          : await _dio.patch<dynamic>(
-              '$_ratesPath/$rateId',
-              data: {'user_rate': fields},
-            );
-    } on DioException catch (error) {
-      throw mapDioException(error);
-    }
-    final saved = UserRateDto.tryParse(response.data);
+            },
+          )
+        : await _rest.patch('$_ratesPath/$rateId', data: {'user_rate': fields});
+    final saved = UserRateDto.tryParse(data);
     if (saved == null) {
       throw const RemoteResponseException('User rate response is invalid.');
     }
@@ -93,11 +83,7 @@ class RemoteUserRateRepository implements UserRateRepository {
 
   @override
   Future<void> remove({required String animeId, required String rateId}) async {
-    try {
-      await _dio.delete<dynamic>('$_ratesPath/$rateId');
-    } on DioException catch (error) {
-      throw mapDioException(error);
-    }
+    await _rest.delete('$_ratesPath/$rateId');
     _changes.add(UserRateChange(animeId, null));
   }
 }

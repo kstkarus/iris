@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:iris/shared/network/dio_factory.dart';
@@ -12,7 +13,7 @@ import '../../helpers/fake_secure_storage.dart';
 
 void main() {
   test('names the app to Shikimori and keeps to its request limits', () {
-    final dio = createDio();
+    final dio = createShikimoriDio();
 
     expect(dio.options.headers['User-Agent'], ShikimoriApi.userAgent);
     expect(dio.interceptors.whereType<RateLimitInterceptor>(), hasLength(1));
@@ -20,7 +21,7 @@ void main() {
   });
 
   test('with a session, signs requests in before they are rate limited', () {
-    final dio = createDio(
+    final dio = createShikimoriDio(
       session: ShikimoriSessionStore(FakeSecureStorage()),
       oauth: ShikimoriOAuthClient(
         dio: createShikimoriOAuthDio(),
@@ -44,7 +45,24 @@ void main() {
     final dio = createShikimoriOAuthDio();
 
     expect(dio.options.headers['User-Agent'], ShikimoriApi.userAgent);
+    expect(dio.options.contentType, Headers.formUrlEncodedContentType);
     expect(dio.interceptors.whereType<RateLimitInterceptor>(), hasLength(1));
     expect(dio.interceptors.whereType<ShikimoriAuthInterceptor>(), isEmpty);
+  });
+
+  test('a JSON API client asks for JSON at its base URL', () {
+    final dio = createJsonApiDio(
+      baseUrl: 'https://example.org/api',
+      receiveTimeout: const Duration(seconds: 30),
+    );
+
+    expect(dio.options.baseUrl, 'https://example.org/api');
+    expect(dio.options.headers['Accept'], 'application/json');
+    expect(dio.options.responseType, ResponseType.json);
+    expect(dio.options.receiveTimeout, const Duration(seconds: 30));
+    expect(
+      createJsonApiDio(baseUrl: 'https://example.org').options.receiveTimeout,
+      const Duration(seconds: 20),
+    );
   });
 }

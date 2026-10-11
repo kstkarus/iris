@@ -1,11 +1,9 @@
-import 'package:dio/dio.dart';
-
 import 'package:iris/entities/friend/domain/friend.dart';
 import 'package:iris/entities/friend/domain/friends_repository.dart';
 import 'package:iris/entities/user_rate/data/user_rate_dto.dart';
 import 'package:iris/entities/user_rate/domain/user_rate.dart';
-import 'package:iris/shared/network/dio_exception_mapper.dart';
 import 'package:iris/shared/network/network_exceptions.dart';
+import 'package:iris/shared/network/shikimori_rest_client.dart';
 import 'package:iris/shared/utils/json_read.dart';
 
 /// Reads friends and their entries through REST: GraphQL has neither.
@@ -13,12 +11,13 @@ import 'package:iris/shared/utils/json_read.dart';
 /// Both are kept for the session, as every anime page asks for them
 /// again; a failed request is asked again next time.
 class RemoteFriendsRepository implements FriendsRepository {
-  RemoteFriendsRepository({required Dio dio}) : _dio = dio;
+  RemoteFriendsRepository({required ShikimoriRestClient client})
+    : _client = client;
 
   /// Shikimori's largest page.
   static const _friendsLimit = 100;
 
-  final Dio _dio;
+  final ShikimoriRestClient _client;
   final _friends = <String, Future<List<Friend>>>{};
   final _rates = <String, Future<UserRate?>>{};
 
@@ -34,7 +33,7 @@ class RemoteFriendsRepository implements FriendsRepository {
       _kept(_rates, '$friendId/$animeId', () => _fetchRate(friendId, animeId));
 
   Future<List<Friend>> _fetchFriends(String userId) async {
-    final data = await _get(
+    final data = await _client.get(
       '/api/users/$userId/friends',
       query: {'limit': _friendsLimit},
     );
@@ -47,7 +46,7 @@ class RemoteFriendsRepository implements FriendsRepository {
   /// Without `user_id` Shikimori does not answer at all, so the entries
   /// are read one friend at a time.
   Future<UserRate?> _fetchRate(String friendId, String animeId) async {
-    final data = await _get(
+    final data = await _client.get(
       '/api/v2/user_rates',
       query: {
         'user_id': friendId,
@@ -59,18 +58,6 @@ class RemoteFriendsRepository implements FriendsRepository {
       throw const RemoteResponseException('User rates response is not a list.');
     }
     return data.isEmpty ? null : UserRateDto.tryParse(data.first)?.toEntity();
-  }
-
-  Future<Object?> _get(
-    String path, {
-    required Map<String, Object> query,
-  }) async {
-    try {
-      final response = await _dio.get<dynamic>(path, queryParameters: query);
-      return response.data;
-    } on DioException catch (error) {
-      throw mapDioException(error);
-    }
   }
 
   static Friend? _parseFriend(Object? json) {

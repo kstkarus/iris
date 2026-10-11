@@ -7,6 +7,7 @@ import 'package:iris/entities/user_rate/data/remote_user_rate_repository.dart';
 import 'package:iris/entities/user_rate/domain/user_rate.dart';
 import 'package:iris/shared/network/network_exceptions.dart';
 import 'package:iris/shared/network/shikimori_graph_ql_client.dart';
+import 'package:iris/shared/network/shikimori_rest_client.dart';
 
 import '../../helpers/fake_http_adapter.dart';
 
@@ -20,7 +21,7 @@ void main() {
       ..httpClientAdapter = adapter;
     return RemoteUserRateRepository(
       graphQl: ShikimoriGraphQlClient(dio: dio),
-      dio: dio,
+      rest: ShikimoriRestClient(dio: dio),
     );
   }
 
