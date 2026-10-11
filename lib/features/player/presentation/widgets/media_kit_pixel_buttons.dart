@@ -1,55 +1,38 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/widgets/pixel_icon.dart';
+import 'package:iris/features/player/presentation/widgets/player_glyph_switcher.dart';
 
 /// Play/pause for media_kit's phone controls, drawn with the app's pixel
 /// glyphs in place of the package's Material icon.
-class PixelPlayOrPauseButton extends StatefulWidget {
+class PixelPlayOrPauseButton extends StatelessWidget {
   const PixelPlayOrPauseButton({this.size = 44, super.key});
 
   final double size;
 
   @override
-  State<PixelPlayOrPauseButton> createState() => _PixelPlayOrPauseButtonState();
-}
-
-class _PixelPlayOrPauseButtonState extends State<PixelPlayOrPauseButton> {
-  StreamSubscription<bool>? _subscription;
-  bool _playing = false;
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    final player = _player(context);
-    _playing = player.state.playing;
-    _subscription?.cancel();
-    _subscription = player.stream.playing.listen((playing) {
-      if (mounted) setState(() => _playing = playing);
-    });
-  }
-
-  @override
-  void dispose() {
-    _subscription?.cancel();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    return IconButton(
-      tooltip: _playing ? l10n.playerPauseButton : l10n.playerPlayButton,
-      iconSize: widget.size,
-      onPressed: _player(context).playOrPause,
-      icon: _GlyphSwitcher(
-        glyph: _playing ? PixelGlyph.pause : PixelGlyph.play,
-        size: widget.size,
-      ),
+    final player = _player(context);
+    return StreamBuilder<bool>(
+      // A new player starts over from its own state.
+      key: ObjectKey(player),
+      stream: player.stream.playing,
+      initialData: player.state.playing,
+      builder: (context, snapshot) {
+        final playing = snapshot.requireData;
+        return IconButton(
+          tooltip: playing ? l10n.playerPauseButton : l10n.playerPlayButton,
+          iconSize: size,
+          onPressed: player.playOrPause,
+          icon: PlayerGlyphSwitcher(
+            child: _glyph(playing ? PixelGlyph.pause : PixelGlyph.play, size),
+          ),
+        );
+      },
     );
   }
 }
@@ -73,29 +56,15 @@ class PixelFullscreenButton extends StatelessWidget {
           : l10n.playerEnterFullscreen,
       iconSize: size,
       onPressed: () => toggleFullscreen(context),
-      icon: _GlyphSwitcher(
-        glyph: fullscreen ? PixelGlyph.fullscreenExit : PixelGlyph.fullscreen,
-        size: size,
+      icon: PlayerGlyphSwitcher(
+        child: _glyph(
+          fullscreen ? PixelGlyph.fullscreenExit : PixelGlyph.fullscreen,
+          size,
+        ),
       ),
     );
   }
 }
 
-/// Cross-fades a glyph when the state it shows changes; at once when
-/// animations are off.
-class _GlyphSwitcher extends StatelessWidget {
-  const _GlyphSwitcher({required this.glyph, required this.size});
-
-  final PixelGlyph glyph;
-  final double size;
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedSwitcher(
-      duration: MediaQuery.disableAnimationsOf(context)
-          ? Duration.zero
-          : const Duration(milliseconds: 150),
-      child: PixelIcon(glyph, key: ValueKey(glyph), size: size),
-    );
-  }
-}
+PixelIcon _glyph(PixelGlyph glyph, double size) =>
+    PixelIcon(glyph, key: ValueKey(glyph), size: size);

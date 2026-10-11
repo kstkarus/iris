@@ -8,13 +8,14 @@ import 'package:iris/features/player/presentation/cubit/player_subtitle_preferen
 import 'package:iris/features/player/presentation/widgets/player_adaptive_layout.dart';
 import 'package:iris/features/player/presentation/widgets/player_choice_row.dart';
 import 'package:iris/features/player/presentation/widgets/player_overlay_preferences.dart';
-import 'package:iris/features/player/presentation/widgets/player_popover.dart';
+import 'package:iris/features/player/presentation/widgets/player_panel.dart';
 import 'package:iris/features/player/presentation/playback/player_subtitle_preferences_mapper.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/widgets/pixel_icon.dart';
 import 'package:iris/shared/widgets/section_label.dart';
 import 'package:iris/shared/widgets/segmented_bar.dart';
 import 'package:iris/shared/widgets/segmented_choice.dart';
+import 'package:iris/shared/utils/motion_duration.dart';
 
 /// The video stays in view behind the settings, lightly dimmed, so a change
 /// to the subtitles shows on them at once.
@@ -61,46 +62,17 @@ class PlayerSubtitleSettingsSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final mediaQuery = MediaQuery.of(context);
-    final l10n = AppLocalizations.of(context);
-    final theme = Theme.of(context);
-
-    return SafeArea(
-      child: ConstrainedBox(
-        constraints: BoxConstraints(maxHeight: mediaQuery.size.height * 0.85),
-        child: SingleChildScrollView(
-          padding: EdgeInsets.fromLTRB(
-            20,
-            16,
-            20,
-            20 + mediaQuery.viewInsets.bottom,
-          ),
-          child: Material(
-            // Ink paints on the nearest Material: this one scrolls with the list,
-            // so the sheet's edge clips the highlight.
-            type: MaterialType.transparency,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // A popover's button already names it.
-                if (!isInPlayerPopover(context)) ...[
-                  Text(
-                    l10n.playerSettingsTitle,
-                    style: theme.textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                ],
-                const _Appearance(),
-                const SizedBox(height: 8),
-                const SegmentedRule(),
-                const _Advanced(),
-              ],
-            ),
-          ),
-        ),
+    return PlayerPanel(
+      title: AppLocalizations.of(context).playerSettingsTitle,
+      child: const Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _Appearance(),
+          SizedBox(height: 8),
+          SegmentedRule(),
+          _Advanced(),
+        ],
       ),
     );
   }
@@ -318,8 +290,7 @@ class _AdvancedState extends State<_Advanced> {
   final _contentKey = GlobalKey();
   bool _expanded = false;
 
-  Duration get _duration =>
-      MediaQuery.disableAnimationsOf(context) ? Duration.zero : _unfold;
+  Duration get _duration => motionDuration(context, _unfold);
 
   void _toggle() {
     setState(() => _expanded = !_expanded);
@@ -410,14 +381,10 @@ class _AdvancedState extends State<_Advanced> {
             ),
           ),
         ),
-        AnimatedCrossFade(
+        _Reveal(
+          visible: _expanded,
           duration: duration,
-          sizeCurve: Curves.easeOutCubic,
-          crossFadeState: _expanded
-              ? CrossFadeState.showSecond
-              : CrossFadeState.showFirst,
-          firstChild: const SizedBox(width: double.infinity),
-          secondChild: KeyedSubtree(
+          child: KeyedSubtree(
             key: _contentKey,
             child: _AdvancedContent(decoder: decoder, libass: libass),
           ),
@@ -495,11 +462,7 @@ class _Reveal extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final duration =
-        this.duration ??
-        (MediaQuery.disableAnimationsOf(context)
-            ? Duration.zero
-            : _defaultDuration);
+    final duration = this.duration ?? motionDuration(context, _defaultDuration);
     return AnimatedCrossFade(
       duration: duration,
       sizeCurve: Curves.easeOutCubic,

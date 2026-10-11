@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:iris/shared/widgets/pixel_icon.dart';
+import 'package:iris/shared/utils/motion_duration.dart';
 
 /// A row of a list to choose one from, such as a track or a decoder: the
 /// chosen row carries a check mark, which fades in where the choice moves.
@@ -49,9 +50,7 @@ class PlayerChoiceRow extends StatelessWidget {
           SizedBox.square(
             dimension: 18,
             child: AnimatedSwitcher(
-              duration: MediaQuery.disableAnimationsOf(context)
-                  ? Duration.zero
-                  : _checkFade,
+              duration: motionDuration(context, _checkFade),
               transitionBuilder: (child, animation) => FadeTransition(
                 opacity: animation,
                 child: ScaleTransition(

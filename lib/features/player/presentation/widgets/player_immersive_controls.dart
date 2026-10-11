@@ -20,6 +20,7 @@ import 'package:iris/features/player/presentation/widgets/player_wait_indicator.
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/utils/duration_formatter.dart';
 import 'package:iris/shared/widgets/pixel_icon.dart';
+import 'package:iris/features/player/presentation/widgets/player_glyph_switcher.dart';
 
 /// The player's accent over video: the app's signal, which reads the same
 /// on a dark frame in both themes.
@@ -505,7 +506,7 @@ class _PlayerImmersiveControlsState extends State<PlayerImmersiveControls> {
         if (widget.failure == null)
           Center(
             child: _CenterButtons(
-              player: player,
+              playing: _playing,
               engine: widget.engine,
               starting: widget.startupLabel != null,
               onPlayPause: _togglePlay,
@@ -704,13 +705,6 @@ class _TopBar extends StatelessWidget {
   }
 }
 
-/// A state glyph (play/pause, mute, full screen) cross-fades this fast, or
-/// swaps at once when the system asks for less motion.
-Duration _glyphSwapDuration(BuildContext context) =>
-    MediaQuery.disableAnimationsOf(context)
-    ? Duration.zero
-    : const Duration(milliseconds: 150);
-
 /// [glyph] over a soft dark copy of itself, so a white glyph stays
 /// readable over a bright frame.
 class _ShadowedGlyph extends StatelessWidget {
@@ -761,7 +755,7 @@ class _SeekFigure extends StatelessWidget {
 
 class _CenterButtons extends StatelessWidget {
   const _CenterButtons({
-    required this.player,
+    required this.playing,
     required this.engine,
     required this.starting,
     required this.onPlayPause,
@@ -769,7 +763,7 @@ class _CenterButtons extends StatelessWidget {
     required this.onForward,
   });
 
-  final Player player;
+  final bool playing;
   final MediaKitPlayerEngine engine;
   final bool starting;
   final VoidCallback onPlayPause;
@@ -801,19 +795,10 @@ class _CenterButtons extends StatelessWidget {
                 engine.phase.value != PlayerEnginePhase.ready;
             // The spinner takes the button's place while the stream waits.
             if (waiting) return const SizedBox.square(dimension: 96);
-            return StreamBuilder<bool>(
-              stream: player.stream.playing,
-              initialData: player.state.playing,
-              builder: (context, snapshot) {
-                final playing = snapshot.data ?? false;
-                return _PlayPauseButton(
-                  playing: playing,
-                  label: playing
-                      ? l10n.playerPauseButton
-                      : l10n.playerPlayButton,
-                  onPressed: onPlayPause,
-                );
-              },
+            return _PlayPauseButton(
+              playing: playing,
+              label: playing ? l10n.playerPauseButton : l10n.playerPlayButton,
+              onPressed: onPlayPause,
             );
           },
         ),
@@ -872,8 +857,7 @@ class _PlayPauseButtonState extends State<_PlayPauseButton> {
                 border: Border.all(color: Colors.white, width: 3),
               ),
               child: Center(
-                child: AnimatedSwitcher(
-                  duration: _glyphSwapDuration(context),
+                child: PlayerGlyphSwitcher(
                   child: PixelIcon(
                     widget.playing ? PixelGlyph.pause : PixelGlyph.play,
                     key: ValueKey(widget.playing),
@@ -1492,8 +1476,7 @@ class _GlyphButtonState extends State<_GlyphButton> {
                       // The button's label speaks for it; a figure such
                       // as "+10" must not be read out on top of it.
                       child: ExcludeSemantics(
-                        child: AnimatedSwitcher(
-                          duration: _glyphSwapDuration(context),
+                        child: PlayerGlyphSwitcher(
                           // On the light square the glyph needs no shadow.
                           child: selected
                               ? widget.glyph
