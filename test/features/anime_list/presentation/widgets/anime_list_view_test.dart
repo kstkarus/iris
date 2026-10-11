@@ -58,7 +58,9 @@ void main() {
     tester,
   ) async {
     final page = Completer<AnimeListPageResult>();
-    final bloc = AnimeListBloc(repository: _CompleterAnimeListRepository(page));
+    final bloc = AnimeListBloc(
+      repository: _PendingAnimeListRepository(page.future),
+    );
 
     await tester.pumpWidget(
       _wrapWithApp(
@@ -559,22 +561,16 @@ int _firstPages(_TrackingAnimeListRepository repository, String search) =>
         .where((call) => call.query.page == 1 && call.query.search == search)
         .length;
 
+/// Answers with [answer], which by default never completes.
 class _PendingAnimeListRepository implements AnimeListRepository {
-  @override
-  Future<AnimeListPageResult> fetchAnimePage({required AnimeListQuery query}) {
-    return Completer<AnimeListPageResult>().future;
-  }
-}
+  _PendingAnimeListRepository([Future<AnimeListPageResult>? answer])
+    : answer = answer ?? Completer<AnimeListPageResult>().future;
 
-class _CompleterAnimeListRepository implements AnimeListRepository {
-  const _CompleterAnimeListRepository(this.page);
-
-  final Completer<AnimeListPageResult> page;
+  final Future<AnimeListPageResult> answer;
 
   @override
-  Future<AnimeListPageResult> fetchAnimePage({required AnimeListQuery query}) {
-    return page.future;
-  }
+  Future<AnimeListPageResult> fetchAnimePage({required AnimeListQuery query}) =>
+      answer;
 }
 
 class _SuccessAnimeListRepository implements AnimeListRepository {
