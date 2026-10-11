@@ -9,7 +9,6 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:media_kit/media_kit.dart';
 
-import 'package:iris/features/player/domain/entities/player_skip_segment.dart';
 import 'package:iris/features/player/presentation/playback/media_kit_player_engine.dart';
 import 'package:iris/features/player/presentation/widgets/player_auto_hiding_offer.dart';
 import 'package:iris/features/player/presentation/widgets/player_countdown.dart';
@@ -21,6 +20,7 @@ import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/utils/duration_formatter.dart';
 import 'package:iris/shared/widgets/pixel_icon.dart';
 import 'package:iris/features/player/presentation/widgets/player_glyph_switcher.dart';
+import 'package:iris/features/player/presentation/widgets/player_offers.dart';
 
 /// The player's accent over video: the app's signal, which reads the same
 /// on a dark frame in both themes.
@@ -558,7 +558,6 @@ class _PlayerImmersiveControlsState extends State<PlayerImmersiveControls> {
 
   /// Skip and next-episode offers sit above the timeline on the right.
   Widget _buildOffers(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
     final engine = widget.engine;
     final next = widget.next;
 
@@ -569,51 +568,31 @@ class _PlayerImmersiveControlsState extends State<PlayerImmersiveControls> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          ValueListenableBuilder<PlayerSkipSegment?>(
-            valueListenable: engine.skipSegment,
-            builder: (context, segment, _) {
-              if (segment == null) {
-                return _SkipForwardOffer(
-                  engine: engine,
-                  visible: _controlsVisible,
-                );
-              }
-              return PlayerAutoHidingOffer(
-                key: ValueKey(segment),
-                activity: _activity,
-                child: _OfferButton.outlined(
-                  key: const Key('player_skip_segment_button'),
-                  label: segment.kind == PlayerSkipKind.recap
-                      ? l10n.playerSkipRecap
-                      : l10n.playerSkipOpening,
-                  onPressed: () => unawaited(engine.skipCurrentSegment()),
-                ),
-              );
-            },
+          PlayerSkipSegmentOffer(
+            segment: engine.skipSegment,
+            activity: _activity,
+            fallback: _SkipForwardOffer(
+              engine: engine,
+              visible: _controlsVisible,
+            ),
+            plate: (label, _) => _OfferButton.outlined(
+              key: const Key('player_skip_segment_button'),
+              label: label,
+              onPressed: () => unawaited(engine.skipCurrentSegment()),
+            ),
           ),
           if (next != null)
-            ListenableBuilder(
-              listenable: Listenable.merge([
-                engine.finishing,
-                engine.completed,
-              ]),
-              builder: (context, _) {
-                final completed = engine.completed.value;
-                if (!(engine.finishing.value || completed)) {
-                  return const SizedBox.shrink();
-                }
-                return PlayerAutoHidingOffer(
-                  activity: _activity,
-                  // Once the file has ended there is nothing left to cover.
-                  pinned: completed,
-                  child: _OfferButton.filled(
-                    key: const Key('player_next_file_prompt'),
-                    label: l10n.playerPlayNext,
-                    detail: next.title,
-                    onPressed: next.play,
-                  ),
-                );
-              },
+            PlayerNextOffer(
+              finishing: engine.finishing,
+              completed: engine.completed,
+              title: next.title,
+              activity: _activity,
+              plate: (label, detail) => _OfferButton.filled(
+                key: const Key('player_next_file_prompt'),
+                label: label,
+                detail: detail,
+                onPressed: next.play,
+              ),
             ),
         ],
       ),
@@ -1784,26 +1763,10 @@ class _OfferButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final detail = this.detail;
-    final content = ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: 240),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(label),
-          if (detail != null)
-            Text(
-              detail,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: theme.textTheme.labelSmall?.fontSize,
-                fontWeight: FontWeight.w400,
-              ),
-            ),
-        ],
-      ),
+    final content = PlayerOfferLabel(
+      label: label,
+      detail: detail,
+      maxWidth: 240,
     );
     return Padding(
       padding: const EdgeInsets.only(top: 12),

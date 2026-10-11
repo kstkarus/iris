@@ -27,6 +27,7 @@ import 'package:iris/features/player/presentation/widgets/player_viewport_factor
 import 'package:iris/features/player/presentation/widgets/player_wait_indicator.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/widgets/pixel_icon.dart';
+import 'package:iris/features/player/presentation/widgets/player_offers.dart';
 
 export 'package:iris/features/player/presentation/playback/media_kit_player_engine.dart'
     show
@@ -690,11 +691,6 @@ class _PlayerControlsFrame extends StatefulWidget {
 
 class _PlayerControlsFrameState extends State<_PlayerControlsFrame> {
   final _activity = PlayerPointerActivity();
-  late final _nextState = Listenable.merge([
-    widget.finishing,
-    widget.completed,
-    widget.nextTitle,
-  ]);
 
   @override
   void dispose() {
@@ -715,7 +711,6 @@ class _PlayerControlsFrameState extends State<_PlayerControlsFrame> {
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
     final fullscreen = isFullscreen(context);
     return Listener(
       behavior: HitTestBehavior.translucent,
@@ -725,43 +720,29 @@ class _PlayerControlsFrameState extends State<_PlayerControlsFrame> {
         fit: StackFit.expand,
         children: [
           widget.child,
-          ValueListenableBuilder<PlayerSkipSegment?>(
-            valueListenable: widget.skipSegment,
-            builder: (context, segment, _) {
-              if (segment == null) return const SizedBox.shrink();
-              return PlayerAutoHidingOffer(
-                key: ValueKey(segment),
-                activity: _activity,
-                child: _PlayerActionPill(
-                  actionKey: const Key('player_skip_segment_button'),
-                  label: segment.kind == PlayerSkipKind.recap
-                      ? l10n.playerSkipRecap
-                      : l10n.playerSkipOpening,
-                  onPressed: widget.onSkip,
-                ),
-              );
-            },
+          PlayerSkipSegmentOffer(
+            segment: widget.skipSegment,
+            activity: _activity,
+            plate: (label, _) => _PlayerActionPill(
+              actionKey: const Key('player_skip_segment_button'),
+              label: label,
+              onPressed: widget.onSkip,
+            ),
           ),
-          ListenableBuilder(
-            listenable: _nextState,
-            builder: (context, _) {
-              final title = widget.nextTitle.value;
-              final completed = widget.completed.value;
-              if (title == null || !(widget.finishing.value || completed)) {
-                return const SizedBox.shrink();
-              }
-              return PlayerAutoHidingOffer(
-                activity: _activity,
-                // Once the file has ended there is nothing left to cover.
-                pinned: completed,
-                child: _PlayerActionPill(
-                  actionKey: const Key('player_next_file_prompt'),
-                  label: l10n.playerPlayNext,
-                  detail: title,
-                  onPressed: widget.onPlayNext,
-                ),
-              );
-            },
+          ValueListenableBuilder<String?>(
+            valueListenable: widget.nextTitle,
+            builder: (context, title, _) => PlayerNextOffer(
+              finishing: widget.finishing,
+              completed: widget.completed,
+              title: title,
+              activity: _activity,
+              plate: (label, detail) => _PlayerActionPill(
+                actionKey: const Key('player_next_file_prompt'),
+                label: label,
+                detail: detail,
+                onPressed: widget.onPlayNext,
+              ),
+            ),
           ),
           if (fullscreen)
             // Progress only: the controls (exit full screen, volume) stay
@@ -808,7 +789,6 @@ class _PlayerActionPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final detail = this.detail;
     return Align(
       alignment: AlignmentDirectional.bottomEnd,
       child: Padding(
@@ -826,26 +806,10 @@ class _PlayerActionPill extends StatelessWidget {
               minimumSize: const Size(64, 48),
               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
             ),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 220),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(label),
-                  if (detail != null)
-                    // Inherits the button's colour.
-                    Text(
-                      detail,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: theme.textTheme.labelSmall?.fontSize,
-                        fontWeight: FontWeight.w400,
-                      ),
-                    ),
-                ],
-              ),
+            child: PlayerOfferLabel(
+              label: label,
+              detail: detail,
+              maxWidth: 220,
             ),
           ),
         ),
