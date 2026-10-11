@@ -187,27 +187,19 @@ class MessageView extends StatelessWidget {
 
 /// A [MessageView] for a failed load, with a button that tries again.
 class RetryView extends StatelessWidget {
-  const RetryView({
-    required this.message,
-    required this.onRetry,
-    this.quiet = false,
-    super.key,
-  });
+  const RetryView({required this.message, required this.onRetry, super.key});
 
   final String message;
   final VoidCallback onRetry;
 
-  /// A [TextButton] instead of a [FilledButton].
-  final bool quiet;
-
   @override
   Widget build(BuildContext context) {
-    final label = Text(AppLocalizations.of(context).commonRetry);
     return MessageView(
       message: message,
-      action: quiet
-          ? TextButton(onPressed: onRetry, child: label)
-          : FilledButton(onPressed: onRetry, child: label),
+      action: FilledButton(
+        onPressed: onRetry,
+        child: Text(AppLocalizations.of(context).commonRetry),
+      ),
     );
   }
 }

@@ -141,11 +141,7 @@ class _UserListViewState extends State<UserListView> {
       return [
         SliverFillRemaining(
           hasScrollBody: false,
-          child: RetryView(
-            message: l10n.profileListLoadError,
-            onRetry: retry,
-            quiet: true,
-          ),
+          child: RetryView(message: l10n.profileListLoadError, onRetry: retry),
         ),
       ];
     }

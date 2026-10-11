@@ -84,24 +84,13 @@ void main() {
     semantics.dispose();
   });
 
-  testWidgets('a retry view offers a filled button, or a quiet one', (
-    tester,
-  ) async {
+  testWidgets('a retry view offers a filled button', (tester) async {
     var retries = 0;
     await tester.pumpWidget(
       testApp(RetryView(message: 'Failed', onRetry: () => retries++)),
     );
     await tester.tap(find.widgetWithText(FilledButton, 'Try Again'));
     expect(retries, 1);
-
-    await tester.pumpWidget(
-      testApp(
-        RetryView(message: 'Failed', onRetry: () => retries++, quiet: true),
-      ),
-    );
-    expect(find.byType(FilledButton), findsNothing);
-    await tester.tap(find.widgetWithText(TextButton, 'Try Again'));
-    expect(retries, 2);
   });
 
   testWidgets('a paging footer shows loading, failure, then its idle end', (

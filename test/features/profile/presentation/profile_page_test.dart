@@ -229,7 +229,7 @@ void main() {
     expect(find.text('The list did not load.'), findsOneWidget);
 
     lists.failure = null;
-    await tester.tap(find.text('Try Again'));
+    await tester.tap(find.widgetWithText(FilledButton, 'Try Again'));
     await tester.pumpAndSettle();
 
     expect(find.text('Anime 1'), findsOneWidget);
@@ -250,6 +250,21 @@ void main() {
     await tester.tap(find.byKey(UserListView.listTabKey));
     await tester.pumpAndSettle();
     expect(find.text('Anime 1'), findsOneWidget);
+  });
+
+  testWidgets('friends that did not load can be tried again', (tester) async {
+    friends.friendsFailure = Exception('offline');
+    await pumpPage(tester, FakeAuthRepository(restored: testAccount));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(UserListView.friendsTabKey));
+    await tester.pumpAndSettle();
+    expect(find.text('Friends did not load.'), findsOneWidget);
+
+    friends.friendsFailure = null;
+    await tester.tap(find.widgetWithText(FilledButton, 'Try Again'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('friend_7'), findsOneWidget);
   });
 }
 

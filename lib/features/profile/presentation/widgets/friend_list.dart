@@ -28,7 +28,6 @@ List<Widget> friendListSlivers(
           child: RetryView(
             message: l10n.profileFriendsLoadError,
             onRetry: cubit.load,
-            quiet: true,
           ),
         ),
       ];
