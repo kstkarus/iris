@@ -132,10 +132,7 @@ class _EpisodeCardState extends State<_EpisodeCard> {
             duration: const Duration(milliseconds: 150),
             constraints: const BoxConstraints(minHeight: _minHeight),
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-            decoration: BoxDecoration(
-              color: background,
-              borderRadius: BorderRadius.zero,
-            ),
+            decoration: BoxDecoration(color: background),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.stretch,

@@ -26,7 +26,6 @@ import 'package:iris/features/player/presentation/widgets/player_track_selector_
 import 'package:iris/features/player/presentation/widgets/player_viewport_factory.dart';
 import 'package:iris/features/player/presentation/widgets/player_wait_indicator.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
-import 'package:iris/shared/utils/desktop_platform.dart';
 import 'package:iris/shared/widgets/pixel_icon.dart';
 
 export 'package:iris/features/player/presentation/playback/media_kit_player_engine.dart'
@@ -46,10 +45,9 @@ typedef MediaKitVideoSurfaceBuilder =
 typedef MediaKitControlsDecorator =
     Widget Function(VideoState state, Widget controls);
 
-/// Video controls flavour and its themes, chosen per platform.
-///
-/// Touch platforms use [MaterialVideoControls]; desktop platforms use
-/// [MaterialDesktopVideoControls] (mouse hover, keyboard shortcuts).
+/// Video controls flavour and its themes: media_kit's touch controls
+/// ([MaterialVideoControls]) on phones and tablets, or none under the
+/// immersive player, which draws its own.
 sealed class MediaKitVideoControlsThemes {
   const MediaKitVideoControlsThemes();
 
@@ -85,27 +83,6 @@ final class MediaKitMobileVideoControlsThemes
 
   @override
   VideoControlsBuilder get controlsBuilder => MaterialVideoControls;
-}
-
-final class MediaKitDesktopVideoControlsThemes
-    extends MediaKitVideoControlsThemes {
-  const MediaKitDesktopVideoControlsThemes({
-    required this.normal,
-    required this.fullscreen,
-    this.decorateControls,
-  });
-
-  final MaterialDesktopVideoControlsThemeData normal;
-  final MaterialDesktopVideoControlsThemeData fullscreen;
-
-  @override
-  final MediaKitControlsDecorator? decorateControls;
-
-  @override
-  List<Widget> get topButtonBar => normal.topButtonBar;
-
-  @override
-  VideoControlsBuilder get controlsBuilder => MaterialDesktopVideoControls;
 }
 
 /// No media_kit controls: [PlayerImmersiveControls] are drawn over the
@@ -380,10 +357,9 @@ class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
       child: DecoratedBox(
         decoration: BoxDecoration(
           color: theme.colorScheme.surfaceContainerHighest,
-          borderRadius: BorderRadius.zero,
         ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.zero,
+        child: ClipRect(
+          clipBehavior: Clip.antiAlias,
           child: Stack(
             fit: StackFit.expand,
             children: [
@@ -498,18 +474,10 @@ class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
     AppLocalizations l10n,
     ColorScheme colorScheme,
   ) {
-    if (isDesktopPlatform) {
-      final desktopTheme = _buildDesktopControlsTheme(l10n, colorScheme);
-      return MediaKitDesktopVideoControlsThemes(
-        normal: desktopTheme,
-        fullscreen: desktopTheme,
-        decorateControls: _decorateControls,
-      );
-    }
-
+    final theme = _buildControlsTheme(l10n, colorScheme);
     return MediaKitMobileVideoControlsThemes(
-      normal: _buildControlsTheme(l10n, colorScheme),
-      fullscreen: _buildControlsTheme(l10n, colorScheme),
+      normal: theme,
+      fullscreen: theme,
       decorateControls: _decorateControls,
     );
   }
@@ -535,67 +503,6 @@ class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
             isBufferingListenable: engine.buffering,
           ),
         ),
-      ),
-    );
-  }
-
-  /// Desktop controls: hover shows/hides the bars, double-click toggles
-  /// fullscreen, mouse wheel changes volume. The package default keyboard
-  /// shortcuts stay active: Space play/pause, Left/Right seek, Up/Down volume,
-  /// F fullscreen, Esc exit fullscreen.
-  MaterialDesktopVideoControlsThemeData _buildDesktopControlsTheme(
-    AppLocalizations l10n,
-    ColorScheme colorScheme,
-  ) {
-    return MaterialDesktopVideoControlsThemeData(
-      topButtonBar: [
-        _buildStatsPanel(),
-        const SizedBox(width: 8),
-        // Each opens its panel as a popover from itself.
-        Builder(
-          builder: (anchor) => MaterialDesktopCustomButton(
-            key: _trackSelectorButtonKey,
-            icon: _trackSelectorGlyph(l10n),
-            iconSize: 24,
-            onPressed: () => _showTrackSelectorSheet(anchor: anchor),
-          ),
-        ),
-        Builder(
-          builder: (anchor) => MaterialDesktopCustomButton(
-            key: _settingsButtonKey,
-            icon: _settingsGlyph(l10n),
-            iconSize: 24,
-            onPressed: () => _showSettingsSheet(anchor: anchor),
-          ),
-        ),
-      ],
-      bottomButtonBar: [
-        const MaterialDesktopPlayOrPauseButton(),
-        if (widget.next != null)
-          MaterialDesktopCustomButton(
-            key: const Key('player_next_file_button'),
-            icon: Tooltip(
-              message: l10n.playerPlayNext,
-              child: const PixelIcon(PixelGlyph.skipNext, size: 21),
-            ),
-            iconSize: 24,
-            onPressed: _playNext,
-          ),
-        const MaterialDesktopVolumeButton(),
-        const MaterialDesktopPositionIndicator(),
-        const Spacer(),
-        _skipForwardButton(l10n),
-        const MaterialDesktopFullscreenButton(),
-      ],
-      toggleFullscreenOnDoublePress: true,
-      modifyVolumeOnScroll: true,
-      hideMouseOnControlsRemoval: true,
-      buttonBarButtonSize: 24,
-      seekBarPositionColor: playerAccentColor(colorScheme),
-      seekBarThumbColor: playerAccentColor(colorScheme),
-      bufferingIndicatorBuilder: (context) => _PlayerControlsBufferingOverlay(
-        startupPhaseListenable: widget.engine.phase,
-        label: l10n.playerBuffering,
       ),
     );
   }
@@ -1145,12 +1052,6 @@ Widget _defaultVideoSurfaceBuilder({
   return switch (controlsThemes) {
     MediaKitMobileVideoControlsThemes(:final normal, :final fullscreen) =>
       MaterialVideoControlsTheme(
-        normal: normal,
-        fullscreen: fullscreen,
-        child: video,
-      ),
-    MediaKitDesktopVideoControlsThemes(:final normal, :final fullscreen) =>
-      MaterialDesktopVideoControlsTheme(
         normal: normal,
         fullscreen: fullscreen,
         child: video,

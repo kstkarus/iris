@@ -26,6 +26,13 @@ import 'package:iris/features/player/presentation/widgets/player_glyph_switcher.
 /// on a dark frame in both themes.
 Color playerAccentColor(ColorScheme scheme) => scheme.tertiaryFixed;
 
+/// The controls' margin at the left and right of the video: the titles,
+/// the timeline, the notice and the offers keep to it.
+const _sideInset = 48.0;
+
+/// How fast the controls, and what hides with them, fade.
+const _controlsFade = Duration(milliseconds: 250);
+
 /// Opens a panel as a popover of [anchor], its button; completes when the
 /// panel closes.
 typedef PlayerPanelOpener = Future<void> Function(BuildContext anchor);
@@ -182,6 +189,9 @@ class _PlayerImmersiveControlsState extends State<PlayerImmersiveControls> {
   double get _bottomHeight =>
       _barHeight + _BottomSection.bottomPadding + (_playing ? 0 : _titleHeight);
 
+  /// Just above the bottom controls, with a little air.
+  double get _subtitleClearanceAbove => _bottomHeight + 12;
+
   /// Tells the owner how much of the bottom the controls cover. The
   /// subtitles rise at once, before the titles grow under them, and come
   /// down only after the titles have collapsed.
@@ -190,7 +200,7 @@ class _PlayerImmersiveControlsState extends State<PlayerImmersiveControls> {
     if (report == null) return;
     // A little air between the subtitles and the controls.
     final clearance = _controlsVisible && _barHeight > 0
-        ? _bottomHeight + 12
+        ? _subtitleClearanceAbove
         : 0.0;
     final viewSize = _viewSize;
     if (clearance == _targetClearance && viewSize == _reportedViewSize) return;
@@ -445,7 +455,7 @@ class _PlayerImmersiveControlsState extends State<PlayerImmersiveControls> {
                 child: AnimatedOpacity(
                   key: const Key('player_immersive_controls'),
                   opacity: visible ? 1 : 0,
-                  duration: const Duration(milliseconds: 250),
+                  duration: _controlsFade,
                   child: player == null
                       ? const SizedBox.shrink()
                       : _buildControls(context, player, accent),
@@ -457,9 +467,9 @@ class _PlayerImmersiveControlsState extends State<PlayerImmersiveControls> {
               _buildOffers(context),
               if (widget.chrome.notice case final notice?)
                 Positioned(
-                  left: 48,
+                  left: _sideInset,
                   bottom: _barHeight > 0
-                      ? _bottomHeight + 12
+                      ? _subtitleClearanceAbove
                       : _BottomSection.offerClearance,
                   child: _NoticeCard(notice: notice, accent: accent),
                 ),
@@ -553,7 +563,7 @@ class _PlayerImmersiveControlsState extends State<PlayerImmersiveControls> {
     final next = widget.next;
 
     return Positioned(
-      right: 48,
+      right: _sideInset,
       bottom: _BottomSection.offerClearance,
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -895,7 +905,7 @@ class _BottomSection extends StatelessWidget {
     required this.onEpisodes,
   });
 
-  static const _leftPadding = 48.0;
+  static const _leftPadding = _sideInset;
 
   /// Less than on the left: the last button's glyph, not its hit area,
   /// ends in line with the offers above.
@@ -937,7 +947,7 @@ class _BottomSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final section = Padding(
+    return Padding(
       padding: const EdgeInsets.fromLTRB(
         _leftPadding,
         0,
@@ -1018,7 +1028,6 @@ class _BottomSection extends StatelessWidget {
         },
       ),
     );
-    return section;
   }
 }
 
@@ -1455,7 +1464,6 @@ class _GlyphButtonState extends State<_GlyphButton> {
               height: widget.size.height,
               decoration: BoxDecoration(
                 color: selected ? Colors.white : Colors.transparent,
-                borderRadius: BorderRadius.zero,
                 border: Border.all(
                   color: _focused ? Colors.white70 : Colors.transparent,
                   width: 2,
@@ -1639,11 +1647,15 @@ class _BufferingSpinner extends StatelessWidget {
 
 const _overVideoOutlineWidth = 1.5;
 
+/// Room inside the buttons offered over the video; square, as the app is.
+const _offerPadding = EdgeInsets.symmetric(horizontal: 20, vertical: 14);
+const _offerShape = RoundedRectangleBorder();
+
 /// Secondary buttons over the video: a dark glass with a light outline.
 ButtonStyle _overVideoButtonStyle(ThemeData theme) {
   return OutlinedButton.styleFrom(
-    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-    shape: const RoundedRectangleBorder(),
+    padding: _offerPadding,
+    shape: _offerShape,
     foregroundColor: Colors.white,
     backgroundColor: Colors.black54,
     side: const BorderSide(
@@ -1731,7 +1743,7 @@ class _SkipForwardOffer extends StatelessWidget {
           ignoring: !visible,
           child: AnimatedOpacity(
             opacity: visible ? 1 : 0,
-            duration: const Duration(milliseconds: 250),
+            duration: _controlsFade,
             child: Semantics(
               label: l10n.playerSkipForwardTooltip(seconds),
               child: _OfferButton.outlined(
@@ -1793,8 +1805,6 @@ class _OfferButton extends StatelessWidget {
         ],
       ),
     );
-    const padding = EdgeInsets.symmetric(horizontal: 20, vertical: 14);
-    const shape = RoundedRectangleBorder();
     return Padding(
       padding: const EdgeInsets.only(top: 12),
       child: filled
@@ -1803,8 +1813,8 @@ class _OfferButton extends StatelessWidget {
               child: FilledButton(
                 onPressed: onPressed,
                 style: FilledButton.styleFrom(
-                  padding: padding,
-                  shape: shape,
+                  padding: _offerPadding,
+                  shape: _offerShape,
                   textStyle: theme.textTheme.titleSmall,
                 ),
                 child: content,
