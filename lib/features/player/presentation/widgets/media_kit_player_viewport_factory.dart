@@ -541,7 +541,14 @@ class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
   );
 
   Future<void> _showSettingsSheet({BuildContext? anchor}) =>
-      showPlayerSubtitleSettingsSheet(context, anchor: anchor);
+      showPlayerSubtitleSettingsSheet(
+        context,
+        anchor: anchor,
+        speed: PlayerSpeedSetting(
+          rate: widget.engine.playbackRate,
+          onSelected: widget.engine.setPlaybackRate,
+        ),
+      );
 
   Future<void> _showTrackSelectorSheet({BuildContext? anchor}) async {
     final engine = widget.engine;

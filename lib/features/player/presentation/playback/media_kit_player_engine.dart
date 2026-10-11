@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:developer' as developer;
+import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:media_kit/media_kit.dart';
@@ -238,6 +239,19 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
   /// Openings come within the first minutes, after a cold open at most.
   static const _skipForwardWindow = Duration(minutes: 5);
 
+  final _playbackRate = ValueNotifier<double>(1);
+  bool _fastForwardHeld = false;
+
+  /// The fast-forward hold's speed, unless the chosen one is faster.
+  static const fastForwardRate = 2.0;
+
+  @override
+  ValueListenable<double> get playbackRate => _playbackRate;
+
+  double get _effectiveRate => _fastForwardHeld
+      ? math.max(fastForwardRate, _playbackRate.value)
+      : _playbackRate.value;
+
   List<PlayerSkipSegment> _chapterSegments = const [];
   List<PlayerSkipSegment> _lookedUpSegments = const [];
   bool _skipTimesPending = false;
@@ -343,6 +357,37 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
     _refreshPositionOffers();
   }
 
+  @override
+  void setPlaybackRate(double rate) {
+    if (_closed || rate <= 0 || rate == _playbackRate.value) return;
+    _playbackRate.value = rate;
+    unawaited(_applyPlaybackRate());
+  }
+
+  @override
+  void holdFastForward(bool held) {
+    if (_closed || held == _fastForwardHeld) return;
+    _fastForwardHeld = held;
+    unawaited(_applyPlaybackRate());
+  }
+
+  /// Sends the speed to mpv, which keeps it from file to file; a new native
+  /// player starts at 1 and gets it again when it opens the file.
+  Future<void> _applyPlaybackRate() async {
+    final player = _player;
+    final rate = _effectiveRate;
+    if (_closed || player == null || player.state.rate == rate) return;
+    try {
+      await player.setRate(rate);
+    } catch (error) {
+      developer.log(
+        'Failed to change the playback speed.',
+        name: 'iris.player.media',
+        error: error,
+      );
+    }
+  }
+
   /// Jumps to the end of the opening or recap playing now.
   Future<void> skipCurrentSegment() async {
     final segment = skipSegment.value;
@@ -445,6 +490,7 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
     finishing.dispose();
     skipSegment.dispose();
     skipForwardOffered.dispose();
+    _playbackRate.dispose();
     super.dispose();
   }
 
@@ -575,6 +621,7 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
         ...playbackMpvProperties,
         ..._subtitleMpvProperties,
       });
+      await _applyPlaybackRate();
       _preferredTracksApplied = false;
       _openTarget = _openPosition;
       await player.open(Media(session.streamUrl, start: _openPosition));

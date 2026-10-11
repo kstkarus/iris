@@ -169,6 +169,8 @@
   "playerDecoderMediacodec": "MediaCodec",
   "playerDecoderMediacodecCopy": "MediaCodec (с копированием)",
   "playerDecoderSoftwareOnly": "Только программный",
+  "playerPlaybackSpeedTitle": "Скорость воспроизведения",
+  "playerPlaybackRate": "{rate}×",
   "playerSubtitleAppearanceTitle": "Вид субтитров",
   "playerSubtitleLibassLabel": "Улучшенный рендер ASS/SSA",
   "playerSubtitleLibassDescription": "Использует нативный рендер субтитров для лучшей совместимости с аниме-релизами.",

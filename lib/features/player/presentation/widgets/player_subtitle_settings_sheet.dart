@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -24,11 +25,22 @@ const _settingsBarrier = Color(0x33000000);
 /// Room for the size samples and "Semi-transparent" in a third of a row.
 const _popoverWidth = 440.0;
 
+/// The playing session's speed, offered at the top of the settings.
+class PlayerSpeedSetting {
+  const PlayerSpeedSetting({required this.rate, required this.onSelected});
+
+  static const rates = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0];
+
+  final ValueListenable<double> rate;
+  final ValueChanged<double> onSelected;
+}
+
 /// Opens the settings; on wide windows as a popover of [anchor], the
-/// settings button.
+/// settings button. With [speed], they start with the playback speed.
 Future<void> showPlayerSubtitleSettingsSheet(
   BuildContext context, {
   BuildContext? anchor,
+  PlayerSpeedSetting? speed,
 }) {
   final subtitleCubit = context.read<PlayerSubtitlePreferencesCubit>();
   final decodingCubit = context.read<PlayerDecodingPreferencesCubit>();
@@ -49,7 +61,7 @@ Future<void> showPlayerSubtitleSettingsSheet(
           value: decodingCubit,
         ),
       ],
-      child: const PlayerSubtitleSettingsSheet(),
+      child: PlayerSubtitleSettingsSheet(speed: speed),
     ),
   );
 }
@@ -58,21 +70,54 @@ Future<void> showPlayerSubtitleSettingsSheet(
 /// change; the decoder, the ASS renderer and the technical overlay folded
 /// under Advanced, for playback problems.
 class PlayerSubtitleSettingsSheet extends StatelessWidget {
-  const PlayerSubtitleSettingsSheet({super.key});
+  const PlayerSubtitleSettingsSheet({this.speed, super.key});
+
+  final PlayerSpeedSetting? speed;
 
   @override
   Widget build(BuildContext context) {
+    final speed = this.speed;
     return PlayerPanel(
       title: AppLocalizations.of(context).playerSettingsTitle,
-      child: const Column(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
         children: [
-          _Appearance(),
-          SizedBox(height: 8),
-          SegmentedRule(),
-          _Advanced(),
+          if (speed != null) _Speed(speed: speed),
+          const _Appearance(),
+          const SizedBox(height: 8),
+          const SegmentedRule(),
+          const _Advanced(),
         ],
+      ),
+    );
+  }
+}
+
+class _Speed extends StatelessWidget {
+  const _Speed({required this.speed});
+
+  final PlayerSpeedSetting speed;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return ValueListenableBuilder<double>(
+      valueListenable: speed.rate,
+      builder: (context, rate, _) => _Labelled(
+        label: l10n.playerPlaybackSpeedTitle,
+        child: SegmentedChoice<double>(
+          key: const Key('player_speed_choice'),
+          selected: rate,
+          onSelected: speed.onSelected,
+          options: [
+            for (final option in PlayerSpeedSetting.rates)
+              SegmentedOption(
+                value: option,
+                label: l10n.playerPlaybackRate(option),
+              ),
+          ],
+        ),
       ),
     );
   }

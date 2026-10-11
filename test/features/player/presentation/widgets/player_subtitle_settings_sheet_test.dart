@@ -9,6 +9,7 @@ import 'package:iris/features/player/presentation/cubit/player_subtitle_preferen
 import 'package:iris/features/player/presentation/widgets/player_choice_row.dart';
 import 'package:iris/features/player/presentation/widgets/player_overlay_preferences.dart';
 import 'package:iris/features/player/presentation/widgets/player_subtitle_settings_sheet.dart';
+import 'package:iris/shared/widgets/segmented_choice.dart';
 
 import '../../../../helpers/test_app.dart';
 import '../../../../helpers/test_window.dart';
@@ -35,6 +36,50 @@ void main() {
       find.widgetWithText(TextButton, 'Reset'),
     );
     expect(reset.onPressed, isNull);
+  });
+
+  testWidgets('starts with the playback speed when it is offered', (
+    tester,
+  ) async {
+    final rate = ValueNotifier<double>(1);
+    addTearDown(rate.dispose);
+    await tester.pumpWidget(
+      _wrap(
+        child: PlayerSubtitleSettingsSheet(
+          speed: PlayerSpeedSetting(
+            rate: rate,
+            onSelected: (value) => rate.value = value,
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('Playback speed'), findsOneWidget);
+    expect(
+      tester.getTopLeft(find.text('Playback speed')).dy,
+      lessThan(tester.getTopLeft(find.text('SUBTITLE APPEARANCE')).dy),
+    );
+    for (final label in ['0.5×', '0.75×', '1×', '1.25×', '1.5×', '2×']) {
+      expect(find.text(label), findsOneWidget, reason: label);
+    }
+
+    await tester.tap(find.text('1.5×'));
+    await tester.pump();
+    expect(rate.value, 1.5);
+    expect(
+      tester
+          .widget<SegmentedChoice<double>>(
+            find.byKey(const Key('player_speed_choice')),
+          )
+          .selected,
+      1.5,
+    );
+  });
+
+  testWidgets('leaves the speed out when it is not offered', (tester) async {
+    await tester.pumpWidget(_wrap(child: const PlayerSubtitleSettingsSheet()));
+
+    expect(find.text('Playback speed'), findsNothing);
   });
 
   testWidgets('updates cubit when selecting presets', (tester) async {

@@ -100,8 +100,20 @@ class MockPlayerEngine implements PlayerEngine {
   void useSkipTimes(List<PlayerSkipSegment> segments) {}
 
   @override
+  final ValueNotifier<double> playbackRate = ValueNotifier(1);
+
+  @override
+  void setPlaybackRate(double rate) => playbackRate.value = rate;
+
+  @override
+  void holdFastForward(bool held) {}
+
+  @override
   Future<void> stop() async {}
 
   @override
-  Future<void> close() => _events.close();
+  Future<void> close() {
+    playbackRate.dispose();
+    return _events.close();
+  }
 }

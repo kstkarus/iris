@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
+
 import 'package:iris/features/player/domain/entities/player_session.dart';
 import 'package:iris/features/player/domain/entities/player_skip_segment.dart';
 import 'package:iris/features/player/domain/entities/player_track_preferences.dart';
@@ -51,6 +53,18 @@ class FakePlayerEngine implements PlayerEngine {
     lastSkipTimes = segments;
     calls.add('skip times ${segments.length}');
   }
+
+  @override
+  final ValueNotifier<double> playbackRate = ValueNotifier(1);
+
+  /// The fast-forward hold is on.
+  bool fastForwardHeld = false;
+
+  @override
+  void setPlaybackRate(double rate) => playbackRate.value = rate;
+
+  @override
+  void holdFastForward(bool held) => fastForwardHeld = held;
 
   @override
   Future<void> stop() async {

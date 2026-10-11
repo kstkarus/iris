@@ -740,6 +740,18 @@ abstract class AppLocalizations {
   /// **'Software only'**
   String get playerDecoderSoftwareOnly;
 
+  /// No description provided for @playerPlaybackSpeedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Playback speed'**
+  String get playerPlaybackSpeedTitle;
+
+  /// A playback speed, as 1.5×.
+  ///
+  /// In en, this message translates to:
+  /// **'{rate}×'**
+  String playerPlaybackRate(double rate);
+
   /// No description provided for @playerSubtitleAppearanceTitle.
   ///
   /// In en, this message translates to:

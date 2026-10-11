@@ -535,6 +535,83 @@ void main() {
     },
   );
 
+  testWidgets('plays at the chosen speed, also in a new native player for '
+      'a decoder change', (tester) async {
+    final decodingCubit = PlayerDecodingPreferencesCubit(
+      repository: MemoryDecodingPreferencesRepository(),
+    );
+    final createdPlayers = <_FakePlatformPlayer>[];
+    late MediaKitPlayerEngine engine;
+
+    await tester.pumpWidget(
+      _wrapViewport(
+        decodingCubit: decodingCubit,
+        playerBuilder: (configuration) {
+          final player = _FakePlatformPlayer(configuration: configuration);
+          createdPlayers.add(player);
+          return Player(platformPlayer: player);
+        },
+        onEngine: (value) => engine = value,
+      ),
+    );
+    await tester.pump();
+    expect(createdPlayers.single.rates, isEmpty, reason: 'normal speed');
+
+    engine.setPlaybackRate(1.5);
+    await tester.pump();
+    expect(engine.playbackRate.value, 1.5);
+    expect(createdPlayers.single.rates, [1.5]);
+
+    await decodingCubit.setHwdecMode(PlayerHwdecModePreset.softwareOnly);
+    await tester.runAsync(() async {
+      await Future<void>.delayed(const Duration(milliseconds: 1));
+    });
+    for (
+      var attempt = 0;
+      attempt < 10 &&
+          (createdPlayers.length < 2 || createdPlayers.last.openCount == 0);
+      attempt++
+    ) {
+      await tester.pump(const Duration(milliseconds: 10));
+    }
+
+    expect(createdPlayers, hasLength(2));
+    expect(createdPlayers.last.rates, [1.5]);
+    expect(engine.playbackRate.value, 1.5);
+  });
+
+  testWidgets('plays at 2x while fast forward is held, then at the chosen '
+      'speed again', (tester) async {
+    final platformPlayer = _FakePlatformPlayer(
+      configuration: const PlayerConfiguration(),
+    );
+    late MediaKitPlayerEngine engine;
+    await tester.pumpWidget(
+      _wrapViewport(
+        platformPlayer: platformPlayer,
+        onEngine: (value) => engine = value,
+      ),
+    );
+    await tester.pump();
+
+    engine.setPlaybackRate(1.25);
+    engine.holdFastForward(true);
+    await tester.pump();
+    expect(platformPlayer.rates, [1.25, 2]);
+    expect(engine.playbackRate.value, 1.25, reason: 'the choice stays');
+
+    engine.holdFastForward(false);
+    await tester.pump();
+    expect(platformPlayer.rates.last, 1.25);
+
+    // A chosen 2x is already as fast as the hold.
+    engine.setPlaybackRate(2);
+    engine.holdFastForward(true);
+    engine.holdFastForward(false);
+    await tester.pump();
+    expect(platformPlayer.rates, [1.25, 2, 1.25, 2]);
+  });
+
   testWidgets('plays the next file in the same player and video surface', (
     tester,
   ) async {
@@ -2353,6 +2430,15 @@ class _FakePlatformPlayer extends PlatformPlayer {
   Future<void> playOrPause() async {
     playOrPauseCount++;
     emitPlaying(!state.playing);
+  }
+
+  final rates = <double>[];
+
+  @override
+  Future<void> setRate(double rate) async {
+    rates.add(rate);
+    state = state.copyWith(rate: rate);
+    rateController.add(rate);
   }
 
   final volumes = <double>[];

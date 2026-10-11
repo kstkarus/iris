@@ -190,6 +190,17 @@
   "playerDecoderMediacodec": "MediaCodec",
   "playerDecoderMediacodecCopy": "MediaCodec (copy-back)",
   "playerDecoderSoftwareOnly": "Software only",
+  "playerPlaybackSpeedTitle": "Playback speed",
+  "playerPlaybackRate": "{rate}×",
+  "@playerPlaybackRate": {
+    "description": "A playback speed, as 1.5×.",
+    "placeholders": {
+      "rate": {
+        "type": "double",
+        "format": "decimalPattern"
+      }
+    }
+  },
   "playerSubtitleAppearanceTitle": "Subtitle Appearance",
   "playerSubtitleLibassLabel": "Improved ASS/SSA rendering",
   "playerSubtitleLibassDescription": "Uses native subtitle rendering for better compatibility with anime releases.",

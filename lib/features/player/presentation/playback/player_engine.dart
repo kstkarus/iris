@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 import 'package:iris/features/player/domain/entities/player_session.dart';
 import 'package:iris/features/player/domain/entities/player_skip_segment.dart';
 import 'package:iris/features/player/domain/entities/player_track_preferences.dart';
@@ -68,6 +70,16 @@ abstract interface class PlayerEngine {
   /// were found. The file's own chapters, when they name them, take
   /// precedence.
   void useSkipTimes(List<PlayerSkipSegment> segments);
+
+  /// The speed the viewer chose, 1 for normal; it stays for the page,
+  /// across files and a new native player.
+  ValueListenable<double> get playbackRate;
+
+  void setPlaybackRate(double rate);
+
+  /// While [held], plays at 2× (or faster, when [playbackRate] is); let
+  /// go, back to [playbackRate].
+  void holdFastForward(bool held);
 
   /// Stops playback and closes the stream connection; the player stays
   /// for the next file. Completes only once the stream is released, so the

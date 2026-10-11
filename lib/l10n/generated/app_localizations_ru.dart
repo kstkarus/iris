@@ -380,6 +380,19 @@ class AppLocalizationsRu extends AppLocalizations {
   String get playerDecoderSoftwareOnly => 'Только программный';
 
   @override
+  String get playerPlaybackSpeedTitle => 'Скорость воспроизведения';
+
+  @override
+  String playerPlaybackRate(double rate) {
+    final intl.NumberFormat rateNumberFormat = intl.NumberFormat.decimalPattern(
+      localeName,
+    );
+    final String rateString = rateNumberFormat.format(rate);
+
+    return '$rateString×';
+  }
+
+  @override
   String get playerSubtitleAppearanceTitle => 'Вид субтитров';
 
   @override
