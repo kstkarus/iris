@@ -1,36 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:iris/app/router/app_shell_page.dart';
-import 'package:iris/app/bootstrap/create_app.dart';
 import 'package:iris/shared/widgets/dithered_image.dart';
 import 'package:iris/shared/widgets/adaptive/adaptive_content_width.dart';
 
+import '../helpers/mock_app.dart';
 import '../helpers/test_window.dart';
 
 const _firstTitle = 'Fullmetal Alchemist: Brotherhood';
 const _secondTitle = 'Frieren: Beyond Journey\'s End';
 const _description =
     'Two brothers search for a Philosopher\'s Stone after a failed ritual.';
-
-Future<void> _pumpUntilVisible(
-  WidgetTester tester,
-  Finder finder, {
-  Duration timeout = const Duration(seconds: 5),
-}) async {
-  const step = Duration(milliseconds: 16);
-  var elapsed = Duration.zero;
-  while (elapsed < timeout) {
-    await tester.pump(step);
-    if (finder.evaluate().isNotEmpty) {
-      return;
-    }
-    elapsed += step;
-  }
-  fail('Widget was not found within $timeout: $finder');
-}
 
 Future<void> _tapAndSettle(WidgetTester tester, Finder finder) async {
   await tester.ensureVisible(finder);
@@ -47,15 +29,7 @@ Future<void> _openWatchSources(WidgetTester tester) async {
     tester,
     find.widgetWithText(FilledButton, 'Choose source'),
   );
-  await _pumpUntilVisible(tester, find.text('Watch sources'));
-  await tester.pumpAndSettle();
-}
-
-Future<void> _pumpMockApp(WidgetTester tester, Size size) async {
-  setTestWindowSize(tester, size);
-  SharedPreferences.setMockInitialValues({});
-  await tester.pumpWidget(await createApp(useMocks: true));
-  await _pumpUntilVisible(tester, find.text(_firstTitle));
+  await pumpUntilVisible(tester, find.text('Watch sources'));
   await tester.pumpAndSettle();
 }
 
@@ -81,7 +55,7 @@ void main() {
     final isPhone = size.width < 600;
 
     testWidgets('shell uses the right navigation on $sizeName', (tester) async {
-      await _pumpMockApp(tester, size);
+      await pumpMockApp(tester, size: size);
 
       expect(
         find.byKey(AppShellPage.navigationBarKey),
@@ -102,7 +76,7 @@ void main() {
     testWidgets('catalog to downloads flow has no overflow on $sizeName', (
       tester,
     ) async {
-      await _pumpMockApp(tester, size);
+      await pumpMockApp(tester, size: size);
 
       // Covers sit side by side even on phones.
       final firstCard = tester.getTopLeft(find.text(_firstTitle));
@@ -114,7 +88,7 @@ void main() {
       await tester.ensureVisible(find.text(_firstTitle));
       await tester.pump();
       await tester.tap(find.text(_firstTitle));
-      await _pumpUntilVisible(
+      await pumpUntilVisible(
         tester,
         find.widgetWithText(FilledButton, 'Choose source'),
       );
@@ -138,12 +112,12 @@ void main() {
       expect(tester.takeException(), isNull);
 
       await _tapAndSettle(tester, find.byKey(_sourceDownloadButton).first);
-      await _pumpUntilVisible(tester, find.text('episode-01'));
+      await pumpUntilVisible(tester, find.text('episode-01'));
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
 
       await _tapAndSettle(tester, find.byTooltip('Download').first);
-      await _pumpUntilVisible(tester, find.byTooltip('Watch'));
+      await pumpUntilVisible(tester, find.byTooltip('Watch'));
       await tester.pumpAndSettle();
 
       final storage = tester.getRect(find.text('APP STORAGE'));
@@ -162,11 +136,11 @@ void main() {
   for (final entry in TestWindowSizes.all.entries) {
     testWidgets('catalog to streaming player flow has no overflow on '
         '${entry.key}', (tester) async {
-      await _pumpMockApp(tester, entry.value);
+      await pumpMockApp(tester, size: entry.value);
       await tester.ensureVisible(find.text(_firstTitle));
       await tester.pump();
       await tester.tap(find.text(_firstTitle));
-      await _pumpUntilVisible(
+      await pumpUntilVisible(
         tester,
         find.widgetWithText(FilledButton, 'Choose source'),
       );
@@ -183,10 +157,11 @@ void main() {
       expect(tester.takeException(), isNull);
 
       await _tapAndSettle(tester, find.byKey(_sourceWatchButton).first);
-      await _pumpUntilVisible(tester, find.text('episode-01'));
+      await pumpUntilVisible(tester, find.text('episode-01'));
       await tester.pumpAndSettle();
 
       expect(find.text('Choose File'), findsOneWidget);
+      expect(find.text('episode-02'), findsOneWidget);
       final fileCard = tester.getRect(
         find.byKey(const ValueKey('player_episode_0')),
       );
@@ -198,7 +173,7 @@ void main() {
       expect(tester.takeException(), isNull);
 
       await _tapAndSettle(tester, find.text('episode-01').first);
-      await _pumpUntilVisible(
+      await pumpUntilVisible(
         tester,
         find.byKey(const Key('mock_player_surface')),
       );
@@ -210,7 +185,7 @@ void main() {
     tester,
   ) async {
     const size = TestWindowSizes.desktop;
-    await _pumpMockApp(tester, size);
+    await pumpMockApp(tester, size: size);
 
     final sections = tester
         .getRect(find.text('Catalog').first)
@@ -227,7 +202,7 @@ void main() {
     testWidgets('top bar sections stay in reach at ${width.toInt()} dp in '
         'Russian at 2.0 text', (tester) async {
       _useRussianAtDoubleText(tester);
-      await _pumpMockApp(tester, Size(width, 900));
+      await pumpMockApp(tester, size: Size(width, 900));
 
       expect(tester.takeException(), isNull);
       final bar = find.byKey(AppShellPage.topBarKey);
@@ -253,7 +228,7 @@ void main() {
   testWidgets('bottom tabs show whole words at 320 dp in Russian at 2.0 '
       'text', (tester) async {
     _useRussianAtDoubleText(tester);
-    await _pumpMockApp(tester, const Size(320, 720));
+    await pumpMockApp(tester, size: const Size(320, 720));
 
     final bar = find.byKey(AppShellPage.navigationBarKey);
     for (final label in const ['Каталог', 'Раздачи', 'Загрузки', 'Профиль']) {
@@ -271,7 +246,7 @@ void main() {
   });
 
   testWidgets('filters open in a dialog on wide windows', (tester) async {
-    await _pumpMockApp(tester, TestWindowSizes.desktop);
+    await pumpMockApp(tester, size: TestWindowSizes.desktop);
 
     await tester.tap(find.text('Filter & Sort'));
     await tester.pumpAndSettle();
@@ -282,7 +257,7 @@ void main() {
   });
 
   testWidgets('filters open in a bottom sheet on phones', (tester) async {
-    await _pumpMockApp(tester, TestWindowSizes.phone);
+    await pumpMockApp(tester, size: TestWindowSizes.phone);
 
     // Narrow windows show the action as an icon, named by its tooltip.
     await tester.tap(find.byTooltip('Filter & Sort'));
