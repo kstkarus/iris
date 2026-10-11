@@ -27,7 +27,7 @@ List<WatchProgress> continueWatchingItems(List<WatchProgress> history) {
 
 /// The most recent title large, with where it stopped on a position
 /// panel; the next few below it as numbered rows.
-class ContinueWatchingRow extends StatefulWidget {
+class ContinueWatchingRow extends StatelessWidget {
   const ContinueWatchingRow({required this.items, super.key});
 
   static const maxItems = 5;
@@ -39,29 +39,16 @@ class ContinueWatchingRow extends StatefulWidget {
   /// A toggle as tall as the one row it would hide saves nothing.
   static const _minFolded = 2;
 
-  final List<WatchProgress> items;
-
-  @override
-  State<ContinueWatchingRow> createState() => _ContinueWatchingRowState();
-}
-
-class _ContinueWatchingRowState extends State<ContinueWatchingRow> {
   /// From here the title and the position panel sit side by side.
   static const _twoColumnMinWidth = 840.0;
 
-  bool _expanded = false;
+  final List<WatchProgress> items;
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final items = widget.items;
     final latest = items.first;
     final queued = items.skip(1).toList();
-    final hidden = queued.length - ContinueWatchingRow.visibleRows;
-    final folds = hidden >= ContinueWatchingRow._minFolded;
-    final shown = _expanded || !folds
-        ? queued
-        : queued.take(ContinueWatchingRow.visibleRows).toList();
     return Column(
       key: const Key('continue_watching_row'),
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -93,14 +80,12 @@ class _ContinueWatchingRowState extends State<ContinueWatchingRow> {
         ),
         if (queued.isNotEmpty) ...[
           const SizedBox(height: 24),
-          // The catalog below moves with the rows rather than jumping.
-          AnimatedSize(
-            duration: MediaQuery.disableAnimationsOf(context)
-                ? Duration.zero
-                : const Duration(milliseconds: 200),
-            curve: Curves.easeOutCubic,
-            alignment: Alignment.topCenter,
-            child: Column(
+          FoldingList(
+            items: queued,
+            visible: visibleRows,
+            minFolded: _minFolded,
+            toggleKey: const Key('continue_watching_more'),
+            builder: (context, shown) => Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 for (final (index, progress) in shown.indexed) ...[
@@ -110,16 +95,6 @@ class _ContinueWatchingRowState extends State<ContinueWatchingRow> {
               ],
             ),
           ),
-          if (folds) ...[
-            const SegmentedRule(),
-            FoldRow(
-              key: const Key('continue_watching_more'),
-              label: _expanded
-                  ? l10n.commonShowLess
-                  : l10n.commonShowMore(hidden),
-              onPressed: () => setState(() => _expanded = !_expanded),
-            ),
-          ],
         ],
       ],
     );

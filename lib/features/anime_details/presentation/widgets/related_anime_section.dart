@@ -67,7 +67,7 @@ String formatAnimeRelation(AppLocalizations l10n, AnimeRelation relation) =>
     };
 
 /// The rest of the franchise, each title a row that opens its page.
-class RelatedAnimeSection extends StatefulWidget {
+class RelatedAnimeSection extends StatelessWidget {
   const RelatedAnimeSection({
     required this.related,
     this.labelWidth,
@@ -87,68 +87,40 @@ class RelatedAnimeSection extends StatefulWidget {
   final double? labelWidth;
 
   @override
-  State<RelatedAnimeSection> createState() => _RelatedAnimeSectionState();
-}
-
-class _RelatedAnimeSectionState extends State<RelatedAnimeSection> {
-  bool _expanded = false;
-
-  @override
   Widget build(BuildContext context) {
-    final related = relatedToShow(widget.related);
+    final related = relatedToShow(this.related);
     // It may well be empty, so no noise for it: it develops in when
     // it arrives, below everything it could push.
     if (related.isEmpty) return const DitherSwitcher(child: SizedBox.shrink());
 
     final l10n = AppLocalizations.of(context);
-    final hidden = related.length - RelatedAnimeSection.visibleRows;
-    final folds = hidden >= RelatedAnimeSection._minFolded;
-    final shown = _expanded || !folds
-        ? related
-        : related.take(RelatedAnimeSection.visibleRows).toList();
     return DitherSwitcher(
       child: Padding(
         padding: const EdgeInsets.only(top: 40),
         child: LabeledSection(
           label: l10n.animeDetailsRelatedTitle,
-          labelWidth: widget.labelWidth,
+          labelWidth: labelWidth,
           child: Align(
             alignment: AlignmentDirectional.topStart,
             child: ConstrainedBox(
               constraints: const BoxConstraints(
                 maxWidth: AdaptiveContentWidth.reading,
               ),
-              child: Column(
+              child: FoldingList(
                 key: const Key('related_anime_section'),
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  AnimatedSize(
-                    duration: MediaQuery.disableAnimationsOf(context)
-                        ? Duration.zero
-                        : const Duration(milliseconds: 200),
-                    curve: Curves.easeOutCubic,
-                    alignment: Alignment.topCenter,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        for (final (index, item) in shown.indexed) ...[
-                          if (index > 0) const SegmentedRule(),
-                          _RelatedRow(related: item, first: index == 0),
-                        ],
-                      ],
-                    ),
-                  ),
-                  if (folds) ...[
-                    const SegmentedRule(),
-                    FoldRow(
-                      key: const Key('related_anime_more'),
-                      label: _expanded
-                          ? l10n.commonShowLess
-                          : l10n.commonShowMore(hidden),
-                      onPressed: () => setState(() => _expanded = !_expanded),
-                    ),
+                items: related,
+                visible: visibleRows,
+                minFolded: _minFolded,
+                toggleKey: const Key('related_anime_more'),
+                builder: (context, shown) => Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    for (final (index, item) in shown.indexed) ...[
+                      if (index > 0) const SegmentedRule(),
+                      _RelatedRow(related: item, first: index == 0),
+                    ],
                   ],
-                ],
+                ),
               ),
             ),
           ),
