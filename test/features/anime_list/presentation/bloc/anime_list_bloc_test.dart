@@ -18,14 +18,7 @@ void main() {
     test('loads the first page on start', () async {
       final bloc = AnimeListBloc(
         repository: _FakeAnimeListRepository(
-          handler: ({required query}) async {
-            return AnimeListPageResult(
-              items: _pageOneItems,
-              page: query.page,
-              hasMore: true,
-              query: query.search,
-            );
-          },
+          handler: ({required query}) async => _pageOne(query),
         ),
       );
 
@@ -280,12 +273,7 @@ void main() {
         repository: _FakeAnimeListRepository(
           handler: ({required query}) async {
             capturedQuery = query;
-            return AnimeListPageResult(
-              items: _pageOneItems,
-              page: query.page,
-              hasMore: true,
-              query: query.search,
-            );
+            return _pageOne(query);
           },
         ),
       );
@@ -312,12 +300,7 @@ void main() {
         repository: _FakeAnimeListRepository(
           handler: ({required query}) async {
             lastQuery = query;
-            return AnimeListPageResult(
-              items: _pageOneItems,
-              page: query.page,
-              hasMore: true,
-              query: query.search,
-            );
+            return _pageOne(query);
           },
         ),
       );
@@ -349,12 +332,7 @@ void main() {
         repository: _FakeAnimeListRepository(
           handler: ({required query}) async {
             lastQuery = query;
-            return AnimeListPageResult(
-              items: _pageOneItems,
-              page: query.page,
-              hasMore: true,
-              query: query.search,
-            );
+            return _pageOne(query);
           },
         ),
       );
@@ -416,60 +394,46 @@ void main() {
       expect(seenQueries.last.filters.statuses, {AnimeStatusFilter.released});
     });
 
-    test('does not throw when closed before the first page arrives', () async {
-      var fetches = 0;
-      final errors = await _collectUncaughtErrors(() async {
-        final pending = Completer<AnimeListPageResult>();
-        final bloc = AnimeListBloc(
-          repository: _FakeAnimeListRepository(
-            handler: ({required query}) {
-              fetches++;
-              return pending.future;
-            },
-          ),
-        );
+    for (final fails in [false, true]) {
+      final outcome = fails ? 'fails' : 'arrives';
+      test(
+        'does not throw when closed before the first page $outcome',
+        () async {
+          var fetches = 0;
+          final errors = await _collectUncaughtErrors(() async {
+            final pending = Completer<AnimeListPageResult>();
+            final bloc = AnimeListBloc(
+              repository: _FakeAnimeListRepository(
+                handler: ({required query}) {
+                  fetches++;
+                  return pending.future;
+                },
+              ),
+            );
 
-        bloc.add(const AnimeListStarted());
-        await Future<void>.delayed(Duration.zero);
-        await bloc.close();
-        pending.complete(
-          AnimeListPageResult(
-            items: _pageOneItems,
-            page: 1,
-            hasMore: true,
-            query: '',
-          ),
-        );
-        await Future<void>.delayed(Duration.zero);
-      });
+            bloc.add(const AnimeListStarted());
+            await Future<void>.delayed(Duration.zero);
+            await bloc.close();
+            if (fails) {
+              pending.completeError(Exception('Initial failure'));
+            } else {
+              pending.complete(
+                AnimeListPageResult(
+                  items: _pageOneItems,
+                  page: 1,
+                  hasMore: true,
+                  query: '',
+                ),
+              );
+            }
+            await Future<void>.delayed(Duration.zero);
+          });
 
-      expect(fetches, 1);
-      expect(errors, isEmpty);
-    });
-
-    test('does not throw when closed before the first page fails', () async {
-      var fetches = 0;
-      final errors = await _collectUncaughtErrors(() async {
-        final pending = Completer<AnimeListPageResult>();
-        final bloc = AnimeListBloc(
-          repository: _FakeAnimeListRepository(
-            handler: ({required query}) {
-              fetches++;
-              return pending.future;
-            },
-          ),
-        );
-
-        bloc.add(const AnimeListStarted());
-        await Future<void>.delayed(Duration.zero);
-        await bloc.close();
-        pending.completeError(Exception('Initial failure'));
-        await Future<void>.delayed(Duration.zero);
-      });
-
-      expect(fetches, 1);
-      expect(errors, isEmpty);
-    });
+          expect(fetches, 1);
+          expect(errors, isEmpty);
+        },
+      );
+    }
 
     test('signing out drops the list filters and reloads', () async {
       final queries = <AnimeListQuery>[];
@@ -562,6 +526,16 @@ Future<List<Object>> _collectUncaughtErrors(
   final errors = <Object>[];
   await runZonedGuarded(body, (error, _) => errors.add(error));
   return errors;
+}
+
+/// [_pageOneItems] as the answer to [query], with more to come.
+AnimeListPageResult _pageOne(AnimeListQuery query) {
+  return AnimeListPageResult(
+    items: _pageOneItems,
+    page: query.page,
+    hasMore: true,
+    query: query.search,
+  );
 }
 
 class _FakeAnimeListRepository implements AnimeListRepository {

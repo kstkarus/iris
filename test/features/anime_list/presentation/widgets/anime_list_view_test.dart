@@ -84,20 +84,10 @@ void main() {
   testWidgets('shows search field and anime cards when loading succeeds', (
     tester,
   ) async {
-    final bloc = AnimeListBloc(
-      repository: _SuccessAnimeListRepository(initialResult: _pageOneResult),
+    await _pumpCatalog(
+      tester,
+      _SuccessAnimeListRepository(initialResult: _pageOneResult),
     );
-
-    await tester.pumpWidget(
-      _wrapWithApp(
-        BlocProvider.value(
-          value: bloc..add(const AnimeListStarted()),
-          child: const Scaffold(body: AnimeListView()),
-        ),
-      ),
-    );
-
-    await tester.pumpAndSettle();
 
     expect(find.byType(TextField), findsOneWidget);
     expect(find.text('Search anime'), findsOneWidget);
@@ -302,22 +292,13 @@ void main() {
     expect(search.query.sort, AnimeListSortOption.score);
   });
 
-  testWidgets('opens bottom sheet with sort and filter controls', (
+  testWidgets('opens the filter & sort panel with its controls', (
     tester,
   ) async {
-    final bloc = AnimeListBloc(
-      repository: _SuccessAnimeListRepository(initialResult: _pageOneResult),
+    await _pumpCatalog(
+      tester,
+      _SuccessAnimeListRepository(initialResult: _pageOneResult),
     );
-
-    await tester.pumpWidget(
-      _wrapWithApp(
-        BlocProvider.value(
-          value: bloc..add(const AnimeListStarted()),
-          child: const Scaffold(body: AnimeListView()),
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
 
     await tester.tap(find.text('Filter & Sort'));
     await tester.pumpAndSettle();
@@ -332,23 +313,13 @@ void main() {
     expect(find.text('Reset'), findsOneWidget);
   });
 
-  testWidgets('applies selected filters and sort from bottom sheet', (
+  testWidgets('applies filters and sort from the filter & sort panel', (
     tester,
   ) async {
     final repository = _TrackingAnimeListRepository(
       resultsByQuery: {'': _pageOneResult},
     );
-    final bloc = AnimeListBloc(repository: repository);
-
-    await tester.pumpWidget(
-      _wrapWithApp(
-        BlocProvider.value(
-          value: bloc..add(const AnimeListStarted()),
-          child: const Scaffold(body: AnimeListView()),
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
+    await _pumpCatalog(tester, repository);
 
     await tester.tap(find.text('Filter & Sort'));
     await tester.pumpAndSettle();
@@ -370,17 +341,7 @@ void main() {
     final repository = _TrackingAnimeListRepository(
       resultsByQuery: {'': _pageOneResult},
     );
-    final bloc = AnimeListBloc(repository: repository);
-
-    await tester.pumpWidget(
-      _wrapWithApp(
-        BlocProvider.value(
-          value: bloc..add(const AnimeListStarted()),
-          child: const Scaffold(body: AnimeListView()),
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
+    await _pumpCatalog(tester, repository);
 
     await tester.tap(find.text('Filter & Sort'));
     await tester.pumpAndSettle();
@@ -548,17 +509,7 @@ void main() {
       resultsByQuery: {'': _singleItemResult},
       pagedResults: {2: _pageTwoResult},
     );
-    final bloc = AnimeListBloc(repository: repository);
-
-    await tester.pumpWidget(
-      _wrapWithApp(
-        BlocProvider.value(
-          value: bloc..add(const AnimeListStarted()),
-          child: const Scaffold(body: AnimeListView()),
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
+    await _pumpCatalog(tester, repository);
 
     expect(repository.calls.map((call) => call.query.page), [1, 2]);
     expect(find.text('Steins;Gate'), findsOneWidget);
