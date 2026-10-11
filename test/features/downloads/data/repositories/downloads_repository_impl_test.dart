@@ -825,6 +825,31 @@ void main() {
     },
   );
 
+  test('concurrent first restores read the registry once', () async {
+    final registry = _CountingRegistry(
+      registryFile: File(
+        '${temporaryDirectory.path}${Platform.pathSeparator}concurrent.json',
+      ),
+    );
+    final concurrentRepository = DownloadsRepositoryImpl(
+      engine: engine,
+      registry: registry,
+      downloadsDirectory: downloadsDirectory,
+      foregroundService: foregroundService,
+      storageUsageAdapter: const _FakeStorageUsageAdapter(),
+      activityRegistry: activityRegistry,
+    );
+    addTearDown(concurrentRepository.close);
+
+    await Future.wait([
+      concurrentRepository.restore(),
+      concurrentRepository.restore(),
+    ]);
+    await concurrentRepository.restore();
+
+    expect(registry.reads, 1);
+  });
+
   test(
     'a selection waits until a closing player releases the torrent',
     () async {
@@ -1252,6 +1277,18 @@ class _FakeStorageUsageAdapter implements AppStorageUsageAdapter {
 
   @override
   Future<AppStorageUsage?> getUsage() async => usage;
+}
+
+class _CountingRegistry extends DownloadRegistryDataSource {
+  _CountingRegistry({required super.registryFile});
+
+  int reads = 0;
+
+  @override
+  Future<List<DownloadItem>> readDownloads() {
+    reads++;
+    return super.readDownloads();
+  }
 }
 
 class _AddCall {

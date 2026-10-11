@@ -66,6 +66,7 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
   StreamSubscription<String>? _streamingStartedSubscription;
   StreamSubscription<String>? _streamingStoppedSubscription;
   Future<void>? _initialization;
+  Future<void>? _restoration;
   final _engineUpdates = SerialQueue();
   Timer? _persistTimer;
   bool _restored = false;
@@ -359,40 +360,27 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
   @override
   Future<void> restore() {
     if (_restored) return Future<void>.value();
-    return _ensureInitialized().then((_) async {
-      if (_restored) return;
-      final restored = await _registry.readDownloads();
-      final reconciled = <DownloadItem>[];
-      for (final item in restored) {
-        if (item.status == DownloadStatus.completed) {
-          final exists = await File(item.localPath).exists();
-          reconciled.add(
-            exists
-                ? item
-                : item.copyWith(
-                    status: DownloadStatus.failed,
-                    errorMessage: downloadFileMissingMessage,
-                    completedAt: null,
-                  ),
-          );
-        } else if (item.status == DownloadStatus.downloading ||
-            item.status == DownloadStatus.queued) {
-          reconciled.add(
-            item.copyWith(
-              status: DownloadStatus.queued,
-              downloadRateBytesPerSecond: 0,
-              peers: 0,
-            ),
-          );
-        } else {
-          reconciled.add(item);
-        }
-      }
-      _downloads = reconciled;
-      _restored = true;
-      await _commit();
-      unawaited(_pumpQueue());
-    });
+    // Concurrent first calls share one read of the registry.
+    return _restoration ??= _ensureInitialized()
+        .then((_) => _restoreDownloads())
+        .whenComplete(() {
+          _restoration = null;
+        });
+  }
+
+  Future<void> _restoreDownloads() async {
+    final restored = await _registry.readDownloads();
+    final reconciled = <DownloadItem>[];
+    for (final item in restored) {
+      final fileExists =
+          item.status == DownloadStatus.completed &&
+          await File(item.localPath).exists();
+      reconciled.add(_reconcileOnRestore(item, fileExists: fileExists));
+    }
+    _downloads = reconciled;
+    _restored = true;
+    await _commit();
+    unawaited(_pumpQueue());
   }
 
   @override
@@ -931,6 +919,27 @@ class _PreparedRuntime {
   /// Null when the torrent is borrowed from the active download and must not
   /// be removed together with this source.
   final Directory? metadataDirectory;
+}
+
+/// A download as it comes back after a restart: a loading one waits in the
+/// queue again, and a completed one whose file is gone has failed.
+DownloadItem _reconcileOnRestore(
+  DownloadItem item, {
+  required bool fileExists,
+}) {
+  return switch (item.status) {
+    DownloadStatus.completed when !fileExists => item.copyWith(
+      status: DownloadStatus.failed,
+      errorMessage: downloadFileMissingMessage,
+      completedAt: null,
+    ),
+    DownloadStatus.downloading || DownloadStatus.queued => item.copyWith(
+      status: DownloadStatus.queued,
+      downloadRateBytesPerSecond: 0,
+      peers: 0,
+    ),
+    _ => item,
+  };
 }
 
 String _createDownloadId(String magnet, int fileIndex) {
