@@ -10,17 +10,11 @@ class RemoteAnimeDetailsDataSource {
   final ShikimoriGraphQlClient _client;
 
   Future<ShikimoriAnimeDetailsDto> fetchAnimeDetails(String id) async {
-    final response = await _client.query(
+    final items = await _client.queryList(
+      'animes',
       document: _animeDetailsQuery,
       variables: {'id': id},
     );
-    final items = response['animes'];
-
-    if (items is! List) {
-      throw const RemoteResponseException(
-        'Anime details response does not contain a valid anime list.',
-      );
-    }
 
     if (items.isEmpty) {
       throw ResourceNotFoundException('Anime details not found for id: $id');

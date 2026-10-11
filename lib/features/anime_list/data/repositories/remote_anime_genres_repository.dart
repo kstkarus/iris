@@ -1,6 +1,5 @@
 import 'package:iris/features/anime_list/domain/entities/anime_genre.dart';
 import 'package:iris/features/anime_list/domain/repositories/anime_genres_repository.dart';
-import 'package:iris/shared/network/network_exceptions.dart';
 import 'package:iris/shared/network/shikimori_graph_ql_client.dart';
 
 /// Asks Shikimori once a session: the genres hardly ever change. A failed
@@ -21,11 +20,7 @@ class RemoteAnimeGenresRepository implements AnimeGenresRepository {
         });
 
   Future<List<AnimeGenre>> _fetch() async {
-    final data = await _client.query(document: _genresQuery);
-    final items = data['genres'];
-    if (items is! List) {
-      throw const RemoteResponseException('Genres response is not a list.');
-    }
+    final items = await _client.queryList('genres', document: _genresQuery);
     return [for (final item in items) ?_parse(item)];
   }
 

@@ -51,4 +51,18 @@ class ShikimoriGraphQlClient {
       throw mapDioException(error);
     }
   }
+
+  /// The list [field] of the data; throws when it is not a list.
+  Future<List<Object?>> queryList(
+    String field, {
+    required String document,
+    Map<String, dynamic>? variables,
+  }) async {
+    final data = await query(document: document, variables: variables);
+    final items = data[field];
+    if (items is! List) {
+      throw RemoteResponseException('`$field` is not a list.');
+    }
+    return items;
+  }
 }
