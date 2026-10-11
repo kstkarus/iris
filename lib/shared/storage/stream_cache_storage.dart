@@ -2,6 +2,7 @@ import 'dart:developer' as developer;
 import 'dart:io';
 
 import 'package:iris/shared/storage/directory_size.dart';
+import 'package:iris/shared/utils/serial_queue.dart';
 
 /// Owns the folder where streamed torrent pieces are written.
 ///
@@ -19,12 +20,12 @@ class StreamCacheStorage {
   bool _prepared = false;
   // Operations run one after another, so prepare() returns only once a clear
   // that is still deleting has finished.
-  Future<void> _operations = Future<void>.value();
+  final _operations = SerialQueue();
 
   /// Wipes leftovers from previous runs, once. Safe to call repeatedly; waits
   /// for a clear that is still deleting.
   Future<void> prepare() {
-    return _enqueue(() async {
+    return _operations.run(() async {
       if (_prepared) return;
       _prepared = true;
       await _wipe();
@@ -34,19 +35,13 @@ class StreamCacheStorage {
   /// Deletes everything in the folder. Returns false when some entry could not
   /// be deleted, for example a file still held open on Windows.
   Future<bool> clear() {
-    return _enqueue(() {
+    return _operations.run(() {
       _prepared = true;
       return _wipe();
     });
   }
 
   Future<int> sizeBytes() => directorySize(directory);
-
-  Future<T> _enqueue<T>(Future<T> Function() operation) {
-    final result = _operations.then((_) => operation());
-    _operations = result.then<void>((_) {}, onError: (_, _) {});
-    return result;
-  }
 
   Future<bool> _wipe() async {
     var complete = true;

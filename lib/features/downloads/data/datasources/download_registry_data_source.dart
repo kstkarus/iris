@@ -3,13 +3,14 @@ import 'dart:io';
 
 import 'package:iris/features/downloads/data/models/download_item_model.dart';
 import 'package:iris/features/downloads/domain/entities/download_item.dart';
+import 'package:iris/shared/utils/serial_queue.dart';
 
 class DownloadRegistryDataSource {
   DownloadRegistryDataSource({required File registryFile})
     : _registryFile = registryFile;
 
   final File _registryFile;
-  Future<void> _pendingWrite = Future.value();
+  final _writes = SerialQueue();
 
   Future<List<DownloadItem>> readDownloads() async {
     final primary = await _tryRead(_registryFile);
@@ -23,12 +24,7 @@ class DownloadRegistryDataSource {
 
   Future<void> writeDownloads(List<DownloadItem> downloads) {
     final snapshot = List<DownloadItem>.unmodifiable(downloads);
-    final operation = _pendingWrite.then(
-      (_) => _writeDownloads(snapshot),
-      onError: (_, _) => _writeDownloads(snapshot),
-    );
-    _pendingWrite = operation;
-    return operation;
+    return _writes.run(() => _writeDownloads(snapshot));
   }
 
   File get _temporaryFile => File('${_registryFile.path}.tmp');

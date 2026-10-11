@@ -21,6 +21,7 @@ import 'package:iris/shared/torrent/preparation_cancelled_exception.dart';
 import 'package:iris/shared/torrent/torrent_activity_registry.dart';
 import 'package:iris/shared/torrent/torrent_key.dart';
 import 'package:iris/shared/torrent/video_file_extensions.dart';
+import 'package:iris/shared/utils/serial_queue.dart';
 
 class DownloadsRepositoryImpl implements DownloadsRepository {
   DownloadsRepositoryImpl({
@@ -65,7 +66,7 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
   StreamSubscription<String>? _streamingStartedSubscription;
   StreamSubscription<String>? _streamingStoppedSubscription;
   Future<void>? _initialization;
-  Future<void> _updateSerial = Future<void>.value();
+  final _engineUpdates = SerialQueue();
   Timer? _persistTimer;
   bool _restored = false;
   bool _pumping = false;
@@ -432,7 +433,7 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
     await _streamingStartedSubscription?.cancel();
     await _streamingStoppedSubscription?.cancel();
     await _engineSubscription?.cancel();
-    await _updateSerial;
+    await _engineUpdates.idle;
     await _registry.writeDownloads(_downloads);
     for (final sourceToken in _preparedSources.keys.toList()) {
       await disposePreparedSource(sourceToken: sourceToken);
@@ -452,10 +453,7 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
         (_) => unawaited(_pumpQueue()),
       );
       _engineSubscription = _engine.torrentUpdates.listen((torrents) {
-        _updateSerial = _updateSerial.then(
-          (_) => _handleEngineUpdates(torrents),
-          onError: (_, _) => _handleEngineUpdates(torrents),
-        );
+        unawaited(_engineUpdates.run(() => _handleEngineUpdates(torrents)));
       });
     }();
   }
