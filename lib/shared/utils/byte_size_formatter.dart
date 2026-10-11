@@ -31,13 +31,8 @@ String formatByteSize(
   return '$number ${units[unit]}';
 }
 
-/// A transfer rate, e.g. `1,5 МБ/с`; [compact] as in [formatByteSize].
-String formatTransferRate(
-  AppLocalizations l10n,
-  int bytesPerSecond, {
-  bool compact = true,
-}) {
-  return l10n.playerRate(
-    formatByteSize(l10n, bytesPerSecond, compact: compact),
-  );
+/// A transfer rate, the same everywhere: one decimal below 10 units, whole
+/// from 10 up, e.g. `1,5 МБ/с`, `12 МБ/с`.
+String formatTransferRate(AppLocalizations l10n, int bytesPerSecond) {
+  return l10n.playerRate(formatByteSize(l10n, bytesPerSecond, compact: true));
 }

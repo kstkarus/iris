@@ -33,13 +33,15 @@ void main() {
     expect(formatByteSize(ru, mib * 3 ~/ 2), '1,5 ${ru.byteUnitMB}');
   });
 
-  test('formats a rate compactly unless asked otherwise', () {
-    final rate = (12.3 * mib).round();
+  test('formats every rate with one decimal below ten units only', () {
+    String rate(num mebibytes) =>
+        formatTransferRate(en, (mebibytes * mib).round());
 
-    expect(formatTransferRate(en, rate), en.playerRate('12 ${en.byteUnitMB}'));
+    expect(rate(9.4), en.playerRate('9.4 ${en.byteUnitMB}'));
+    expect(rate(12.3), en.playerRate('12 ${en.byteUnitMB}'));
     expect(
-      formatTransferRate(en, rate, compact: false),
-      en.playerRate('12.3 ${en.byteUnitMB}'),
+      formatTransferRate(en, 512 * 1024),
+      en.playerRate('512 ${en.byteUnitKB}'),
     );
   });
 }

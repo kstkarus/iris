@@ -211,6 +211,16 @@ void main() {
       expect(find.textContaining('~5 min left'), findsOneWidget);
     });
 
+    testWidgets('gives the speed as the player does and the sizes in full', (
+      tester,
+    ) async {
+      await pump(tester, download(rate: (12.3 * 1024 * 1024).round()));
+
+      expect(find.textContaining('12 MB/s'), findsOneWidget);
+      expect(find.textContaining('12.3'), findsNothing);
+      expect(find.textContaining('300.0 MB / 600.0 MB'), findsOneWidget);
+    });
+
     testWidgets('names a missing swarm instead of a zero speed', (
       tester,
     ) async {
