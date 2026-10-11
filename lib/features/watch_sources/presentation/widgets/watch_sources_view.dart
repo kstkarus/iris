@@ -13,6 +13,7 @@ import 'package:iris/features/watch_sources/presentation/cubit/watch_sources_sta
 import 'package:iris/features/watch_sources/presentation/models/watch_sources_sort_option.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/torrent/torrent_key.dart';
+import 'package:iris/shared/utils/watched_first.dart';
 import 'package:iris/shared/widgets/adaptive/show_adaptive_sheet.dart';
 import 'package:iris/shared/widgets/adaptive/window_size_class.dart';
 import 'package:iris/shared/widgets/app_skeleton.dart';
@@ -21,6 +22,7 @@ import 'package:iris/shared/widgets/option_toggle.dart';
 import 'package:iris/shared/widgets/search_field.dart';
 import 'package:iris/shared/widgets/search_toolbar.dart';
 import 'package:iris/shared/widgets/segmented_bar.dart';
+import 'package:iris/shared/widgets/source_facts_line.dart';
 import 'package:iris/shared/widgets/status_views.dart';
 
 /// A title's releases. While they load, the page is pixel noise in the
@@ -68,7 +70,12 @@ class _LoadedState extends StatelessWidget {
     final watchedKeys = {
       for (final progress in context.watchWatchProgress()) progress.torrentKey,
     };
-    final items = _watchedFirst(state.visibleItems, watchedKeys);
+    final items = watchedKeys.isEmpty
+        ? state.visibleItems
+        : watchedFirst(
+            state.visibleItems,
+            (item) => watchedKeys.contains(torrentKeyFromMagnet(item.magnet)),
+          );
     return LayoutBuilder(
       builder: (context, constraints) {
         return Column(
@@ -244,32 +251,13 @@ final _standInItems = [
   ].indexed)
     WatchSourceItem(
       title: title,
-      category: '',
-      link: '',
-      torrent: '',
       magnet: 'magnet:?xt=urn:btih:standin$index',
       size: '1.4 GB',
       time: '2020-01-01',
       seeders: 120,
-      leechers: 4,
       downloads: 2400,
     ),
 ];
-
-/// Releases the user already streamed come first, keeping the chosen sort
-/// order inside both groups.
-List<WatchSourceItem> _watchedFirst(
-  List<WatchSourceItem> items,
-  Set<String> watchedKeys,
-) {
-  if (watchedKeys.isEmpty) return items;
-  bool isWatched(WatchSourceItem item) =>
-      watchedKeys.contains(torrentKeyFromMagnet(item.magnet));
-  return [
-    ...items.where(isWatched),
-    ...items.where((item) => !isWatched(item)),
-  ];
-}
 
 /// Column widths of the wide table, gaps included; the release name takes
 /// the rest.
@@ -402,7 +390,8 @@ class _WatchSourceRow extends StatelessWidget {
         ),
         if (watched || !tabular) ...[
           const SizedBox(height: 4),
-          _SourceFacts(
+          SourceFactsLine(
+            key: watched ? const Key('watch_source_used_badge') : null,
             watched: watched,
             facts: tabular
                 ? null
@@ -482,38 +471,6 @@ class _WatchSourceRow extends StatelessWidget {
         sourceTitle: item.title,
         magnet: item.magnet,
       ),
-    );
-  }
-}
-
-/// The "watched" mark and, in the narrow layout, the numbers the wide
-/// table shows in columns.
-class _SourceFacts extends StatelessWidget {
-  const _SourceFacts({required this.watched, required this.facts});
-
-  final bool watched;
-  final String? facts;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final l10n = AppLocalizations.of(context);
-    final facts = this.facts;
-    return Text.rich(
-      key: watched ? const Key('watch_source_used_badge') : null,
-      TextSpan(
-        children: [
-          if (watched) ...[
-            TextSpan(
-              text: l10n.watchSourceUsedBadge,
-              style: TextStyle(color: theme.colorScheme.onSurface),
-            ),
-            if (facts != null) const TextSpan(text: ' · '),
-          ],
-          ?(facts == null ? null : TextSpan(text: facts)),
-        ],
-      ),
-      style: theme.textTheme.bodySmall,
     );
   }
 }

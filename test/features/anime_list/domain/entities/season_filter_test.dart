@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:iris/features/anime_list/data/mappers/anime_list_query_variables.dart';
 import 'package:iris/features/anime_list/domain/entities/season_filter.dart';
 
 void main() {
@@ -33,10 +34,14 @@ void main() {
     expect(presets(DateTime(2027, 2, 1)).take(2), ['winter_2027', 'fall_2026']);
   });
 
-  test('stretches are equal by what Shikimori is asked', () {
+  test('stretches are equal by what they cover', () {
     expect(
       const SeasonFilter.season(AnimeSeason.fall, 2026),
       const SeasonFilter.season(AnimeSeason.fall, 2026),
+    );
+    expect(
+      const SeasonFilter.season(AnimeSeason.fall, 2026),
+      isNot(const SeasonFilter.season(AnimeSeason.summer, 2026)),
     );
     expect(const SeasonFilter.decade(2010).apiValue, '2010_2019');
   });

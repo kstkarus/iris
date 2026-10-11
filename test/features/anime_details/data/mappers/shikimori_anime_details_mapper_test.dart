@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:iris/entities/anime/domain/anime_summary.dart';
 import 'package:iris/features/anime_details/data/mappers/shikimori_anime_details_mapper.dart';
 import 'package:iris/features/anime_details/data/models/shikimori_anime_details_dto.dart';
 import 'package:iris/features/anime_details/domain/entities/anime_details.dart';
@@ -8,53 +9,53 @@ import 'package:iris/features/anime_details/domain/entities/related_anime.dart';
 
 void main() {
   test('Shikimori anime details dto maps to a domain entity', () {
-    const dto = ShikimoriAnimeDetailsDto(
-      id: '5114',
-      malId: '5114',
-      name: 'Fullmetal Alchemist: Brotherhood',
-      russian: 'Fullmetal Alchemist: Brotherhood RU',
-      description:
+    final dto = ShikimoriAnimeDetailsDto.tryParse({
+      'id': '5114',
+      'name': 'Fullmetal Alchemist: Brotherhood',
+      'russian': 'Fullmetal Alchemist: Brotherhood RU',
+      'description':
           'Two brothers search for a Philosopher\'s Stone after a failed ritual.',
-      kind: 'tv',
-      score: 9.12,
-      status: 'released',
-      episodes: 64,
-      episodesAired: 64,
-      airedOn: ShikimoriDetailsAiredOnDto(
-        year: 2009,
-        month: 4,
-        day: 5,
-        date: '2009-04-05',
-      ),
-      poster: ShikimoriDetailsPosterDto(
-        id: 'poster-5114',
-        originalUrl: 'https://shikimori.one/posters/5114/original.jpg',
-      ),
-    );
+      'kind': 'tv',
+      'score': 9.12,
+      'status': 'released',
+      'episodes': 64,
+      'episodesAired': 64,
+      'airedOn': {'year': 2009, 'month': 4, 'day': 5, 'date': '2009-04-05'},
+      'poster': {
+        'mainUrl': 'https://shikimori.one/posters/5114/main.jpg',
+        'originalUrl': 'https://shikimori.one/posters/5114/original.jpg',
+      },
+    })!;
 
     final details = mapShikimoriAnimeDetailsToDomain(dto);
 
     expect(
       details,
       const AnimeDetails(
-        id: '5114',
-        name: 'Fullmetal Alchemist: Brotherhood',
-        russian: 'Fullmetal Alchemist: Brotherhood RU',
+        anime: AnimeSummary(
+          id: '5114',
+          name: 'Fullmetal Alchemist: Brotherhood',
+          russian: 'Fullmetal Alchemist: Brotherhood RU',
+          kind: 'tv',
+          score: 9.12,
+          status: 'released',
+          episodes: 64,
+          episodesAired: 64,
+          airedOn: '2009-04-05',
+          posterUrl: 'https://shikimori.one/posters/5114/original.jpg',
+        ),
         description:
             'Two brothers search for a Philosopher\'s Stone after a failed ritual.',
-        kind: 'tv',
-        score: 9.12,
-        status: 'released',
-        episodes: 64,
-        episodesAired: 64,
-        airedOn: '2009-04-05',
-        posterOriginalUrl: 'https://shikimori.one/posters/5114/original.jpg',
       ),
     );
   });
 
+  test('an anime without an id is no details', () {
+    expect(ShikimoriAnimeDetailsDto.tryParse({'name': 'Frieren'}), isNull);
+  });
+
   test('maps the studio, genres, rating, next episode and dubs', () {
-    final dto = ShikimoriAnimeDetailsDto.fromJson({
+    final dto = ShikimoriAnimeDetailsDto.tryParse({
       'id': 1,
       'nextEpisodeAt': '2026-10-12T15:00:00+03:00',
       'rating': 'pg_13',
@@ -67,11 +68,11 @@ void main() {
         {'name': 'Military', 'russian': 'Военное', 'kind': 'theme'},
       ],
       'fandubbers': ['AniLibria', ' ', 'Studio Band '],
-    });
+    })!;
 
     final details = mapShikimoriAnimeDetailsToDomain(dto);
 
-    expect(details.nextEpisodeAt, DateTime.utc(2026, 10, 12, 12));
+    expect(details.anime.nextEpisodeAt, DateTime.utc(2026, 10, 12, 12));
     expect(details.rating, 'pg_13');
     expect(details.studios, ['Bones']);
     expect(details.genres, const [
@@ -83,15 +84,15 @@ void main() {
 
   test('an unknown rating and no next episode map to nothing', () {
     final details = mapShikimoriAnimeDetailsToDomain(
-      ShikimoriAnimeDetailsDto.fromJson({
+      ShikimoriAnimeDetailsDto.tryParse({
         'id': 1,
         'rating': 'none',
         'nextEpisodeAt': null,
-      }),
+      })!,
     );
 
     expect(details.rating, isEmpty);
-    expect(details.nextEpisodeAt, isNull);
+    expect(details.anime.nextEpisodeAt, isNull);
   });
 
   test('description keeps the text of wiki links and BBCode tags', () {
@@ -107,7 +108,7 @@ void main() {
   });
 
   test('related anime map with their relation; manga is left out', () {
-    final dto = ShikimoriAnimeDetailsDto.fromJson({
+    final dto = ShikimoriAnimeDetailsDto.tryParse({
       'id': '52991',
       'name': 'Sousou no Frieren',
       'related': [
@@ -138,44 +139,48 @@ void main() {
           'anime': {'id': '1', 'name': 'Unknown kin'},
         },
       ],
-    });
+    })!;
 
     final related = mapShikimoriAnimeDetailsToDomain(dto).related;
 
     expect(related, const [
       RelatedAnime(
         relation: AnimeRelation.sequel,
-        id: '59978',
-        name: 'Sousou no Frieren 2nd Season',
-        russian: 'Провожающая в последний путь Фрирен 2',
-        english: "Frieren: Beyond Journey's End Season 2",
-        kind: 'tv',
-        score: 9.1,
-        status: 'released',
-        episodes: 10,
-        episodesAired: 10,
-        airedOn: '2026-01-16',
-        posterUrl: 'https://shikimori.io/poster/59978.jpg',
+        anime: AnimeSummary(
+          id: '59978',
+          name: 'Sousou no Frieren 2nd Season',
+          russian: 'Провожающая в последний путь Фрирен 2',
+          english: "Frieren: Beyond Journey's End Season 2",
+          kind: 'tv',
+          score: 9.1,
+          status: 'released',
+          episodes: 10,
+          episodesAired: 10,
+          airedOn: '2026-01-16',
+          posterUrl: 'https://shikimori.io/poster/59978.jpg',
+        ),
       ),
       RelatedAnime(
         relation: AnimeRelation.other,
-        id: '1',
-        name: 'Unknown kin',
-        russian: '',
-        kind: '',
-        score: 0,
-        status: '',
-        episodes: 0,
-        episodesAired: 0,
-        airedOn: '',
-        posterUrl: '',
+        anime: AnimeSummary(
+          id: '1',
+          name: 'Unknown kin',
+          russian: '',
+          kind: '',
+          score: 0,
+          status: '',
+          episodes: 0,
+          episodesAired: 0,
+          airedOn: '',
+          posterUrl: '',
+        ),
       ),
     ]);
   });
 
   test('a date known only by its year stays a year', () {
     // Shikimori fills `date` with the first of January in that case.
-    final dto = ShikimoriAnimeDetailsDto.fromJson({
+    final dto = ShikimoriAnimeDetailsDto.tryParse({
       'id': '53529',
       'name': 'Upcoming',
       'airedOn': {
@@ -199,11 +204,11 @@ void main() {
           },
         },
       ],
-    });
+    })!;
 
     final details = mapShikimoriAnimeDetailsToDomain(dto);
 
-    expect(details.airedOn, '2028');
-    expect(details.related.single.airedOn, '2029-04');
+    expect(details.anime.airedOn, '2028');
+    expect(details.related.single.anime.airedOn, '2029-04');
   });
 }

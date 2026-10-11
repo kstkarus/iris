@@ -5,6 +5,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:iris/entities/anime/domain/anime_summary.dart';
+
 import 'package:iris/entities/watch_progress/domain/watch_progress.dart';
 import 'package:iris/entities/watch_progress/domain/watch_progress_repository.dart';
 import 'package:iris/entities/watch_progress/presentation/watch_progress_cubit.dart';
@@ -395,7 +397,7 @@ void main() {
 
   testWidgets('loads the next page near the end of the list', (tester) async {
     final repository = _TrackingAnimeListRepository(
-      resultsByQuery: {'': _pageOneResult.copyWith(hasMore: true)},
+      resultsByQuery: {'': _withHasMore(_pageOneResult, true)},
       pagedResults: {2: _pageTwoResult},
     );
     final bloc = AnimeListBloc(repository: repository);
@@ -511,7 +513,7 @@ void main() {
       setTestWindowSize(tester, entry.value);
       final bloc = AnimeListBloc(
         repository: _SuccessAnimeListRepository(
-          initialResult: _pageOneResult.copyWith(hasMore: false),
+          initialResult: _withHasMore(_pageOneResult, false),
         ),
       );
 
@@ -676,12 +678,20 @@ class _LoadMoreFailureAnimeListRepository implements AnimeListRepository {
     required AnimeListQuery query,
   }) async {
     if (query.page == 1) {
-      return initialResult.copyWith(hasMore: true);
+      return _withHasMore(initialResult, true);
     }
 
     throw Exception('Load more failure');
   }
 }
+
+AnimeListPageResult _withHasMore(AnimeListPageResult result, bool hasMore) =>
+    AnimeListPageResult(
+      items: result.items,
+      page: result.page,
+      hasMore: hasMore,
+      query: result.query,
+    );
 
 class _RepositoryCall {
   const _RepositoryCall({required this.query});
@@ -691,6 +701,93 @@ class _RepositoryCall {
 
 const _pageOneItems = [
   AnimeListItem(
+    anime: AnimeSummary(
+      id: '21',
+      name: 'Solo Leveling',
+      russian: 'Solo Leveling RU',
+      kind: 'tv',
+      score: 8.34,
+      status: 'released',
+      episodes: 12,
+      episodesAired: 12,
+      airedOn: '2024-01-07',
+      posterUrl: 'https://shikimori.one/posters/52299/main.webp',
+    ),
+  ),
+  AnimeListItem(
+    anime: AnimeSummary(
+      id: '22',
+      name: 'Frieren: Beyond Journey\'s End',
+      russian: 'Frieren RU',
+      kind: 'tv',
+      score: 9.27,
+      status: 'released',
+      episodes: 28,
+      episodesAired: 28,
+      airedOn: '2023-09-29',
+      posterUrl: 'https://shikimori.one/posters/52991/main.webp',
+    ),
+  ),
+  AnimeListItem(
+    anime: AnimeSummary(
+      id: '23',
+      name: 'Death Note',
+      russian: 'Death Note RU',
+      kind: 'tv',
+      score: 8.61,
+      status: 'released',
+      episodes: 37,
+      episodesAired: 37,
+      airedOn: '2006-10-04',
+      posterUrl: 'https://shikimori.one/posters/1535/main.jpg',
+    ),
+  ),
+  AnimeListItem(
+    anime: AnimeSummary(
+      id: '24',
+      name: 'Hunter x Hunter (2011)',
+      russian: 'Hunter x Hunter RU',
+      kind: 'tv',
+      score: 9.04,
+      status: 'released',
+      episodes: 148,
+      episodesAired: 148,
+      airedOn: '2011-10-02',
+      posterUrl: 'https://shikimori.one/posters/11061/main.jpg',
+    ),
+  ),
+  AnimeListItem(
+    anime: AnimeSummary(
+      id: '25',
+      name: 'Steins;Gate 0',
+      russian: 'Steins;Gate 0 RU',
+      kind: 'tv',
+      score: 8.54,
+      status: 'released',
+      episodes: 23,
+      episodesAired: 23,
+      airedOn: '2018-04-12',
+      posterUrl: 'https://shikimori.one/posters/30484/main.jpg',
+    ),
+  ),
+  AnimeListItem(
+    anime: AnimeSummary(
+      id: '26',
+      name: 'Mob Psycho 100',
+      russian: 'Mob Psycho 100 RU',
+      kind: 'tv',
+      score: 8.49,
+      status: 'released',
+      episodes: 12,
+      episodesAired: 12,
+      airedOn: '2016-07-12',
+      posterUrl: 'https://shikimori.one/posters/32182/main.jpg',
+    ),
+  ),
+];
+
+const _singleItem = AnimeListItem(
+  anime: AnimeSummary(
     id: '21',
     name: 'Solo Leveling',
     russian: 'Solo Leveling RU',
@@ -700,110 +797,41 @@ const _pageOneItems = [
     episodes: 12,
     episodesAired: 12,
     airedOn: '2024-01-07',
-    posterMainUrl: 'https://shikimori.one/posters/52299/main.webp',
+    posterUrl: 'https://shikimori.one/posters/52299/main.webp',
   ),
-  AnimeListItem(
-    id: '22',
-    name: 'Frieren: Beyond Journey\'s End',
-    russian: 'Frieren RU',
-    kind: 'tv',
-    score: 9.27,
-    status: 'released',
-    episodes: 28,
-    episodesAired: 28,
-    airedOn: '2023-09-29',
-    posterMainUrl: 'https://shikimori.one/posters/52991/main.webp',
-  ),
-  AnimeListItem(
-    id: '23',
-    name: 'Death Note',
-    russian: 'Death Note RU',
-    kind: 'tv',
-    score: 8.61,
-    status: 'released',
-    episodes: 37,
-    episodesAired: 37,
-    airedOn: '2006-10-04',
-    posterMainUrl: 'https://shikimori.one/posters/1535/main.jpg',
-  ),
-  AnimeListItem(
-    id: '24',
-    name: 'Hunter x Hunter (2011)',
-    russian: 'Hunter x Hunter RU',
-    kind: 'tv',
-    score: 9.04,
-    status: 'released',
-    episodes: 148,
-    episodesAired: 148,
-    airedOn: '2011-10-02',
-    posterMainUrl: 'https://shikimori.one/posters/11061/main.jpg',
-  ),
-  AnimeListItem(
-    id: '25',
-    name: 'Steins;Gate 0',
-    russian: 'Steins;Gate 0 RU',
-    kind: 'tv',
-    score: 8.54,
-    status: 'released',
-    episodes: 23,
-    episodesAired: 23,
-    airedOn: '2018-04-12',
-    posterMainUrl: 'https://shikimori.one/posters/30484/main.jpg',
-  ),
-  AnimeListItem(
-    id: '26',
-    name: 'Mob Psycho 100',
-    russian: 'Mob Psycho 100 RU',
-    kind: 'tv',
-    score: 8.49,
-    status: 'released',
-    episodes: 12,
-    episodesAired: 12,
-    airedOn: '2016-07-12',
-    posterMainUrl: 'https://shikimori.one/posters/32182/main.jpg',
-  ),
-];
-
-const _singleItem = AnimeListItem(
-  id: '21',
-  name: 'Solo Leveling',
-  russian: 'Solo Leveling RU',
-  kind: 'tv',
-  score: 8.34,
-  status: 'released',
-  episodes: 12,
-  episodesAired: 12,
-  airedOn: '2024-01-07',
-  posterMainUrl: 'https://shikimori.one/posters/52299/main.webp',
 );
 
 const _pageTwoItems = [
   AnimeListItem(
-    id: '27',
-    name: 'Steins;Gate',
-    russian: 'Steins;Gate RU',
-    kind: 'tv',
-    score: 9.07,
-    status: 'released',
-    episodes: 24,
-    episodesAired: 24,
-    airedOn: '2011-04-06',
-    posterMainUrl: 'https://shikimori.one/posters/9253/main.jpg',
+    anime: AnimeSummary(
+      id: '27',
+      name: 'Steins;Gate',
+      russian: 'Steins;Gate RU',
+      kind: 'tv',
+      score: 9.07,
+      status: 'released',
+      episodes: 24,
+      episodesAired: 24,
+      airedOn: '2011-04-06',
+      posterUrl: 'https://shikimori.one/posters/9253/main.jpg',
+    ),
   ),
 ];
 
 const _searchItems = [
   AnimeListItem(
-    id: '5114',
-    name: 'Fullmetal Alchemist: Brotherhood',
-    russian: 'Fullmetal Alchemist: Brotherhood RU',
-    kind: 'tv',
-    score: 9.12,
-    status: 'released',
-    episodes: 64,
-    episodesAired: 64,
-    airedOn: '2009-04-05',
-    posterMainUrl: 'https://shikimori.one/posters/5114/main.jpg',
+    anime: AnimeSummary(
+      id: '5114',
+      name: 'Fullmetal Alchemist: Brotherhood',
+      russian: 'Fullmetal Alchemist: Brotherhood RU',
+      kind: 'tv',
+      score: 9.12,
+      status: 'released',
+      episodes: 64,
+      episodesAired: 64,
+      airedOn: '2009-04-05',
+      posterUrl: 'https://shikimori.one/posters/5114/main.jpg',
+    ),
   ),
 ];
 

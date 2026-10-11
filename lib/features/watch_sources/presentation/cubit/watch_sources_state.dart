@@ -1,5 +1,6 @@
 import 'package:iris/features/watch_sources/domain/entities/watch_source_item.dart';
 import 'package:iris/features/watch_sources/presentation/models/watch_sources_sort_option.dart';
+import 'package:iris/shared/utils/equality.dart';
 
 sealed class WatchSourcesState {
   const WatchSourcesState();
@@ -45,8 +46,8 @@ final class WatchSourcesLoaded extends WatchSourcesState {
     }
 
     return other is WatchSourcesLoaded &&
-        _listEquals(other.allItems, allItems) &&
-        _listEquals(other.visibleItems, visibleItems) &&
+        sameList(other.allItems, allItems) &&
+        sameList(other.visibleItems, visibleItems) &&
         other.searchQuery == searchQuery &&
         other.sortOption == sortOption;
   }
@@ -78,22 +79,4 @@ final class WatchSourcesFailure extends WatchSourcesState {
 
   @override
   int get hashCode => runtimeType.hashCode;
-}
-
-bool _listEquals(List<Object?> left, List<Object?> right) {
-  if (identical(left, right)) {
-    return true;
-  }
-
-  if (left.length != right.length) {
-    return false;
-  }
-
-  for (var index = 0; index < left.length; index++) {
-    if (left[index] != right[index]) {
-      return false;
-    }
-  }
-
-  return true;
 }

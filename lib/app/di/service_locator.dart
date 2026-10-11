@@ -30,12 +30,9 @@ import 'package:iris/features/anime_list/data/repositories/remote_anime_genres_r
 import 'package:iris/features/anime_list/domain/repositories/anime_genres_repository.dart';
 import 'package:iris/features/anime_list/data/datasources/mock_anime_list_data_source.dart';
 import 'package:iris/features/anime_list/data/datasources/remote_anime_list_data_source.dart';
-import 'package:iris/features/anime_list/data/mappers/shikimori_anime_mapper.dart';
 import 'package:iris/features/anime_list/data/repositories/mock_anime_list_repository.dart';
-import 'package:iris/features/anime_list/domain/entities/anime_list_item.dart';
 import 'package:iris/features/profile/data/repositories/mock_user_list_repository.dart';
 import 'package:iris/features/profile/data/repositories/remote_user_list_repository.dart';
-import 'package:iris/features/profile/domain/entities/user_list_entry.dart';
 import 'package:iris/features/profile/domain/repositories/user_list_repository.dart';
 import 'package:iris/features/anime_list/data/repositories/remote_anime_list_repository.dart';
 import 'package:iris/features/anime_list/domain/repositories/anime_list_repository.dart';
@@ -225,7 +222,7 @@ void _registerMocks() {
           for (final dto
               in await serviceLocator<MockAnimeListDataSource>()
                   .fetchPopularAnime())
-            _listedAnime(mapShikimoriAnimeToDomain(dto)),
+            dto.anime,
         ],
       ),
     )
@@ -504,17 +501,3 @@ void _registerCommon() {
       () => AnimeSearchBloc(repository: serviceLocator<AnimeListRepository>()),
     );
 }
-
-/// A mock catalog title as the mock list shows it.
-ListedAnime _listedAnime(AnimeListItem item) => ListedAnime(
-  id: item.id,
-  name: item.name,
-  russian: item.russian,
-  kind: item.kind,
-  score: item.score,
-  status: item.status,
-  episodes: item.episodes,
-  episodesAired: item.episodesAired,
-  airedOn: item.airedOn,
-  posterUrl: item.posterMainUrl,
-);

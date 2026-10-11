@@ -69,6 +69,29 @@ void main() {
     );
   });
 
+  test('queryList returns the list field and rejects anything else', () async {
+    final client = ShikimoriGraphQlClient(
+      dio: _buildDioWithResponse(
+        data: {
+          'data': {
+            'animes': [
+              {'id': '1'},
+            ],
+            'genres': null,
+          },
+        },
+      ),
+    );
+
+    expect(await client.queryList('animes', document: '{ animes { id } }'), [
+      {'id': '1'},
+    ]);
+    expect(
+      () => client.queryList('genres', document: '{ genres { id } }'),
+      throwsA(isA<RemoteResponseException>()),
+    );
+  });
+
   test(
     'throws remote response exception for an unexpected payload shape',
     () async {

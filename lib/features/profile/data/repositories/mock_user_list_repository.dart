@@ -1,3 +1,4 @@
+import 'package:iris/entities/anime/domain/anime_summary.dart';
 import 'package:iris/entities/user_rate/data/mock_user_rate_repository.dart';
 import 'package:iris/entities/user_rate/domain/user_rate.dart';
 import 'package:iris/features/profile/domain/entities/user_list_entry.dart';
@@ -9,7 +10,7 @@ class MockUserListRepository implements UserListRepository {
   const MockUserListRepository({required this.rates, required this.titles});
 
   final MockUserRateRepository rates;
-  final Future<List<ListedAnime>> Function() titles;
+  final Future<List<AnimeSummary>> Function() titles;
 
   @override
   Future<UserListPage> page({

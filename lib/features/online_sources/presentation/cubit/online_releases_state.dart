@@ -1,4 +1,5 @@
 import 'package:iris/features/online_sources/domain/entities/online_release.dart';
+import 'package:iris/shared/utils/equality.dart';
 
 sealed class OnlineReleasesState {
   const OnlineReleasesState();
@@ -24,15 +25,10 @@ final class OnlineReleasesLoaded extends OnlineReleasesState {
   final bool searching;
 
   @override
-  bool operator ==(Object other) {
-    if (other is! OnlineReleasesLoaded) return false;
-    if (other.searching != searching) return false;
-    if (other.releases.length != releases.length) return false;
-    for (var index = 0; index < releases.length; index++) {
-      if (other.releases[index] != releases[index]) return false;
-    }
-    return true;
-  }
+  bool operator ==(Object other) =>
+      other is OnlineReleasesLoaded &&
+      other.searching == searching &&
+      sameList(other.releases, releases);
 
   @override
   int get hashCode => Object.hash(searching, Object.hashAll(releases));

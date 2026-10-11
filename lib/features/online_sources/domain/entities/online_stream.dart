@@ -1,3 +1,5 @@
+import 'package:iris/shared/utils/equality.dart';
+
 enum OnlineStreamFormat { hls, dash, mp4 }
 
 /// A playable link to one episode in one quality. It expires; resolve it
@@ -25,7 +27,7 @@ class OnlineStream {
         other.url == url &&
         other.quality == quality &&
         other.format == format &&
-        _sameHeaders(other.httpHeaders, httpHeaders);
+        sameMap(other.httpHeaders, httpHeaders);
   }
 
   @override
@@ -37,12 +39,4 @@ class OnlineStream {
       httpHeaders.entries.map((entry) => Object.hash(entry.key, entry.value)),
     ),
   );
-}
-
-bool _sameHeaders(Map<String, String> left, Map<String, String> right) {
-  if (left.length != right.length) return false;
-  for (final entry in left.entries) {
-    if (right[entry.key] != entry.value) return false;
-  }
-  return true;
 }

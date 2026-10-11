@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:iris/entities/anime/domain/anime_summary.dart';
 import 'package:iris/features/anime_details/data/datasources/remote_anime_details_data_source.dart';
 import 'package:iris/features/anime_details/data/repositories/remote_anime_details_repository.dart';
 import 'package:iris/features/anime_details/domain/entities/anime_details.dart';
@@ -18,7 +19,6 @@ void main() {
                 'animes': [
                   {
                     'id': '5114',
-                    'malId': '5114',
                     'name': 'Fullmetal Alchemist: Brotherhood',
                     'russian': 'Fullmetal Alchemist: Brotherhood RU',
                     'description':
@@ -47,17 +47,19 @@ void main() {
     expect(
       details,
       const AnimeDetails(
-        id: '5114',
-        name: 'Fullmetal Alchemist: Brotherhood',
-        russian: 'Fullmetal Alchemist: Brotherhood RU',
+        anime: AnimeSummary(
+          id: '5114',
+          name: 'Fullmetal Alchemist: Brotherhood',
+          russian: 'Fullmetal Alchemist: Brotherhood RU',
+          kind: 'tv',
+          score: 9.1,
+          status: 'released',
+          episodes: 64,
+          episodesAired: 64,
+          airedOn: '2009-04-05',
+          posterUrl: 'https://shikimori.one/posters/5114/original.jpg',
+        ),
         description: 'A remake of Fullmetal Alchemist.\n\nHero',
-        kind: 'tv',
-        score: 9.1,
-        status: 'released',
-        episodes: 64,
-        episodesAired: 64,
-        airedOn: '2009-04-05',
-        posterOriginalUrl: 'https://shikimori.one/posters/5114/original.jpg',
       ),
     );
   });

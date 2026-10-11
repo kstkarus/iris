@@ -22,13 +22,14 @@ class AnimeCard extends StatelessWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final l10n = AppLocalizations.of(context);
-    final rate = context.watchUserRate(item.id, item.userRate);
-    final airing = item.status == 'ongoing';
-    final year = yearOfIsoDate(item.airedOn);
+    final anime = item.anime;
+    final rate = context.watchUserRate(anime.id, item.userRate);
+    final airing = anime.status == 'ongoing';
+    final year = yearOfIsoDate(anime.airedOn);
     final facts = [
-      formatAnimeKind(l10n, item.kind),
+      formatAnimeKind(l10n, anime.kind),
       if (airing)
-        formatAnimeStatus(l10n, item.status)
+        formatAnimeStatus(l10n, anime.status)
       else if (year != null)
         '$year',
     ].join(' · ');
@@ -50,7 +51,7 @@ class AnimeCard extends StatelessWidget {
             children: [
               Stack(
                 children: [
-                  PosterImage(url: item.posterMainUrl),
+                  PosterImage(url: anime.posterUrl),
                   if (rate != null)
                     PositionedDirectional(
                       start: 0,
@@ -60,7 +61,7 @@ class AnimeCard extends StatelessWidget {
                         alignment: AlignmentDirectional.bottomStart,
                         child: UserRateBadge(
                           rate: rate,
-                          totalEpisodes: item.episodes,
+                          totalEpisodes: anime.episodes,
                         ),
                       ),
                     ),
@@ -68,15 +69,15 @@ class AnimeCard extends StatelessWidget {
               ),
               const SizedBox(height: 10),
               Text(
-                item.name,
+                anime.name,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: theme.textTheme.titleSmall,
               ),
-              if (item.russian.isNotEmpty) ...[
+              if (anime.russian.isNotEmpty) ...[
                 const SizedBox(height: 2),
                 Text(
-                  item.russian,
+                  anime.russian,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.bodySmall,
@@ -100,10 +101,10 @@ class AnimeCard extends StatelessWidget {
                       style: factStyle,
                     ),
                   ),
-                  if (item.score > 0)
+                  if (anime.score > 0)
                     Text(
-                      formatAnimeScoreValue(l10n, item.score),
-                      semanticsLabel: formatAnimeScore(l10n, item.score),
+                      formatAnimeScoreValue(l10n, anime.score),
+                      semanticsLabel: formatAnimeScore(l10n, anime.score),
                       style: factStyle?.copyWith(color: scheme.onSurface),
                     ),
                 ],

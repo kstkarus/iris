@@ -32,7 +32,6 @@ const _link = 'online:anilibria/9542?anime=52991';
 final _release = OnlineRelease(
   provider: OnlineProvider.anilibria,
   id: '9542',
-  title: 'Провожающая в последний путь Фрирен',
   dub: 'AniLibria',
   episodes: [
     for (var number = 1; number <= 28; number++)
@@ -45,7 +44,6 @@ OnlineRelease _dub(OnlineProvider provider, String id, String dub) =>
     OnlineRelease(
       provider: provider,
       id: id,
-      title: '',
       dub: dub,
       episodes: const [OnlineEpisode(id: 'e1', number: 1)],
       bestQuality: 720,
@@ -477,14 +475,10 @@ class _Torrents implements WatchSourcesRepository {
     if (found)
       const WatchSourceItem(
         title: '[SubsPlease] Frieren',
-        category: 'Anime - English-translated',
-        link: 'https://nyaa.example/1',
-        torrent: '',
         magnet: 'magnet:?xt=urn:btih:0123456789abcdef0123456789abcdef01234567',
         size: '1.4 GiB',
         time: '2026-04-14',
         seeders: 33,
-        leechers: 1,
         downloads: 269,
       ),
   ];

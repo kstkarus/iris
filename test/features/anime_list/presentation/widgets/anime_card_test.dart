@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:iris/entities/anime/domain/anime_summary.dart';
+
 import 'package:iris/entities/user_rate/data/mock_user_rate_repository.dart';
 import 'package:iris/entities/user_rate/domain/user_rate.dart';
 import 'package:iris/entities/user_rate/presentation/user_rate_book_cubit.dart';
@@ -11,16 +13,18 @@ import 'package:iris/l10n/generated/app_localizations.dart';
 
 void main() {
   AnimeListItem item({UserRate? userRate}) => AnimeListItem(
-    id: '1',
-    name: 'Frieren',
-    russian: '',
-    kind: 'tv',
-    score: 9.1,
-    status: 'released',
-    episodes: 28,
-    episodesAired: 28,
-    airedOn: '2023-09-29',
-    posterMainUrl: '',
+    anime: AnimeSummary(
+      id: '1',
+      name: 'Frieren',
+      russian: '',
+      kind: 'tv',
+      score: 9.1,
+      status: 'released',
+      episodes: 28,
+      episodesAired: 28,
+      airedOn: '2023-09-29',
+      posterUrl: '',
+    ),
     userRate: userRate,
   );
 

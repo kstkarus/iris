@@ -1,4 +1,5 @@
 import 'package:iris/features/anime_list/domain/entities/anime_list_item.dart';
+import 'package:iris/shared/utils/equality.dart';
 
 class AnimeListPageResult {
   const AnimeListPageResult({
@@ -13,20 +14,6 @@ class AnimeListPageResult {
   final bool hasMore;
   final String query;
 
-  AnimeListPageResult copyWith({
-    List<AnimeListItem>? items,
-    int? page,
-    bool? hasMore,
-    String? query,
-  }) {
-    return AnimeListPageResult(
-      items: items ?? this.items,
-      page: page ?? this.page,
-      hasMore: hasMore ?? this.hasMore,
-      query: query ?? this.query,
-    );
-  }
-
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) {
@@ -34,7 +21,7 @@ class AnimeListPageResult {
     }
 
     return other is AnimeListPageResult &&
-        _sameItems(other.items, items) &&
+        sameList(other.items, items) &&
         other.page == page &&
         other.hasMore == hasMore &&
         other.query == query;
@@ -42,18 +29,4 @@ class AnimeListPageResult {
 
   @override
   int get hashCode => Object.hash(Object.hashAll(items), page, hasMore, query);
-}
-
-bool _sameItems(List<AnimeListItem> first, List<AnimeListItem> second) {
-  if (first.length != second.length) {
-    return false;
-  }
-
-  for (var index = 0; index < first.length; index++) {
-    if (first[index] != second[index]) {
-      return false;
-    }
-  }
-
-  return true;
 }

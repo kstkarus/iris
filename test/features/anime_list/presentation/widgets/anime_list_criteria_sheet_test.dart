@@ -6,6 +6,7 @@ import 'package:iris/entities/user_rate/domain/user_rate.dart';
 import 'package:iris/features/anime_list/data/repositories/mock_anime_genres_repository.dart';
 import 'package:iris/features/anime_list/domain/entities/anime_list_page_result.dart';
 import 'package:iris/features/anime_list/domain/entities/anime_list_query.dart';
+import 'package:iris/features/anime_list/domain/entities/season_filter.dart';
 import 'package:iris/features/anime_list/domain/repositories/anime_list_repository.dart';
 import 'package:iris/features/anime_list/presentation/bloc/anime_list_bloc.dart';
 import 'package:iris/features/anime_list/presentation/bloc/anime_list_event.dart';
@@ -90,7 +91,7 @@ void main() {
     expect(filters.myList, {UserRateStatus.watching});
     expect(filters.hideCompleted, isTrue);
     expect(filters.genres.map((genre) => genre.name), {'Fantasy', 'Military'});
-    expect(filters.seasons.single.apiValue, '2010_2019');
+    expect(filters.seasons.single, const SeasonFilter.decade(2010));
     expect(filters.ratings, {AnimeRatingFilter.pg13});
     expect(filters.durations, {AnimeDurationFilter.long});
   });

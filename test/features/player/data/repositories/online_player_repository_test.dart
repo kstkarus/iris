@@ -18,7 +18,6 @@ const _link = 'online:anilibria/9542';
 const _release = OnlineRelease(
   provider: OnlineProvider.anilibria,
   id: '9542',
-  title: 'Провожающая в последний путь Фрирен',
   dub: 'AniLibria',
   episodes: [
     OnlineEpisode(
@@ -100,7 +99,6 @@ void main() {
     sources.release = const OnlineRelease(
       provider: OnlineProvider.yummyAnime,
       id: '10661:AniDUB',
-      title: '',
       dub: 'AniDUB',
       episodes: [
         OnlineEpisode(id: 'e5', number: 5),
@@ -124,7 +122,6 @@ void main() {
     sources.release = const OnlineRelease(
       provider: OnlineProvider.yummyAnime,
       id: '10661:AniDUB',
-      title: '',
       dub: 'AniDUB',
       episodes: [
         OnlineEpisode(id: 's', number: 1.5),

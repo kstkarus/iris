@@ -1,13 +1,10 @@
+import 'package:iris/shared/utils/json_read.dart';
+
 /// An anime as yummy_anime's search gives it.
 class YummyAnimeDto {
-  const YummyAnimeDto({
-    required this.animeId,
-    required this.title,
-    this.shikimoriId,
-  });
+  const YummyAnimeDto({required this.animeId, this.shikimoriId});
 
   final int animeId;
-  final String title;
 
   /// The Shikimori id yummy_anime links the anime to; null when unlinked.
   final int? shikimoriId;
@@ -15,11 +12,10 @@ class YummyAnimeDto {
   factory YummyAnimeDto.fromJson(Map<String, dynamic> json) {
     final remoteIds = json['remote_ids'];
     final shikimoriId = remoteIds is Map
-        ? _int(remoteIds['shikimori_id'])
+        ? jsonIntOrNull(remoteIds['shikimori_id'])
         : null;
     return YummyAnimeDto(
-      animeId: _int(json['anime_id']) ?? 0,
-      title: json['title']?.toString() ?? '',
+      animeId: jsonIntOrNull(json['anime_id']) ?? 0,
       // yummy_anime writes 0 for "not linked".
       shikimoriId: shikimoriId == 0 ? null : shikimoriId,
     );
@@ -55,14 +51,8 @@ class YummyVideoDto {
       number: json['number']?.toString().trim() ?? '',
       dubbing: data is Map ? data['dubbing']?.toString().trim() ?? '' : '',
       iframeUrl: iframe.startsWith('//') ? 'https:$iframe' : iframe,
-      durationSeconds: _int(json['duration']),
-      views: _int(json['views']) ?? 0,
+      durationSeconds: jsonIntOrNull(json['duration']),
+      views: jsonIntOrNull(json['views']) ?? 0,
     );
   }
-}
-
-int? _int(Object? value) {
-  if (value is int) return value;
-  if (value is num) return value.toInt();
-  return int.tryParse(value?.toString() ?? '');
 }

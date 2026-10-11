@@ -36,16 +36,18 @@ const _relationOrder = [
 /// The related anime worth listing, in the order they are listed: by
 /// relation, then by air date, undated last.
 List<RelatedAnime> relatedToShow(List<RelatedAnime> related) {
-  final shown = related.where((anime) => !_promoKinds.contains(anime.kind));
+  final shown = related.where((item) => !_promoKinds.contains(item.anime.kind));
   return shown.toList()..sort((a, b) {
     final byRelation = _relationOrder
         .indexOf(a.relation)
         .compareTo(_relationOrder.indexOf(b.relation));
     if (byRelation != 0) return byRelation;
-    if (a.airedOn.isEmpty != b.airedOn.isEmpty) {
-      return a.airedOn.isEmpty ? 1 : -1;
+    final aAiredOn = a.anime.airedOn;
+    final bAiredOn = b.anime.airedOn;
+    if (aAiredOn.isEmpty != bAiredOn.isEmpty) {
+      return aAiredOn.isEmpty ? 1 : -1;
     }
-    return a.airedOn.compareTo(b.airedOn);
+    return aAiredOn.compareTo(bAiredOn);
   });
 }
 
@@ -65,7 +67,7 @@ String formatAnimeRelation(AppLocalizations l10n, AnimeRelation relation) =>
     };
 
 /// The rest of the franchise, each title a row that opens its page.
-class RelatedAnimeSection extends StatefulWidget {
+class RelatedAnimeSection extends StatelessWidget {
   const RelatedAnimeSection({
     required this.related,
     this.labelWidth,
@@ -85,68 +87,40 @@ class RelatedAnimeSection extends StatefulWidget {
   final double? labelWidth;
 
   @override
-  State<RelatedAnimeSection> createState() => _RelatedAnimeSectionState();
-}
-
-class _RelatedAnimeSectionState extends State<RelatedAnimeSection> {
-  bool _expanded = false;
-
-  @override
   Widget build(BuildContext context) {
-    final related = relatedToShow(widget.related);
+    final related = relatedToShow(this.related);
     // It may well be empty, so no noise for it: it develops in when
     // it arrives, below everything it could push.
     if (related.isEmpty) return const DitherSwitcher(child: SizedBox.shrink());
 
     final l10n = AppLocalizations.of(context);
-    final hidden = related.length - RelatedAnimeSection.visibleRows;
-    final folds = hidden >= RelatedAnimeSection._minFolded;
-    final shown = _expanded || !folds
-        ? related
-        : related.take(RelatedAnimeSection.visibleRows).toList();
     return DitherSwitcher(
       child: Padding(
         padding: const EdgeInsets.only(top: 40),
         child: LabeledSection(
           label: l10n.animeDetailsRelatedTitle,
-          labelWidth: widget.labelWidth,
+          labelWidth: labelWidth,
           child: Align(
             alignment: AlignmentDirectional.topStart,
             child: ConstrainedBox(
               constraints: const BoxConstraints(
                 maxWidth: AdaptiveContentWidth.reading,
               ),
-              child: Column(
+              child: FoldingList(
                 key: const Key('related_anime_section'),
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  AnimatedSize(
-                    duration: MediaQuery.disableAnimationsOf(context)
-                        ? Duration.zero
-                        : const Duration(milliseconds: 200),
-                    curve: Curves.easeOutCubic,
-                    alignment: Alignment.topCenter,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        for (final (index, anime) in shown.indexed) ...[
-                          if (index > 0) const SegmentedRule(),
-                          _RelatedRow(anime: anime, first: index == 0),
-                        ],
-                      ],
-                    ),
-                  ),
-                  if (folds) ...[
-                    const SegmentedRule(),
-                    FoldRow(
-                      key: const Key('related_anime_more'),
-                      label: _expanded
-                          ? l10n.commonShowLess
-                          : l10n.commonShowMore(hidden),
-                      onPressed: () => setState(() => _expanded = !_expanded),
-                    ),
+                items: related,
+                visible: visibleRows,
+                minFolded: _minFolded,
+                toggleKey: const Key('related_anime_more'),
+                builder: (context, shown) => Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    for (final (index, item) in shown.indexed) ...[
+                      if (index > 0) const SegmentedRule(),
+                      _RelatedRow(related: item, first: index == 0),
+                    ],
                   ],
-                ],
+                ),
               ),
             ),
           ),
@@ -159,9 +133,9 @@ class _RelatedAnimeSectionState extends State<RelatedAnimeSection> {
 /// The relation, kind and year over the title, as the row's caption;
 /// the Russian title under it when it says something else.
 class _RelatedRow extends StatelessWidget {
-  const _RelatedRow({required this.anime, required this.first});
+  const _RelatedRow({required this.related, required this.first});
 
-  final RelatedAnime anime;
+  final RelatedAnime related;
 
   /// The first row starts level with the section label.
   final bool first;
@@ -171,9 +145,10 @@ class _RelatedRow extends StatelessWidget {
     final l10n = AppLocalizations.of(context);
     final theme = Theme.of(context);
     final muted = theme.colorScheme.onSurfaceVariant;
+    final anime = related.anime;
     final year = yearOfIsoDate(anime.airedOn)?.toString() ?? '';
     final caption = [
-      formatAnimeRelation(l10n, anime.relation),
+      formatAnimeRelation(l10n, related.relation),
       if (anime.kind.isNotEmpty) formatAnimeKind(l10n, anime.kind),
       if (year.isNotEmpty) year,
     ].join(' · ');
@@ -187,7 +162,7 @@ class _RelatedRow extends StatelessWidget {
         onTap: () => context.pushNamed(
           'anime-details',
           pathParameters: {'id': anime.id},
-          extra: AnimeDetailsPreview.fromRelated(anime),
+          extra: AnimeDetailsPreview.fromSummary(anime),
         ),
         child: Padding(
           padding: EdgeInsets.only(top: first ? 0 : 12, bottom: 12),

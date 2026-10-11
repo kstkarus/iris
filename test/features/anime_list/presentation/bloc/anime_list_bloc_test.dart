@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:iris/entities/anime/domain/anime_summary.dart';
+
 import 'package:iris/entities/user_rate/domain/user_rate.dart';
 import 'package:iris/features/anime_list/domain/entities/anime_list_item.dart';
 import 'package:iris/features/anime_list/domain/entities/anime_list_page_result.dart';
@@ -304,30 +306,6 @@ void main() {
       expect(bloc.state.filters.kinds, {AnimeKindFilter.movie});
     });
 
-    test('changes sort and reloads the first page', () async {
-      AnimeListQuery? capturedQuery;
-      final bloc = AnimeListBloc(
-        repository: _FakeAnimeListRepository(
-          handler: ({required query}) async {
-            capturedQuery = query;
-            return AnimeListPageResult(
-              items: _pageOneItems,
-              page: query.page,
-              hasMore: true,
-              query: query.search,
-            );
-          },
-        ),
-      );
-
-      bloc.add(const AnimeListSortChanged(AnimeListSortOption.airedOn));
-      await Future<void>.delayed(Duration.zero);
-
-      expect(capturedQuery?.sort, AnimeListSortOption.airedOn);
-      expect(bloc.state.sort, AnimeListSortOption.airedOn);
-      expect(bloc.state.page, 1);
-    });
-
     test('clearing search keeps active filters and sort', () async {
       late AnimeListQuery lastQuery;
       final bloc = AnimeListBloc(
@@ -600,45 +578,51 @@ class _FakeAnimeListRepository implements AnimeListRepository {
 
 const _pageOneItems = [
   AnimeListItem(
-    id: '1',
-    name: 'Frieren: Beyond Journey\'s End',
-    russian: 'Frieren RU',
-    kind: 'tv',
-    score: 9.27,
-    status: 'released',
-    episodes: 28,
-    episodesAired: 28,
-    airedOn: '2023-09-29',
-    posterMainUrl: 'https://shikimori.one/posters/52991/main.webp',
+    anime: AnimeSummary(
+      id: '1',
+      name: 'Frieren: Beyond Journey\'s End',
+      russian: 'Frieren RU',
+      kind: 'tv',
+      score: 9.27,
+      status: 'released',
+      episodes: 28,
+      episodesAired: 28,
+      airedOn: '2023-09-29',
+      posterUrl: 'https://shikimori.one/posters/52991/main.webp',
+    ),
   ),
 ];
 
 const _pageTwoItems = [
   AnimeListItem(
-    id: '2',
-    name: 'Steins;Gate',
-    russian: 'Steins;Gate RU',
-    kind: 'tv',
-    score: 9.07,
-    status: 'released',
-    episodes: 24,
-    episodesAired: 24,
-    airedOn: '2011-04-06',
-    posterMainUrl: 'https://shikimori.one/posters/9253/main.jpg',
+    anime: AnimeSummary(
+      id: '2',
+      name: 'Steins;Gate',
+      russian: 'Steins;Gate RU',
+      kind: 'tv',
+      score: 9.07,
+      status: 'released',
+      episodes: 24,
+      episodesAired: 24,
+      airedOn: '2011-04-06',
+      posterUrl: 'https://shikimori.one/posters/9253/main.jpg',
+    ),
   ),
 ];
 
 const _searchItems = [
   AnimeListItem(
-    id: '5114',
-    name: 'Fullmetal Alchemist: Brotherhood',
-    russian: 'Fullmetal Alchemist: Brotherhood RU',
-    kind: 'tv',
-    score: 9.12,
-    status: 'released',
-    episodes: 64,
-    episodesAired: 64,
-    airedOn: '2009-04-05',
-    posterMainUrl: 'https://shikimori.one/posters/5114/main.jpg',
+    anime: AnimeSummary(
+      id: '5114',
+      name: 'Fullmetal Alchemist: Brotherhood',
+      russian: 'Fullmetal Alchemist: Brotherhood RU',
+      kind: 'tv',
+      score: 9.12,
+      status: 'released',
+      episodes: 64,
+      episodesAired: 64,
+      airedOn: '2009-04-05',
+      posterUrl: 'https://shikimori.one/posters/5114/main.jpg',
+    ),
   ),
 ];

@@ -1,3 +1,5 @@
+import 'package:iris/shared/utils/json_read.dart';
+
 /// An episode as AniLibria's API gives it; the links may be null, e.g. for
 /// a release blocked in the region.
 class AnilibriaEpisodeDto {
@@ -26,9 +28,9 @@ class AnilibriaEpisodeDto {
     return AnilibriaEpisodeDto(
       id: json['id']?.toString() ?? '',
       ordinal: ordinal is num ? ordinal : num.tryParse('$ordinal') ?? 0,
-      sortOrder: _int(json['sort_order']) ?? 0,
+      sortOrder: jsonIntOrNull(json['sort_order']) ?? 0,
       name: _text(json['name']),
-      durationSeconds: _int(json['duration']),
+      durationSeconds: jsonIntOrNull(json['duration']),
       hls480: _text(json['hls_480']),
       hls720: _text(json['hls_720']),
       hls1080: _text(json['hls_1080']),
@@ -39,10 +41,4 @@ class AnilibriaEpisodeDto {
 String? _text(Object? value) {
   final text = value?.toString().trim();
   return text == null || text.isEmpty ? null : text;
-}
-
-int? _int(Object? value) {
-  if (value is int) return value;
-  if (value is num) return value.toInt();
-  return int.tryParse(value?.toString() ?? '');
 }

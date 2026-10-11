@@ -1,11 +1,11 @@
 import 'package:iris/features/online_sources/data/datasources/anilibria_data_source.dart';
 import 'package:iris/features/online_sources/data/mappers/anilibria_mapper.dart';
-import 'package:iris/features/online_sources/data/models/anilibria_release_dto.dart';
 import 'package:iris/features/online_sources/domain/entities/online_provider.dart';
 import 'package:iris/features/online_sources/domain/entities/online_release.dart';
 import 'package:iris/features/online_sources/domain/entities/online_stream.dart';
 import 'package:iris/features/online_sources/domain/repositories/online_sources_repository.dart';
 import 'package:iris/shared/network/network_exceptions.dart';
+import 'package:iris/shared/network/search_all.dart';
 
 /// Follows anicli-api 0.12.0, `anicli_api/source/anilibria.py`.
 class AnilibriaOnlineSourcesRepository implements OnlineSourcesRepository {
@@ -28,27 +28,13 @@ class AnilibriaOnlineSourcesRepository implements OnlineSourcesRepository {
       for (final title in titles)
         if (title.trim().isNotEmpty) title.trim(),
     };
-    final results = await Future.wait(
-      queries.map((query) async {
-        try {
-          return (items: await dataSource.search(query), error: null);
-        } on Object catch (error) {
-          return (items: const <AnilibriaReleaseDto>[], error: error);
-        }
-      }),
+    final found = await searchAll(
+      queries,
+      dataSource.search,
+      keep: (item) => item.shikimoriId == id && item.id != 0,
     );
-
-    final matching = <int>{
-      for (final result in results)
-        for (final item in result.items)
-          if (item.shikimoriId == id && item.id != 0) item.id,
-    };
-    if (matching.isEmpty) {
-      for (final result in results) {
-        if (result.error case final error?) throw error;
-      }
-      return const [];
-    }
+    if (found.isEmpty) return const [];
+    final matching = {for (final item in found) item.id};
     final releases = await Future.wait(matching.map(dataSource.release));
     return [
       for (final release in releases.map(mapAnilibriaRelease))

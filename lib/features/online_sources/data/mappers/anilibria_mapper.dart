@@ -14,7 +14,6 @@ OnlineRelease mapAnilibriaRelease(AnilibriaReleaseDto release) {
   return OnlineRelease(
     provider: OnlineProvider.anilibria,
     id: '${release.id}',
-    title: release.title,
     dub: anilibriaDub,
     // An episode without streams (blocked, not uploaded) cannot play.
     episodes: [

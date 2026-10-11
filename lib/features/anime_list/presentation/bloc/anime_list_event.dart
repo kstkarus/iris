@@ -27,12 +27,6 @@ class AnimeListSearchCleared extends AnimeListEvent {
   const AnimeListSearchCleared();
 }
 
-class AnimeListSortChanged extends AnimeListEvent {
-  const AnimeListSortChanged(this.sort);
-
-  final AnimeListSortOption sort;
-}
-
 class AnimeListCriteriaApplied extends AnimeListEvent {
   const AnimeListCriteriaApplied({this.sort, this.filters});
 

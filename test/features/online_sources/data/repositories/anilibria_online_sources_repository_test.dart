@@ -90,7 +90,6 @@ void main() {
     final release = releases.single;
     expect(release.provider, OnlineProvider.anilibria);
     expect(release.id, '9542');
-    expect(release.title, 'Провожающая в последний путь Фрирен');
     expect(release.dub, 'AniLibria');
     expect([for (final e in release.episodes) e.number], [1, 2, 3]);
     expect(release.episodes.first.title, '«Конец приключений»');

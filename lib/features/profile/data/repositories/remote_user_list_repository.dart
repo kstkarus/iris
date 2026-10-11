@@ -3,7 +3,6 @@ import 'package:iris/entities/user_rate/domain/user_rate.dart';
 import 'package:iris/features/profile/data/models/user_list_entry_dto.dart';
 import 'package:iris/features/profile/domain/entities/user_list_entry.dart';
 import 'package:iris/features/profile/domain/repositories/user_list_repository.dart';
-import 'package:iris/shared/network/network_exceptions.dart';
 import 'package:iris/shared/network/shikimori_graph_ql_client.dart';
 
 /// Reads `userRates` through GraphQL. Shikimori gives no total, so a full
@@ -20,7 +19,8 @@ class RemoteUserListRepository implements UserListRepository {
     required UserRateStatus status,
     required int page,
   }) async {
-    final data = await _client.query(
+    final items = await _client.queryList(
+      'userRates',
       document: _userListQuery,
       variables: {
         'userId': userId,
@@ -29,10 +29,6 @@ class RemoteUserListRepository implements UserListRepository {
         'limit': UserListRepository.pageSize,
       },
     );
-    final items = data['userRates'];
-    if (items is! List) {
-      throw const RemoteResponseException('User rates response is not a list.');
-    }
     return UserListPage(
       entries: [for (final item in items) ?UserListEntryDto.tryParse(item)],
       hasMore: items.length >= UserListRepository.pageSize,

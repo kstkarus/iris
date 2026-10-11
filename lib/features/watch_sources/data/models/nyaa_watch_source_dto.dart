@@ -1,3 +1,5 @@
+import 'package:iris/shared/utils/json_read.dart';
+
 class NyaaWatchSourceDto {
   const NyaaWatchSourceDto({
     required this.title,
@@ -32,21 +34,9 @@ class NyaaWatchSourceDto {
       magnet: json['magnet']?.toString() ?? '',
       size: json['size']?.toString() ?? '',
       time: json['time']?.toString() ?? '',
-      seeders: _parseInt(json['seeders']),
-      leechers: _parseInt(json['leechers']),
-      downloads: _parseInt(json['downloads']),
+      seeders: jsonIntOrNull(json['seeders']) ?? 0,
+      leechers: jsonIntOrNull(json['leechers']) ?? 0,
+      downloads: jsonIntOrNull(json['downloads']) ?? 0,
     );
   }
-}
-
-int _parseInt(Object? value) {
-  if (value is int) {
-    return value;
-  }
-
-  if (value is num) {
-    return value.toInt();
-  }
-
-  return int.tryParse(value?.toString() ?? '') ?? 0;
 }
