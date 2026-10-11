@@ -44,6 +44,8 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
        _createMetadataFolder = createMetadataFolder ?? _createFolder,
        _now = now;
 
+  static const _notificationTitle = 'Загрузка';
+
   final LibtorrentDownloadEngineAdapter _engine;
   final DownloadRegistryDataSource _registry;
   final Directory _downloadsDirectory;
@@ -119,12 +121,7 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
     _deletingIds.add(id);
     var deleted = true;
     try {
-      final torrentId = _torrentIdByDownloadId.remove(id);
-      if (torrentId != null) {
-        _engine.remove(torrentId, deleteFiles: true);
-      }
-      if (_activeDownloadId == id) {
-        _clearActiveDownload();
+      if (_releaseTorrent(id, deleteFiles: true)) {
         await _foregroundService.stop();
       }
 
@@ -145,15 +142,11 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
       // The torrent is gone, so a file that was loading stops; the record is
       // kept as it was otherwise, and the person can delete it again.
       _replace(
-        current.copyWith(
-          status: switch (current.status) {
-            DownloadStatus.downloading ||
-            DownloadStatus.queued => DownloadStatus.paused,
-            final status => status,
-          },
-          downloadRateBytesPerSecond: 0,
-          peers: 0,
-        ),
+        current.stopped(switch (current.status) {
+          DownloadStatus.downloading ||
+          DownloadStatus.queued => DownloadStatus.paused,
+          final status => status,
+        }),
       );
     } finally {
       _deletingIds.remove(id);
@@ -258,22 +251,10 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
       return;
     }
 
-    final torrentId = _torrentIdByDownloadId.remove(id);
-    if (torrentId != null) {
-      _engine.pause(torrentId);
-      _engine.remove(torrentId, deleteFiles: false);
-    }
-    if (_activeDownloadId == id) {
-      _clearActiveDownload();
+    if (_releaseTorrent(id, deleteFiles: false, pauseFirst: true)) {
       await _foregroundService.stop();
     }
-    _replace(
-      item.copyWith(
-        status: DownloadStatus.paused,
-        downloadRateBytesPerSecond: 0,
-        peers: 0,
-      ),
-    );
+    _replace(item.stopped(DownloadStatus.paused));
     await _commit();
     unawaited(_pumpQueue());
   }
@@ -483,13 +464,11 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
     _emit();
     _schedulePersist();
 
-    final percent = item.totalBytes <= 0
-        ? 0
-        : ((downloadedBytes / item.totalBytes) * 100).clamp(0, 100).round();
+    final percent = (updated.progress * 100).round();
     if (_lastNotificationPercent != percent) {
       _lastNotificationPercent = percent;
       await _foregroundService.update(
-        title: 'Загрузка',
+        title: _notificationTitle,
         text: '${item.fileName}: $percent%',
       );
       // Pause, delete or a streaming yield may have happened during the await.
@@ -507,14 +486,13 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
         return;
       }
       _replace(
-        current.copyWith(
-          downloadedBytes: current.totalBytes,
-          downloadRateBytesPerSecond: 0,
-          peers: 0,
-          status: DownloadStatus.completed,
-          completedAt: _now(),
-          errorMessage: null,
-        ),
+        current
+            .stopped(DownloadStatus.completed)
+            .copyWith(
+              downloadedBytes: current.totalBytes,
+              completedAt: _now(),
+              errorMessage: null,
+            ),
       );
       _engine.remove(torrentId, deleteFiles: false);
       _clearActiveDownload();
@@ -525,19 +503,10 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
   }
 
   Future<void> _failActive(DownloadItem item, String message) async {
-    final torrentId = _torrentIdByDownloadId.remove(item.id);
-    if (torrentId != null) {
-      _engine.remove(torrentId, deleteFiles: false);
-    }
+    _releaseTorrent(item.id, deleteFiles: false);
     _replace(
-      item.copyWith(
-        status: DownloadStatus.failed,
-        errorMessage: message,
-        downloadRateBytesPerSecond: 0,
-        peers: 0,
-      ),
+      item.stopped(DownloadStatus.failed).copyWith(errorMessage: message),
     );
-    _clearActiveDownload();
     await _foregroundService.stop();
     await _commit();
     unawaited(_pumpQueue());
@@ -554,21 +523,29 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
     if (item == null || torrentKeyFromMagnet(item.magnet) != torrentKey) {
       return;
     }
-    final torrentId = _torrentIdByDownloadId.remove(activeId);
-    if (torrentId != null) {
-      _engine.remove(torrentId, deleteFiles: false);
-    }
-    _clearActiveDownload();
-    _replace(
-      item.copyWith(
-        status: DownloadStatus.queued,
-        downloadRateBytesPerSecond: 0,
-        peers: 0,
-      ),
-    );
+    _releaseTorrent(activeId, deleteFiles: false);
+    _replace(item.stopped(DownloadStatus.queued));
     unawaited(_foregroundService.stop());
     unawaited(_commit());
     unawaited(_pumpQueue());
+  }
+
+  /// Takes the torrent of [id] out of the engine and frees the active slot
+  /// when [id] held it. Returns whether it did; the caller then stops the
+  /// foreground service.
+  bool _releaseTorrent(
+    String id, {
+    required bool deleteFiles,
+    bool pauseFirst = false,
+  }) {
+    final torrentId = _torrentIdByDownloadId.remove(id);
+    if (torrentId != null) {
+      if (pauseFirst) _engine.pause(torrentId);
+      _engine.remove(torrentId, deleteFiles: deleteFiles);
+    }
+    if (_activeDownloadId != id) return false;
+    _clearActiveDownload();
+    return true;
   }
 
   /// The active item while it still runs [torrentId]. Call this after every
@@ -608,128 +585,147 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
     try {
       final candidate = _nextStartableDownload();
       if (candidate == null) return;
-      final directory = _downloadDirectory(candidate.id);
-      try {
-        await directory.create(recursive: true);
-      } on FileSystemException catch (error, stackTrace) {
-        developer.log(
-          'Unable to create the folder of a queued download.',
-          name: 'iris.downloads.repository',
-          error: error,
-          stackTrace: stackTrace,
-        );
-        // Only a still queued item fails: a pause or delete during the create
-        // has already moved it on.
-        final failed = _find(candidate.id);
-        if (failed != null && failed.status == DownloadStatus.queued) {
-          _replace(
-            failed.copyWith(
-              status: DownloadStatus.failed,
-              errorMessage: downloadCouldNotStartMessage,
-            ),
-          );
-          await _commit();
-        }
+      final started = await _startCandidate(candidate);
+      if (started == null) {
         _pumpRequested = true;
         return;
       }
-      // The create above is an await: pause, delete, streaming or a selection
-      // may have changed the item. Skip the start; the finally pumps again.
-      final item = _find(candidate.id);
-      if (item == null || !_isStartable(item)) {
-        _pumpRequested = true;
-        return;
-      }
-      final int torrentId;
-      try {
-        // Not metadata-only: that mode makes the native layer zero all file
-        // priorities and pause when metadata arrives, racing our priorities.
-        torrentId = _engine.addMagnet(
-          magnet: item.magnet,
-          savePath: directory.path,
-          metadataOnly: false,
-        );
-      } catch (error, stackTrace) {
-        developer.log(
-          'Unable to add queued download to the engine.',
-          name: 'iris.downloads.repository',
-          error: error,
-          stackTrace: stackTrace,
-        );
-        _replace(
-          item.copyWith(
-            status: DownloadStatus.failed,
-            errorMessage: downloadCouldNotStartMessage,
-          ),
-        );
-        await _commit();
-        _pumpRequested = true;
-        return;
-      }
-      final startCancellation = Completer<void>();
-      _activeStartCancellation = startCancellation;
-      _activeDownloadId = item.id;
-      _activeFilePrioritized = false;
-      _torrentIdByDownloadId[item.id] = torrentId;
-      _replace(item.copyWith(status: DownloadStatus.downloading));
-      await _commit();
+      final (:item, :torrentId, :cancellation) = started;
       // A pause or delete during the commit has already stopped the service.
-      if (startCancellation.isCompleted) return;
-      await _foregroundService.start(title: 'Загрузка', text: item.fileName);
-
-      try {
-        // Pause/delete cancel the wait so the queue is not blocked until the
-        // metadata timeout of a torrent that no longer exists.
-        await Future.any([
-          _engine.waitForMetadata(torrentId),
-          startCancellation.future,
-        ]);
-        if (startCancellation.isCompleted || _activeDownloadId != item.id) {
-          return;
-        }
-        final files = _engine.getFiles(torrentId);
-        final priorities = List<int>.filled(files.length, 0);
-        final target = files.where((file) => file.index == item.fileIndex);
-        if (target.isEmpty || item.fileIndex >= priorities.length) {
-          throw StateError('Selected torrent file is unavailable.');
-        }
-        // Items queued with a wrong size (e.g. by an engine that reported 0)
-        // heal from the metadata on every start.
-        final engineSize = target.first.size;
-        final current = _find(item.id);
-        if (current != null &&
-            engineSize > 0 &&
-            current.totalBytes != engineSize) {
-          _replace(current.copyWith(totalBytes: engineSize));
-          await _commit();
-          if (startCancellation.isCompleted || _activeDownloadId != item.id) {
-            return;
-          }
-        }
-        priorities[item.fileIndex] = 7;
-        _engine.setFilePriorities(torrentId, priorities);
-        _engine.resume(torrentId);
-        _activeFilePrioritized = true;
-        if (identical(_activeStartCancellation, startCancellation)) {
-          _activeStartCancellation = null;
-        }
-      } catch (error, stackTrace) {
-        developer.log(
-          'Unable to start queued download.',
-          name: 'iris.downloads.repository',
-          error: error,
-          stackTrace: stackTrace,
-        );
-        final current = _find(item.id);
-        if (current != null && _activeDownloadId == item.id) {
-          await _failActive(current, downloadCouldNotStartMessage);
-        }
-      }
+      if (cancellation.isCompleted) return;
+      await _foregroundService.start(
+        title: _notificationTitle,
+        text: item.fileName,
+      );
+      await _prioritizeWhenReady(item, torrentId, cancellation);
     } finally {
       _pumping = false;
       if (_pumpRequested) {
         _pumpRequested = false;
         unawaited(_pumpQueue());
+      }
+    }
+  }
+
+  /// Adds [candidate] to the engine and makes it the active download. Null
+  /// when it cannot start now; the queue then pumps again.
+  Future<({DownloadItem item, int torrentId, Completer<void> cancellation})?>
+  _startCandidate(DownloadItem candidate) async {
+    final directory = _downloadDirectory(candidate.id);
+    try {
+      await directory.create(recursive: true);
+    } on FileSystemException catch (error, stackTrace) {
+      developer.log(
+        'Unable to create the folder of a queued download.',
+        name: 'iris.downloads.repository',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      // Only a still queued item fails: a pause or delete during the create
+      // has already moved it on.
+      final failed = _find(candidate.id);
+      if (failed != null && failed.status == DownloadStatus.queued) {
+        _replace(
+          failed.copyWith(
+            status: DownloadStatus.failed,
+            errorMessage: downloadCouldNotStartMessage,
+          ),
+        );
+        await _commit();
+      }
+      return null;
+    }
+    // The create above is an await: pause, delete, streaming or a selection
+    // may have changed the item. Skip the start.
+    final item = _find(candidate.id);
+    if (item == null || !_isStartable(item)) return null;
+    final int torrentId;
+    try {
+      // Not metadata-only: that mode makes the native layer zero all file
+      // priorities and pause when metadata arrives, racing our priorities.
+      torrentId = _engine.addMagnet(
+        magnet: item.magnet,
+        savePath: directory.path,
+        metadataOnly: false,
+      );
+    } catch (error, stackTrace) {
+      developer.log(
+        'Unable to add queued download to the engine.',
+        name: 'iris.downloads.repository',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      _replace(
+        item.copyWith(
+          status: DownloadStatus.failed,
+          errorMessage: downloadCouldNotStartMessage,
+        ),
+      );
+      await _commit();
+      return null;
+    }
+    final cancellation = Completer<void>();
+    _activeStartCancellation = cancellation;
+    _activeDownloadId = item.id;
+    _activeFilePrioritized = false;
+    _torrentIdByDownloadId[item.id] = torrentId;
+    _replace(item.copyWith(status: DownloadStatus.downloading));
+    await _commit();
+    return (item: item, torrentId: torrentId, cancellation: cancellation);
+  }
+
+  /// Once the metadata is in, wants only the selected file of [item].
+  Future<void> _prioritizeWhenReady(
+    DownloadItem item,
+    int torrentId,
+    Completer<void> startCancellation,
+  ) async {
+    try {
+      // Pause/delete cancel the wait so the queue is not blocked until the
+      // metadata timeout of a torrent that no longer exists.
+      await Future.any([
+        _engine.waitForMetadata(torrentId),
+        startCancellation.future,
+      ]);
+      if (startCancellation.isCompleted || _activeDownloadId != item.id) {
+        return;
+      }
+      final files = _engine.getFiles(torrentId);
+      final priorities = List<int>.filled(files.length, 0);
+      final target = files.where((file) => file.index == item.fileIndex);
+      if (target.isEmpty || item.fileIndex >= priorities.length) {
+        throw StateError('Selected torrent file is unavailable.');
+      }
+      // Items queued with a wrong size (e.g. by an engine that reported 0)
+      // heal from the metadata on every start.
+      final engineSize = target.first.size;
+      final current = _find(item.id);
+      if (current != null &&
+          engineSize > 0 &&
+          current.totalBytes != engineSize) {
+        _replace(current.copyWith(totalBytes: engineSize));
+        await _commit();
+        if (startCancellation.isCompleted || _activeDownloadId != item.id) {
+          return;
+        }
+      }
+      priorities[item.fileIndex] = 7;
+      _engine.setFilePriorities(torrentId, priorities);
+      _engine.resume(torrentId);
+      _activeFilePrioritized = true;
+      if (identical(_activeStartCancellation, startCancellation)) {
+        _activeStartCancellation = null;
+      }
+    } catch (error, stackTrace) {
+      developer.log(
+        'Unable to start queued download.',
+        name: 'iris.downloads.repository',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      final current = _find(item.id);
+      if (current != null && _activeDownloadId == item.id) {
+        await _failActive(current, downloadCouldNotStartMessage);
       }
     }
   }
@@ -933,13 +929,16 @@ DownloadItem _reconcileOnRestore(
       errorMessage: downloadFileMissingMessage,
       completedAt: null,
     ),
-    DownloadStatus.downloading || DownloadStatus.queued => item.copyWith(
-      status: DownloadStatus.queued,
-      downloadRateBytesPerSecond: 0,
-      peers: 0,
-    ),
+    DownloadStatus.downloading ||
+    DownloadStatus.queued => item.stopped(DownloadStatus.queued),
     _ => item,
   };
+}
+
+extension on DownloadItem {
+  /// The item with nothing transferring.
+  DownloadItem stopped(DownloadStatus status) =>
+      copyWith(status: status, downloadRateBytesPerSecond: 0, peers: 0);
 }
 
 String _createDownloadId(String magnet, int fileIndex) {

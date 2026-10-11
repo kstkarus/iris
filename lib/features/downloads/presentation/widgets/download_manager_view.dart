@@ -296,9 +296,7 @@ class _DownloadRowState extends State<_DownloadRow> {
     final status = item.status;
     final completed = status == DownloadStatus.completed;
     final name = downloadName(l10n, item);
-    final progress = item.totalBytes <= 0
-        ? 0.0
-        : (item.downloadedBytes / item.totalBytes).clamp(0.0, 1.0);
+    final progress = item.progress;
     final failure = item.failure;
 
     final (actionIcon, actionLabel, onAction) = switch (status) {

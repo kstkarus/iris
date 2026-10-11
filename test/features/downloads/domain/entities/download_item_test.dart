@@ -29,6 +29,12 @@ void main() {
     );
   }
 
+  test('progress is the loaded share, kept within 0 and 1', () {
+    expect(createItem().progress, 0.5);
+    expect(createItem().copyWith(totalBytes: 0).progress, 0);
+    expect(createItem().copyWith(downloadedBytes: 2048).progress, 1);
+  });
+
   test('uses value equality for all fields', () {
     expect(createItem(), createItem());
     expect(createItem().hashCode, createItem().hashCode);

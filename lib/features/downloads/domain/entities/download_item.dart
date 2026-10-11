@@ -42,6 +42,11 @@ class DownloadItem {
   final DateTime createdAt;
   final DateTime? completedAt;
 
+  /// The loaded share of the file, from 0 to 1; 0 while its size is unknown.
+  double get progress => totalBytes <= 0
+      ? 0
+      : (downloadedBytes / totalBytes).clamp(0.0, 1.0).toDouble();
+
   /// Why a failed download stopped; null for any other status.
   DownloadFailure? get failure => status == DownloadStatus.failed
       ? downloadFailureFrom(errorMessage)
