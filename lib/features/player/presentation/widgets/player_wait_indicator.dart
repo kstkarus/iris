@@ -4,8 +4,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'package:iris/features/player/domain/entities/player_playback_stats.dart';
-import 'package:iris/features/player/presentation/widgets/player_playback_stats_indicator.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
+import 'package:iris/shared/utils/byte_size_formatter.dart';
 
 /// The player's wait: one block runs around a 3×3 square. Square like the
 /// play button whose place it takes, and a loop rather than a row of

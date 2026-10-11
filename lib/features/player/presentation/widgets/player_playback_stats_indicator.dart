@@ -2,12 +2,12 @@ import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart' show NumberFormat;
 
 import 'package:iris/features/player/domain/entities/player_playback_diagnostics.dart';
 import 'package:iris/features/player/domain/entities/player_playback_stats.dart';
 import 'package:iris/features/player/presentation/playback/player_buffer_margin.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
+import 'package:iris/shared/utils/byte_size_formatter.dart';
 import 'package:iris/shared/widgets/segmented_bar.dart';
 
 class PlayerPlaybackStatsListenable extends StatelessWidget {
@@ -259,7 +259,7 @@ class PlayerPlaybackStatsIndicator extends StatelessWidget {
 
     final memory = stats?.appMemoryBytes;
     if (memory != null) {
-      final formattedMemory = _formatMemory(l10n, memory);
+      final formattedMemory = formatByteSize(l10n, memory, compact: true);
       items.add(
         _PlayerOverlayMetricItem(
           value: formattedMemory,
@@ -552,15 +552,6 @@ double _resolveMaxChipWidth(double maxWidth) {
   return math.max(_chipMinimumWidth, math.min(target, _chipMaximumWidth));
 }
 
-/// "2.4 MB/s", in the app's byte units.
-String formatTransferRate(AppLocalizations l10n, int bytesPerSecond) {
-  return l10n.playerRate(_formatBytes(l10n, bytesPerSecond));
-}
-
-String _formatMemory(AppLocalizations l10n, int bytes) {
-  return _formatBytes(l10n, bytes);
-}
-
 double _resolveBufferedWindowProgress(PlayerPlaybackStats stats) {
   if (stats.readaheadWindow <= 0 || stats.bufferPieces <= 0) {
     return 0;
@@ -571,29 +562,6 @@ double _resolveBufferedWindowProgress(PlayerPlaybackStats stats) {
 
 String _formatBufferedWindowProgress(double progress) {
   return '${(progress * 100).round()}%';
-}
-
-String _formatBytes(AppLocalizations l10n, int bytes) {
-  final units = [
-    l10n.byteUnitB,
-    l10n.byteUnitKB,
-    l10n.byteUnitMB,
-    l10n.byteUnitGB,
-  ];
-  var value = bytes.toDouble();
-  var unitIndex = 0;
-
-  while (value >= 1024 && unitIndex < units.length - 1) {
-    value /= 1024;
-    unitIndex++;
-  }
-
-  final fractionDigits = unitIndex <= 1 || value >= 10 ? 0 : 1;
-  final number = NumberFormat.decimalPatternDigits(
-    locale: l10n.localeName,
-    decimalDigits: fractionDigits,
-  ).format(value);
-  return '$number ${units[unitIndex]}';
 }
 
 String? _shortCodec(String? codec) {
