@@ -16,6 +16,7 @@ import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/utils/anime_metadata_formatter.dart';
 import 'package:iris/shared/widgets/adaptive/adaptive_grid_row.dart';
 import 'package:iris/shared/widgets/app_skeleton.dart';
+import 'package:iris/shared/widgets/checked_menu_item.dart';
 import 'package:iris/shared/widgets/marked_tab.dart';
 import 'package:iris/shared/widgets/pixel_icon.dart';
 import 'package:iris/shared/widgets/poster_image.dart';
@@ -321,22 +322,16 @@ class _StatusMenu extends StatelessWidget {
       alignmentOffset: const Offset(0, 4),
       menuChildren: [
         for (final option in _userListStatuses)
-          MenuItemButton(
+          CheckedMenuItem(
             key: ValueKey('user_list_status_${option.name}'),
+            checked: option == status,
             onPressed: () => onSelected(option),
-            leadingIcon: SizedBox.square(
-              dimension: 14,
-              child: option == status
-                  ? const PixelIcon(PixelGlyph.check, size: 14)
-                  : null,
-            ),
             child: Text(userRateStatusLabel(l10n, option)),
           ),
       ],
       builder: (context, controller, _) => TextButton(
         key: UserListView.statusButtonKey,
-        onPressed: () =>
-            controller.isOpen ? controller.close() : controller.open(),
+        onPressed: controller.toggle,
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [

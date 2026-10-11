@@ -76,7 +76,7 @@ lib/
 - widgets: `FoldingList` (show more / less), `SourceFactsLine`, `watchedFirst`,
   `adaptiveColumnCount`, `status_views.dart` (loading / empty / error,
   `RetryView` / `InlineRetry` / `PagingFooter`), `PageFrame` (page body
-  margins + width cap)
+  margins + width cap), `CheckedMenuItem` + `MenuController.toggle`
 
 ### Layer responsibilities
 #### presentation/
