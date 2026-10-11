@@ -96,7 +96,6 @@
   "animeDetailsLoading": "Loading anime details...",
   "animeDetailsLoadError": "Unable to load anime details.",
   "watchSourcesTitle": "Watch sources",
-  "watchSourcesOpenButton": "Watch",
   "watchSourcesLoading": "Loading sources...",
   "watchSourcesLoadError": "Unable to load sources.",
   "watchSourcesEmpty": "No sources found.",
@@ -121,9 +120,6 @@
   "watchSourcesSortPublishedAt": "Date",
   "watchSourcesSortDownloads": "Downloads",
   "watchSourcesSortTitle": "Title",
-  "watchSourcesPageLinkLabel": "Page Link",
-  "watchSourcesTorrentLinkLabel": "Torrent Link",
-  "watchSourcesMagnetLinkLabel": "Magnet Link",
   "playerTitle": "Player",
   "playerOpenButton": "Play",
   "playerSourceTitle": "Choose File",
@@ -509,17 +505,6 @@
   },
   "watchSourceSeeders": "{value} {count, plural, =1{seeder} other{seeders}}",
   "@watchSourceSeeders": {
-    "placeholders": {
-      "value": {
-        "type": "String"
-      },
-      "count": {
-        "type": "int"
-      }
-    }
-  },
-  "watchSourceLeechers": "{value} {count, plural, =1{leecher} other{leechers}}",
-  "@watchSourceLeechers": {
     "placeholders": {
       "value": {
         "type": "String"

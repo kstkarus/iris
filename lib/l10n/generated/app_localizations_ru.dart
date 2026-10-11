@@ -218,9 +218,6 @@ class AppLocalizationsRu extends AppLocalizations {
   String get watchSourcesTitle => 'Источники';
 
   @override
-  String get watchSourcesOpenButton => 'Смотреть';
-
-  @override
   String get watchSourcesLoading => 'Загружаем источники...';
 
   @override
@@ -272,15 +269,6 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get watchSourcesSortTitle => 'По названию';
-
-  @override
-  String get watchSourcesPageLinkLabel => 'Ссылка на страницу';
-
-  @override
-  String get watchSourcesTorrentLinkLabel => 'Ссылка на torrent';
-
-  @override
-  String get watchSourcesMagnetLinkLabel => 'Magnet-ссылка';
 
   @override
   String get playerTitle => 'Плеер';
@@ -834,19 +822,6 @@ class AppLocalizationsRu extends AppLocalizations {
       many: 'сидов',
       few: 'сида',
       one: 'сид',
-    );
-    return '$value $_temp0';
-  }
-
-  @override
-  String watchSourceLeechers(String value, int count) {
-    String _temp0 = intl.Intl.pluralLogic(
-      count,
-      locale: localeName,
-      other: 'личера',
-      many: 'личеров',
-      few: 'личера',
-      one: 'личер',
     );
     return '$value $_temp0';
   }

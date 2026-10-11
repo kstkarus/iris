@@ -11,13 +11,7 @@ import 'package:iris/features/online_sources/domain/repositories/online_sources_
 import 'package:iris/shared/network/network_exceptions.dart';
 
 OnlineRelease _release(OnlineProvider provider, String id, String dub) =>
-    OnlineRelease(
-      provider: provider,
-      id: id,
-      title: 'Фрирен',
-      dub: dub,
-      episodes: const [],
-    );
+    OnlineRelease(provider: provider, id: id, dub: dub, episodes: const []);
 
 void main() {
   final anilibria = _Provider([
@@ -59,7 +53,6 @@ void main() {
         OnlineRelease(
           provider: OnlineProvider.yummyAnime,
           id: '10661:a',
-          title: '',
           dub: 'AniLibria',
           episodes: const [episode],
         ),

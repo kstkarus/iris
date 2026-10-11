@@ -2,14 +2,9 @@ import 'package:iris/shared/utils/json_read.dart';
 
 /// An anime as yummy_anime's search gives it.
 class YummyAnimeDto {
-  const YummyAnimeDto({
-    required this.animeId,
-    required this.title,
-    this.shikimoriId,
-  });
+  const YummyAnimeDto({required this.animeId, this.shikimoriId});
 
   final int animeId;
-  final String title;
 
   /// The Shikimori id yummy_anime links the anime to; null when unlinked.
   final int? shikimoriId;
@@ -21,7 +16,6 @@ class YummyAnimeDto {
         : null;
     return YummyAnimeDto(
       animeId: jsonIntOrNull(json['anime_id']) ?? 0,
-      title: json['title']?.toString() ?? '',
       // yummy_anime writes 0 for "not linked".
       shikimoriId: shikimoriId == 0 ? null : shikimoriId,
     );

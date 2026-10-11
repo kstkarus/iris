@@ -49,7 +49,6 @@ class YummyAnimeOnlineSourcesRepository implements OnlineSourcesRepository {
       matching.values.map(
         (anime) async => mapYummyReleases(
           animeId: anime.animeId,
-          title: anime.title,
           videos: await dataSource.videos(anime.animeId),
         ),
       ),

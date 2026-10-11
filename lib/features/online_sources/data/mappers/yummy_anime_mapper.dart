@@ -29,7 +29,6 @@ enum YummyPlayer {
 /// found again from the videos of its anime.
 List<OnlineRelease> mapYummyReleases({
   required int animeId,
-  required String title,
   required List<YummyVideoDto> videos,
 }) {
   final byDub = <String, List<YummyVideoDto>>{};
@@ -46,7 +45,7 @@ List<OnlineRelease> mapYummyReleases({
     ..sort((left, right) => views[right]!.compareTo(views[left]!));
   return [
     for (final dub in dubs)
-      _release(animeId: animeId, title: title, dub: dub, videos: byDub[dub]!),
+      _release(animeId: animeId, dub: dub, videos: byDub[dub]!),
   ];
 }
 
@@ -63,12 +62,7 @@ OnlineRelease? findYummyRelease({
         video,
   ];
   if (matching.isEmpty) return null;
-  return _release(
-    animeId: parts.animeId,
-    title: '',
-    dub: parts.dub,
-    videos: matching,
-  );
+  return _release(animeId: parts.animeId, dub: parts.dub, videos: matching);
 }
 
 ({int animeId, String dub})? parseYummyReleaseId(String releaseId) {
@@ -82,7 +76,6 @@ OnlineRelease? findYummyRelease({
 
 OnlineRelease _release({
   required int animeId,
-  required String title,
   required String dub,
   required List<YummyVideoDto> videos,
 }) {
@@ -99,7 +92,6 @@ OnlineRelease _release({
   return OnlineRelease(
     provider: OnlineProvider.yummyAnime,
     id: '$animeId:${Uri.encodeComponent(dub)}',
-    title: title,
     dub: yummyDubLabel(dub),
     episodes: [
       for (final number in numbers)

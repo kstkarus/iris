@@ -164,7 +164,6 @@ class _StandInRow extends StatelessWidget {
   static const _standIn = OnlineRelease(
     provider: OnlineProvider.anilibria,
     id: '',
-    title: '',
     dub: 'AniLibria',
     episodes: [],
     bestQuality: 1080,

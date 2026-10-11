@@ -244,14 +244,10 @@ final _standInItems = [
   ].indexed)
     WatchSourceItem(
       title: title,
-      category: '',
-      link: '',
-      torrent: '',
       magnet: 'magnet:?xt=urn:btih:standin$index',
       size: '1.4 GB',
       time: '2020-01-01',
       seeders: 120,
-      leechers: 4,
       downloads: 2400,
     ),
 ];

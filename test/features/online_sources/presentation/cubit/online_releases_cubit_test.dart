@@ -11,7 +11,6 @@ import 'package:iris/features/online_sources/presentation/cubit/online_releases_
 const _release = OnlineRelease(
   provider: OnlineProvider.anilibria,
   id: '9542',
-  title: 'Фрирен',
   dub: 'AniLibria',
   episodes: [],
 );
@@ -19,7 +18,6 @@ const _release = OnlineRelease(
 const _dub = OnlineRelease(
   provider: OnlineProvider.yummyAnime,
   id: '10661:AniDUB',
-  title: 'Фрирен',
   dub: 'AniDUB',
   episodes: [],
 );

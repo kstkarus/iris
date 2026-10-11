@@ -470,12 +470,6 @@ abstract class AppLocalizations {
   /// **'Watch sources'**
   String get watchSourcesTitle;
 
-  /// No description provided for @watchSourcesOpenButton.
-  ///
-  /// In en, this message translates to:
-  /// **'Watch'**
-  String get watchSourcesOpenButton;
-
   /// No description provided for @watchSourcesLoading.
   ///
   /// In en, this message translates to:
@@ -577,24 +571,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Title'**
   String get watchSourcesSortTitle;
-
-  /// No description provided for @watchSourcesPageLinkLabel.
-  ///
-  /// In en, this message translates to:
-  /// **'Page Link'**
-  String get watchSourcesPageLinkLabel;
-
-  /// No description provided for @watchSourcesTorrentLinkLabel.
-  ///
-  /// In en, this message translates to:
-  /// **'Torrent Link'**
-  String get watchSourcesTorrentLinkLabel;
-
-  /// No description provided for @watchSourcesMagnetLinkLabel.
-  ///
-  /// In en, this message translates to:
-  /// **'Magnet Link'**
-  String get watchSourcesMagnetLinkLabel;
 
   /// No description provided for @playerTitle.
   ///
@@ -1507,12 +1483,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{value} {count, plural, =1{seeder} other{seeders}}'**
   String watchSourceSeeders(String value, int count);
-
-  /// No description provided for @watchSourceLeechers.
-  ///
-  /// In en, this message translates to:
-  /// **'{value} {count, plural, =1{leecher} other{leechers}}'**
-  String watchSourceLeechers(String value, int count);
 
   /// No description provided for @watchSourceDownloads.
   ///

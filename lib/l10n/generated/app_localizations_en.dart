@@ -214,9 +214,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get watchSourcesTitle => 'Watch sources';
 
   @override
-  String get watchSourcesOpenButton => 'Watch';
-
-  @override
   String get watchSourcesLoading => 'Loading sources...';
 
   @override
@@ -268,15 +265,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get watchSourcesSortTitle => 'Title';
-
-  @override
-  String get watchSourcesPageLinkLabel => 'Page Link';
-
-  @override
-  String get watchSourcesTorrentLinkLabel => 'Torrent Link';
-
-  @override
-  String get watchSourcesMagnetLinkLabel => 'Magnet Link';
 
   @override
   String get playerTitle => 'Player';
@@ -824,17 +812,6 @@ class AppLocalizationsEn extends AppLocalizations {
       locale: localeName,
       other: 'seeders',
       one: 'seeder',
-    );
-    return '$value $_temp0';
-  }
-
-  @override
-  String watchSourceLeechers(String value, int count) {
-    String _temp0 = intl.Intl.pluralLogic(
-      count,
-      locale: localeName,
-      other: 'leechers',
-      one: 'leecher',
     );
     return '$value $_temp0';
   }
