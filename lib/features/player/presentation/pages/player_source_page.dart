@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:iris/entities/watch_progress/domain/watch_progress.dart';
 import 'package:iris/entities/watch_progress/presentation/watch_progress_cubit.dart';
 import 'package:iris/shared/online/online_source_link.dart';
+import 'package:iris/features/player/domain/entities/anime_player_source.dart';
 import 'package:iris/features/player/domain/entities/player_video_file.dart';
 import 'package:iris/features/player/presentation/cubit/player_source_cubit.dart';
 import 'package:iris/features/player/presentation/cubit/player_source_state.dart';
@@ -114,14 +115,16 @@ class PlayerSourcePage extends StatelessWidget {
       context.pushReplacementNamed(
         'player',
         extra: AnimePlayerArgs(
-          animeId: args.animeId,
-          animeTitle: args.animeTitle,
-          sourceTitle: args.sourceTitle,
-          sessionId: sessionId,
-          fileIndex: file.index,
-          fileName: file.name,
-          magnet: args.magnet,
-          files: files,
+          AnimePlayerSource(
+            animeId: args.animeId,
+            animeTitle: args.animeTitle,
+            sourceTitle: args.sourceTitle,
+            sessionId: sessionId,
+            fileIndex: file.index,
+            fileName: file.name,
+            magnet: args.magnet,
+            files: files,
+          ),
         ),
       );
     } catch (_) {
