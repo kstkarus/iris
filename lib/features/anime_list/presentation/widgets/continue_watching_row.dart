@@ -82,6 +82,9 @@ class ContinueWatchingRow extends StatelessWidget {
         ),
         if (queued.isNotEmpty) ...[
           const SizedBox(height: 24),
+          // An emptied queue unmounts the list, so an unfolded list comes
+          // back folded once three or more titles queue up again. Rare enough
+          // to leave; if it matters, hold `expanded` here and pass it in.
           FoldingList(
             items: queued,
             visible: visibleRows,
