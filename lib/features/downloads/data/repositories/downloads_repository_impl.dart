@@ -492,8 +492,9 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
               errorMessage: null,
             ),
       );
-      _engine.remove(torrentId, deleteFiles: false);
-      _clearActiveDownload();
+      // Forgets the torrent id too: deleting the file later must not remove
+      // whatever torrent the engine gives that id next.
+      _releaseTorrent(current.id, deleteFiles: false);
       await _foregroundService.stop();
       await _commit();
       unawaited(_pumpQueue());

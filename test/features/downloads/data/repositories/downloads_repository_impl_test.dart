@@ -137,6 +137,12 @@ void main() {
       _RemoveCall(activeTorrentId, deleteFiles: false),
     );
     expect(foregroundService.stopCount, greaterThan(0));
+
+    // The finished torrent is already out of the engine.
+    final removeCount = engine.removeCalls.length;
+    expect(await repository.delete(id: item.id), isTrue);
+    expect(engine.removeCalls, hasLength(removeCount));
+    expect(await File(item.localPath).exists(), isFalse);
   });
 
   test(
