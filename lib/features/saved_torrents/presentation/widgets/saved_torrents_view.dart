@@ -18,6 +18,7 @@ import 'package:iris/shared/utils/duration_formatter.dart';
 import 'package:iris/shared/utils/episode_number.dart';
 import 'package:iris/shared/utils/file_display_name.dart';
 import 'package:iris/shared/widgets/adaptive/window_size_class.dart';
+import 'package:iris/shared/widgets/focusable_list_row.dart';
 import 'package:iris/shared/widgets/pixel_icon.dart';
 import 'package:iris/shared/widgets/row_menu_button.dart';
 import 'package:iris/shared/widgets/segmented_bar.dart';
@@ -184,6 +185,7 @@ class _TorrentList extends StatelessWidget {
 
 /// One saved torrent. The row itself watches (or continues) it; the rarer
 /// actions sit in its menu, which a long press or a right click also opens.
+/// The Delete key deletes it, as the menu does.
 class _TorrentRow extends StatefulWidget {
   const _TorrentRow({
     required this.torrent,
@@ -222,49 +224,46 @@ class _TorrentRowState extends State<_TorrentRow> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Material(
+    return FocusableListRow(
+      inkKey: const Key('saved_torrent_watch_button'),
+      onDelete: () => _deleteWithUndo(context, widget.torrent),
       // Also while its menu is open, which then plainly acts on this row.
-      color: widget.highlighted || _menuOpen
-          ? theme.colorScheme.surfaceContainer
-          : Colors.transparent,
-      child: InkWell(
-        key: const Key('saved_torrent_watch_button'),
-        onTap: widget.onWatch,
-        onLongPress: _menu.open,
-        onSecondaryTap: _menu.open,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(12, 14, 0, 14),
-          child: Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      widget.torrent.title,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.titleSmall,
-                    ),
-                    const SizedBox(height: 4),
-                    _Status(torrent: widget.torrent, progress: widget.progress),
-                  ],
-                ),
+      filled: widget.highlighted || _menuOpen,
+      onTap: widget.onWatch,
+      onLongPress: _menu.open,
+      onSecondaryTap: _menu.open,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 14, 0, 14),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    widget.torrent.title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.titleSmall,
+                  ),
+                  const SizedBox(height: 4),
+                  _Status(torrent: widget.torrent, progress: widget.progress),
+                ],
               ),
-              const SizedBox(width: 8),
-              _RowMenu(
-                controller: _menu,
-                torrent: widget.torrent,
-                onDownload: widget.onDownload,
-                onOpenChanged: _setMenuOpen,
+            ),
+            const SizedBox(width: 8),
+            _RowMenu(
+              controller: _menu,
+              torrent: widget.torrent,
+              onDownload: widget.onDownload,
+              onOpenChanged: _setMenuOpen,
+            ),
+            if (widget.wide)
+              const Padding(
+                padding: EdgeInsets.only(left: 4, right: 8),
+                child: PixelIcon(PixelGlyph.arrowRight, size: 16),
               ),
-              if (widget.wide)
-                const Padding(
-                  padding: EdgeInsets.only(left: 4, right: 8),
-                  child: PixelIcon(PixelGlyph.arrowRight, size: 16),
-                ),
-            ],
-          ),
+          ],
         ),
       ),
     );
@@ -414,20 +413,27 @@ class _RowMenu extends StatelessWidget {
           SnackBar(content: Text(l10n.savedTorrentsLinkCopied)),
         );
       case _MenuAction.delete:
-        // Cheap to put back, so no question first: an undo instead.
-        final removed = await cubit.delete(torrent.infoHash);
-        if (removed == null) return;
-        messenger
-          ..hideCurrentSnackBar()
-          ..showSnackBar(
-            SnackBar(
-              content: Text(l10n.savedTorrentsDeleted),
-              action: SnackBarAction(
-                label: l10n.commonUndo,
-                onPressed: () => cubit.restore(removed),
-              ),
-            ),
-          );
+        await _deleteWithUndo(context, torrent);
     }
   }
+}
+
+/// Cheap to put back, so no question first: an undo instead.
+Future<void> _deleteWithUndo(BuildContext context, SavedTorrent torrent) async {
+  final cubit = context.read<SavedTorrentsCubit>();
+  final messenger = ScaffoldMessenger.of(context);
+  final l10n = AppLocalizations.of(context);
+  final removed = await cubit.delete(torrent.infoHash);
+  if (removed == null) return;
+  messenger
+    ..hideCurrentSnackBar()
+    ..showSnackBar(
+      SnackBar(
+        content: Text(l10n.savedTorrentsDeleted),
+        action: SnackBarAction(
+          label: l10n.commonUndo,
+          onPressed: () => cubit.restore(removed),
+        ),
+      ),
+    );
 }

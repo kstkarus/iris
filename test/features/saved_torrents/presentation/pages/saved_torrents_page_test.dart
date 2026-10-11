@@ -307,6 +307,22 @@ void main() {
     expect(find.text('Тетрадь смерти'), findsOneWidget);
   });
 
+  testWidgets('the Delete key deletes the focused row with an undo', (
+    tester,
+  ) async {
+    await repository.add(magnet: _magnet);
+    await pumpPage(tester);
+
+    Focus.of(tester.element(find.text('Death Note S01'))).requestFocus();
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.delete);
+    await tester.pumpAndSettle();
+
+    expect(find.byType(AlertDialog), findsNothing);
+    expect(find.text('Пока нет сохранённых раздач'), findsOneWidget);
+    expect(find.text('Раздача удалена'), findsOneWidget);
+  });
+
   testWidgets('the add sheet covers the whole window on phones', (
     tester,
   ) async {

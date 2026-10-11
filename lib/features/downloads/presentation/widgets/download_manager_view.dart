@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:iris/features/downloads/domain/entities/download_failure.dart';
@@ -15,6 +14,7 @@ import 'package:iris/shared/utils/desktop_platform.dart';
 import 'package:iris/shared/utils/episode_number.dart';
 import 'package:iris/shared/utils/file_display_name.dart';
 import 'package:iris/shared/widgets/adaptive/window_size_class.dart';
+import 'package:iris/shared/widgets/focusable_list_row.dart';
 import 'package:iris/shared/widgets/pixel_icon.dart';
 import 'package:iris/shared/widgets/row_menu_button.dart';
 import 'package:iris/shared/widgets/section_label.dart';
@@ -277,7 +277,6 @@ class _DownloadRow extends StatefulWidget {
 class _DownloadRowState extends State<_DownloadRow> {
   final _menu = MenuController();
   bool _menuOpen = false;
-  bool _focused = false;
 
   void _setMenuOpen(bool open) {
     if (mounted) setState(() => _menuOpen = open);
@@ -285,8 +284,6 @@ class _DownloadRowState extends State<_DownloadRow> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
     final l10n = AppLocalizations.of(context);
     final cubit = context.read<DownloadManagerCubit>();
     final item = widget.item;
@@ -327,86 +324,59 @@ class _DownloadRowState extends State<_DownloadRow> {
       if (failure != null) _failureMessage(l10n, failure),
     ].join(', ');
 
-    return CallbackShortcuts(
-      bindings: {
-        const SingleActivator(LogicalKeyboardKey.delete): () =>
-            _confirmDelete(context),
-      },
-      child: DecoratedBox(
-        // Keyboard focus as an outline: a fill this faint would not show.
-        position: DecorationPosition.foreground,
-        decoration: BoxDecoration(
-          border: _focused
-              ? Border.all(color: scheme.onSurface, width: 2)
-              : null,
-        ),
-        child: Material(
-          // Ink paints on the nearest Material: this one scrolls with the
-          // row, so the list's edge clips the highlight.
-          color: _menuOpen ? scheme.surfaceContainer : Colors.transparent,
-          child: InkWell(
-            onTap: completed ? () => widget.onWatch(item) : null,
-            onLongPress: _menu.open,
-            onSecondaryTap: _menu.open,
-            onFocusChange: (focused) => setState(
-              () => _focused =
-                  focused &&
-                  FocusManager.instance.highlightMode ==
-                      FocusHighlightMode.traditional,
-            ),
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(12, 14, 0, 14),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Semantics(
-                      container: true,
-                      label: summary,
-                      child: ExcludeSemantics(
-                        child: _Details(
-                          item: item,
-                          progress: progress,
-                          statusLabel: statusLabel,
-                          failure: failure,
-                        ),
-                      ),
-                    ),
+    return FocusableListRow(
+      onDelete: () => _confirmDelete(context),
+      filled: _menuOpen,
+      onTap: completed ? () => widget.onWatch(item) : null,
+      onLongPress: _menu.open,
+      onSecondaryTap: _menu.open,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 14, 0, 14),
+        child: Row(
+          children: [
+            Expanded(
+              child: Semantics(
+                container: true,
+                label: summary,
+                child: ExcludeSemantics(
+                  child: _Details(
+                    item: item,
+                    progress: progress,
+                    statusLabel: statusLabel,
+                    failure: failure,
                   ),
-                  const SizedBox(width: 8),
-                  Semantics(
-                    label: '$actionLabel: $name',
-                    button: true,
-                    excludeSemantics: true,
-                    onTap: onAction,
-                    child: IconButton(
-                      tooltip: actionLabel,
-                      icon: PixelIcon(actionIcon, size: 18),
-                      onPressed: onAction,
-                    ),
-                  ),
-                  RowMenuButton(
-                    controller: _menu,
-                    tooltip: l10n.commonMoreActions,
-                    semanticLabel: '${l10n.commonMoreActions}: $name',
-                    onOpenChanged: _setMenuOpen,
-                    menuChildren: [
-                      MenuItemButton(
-                        onPressed: onAction,
-                        child: Text(actionLabel),
-                      ),
-                      // Apart, so it is not hit on the way to the rest.
-                      const Divider(height: 1),
-                      MenuItemButton(
-                        key: const Key('download_delete'),
-                        onPressed: () => _confirmDelete(context),
-                        child: Text(asksForMore(l10n.downloadDeleteButton)),
-                      ),
-                    ],
-                  ),
-                ],
+                ),
               ),
             ),
-          ),
+            const SizedBox(width: 8),
+            Semantics(
+              label: '$actionLabel: $name',
+              button: true,
+              excludeSemantics: true,
+              onTap: onAction,
+              child: IconButton(
+                tooltip: actionLabel,
+                icon: PixelIcon(actionIcon, size: 18),
+                onPressed: onAction,
+              ),
+            ),
+            RowMenuButton(
+              controller: _menu,
+              tooltip: l10n.commonMoreActions,
+              semanticLabel: '${l10n.commonMoreActions}: $name',
+              onOpenChanged: _setMenuOpen,
+              menuChildren: [
+                MenuItemButton(onPressed: onAction, child: Text(actionLabel)),
+                // Apart, so it is not hit on the way to the rest.
+                const Divider(height: 1),
+                MenuItemButton(
+                  key: const Key('download_delete'),
+                  onPressed: () => _confirmDelete(context),
+                  child: Text(asksForMore(l10n.downloadDeleteButton)),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );
