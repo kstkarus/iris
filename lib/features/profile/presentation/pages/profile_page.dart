@@ -10,8 +10,7 @@ import 'package:iris/features/profile/domain/entities/user_list_entry.dart';
 import 'package:iris/features/profile/presentation/widgets/profile_header.dart';
 import 'package:iris/features/profile/presentation/widgets/user_list_view.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
-import 'package:iris/shared/widgets/adaptive/adaptive_content_width.dart';
-import 'package:iris/shared/widgets/adaptive/window_size_class.dart';
+import 'package:iris/shared/widgets/adaptive/page_frame.dart';
 import 'package:iris/shared/widgets/status_views.dart';
 
 /// The Shikimori account: an invitation to sign in, or whose list the app
@@ -36,31 +35,25 @@ class ProfilePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final sizeClass = WindowSizeClass.of(context);
-    final margin = sizeClass.pageMargin;
     final state = context.watch<AuthCubit>().state;
     return Scaffold(
       body: SafeArea(
-        child: Padding(
-          padding: EdgeInsets.fromLTRB(margin, sizeClass.pageTop, margin, 0),
-          child: MaxWidthBox(
-            maxWidth: AdaptiveContentWidth.page,
-            child: switch (state) {
-              AuthRestoring() => const LoadingView(),
-              AuthSigningIn() => LoadingView(
-                label: AppLocalizations.of(context).profileSigningIn,
-                details: [AppLocalizations.of(context).profileSigningInHint],
-              ),
-              AuthSignedOut() => _SignedOut(state: state),
-              AuthSignedIn(:final account) => UserListView(
-                header: _Account(account: account),
-                onOpen: onOpenAnime,
-                onOpenFriend: onOpenFriend,
-                onBrowseCatalog: onBrowseCatalog,
-                mine: true,
-              ),
-            },
-          ),
+        child: PageFrame(
+          child: switch (state) {
+            AuthRestoring() => const LoadingView(),
+            AuthSigningIn() => LoadingView(
+              label: AppLocalizations.of(context).profileSigningIn,
+              details: [AppLocalizations.of(context).profileSigningInHint],
+            ),
+            AuthSignedOut() => _SignedOut(state: state),
+            AuthSignedIn(:final account) => UserListView(
+              header: _Account(account: account),
+              onOpen: onOpenAnime,
+              onOpenFriend: onOpenFriend,
+              onBrowseCatalog: onBrowseCatalog,
+              mine: true,
+            ),
+          },
         ),
       ),
     );

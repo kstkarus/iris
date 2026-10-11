@@ -8,8 +8,7 @@ import 'package:iris/features/saved_torrents/presentation/cubit/saved_torrents_c
 import 'package:iris/features/saved_torrents/presentation/widgets/add_saved_torrent_sheet.dart';
 import 'package:iris/features/saved_torrents/presentation/widgets/saved_torrents_view.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
-import 'package:iris/shared/widgets/adaptive/adaptive_content_width.dart';
-import 'package:iris/shared/widgets/adaptive/window_size_class.dart';
+import 'package:iris/shared/widgets/adaptive/page_frame.dart';
 
 /// The user's own magnet links, independent from the anime catalog.
 class SavedTorrentsPage extends StatelessWidget {
@@ -26,9 +25,6 @@ class SavedTorrentsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final sizeClass = WindowSizeClass.of(context);
-    final margin = sizeClass.pageMargin;
-
     return Scaffold(
       body: CallbackShortcuts(
         bindings: {
@@ -40,26 +36,17 @@ class SavedTorrentsPage extends StatelessWidget {
         child: Focus(
           autofocus: true,
           child: SafeArea(
-            child: Padding(
-              padding: EdgeInsets.fromLTRB(
-                margin,
-                sizeClass.pageTop,
-                margin,
-                0,
-              ),
-              child: MaxWidthBox(
-                maxWidth: AdaptiveContentWidth.page,
-                child: SavedTorrentsView(
-                  addButtonKey: addButtonKey,
-                  onAdd: () => _add(context),
-                  onWatch: (torrent, {autoOpenFileIndex}) => _open(
-                    context,
-                    torrent,
-                    (torrent) =>
-                        onWatch(torrent, autoOpenFileIndex: autoOpenFileIndex),
-                  ),
-                  onDownload: (torrent) => _open(context, torrent, onDownload),
+            child: PageFrame(
+              child: SavedTorrentsView(
+                addButtonKey: addButtonKey,
+                onAdd: () => _add(context),
+                onWatch: (torrent, {autoOpenFileIndex}) => _open(
+                  context,
+                  torrent,
+                  (torrent) =>
+                      onWatch(torrent, autoOpenFileIndex: autoOpenFileIndex),
                 ),
+                onDownload: (torrent) => _open(context, torrent, onDownload),
               ),
             ),
           ),

@@ -7,8 +7,7 @@ import 'package:iris/features/downloads/presentation/cubit/download_selection_st
 import 'package:iris/features/downloads/presentation/models/download_selection_args.dart';
 import 'package:iris/features/downloads/presentation/widgets/download_selection_view.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
-import 'package:iris/shared/widgets/adaptive/adaptive_content_width.dart';
-import 'package:iris/shared/widgets/adaptive/window_size_class.dart';
+import 'package:iris/shared/widgets/adaptive/page_frame.dart';
 import 'package:iris/shared/widgets/page_title.dart';
 import 'package:iris/shared/widgets/adaptive/framed_app_bar.dart';
 
@@ -25,7 +24,6 @@ class DownloadSelectionPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final margin = WindowSizeClass.of(context).pageMargin;
     return BlocListener<DownloadSelectionCubit, DownloadSelectionState>(
       listenWhen: (_, state) => state is DownloadSelectionQueued,
       listener: (context, state) {
@@ -39,14 +37,10 @@ class DownloadSelectionPage extends StatelessWidget {
           ),
         ),
         body: SafeArea(
-          child: Padding(
-            padding: EdgeInsets.fromLTRB(margin, 24, margin, 0),
-            child: MaxWidthBox(
-              maxWidth: AdaptiveContentWidth.page,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [const Expanded(child: DownloadSelectionView())],
-              ),
+          child: PageFrame.subPage(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [const Expanded(child: DownloadSelectionView())],
             ),
           ),
         ),
