@@ -10,10 +10,12 @@ import 'package:iris/features/online_sources/presentation/cubit/online_releases_
 import 'package:iris/features/player/presentation/models/anime_player_source_args.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/online/online_source_link.dart';
+import 'package:iris/shared/utils/watched_first.dart';
 import 'package:iris/shared/widgets/adaptive/adaptive_grid_row.dart';
 import 'package:iris/shared/widgets/app_skeleton.dart';
 import 'package:iris/shared/widgets/dither_switcher.dart';
 import 'package:iris/shared/widgets/segmented_bar.dart';
+import 'package:iris/shared/widgets/source_facts_line.dart';
 import 'package:iris/shared/widgets/status_views.dart';
 
 /// The anime's releases on video servers, one row per dub, the dubs the
@@ -85,10 +87,7 @@ class OnlineReleasesList extends StatelessWidget {
     };
     bool watched(OnlineRelease release) =>
         watchedLinks.contains(_link(release));
-    final ordered = [
-      ...releases.where(watched),
-      ...releases.where((release) => !watched(release)),
-    ];
+    final ordered = watchedFirst(releases, watched);
     // Each dub its own node: dubs side by side would be heard, and
     // tapped, as one.
     Widget cell(int index) => Semantics(
@@ -216,20 +215,9 @@ class _ReleaseRow extends StatelessWidget {
             children: [
               Text(release.dub, style: theme.textTheme.bodyMedium),
               const SizedBox(height: 4),
-              Text.rich(
-                TextSpan(
-                  children: [
-                    if (watched) ...[
-                      TextSpan(
-                        text: l10n.watchSourceUsedBadge,
-                        style: TextStyle(color: theme.colorScheme.onSurface),
-                      ),
-                      if (facts.isNotEmpty) const TextSpan(text: ' · '),
-                    ],
-                    TextSpan(text: facts),
-                  ],
-                ),
-                style: theme.textTheme.bodySmall,
+              SourceFactsLine(
+                watched: watched,
+                facts: facts.isEmpty ? null : facts,
               ),
             ],
           ),
