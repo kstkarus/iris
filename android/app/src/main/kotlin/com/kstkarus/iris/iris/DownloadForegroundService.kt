@@ -11,11 +11,6 @@ import android.os.Build
 import android.os.IBinder
 
 class DownloadForegroundService : Service() {
-    override fun onCreate() {
-        super.onCreate()
-        createNotificationChannel()
-    }
-
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == ACTION_STOP) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
@@ -30,6 +25,13 @@ class DownloadForegroundService : Service() {
 
         val title = intent?.getStringExtra(EXTRA_TITLE) ?: "Iris"
         val text = intent?.getStringExtra(EXTRA_TEXT) ?: "Загрузка контента"
+        // Created on every command: re-creating an existing channel updates
+        // its name and description to the app's current language.
+        createNotificationChannel(
+            name = intent?.getStringExtra(EXTRA_CHANNEL_NAME) ?: "Загрузки",
+            description = intent?.getStringExtra(EXTRA_CHANNEL_DESCRIPTION)
+                ?: "Ход загрузки контента для офлайн-просмотра",
+        )
         val notification = buildNotification(title, text)
         if (intent?.action == ACTION_UPDATE) {
             notificationManager.notify(NOTIFICATION_ID, notification)
@@ -57,15 +59,15 @@ class DownloadForegroundService : Service() {
     private val notificationManager: NotificationManager
         get() = getSystemService(NotificationManager::class.java)
 
-    private fun createNotificationChannel() {
+    private fun createNotificationChannel(name: String, description: String) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
         notificationManager.createNotificationChannel(
             NotificationChannel(
                 CHANNEL_ID,
-                "Загрузки",
+                name,
                 NotificationManager.IMPORTANCE_LOW,
             ).apply {
-                description = "Ход загрузки контента для офлайн-просмотра"
+                this.description = description
                 setShowBadge(false)
             },
         )
@@ -104,6 +106,8 @@ class DownloadForegroundService : Service() {
         const val ACTION_STOP = "iris.download.STOP"
         const val EXTRA_TITLE = "title"
         const val EXTRA_TEXT = "text"
+        const val EXTRA_CHANNEL_NAME = "channelName"
+        const val EXTRA_CHANNEL_DESCRIPTION = "channelDescription"
 
         private const val CHANNEL_ID = "iris_downloads"
         private const val NOTIFICATION_ID = 7101

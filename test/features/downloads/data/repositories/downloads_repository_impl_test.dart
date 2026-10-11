@@ -1216,7 +1216,7 @@ class _FakeForegroundService implements DownloadForegroundServiceAdapter {
   Completer<void>? updateGate;
 
   @override
-  Future<void> start({required String title, required String text}) async {
+  Future<void> start({required String text}) async {
     startCount++;
     await startGate?.future;
   }
@@ -1227,7 +1227,7 @@ class _FakeForegroundService implements DownloadForegroundServiceAdapter {
   }
 
   @override
-  Future<void> update({required String title, required String text}) async {
+  Future<void> update({required String text}) async {
     updateCount++;
     await updateGate?.future;
   }

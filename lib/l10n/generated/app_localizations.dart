@@ -236,6 +236,24 @@ abstract class AppLocalizations {
   /// **'Failed'**
   String get downloadStatusFailed;
 
+  /// No description provided for @downloadNotificationTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Downloading'**
+  String get downloadNotificationTitle;
+
+  /// No description provided for @downloadNotificationChannelName.
+  ///
+  /// In en, this message translates to:
+  /// **'Downloads'**
+  String get downloadNotificationChannelName;
+
+  /// No description provided for @downloadNotificationChannelDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Download progress for offline viewing'**
+  String get downloadNotificationChannelDescription;
+
   /// No description provided for @downloadFailedMessage.
   ///
   /// In en, this message translates to:

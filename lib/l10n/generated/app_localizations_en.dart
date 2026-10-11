@@ -82,6 +82,16 @@ class AppLocalizationsEn extends AppLocalizations {
   String get downloadStatusFailed => 'Failed';
 
   @override
+  String get downloadNotificationTitle => 'Downloading';
+
+  @override
+  String get downloadNotificationChannelName => 'Downloads';
+
+  @override
+  String get downloadNotificationChannelDescription =>
+      'Download progress for offline viewing';
+
+  @override
   String get downloadFailedMessage =>
       'The torrent stopped with an error. Try again later.';
 

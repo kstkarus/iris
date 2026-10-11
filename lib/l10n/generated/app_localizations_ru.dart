@@ -83,6 +83,16 @@ class AppLocalizationsRu extends AppLocalizations {
   String get downloadStatusFailed => 'Ошибка';
 
   @override
+  String get downloadNotificationTitle => 'Загрузка';
+
+  @override
+  String get downloadNotificationChannelName => 'Загрузки';
+
+  @override
+  String get downloadNotificationChannelDescription =>
+      'Ход загрузки контента для офлайн-просмотра';
+
+  @override
   String get downloadFailedMessage =>
       'Торрент остановился с ошибкой. Попробуйте позже.';
 

@@ -1,39 +1,48 @@
 import 'dart:developer' as developer;
+import 'dart:ui';
 
 import 'package:flutter/services.dart';
+import 'package:flutter/widgets.dart';
+
+import 'package:iris/l10n/generated/app_localizations.dart';
 
 abstract interface class DownloadForegroundServiceAdapter {
-  Future<void> start({required String title, required String text});
+  Future<void> start({required String text});
 
-  Future<void> update({required String title, required String text});
+  Future<void> update({required String text});
 
   Future<void> stop();
 }
 
 class MethodChannelDownloadForegroundServiceAdapter
     implements DownloadForegroundServiceAdapter {
-  const MethodChannelDownloadForegroundServiceAdapter();
+  /// [localizations] defaults to the system language, which the app's UI
+  /// follows too.
+  const MethodChannelDownloadForegroundServiceAdapter({
+    AppLocalizations Function() localizations = _systemLocalizations,
+  }) : _localizations = localizations;
 
   static const _channel = MethodChannel('iris/download_service');
 
+  final AppLocalizations Function() _localizations;
+
   @override
-  Future<void> start({required String title, required String text}) {
-    return _invoke('start', title: title, text: text);
-  }
+  Future<void> start({required String text}) => _invoke('start', text: text);
 
   @override
   Future<void> stop() => _invoke('stop');
 
   @override
-  Future<void> update({required String title, required String text}) {
-    return _invoke('update', title: title, text: text);
-  }
+  Future<void> update({required String text}) => _invoke('update', text: text);
 
-  Future<void> _invoke(String method, {String? title, String? text}) async {
+  Future<void> _invoke(String method, {String? text}) async {
+    final l10n = _localizations();
     try {
       await _channel.invokeMethod<void>(method, {
-        'title': ?title,
+        'title': l10n.downloadNotificationTitle,
         'text': ?text,
+        'channelName': l10n.downloadNotificationChannelName,
+        'channelDescription': l10n.downloadNotificationChannelDescription,
       });
     } catch (error, stackTrace) {
       developer.log(
@@ -46,16 +55,23 @@ class MethodChannelDownloadForegroundServiceAdapter
   }
 }
 
+AppLocalizations _systemLocalizations() => lookupAppLocalizations(
+  basicLocaleListResolution(
+    PlatformDispatcher.instance.locales,
+    AppLocalizations.supportedLocales,
+  ),
+);
+
 class NoopDownloadForegroundServiceAdapter
     implements DownloadForegroundServiceAdapter {
   const NoopDownloadForegroundServiceAdapter();
 
   @override
-  Future<void> start({required String title, required String text}) async {}
+  Future<void> start({required String text}) async {}
 
   @override
   Future<void> stop() async {}
 
   @override
-  Future<void> update({required String title, required String text}) async {}
+  Future<void> update({required String text}) async {}
 }

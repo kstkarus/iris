@@ -44,8 +44,6 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
        _createMetadataFolder = createMetadataFolder ?? _createFolder,
        _now = now;
 
-  static const _notificationTitle = 'Загрузка';
-
   final LibtorrentDownloadEngineAdapter _engine;
   final DownloadRegistryDataSource _registry;
   final Directory _downloadsDirectory;
@@ -465,10 +463,7 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
     final percent = (updated.progress * 100).round();
     if (_lastNotificationPercent != percent) {
       _lastNotificationPercent = percent;
-      await _foregroundService.update(
-        title: _notificationTitle,
-        text: '${item.fileName}: $percent%',
-      );
+      await _foregroundService.update(text: '${item.fileName}: $percent%');
       // Pause, delete or a streaming yield may have happened during the await.
       if (_activeItemOnTorrent(activeId, torrentId) == null) return;
     }
@@ -592,10 +587,7 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
       final (:item, :torrentId, :cancellation) = started;
       // A pause or delete during the commit has already stopped the service.
       if (cancellation.isCompleted) return;
-      await _foregroundService.start(
-        title: _notificationTitle,
-        text: item.fileName,
-      );
+      await _foregroundService.start(text: item.fileName);
       await _prioritizeWhenReady(item, torrentId, cancellation);
     } finally {
       _pumping = false;

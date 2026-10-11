@@ -34,6 +34,8 @@ class MainActivity : FlutterActivity() {
         ).setMethodCallHandler { call, result ->
             val title = call.argument<String>("title") ?: "Iris"
             val text = call.argument<String>("text") ?: "Загрузка контента"
+            val channelName = call.argument<String>("channelName")
+            val channelDescription = call.argument<String>("channelDescription")
             when (call.method) {
                 "start" -> {
                     requestNotificationPermissionIfNeeded()
@@ -41,6 +43,8 @@ class MainActivity : FlutterActivity() {
                         DownloadForegroundService.ACTION_START,
                         title,
                         text,
+                        channelName,
+                        channelDescription,
                     )
                     result.success(null)
                 }
@@ -49,6 +53,8 @@ class MainActivity : FlutterActivity() {
                         DownloadForegroundService.ACTION_UPDATE,
                         title,
                         text,
+                        channelName,
+                        channelDescription,
                     )
                     result.success(null)
                 }
@@ -57,6 +63,8 @@ class MainActivity : FlutterActivity() {
                         DownloadForegroundService.ACTION_STOP,
                         title,
                         text,
+                        channelName,
+                        channelDescription,
                     )
                     result.success(null)
                 }
@@ -98,11 +106,22 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    private fun sendDownloadServiceAction(action: String, title: String, text: String) {
+    private fun sendDownloadServiceAction(
+        action: String,
+        title: String,
+        text: String,
+        channelName: String?,
+        channelDescription: String?,
+    ) {
         val intent = Intent(this, DownloadForegroundService::class.java).apply {
             this.action = action
             putExtra(DownloadForegroundService.EXTRA_TITLE, title)
             putExtra(DownloadForegroundService.EXTRA_TEXT, text)
+            putExtra(DownloadForegroundService.EXTRA_CHANNEL_NAME, channelName)
+            putExtra(
+                DownloadForegroundService.EXTRA_CHANNEL_DESCRIPTION,
+                channelDescription,
+            )
         }
         if (
             action != DownloadForegroundService.ACTION_STOP &&
