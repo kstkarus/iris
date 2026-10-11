@@ -231,6 +231,8 @@ class _GlyphButtonState extends State<_GlyphButton> {
         child: Semantics(
           button: true,
           label: widget.label,
+          // The open panel's button reads as selected, as it looks.
+          selected: selected ? true : null,
           child: GestureDetector(
             behavior: HitTestBehavior.opaque,
             onTap: widget.onPressed,

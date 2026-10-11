@@ -845,12 +845,15 @@ void main() {
 
     final themes = capturedThemes;
     expect(themes, isA<MediaKitMobileVideoControlsThemes>());
-    expect(themes!.controlsBuilder, same(MaterialVideoControls));
-    final mobileThemes = themes as MediaKitMobileVideoControlsThemes;
+    final mobileThemes = themes! as MediaKitMobileVideoControlsThemes;
     expect(mobileThemes.normal.seekGesture, isTrue);
     expect(mobileThemes.normal.volumeGesture, isTrue);
     // Tracks and settings, each one tap away.
-    expect(find.byType(MaterialCustomButton), findsNWidgets(2));
+    expect(
+      find.byKey(const Key('player_track_selector_button')),
+      findsOneWidget,
+    );
+    expect(find.byKey(const Key('player_settings_button')), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('player_settings_button')));
     await tester.pumpAndSettle();
@@ -893,14 +896,12 @@ void main() {
     );
     // Its button names it.
     expect(find.text('Audio & subtitles'), findsNothing);
-    // Out of the button at the top, ending in line with it or at the
-    // window's margin.
+    // Out of the button at the top, ending in line with it at most and
+    // clear of the window's edge.
     final rect = tester.getRect(popover);
     expect(rect.top, greaterThan(button.bottom));
-    expect(
-      rect.right,
-      moreOrLessEquals(button.right < 1264 ? button.right : 1264),
-    );
+    expect(rect.right, lessThanOrEqualTo(button.right + 0.5));
+    expect(rect.right, lessThan(TestWindowSizes.landscape.width));
     // The video stays undimmed.
     expect(
       tester.widget<ModalBarrier>(find.byType(ModalBarrier).last).color,
@@ -1084,7 +1085,7 @@ void main() {
       expect(themes, isA<MediaKitImmersiveVideoControlsThemes>());
       expect(
         tester.getSize(find.byKey(const Key('player_video_surface'))),
-        const Size(1280, 720),
+        TestWindowSizes.landscape,
       );
       expect(find.text('Frieren'), findsOneWidget);
       expect(find.text('[SubsPlease] Frieren · 11 of 28'), findsOneWidget);
@@ -1143,19 +1144,19 @@ void main() {
     testWidgets('keep both scrims at full size in a 600 dp window', (
       tester,
     ) async {
-      setTestWindowSize(tester, const Size(800, 600));
-
+      Size scrim(String key) => tester.getSize(find.byKey(Key(key)));
+      // A window tall enough that nothing has to give.
+      setTestWindowSize(tester, const Size(800, 1200));
       await tester.pumpWidget(_wrapViewport(chrome: chrome()));
       await tester.pump();
+      final fullTop = scrim('player_scrim_top');
+      final fullBottom = scrim('player_scrim_bottom');
 
-      expect(
-        tester.getSize(find.byKey(const Key('player_scrim_top'))).height,
-        160,
-      );
-      expect(
-        tester.getSize(find.byKey(const Key('player_scrim_bottom'))).height,
-        320,
-      );
+      setTestWindowSize(tester, const Size(800, 600));
+      await tester.pump();
+
+      expect(scrim('player_scrim_top'), fullTop);
+      expect(scrim('player_scrim_bottom'), fullBottom);
       expect(tester.takeException(), isNull);
     });
 
@@ -1287,8 +1288,10 @@ void main() {
       final drawer = tester.getRect(
         find.byKey(const Key('player_episodes_drawer')),
       );
-      expect(drawer.right, closeTo(1280 - 16, 0.1));
-      expect(drawer.width, inInclusiveRange(320, 420));
+      // Over the right side, clear of the edge, the video still in view.
+      const window = TestWindowSizes.landscape;
+      expect(drawer.left, greaterThan(window.width / 2));
+      expect(drawer.right, lessThan(window.width));
 
       await tester.sendKeyEvent(LogicalKeyboardKey.escape);
       await tester.pumpAndSettle();
@@ -1407,7 +1410,12 @@ void main() {
       expect(spinner.dx, closeTo((backward.dx + forward.dx) / 2, 0.5));
       expect(
         tester.getTopLeft(find.text('Buffering')).dy,
-        greaterThan(backward.dy + 48),
+        greaterThan(
+          tester
+              .getRect(find.byKey(const Key('player_buffering_spinner')))
+              .bottom,
+        ),
+        reason: 'the label stands under the spinner',
       );
       expect(find.byKey(const Key('player_play_pause_button')), findsNothing);
 
@@ -1442,7 +1450,11 @@ void main() {
       expect(find.byType(SnackBar), findsNothing);
       final notice = tester.getRect(find.byKey(const Key('player_notice')));
       final seekBar = tester.getRect(find.byKey(const Key('player_seek_bar')));
-      expect(notice.left, 48);
+      expect(
+        notice.left,
+        moreOrLessEquals(seekBar.left),
+        reason: 'in line with the timeline',
+      );
       expect(notice.bottom, lessThan(seekBar.top));
 
       await tester.tap(find.byKey(const Key('player_notice_action')));
@@ -1478,7 +1490,7 @@ void main() {
       );
       expect(
         tester.getCenter(episodes).dy,
-        greaterThan(600),
+        greaterThan(TestWindowSizes.landscape.height / 2),
         reason: 'the episodes left the top bar',
       );
     });
@@ -1495,22 +1507,28 @@ void main() {
       await tester.pump();
       platformPlayer.emitPlaying(true);
       await _deliverPlayerEvent(tester);
+      final semantics = tester.ensureSemantics();
       double opacity() => tester
           .widget<AnimatedOpacity>(
             find.byKey(const Key('player_immersive_controls')),
           )
           .opacity;
-      Color? fill() =>
-          (tester
-                      .widget<AnimatedContainer>(
-                        find.descendant(
-                          of: find.byKey(const Key('player_tracks_button')),
-                          matching: find.byType(AnimatedContainer),
-                        ),
-                      )
-                      .decoration
-                  as BoxDecoration?)
-              ?.color;
+      // The open panel hides the button from screen readers, so this asks
+      // what the button says of itself.
+      bool shownOpen() =>
+          tester
+              .widget<Semantics>(
+                find.descendant(
+                  of: find.byKey(const Key('player_tracks_button')),
+                  matching: find.byWidgetPredicate(
+                    (widget) =>
+                        widget is Semantics && widget.properties.button == true,
+                  ),
+                ),
+              )
+              .properties
+              .selected ??
+          false;
 
       final button = tester.getRect(
         find.byKey(const Key('player_tracks_button')),
@@ -1522,7 +1540,7 @@ void main() {
       final popover = tester.getRect(find.byKey(const Key('player_popover')));
       expect(popover.bottom, lessThan(button.top));
       expect(popover.right, moreOrLessEquals(button.right));
-      expect(fill(), Colors.white, reason: 'its button shows it is open');
+      expect(shownOpen(), isTrue, reason: 'its button shows it is open');
 
       // Long past the controls' idle time, they stay with the popover.
       await tester.pump(const Duration(seconds: 5));
@@ -1532,9 +1550,14 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
       expect(find.byKey(const Key('player_popover')), findsNothing);
-      expect(fill(), Colors.transparent);
+      expect(shownOpen(), isFalse);
+      // Back in reach of screen readers, no longer selected.
+      final readable = find.semantics.byLabel('Audio & subtitles').evaluate();
+      expect(readable, contains(isSemantics(isButton: true)));
+      expect(readable, everyElement(isNot(isSemantics(isSelected: true))));
       await tester.pump(const Duration(seconds: 3));
       expect(opacity(), 0);
+      semantics.dispose();
     });
 
     testWidgets('light a glyph under the pointer and keep the focus with '

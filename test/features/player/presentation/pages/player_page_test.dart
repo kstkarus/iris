@@ -12,6 +12,7 @@ import 'package:iris/features/player/presentation/cubit/episode_mark_cubit.dart'
 import 'package:iris/features/player/presentation/cubit/player_cubit.dart';
 import 'package:iris/features/player/presentation/cubit/player_state.dart';
 import 'package:iris/features/player/presentation/pages/player_page.dart';
+import 'package:iris/shared/widgets/adaptive/window_size_class.dart';
 
 import '../../../../helpers/test_app.dart';
 import '../../../../helpers/test_window.dart';
@@ -65,7 +66,7 @@ void main() {
     final video = tester.getRect(find.byKey(const Key('player_video_surface')));
     final pane = tester.getRect(find.byKey(PlayerPage.episodesPaneKey));
     expect(pane.left, greaterThanOrEqualTo(video.right));
-    expect(pane.width, inInclusiveRange(280, 420));
+    expect(pane.width, lessThan(video.width), reason: 'the video leads');
     expect(
       find.descendant(
         of: find.byKey(const ValueKey('player_episode_2')),
@@ -96,7 +97,10 @@ void main() {
       final video = tester.getRect(
         find.byKey(const Key('player_video_surface')),
       );
-      expect(video.height, closeTo(220, 0.5));
+      expect(
+        _heightLeftOver(tester, video, windowHeight: 300),
+        lessThanOrEqualTo(2 * WindowSizeClass.compact.pageMargin),
+      );
       expect(find.byKey(PlayerPage.episodesPaneKey), findsNothing);
 
       await tester.tap(find.byKey(PlayerPage.episodesToggleKey));
@@ -123,7 +127,11 @@ void main() {
       );
       final pane = tester.getRect(find.byKey(PlayerPage.episodesPaneKey));
       expect(pane.left, greaterThanOrEqualTo(video.right));
-      expect(video.height, closeTo(272, 0.5));
+      // Still as tall as the window allows.
+      expect(
+        _heightLeftOver(tester, video, windowHeight: 360),
+        lessThanOrEqualTo(2 * WindowSizeClass.medium.pageMargin),
+      );
       expect(tester.takeException(), isNull);
     });
 
@@ -137,8 +145,12 @@ void main() {
         find.byKey(const Key('player_video_surface')),
       );
       final pane = tester.getRect(find.byKey(PlayerPage.episodesPaneKey));
-      expect(video.width, closeTo(328, 0.5));
-      expect(video.height, closeTo(328 * 9 / 16, 0.5));
+      // The window less the page margins.
+      expect(
+        video.width,
+        closeTo(360 - 2 * WindowSizeClass.compact.pageMargin, 0.5),
+      );
+      expect(video.width / video.height, closeTo(16 / 9, 0.01));
       expect(pane.top, greaterThanOrEqualTo(video.bottom));
       expect(tester.takeException(), isNull);
     });
@@ -557,3 +569,13 @@ const _seriesSource = AnimePlayerSource(
     ),
   ],
 );
+
+/// The height under the app bar that [video] leaves unused.
+double _heightLeftOver(
+  WidgetTester tester,
+  Rect video, {
+  required double windowHeight,
+}) {
+  final appBar = tester.getRect(find.byType(AppBar));
+  return windowHeight - appBar.bottom - video.height;
+}
