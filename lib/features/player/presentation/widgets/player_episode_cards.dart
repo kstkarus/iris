@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'package:iris/entities/watch_progress/domain/watch_progress.dart';
 import 'package:iris/features/player/domain/entities/player_video_file.dart';
@@ -96,6 +97,7 @@ class _EpisodeCardState extends State<_EpisodeCard> {
   static const _minHeight = 72.0;
 
   bool _hovered = false;
+  bool _focused = false;
 
   @override
   Widget build(BuildContext context) {
@@ -121,19 +123,42 @@ class _EpisodeCardState extends State<_EpisodeCard> {
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
-      child: MouseRegion(
-        cursor: widget.isCurrent ? MouseCursor.defer : SystemMouseCursors.click,
-        onEnter: (_) => setState(() => _hovered = true),
-        onExit: (_) => setState(() => _hovered = false),
+      child: FocusableActionDetector(
+        // The current file is already playing: Tab passes it by.
+        enabled: !widget.isCurrent,
+        mouseCursor: widget.isCurrent
+            ? MouseCursor.defer
+            : SystemMouseCursors.click,
+        onShowHoverHighlight: (hovered) => setState(() => _hovered = hovered),
+        // Only keyboard focus, as in the downloads list.
+        onShowFocusHighlight: (focused) => setState(() => _focused = focused),
+        // Space here picks the card instead of pausing the player.
+        shortcuts: const {
+          SingleActivator(LogicalKeyboardKey.space): ActivateIntent(),
+          SingleActivator(LogicalKeyboardKey.enter): ActivateIntent(),
+        },
+        actions: {
+          ActivateIntent: CallbackAction<ActivateIntent>(
+            onInvoke: (_) {
+              widget.onTap();
+              return null;
+            },
+          ),
+        },
         child: GestureDetector(
           key: ValueKey('player_episode_card_${file.index}'),
-          // The current file is already playing.
           onTap: widget.isCurrent ? null : widget.onTap,
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 150),
             constraints: const BoxConstraints(minHeight: _minHeight),
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
             decoration: BoxDecoration(color: background),
+            // Keyboard focus as an outline: a fill this faint would not show.
+            foregroundDecoration: BoxDecoration(
+              border: _focused
+                  ? Border.all(color: theme.colorScheme.onSurface, width: 2)
+                  : null,
+            ),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.stretch,

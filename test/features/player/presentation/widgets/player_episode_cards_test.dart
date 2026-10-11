@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:iris/entities/watch_progress/domain/watch_progress.dart';
@@ -67,6 +68,99 @@ void main() {
     expect(selected, isNull, reason: 'the playing file is not picked again');
     await tester.tap(find.byKey(const ValueKey('player_episode_card_2')));
     expect(selected?.index, 2);
+  });
+
+  testWidgets('lets the keyboard pick a card in the drawer and leaves '
+      'Escape to the player', (tester) async {
+    final picked = <int>[];
+    var escapes = 0;
+    var pauses = 0;
+    await tester.pumpWidget(
+      _wrap(
+        // Stands for the player's own keys above the drawer.
+        Focus(
+          onKeyEvent: (node, event) {
+            if (event is! KeyDownEvent) return KeyEventResult.ignored;
+            if (event.logicalKey == LogicalKeyboardKey.escape) {
+              escapes++;
+            } else if (event.logicalKey == LogicalKeyboardKey.space) {
+              pauses++;
+            } else {
+              return KeyEventResult.ignored;
+            }
+            return KeyEventResult.handled;
+          },
+          child: PlayerEpisodesDrawer(
+            onClose: () {},
+            builder: (context, close) => PlayerEpisodeCards(
+              files: [
+                _file(0, 'Show - 01.mkv'),
+                _file(1, 'Show - 02.mkv'),
+                _file(2, 'Show - 03.mkv'),
+              ],
+              currentFileIndex: 0,
+              progressByFile: const {},
+              onSelected: (file) => picked.add(file.index),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    int? focusedCard() {
+      final focused = FocusManager.instance.primaryFocus?.context;
+      if (focused == null) return null;
+      for (final index in [0, 1, 2]) {
+        final card = find.descendant(
+          of: find.byWidget(focused.widget),
+          matching: find.byKey(ValueKey('player_episode_card_$index')),
+        );
+        if (card.evaluate().isNotEmpty) return index;
+      }
+      return null;
+    }
+
+    bool outlined(int index) {
+      final box = tester.widget<AnimatedContainer>(
+        find.descendant(
+          of: find.byKey(ValueKey('player_episode_card_$index')),
+          matching: find.byType(AnimatedContainer),
+        ),
+      );
+      return (box.foregroundDecoration as BoxDecoration?)?.border != null;
+    }
+
+    // The close button comes first; the playing card is passed by.
+    final reached = <int?>[];
+    for (var press = 0; press < 6; press++) {
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pump();
+      reached.add(focusedCard());
+    }
+    expect(reached, containsAll([1, 2]));
+    expect(reached, isNot(contains(0)));
+
+    while (focusedCard() != 1) {
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pump();
+    }
+    await tester.pumpAndSettle();
+    expect(outlined(1), isTrue, reason: 'focus shows on the card');
+    expect(outlined(2), isFalse);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    expect(picked, [1]);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.pump();
+    expect(focusedCard(), 2);
+    await tester.sendKeyEvent(LogicalKeyboardKey.space);
+    expect(picked, [1, 2]);
+    expect(pauses, 0, reason: 'Space picks the card instead');
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    expect(escapes, 1);
   });
 
   testWidgets('heads the drawer with its caption and closes it', (
