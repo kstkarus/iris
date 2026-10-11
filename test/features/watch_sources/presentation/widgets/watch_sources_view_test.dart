@@ -9,7 +9,6 @@ import 'package:iris/features/watch_sources/domain/entities/watch_sources_tab.da
 import 'package:iris/features/watch_sources/domain/repositories/watch_sources_tab_repository.dart';
 import 'package:iris/features/watch_sources/presentation/cubit/watch_sources_tab_cubit.dart';
 import 'package:iris/entities/watch_progress/domain/watch_progress.dart';
-import 'package:iris/entities/watch_progress/domain/watch_progress_repository.dart';
 import 'package:iris/entities/watch_progress/presentation/watch_progress_cubit.dart';
 import 'package:iris/features/online_sources/data/repositories/mock_online_sources_repository.dart';
 import 'package:iris/features/online_sources/presentation/cubit/online_releases_cubit.dart';
@@ -27,6 +26,7 @@ import 'package:iris/shared/widgets/app_skeleton.dart';
 import 'package:iris/shared/widgets/dither_transition.dart';
 import 'package:iris/shared/widgets/search_field.dart';
 
+import '../../../../helpers/fake_watch_progress_repository.dart';
 import '../../../../helpers/test_window.dart';
 
 void main() {
@@ -357,7 +357,7 @@ void main() {
       repository: const _SuccessWatchSourcesRepository(_items),
     );
     final history = WatchProgressCubit(
-      repository: _StubWatchProgressRepository([
+      repository: FixedWatchProgressRepository([
         WatchProgress(
           torrentKey: torrentKeyFromMagnet('magnet:?xt=urn:btih:test-3'),
           fileIndex: 0,
@@ -637,27 +637,6 @@ class _SuccessWatchSourcesRepository implements WatchSourcesRepository {
   Future<List<WatchSourceItem>> fetchSources(List<String> titles) async {
     return items;
   }
-}
-
-class _StubWatchProgressRepository implements WatchProgressRepository {
-  const _StubWatchProgressRepository(this.items);
-
-  final List<WatchProgress> items;
-
-  @override
-  Stream<List<WatchProgress>> watchAll() => Stream.value(items);
-
-  @override
-  Future<WatchProgress?> find({
-    required String torrentKey,
-    required int fileIndex,
-  }) async => null;
-
-  @override
-  Future<void> save(WatchProgress progress) async {}
-
-  @override
-  Future<void> removeTorrent({required String torrentKey}) async {}
 }
 
 class _ToggleWatchSourcesRepository implements WatchSourcesRepository {

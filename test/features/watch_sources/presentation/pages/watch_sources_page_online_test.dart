@@ -6,7 +6,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:iris/entities/watch_progress/domain/watch_progress.dart';
-import 'package:iris/entities/watch_progress/domain/watch_progress_repository.dart';
 import 'package:iris/entities/watch_progress/presentation/watch_progress_cubit.dart';
 import 'package:iris/features/online_sources/domain/entities/online_episode.dart';
 import 'package:iris/features/online_sources/domain/entities/online_provider.dart';
@@ -25,6 +24,7 @@ import 'package:iris/features/watch_sources/presentation/pages/watch_sources_pag
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/online/online_source_link.dart';
 
+import '../../../../helpers/fake_watch_progress_repository.dart';
 import '../../../../helpers/test_window.dart';
 
 const _link = 'online:anilibria/9542?anime=52991';
@@ -389,8 +389,9 @@ Future<_RecordedNavigation> _pumpPage(
                   WatchSourcesTabCubit(repository: tabs ?? _TabMemory()),
             ),
             BlocProvider(
-              create: (_) =>
-                  WatchProgressCubit(repository: _History(history))..load(),
+              create: (_) => WatchProgressCubit(
+                repository: FixedWatchProgressRepository(history),
+              )..load(),
             ),
           ],
           child: const WatchSourcesPage(args: args),
@@ -482,25 +483,4 @@ class _Torrents implements WatchSourcesRepository {
         downloads: 269,
       ),
   ];
-}
-
-class _History implements WatchProgressRepository {
-  _History(this.items);
-
-  final List<WatchProgress> items;
-
-  @override
-  Stream<List<WatchProgress>> watchAll() => Stream.value(items);
-
-  @override
-  Future<WatchProgress?> find({
-    required String torrentKey,
-    required int fileIndex,
-  }) async => null;
-
-  @override
-  Future<void> save(WatchProgress progress) async {}
-
-  @override
-  Future<void> removeTorrent({required String torrentKey}) async {}
 }

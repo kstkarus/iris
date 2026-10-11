@@ -7,7 +7,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:iris/entities/watch_progress/domain/watch_progress.dart';
-import 'package:iris/entities/watch_progress/domain/watch_progress_repository.dart';
 import 'package:iris/entities/watch_progress/presentation/watch_progress_cubit.dart';
 import 'package:iris/features/saved_torrents/data/repositories/shared_preferences_saved_torrents_repository.dart';
 import 'package:iris/features/saved_torrents/domain/entities/saved_torrent.dart';
@@ -16,6 +15,7 @@ import 'package:iris/features/saved_torrents/presentation/pages/saved_torrents_p
 import 'package:iris/features/saved_torrents/presentation/widgets/add_saved_torrent_sheet.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 
+import '../../../../helpers/fake_watch_progress_repository.dart';
 import '../../../../helpers/test_window.dart';
 
 const _hash = '065c4691de84f964e143103b3bd0de17be5bfd0a';
@@ -59,8 +59,9 @@ void main() {
               )..load(),
             ),
             BlocProvider(
-              create: (_) =>
-                  WatchProgressCubit(repository: _History(history))..load(),
+              create: (_) => WatchProgressCubit(
+                repository: FixedWatchProgressRepository(history),
+              )..load(),
             ),
           ],
           child: SavedTorrentsPage(
@@ -343,25 +344,4 @@ void main() {
       expect(find.byType(Dialog), isCompact ? findsNothing : findsOneWidget);
     });
   }
-}
-
-class _History implements WatchProgressRepository {
-  _History(this.items);
-
-  final List<WatchProgress> items;
-
-  @override
-  Stream<List<WatchProgress>> watchAll() => Stream.value(items);
-
-  @override
-  Future<WatchProgress?> find({
-    required String torrentKey,
-    required int fileIndex,
-  }) async => null;
-
-  @override
-  Future<void> removeTorrent({required String torrentKey}) async {}
-
-  @override
-  Future<void> save(WatchProgress progress) async {}
 }

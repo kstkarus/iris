@@ -8,7 +8,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:iris/entities/anime/domain/anime_summary.dart';
 
 import 'package:iris/entities/watch_progress/domain/watch_progress.dart';
-import 'package:iris/entities/watch_progress/domain/watch_progress_repository.dart';
 import 'package:iris/entities/watch_progress/presentation/watch_progress_cubit.dart';
 import 'package:iris/features/anime_list/domain/entities/anime_list_item.dart';
 import 'package:iris/features/anime_list/domain/entities/anime_list_page_result.dart';
@@ -26,6 +25,7 @@ import 'package:iris/shared/widgets/search_field.dart';
 import 'package:iris/shared/widgets/search_toolbar.dart';
 import 'package:iris/shared/widgets/dither_transition.dart';
 
+import '../../../../helpers/fake_watch_progress_repository.dart';
 import '../../../../helpers/test_window.dart';
 
 void main() {
@@ -429,7 +429,7 @@ void main() {
           : 'a failed catalog without history is only the error',
       (tester) async {
         final history = WatchProgressCubit(
-          repository: _StubWatchProgressRepository([
+          repository: FixedWatchProgressRepository([
             if (watched) _watchProgress,
           ]),
         )..load();
@@ -870,27 +870,6 @@ class _FailingAnimeListRepository implements AnimeListRepository {
   }) async {
     throw Exception('offline');
   }
-}
-
-class _StubWatchProgressRepository implements WatchProgressRepository {
-  const _StubWatchProgressRepository(this.items);
-
-  final List<WatchProgress> items;
-
-  @override
-  Stream<List<WatchProgress>> watchAll() => Stream.value(items);
-
-  @override
-  Future<WatchProgress?> find({
-    required String torrentKey,
-    required int fileIndex,
-  }) async => null;
-
-  @override
-  Future<void> save(WatchProgress progress) async {}
-
-  @override
-  Future<void> removeTorrent({required String torrentKey}) async {}
 }
 
 final _watchProgress = WatchProgress(
