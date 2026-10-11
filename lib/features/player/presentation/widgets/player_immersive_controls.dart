@@ -28,6 +28,7 @@ part 'immersive/immersive_bottom_bar.dart';
 part 'immersive/immersive_plates.dart';
 part 'immersive/height_reporter.dart';
 part 'immersive/controls_metrics.dart';
+part 'immersive/touch_gestures.dart';
 
 /// How fast the controls, and what hides with them, fade.
 const _controlsFade = Duration(milliseconds: 250);
@@ -45,7 +46,9 @@ typedef PlayerPanelOpener = Future<void> Function(BuildContext anchor);
 /// with the drawer open; a click on the video plays or pauses. By touch a
 /// tap on the video shows or hides them, a touch on them keeps them a
 /// while longer, and the buttons are finger-sized; the volume and full
-/// screen are the phone's own. The titles show only while paused, as in
+/// screen are the phone's own. The video takes a phone's gestures too
+/// (see [_TouchGestures]): double taps at the sides seek, a long press
+/// plays at 2×, a pinch fills the screen. The titles show only while paused, as in
 /// streaming apps, and the subtitles move above whatever the controls
 /// cover at the bottom. Back closes the open drawer first.
 ///
@@ -66,6 +69,7 @@ class PlayerImmersiveControls extends StatefulWidget {
     required this.onShowSettings,
     this.input = PlayerInputMode.pointer,
     this.onSubtitleClearance,
+    this.videoFit,
     this.next,
     super.key,
   });
@@ -101,6 +105,10 @@ class PlayerImmersiveControls extends StatefulWidget {
   /// Pixels the visible controls cover at the bottom of a box of the given
   /// size (0 while hidden), so the subtitles can move above them.
   final void Function(double clearance, Size viewSize)? onSubtitleClearance;
+
+  /// How the video fits its box; by touch a pinch switches it between the
+  /// whole video and the screen filled with it.
+  final ValueNotifier<BoxFit>? videoFit;
 
   @override
   State<PlayerImmersiveControls> createState() =>
@@ -474,12 +482,24 @@ class _PlayerImmersiveControlsState extends State<PlayerImmersiveControls> {
                 ),
               ),
               if (widget.failure == null) ...[
-                GestureDetector(
-                  key: const Key('player_immersive_tap_layer'),
-                  behavior: HitTestBehavior.opaque,
-                  onTap: _touch ? _toggleControls : _togglePlay,
-                  onDoubleTap: _touch ? null : widget.onToggleFullscreen,
-                ),
+                if (_touch)
+                  _TouchGestures(
+                    enabled: true,
+                    playing: _playing,
+                    position: () => _player?.state.position ?? Duration.zero,
+                    duration: () => _player?.state.duration ?? Duration.zero,
+                    onTap: _toggleControls,
+                    onSeek: _seekTo,
+                    onFastForward: widget.engine.holdFastForward,
+                    videoFit: widget.videoFit,
+                  )
+                else
+                  GestureDetector(
+                    key: const Key('player_immersive_tap_layer'),
+                    behavior: HitTestBehavior.opaque,
+                    onTap: _togglePlay,
+                    onDoubleTap: widget.onToggleFullscreen,
+                  ),
                 _BufferingSpinner(
                   engine: widget.engine,
                   color: accent,

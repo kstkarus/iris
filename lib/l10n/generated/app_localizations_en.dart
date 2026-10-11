@@ -753,6 +753,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get playerCloseEpisodes => 'Close episodes';
 
   @override
+  String get playerZoomFill => 'Fill screen';
+
+  @override
+  String get playerZoomFit => 'Fit to screen';
+
+  @override
   String playerRate(String value) {
     return '$value/s';
   }

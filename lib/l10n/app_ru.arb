@@ -279,6 +279,8 @@
   "playerEnterFullscreen": "Во весь экран",
   "playerExitFullscreen": "Выйти из полноэкранного режима",
   "playerCloseEpisodes": "Закрыть список серий",
+  "playerZoomFill": "Заполнить экран",
+  "playerZoomFit": "Вписать в экран",
   "playerRate": "{value}/с",
   "byteUnitB": "Б",
   "byteUnitKB": "КБ",

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -31,12 +32,14 @@ export 'package:iris/features/player/presentation/playback/media_kit_player_engi
 part 'media_kit/subtitle_lift.dart';
 part 'media_kit/player_controls_stats_panel.dart';
 
-/// Builds the video itself; [controls] go in media_kit's controls slot.
+/// Builds the video itself, fitted into its box by [fit]; [controls] go in
+/// media_kit's controls slot.
 typedef MediaKitVideoSurfaceBuilder =
     Widget Function({
       required VideoController controller,
       required SubtitleViewConfiguration subtitleViewConfiguration,
       required VideoControlsBuilder controls,
+      required BoxFit fit,
     });
 
 /// Switches the native window in or out of full screen.
@@ -140,10 +143,19 @@ class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
   /// Room the controls take at the bottom, for the subtitles.
   final _subtitleLift = ValueNotifier<double>(0);
 
+  /// The whole video in the box, or the box filled with it (a pinch).
+  final _videoFit = ValueNotifier<BoxFit>(BoxFit.contain);
+
+  /// The controls' last report, to place the subtitles again when the fit
+  /// changes.
+  double _clearance = 0;
+  Size? _viewSize;
+
   @override
   void initState() {
     super.initState();
     widget.engine.addListener(_onEngineChanged);
+    _videoFit.addListener(_onVideoFitChanged);
   }
 
   @override
@@ -162,6 +174,7 @@ class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
     if (_windowFullscreen.value) unawaited(widget.exitNativeFullscreen());
     _windowFullscreen.dispose();
     _subtitleLift.dispose();
+    _videoFit.dispose();
     super.dispose();
   }
 
@@ -173,9 +186,18 @@ class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
     setState(() {});
   }
 
+  void _onVideoFitChanged() {
+    if (!mounted) return;
+    setState(() {});
+    final viewSize = _viewSize;
+    if (viewSize != null) _liftSubtitles(_clearance, viewSize);
+  }
+
   /// Moves the subtitles above [clearance] pixels of controls at the
   /// bottom of a [viewSize] box the video is fitted into.
   void _liftSubtitles(double clearance, Size viewSize) {
+    _clearance = clearance;
+    _viewSize = viewSize;
     _subtitleLift.value = clearance;
     final engine = widget.engine;
     if (!engine.hasPlayer) return;
@@ -185,10 +207,12 @@ class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
     final width = state.width;
     final height = state.height;
     if (width != null && height != null && width > 0 && height > 0) {
-      videoHeight = (viewSize.width * height / width).clamp(
-        0.0,
-        viewSize.height,
-      );
+      final fitted = viewSize.width * height / width;
+      // A filled box crops the video's bottom, and the subtitles with it,
+      // unless they rise past the edge.
+      videoHeight = _videoFit.value == BoxFit.cover
+          ? math.max(fitted, viewSize.height)
+          : math.min(fitted, viewSize.height);
     }
     if (videoHeight <= 0) return;
     final belowVideo = (viewSize.height - videoHeight) / 2;
@@ -219,6 +243,7 @@ class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
         controller: _controller,
         subtitleViewConfiguration: engine.subtitleViewConfiguration,
         controls: _subtitleLiftControls(_subtitleLift),
+        fit: _videoFit.value,
       );
       failure = null;
     }
@@ -234,6 +259,7 @@ class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
       fullscreen: _windowFullscreen,
       onToggleFullscreen: _toggleWindowFullscreen,
       onSubtitleClearance: _liftSubtitles,
+      videoFit: _videoFit,
       onShowTracks: (anchor) => _showTrackSelectorSheet(anchor: anchor),
       onShowSettings: (anchor) => _showSettingsSheet(anchor: anchor),
     );
@@ -352,11 +378,13 @@ Widget _defaultVideoSurfaceBuilder({
   required VideoController controller,
   required SubtitleViewConfiguration subtitleViewConfiguration,
   required VideoControlsBuilder controls,
+  required BoxFit fit,
 }) {
   return Video(
     key: const Key('player_video_surface'),
     controller: controller,
     controls: controls,
+    fit: fit,
     subtitleViewConfiguration: subtitleViewConfiguration,
   );
 }

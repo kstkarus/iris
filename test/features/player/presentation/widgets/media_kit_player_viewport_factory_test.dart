@@ -548,6 +548,7 @@ void main() {
               required controller,
               required subtitleViewConfiguration,
               required controls,
+              required fit,
             }) {
               controllers.add(controller);
               return _videoSurface;
@@ -670,13 +671,14 @@ void main() {
     await tester.pump();
     expect(_nextPromptOpacity(tester), 0);
 
-    final video = find.byKey(const Key('player_immersive_tap_layer'));
-    await tester.tapAt(tester.getTopLeft(video) + const Offset(200, 120));
+    // In the middle a tap answers at once.
+    const middle = Offset(422, 120);
+    await tester.tapAt(middle);
     await tester.pump();
     expect(_nextPromptOpacity(tester), 1);
     expect(_nextPromptCountdown(), findsNothing);
 
-    await tester.tapAt(tester.getTopLeft(video) + const Offset(200, 120));
+    await tester.tapAt(middle);
     await tester.pump();
     expect(_nextPromptOpacity(tester), 0, reason: 'hidden with the controls');
   });
@@ -1026,6 +1028,7 @@ void main() {
                 required controller,
                 required subtitleViewConfiguration,
                 required controls,
+                required fit,
               }) {
                 return _videoSurface;
               },
@@ -1913,6 +1916,10 @@ void main() {
           find.byKey(const Key('player_immersive_controls')),
         )
         .opacity;
+    // Clear of the buttons: in the middle third, above play and ±10 s.
+    final middle = Offset(phone.width / 2, 120);
+    final left = Offset(phone.width * 0.2, 120);
+    final right = Offset(phone.width * 0.8, 120);
 
     for (final size in const [phone, Size(1280, 800)]) {
       testWidgets('fit a ${size.width.toInt()}x${size.height.toInt()} screen '
@@ -1966,15 +1973,14 @@ void main() {
         ),
       );
       await tester.pump();
-      final video = find.byKey(const Key('player_immersive_tap_layer'));
       expect(opacity(tester), 1, reason: 'paused');
 
-      await tester.tapAt(tester.getTopLeft(video) + const Offset(200, 120));
+      await tester.tapAt(middle);
       await tester.pump();
       expect(opacity(tester), 0, reason: 'hidden at once, though paused');
       expect(platformPlayer.playOrPauseCount, 0, reason: 'a tap only shows');
 
-      await tester.tapAt(tester.getTopLeft(video) + const Offset(200, 120));
+      await tester.tapAt(middle);
       await tester.pump();
       expect(opacity(tester), 1);
 
@@ -1982,7 +1988,7 @@ void main() {
       await _deliverPlayerEvent(tester);
       await tester.pump(PlayerImmersiveControls.hideAfter);
       expect(opacity(tester), 0, reason: 'playing hides them');
-      await tester.tapAt(tester.getTopLeft(video) + const Offset(200, 120));
+      await tester.tapAt(middle);
       await tester.pump();
       expect(opacity(tester), 1);
     });
@@ -2056,11 +2062,9 @@ void main() {
       );
       await tester.pump();
 
-      final video = find.byKey(const Key('player_immersive_tap_layer'));
-      final spot = tester.getTopLeft(video) + const Offset(200, 120);
-      await tester.tapAt(spot);
+      await tester.tapAt(middle);
       await tester.pump(const Duration(milliseconds: 50));
-      await tester.tapAt(spot);
+      await tester.tapAt(middle);
       await tester.pump(const Duration(milliseconds: 400));
       await tester.sendKeyEvent(LogicalKeyboardKey.keyF);
       await tester.pump();
@@ -2178,6 +2182,208 @@ void main() {
       await tester.pumpAndSettle();
       expect(leaves, 1);
     });
+
+    Future<_FakePlatformPlayer> playerAt(
+      WidgetTester tester, {
+      List<BoxFit>? fits,
+      bool playing = false,
+    }) async {
+      setTestWindowSize(tester, phone);
+      final platformPlayer = _FakePlatformPlayer(
+        configuration: const PlayerConfiguration(),
+      );
+      await tester.pumpWidget(
+        _wrapViewport(
+          platformPlayer: platformPlayer,
+          input: PlayerInputMode.touch,
+          chrome: chrome(),
+          videoSurfaceBuilder:
+              ({
+                required controller,
+                required subtitleViewConfiguration,
+                required controls,
+                required fit,
+              }) {
+                fits?.add(fit);
+                return _videoSurface;
+              },
+        ),
+      );
+      await tester.pump();
+      platformPlayer
+        ..emitDuration(const Duration(minutes: 24))
+        ..emitPosition(const Duration(minutes: 5));
+      if (playing) platformPlayer.emitPlaying(true);
+      await _deliverPlayerEvent(tester);
+      return platformPlayer;
+    }
+
+    Finder plate(String key) => find.byKey(Key(key));
+
+    testWidgets('seek 10 s on a double tap at a side and 10 s more on each '
+        'tap after, from where the taps began', (tester) async {
+      final platformPlayer = await playerAt(tester);
+
+      await tester.tapAt(right);
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(platformPlayer.seeks, isEmpty, reason: 'waits for a second tap');
+      await tester.tapAt(right);
+      await tester.pump();
+      expect(platformPlayer.seeks, [const Duration(minutes: 5, seconds: 10)]);
+      expect(
+        find.descendant(
+          of: plate('player_seek_streak_plate'),
+          matching: find.text('+10'),
+        ),
+        findsOneWidget,
+      );
+
+      // The player has not caught up; the row still counts from 5:00.
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.tapAt(right);
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.tapAt(right);
+      await tester.pump();
+      expect(
+        platformPlayer.seeks.last,
+        const Duration(minutes: 5, seconds: 30),
+      );
+      expect(find.text('+30'), findsOneWidget);
+
+      await tester.pump(const Duration(milliseconds: 700));
+      expect(plate('player_seek_streak_plate'), findsNothing);
+      expect(opacity(tester), 1, reason: 'seeking left the controls alone');
+
+      await tester.tapAt(left);
+      await tester.pump(const Duration(milliseconds: 100));
+      await tester.tapAt(left);
+      await tester.pump(const Duration(milliseconds: 100));
+      await tester.tapAt(left);
+      await tester.pump();
+      expect(
+        platformPlayer.seeks.last,
+        const Duration(minutes: 4, seconds: 40),
+      );
+      expect(find.text('−20'), findsOneWidget);
+      await tester.pump(const Duration(milliseconds: 700));
+    });
+
+    testWidgets('answer a tap in the middle at once and one at a side after '
+        'the wait for a second', (tester) async {
+      final platformPlayer = await playerAt(tester);
+
+      await tester.tapAt(middle);
+      await tester.pump();
+      expect(opacity(tester), 0, reason: 'the middle never waits');
+
+      await tester.tapAt(right);
+      await tester.pump();
+      expect(opacity(tester), 0, reason: 'a side waits for a second tap');
+      await tester.pump(kDoubleTapTimeout);
+      await tester.pump();
+      expect(opacity(tester), 1);
+
+      // Two taps in the middle show and hide; they never seek.
+      await tester.tapAt(middle);
+      await tester.pump(const Duration(milliseconds: 100));
+      await tester.tapAt(middle);
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(opacity(tester), 1);
+      expect(platformPlayer.seeks, isEmpty);
+    });
+
+    testWidgets('leave the screen edges to the system', (tester) async {
+      final platformPlayer = await playerAt(tester, playing: true);
+      tester.view.systemGestureInsets = const FakeViewPadding(
+        left: 30,
+        right: 30,
+      );
+      await tester.pump();
+      final edge = Offset(phone.width - 10, 120);
+
+      await tester.tapAt(edge);
+      await tester.pump(const Duration(milliseconds: 100));
+      await tester.tapAt(edge);
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(platformPlayer.seeks, isEmpty);
+      expect(opacity(tester), 1, reason: 'not even shown or hidden');
+
+      final press = await tester.startGesture(edge);
+      await tester.pump(kLongPressTimeout + const Duration(milliseconds: 100));
+      await press.up();
+      await tester.pump();
+      expect(platformPlayer.rates, isEmpty);
+    });
+
+    testWidgets('play at 2x while a long press holds, only during playback', (
+      tester,
+    ) async {
+      final platformPlayer = await playerAt(tester);
+
+      var press = await tester.startGesture(middle);
+      await tester.pump(kLongPressTimeout + const Duration(milliseconds: 100));
+      expect(platformPlayer.rates, isEmpty, reason: 'paused');
+      expect(plate('player_fast_forward_plate'), findsNothing);
+      await press.up();
+      await tester.pump();
+
+      platformPlayer.emitPlaying(true);
+      await _deliverPlayerEvent(tester);
+      press = await tester.startGesture(middle);
+      await tester.pump(kLongPressTimeout + const Duration(milliseconds: 100));
+      expect(platformPlayer.rates, [2]);
+      expect(
+        find.descendant(
+          of: plate('player_fast_forward_plate'),
+          matching: find.text('2×'),
+        ),
+        findsOneWidget,
+      );
+
+      await press.up();
+      await tester.pump();
+      expect(platformPlayer.rates, [2, 1]);
+      expect(plate('player_fast_forward_plate'), findsNothing);
+      expect(platformPlayer.seeks, isEmpty);
+    });
+
+    testWidgets('fill the screen on a pinch out and fit the video back on a '
+        'pinch in', (tester) async {
+      final fits = <BoxFit>[];
+      await playerAt(tester, fits: fits);
+      expect(fits.last, BoxFit.contain);
+
+      await _pinch(tester, middle, from: 40, to: 90);
+      expect(fits.last, BoxFit.cover);
+      expect(find.text('Fill screen'), findsOneWidget);
+      await tester.pump(const Duration(seconds: 1));
+      expect(plate('player_fit_plate'), findsNothing);
+
+      await _pinch(tester, middle, from: 100, to: 40);
+      expect(fits.last, BoxFit.contain);
+      expect(find.text('Fit to screen'), findsOneWidget);
+      await tester.pump(const Duration(seconds: 1));
+    });
+
+    testWidgets('keep mpv subtitles on screen when a filled screen crops the '
+        "video's bottom", (tester) async {
+      final platformPlayer = await playerAt(tester, playing: true);
+      platformPlayer.emitVideoSize(1920, 1080);
+      await _deliverPlayerEvent(tester);
+      await tester.pump(PlayerImmersiveControls.hideAfter);
+      await tester.pump(const Duration(milliseconds: 250));
+      expect(platformPlayer.nativeProperties['sub-pos'], '100');
+
+      await _pinch(tester, middle, from: 40, to: 90);
+      await tester.pump();
+      // 16:9 across 844 dp is 475 dp tall: 42 dp of it below the screen.
+      expect(platformPlayer.nativeProperties['sub-pos'], '91');
+
+      await _pinch(tester, middle, from: 100, to: 40);
+      await tester.pump();
+      expect(platformPlayer.nativeProperties['sub-pos'], '100');
+      await tester.pump(const Duration(seconds: 1));
+    });
   });
 }
 
@@ -2191,6 +2397,7 @@ Widget _blackSurface({
   required VideoController controller,
   required SubtitleViewConfiguration subtitleViewConfiguration,
   required VideoControlsBuilder controls,
+  required BoxFit fit,
 }) {
   return _videoSurface;
 }
@@ -2212,6 +2419,27 @@ Future<_FakePlatformPlayer> _failMidStream(WidgetTester tester) async {
     ..nativeProperties['idle-active'] = 'yes';
   await tester.pump(const Duration(seconds: 3));
   return platformPlayer;
+}
+
+/// Two fingers [from] dp either side of [centre] move to [to] dp.
+Future<void> _pinch(
+  WidgetTester tester,
+  Offset centre, {
+  required double from,
+  required double to,
+}) async {
+  final first = await tester.startGesture(centre - Offset(from, 0));
+  final second = await tester.startGesture(centre + Offset(from, 0));
+  const steps = 5;
+  final step = (to - from) / steps;
+  for (var i = 0; i < steps; i++) {
+    await first.moveBy(Offset(-step, 0));
+    await second.moveBy(Offset(step, 0));
+    await tester.pump();
+  }
+  await first.up();
+  await second.up();
+  await tester.pump();
 }
 
 /// The player's streams deliver after the next frame starts; the rebuild
@@ -2517,6 +2745,12 @@ class _FakePlatformPlayer extends PlatformPlayer {
   void emitTracks(Tracks tracks) {
     state = state.copyWith(tracks: tracks);
     tracksController.add(tracks);
+  }
+
+  void emitVideoSize(int width, int height) {
+    state = state.copyWith(width: width, height: height);
+    widthController.add(width);
+    heightController.add(height);
   }
 
   void emitPlaying(bool playing) {

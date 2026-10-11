@@ -440,6 +440,14 @@
   "playerEnterFullscreen": "Full screen",
   "playerExitFullscreen": "Exit full screen",
   "playerCloseEpisodes": "Close episodes",
+  "playerZoomFill": "Fill screen",
+  "@playerZoomFill": {
+    "description": "Shown briefly after a pinch makes the video fill the screen, cropping its edges."
+  },
+  "playerZoomFit": "Fit to screen",
+  "@playerZoomFit": {
+    "description": "Shown briefly after a pinch fits the whole video back into the screen."
+  },
   "playerRate": "{value}/s",
   "@playerRate": {
     "placeholders": {

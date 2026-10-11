@@ -759,6 +759,12 @@ class AppLocalizationsRu extends AppLocalizations {
   String get playerCloseEpisodes => 'Закрыть список серий';
 
   @override
+  String get playerZoomFill => 'Заполнить экран';
+
+  @override
+  String get playerZoomFit => 'Вписать в экран';
+
+  @override
   String playerRate(String value) {
     return '$value/с';
   }

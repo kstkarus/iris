@@ -241,31 +241,52 @@ class _VolumeHud extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    return _HudPlate(
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          PixelIcon(
+            volume <= 0 ? PixelGlyph.volumeOff : PixelGlyph.volumeUp,
+            size: 21,
+            color: Colors.white,
+          ),
+          const SizedBox(width: 10),
+          Text('${volume.round()}%'),
+        ],
+      ),
+    );
+  }
+}
+
+/// A brief readout over the video of what a key or a gesture just did
+/// (the volume, a seek, the speed); it takes no touches.
+class _HudPlate extends StatelessWidget {
+  const _HudPlate({
+    required this.child,
+    this.alignment = const Alignment(0, -0.6),
+    super.key,
+  });
+
+  final Widget child;
+  final Alignment alignment;
+
+  @override
+  Widget build(BuildContext context) {
     return IgnorePointer(
       child: Align(
-        alignment: const Alignment(0, -0.6),
+        alignment: alignment,
         child: DecoratedBox(
           decoration: const BoxDecoration(color: Colors.black54),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                PixelIcon(
-                  volume <= 0 ? PixelGlyph.volumeOff : PixelGlyph.volumeUp,
-                  size: 21,
-                  color: Colors.white,
-                ),
-                const SizedBox(width: 10),
-                Text(
-                  '${volume.round()}%',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
+            child: DefaultTextStyle.merge(
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+                fontFeatures: [FontFeature.tabularFigures()],
+              ),
+              child: child,
             ),
           ),
         ),

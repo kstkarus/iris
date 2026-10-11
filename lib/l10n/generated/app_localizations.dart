@@ -1400,6 +1400,18 @@ abstract class AppLocalizations {
   /// **'Close episodes'**
   String get playerCloseEpisodes;
 
+  /// Shown briefly after a pinch makes the video fill the screen, cropping its edges.
+  ///
+  /// In en, this message translates to:
+  /// **'Fill screen'**
+  String get playerZoomFill;
+
+  /// Shown briefly after a pinch fits the whole video back into the screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Fit to screen'**
+  String get playerZoomFit;
+
   /// No description provided for @playerRate.
   ///
   /// In en, this message translates to:
