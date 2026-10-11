@@ -527,7 +527,7 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get savedTorrentsMoreTooltip => 'More actions';
+  String get commonMoreActions => 'More actions';
 
   @override
   String get savedTorrentsRename => 'Rename';
@@ -1159,7 +1159,7 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get profileListBrowseCatalog => 'Browse the catalog';
+  String get commonBrowseCatalog => 'Browse the catalog';
 
   @override
   String get savedTorrentsAddConfirm => 'Add';

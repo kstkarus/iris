@@ -332,7 +332,7 @@ class _RemoveMenu extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     return PopupMenuButton<void>(
-      tooltip: l10n.savedTorrentsMoreTooltip,
+      tooltip: l10n.commonMoreActions,
       icon: const PixelIcon(PixelGlyph.more, size: 18),
       itemBuilder: (_) => [
         PopupMenuItem(

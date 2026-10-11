@@ -129,7 +129,7 @@ class _UserListViewState extends State<UserListView> {
     return OutlinedButton(
       key: UserListView.browseCatalogKey,
       onPressed: onBrowse,
-      child: Text(AppLocalizations.of(context).profileListBrowseCatalog),
+      child: Text(AppLocalizations.of(context).commonBrowseCatalog),
     );
   }
 

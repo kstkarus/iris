@@ -249,7 +249,7 @@ class _Downloads extends StatelessWidget {
                 OutlinedButton(
                   key: browseCatalogKey,
                   onPressed: onBrowseCatalog,
-                  child: Text(l10n.profileListBrowseCatalog),
+                  child: Text(l10n.commonBrowseCatalog),
                 ),
               ],
             ),
@@ -389,8 +389,8 @@ class _DownloadRowState extends State<_DownloadRow> {
                   ),
                   RowMenuButton(
                     controller: _menu,
-                    tooltip: l10n.savedTorrentsMoreTooltip,
-                    semanticLabel: '${l10n.savedTorrentsMoreTooltip}: $name',
+                    tooltip: l10n.commonMoreActions,
+                    semanticLabel: '${l10n.commonMoreActions}: $name',
                     onOpenChanged: _setMenuOpen,
                     menuChildren: [
                       MenuItemButton(

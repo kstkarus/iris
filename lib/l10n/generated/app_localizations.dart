@@ -1022,11 +1022,11 @@ abstract class AppLocalizations {
   /// **'Already added as “{title}”'**
   String savedTorrentsDuplicate(String title);
 
-  /// No description provided for @savedTorrentsMoreTooltip.
+  /// No description provided for @commonMoreActions.
   ///
   /// In en, this message translates to:
   /// **'More actions'**
-  String get savedTorrentsMoreTooltip;
+  String get commonMoreActions;
 
   /// No description provided for @savedTorrentsRename.
   ///
@@ -2060,11 +2060,11 @@ abstract class AppLocalizations {
   /// **'{watched} ep.'**
   String profileListWatched(int watched);
 
-  /// No description provided for @profileListBrowseCatalog.
+  /// No description provided for @commonBrowseCatalog.
   ///
   /// In en, this message translates to:
   /// **'Browse the catalog'**
-  String get profileListBrowseCatalog;
+  String get commonBrowseCatalog;
 
   /// No description provided for @savedTorrentsAddConfirm.
   ///

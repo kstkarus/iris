@@ -268,7 +268,7 @@
       }
     }
   },
-  "savedTorrentsMoreTooltip": "More actions",
+  "commonMoreActions": "More actions",
   "savedTorrentsRename": "Rename",
   "savedTorrentsCopyLink": "Copy link",
   "savedTorrentsLinkCopied": "Link copied",
@@ -750,7 +750,7 @@
       }
     }
   },
-  "profileListBrowseCatalog": "Browse the catalog",
+  "commonBrowseCatalog": "Browse the catalog",
   "savedTorrentsAddConfirm": "Add",
   "savedTorrentsDeleted": "Torrent deleted",
   "savedTorrentsEpisodeWatched": "Episode {number} watched",
