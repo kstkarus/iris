@@ -18,6 +18,9 @@ class FakePlayerEngine implements PlayerEngine {
   PlayerTrackPreferences? lastPreferredTracks;
   List<PlayerSkipSegment>? lastSkipTimes;
 
+  /// Skip times were announced as on their way and have not come yet.
+  bool skipTimesExpected = false;
+
   void emit(PlayerEngineEvent event) => _events.add(event);
 
   @override
@@ -40,7 +43,11 @@ class FakePlayerEngine implements PlayerEngine {
   }
 
   @override
+  void expectSkipTimes() => skipTimesExpected = true;
+
+  @override
   void useSkipTimes(List<PlayerSkipSegment> segments) {
+    skipTimesExpected = false;
     lastSkipTimes = segments;
     calls.add('skip times ${segments.length}');
   }

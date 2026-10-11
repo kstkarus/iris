@@ -169,20 +169,17 @@ class PlayerCubit extends Cubit<PlayerState> {
   }
 
   /// Looks up the opening/ending of the current file once its length is
-  /// known. Needs the anime (from its page or the watch history) and an
-  /// episode number in the file name.
+  /// known.
   void _requestSkipTimes(Duration duration) {
     final repository = _skipTimesRepository;
     if (_skipTimesRequested || repository == null) return;
     if (duration <= Duration.zero) return;
     _skipTimesRequested = true;
 
+    final lookup = _skipTimesLookup();
+    if (lookup == null) return;
+    final (:animeId, :episode) = lookup;
     final source = _source;
-    final animeId = source.animeId.isNotEmpty
-        ? source.animeId
-        : _savedProgress?.animeId ?? '';
-    final episode = source.episodeNumber;
-    if (animeId.isEmpty || episode == null) return;
 
     unawaited(() async {
       final segments = await repository.find(
@@ -191,9 +188,23 @@ class PlayerCubit extends Cubit<PlayerState> {
         duration: duration,
       );
       // Ignore a late answer for a file that is no longer playing.
-      if (isClosed || !identical(_source, source) || segments.isEmpty) return;
+      if (isClosed || !identical(_source, source)) return;
       _engine.useSkipTimes(segments);
     }());
+  }
+
+  /// What to look skip times up by, or null when they cannot be: no
+  /// lookup, no anime (from its page or the watch history) or no episode
+  /// number in the file name.
+  ({String animeId, int episode})? _skipTimesLookup() {
+    if (_skipTimesRepository == null) return null;
+    final source = _source;
+    final animeId = source.animeId.isNotEmpty
+        ? source.animeId
+        : _savedProgress?.animeId ?? '';
+    final episode = source.episodeNumber;
+    if (animeId.isEmpty || episode == null) return null;
+    return (animeId: animeId, episode: episode);
   }
 
   /// Records the playback position reported by the media player.
@@ -446,6 +457,7 @@ class PlayerCubit extends Cubit<PlayerState> {
           preferredTracks: _trackPreferences,
         );
         _engineOpened = true;
+        if (_skipTimesLookup() != null) _engine.expectSkipTimes();
         _emitIfOpen(
           PlayerReady(
             session,

@@ -240,6 +240,7 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
 
   List<PlayerSkipSegment> _chapterSegments = const [];
   List<PlayerSkipSegment> _lookedUpSegments = const [];
+  bool _skipTimesPending = false;
 
   List<PlayerSkipSegment> get _skipSegments =>
       _chapterSegments.isNotEmpty ? _chapterSegments : _lookedUpSegments;
@@ -328,8 +329,16 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
   }
 
   @override
+  void expectSkipTimes() {
+    if (_closed) return;
+    _skipTimesPending = true;
+    _refreshPositionOffers();
+  }
+
+  @override
   void useSkipTimes(List<PlayerSkipSegment> segments) {
     if (_closed) return;
+    _skipTimesPending = false;
     _lookedUpSegments = List.unmodifiable(segments);
     _refreshPositionOffers();
   }
@@ -725,6 +734,7 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
   void _resetPositionOffers() {
     _chapterSegments = const [];
     _lookedUpSegments = const [];
+    _skipTimesPending = false;
     finishing.value = false;
     _watchedReported = false;
     skipSegment.value = null;
@@ -749,6 +759,7 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
         .firstOrNull;
     skipForwardOffered.value =
         position < _skipForwardWindow &&
+        !_skipTimesPending &&
         !segments.any((segment) => segment.kind == PlayerSkipKind.opening);
     finishing.value = position >= _finishingStart(segments, duration);
     if (finishing.value && !_watchedReported) {

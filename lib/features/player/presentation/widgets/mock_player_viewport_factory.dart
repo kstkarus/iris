@@ -94,6 +94,9 @@ class MockPlayerEngine implements PlayerEngine {
   Future<void> seek(Duration position) async {}
 
   @override
+  void expectSkipTimes() {}
+
+  @override
   void useSkipTimes(List<PlayerSkipSegment> segments) {}
 
   @override

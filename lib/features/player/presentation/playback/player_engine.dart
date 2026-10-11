@@ -60,8 +60,13 @@ abstract interface class PlayerEngine {
   /// soon as the file can take it, in place of the start position.
   Future<void> seek(Duration position);
 
-  /// Opening/ending times looked up for the opened file. The file's own
-  /// chapters, when they name them, take precedence.
+  /// Opening/ending times are being looked up for the opened file: the
+  /// fixed skip waits for [useSkipTimes], so it does not flash and vanish.
+  void expectSkipTimes();
+
+  /// Opening/ending times looked up for the opened file, empty when none
+  /// were found. The file's own chapters, when they name them, take
+  /// precedence.
   void useSkipTimes(List<PlayerSkipSegment> segments);
 
   /// Stops playback and closes the stream connection; the player stays

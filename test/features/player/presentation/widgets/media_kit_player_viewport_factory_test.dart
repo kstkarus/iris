@@ -775,6 +775,33 @@ void main() {
     expect(engine.skipForwardOffered.value, isFalse);
   });
 
+  testWidgets('waits for the looked-up times before the fixed skip', (
+    tester,
+  ) async {
+    late _FakePlatformPlayer platformPlayer;
+    late MediaKitPlayerEngine engine;
+
+    await tester.pumpWidget(
+      _wrapViewport(
+        playerBuilder: (configuration) {
+          platformPlayer = _FakePlatformPlayer(configuration: configuration);
+          return Player(platformPlayer: platformPlayer);
+        },
+        onEngine: (value) => engine = value,
+      ),
+    );
+    await tester.pump();
+    engine.expectSkipTimes();
+    platformPlayer.emitDuration(const Duration(minutes: 24));
+    platformPlayer.emitPosition(const Duration(seconds: 40));
+    await _deliverPlayerEvent(tester);
+    expect(engine.skipForwardOffered.value, isFalse);
+
+    engine.useSkipTimes(const []);
+    await tester.pump();
+    expect(engine.skipForwardOffered.value, isTrue);
+  });
+
   testWidgets('keeps offering the next file once the current one ends', (
     tester,
   ) async {

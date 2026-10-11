@@ -307,6 +307,47 @@ void main() {
     expect(engine.lastSkipTimes, [_opening]);
   });
 
+  test(
+    'holds the fixed skip until the lookup answers, even with nothing',
+    () async {
+      final answer = Completer<List<PlayerSkipSegment>>();
+      skipTimes.answer = answer.future;
+      final cubit = createCubit();
+      addTearDown(cubit.close);
+      await cubit.loadPlayback();
+      expect(engine.skipTimesExpected, isTrue);
+
+      engine.emit(
+        const PlayerEngineProgress(Duration(seconds: 5), Duration(minutes: 24)),
+      );
+      await Future<void>.delayed(Duration.zero);
+      answer.complete(const []);
+      await Future<void>.delayed(Duration.zero);
+
+      expect(engine.lastSkipTimes, isEmpty);
+      expect(engine.skipTimesExpected, isFalse);
+    },
+  );
+
+  test('does not hold the fixed skip when nothing can be looked up', () async {
+    final cubit = createCubit(
+      source: const AnimePlayerSource(
+        animeId: '',
+        animeTitle: '',
+        sourceTitle: '[Group] FMA',
+        sessionId: '42',
+        fileIndex: 0,
+        fileName: 'ep-01.mkv',
+        magnet: _magnet,
+        files: _files,
+      ),
+    );
+    addTearDown(cubit.close);
+    await cubit.loadPlayback();
+
+    expect(engine.skipTimesExpected, isFalse);
+  });
+
   test('uses the anime from the history and drops a late answer for the '
       'previous file', () async {
     progress.seed(saved(seconds: 5));
