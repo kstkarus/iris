@@ -7,11 +7,11 @@ import 'package:iris/shared/theme/over_video_theme.dart';
 import 'package:iris/shared/widgets/pixel_icon.dart';
 
 /// The voice of the interface: titles, text, tables and numbers.
-const appFontFamily = 'Geist Mono';
+const _appFontFamily = 'Geist Mono';
 
 /// Small chrome only: button labels, tooltips and snackbars, which read
 /// faster in a proportional face and stay out of the content's way.
-const appSansFamily = 'Geist';
+const _appSansFamily = 'Geist';
 
 /// Monochrome surfaces, square shapes and one signal colour.
 ///
@@ -47,13 +47,13 @@ ThemeData buildAppTheme({
   const buttonSize = Size(64, 44);
   const buttonPadding = EdgeInsets.symmetric(horizontal: 18);
   const buttonText = TextStyle(
-    fontFamily: appSansFamily,
+    fontFamily: _appSansFamily,
     fontSize: 13,
     height: 1.2,
     fontWeight: FontWeight.w500,
   );
   const chromeText = TextStyle(
-    fontFamily: appSansFamily,
+    fontFamily: _appSansFamily,
     fontSize: 12,
     height: 1.35,
   );
@@ -62,7 +62,7 @@ ThemeData buildAppTheme({
     useMaterial3: true,
     brightness: brightness,
     colorScheme: scheme,
-    fontFamily: appFontFamily,
+    fontFamily: _appFontFamily,
     textTheme: text,
     scaffoldBackgroundColor: scheme.surface,
     canvasColor: scheme.surface,
@@ -108,15 +108,13 @@ ThemeData buildAppTheme({
         padding: const WidgetStatePropertyAll(buttonPadding),
         textStyle: const WidgetStatePropertyAll(buttonText),
         elevation: const WidgetStatePropertyAll(0),
-        backgroundColor: WidgetStateProperty.resolveWith(
-          (states) => states.contains(WidgetState.disabled)
-              ? scheme.surfaceContainerHigh
-              : scheme.primary,
+        backgroundColor: _unlessDisabled(
+          scheme.primary,
+          disabled: scheme.surfaceContainerHigh,
         ),
-        foregroundColor: WidgetStateProperty.resolveWith(
-          (states) => states.contains(WidgetState.disabled)
-              ? scheme.onSurfaceVariant
-              : scheme.onPrimary,
+        foregroundColor: _unlessDisabled(
+          scheme.onPrimary,
+          disabled: scheme.onSurfaceVariant,
         ),
         overlayColor: WidgetStateProperty.resolveWith(
           (states) => scheme.onPrimary.withValues(
@@ -130,7 +128,22 @@ ThemeData buildAppTheme({
       ),
     ),
     outlinedButtonTheme: OutlinedButtonThemeData(
-      style: _flatButtonStyle(scheme, buttonText, buttonSize, buttonPadding),
+      style: ButtonStyle(
+        minimumSize: const WidgetStatePropertyAll(buttonSize),
+        padding: const WidgetStatePropertyAll(buttonPadding),
+        textStyle: const WidgetStatePropertyAll(buttonText),
+        elevation: const WidgetStatePropertyAll(0),
+        side: _focusRing(scheme),
+        backgroundColor: WidgetStatePropertyAll(scheme.surfaceContainerHigh),
+        foregroundColor: _unlessDisabled(
+          scheme.onSurface,
+          disabled: scheme.onSurfaceVariant,
+        ),
+        overlayColor: WidgetStatePropertyAll(
+          scheme.onSurface.withValues(alpha: 0.08),
+        ),
+        shape: const WidgetStatePropertyAll(square),
+      ),
     ),
     textButtonTheme: TextButtonThemeData(
       style: ButtonStyle(
@@ -139,10 +152,9 @@ ThemeData buildAppTheme({
           EdgeInsets.symmetric(horizontal: 12),
         ),
         textStyle: const WidgetStatePropertyAll(buttonText),
-        foregroundColor: WidgetStateProperty.resolveWith(
-          (states) => states.contains(WidgetState.disabled)
-              ? scheme.onSurfaceVariant
-              : scheme.onSurface,
+        foregroundColor: _unlessDisabled(
+          scheme.onSurface,
+          disabled: scheme.onSurfaceVariant,
         ),
         overlayColor: WidgetStatePropertyAll(
           scheme.onSurface.withValues(alpha: 0.08),
@@ -155,10 +167,9 @@ ThemeData buildAppTheme({
       style: ButtonStyle(
         minimumSize: const WidgetStatePropertyAll(Size.square(44)),
         shape: const WidgetStatePropertyAll(square),
-        foregroundColor: WidgetStateProperty.resolveWith(
-          (states) => states.contains(WidgetState.disabled)
-              ? scheme.onSurfaceVariant.withValues(alpha: 0.5)
-              : scheme.onSurface,
+        foregroundColor: _unlessDisabled(
+          scheme.onSurface,
+          disabled: scheme.onSurfaceVariant.withValues(alpha: 0.5),
         ),
         overlayColor: WidgetStatePropertyAll(
           scheme.onSurface.withValues(alpha: 0.08),
@@ -249,7 +260,7 @@ ThemeData buildAppTheme({
       color: scheme.inverseSurface,
       surfaceTintColor: Colors.transparent,
       elevation: 0,
-      shape: const RoundedRectangleBorder(),
+      shape: square,
       textStyle: text.bodyMedium?.copyWith(color: scheme.onInverseSurface),
       labelTextStyle: WidgetStatePropertyAll(
         text.bodyMedium?.copyWith(color: scheme.onInverseSurface),
@@ -314,7 +325,7 @@ ThemeData buildAppTheme({
       ),
     ),
     checkboxTheme: CheckboxThemeData(
-      shape: const RoundedRectangleBorder(),
+      shape: square,
       side: BorderSide(color: scheme.onSurfaceVariant, width: 1.5),
       fillColor: WidgetStateProperty.resolveWith(
         (states) => states.contains(WidgetState.selected)
@@ -335,30 +346,12 @@ WidgetStateProperty<BorderSide> _focusRing(ColorScheme scheme) =>
           : BorderSide.none,
     );
 
-ButtonStyle _flatButtonStyle(
-  ColorScheme scheme,
-  TextStyle? textStyle,
-  Size minimumSize,
-  EdgeInsets padding,
-) {
-  return ButtonStyle(
-    minimumSize: WidgetStatePropertyAll(minimumSize),
-    padding: WidgetStatePropertyAll(padding),
-    textStyle: WidgetStatePropertyAll(textStyle),
-    elevation: const WidgetStatePropertyAll(0),
-    side: _focusRing(scheme),
-    backgroundColor: WidgetStatePropertyAll(scheme.surfaceContainerHigh),
-    foregroundColor: WidgetStateProperty.resolveWith(
-      (states) => states.contains(WidgetState.disabled)
-          ? scheme.onSurfaceVariant
-          : scheme.onSurface,
-    ),
-    overlayColor: WidgetStatePropertyAll(
-      scheme.onSurface.withValues(alpha: 0.08),
-    ),
-    shape: const WidgetStatePropertyAll(RoundedRectangleBorder()),
-  );
-}
+WidgetStateProperty<Color> _unlessDisabled(
+  Color enabled, {
+  required Color disabled,
+}) => WidgetStateProperty.resolveWith(
+  (states) => states.contains(WidgetState.disabled) ? disabled : enabled,
+);
 
 /// Sizes are tuned for a monospaced face, whose glyphs run wider than a
 /// proportional one: large type is set tight, small labels a little open.
@@ -374,7 +367,7 @@ TextTheme _textTheme(ColorScheme scheme) {
     double spacing = 0,
     Color? color,
   }) => TextStyle(
-    fontFamily: appFontFamily,
+    fontFamily: _appFontFamily,
     fontSize: size,
     height: height,
     fontWeight: weight,

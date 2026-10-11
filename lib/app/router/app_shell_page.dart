@@ -20,7 +20,7 @@ class AppShellPage extends StatelessWidget {
   const AppShellPage({required this.navigationShell, super.key});
 
   static const navigationBarKey = Key('app_shell_navigation_bar');
-  static const navigationRailKey = Key('app_shell_navigation_rail');
+  static const topBarKey = Key('app_shell_top_bar');
 
   final StatefulNavigationShell navigationShell;
 
@@ -63,7 +63,7 @@ class AppShellPage extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             _TopBar(
-              key: navigationRailKey,
+              key: topBarKey,
               appName: l10n.appName,
               labels: labels,
               selectedIndex: navigationShell.currentIndex,

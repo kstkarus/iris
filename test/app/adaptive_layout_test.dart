@@ -88,7 +88,7 @@ void main() {
         isPhone ? findsOneWidget : findsNothing,
       );
       expect(
-        find.byKey(AppShellPage.navigationRailKey),
+        find.byKey(AppShellPage.topBarKey),
         isPhone ? findsNothing : findsOneWidget,
       );
 
@@ -230,7 +230,7 @@ void main() {
       await _pumpMockApp(tester, Size(width, 900));
 
       expect(tester.takeException(), isNull);
-      final bar = find.byKey(AppShellPage.navigationRailKey);
+      final bar = find.byKey(AppShellPage.topBarKey);
       final barRect = tester.getRect(bar);
       for (final label in const ['Каталог', 'Раздачи', 'Загрузки', 'Профиль']) {
         final section = find.ancestor(

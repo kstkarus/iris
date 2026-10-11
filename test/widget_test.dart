@@ -44,7 +44,7 @@ void main() {
     expect(find.byType(AppBar), findsNothing);
     expect(
       find.descendant(
-        of: find.byKey(AppShellPage.navigationRailKey),
+        of: find.byKey(AppShellPage.topBarKey),
         matching: find.text('Catalog'),
       ),
       findsOneWidget,
@@ -188,7 +188,7 @@ void main() {
         of: find.byWidgetPredicate(
           (widget) =>
               widget.key == AppShellPage.navigationBarKey ||
-              widget.key == AppShellPage.navigationRailKey,
+              widget.key == AppShellPage.topBarKey,
         ),
         matching: find.text('Catalog'),
       ),
