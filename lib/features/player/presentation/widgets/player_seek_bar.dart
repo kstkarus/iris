@@ -23,7 +23,6 @@ class PlayerSeekBar extends StatefulWidget {
     required this.onSeek,
     required this.color,
     this.onActiveChanged,
-    this.step = const Duration(seconds: 10),
     super.key,
   });
 
@@ -42,7 +41,7 @@ class PlayerSeekBar extends StatefulWidget {
   final ValueChanged<bool>? onActiveChanged;
 
   /// How far a screen reader's increase or decrease moves the position.
-  final Duration step;
+  static const _step = Duration(seconds: 10);
 
   @override
   State<PlayerSeekBar> createState() => _PlayerSeekBarState();
@@ -106,13 +105,13 @@ class _PlayerSeekBarState extends State<PlayerSeekBar> {
       slider: true,
       label: AppLocalizations.of(context).playerSeekBarLabel,
       value: formatPlaybackPosition(widget.position),
-      increasedValue: formatPlaybackPosition(_positionBy(widget.step)),
-      decreasedValue: formatPlaybackPosition(_positionBy(-widget.step)),
+      increasedValue: formatPlaybackPosition(_positionBy(PlayerSeekBar._step)),
+      decreasedValue: formatPlaybackPosition(_positionBy(-PlayerSeekBar._step)),
       onIncrease: seekable
-          ? () => widget.onSeek(_positionBy(widget.step))
+          ? () => widget.onSeek(_positionBy(PlayerSeekBar._step))
           : null,
       onDecrease: seekable
-          ? () => widget.onSeek(_positionBy(-widget.step))
+          ? () => widget.onSeek(_positionBy(-PlayerSeekBar._step))
           : null,
       child: LayoutBuilder(
         builder: (context, constraints) {

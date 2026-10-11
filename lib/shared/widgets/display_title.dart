@@ -13,7 +13,6 @@ class DisplayTitle extends StatelessWidget {
     required this.maxSize,
     this.minSize = 28,
     this.maxLines = 3,
-    this.color,
     super.key,
   });
 
@@ -21,7 +20,6 @@ class DisplayTitle extends StatelessWidget {
   final double maxSize;
   final double minSize;
   final int maxLines;
-  final Color? color;
 
   /// The display style at [size]: tight lines and tracking that tightens
   /// with size, as large type needs.
@@ -30,9 +28,7 @@ class DisplayTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final base = Theme.of(
-      context,
-    ).textTheme.displayLarge!.copyWith(color: color);
+    final base = Theme.of(context).textTheme.displayLarge!;
     final textScaler = MediaQuery.textScalerOf(context);
     return Semantics(
       header: true,

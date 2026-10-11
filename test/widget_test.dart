@@ -3,7 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:iris/app/router/app_shell_page.dart';
-import 'package:iris/main.dart';
+import 'package:iris/app/bootstrap/create_app.dart';
 
 Future<void> _pumpUntilVisible(
   WidgetTester tester,

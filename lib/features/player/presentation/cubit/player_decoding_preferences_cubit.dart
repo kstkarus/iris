@@ -20,10 +20,6 @@ class PlayerDecodingPreferencesCubit extends Cubit<PlayerDecodingPreferences> {
     return _save(state.copyWith(hwdecMode: preset));
   }
 
-  Future<void> reset() {
-    return _save(const PlayerDecodingPreferences.defaults());
-  }
-
   Future<void> _save(PlayerDecodingPreferences preferences) async {
     emit(preferences);
     await _repository.savePreferences(preferences);

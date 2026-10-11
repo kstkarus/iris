@@ -20,9 +20,7 @@ final class EpisodeMarkOffered extends EpisodeMarkState {
 }
 
 final class EpisodeMarkSaving extends EpisodeMarkState {
-  const EpisodeMarkSaving(this.episode);
-
-  final int episode;
+  const EpisodeMarkSaving();
 }
 
 /// Marked; [mark] is what undo puts back.
@@ -106,7 +104,7 @@ class EpisodeMarkCubit extends Cubit<EpisodeMarkState> {
   Future<void> _mark(int episode) async {
     final userId = _userId;
     if (userId == null) return;
-    emit(EpisodeMarkSaving(episode));
+    emit(const EpisodeMarkSaving());
     try {
       final result = await _markEpisode(
         userId: userId,

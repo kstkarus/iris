@@ -142,16 +142,6 @@ class PixelGlyph {
     '#######',
   ]);
 
-  static const delete = PixelGlyph._([
-    '..###..',
-    '#######',
-    '.#...#.',
-    '.#.#.#.',
-    '.#.#.#.',
-    '.#...#.',
-    '.#####.',
-  ]);
-
   static const refresh = PixelGlyph._([
     '.####.#',
     '#....##',

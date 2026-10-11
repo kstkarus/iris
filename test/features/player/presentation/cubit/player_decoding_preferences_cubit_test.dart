@@ -33,24 +33,6 @@ void main() {
       ),
     ]);
   });
-
-  test('resets preferences back to defaults', () async {
-    final repository = _FakePlayerDecodingPreferencesRepository(
-      const PlayerDecodingPreferences(
-        hwdecMode: PlayerHwdecModePreset.mediacodecCopy,
-      ),
-    );
-    final cubit = PlayerDecodingPreferencesCubit(repository: repository);
-
-    await cubit.loadPreferences();
-    await cubit.reset();
-
-    expect(cubit.state, const PlayerDecodingPreferences.defaults());
-    expect(
-      repository.savedStates.last,
-      const PlayerDecodingPreferences.defaults(),
-    );
-  });
 }
 
 class _FakePlayerDecodingPreferencesRepository

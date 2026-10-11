@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import 'package:iris/shared/utils/motion_duration.dart';
 import 'package:iris/shared/utils/ordered_dither.dart';
 
 /// Progress drawn as a row of equal blocks: filled ones in [color] (the
@@ -14,7 +15,7 @@ import 'package:iris/shared/utils/ordered_dither.dart';
 /// with [animateIn] the bar also fills from empty when it first shows.
 ///
 /// With [ditherTrack], for a large bar, the unfilled blocks are a
-/// checkerboard of square [ditherPixel]s in [trackColor], so the rest of
+/// checkerboard of 2-pixel squares in [trackColor], so the rest of
 /// the bar recedes, and the block where progress stops fills in Bayer
 /// order by its own share.
 class SegmentedBar extends StatelessWidget {
@@ -26,9 +27,7 @@ class SegmentedBar extends StatelessWidget {
     this.color,
     this.trackColor,
     this.ditherTrack = false,
-    this.ditherPixel = 2,
     this.animateIn = false,
-    this.semanticsLabel,
     super.key,
   });
 
@@ -42,10 +41,9 @@ class SegmentedBar extends StatelessWidget {
   final Color? color;
   final Color? trackColor;
   final bool ditherTrack;
-  final double ditherPixel;
   final bool animateIn;
-  final String? semanticsLabel;
 
+  static const _ditherPixel = 2.0;
   static const _duration = Duration(milliseconds: 420);
 
   @override
@@ -53,16 +51,13 @@ class SegmentedBar extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final clamped = value.isNaN ? 0.0 : value.clamp(0.0, 1.0);
     return Semantics(
-      label: semanticsLabel,
       value: '${(clamped * 100).round()}%',
       child: SizedBox(
         height: height,
         width: double.infinity,
         child: TweenAnimationBuilder<double>(
           tween: Tween(begin: animateIn ? 0 : clamped, end: clamped),
-          duration: MediaQuery.disableAnimationsOf(context)
-              ? Duration.zero
-              : _duration,
+          duration: motionDuration(context, _duration),
           curve: Curves.easeOutCubic,
           builder: (context, filled, _) => CustomPaint(
             painter: _SegmentsPainter(
@@ -76,7 +71,7 @@ class SegmentedBar extends StatelessWidget {
                       ? scheme.onSurface.withValues(alpha: 0.3)
                       : scheme.surfaceContainerHighest),
               devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
-              ditherPixel: ditherTrack ? ditherPixel : null,
+              ditherPixel: ditherTrack ? _ditherPixel : null,
             ),
           ),
         ),
@@ -88,15 +83,14 @@ class SegmentedBar extends StatelessWidget {
 /// A thin dashed separator: long dashes with short gaps, the rule that
 /// divides rows and table cells.
 class SegmentedRule extends StatelessWidget {
-  const SegmentedRule({this.color, this.thickness = 1, super.key});
+  const SegmentedRule({this.color, super.key});
 
   final Color? color;
-  final double thickness;
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: thickness,
+      height: 1,
       width: double.infinity,
       child: CustomPaint(
         painter: _SegmentsPainter(

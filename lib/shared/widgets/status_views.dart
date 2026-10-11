@@ -1,15 +1,11 @@
 import 'package:flutter/material.dart';
 
-import 'package:iris/shared/widgets/segmented_bar.dart';
-
-/// A centred loading state: a block bar and what is being waited for.
-///
-/// Without a [value] a short run of blocks sweeps across the bar.
+/// A centred loading state: a short run of blocks sweeping across a bar and
+/// what is being waited for.
 class LoadingView extends StatelessWidget {
   const LoadingView({
     this.label,
     this.semanticsLabel,
-    this.value,
     this.details = const [],
     super.key,
   });
@@ -19,9 +15,6 @@ class LoadingView extends StatelessWidget {
   /// What a screen reader announces when there is no visible [label].
   final String? semanticsLabel;
 
-  /// Known progress from 0 to 1.
-  final double? value;
-
   /// Secondary lines under the label, such as a percentage and a speed.
   final List<String> details;
 
@@ -29,7 +22,6 @@ class LoadingView extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final label = this.label;
-    final value = this.value;
     final semanticsLabel = label == null ? this.semanticsLabel : null;
     final view = Center(
       child: Padding(
@@ -37,12 +29,7 @@ class LoadingView extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            SizedBox(
-              width: 160,
-              child: value == null
-                  ? const BlockSpinner()
-                  : SegmentedBar(value: value, height: 8),
-            ),
+            const SizedBox(width: 160, child: BlockSpinner()),
             if (label != null) ...[
               const SizedBox(height: 16),
               Text(

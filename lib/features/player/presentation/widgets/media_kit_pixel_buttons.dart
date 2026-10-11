@@ -9,9 +9,9 @@ import 'package:iris/features/player/presentation/widgets/player_glyph_switcher.
 /// Play/pause for media_kit's phone controls, drawn with the app's pixel
 /// glyphs in place of the package's Material icon.
 class PixelPlayOrPauseButton extends StatelessWidget {
-  const PixelPlayOrPauseButton({this.size = 44, super.key});
+  const PixelPlayOrPauseButton({super.key});
 
-  final double size;
+  static const _size = 44.0;
 
   @override
   Widget build(BuildContext context) {
@@ -26,10 +26,10 @@ class PixelPlayOrPauseButton extends StatelessWidget {
         final playing = snapshot.requireData;
         return IconButton(
           tooltip: playing ? l10n.playerPauseButton : l10n.playerPlayButton,
-          iconSize: size,
+          iconSize: _size,
           onPressed: player.playOrPause,
           icon: PlayerGlyphSwitcher(
-            child: _glyph(playing ? PixelGlyph.pause : PixelGlyph.play, size),
+            child: _glyph(playing ? PixelGlyph.pause : PixelGlyph.play, _size),
           ),
         );
       },
@@ -42,9 +42,9 @@ Player _player(BuildContext context) =>
 
 /// Full screen on/off for media_kit's phone controls, in pixel glyphs.
 class PixelFullscreenButton extends StatelessWidget {
-  const PixelFullscreenButton({this.size = 24, super.key});
+  const PixelFullscreenButton({super.key});
 
-  final double size;
+  static const _size = 24.0;
 
   @override
   Widget build(BuildContext context) {
@@ -54,12 +54,12 @@ class PixelFullscreenButton extends StatelessWidget {
       tooltip: fullscreen
           ? l10n.playerExitFullscreen
           : l10n.playerEnterFullscreen,
-      iconSize: size,
+      iconSize: _size,
       onPressed: () => toggleFullscreen(context),
       icon: PlayerGlyphSwitcher(
         child: _glyph(
           fullscreen ? PixelGlyph.fullscreenExit : PixelGlyph.fullscreen,
-          size,
+          _size,
         ),
       ),
     );
