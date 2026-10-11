@@ -908,6 +908,30 @@ abstract class AppLocalizations {
   /// **'Off'**
   String get playerTrackOff;
 
+  /// A track with no title, known language or codec.
+  ///
+  /// In en, this message translates to:
+  /// **'Track'**
+  String get playerTrackUnnamed;
+
+  /// No description provided for @playerTrackLanguageEnglish.
+  ///
+  /// In en, this message translates to:
+  /// **'English'**
+  String get playerTrackLanguageEnglish;
+
+  /// No description provided for @playerTrackLanguageJapanese.
+  ///
+  /// In en, this message translates to:
+  /// **'Japanese'**
+  String get playerTrackLanguageJapanese;
+
+  /// No description provided for @playerTrackLanguageRussian.
+  ///
+  /// In en, this message translates to:
+  /// **'Russian'**
+  String get playerTrackLanguageRussian;
+
   /// No description provided for @playerTracksUnavailable.
   ///
   /// In en, this message translates to:

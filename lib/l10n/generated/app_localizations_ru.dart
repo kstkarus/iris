@@ -468,6 +468,18 @@ class AppLocalizationsRu extends AppLocalizations {
   String get playerTrackOff => 'Выкл';
 
   @override
+  String get playerTrackUnnamed => 'Дорожка';
+
+  @override
+  String get playerTrackLanguageEnglish => 'Английский';
+
+  @override
+  String get playerTrackLanguageJapanese => 'Японский';
+
+  @override
+  String get playerTrackLanguageRussian => 'Русский';
+
+  @override
   String get playerTracksUnavailable => 'Нет доступных дорожек';
 
   @override

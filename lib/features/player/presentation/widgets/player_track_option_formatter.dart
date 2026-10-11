@@ -1,46 +1,43 @@
 import 'package:media_kit/media_kit.dart';
 
-String formatAudioTrackLabel(
-  AudioTrack track, {
-  required String autoLabel,
-  required String offLabel,
-}) {
+import 'package:iris/l10n/generated/app_localizations.dart';
+
+String formatAudioTrackLabel(AppLocalizations l10n, AudioTrack track) {
   if (track.id == AudioTrack.auto().id) {
-    return autoLabel;
+    return l10n.playerTrackAuto;
   }
 
   if (track.id == AudioTrack.no().id) {
-    return offLabel;
+    return l10n.playerTrackOff;
   }
 
   return _formatTrackLabel(
+    l10n,
     title: track.title,
     language: track.language,
     codec: track.codec,
   );
 }
 
-String formatSubtitleTrackLabel(
-  SubtitleTrack track, {
-  required String autoLabel,
-  required String offLabel,
-}) {
+String formatSubtitleTrackLabel(AppLocalizations l10n, SubtitleTrack track) {
   if (track.id == SubtitleTrack.auto().id) {
-    return autoLabel;
+    return l10n.playerTrackAuto;
   }
 
   if (track.id == SubtitleTrack.no().id) {
-    return offLabel;
+    return l10n.playerTrackOff;
   }
 
   return _formatTrackLabel(
+    l10n,
     title: track.title,
     language: track.language,
     codec: track.codec,
   );
 }
 
-String _formatTrackLabel({
+String _formatTrackLabel(
+  AppLocalizations l10n, {
   required String? title,
   required String? language,
   required String? codec,
@@ -50,7 +47,12 @@ String _formatTrackLabel({
     return trimmedTitle;
   }
 
-  final languageLabel = _languageLabels[language?.toLowerCase()];
+  final languageLabel = switch (language?.toLowerCase()) {
+    'en' => l10n.playerTrackLanguageEnglish,
+    'ja' => l10n.playerTrackLanguageJapanese,
+    'ru' => l10n.playerTrackLanguageRussian,
+    _ => null,
+  };
   if (languageLabel != null) {
     return languageLabel;
   }
@@ -60,7 +62,5 @@ String _formatTrackLabel({
     return trimmedCodec.toUpperCase();
   }
 
-  return 'Track';
+  return l10n.playerTrackUnnamed;
 }
-
-const _languageLabels = {'en': 'English', 'ja': 'Japanese', 'ru': 'Russian'};

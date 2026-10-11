@@ -228,6 +228,13 @@
   "playerSubtitlePositionHigh": "Higher",
   "playerTrackAuto": "Auto",
   "playerTrackOff": "Off",
+  "playerTrackUnnamed": "Track",
+  "@playerTrackUnnamed": {
+    "description": "A track with no title, known language or codec."
+  },
+  "playerTrackLanguageEnglish": "English",
+  "playerTrackLanguageJapanese": "Japanese",
+  "playerTrackLanguageRussian": "Russian",
   "playerTracksUnavailable": "Not available",
   "invalidRouteArgumentsMessage": "This screen was opened with invalid navigation data.",
   "playerPlayButton": "Play",

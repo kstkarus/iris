@@ -461,6 +461,18 @@ class AppLocalizationsEn extends AppLocalizations {
   String get playerTrackOff => 'Off';
 
   @override
+  String get playerTrackUnnamed => 'Track';
+
+  @override
+  String get playerTrackLanguageEnglish => 'English';
+
+  @override
+  String get playerTrackLanguageJapanese => 'Japanese';
+
+  @override
+  String get playerTrackLanguageRussian => 'Russian';
+
+  @override
   String get playerTracksUnavailable => 'Not available';
 
   @override

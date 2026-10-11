@@ -41,6 +41,37 @@ void main() {
     expect(find.text('Off'), findsOneWidget);
   });
 
+  testWidgets('names untitled tracks in the app language', (tester) async {
+    await tester.pumpWidget(
+      testApp(
+        Scaffold(
+          body: PlayerTrackSelectorSheet(
+            audioTracks: const [
+              AudioTrack('1', null, 'ja'),
+              AudioTrack('2', null, 'en'),
+            ],
+            selectedAudioTrack: const AudioTrack('1', null, 'ja'),
+            subtitleTracks: const [
+              SubtitleTrack('10', null, 'ru'),
+              SubtitleTrack('11', null, null),
+            ],
+            selectedSubtitleTrack: const SubtitleTrack('10', null, 'ru'),
+            onAudioTrackSelected: (_) {},
+            onSubtitleTrackSelected: (_) {},
+          ),
+        ),
+        locale: const Locale('ru'),
+      ),
+    );
+
+    expect(find.text('Японский'), findsOneWidget);
+    expect(find.text('Английский'), findsOneWidget);
+    expect(find.text('Русский'), findsOneWidget);
+    expect(find.text('Дорожка'), findsOneWidget);
+    expect(find.text('English'), findsNothing);
+    expect(find.text('Track'), findsNothing);
+  });
+
   testWidgets('tells assistive technology which tracks are selected', (
     tester,
   ) async {
