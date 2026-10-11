@@ -21,9 +21,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get navigationDownloads => 'Downloads';
 
   @override
-  String get downloadsTitle => 'Downloads';
-
-  @override
   String get downloadsOpenButton => 'Download';
 
   @override
@@ -83,11 +80,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get downloadStatusFailed => 'Failed';
-
-  @override
-  String downloadPeers(int count) {
-    return 'Peers: $count';
-  }
 
   @override
   String get downloadFailedMessage =>
@@ -267,12 +259,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get watchSourcesSortTitle => 'Title';
 
   @override
-  String get playerTitle => 'Player';
-
-  @override
-  String get playerOpenButton => 'Play';
-
-  @override
   String get playerSourceTitle => 'Choose File';
 
   @override
@@ -298,9 +284,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get playerPreparing => 'Preparing video';
-
-  @override
-  String get playerWaitingMetadata => 'Looking for torrent metadata';
 
   @override
   String get playerBuffering => 'Buffering';
@@ -360,9 +343,6 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get playerUnableToPrepareFirstFrame =>
       'The stream is open, but the player could not prepare the first frame.';
-
-  @override
-  String get playerNoPlayableVideo => 'No playable video found.';
 
   @override
   String get playerAudioTracksTitle => 'Audio';
@@ -507,9 +487,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get navigationSavedTorrents => 'Torrents';
 
   @override
-  String get savedTorrentsTitle => 'Torrents';
-
-  @override
   String get savedTorrentsAddButton => 'Add torrent';
 
   @override
@@ -643,16 +620,6 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String watchProgressStoppedAt(String position, String duration) {
     return 'Stopped at $position of $duration';
-  }
-
-  @override
-  String watchProgressContinueFile(String fileName) {
-    return 'Continue: $fileName';
-  }
-
-  @override
-  String watchProgressNextFile(String fileName) {
-    return 'Up next: $fileName';
   }
 
   @override

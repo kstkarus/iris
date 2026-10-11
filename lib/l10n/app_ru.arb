@@ -4,7 +4,6 @@
   "commonRetry": "Повторить",
   "navigationCatalog": "Каталог",
   "navigationDownloads": "Загрузки",
-  "downloadsTitle": "Загрузки",
   "downloadsOpenButton": "Скачать",
   "downloadsEmpty": "Серии скачиваются из источников на странице аниме или из «Раздач».",
   "downloadSelectionTitle": "Скачать файл",
@@ -24,14 +23,6 @@
   "downloadStatusPaused": "На паузе",
   "downloadStatusCompleted": "Готово",
   "downloadStatusFailed": "Ошибка",
-  "downloadPeers": "Пиры: {count}",
-  "@downloadPeers": {
-    "placeholders": {
-      "count": {
-        "type": "int"
-      }
-    }
-  },
   "downloadFailedMessage": "Торрент остановился с ошибкой. Попробуйте позже.",
   "downloadWatchButton": "Смотреть",
   "downloadPauseButton": "Пауза",
@@ -113,8 +104,6 @@
   "watchSourcesSortPublishedAt": "По дате",
   "watchSourcesSortDownloads": "По загрузкам",
   "watchSourcesSortTitle": "По названию",
-  "playerTitle": "Плеер",
-  "playerOpenButton": "Смотреть",
   "playerSourceTitle": "Выбор файла",
   "playerSourcePreparing": "Подготавливаем файлы torrent",
   "playerSourceUnsupported": "Этот источник не подходит для просмотра.",
@@ -123,7 +112,6 @@
   "playerSourceEpisodesPreparing": "Загружаем серии",
   "playerEpisodeMinutes": "{minutes} мин",
   "playerPreparing": "Подготавливаем видео",
-  "playerWaitingMetadata": "Ищем метаданные торрента",
   "playerBuffering": "Буферизация",
   "playerWaitNoPeers": "Пиров пока нет",
   "playerWaitPeers": "{count, plural, one{{count} пир} few{{count} пира} many{{count} пиров} other{{count} пира}}",
@@ -185,7 +173,6 @@
   },
   "playerUnableToStart": "Не удалось начать воспроизведение.",
   "playerUnableToPrepareFirstFrame": "Поток открыт, но плеер не смог подготовить первый кадр.",
-  "playerNoPlayableVideo": "Подходящее видео не найдено.",
   "playerAudioTracksTitle": "Аудио",
   "playerSubtitleTracksTitle": "Субтитры",
   "playerSettingsTitle": "Настройки",
@@ -231,7 +218,6 @@
   "playerPlayButton": "Играть",
   "playerPauseButton": "Пауза",
   "navigationSavedTorrents": "Раздачи",
-  "savedTorrentsTitle": "Раздачи",
   "savedTorrentsAddButton": "Добавить раздачу",
   "savedTorrentsEmptyTitle": "Пока нет сохранённых раздач",
   "savedTorrentsEmptyMessage": "Добавьте раздачу по magnet-ссылке, чтобы смотреть или скачать её. Добавленные раздачи останутся здесь.",
@@ -270,8 +256,6 @@
   "playerSkipForwardTooltip": "Вперёд на {seconds} с",
   "watchProgressWatched": "Просмотрено",
   "watchProgressStoppedAt": "Остановились на {position} из {duration}",
-  "watchProgressContinueFile": "Продолжить: {fileName}",
-  "watchProgressNextFile": "Дальше: {fileName}",
   "watchProgressContinueButton": "Продолжить",
   "watchProgressPlayNextButton": "Смотреть дальше",
   "watchProgressWatchButton": "Смотреть",

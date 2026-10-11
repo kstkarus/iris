@@ -4,7 +4,6 @@
   "commonRetry": "Try Again",
   "navigationCatalog": "Catalog",
   "navigationDownloads": "Downloads",
-  "downloadsTitle": "Downloads",
   "downloadsOpenButton": "Download",
   "downloadsEmpty": "Episodes download from a title’s sources, or from Torrents.",
   "downloadSelectionTitle": "Download a file",
@@ -24,14 +23,6 @@
   "downloadStatusPaused": "Paused",
   "downloadStatusCompleted": "Done",
   "downloadStatusFailed": "Failed",
-  "downloadPeers": "Peers: {count}",
-  "@downloadPeers": {
-    "placeholders": {
-      "count": {
-        "type": "int"
-      }
-    }
-  },
   "downloadFailedMessage": "The torrent stopped with an error. Try again later.",
   "downloadWatchButton": "Watch",
   "downloadPauseButton": "Pause",
@@ -120,8 +111,6 @@
   "watchSourcesSortPublishedAt": "Date",
   "watchSourcesSortDownloads": "Downloads",
   "watchSourcesSortTitle": "Title",
-  "playerTitle": "Player",
-  "playerOpenButton": "Play",
   "playerSourceTitle": "Choose File",
   "playerSourcePreparing": "Preparing torrent files",
   "playerSourceUnsupported": "This source is not suitable for playback.",
@@ -137,7 +126,6 @@
     }
   },
   "playerPreparing": "Preparing video",
-  "playerWaitingMetadata": "Looking for torrent metadata",
   "playerBuffering": "Buffering",
   "playerWaitNoPeers": "No peers yet",
   "playerWaitPeers": "{count, plural, =1{1 peer} other{{count} peers}}",
@@ -206,7 +194,6 @@
   },
   "playerUnableToStart": "Unable to start playback.",
   "playerUnableToPrepareFirstFrame": "The stream is open, but the player could not prepare the first frame.",
-  "playerNoPlayableVideo": "No playable video found.",
   "playerAudioTracksTitle": "Audio",
   "playerSubtitleTracksTitle": "Subtitles",
   "playerSettingsTitle": "Settings",
@@ -262,7 +249,6 @@
   "playerPlayButton": "Play",
   "playerPauseButton": "Pause",
   "navigationSavedTorrents": "Torrents",
-  "savedTorrentsTitle": "Torrents",
   "savedTorrentsAddButton": "Add torrent",
   "savedTorrentsEmptyTitle": "No saved torrents yet",
   "savedTorrentsEmptyMessage": "Add one by its magnet link to stream or download it. Added torrents stay here.",
@@ -363,22 +349,6 @@
         "type": "String"
       },
       "duration": {
-        "type": "String"
-      }
-    }
-  },
-  "watchProgressContinueFile": "Continue: {fileName}",
-  "@watchProgressContinueFile": {
-    "placeholders": {
-      "fileName": {
-        "type": "String"
-      }
-    }
-  },
-  "watchProgressNextFile": "Up next: {fileName}",
-  "@watchProgressNextFile": {
-    "placeholders": {
-      "fileName": {
         "type": "String"
       }
     }
