@@ -309,7 +309,7 @@ class _PlayerPageState extends State<PlayerPage> {
       ),
       EpisodeMarkDone(:final episode) => (
         message: l10n.playerMarked(episode),
-        actionLabel: l10n.playerMarkUndo,
+        actionLabel: l10n.commonUndo,
         onAction: () => unawaited(marks.undo()),
         timeout: markNoticeDuration,
       ),

@@ -13,7 +13,6 @@ import 'package:iris/features/anime_list/presentation/widgets/anime_card.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/widgets/adaptive/adaptive_grid_row.dart';
 import 'package:iris/shared/widgets/app_skeleton.dart';
-import 'package:iris/shared/widgets/segmented_bar.dart';
 import 'package:iris/shared/widgets/status_views.dart';
 
 /// Covers sit close side by side; rows get more air, so each title reads
@@ -140,7 +139,12 @@ class _AnimeGridState extends State<AnimeGrid> {
         if (index < first) return header;
         index -= first;
         if (index >= rowCount) {
-          return _ListFooter(bloc: widget.bloc, state: state);
+          return PagingFooter(
+            loadingMore: state.isLoadingMore,
+            failed: state.errorType == AnimeListErrorType.loadMore,
+            failedMessage: AppLocalizations.of(context).animeListLoadMoreError,
+            onRetry: () => widget.bloc.add(const AnimeListNextPageRequested()),
+          );
         }
 
         final start = index * columns;
@@ -168,48 +172,6 @@ class _AnimeGridState extends State<AnimeGrid> {
         );
       },
     );
-  }
-}
-
-class _ListFooter extends StatelessWidget {
-  const _ListFooter({required this.bloc, required this.state});
-
-  final AnimeListBloc bloc;
-  final AnimeListState state;
-
-  @override
-  Widget build(BuildContext context) {
-    if (state.isLoadingMore) {
-      return const Padding(
-        padding: EdgeInsets.symmetric(vertical: 8),
-        child: Center(child: SizedBox(width: 120, child: BlockSpinner())),
-      );
-    }
-
-    if (state.errorType == AnimeListErrorType.loadMore) {
-      final l10n = AppLocalizations.of(context);
-
-      return Column(
-        children: [
-          const SegmentedRule(),
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            child: Row(
-              children: [
-                Expanded(child: Text(l10n.animeListLoadMoreError)),
-                const SizedBox(width: 12),
-                TextButton(
-                  onPressed: () => bloc.add(const AnimeListNextPageRequested()),
-                  child: Text(l10n.commonRetry),
-                ),
-              ],
-            ),
-          ),
-        ],
-      );
-    }
-
-    return const SizedBox.shrink();
   }
 }
 

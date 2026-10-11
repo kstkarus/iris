@@ -12,6 +12,7 @@ import 'package:iris/shared/widgets/labeled_section.dart';
 import 'package:iris/shared/widgets/pixel_icon.dart';
 import 'package:iris/shared/widgets/segmented_bar.dart';
 import 'package:iris/shared/widgets/dither_switcher.dart';
+import 'package:iris/shared/widgets/tap_row.dart';
 
 /// Commercials, promo videos and music clips: listed by Shikimori, but
 /// nothing to watch.
@@ -153,59 +154,52 @@ class _RelatedRow extends StatelessWidget {
       if (year.isNotEmpty) year,
     ].join(' · ');
     final russian = anime.russian.trim();
-    return Material(
-      // Ink paints on the nearest Material: this one scrolls with the row,
-      // so the list's edge clips the highlight.
-      type: MaterialType.transparency,
-      child: InkWell(
-        key: ValueKey('related_anime_${anime.id}'),
-        onTap: () => context.pushNamed(
-          'anime-details',
-          pathParameters: {'id': anime.id},
-          extra: AnimeDetailsPreview.fromSummary(anime),
-        ),
-        child: Padding(
-          padding: EdgeInsets.only(top: first ? 0 : 12, bottom: 12),
-          child: Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
+    return TapRow(
+      inkKey: ValueKey('related_anime_${anime.id}'),
+      onTap: () => context.pushNamed(
+        'anime-details',
+        pathParameters: {'id': anime.id},
+        extra: AnimeDetailsPreview.fromSummary(anime),
+      ),
+      child: Padding(
+        padding: EdgeInsets.only(top: first ? 0 : 12, bottom: 12),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    caption.toUpperCase(),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.labelSmall?.copyWith(color: muted),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    anime.name,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.titleSmall,
+                  ),
+                  if (russian.isNotEmpty &&
+                      russian.toLowerCase() != anime.name.toLowerCase()) ...[
+                    const SizedBox(height: 2),
                     Text(
-                      caption.toUpperCase(),
+                      russian,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.labelSmall?.copyWith(color: muted),
+                      style: theme.textTheme.bodySmall?.copyWith(color: muted),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      anime.name,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.titleSmall,
-                    ),
-                    if (russian.isNotEmpty &&
-                        russian.toLowerCase() != anime.name.toLowerCase()) ...[
-                      const SizedBox(height: 2),
-                      Text(
-                        russian,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: muted,
-                        ),
-                      ),
-                    ],
                   ],
-                ),
+                ],
               ),
-              const Padding(
-                padding: EdgeInsets.only(left: 16, right: 8),
-                child: PixelIcon(PixelGlyph.arrowRight, size: 16),
-              ),
-            ],
-          ),
+            ),
+            const Padding(
+              padding: EdgeInsets.only(left: 16, right: 8),
+              child: PixelIcon(PixelGlyph.arrowRight, size: 16),
+            ),
+          ],
         ),
       ),
     );

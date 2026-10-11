@@ -21,9 +21,6 @@ class AppLocalizationsRu extends AppLocalizations {
   String get navigationDownloads => 'Загрузки';
 
   @override
-  String get downloadsTitle => 'Загрузки';
-
-  @override
   String get downloadsOpenButton => 'Скачать';
 
   @override
@@ -84,11 +81,6 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get downloadStatusFailed => 'Ошибка';
-
-  @override
-  String downloadPeers(int count) {
-    return 'Пиры: $count';
-  }
 
   @override
   String get downloadFailedMessage =>
@@ -271,12 +263,6 @@ class AppLocalizationsRu extends AppLocalizations {
   String get watchSourcesSortTitle => 'По названию';
 
   @override
-  String get playerTitle => 'Плеер';
-
-  @override
-  String get playerOpenButton => 'Смотреть';
-
-  @override
   String get playerSourceTitle => 'Выбор файла';
 
   @override
@@ -303,9 +289,6 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get playerPreparing => 'Подготавливаем видео';
-
-  @override
-  String get playerWaitingMetadata => 'Ищем метаданные торрента';
 
   @override
   String get playerBuffering => 'Буферизация';
@@ -367,9 +350,6 @@ class AppLocalizationsRu extends AppLocalizations {
   @override
   String get playerUnableToPrepareFirstFrame =>
       'Поток открыт, но плеер не смог подготовить первый кадр.';
-
-  @override
-  String get playerNoPlayableVideo => 'Подходящее видео не найдено.';
 
   @override
   String get playerAudioTracksTitle => 'Аудио';
@@ -514,9 +494,6 @@ class AppLocalizationsRu extends AppLocalizations {
   String get navigationSavedTorrents => 'Раздачи';
 
   @override
-  String get savedTorrentsTitle => 'Раздачи';
-
-  @override
   String get savedTorrentsAddButton => 'Добавить раздачу';
 
   @override
@@ -558,7 +535,7 @@ class AppLocalizationsRu extends AppLocalizations {
   }
 
   @override
-  String get savedTorrentsMoreTooltip => 'Ещё';
+  String get commonMoreActions => 'Ещё';
 
   @override
   String get savedTorrentsRename => 'Переименовать';
@@ -650,16 +627,6 @@ class AppLocalizationsRu extends AppLocalizations {
   @override
   String watchProgressStoppedAt(String position, String duration) {
     return 'Остановились на $position из $duration';
-  }
-
-  @override
-  String watchProgressContinueFile(String fileName) {
-    return 'Продолжить: $fileName';
-  }
-
-  @override
-  String watchProgressNextFile(String fileName) {
-    return 'Дальше: $fileName';
   }
 
   @override
@@ -1168,9 +1135,6 @@ class AppLocalizationsRu extends AppLocalizations {
   }
 
   @override
-  String get playerMarkUndo => 'Отменить';
-
-  @override
   String playerMarkOffer(int episode) {
     return 'Отметить $episode серию на Шикимори?';
   }
@@ -1206,7 +1170,7 @@ class AppLocalizationsRu extends AppLocalizations {
   }
 
   @override
-  String get profileListBrowseCatalog => 'Открыть каталог';
+  String get commonBrowseCatalog => 'Открыть каталог';
 
   @override
   String get savedTorrentsAddConfirm => 'Добавить';

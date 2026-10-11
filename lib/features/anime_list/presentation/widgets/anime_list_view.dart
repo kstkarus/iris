@@ -20,6 +20,7 @@ import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/utils/bayer_mask.dart';
 import 'package:iris/shared/widgets/adaptive/adaptive_grid_row.dart';
 import 'package:iris/shared/widgets/adaptive/window_size_class.dart';
+import 'package:iris/shared/widgets/caption_text.dart';
 import 'package:iris/shared/widgets/dither_switcher.dart';
 import 'package:iris/shared/widgets/dither_transition.dart';
 import 'package:iris/shared/widgets/display_title.dart';
@@ -450,7 +451,6 @@ class _CatalogHeading extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final theme = Theme.of(context);
     final heading = switch (state.sort) {
       AnimeListSortOption.popularity => l10n.animeListHeadingPopularity,
       AnimeListSortOption.score => l10n.animeListHeadingScore,
@@ -474,12 +474,7 @@ class _CatalogHeading extends StatelessWidget {
               ),
               if (filters.isNotEmpty) ...[
                 const SizedBox(height: 12),
-                Text(
-                  filters.join(' · ').toUpperCase(),
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                ),
+                CaptionText(filters.join(' · ')),
               ],
             ],
           ),
@@ -498,12 +493,9 @@ class _FailureState extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
 
-    return MessageView(
+    return RetryView(
       message: l10n.animeListLoadError,
-      action: FilledButton(
-        onPressed: () => bloc.add(const AnimeListInitialRetryRequested()),
-        child: Text(l10n.commonRetry),
-      ),
+      onRetry: () => bloc.add(const AnimeListInitialRetryRequested()),
     );
   }
 }

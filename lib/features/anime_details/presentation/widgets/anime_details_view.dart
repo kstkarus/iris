@@ -59,12 +59,9 @@ class AnimeDetailsView extends StatelessWidget {
             head: preview,
             onRetry: retry,
           ),
-          AnimeDetailsFailure() => MessageView(
+          AnimeDetailsFailure() => RetryView(
             message: l10n.animeDetailsLoadError,
-            action: FilledButton(
-              onPressed: retry,
-              child: Text(l10n.commonRetry),
-            ),
+            onRetry: retry,
           ),
         };
       },
@@ -599,34 +596,14 @@ class _Description extends StatelessWidget {
                       style: Theme.of(context).textTheme.bodyLarge,
                     ),
                   )
-                : _LoadFailure(onRetry: onRetry),
+                : InlineRetry(
+                    message: l10n.animeDetailsLoadError,
+                    onRetry: onRetry,
+                    style: Theme.of(context).textTheme.bodyLarge,
+                  ),
           ),
         ),
       ),
-    );
-  }
-}
-
-/// Why a section is missing, with a way to load it again.
-class _LoadFailure extends StatelessWidget {
-  const _LoadFailure({required this.onRetry});
-
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
-    return Row(
-      children: [
-        Expanded(
-          child: Text(
-            l10n.animeDetailsLoadError,
-            style: Theme.of(context).textTheme.bodyLarge,
-          ),
-        ),
-        const SizedBox(width: 12),
-        TextButton(onPressed: onRetry, child: Text(l10n.commonRetry)),
-      ],
     );
   }
 }

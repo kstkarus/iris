@@ -11,9 +11,8 @@ import 'package:iris/features/watch_sources/presentation/cubit/watch_sources_tab
 import 'package:iris/features/watch_sources/presentation/models/anime_watch_sources_args.dart';
 import 'package:iris/features/watch_sources/presentation/widgets/watch_sources_view.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
-import 'package:iris/shared/widgets/adaptive/adaptive_content_width.dart';
 import 'package:iris/shared/widgets/adaptive/framed_app_bar.dart';
-import 'package:iris/shared/widgets/adaptive/window_size_class.dart';
+import 'package:iris/shared/widgets/adaptive/page_frame.dart';
 import 'package:iris/shared/widgets/dither_switcher.dart';
 import 'package:iris/shared/widgets/page_title.dart';
 import 'package:iris/shared/widgets/marked_tab.dart';
@@ -30,7 +29,6 @@ class WatchSourcesPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final margin = WindowSizeClass.of(context).pageMargin;
     final hasOnline = context.select<OnlineReleasesCubit, bool>(
       (cubit) => cubit.state is! OnlineReleasesEmpty,
     );
@@ -52,50 +50,46 @@ class WatchSourcesPage extends StatelessWidget {
           subtitle: args.animeTitle,
         ),
       ),
-      body: Padding(
-        padding: EdgeInsets.fromLTRB(margin, 24, margin, 0),
-        child: MaxWidthBox(
-          maxWidth: AdaptiveContentWidth.page,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // The tabs go once a kind turns out empty: they dissolve,
-              // then give their height back.
-              DitherSwitcher(
-                collapse: true,
-                child: both
-                    ? Padding(
-                        key: const ValueKey('tabs'),
-                        padding: const EdgeInsets.only(bottom: 16),
-                        child: _Tabs(selected: tab),
-                      )
-                    : const SizedBox.shrink(key: ValueKey('no_tabs')),
+      body: PageFrame.subPage(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // The tabs go once a kind turns out empty: they dissolve,
+            // then give their height back.
+            DitherSwitcher(
+              collapse: true,
+              child: both
+                  ? Padding(
+                      key: const ValueKey('tabs'),
+                      padding: const EdgeInsets.only(bottom: 16),
+                      child: _Tabs(selected: tab),
+                    )
+                  : const SizedBox.shrink(key: ValueKey('no_tabs')),
+            ),
+            // Both stay built, so each keeps its scroll and the torrent
+            // search while the other is shown.
+            Expanded(
+              child: IndexedStack(
+                index: tab.index,
+                sizing: StackFit.expand,
+                children: [
+                  TickerMode(
+                    enabled: tab == WatchSourcesTab.online,
+                    child: hasOnline
+                        ? OnlineReleasesList(
+                            animeId: args.animeId,
+                            animeTitle: args.animeTitle,
+                          )
+                        : const SizedBox.shrink(),
+                  ),
+                  TickerMode(
+                    enabled: tab == WatchSourcesTab.torrents,
+                    child: const WatchSourcesView(),
+                  ),
+                ],
               ),
-              // Both stay built, so each keeps its scroll and the torrent
-              // search while the other is shown.
-              Expanded(
-                child: IndexedStack(
-                  index: tab.index,
-                  sizing: StackFit.expand,
-                  children: [
-                    TickerMode(
-                      enabled: tab == WatchSourcesTab.online,
-                      child: hasOnline
-                          ? OnlineReleasesList(
-                              animeId: args.animeId,
-                              animeTitle: args.animeTitle,
-                            )
-                          : const SizedBox.shrink(),
-                    ),
-                    TickerMode(
-                      enabled: tab == WatchSourcesTab.torrents,
-                      child: const WatchSourcesView(),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

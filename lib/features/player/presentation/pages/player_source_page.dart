@@ -15,8 +15,7 @@ import 'package:iris/features/player/presentation/models/anime_player_args.dart'
 import 'package:iris/features/player/presentation/models/anime_player_source_args.dart';
 import 'package:iris/features/player/presentation/widgets/player_source_view.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
-import 'package:iris/shared/widgets/adaptive/adaptive_content_width.dart';
-import 'package:iris/shared/widgets/adaptive/window_size_class.dart';
+import 'package:iris/shared/widgets/adaptive/page_frame.dart';
 import 'package:iris/shared/widgets/page_title.dart';
 import 'package:iris/shared/widgets/adaptive/framed_app_bar.dart';
 
@@ -28,7 +27,6 @@ class PlayerSourcePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final margin = WindowSizeClass.of(context).pageMargin;
     final isOnline = OnlineSourceLink.tryParse(args.magnet) != null;
 
     return BlocListener<PlayerSourceCubit, PlayerSourceState>(
@@ -55,36 +53,32 @@ class PlayerSourcePage extends StatelessWidget {
           ),
         ),
         body: SafeArea(
-          child: Padding(
-            padding: EdgeInsets.fromLTRB(margin, 24, margin, 0),
-            child: MaxWidthBox(
-              maxWidth: AdaptiveContentWidth.page,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: PlayerSourceView(
-                      isOnline: isOnline,
-                      progressByFile: progressByFile(
-                        context.watchWatchProgress(),
-                        sourceProgressKey(args.magnet),
-                      ),
-                      onFileSelected: (file) {
-                        final preparedSource =
-                            (context.read<PlayerSourceCubit>().state
-                                    as PlayerSourceReady)
-                                .preparedSource;
-                        _openPlayer(
-                          context,
-                          file: file,
-                          sessionId: preparedSource.sessionId,
-                          files: preparedSource.files,
-                        );
-                      },
+          child: PageFrame.subPage(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: PlayerSourceView(
+                    isOnline: isOnline,
+                    progressByFile: progressByFile(
+                      context.watchWatchProgress(),
+                      sourceProgressKey(args.magnet),
                     ),
+                    onFileSelected: (file) {
+                      final preparedSource =
+                          (context.read<PlayerSourceCubit>().state
+                                  as PlayerSourceReady)
+                              .preparedSource;
+                      _openPlayer(
+                        context,
+                        file: file,
+                        sessionId: preparedSource.sessionId,
+                        files: preparedSource.files,
+                      );
+                    },
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         ),

@@ -89,12 +89,9 @@ class _FailureState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    return MessageView(
+    return RetryView(
       message: l10n.playerUnableToStart,
-      action: FilledButton(
-        onPressed: () => context.read<PlayerCubit>().loadPlayback(),
-        child: Text(l10n.commonRetry),
-      ),
+      onRetry: () => context.read<PlayerCubit>().loadPlayback(),
     );
   }
 }

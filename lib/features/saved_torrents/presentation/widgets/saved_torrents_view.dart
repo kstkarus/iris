@@ -382,7 +382,7 @@ class _RowMenu extends StatelessWidget {
     );
     return RowMenuButton(
       controller: controller,
-      tooltip: l10n.savedTorrentsMoreTooltip,
+      tooltip: l10n.commonMoreActions,
       onOpenChanged: onOpenChanged,
       menuChildren: [
         item(_MenuAction.download, l10n.downloadsOpenButton),

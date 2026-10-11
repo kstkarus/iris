@@ -122,12 +122,6 @@ abstract class AppLocalizations {
   /// **'Downloads'**
   String get navigationDownloads;
 
-  /// No description provided for @downloadsTitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Downloads'**
-  String get downloadsTitle;
-
   /// No description provided for @downloadsOpenButton.
   ///
   /// In en, this message translates to:
@@ -241,12 +235,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Failed'**
   String get downloadStatusFailed;
-
-  /// No description provided for @downloadPeers.
-  ///
-  /// In en, this message translates to:
-  /// **'Peers: {count}'**
-  String downloadPeers(int count);
 
   /// No description provided for @downloadFailedMessage.
   ///
@@ -572,18 +560,6 @@ abstract class AppLocalizations {
   /// **'Title'**
   String get watchSourcesSortTitle;
 
-  /// No description provided for @playerTitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Player'**
-  String get playerTitle;
-
-  /// No description provided for @playerOpenButton.
-  ///
-  /// In en, this message translates to:
-  /// **'Play'**
-  String get playerOpenButton;
-
   /// No description provided for @playerSourceTitle.
   ///
   /// In en, this message translates to:
@@ -631,12 +607,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Preparing video'**
   String get playerPreparing;
-
-  /// No description provided for @playerWaitingMetadata.
-  ///
-  /// In en, this message translates to:
-  /// **'Looking for torrent metadata'**
-  String get playerWaitingMetadata;
 
   /// No description provided for @playerBuffering.
   ///
@@ -709,12 +679,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'The stream is open, but the player could not prepare the first frame.'**
   String get playerUnableToPrepareFirstFrame;
-
-  /// No description provided for @playerNoPlayableVideo.
-  ///
-  /// In en, this message translates to:
-  /// **'No playable video found.'**
-  String get playerNoPlayableVideo;
 
   /// No description provided for @playerAudioTracksTitle.
   ///
@@ -986,12 +950,6 @@ abstract class AppLocalizations {
   /// **'Torrents'**
   String get navigationSavedTorrents;
 
-  /// No description provided for @savedTorrentsTitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Torrents'**
-  String get savedTorrentsTitle;
-
   /// No description provided for @savedTorrentsAddButton.
   ///
   /// In en, this message translates to:
@@ -1064,11 +1022,11 @@ abstract class AppLocalizations {
   /// **'Already added as “{title}”'**
   String savedTorrentsDuplicate(String title);
 
-  /// No description provided for @savedTorrentsMoreTooltip.
+  /// No description provided for @commonMoreActions.
   ///
   /// In en, this message translates to:
   /// **'More actions'**
-  String get savedTorrentsMoreTooltip;
+  String get commonMoreActions;
 
   /// No description provided for @savedTorrentsRename.
   ///
@@ -1219,18 +1177,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Stopped at {position} of {duration}'**
   String watchProgressStoppedAt(String position, String duration);
-
-  /// No description provided for @watchProgressContinueFile.
-  ///
-  /// In en, this message translates to:
-  /// **'Continue: {fileName}'**
-  String watchProgressContinueFile(String fileName);
-
-  /// No description provided for @watchProgressNextFile.
-  ///
-  /// In en, this message translates to:
-  /// **'Up next: {fileName}'**
-  String watchProgressNextFile(String fileName);
 
   /// No description provided for @watchProgressContinueButton.
   ///
@@ -2054,12 +2000,6 @@ abstract class AppLocalizations {
   /// **'Episode {episode} marked on Shikimori'**
   String playerMarked(int episode);
 
-  /// No description provided for @playerMarkUndo.
-  ///
-  /// In en, this message translates to:
-  /// **'Undo'**
-  String get playerMarkUndo;
-
   /// No description provided for @playerMarkOffer.
   ///
   /// In en, this message translates to:
@@ -2114,11 +2054,11 @@ abstract class AppLocalizations {
   /// **'{watched} ep.'**
   String profileListWatched(int watched);
 
-  /// No description provided for @profileListBrowseCatalog.
+  /// No description provided for @commonBrowseCatalog.
   ///
   /// In en, this message translates to:
   /// **'Browse the catalog'**
-  String get profileListBrowseCatalog;
+  String get commonBrowseCatalog;
 
   /// No description provided for @savedTorrentsAddConfirm.
   ///

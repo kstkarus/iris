@@ -3,6 +3,8 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:iris/shared/widgets/status_views.dart';
 
+import '../../helpers/test_app.dart';
+
 Widget _spinner({bool disableAnimations = false}) {
   return MaterialApp(
     home: MediaQuery(
@@ -80,5 +82,49 @@ void main() {
     expect(find.bySemanticsLabel('Loading files'), findsOneWidget);
     expect(find.text('Loading files'), findsNothing);
     semantics.dispose();
+  });
+
+  testWidgets('a retry view offers a filled button, or a quiet one', (
+    tester,
+  ) async {
+    var retries = 0;
+    await tester.pumpWidget(
+      testApp(RetryView(message: 'Failed', onRetry: () => retries++)),
+    );
+    await tester.tap(find.widgetWithText(FilledButton, 'Try Again'));
+    expect(retries, 1);
+
+    await tester.pumpWidget(
+      testApp(
+        RetryView(message: 'Failed', onRetry: () => retries++, quiet: true),
+      ),
+    );
+    expect(find.byType(FilledButton), findsNothing);
+    await tester.tap(find.widgetWithText(TextButton, 'Try Again'));
+    expect(retries, 2);
+  });
+
+  testWidgets('a paging footer shows loading, failure, then its idle end', (
+    tester,
+  ) async {
+    Widget footer({bool loadingMore = false, bool failed = false}) => testApp(
+      PagingFooter(
+        loadingMore: loadingMore,
+        failed: failed,
+        failedMessage: 'No more',
+        onRetry: () {},
+        idle: const SizedBox(key: Key('idle')),
+      ),
+    );
+
+    await tester.pumpWidget(footer(loadingMore: true));
+    expect(find.byType(BlockSpinner), findsOneWidget);
+
+    await tester.pumpWidget(footer(failed: true));
+    expect(find.text('No more'), findsOneWidget);
+    expect(find.widgetWithText(TextButton, 'Try Again'), findsOneWidget);
+
+    await tester.pumpWidget(footer());
+    expect(find.byKey(const Key('idle')), findsOneWidget);
   });
 }

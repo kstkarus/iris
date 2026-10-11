@@ -10,6 +10,7 @@ import 'package:iris/shared/utils/file_display_name.dart';
 import 'package:iris/shared/widgets/pixel_icon.dart';
 import 'package:iris/shared/widgets/segmented_bar.dart';
 import 'package:iris/shared/widgets/status_views.dart';
+import 'package:iris/shared/widgets/tap_row.dart';
 
 class DownloadSelectionView extends StatelessWidget {
   const DownloadSelectionView({super.key});
@@ -58,56 +59,51 @@ class _FileList extends StatelessWidget {
         final file = files[index];
         final isEnqueuing = enqueuingFile == file;
         final enqueue = idle ? () => cubit.enqueue(file) : null;
-        return Material(
-          // Ink paints on the nearest Material: this one scrolls with the row,
-          // so the list's edge clips the highlight.
-          type: MaterialType.transparency,
-          child: InkWell(
-            onTap: enqueue,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(12, 8, 0, 8),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          fileDisplayName(file.name),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.bodyMedium,
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          isEnqueuing
-                              ? l10n.downloadAddingToQueue
-                              : formatByteSize(l10n, file.size),
-                          style: theme.textTheme.bodySmall,
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  if (isEnqueuing)
-                    const SizedBox(
-                      width: 44,
-                      child: Center(
-                        child: SizedBox(
-                          width: 28,
-                          child: BlockSpinner(height: 4),
-                        ),
+        return TapRow(
+          onTap: enqueue,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(12, 8, 0, 8),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        fileDisplayName(file.name),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodyMedium,
                       ),
-                    )
-                  else
-                    IconButton(
-                      key: ValueKey('download_file_button_${file.index}'),
-                      tooltip: l10n.downloadFileButton,
-                      icon: const PixelIcon(PixelGlyph.download, size: 18),
-                      onPressed: enqueue,
+                      const SizedBox(height: 2),
+                      Text(
+                        isEnqueuing
+                            ? l10n.downloadAddingToQueue
+                            : formatByteSize(l10n, file.size),
+                        style: theme.textTheme.bodySmall,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                if (isEnqueuing)
+                  const SizedBox(
+                    width: 44,
+                    child: Center(
+                      child: SizedBox(
+                        width: 28,
+                        child: BlockSpinner(height: 4),
+                      ),
                     ),
-                ],
-              ),
+                  )
+                else
+                  IconButton(
+                    key: ValueKey('download_file_button_${file.index}'),
+                    tooltip: l10n.downloadFileButton,
+                    icon: const PixelIcon(PixelGlyph.download, size: 18),
+                    onPressed: enqueue,
+                  ),
+              ],
             ),
           ),
         );
@@ -131,12 +127,9 @@ class _FailureState extends StatelessWidget {
       DownloadSelectionFailureType.unableToPrepare =>
         l10n.downloadSelectionUnableToPrepare,
     };
-    return MessageView(
+    return RetryView(
       message: message,
-      action: FilledButton(
-        onPressed: context.read<DownloadSelectionCubit>().load,
-        child: Text(l10n.commonRetry),
-      ),
+      onRetry: context.read<DownloadSelectionCubit>().load,
     );
   }
 }

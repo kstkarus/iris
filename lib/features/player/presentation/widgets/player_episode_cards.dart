@@ -7,6 +7,7 @@ import 'package:iris/features/player/presentation/widgets/player_colors.dart';
 import 'package:iris/features/player/presentation/widgets/reveal_after_layout.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/utils/duration_formatter.dart';
+import 'package:iris/shared/widgets/caption_text.dart';
 import 'package:iris/shared/widgets/segmented_bar.dart';
 import 'package:iris/shared/widgets/pixel_icon.dart';
 
@@ -229,10 +230,7 @@ class _Status extends StatelessWidget {
     final left = this.left;
     // "Now playing" says it in words; the signal colour marks it live.
     if (isCurrent) {
-      return Text(
-        l10n.playerNowPlaying.toUpperCase(),
-        style: theme.textTheme.labelSmall?.copyWith(color: accent),
-      );
+      return CaptionText(l10n.playerNowPlaying, color: accent);
     }
     // Watched is done, not live: a quiet check, not the signal colour.
     if (finished) {

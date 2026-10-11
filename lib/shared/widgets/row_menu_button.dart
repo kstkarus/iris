@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'package:iris/shared/widgets/checked_menu_item.dart';
 import 'package:iris/shared/widgets/pixel_icon.dart';
 
 /// A list row's "⋯" menu. The row opens the same [controller] on a long
@@ -45,21 +46,17 @@ class RowMenuButton extends StatelessWidget {
         maximumSize: WidgetStatePropertyAll(Size(width, double.infinity)),
       ),
       menuChildren: menuChildren,
-      builder: (context, controller, _) {
-        void toggle() =>
-            controller.isOpen ? controller.close() : controller.open();
-        return Semantics(
-          label: semanticLabel ?? tooltip,
-          button: true,
-          excludeSemantics: true,
-          onTap: toggle,
-          child: IconButton(
-            tooltip: tooltip,
-            icon: const PixelIcon(PixelGlyph.more, size: 18),
-            onPressed: toggle,
-          ),
-        );
-      },
+      builder: (context, controller, _) => Semantics(
+        label: semanticLabel ?? tooltip,
+        button: true,
+        excludeSemantics: true,
+        onTap: controller.toggle,
+        child: IconButton(
+          tooltip: tooltip,
+          icon: const PixelIcon(PixelGlyph.more, size: 18),
+          onPressed: controller.toggle,
+        ),
+      ),
     );
   }
 }

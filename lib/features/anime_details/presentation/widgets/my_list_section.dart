@@ -8,6 +8,7 @@ import 'package:iris/entities/user_rate/presentation/user_rate_cubit.dart';
 import 'package:iris/entities/user_rate/presentation/user_rate_state.dart';
 import 'package:iris/entities/user_rate/presentation/user_rate_status_label.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
+import 'package:iris/shared/widgets/checked_menu_item.dart';
 import 'package:iris/shared/widgets/labeled_section.dart';
 import 'package:iris/shared/widgets/pixel_icon.dart';
 import 'package:iris/shared/widgets/app_skeleton.dart';
@@ -153,29 +154,23 @@ class _StatusMenu extends StatelessWidget {
     return MenuAnchor(
       menuChildren: [
         for (final status in UserRateStatus.values)
-          MenuItemButton(
+          CheckedMenuItem(
+            checked: status == rate?.status,
             onPressed: status == rate?.status
                 ? null
                 : () => cubit.setStatus(status),
-            leadingIcon: SizedBox.square(
-              dimension: 14,
-              child: status == rate?.status
-                  ? const PixelIcon(PixelGlyph.check, size: 14)
-                  : null,
-            ),
             child: Text(userRateStatusLabel(l10n, status)),
           ),
         if (rate != null)
-          MenuItemButton(
+          CheckedMenuItem(
+            checked: false,
             onPressed: saving ? null : cubit.remove,
-            leadingIcon: const SizedBox.square(dimension: 14),
             child: Text(l10n.userRateRemove),
           ),
       ],
       builder: (context, controller, _) => OutlinedButton(
         key: MyListSection.statusButtonKey,
-        onPressed: () =>
-            controller.isOpen ? controller.close() : controller.open(),
+        onPressed: controller.toggle,
         child: Text(
           rate == null
               ? l10n.userRateAdd
@@ -199,27 +194,21 @@ class _ScoreMenu extends StatelessWidget {
     return MenuAnchor(
       menuChildren: [
         for (var value = UserRate.maxScore; value > 0; value--)
-          MenuItemButton(
+          CheckedMenuItem(
+            checked: value == score,
             onPressed: value == score ? null : () => cubit.setScore(value),
-            leadingIcon: SizedBox.square(
-              dimension: 14,
-              child: value == score
-                  ? const PixelIcon(PixelGlyph.check, size: 14)
-                  : null,
-            ),
             child: Text('$value'),
           ),
         if (score > 0)
-          MenuItemButton(
+          CheckedMenuItem(
+            checked: false,
             onPressed: () => cubit.setScore(0),
-            leadingIcon: const SizedBox.square(dimension: 14),
             child: Text(l10n.userRateNoScore),
           ),
       ],
       builder: (context, controller, _) => TextButton(
         key: MyListSection.scoreButtonKey,
-        onPressed: () =>
-            controller.isOpen ? controller.close() : controller.open(),
+        onPressed: controller.toggle,
         child: Text(score > 0 ? l10n.userRateScore(score) : l10n.userRateRate),
       ),
     );
