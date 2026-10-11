@@ -10,6 +10,7 @@ import 'package:iris/features/player/domain/entities/player_video_file.dart';
 import 'package:iris/features/player/presentation/cubit/episode_mark_cubit.dart';
 import 'package:iris/features/player/presentation/cubit/player_cubit.dart';
 import 'package:iris/features/player/presentation/cubit/player_state.dart';
+import 'package:iris/features/player/presentation/models/player_chrome_mapper.dart';
 import 'package:iris/features/player/presentation/widgets/player_adaptive_layout.dart';
 import 'package:iris/features/player/presentation/widgets/player_countdown.dart';
 import 'package:iris/features/player/presentation/widgets/player_episode_cards.dart';
@@ -20,7 +21,6 @@ import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/utils/duration_formatter.dart';
 import 'package:iris/shared/utils/file_display_name.dart';
 import 'package:iris/shared/theme/over_video_theme.dart';
-import 'package:iris/shared/utils/release_title.dart';
 import 'package:iris/shared/widgets/adaptive/window_size_class.dart';
 import 'package:iris/shared/widgets/page_title.dart';
 import 'package:iris/shared/widgets/pixel_icon.dart';
@@ -248,40 +248,11 @@ class _PlayerPageState extends State<PlayerPage> {
   }
 
   PlayerChrome _immersiveChrome(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
     final cubit = context.read<PlayerCubit>();
     final source = cubit.source;
-    final release = source.sourceTitle.trim();
-    final anime = source.animeTitle.trim();
-    // Saved torrents carry their release name as the anime title too.
-    final overline = anime.isNotEmpty && anime != release
-        ? anime
-        : releaseDisplayTitle(release);
-    final episode = source.episodeNumber;
-    final count = source.files.length;
-    final position = source.files.indexWhere(
-      (file) => file.index == source.fileIndex,
-    );
-    final inRelease = count > 1 && position >= 0;
-    // Where the episode number is the file's place, the place adds only
-    // the total: "Episode 20 of 37" instead of a line repeating the 20.
-    final placeIsNumber = inRelease && episode == position + 1;
-    final details = inRelease && !placeIsNumber
-        ? l10n.playerEpisodePosition(position + 1, count)
-        : null;
-    final episodesCaption = [
-      if (release.isNotEmpty) release,
-      l10n.animeEpisodeCount('$count', count),
-    ].join(' · ');
-
-    return PlayerChrome(
-      title: episode == null
-          ? fileDisplayName(source.fileName)
-          : l10n.playerEpisodeNumber(episode),
-      titleDetail: placeIsNumber ? l10n.playerEpisodeOfTotal(count) : null,
-      overline: overline,
-      details: details,
-      episodesCaption: episodesCaption,
+    return playerChromeFor(
+      AppLocalizations.of(context),
+      source,
       onBack: () => Navigator.of(context).maybePop(),
       notice: _notice ?? _markNotice,
       episodes: source.files.length > 1
@@ -596,10 +567,7 @@ class _EpisodesPane extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final theme = Theme.of(context);
-    final torrentKey = source.torrentKey;
-    final progress = torrentKey == null
-        ? const <int, WatchProgress>{}
-        : progressByFile(context.watchWatchProgress(), torrentKey);
+    final progress = _sourceProgress(context, source);
 
     // Shown and hidden only by the app bar toggle; one control per action.
     return Column(
@@ -634,10 +602,7 @@ class _EpisodeCardsPane extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final torrentKey = source.torrentKey;
-    final progress = torrentKey == null
-        ? const <int, WatchProgress>{}
-        : progressByFile(context.watchWatchProgress(), torrentKey);
+    final progress = _sourceProgress(context, source);
     return PlayerEpisodeCards(
       files: source.files,
       currentFileIndex: source.fileIndex,
@@ -645,4 +610,15 @@ class _EpisodeCardsPane extends StatelessWidget {
       onSelected: onSelected,
     );
   }
+}
+
+/// Watch progress of [source]'s files, keyed by file index.
+Map<int, WatchProgress> _sourceProgress(
+  BuildContext context,
+  AnimePlayerSource source,
+) {
+  final torrentKey = source.torrentKey;
+  return torrentKey == null
+      ? const {}
+      : progressByFile(context.watchWatchProgress(), torrentKey);
 }

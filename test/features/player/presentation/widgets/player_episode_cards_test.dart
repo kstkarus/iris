@@ -32,32 +32,6 @@ Widget _wrap(Widget child) => MaterialApp(
 );
 
 void main() {
-  group('distinctEpisodeNames', () {
-    test('keeps what a file names beyond the series and its number', () {
-      final names = distinctEpisodeNames([
-        _file(0, "[Group] Frieren - 01 - The Journey's End [1080p].mkv"),
-        _file(
-          1,
-          '[Group] Frieren - 02 - It Didn’t Have to Be Magic [1080p].mkv',
-        ),
-      ]);
-
-      expect(names, {0: "The Journey's End", 1: 'It Didn’t Have to Be Magic'});
-    });
-
-    test('gives nothing for files told apart by their number only', () {
-      expect(
-        distinctEpisodeNames([
-          _file(0, '[Group] Death Note 01 [BDRip 1080p].mkv'),
-          _file(1, '[Group] Death Note 02 [BDRip 1080p].mkv'),
-          _file(2, '[Group] Death Note 19 [BDRip 1080p].mkv'),
-        ]),
-        isEmpty,
-      );
-      expect(distinctEpisodeNames([_file(0, 'Movie.mkv')]), isEmpty);
-    });
-  });
-
   testWidgets('marks the playing card and the progress of the others', (
     tester,
   ) async {

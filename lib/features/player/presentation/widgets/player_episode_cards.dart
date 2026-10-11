@@ -2,10 +2,11 @@ import 'package:flutter/material.dart';
 
 import 'package:iris/entities/watch_progress/domain/watch_progress.dart';
 import 'package:iris/features/player/domain/entities/player_video_file.dart';
+import 'package:iris/features/player/domain/player_episode_names.dart';
 import 'package:iris/features/player/presentation/widgets/player_immersive_controls.dart';
+import 'package:iris/features/player/presentation/widgets/reveal_after_layout.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/utils/duration_formatter.dart';
-import 'package:iris/shared/utils/file_display_name.dart';
 import 'package:iris/shared/widgets/segmented_bar.dart';
 import 'package:iris/shared/widgets/pixel_icon.dart';
 
@@ -36,11 +37,7 @@ class _PlayerEpisodeCardsState extends State<PlayerEpisodeCards> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final currentContext = _currentKey.currentContext;
-      if (!mounted || currentContext == null) return;
-      Scrollable.ensureVisible(currentContext, alignment: 0.3);
-    });
+    revealAfterLayout(_currentKey);
   }
 
   @override
@@ -66,79 +63,6 @@ class _PlayerEpisodeCardsState extends State<PlayerEpisodeCards> {
       ),
     );
   }
-}
-
-final _bracketGroups = RegExp(r'\[[^\]]*\]|\([^)]*\)');
-final _leadingNumber = RegExp(r'^[\s\d._\-–—:#]+');
-final _trailingSeparators = RegExp(r'[\s._\-–—:#]+$');
-final _letter = RegExp(r'\p{L}', unicode: true);
-
-/// Each file's own episode name, where its name says more than the series
-/// and the number every file shares: `Frieren - 11 - The Hero's Party`
-/// gives `The Hero's Party`, `Death Note 19` gives nothing.
-Map<int, String> distinctEpisodeNames(List<PlayerVideoFile> files) {
-  // An online release names its episodes itself.
-  if (files.any((file) => file.title.isNotEmpty)) {
-    return {
-      for (final file in files)
-        if (file.title.isNotEmpty) file.index: file.title,
-    };
-  }
-  if (files.length < 2) return const {};
-  final names = [
-    for (final file in files)
-      fileDisplayName(
-        file.name,
-      ).replaceAll(_bracketGroups, ' ').replaceAll(RegExp(r'\s+'), ' ').trim(),
-  ];
-  final prefix = _commonPrefixLength(names);
-  final suffix = _commonSuffixLength(names, prefix);
-  return {
-    for (final (position, file) in files.indexed)
-      file.index: ?_ownName(names[position], prefix, suffix),
-  };
-}
-
-String? _ownName(String name, int prefix, int suffix) {
-  final end = name.length - suffix;
-  if (end <= prefix) return null;
-  final own = name
-      .substring(prefix, end)
-      .replaceFirst(_leadingNumber, '')
-      .replaceFirst(_trailingSeparators, '')
-      .trim();
-  return _letter.hasMatch(own) ? own : null;
-}
-
-int _commonPrefixLength(List<String> names) {
-  var length = names.first.length;
-  for (final name in names.skip(1)) {
-    var common = 0;
-    while (common < length &&
-        common < name.length &&
-        name.codeUnitAt(common) == names.first.codeUnitAt(common)) {
-      common++;
-    }
-    length = common;
-  }
-  return length;
-}
-
-/// The common ending, not overlapping the common start.
-int _commonSuffixLength(List<String> names, int prefix) {
-  final first = names.first;
-  var length = first.length - prefix;
-  for (final name in names) {
-    length = length.clamp(0, name.length - prefix);
-    var common = 0;
-    while (common < length &&
-        name.codeUnitAt(name.length - 1 - common) ==
-            first.codeUnitAt(first.length - 1 - common)) {
-      common++;
-    }
-    length = common;
-  }
-  return length;
 }
 
 class _EpisodeCard extends StatefulWidget {
