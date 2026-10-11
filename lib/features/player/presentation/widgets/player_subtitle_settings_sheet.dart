@@ -9,7 +9,7 @@ import 'package:iris/features/player/presentation/widgets/player_adaptive_layout
 import 'package:iris/features/player/presentation/widgets/player_choice_row.dart';
 import 'package:iris/features/player/presentation/widgets/player_overlay_preferences.dart';
 import 'package:iris/features/player/presentation/widgets/player_popover.dart';
-import 'package:iris/features/player/presentation/widgets/player_subtitle_preferences_mapper.dart';
+import 'package:iris/features/player/presentation/playback/player_subtitle_preferences_mapper.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/widgets/pixel_icon.dart';
 import 'package:iris/shared/widgets/section_label.dart';

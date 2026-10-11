@@ -6,6 +6,7 @@ import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 
 import 'package:iris/features/player/presentation/widgets/media_kit_pixel_buttons.dart';
+import 'package:iris/features/player/domain/entities/player_playback_diagnostics.dart';
 import 'package:iris/features/player/domain/entities/player_playback_stats.dart';
 import 'package:iris/features/player/domain/entities/player_skip_segment.dart';
 import 'package:iris/features/player/domain/repositories/player_repository.dart';
@@ -15,7 +16,7 @@ import 'package:iris/features/player/presentation/playback/media_kit_player_engi
 import 'package:iris/features/player/presentation/playback/player_engine.dart';
 import 'package:iris/features/player/presentation/widgets/player_adaptive_layout.dart';
 import 'package:iris/features/player/presentation/widgets/player_auto_hiding_offer.dart';
-import 'package:iris/features/player/presentation/widgets/player_buffer_health_tracker.dart';
+import 'package:iris/features/player/presentation/playback/player_buffer_margin.dart';
 import 'package:iris/features/player/presentation/widgets/player_countdown.dart';
 import 'package:iris/features/player/presentation/widgets/player_immersive_controls.dart';
 import 'package:iris/features/player/presentation/widgets/player_overlay_preferences.dart';

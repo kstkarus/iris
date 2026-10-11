@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:media_kit/media_kit.dart';
 
-import 'package:iris/features/player/presentation/widgets/player_audio_fallback_resolver.dart';
+import 'package:iris/features/player/presentation/playback/player_audio_fallback_resolver.dart';
 
 void main() {
   test('returns alternative audio track when codec is unsupported', () {

@@ -16,13 +16,11 @@ class PlayerRenderingConfiguration {
     required this.playerConfiguration,
     required this.subtitleViewConfiguration,
     required this.videoControllerConfiguration,
-    required this.mpvProperties,
   });
 
   final PlayerConfiguration playerConfiguration;
   final SubtitleViewConfiguration subtitleViewConfiguration;
   final VideoControllerConfiguration videoControllerConfiguration;
-  final Map<String, String> mpvProperties;
 }
 
 PlayerRenderingConfiguration buildPlayerRenderingConfiguration(
@@ -42,7 +40,6 @@ PlayerRenderingConfiguration buildPlayerRenderingConfiguration(
       decodingPreferences,
       platform: platform,
     ),
-    mpvProperties: buildSubtitleMpvProperties(preferences),
   );
 }
 
@@ -109,24 +106,30 @@ SubtitleViewConfiguration buildSubtitleViewConfiguration(
   );
 }
 
+/// mpv's buffering and decoding options, set for every opened file; the
+/// playback contract in AGENTS.md fixes these values.
+const playbackMpvProperties = <String, String>{
+  'cache': 'yes',
+  'cache-pause': 'yes',
+  'cache-pause-initial': 'yes',
+  'cache-pause-wait': '3',
+  'cache-secs': '30',
+  'demuxer-max-bytes': '$torrentPlayerBufferSizeBytes',
+  'demuxer-max-back-bytes': '$torrentPlayerBackBufferSizeBytes',
+  'demuxer-readahead-secs': '20',
+  'network-timeout': '60',
+  'vd-lavc-threads': '0',
+};
+
+/// mpv's subtitle options for [preferences].
 Map<String, String> buildSubtitleMpvProperties(
   SubtitlePreferences preferences,
 ) {
   return {
-    'cache': 'yes',
-    'cache-pause': 'yes',
-    'cache-pause-initial': 'yes',
-    'cache-pause-wait': '3',
-    'cache-secs': '30',
-    'demuxer-max-bytes': torrentPlayerBufferSizeBytes.toString(),
-    'demuxer-max-back-bytes': torrentPlayerBackBufferSizeBytes.toString(),
-    'demuxer-readahead-secs': '20',
-    'network-timeout': '60',
-    'vd-lavc-threads': '0',
     'sub-scale': _textScale(preferences.textScale).toString(),
     'sub-color': _mpvColor(subtitleTextColor(preferences.textColor)),
     'sub-back-color': _mpvColor(_backgroundColor(preferences.backgroundStyle)),
-    'sub-pos': _subtitlePosition(preferences.verticalPosition).toString(),
+    'sub-pos': subtitleMpvPosition(preferences.verticalPosition).toString(),
     'sub-ass-override': overridesReleaseSubtitleStyle(preferences)
         ? 'force'
         : 'scale',
@@ -195,7 +198,9 @@ double _bottomPadding(SubtitleVerticalPositionPreset preset) {
   };
 }
 
-int _subtitlePosition(SubtitleVerticalPositionPreset preset) {
+/// mpv's `sub-pos` for [preset]: percent of the video's height, 100 being
+/// the bottom.
+int subtitleMpvPosition(SubtitleVerticalPositionPreset preset) {
   return switch (preset) {
     SubtitleVerticalPositionPreset.low => 104,
     SubtitleVerticalPositionPreset.standard => 100,

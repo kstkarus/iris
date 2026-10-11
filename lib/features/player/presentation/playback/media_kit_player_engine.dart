@@ -7,22 +7,21 @@ import 'package:media_kit_video/media_kit_video.dart';
 
 import 'package:iris/entities/watch_progress/domain/watch_progress.dart';
 import 'package:iris/features/player/domain/entities/player_decoding_preferences.dart';
+import 'package:iris/features/player/domain/entities/player_playback_diagnostics.dart';
 import 'package:iris/features/player/domain/entities/player_playback_stats.dart';
 import 'package:iris/features/player/domain/entities/player_session.dart';
 import 'package:iris/features/player/domain/entities/player_skip_segment.dart';
 import 'package:iris/features/player/domain/entities/player_track_preferences.dart';
 import 'package:iris/features/player/domain/entities/subtitle_preferences.dart';
-import 'package:iris/features/player/domain/player_buffer_policy.dart';
 import 'package:iris/features/player/domain/player_chapter_skip_segments.dart';
 import 'package:iris/features/player/domain/repositories/player_repository.dart';
 import 'package:iris/features/player/presentation/cubit/player_decoding_preferences_cubit.dart';
 import 'package:iris/features/player/presentation/cubit/player_subtitle_preferences_cubit.dart';
 import 'package:iris/features/player/presentation/playback/player_engine.dart';
-import 'package:iris/features/player/presentation/widgets/player_audio_fallback_resolver.dart';
-import 'package:iris/features/player/presentation/widgets/player_buffer_health_tracker.dart';
-import 'package:iris/features/player/presentation/widgets/player_playback_stats_indicator.dart';
-import 'package:iris/features/player/presentation/widgets/player_subtitle_preferences_mapper.dart';
-import 'package:iris/features/player/presentation/widgets/player_track_matcher.dart';
+import 'package:iris/features/player/presentation/playback/player_audio_fallback_resolver.dart';
+import 'package:iris/features/player/presentation/playback/player_buffer_margin.dart';
+import 'package:iris/features/player/presentation/playback/player_subtitle_preferences_mapper.dart';
+import 'package:iris/features/player/presentation/playback/player_track_matcher.dart';
 
 typedef MediaKitPlayerBuilder =
     Player Function(PlayerConfiguration configuration);
@@ -124,11 +123,11 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
        _decodingPreferences = decodingPreferences.state {
     _subtitlePreferencesSubscription = subtitlePreferences.stream.listen(
       (preferences) =>
-          unawaited(_handleSubtitlePreferencesChanged(preferences)),
+          unawaited(_onRenderingPreferencesChanged(subtitles: preferences)),
     );
     _decodingPreferencesSubscription = decodingPreferences.stream.listen(
       (preferences) =>
-          unawaited(_handleDecodingPreferencesChanged(preferences)),
+          unawaited(_onRenderingPreferencesChanged(decoding: preferences)),
     );
   }
 
@@ -193,8 +192,6 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
   bool _reconfiguring = false;
   bool _recreateQueued = false;
   bool _closed = false;
-  final PlayerRebufferCycleTracker _rebufferCycleTracker =
-      PlayerRebufferCycleTracker();
 
   PlayerEngineStartupState _startupState =
       const PlayerEngineStartupState.openingSource();
@@ -402,10 +399,7 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
     final stopwatch = Stopwatch()..start();
     while (stopwatch.elapsed < stopTimeout) {
       try {
-        final idle = await (platform as dynamic).getProperty(
-          'idle-active',
-          waitForInitialization: false,
-        );
+        final idle = await _getMpvProperty(platform, 'idle-active');
         if (idle == 'yes') return true;
       } catch (_) {
         return false;
@@ -510,45 +504,29 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
     playbackStats.value = null;
   }
 
-  Future<void> _handleSubtitlePreferencesChanged(
-    SubtitlePreferences next,
-  ) async {
+  Future<void> _onRenderingPreferencesChanged({
+    SubtitlePreferences? subtitles,
+    PlayerDecodingPreferences? decoding,
+  }) async {
     if (_closed) return;
-    final previous = _subtitlePreferences;
-    _subtitlePreferences = next;
+    final previousSubtitles = _subtitlePreferences;
+    final previousDecoding = _decodingPreferences;
+    _subtitlePreferences = subtitles ?? previousSubtitles;
+    _decodingPreferences = decoding ?? previousDecoding;
 
     if (requiresPlaybackRecreation(
-      previousSubtitlePreferences: previous,
-      nextSubtitlePreferences: next,
-      previousDecodingPreferences: _decodingPreferences,
+      previousSubtitlePreferences: previousSubtitles,
+      nextSubtitlePreferences: _subtitlePreferences,
+      previousDecodingPreferences: previousDecoding,
       nextDecodingPreferences: _decodingPreferences,
     )) {
       await _recreatePlayer();
       return;
     }
 
-    notifyListeners();
-    await _applyNativePlayerProperties();
-  }
-
-  Future<void> _handleDecodingPreferencesChanged(
-    PlayerDecodingPreferences next,
-  ) async {
-    if (_closed) return;
-    final previous = _decodingPreferences;
-    _decodingPreferences = next;
-
-    if (requiresPlaybackRecreation(
-      previousSubtitlePreferences: _subtitlePreferences,
-      nextSubtitlePreferences: _subtitlePreferences,
-      previousDecodingPreferences: previous,
-      nextDecodingPreferences: next,
-    )) {
-      await _recreatePlayer();
-      return;
-    }
-
-    await _applyNativePlayerProperties();
+    // The Flutter subtitle view reads [subtitleViewConfiguration].
+    if (subtitles != null) notifyListeners();
+    await _applyMpvProperties(_subtitleMpvProperties);
   }
 
   void _createPlayer() {
@@ -575,7 +553,6 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
     _startupClock
       ..reset()
       ..start();
-    _rebufferCycleTracker.reset();
     _cancelStartupTimeout();
     _cancelErrorCheck();
     _updateStartupState(const PlayerEngineStartupState.openingSource());
@@ -585,7 +562,10 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
       name: 'iris.player.media',
     );
     try {
-      await _applyNativePlayerProperties();
+      await _applyMpvProperties({
+        ...playbackMpvProperties,
+        ..._subtitleMpvProperties,
+      });
       _preferredTracksApplied = false;
       _openTarget = _openPosition;
       await player.open(
@@ -622,12 +602,8 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
     _subtitleLift = lift;
     final platform = _player?.platform;
     if (platform == null || _closed) return;
-    final position = _liftedSubtitlePosition(
-      buildSubtitleMpvProperties(_subtitlePreferences)['sub-pos'],
-    );
-    if (position == null) return;
     try {
-      await (platform as dynamic).setProperty('sub-pos', position);
+      await _setMpvProperty(platform, 'sub-pos', _liftedSubtitlePosition);
     } catch (error) {
       developer.log(
         'Failed to move subtitles.',
@@ -638,30 +614,24 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
   }
 
   /// mpv's `sub-pos` (percent of the height, 100 = bottom) with the lift.
-  String? _liftedSubtitlePosition(String? base) {
-    final position = int.tryParse(base ?? '');
-    if (position == null) return base;
+  String get _liftedSubtitlePosition {
+    final position = subtitleMpvPosition(_subtitlePreferences.verticalPosition);
     final lifted = position - (_subtitleLift * 100).round();
     return lifted.clamp(0, 150).toString();
   }
 
-  Future<void> _applyNativePlayerProperties() async {
+  Map<String, String> get _subtitleMpvProperties => {
+    ...buildSubtitleMpvProperties(_subtitlePreferences),
+    'sub-pos': _liftedSubtitlePosition,
+  };
+
+  Future<void> _applyMpvProperties(Map<String, String> properties) async {
     final platform = _player?.platform;
     if (platform == null) return;
 
-    final properties = {
-      ...buildPlayerRenderingConfiguration(
-        _subtitlePreferences,
-        _decodingPreferences,
-      ).mpvProperties,
-    };
-    if (properties['sub-pos'] case final base?) {
-      properties['sub-pos'] = _liftedSubtitlePosition(base) ?? base;
-    }
-
     try {
       for (final entry in properties.entries) {
-        await (platform as dynamic).setProperty(entry.key, entry.value);
+        await _setMpvProperty(platform, entry.key, entry.value);
       }
     } catch (error, stackTrace) {
       developer.log(
@@ -723,14 +693,6 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
       'media_kit buffering changed: $value',
       name: 'iris.player.media',
     );
-    if (value && _isReady && _rebufferCycleTracker.markBufferingStarted()) {
-      developer.log(
-        'Rebuffer cycle detected. count=${_rebufferCycleTracker.rebufferCount} window=${playerRebufferWindow.inSeconds}s',
-        name: 'iris.player.media',
-      );
-    } else if (!value && _isReady && player.state.playing) {
-      _rebufferCycleTracker.markPlaybackStable();
-    }
     buffering.value = value;
     unawaited(_logCacheBufferingState('buffering changed'));
   }
@@ -743,11 +705,6 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
     );
     if (!_isReady) return;
     if (!playing) _reportProgress(flush: true);
-    if (playing && !buffering.value) {
-      _rebufferCycleTracker.markPlaybackStable();
-      return;
-    }
-    if (!playing) _rebufferCycleTracker.clearStablePlayback();
   }
 
   void _onCompleted(bool completed) {
@@ -937,8 +894,7 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
     }
     final String idle;
     try {
-      idle =
-          '${await (platform as dynamic).getProperty('idle-active', waitForInitialization: false)}';
+      idle = '${await _getMpvProperty(platform, 'idle-active')}';
     } catch (_) {
       return;
     }
@@ -1096,9 +1052,6 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
     if (_pendingSeek != null) _openTarget = null;
     _applyPendingSeek();
     unawaited(_checkOpenedAt(_startupGeneration));
-    if (player.state.playing && !buffering.value) {
-      _rebufferCycleTracker.markPlaybackStable();
-    }
     unawaited(_loadChapters(_startupGeneration));
   }
 
@@ -1115,7 +1068,7 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
     final double? seconds;
     try {
       seconds = double.tryParse(
-        '${await (platform as dynamic).getProperty('time-pos', waitForInitialization: false)}',
+        '${await _getMpvProperty(platform, 'time-pos')}',
       );
     } catch (_) {
       return;
@@ -1213,10 +1166,7 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
     if (platform != null) {
       for (final name in _startupMpvProperties) {
         try {
-          final value = await (platform as dynamic).getProperty(
-            name,
-            waitForInitialization: false,
-          );
+          final value = await _getMpvProperty(platform, name);
           mpv.add('$name=$value');
         } catch (_) {}
       }
@@ -1238,9 +1188,9 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
     if (platform == null) return;
 
     try {
-      final cacheBufferingState = await (platform as dynamic).getProperty(
+      final cacheBufferingState = await _getMpvProperty(
+        platform,
         'cache-buffering-state',
-        waitForInitialization: false,
       );
       developer.log(
         'media_kit cache buffering state. reason=$reason value=$cacheBufferingState',
@@ -1278,10 +1228,7 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
     if (platform == null) return null;
 
     try {
-      final value = await (platform as dynamic).getProperty(
-        property,
-        waitForInitialization: false,
-      );
+      final value = await _getMpvProperty(platform, property);
       if (value is! String) return null;
       final trimmed = value.trim();
       if (trimmed.isEmpty || trimmed == '0') return null;
@@ -1305,6 +1252,22 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
     _player = null;
     await player?.dispose();
   }
+}
+
+/// mpv's own property access, which [PlatformPlayer] does not declare.
+Future<Object?> _getMpvProperty(PlatformPlayer platform, String name) async {
+  return await (platform as dynamic).getProperty(
+    name,
+    waitForInitialization: false,
+  );
+}
+
+Future<void> _setMpvProperty(
+  PlatformPlayer platform,
+  String name,
+  String value,
+) async {
+  await (platform as dynamic).setProperty(name, value);
 }
 
 bool _hasRealVideoTrack(Tracks tracks) {

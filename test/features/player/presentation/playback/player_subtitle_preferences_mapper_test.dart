@@ -4,7 +4,7 @@ import 'package:media_kit_video/media_kit_video.dart';
 
 import 'package:iris/features/player/domain/entities/player_decoding_preferences.dart';
 import 'package:iris/features/player/domain/entities/subtitle_preferences.dart';
-import 'package:iris/features/player/presentation/widgets/player_subtitle_preferences_mapper.dart';
+import 'package:iris/features/player/presentation/playback/player_subtitle_preferences_mapper.dart';
 
 void main() {
   test('builds subtitle view configuration from preferences', () {
@@ -41,24 +41,36 @@ void main() {
       configuration.playerConfiguration.libassAndroidFontName,
       subtitleLibassFontFamilyName,
     );
-    expect(configuration.mpvProperties['cache'], 'yes');
-    expect(configuration.mpvProperties['cache-pause'], 'yes');
-    expect(configuration.mpvProperties['cache-pause-initial'], 'yes');
-    expect(configuration.mpvProperties['cache-pause-wait'], '3');
-    expect(configuration.mpvProperties['demuxer-max-bytes'], '268435456');
-    expect(configuration.mpvProperties['demuxer-max-back-bytes'], '33554432');
-    expect(configuration.mpvProperties['cache-secs'], '30');
-    expect(configuration.mpvProperties['demuxer-readahead-secs'], '20');
-    expect(configuration.mpvProperties['network-timeout'], '60');
-    expect(configuration.mpvProperties['vd-lavc-threads'], '0');
-    expect(configuration.mpvProperties, isNot(contains('hwdec')));
-    expect(configuration.mpvProperties, isNot(contains('vd')));
-    expect(configuration.mpvProperties, isNot(contains('hr-seek')));
     expect(
       configuration.videoControllerConfiguration.enableHardwareAcceleration,
       isTrue,
     );
     expect(configuration.videoControllerConfiguration.hwdec, 'auto-safe');
+  });
+
+  test('sets the buffering and decoding options of the playback contract', () {
+    expect(playbackMpvProperties['cache'], 'yes');
+    expect(playbackMpvProperties['cache-pause'], 'yes');
+    expect(playbackMpvProperties['cache-pause-initial'], 'yes');
+    expect(playbackMpvProperties['cache-pause-wait'], '3');
+    expect(playbackMpvProperties['demuxer-max-bytes'], '268435456');
+    expect(playbackMpvProperties['demuxer-max-back-bytes'], '33554432');
+    expect(playbackMpvProperties['cache-secs'], '30');
+    expect(playbackMpvProperties['demuxer-readahead-secs'], '20');
+    expect(playbackMpvProperties['network-timeout'], '60');
+    expect(playbackMpvProperties['vd-lavc-threads'], '0');
+    expect(playbackMpvProperties, isNot(contains('hwdec')));
+    expect(playbackMpvProperties, isNot(contains('vd')));
+    expect(playbackMpvProperties, isNot(contains('hr-seek')));
+  });
+
+  test('keeps subtitle options apart from the playback ones', () {
+    final properties = buildSubtitleMpvProperties(
+      const SubtitlePreferences.defaults(),
+    );
+
+    expect(properties.keys, everyElement(startsWith('sub-')));
+    expect(properties['sub-pos'], '100');
   });
 
   test('builds video controller configuration from decoding preferences', () {

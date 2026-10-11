@@ -4,8 +4,9 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart' show NumberFormat;
 
+import 'package:iris/features/player/domain/entities/player_playback_diagnostics.dart';
 import 'package:iris/features/player/domain/entities/player_playback_stats.dart';
-import 'package:iris/features/player/presentation/widgets/player_buffer_health_tracker.dart';
+import 'package:iris/features/player/presentation/playback/player_buffer_margin.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/widgets/segmented_bar.dart';
 
@@ -282,52 +283,6 @@ class PlayerPlaybackStatsIndicator extends StatelessWidget {
     items.sort((left, right) => left.priority.compareTo(right.priority));
     return items;
   }
-}
-
-class PlayerPlaybackDiagnostics {
-  const PlayerPlaybackDiagnostics({
-    this.hwdecCurrent,
-    this.currentVo,
-    this.videoCodec,
-    this.videoDecoder,
-    this.videoDecoderDescription,
-  });
-
-  final String? hwdecCurrent;
-  final String? currentVo;
-  final String? videoCodec;
-  final String? videoDecoder;
-  final String? videoDecoderDescription;
-
-  bool get isEmpty =>
-      _nonBlank(hwdecCurrent) == null &&
-      _nonBlank(currentVo) == null &&
-      _nonBlank(videoCodec) == null &&
-      _nonBlank(videoDecoder) == null &&
-      _nonBlank(videoDecoderDescription) == null;
-
-  @override
-  bool operator ==(Object other) {
-    if (identical(this, other)) {
-      return true;
-    }
-
-    return other is PlayerPlaybackDiagnostics &&
-        other.hwdecCurrent == hwdecCurrent &&
-        other.currentVo == currentVo &&
-        other.videoCodec == videoCodec &&
-        other.videoDecoder == videoDecoder &&
-        other.videoDecoderDescription == videoDecoderDescription;
-  }
-
-  @override
-  int get hashCode => Object.hash(
-    hwdecCurrent,
-    currentVo,
-    videoCodec,
-    videoDecoder,
-    videoDecoderDescription,
-  );
 }
 
 class _MetricChip extends StatelessWidget {
