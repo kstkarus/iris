@@ -17,7 +17,6 @@ class AnimeListBloc extends Bloc<AnimeListEvent, AnimeListState> {
     on<AnimeListNextPageRequested>(_onNextPageRequested);
     on<AnimeListSearchChanged>(_onSearchChanged);
     on<AnimeListSearchCleared>(_onSearchCleared);
-    on<AnimeListSortChanged>(_onSortChanged);
     on<AnimeListCriteriaApplied>(_onCriteriaApplied);
     on<AnimeListCriteriaReset>(_onCriteriaReset);
     on<AnimeListAccountChanged>(_onAccountChanged);
@@ -109,22 +108,6 @@ class AnimeListBloc extends Bloc<AnimeListEvent, AnimeListState> {
     }
 
     _restartList(emit, query: '', sort: state.sort, filters: state.filters);
-  }
-
-  void _onSortChanged(
-    AnimeListSortChanged event,
-    Emitter<AnimeListState> emit,
-  ) {
-    if (event.sort == state.sort && state.hasLoadedOnce) {
-      return;
-    }
-
-    _restartList(
-      emit,
-      query: state.query,
-      sort: event.sort,
-      filters: state.filters,
-    );
   }
 
   void _onCriteriaApplied(

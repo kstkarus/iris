@@ -306,30 +306,6 @@ void main() {
       expect(bloc.state.filters.kinds, {AnimeKindFilter.movie});
     });
 
-    test('changes sort and reloads the first page', () async {
-      AnimeListQuery? capturedQuery;
-      final bloc = AnimeListBloc(
-        repository: _FakeAnimeListRepository(
-          handler: ({required query}) async {
-            capturedQuery = query;
-            return AnimeListPageResult(
-              items: _pageOneItems,
-              page: query.page,
-              hasMore: true,
-              query: query.search,
-            );
-          },
-        ),
-      );
-
-      bloc.add(const AnimeListSortChanged(AnimeListSortOption.airedOn));
-      await Future<void>.delayed(Duration.zero);
-
-      expect(capturedQuery?.sort, AnimeListSortOption.airedOn);
-      expect(bloc.state.sort, AnimeListSortOption.airedOn);
-      expect(bloc.state.page, 1);
-    });
-
     test('clearing search keeps active filters and sort', () async {
       late AnimeListQuery lastQuery;
       final bloc = AnimeListBloc(
