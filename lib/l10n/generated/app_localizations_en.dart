@@ -354,6 +354,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get playerSettingsTitle => 'Settings';
 
   @override
+  String get playerLockScreen => 'Lock screen';
+
+  @override
+  String get playerUnlockScreen => 'Unlock';
+
+  @override
+  String get playerScreenLocked => 'Screen locked, tap to unlock';
+
+  @override
   String get playerDecoderSettingsTitle => 'Decoder';
 
   @override

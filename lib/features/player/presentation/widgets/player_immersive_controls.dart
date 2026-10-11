@@ -29,6 +29,7 @@ part 'immersive/immersive_plates.dart';
 part 'immersive/height_reporter.dart';
 part 'immersive/controls_metrics.dart';
 part 'immersive/touch_gestures.dart';
+part 'immersive/screen_lock.dart';
 
 /// How fast the controls, and what hides with them, fade.
 const _controlsFade = Duration(milliseconds: 250);
@@ -48,8 +49,10 @@ typedef PlayerPanelOpener = Future<void> Function(BuildContext anchor);
 /// while longer, and the buttons are finger-sized; the volume and full
 /// screen are the phone's own. The video takes a phone's gestures too
 /// (see [_TouchGestures]): double taps at the sides seek, a long press
-/// plays at 2×, a pinch fills the screen. The titles show only while paused, as in
-/// streaming apps, and the subtitles move above whatever the controls
+/// plays at 2×, a pinch fills the screen. The lock in the bar stops every
+/// touch, and Back, while playback goes on; a tap shows the way to unlock
+/// for a few seconds. The titles show only while paused, as in streaming
+/// apps, and the subtitles move above whatever the controls
 /// cover at the bottom. Back closes the open drawer first.
 ///
 /// Keyboard: Space/K play-pause, ←/→ and J/L ∓10 s, ↑/↓ volume, M mute,
@@ -132,6 +135,10 @@ class _PlayerImmersiveControlsState extends State<PlayerImmersiveControls> {
 
   bool _episodesOpen = false;
 
+  _ScreenLock _lock = _ScreenLock.unlocked;
+  Timer? _unlockPlateTimer;
+  bool get _locked => _lock != _ScreenLock.unlocked;
+
   /// The panel open from the bar; its button shows it, and the controls
   /// stay while it is open.
   Object? _openPanel;
@@ -178,6 +185,7 @@ class _PlayerImmersiveControlsState extends State<PlayerImmersiveControls> {
     _hideTimer?.cancel();
     _lowerSubtitlesTimer?.cancel();
     _volumeHudTimer?.cancel();
+    _unlockPlateTimer?.cancel();
     _visibility.dispose();
     _focusNode.dispose();
     super.dispose();
@@ -199,7 +207,7 @@ class _PlayerImmersiveControlsState extends State<PlayerImmersiveControls> {
     if (!mounted || playing == _playing) return;
     setState(() {
       _playing = playing;
-      if (!playing) _controlsVisible = true;
+      if (!playing && !_locked) _controlsVisible = true;
     });
     if (playing) _restartHideTimer();
   }
@@ -261,6 +269,7 @@ class _PlayerImmersiveControlsState extends State<PlayerImmersiveControls> {
   }
 
   void _showControls() {
+    if (_locked) return;
     if (!_controlsVisible) setState(() => _controlsVisible = true);
     _restartHideTimer();
   }
@@ -280,6 +289,34 @@ class _PlayerImmersiveControlsState extends State<PlayerImmersiveControls> {
   /// hidden ones is the tap's to decide.
   void _onTouchDown() {
     if (_controlsVisible) _restartHideTimer();
+  }
+
+  /// Everything over the video goes and takes no touches; playback goes
+  /// on.
+  void _lockScreen() {
+    _hideTimer?.cancel();
+    setState(() {
+      _lock = _ScreenLock.locked;
+      _controlsVisible = false;
+      _episodesOpen = false;
+    });
+  }
+
+  /// A touch on the locked screen shows the way out for a while.
+  void _revealUnlock() {
+    _unlockPlateTimer?.cancel();
+    setState(() => _lock = _ScreenLock.revealed);
+    _unlockPlateTimer = Timer(_ScreenLock.plateShownFor, () {
+      if (mounted && _lock == _ScreenLock.revealed) {
+        setState(() => _lock = _ScreenLock.locked);
+      }
+    });
+  }
+
+  void _unlockScreen() {
+    _unlockPlateTimer?.cancel();
+    setState(() => _lock = _ScreenLock.unlocked);
+    _showControls();
   }
 
   void _restartHideTimer() {
@@ -380,7 +417,7 @@ class _PlayerImmersiveControlsState extends State<PlayerImmersiveControls> {
   }
 
   void _openEpisodes() {
-    if (widget.chrome.episodes == null) return;
+    if (widget.chrome.episodes == null || _locked) return;
     setState(() {
       _episodesOpen = true;
       _controlsVisible = true;
@@ -403,7 +440,7 @@ class _PlayerImmersiveControlsState extends State<PlayerImmersiveControls> {
   }
 
   KeyEventResult _onKey(FocusNode node, KeyEvent event) {
-    if (event is KeyUpEvent) return KeyEventResult.ignored;
+    if (event is KeyUpEvent || _locked) return KeyEventResult.ignored;
     final key = event.logicalKey;
     const step = PlayerImmersiveControls.seekStep;
     const volumeStep = PlayerImmersiveControls.volumeStep;
@@ -458,6 +495,79 @@ class _PlayerImmersiveControlsState extends State<PlayerImmersiveControls> {
     _insets = metrics.insets(MediaQuery.paddingOf(context));
     _reportSubtitleClearance();
 
+    final overVideo = Stack(
+      fit: StackFit.expand,
+      children: [
+        ColoredBox(color: Colors.black, child: widget.video),
+        // A paused frame steps back behind the titles and controls.
+        IgnorePointer(
+          child: AnimatedOpacity(
+            key: const Key('player_pause_dim'),
+            opacity: !_playing && widget.startupLabel == null ? 1 : 0,
+            duration: _BottomSection.titleAnimation,
+            child: const ColoredBox(color: Color(0x59000000)),
+          ),
+        ),
+        if (widget.failure == null) ...[
+          if (_touch)
+            _TouchGestures(
+              enabled: !_locked,
+              playing: _playing,
+              position: () => _player?.state.position ?? Duration.zero,
+              duration: () => _player?.state.duration ?? Duration.zero,
+              onTap: _toggleControls,
+              onSeek: _seekTo,
+              onFastForward: widget.engine.holdFastForward,
+              videoFit: widget.videoFit,
+            )
+          else
+            GestureDetector(
+              key: const Key('player_immersive_tap_layer'),
+              behavior: HitTestBehavior.opaque,
+              onTap: _togglePlay,
+              onDoubleTap: widget.onToggleFullscreen,
+            ),
+          _BufferingSpinner(
+            engine: widget.engine,
+            color: accent,
+            startupLabel: widget.startupLabel,
+            playBox: metrics.playBox,
+          ),
+        ],
+        IgnorePointer(
+          ignoring: !visible,
+          child: AnimatedOpacity(
+            key: const Key('player_immersive_controls'),
+            opacity: visible ? 1 : 0,
+            duration: _controlsFade,
+            child: player == null
+                ? const SizedBox.shrink()
+                : _buildControls(context, player, accent, metrics),
+          ),
+        ),
+        // Above the controls: the message and its retry take the taps
+        // where they are, and the controls keep the rest of the screen.
+        ?widget.failure,
+        _buildOffers(context),
+        if (widget.chrome.notice case final notice?)
+          Positioned(
+            left: _insets.left,
+            bottom: _barHeight > 0 ? _subtitleClearanceAbove : _offerClearance,
+            child: Offstage(
+              offstage: _locked,
+              child: _NoticeCard(notice: notice, accent: accent),
+            ),
+          ),
+        if (_volumeHud case final volume?)
+          _VolumeHud(key: const Key('player_volume_hud'), volume: volume),
+        if (_episodesOpen && widget.chrome.episodes != null)
+          PlayerEpisodesDrawer(
+            onClose: _closeEpisodes,
+            builder: widget.chrome.episodes!,
+            caption: widget.chrome.episodesCaption,
+          ),
+      ],
+    );
     final controls = Focus(
       focusNode: _focusNode,
       autofocus: true,
@@ -471,72 +581,12 @@ class _PlayerImmersiveControlsState extends State<PlayerImmersiveControls> {
           child: Stack(
             fit: StackFit.expand,
             children: [
-              ColoredBox(color: Colors.black, child: widget.video),
-              // A paused frame steps back behind the titles and controls.
-              IgnorePointer(
-                child: AnimatedOpacity(
-                  key: const Key('player_pause_dim'),
-                  opacity: !_playing && widget.startupLabel == null ? 1 : 0,
-                  duration: _BottomSection.titleAnimation,
-                  child: const ColoredBox(color: Color(0x59000000)),
-                ),
-              ),
-              if (widget.failure == null) ...[
-                if (_touch)
-                  _TouchGestures(
-                    enabled: true,
-                    playing: _playing,
-                    position: () => _player?.state.position ?? Duration.zero,
-                    duration: () => _player?.state.duration ?? Duration.zero,
-                    onTap: _toggleControls,
-                    onSeek: _seekTo,
-                    onFastForward: widget.engine.holdFastForward,
-                    videoFit: widget.videoFit,
-                  )
-                else
-                  GestureDetector(
-                    key: const Key('player_immersive_tap_layer'),
-                    behavior: HitTestBehavior.opaque,
-                    onTap: _togglePlay,
-                    onDoubleTap: widget.onToggleFullscreen,
-                  ),
-                _BufferingSpinner(
-                  engine: widget.engine,
-                  color: accent,
-                  startupLabel: widget.startupLabel,
-                  playBox: metrics.playBox,
-                ),
-              ],
-              IgnorePointer(
-                ignoring: !visible,
-                child: AnimatedOpacity(
-                  key: const Key('player_immersive_controls'),
-                  opacity: visible ? 1 : 0,
-                  duration: _controlsFade,
-                  child: player == null
-                      ? const SizedBox.shrink()
-                      : _buildControls(context, player, accent, metrics),
-                ),
-              ),
-              // Above the controls: the message and its retry take the taps
-              // where they are, and the controls keep the rest of the screen.
-              ?widget.failure,
-              _buildOffers(context),
-              if (widget.chrome.notice case final notice?)
-                Positioned(
-                  left: _insets.left,
-                  bottom: _barHeight > 0
-                      ? _subtitleClearanceAbove
-                      : _offerClearance,
-                  child: _NoticeCard(notice: notice, accent: accent),
-                ),
-              if (_volumeHud case final volume?)
-                _VolumeHud(key: const Key('player_volume_hud'), volume: volume),
-              if (_episodesOpen && widget.chrome.episodes != null)
-                PlayerEpisodesDrawer(
-                  onClose: _closeEpisodes,
-                  builder: widget.chrome.episodes!,
-                  caption: widget.chrome.episodesCaption,
+              AbsorbPointer(absorbing: _locked, child: overVideo),
+              if (_locked)
+                _LockLayer(
+                  revealed: _lock == _ScreenLock.revealed,
+                  onReveal: _revealUnlock,
+                  onUnlock: _unlockScreen,
                 ),
             ],
           ),
@@ -549,9 +599,11 @@ class _PlayerImmersiveControlsState extends State<PlayerImmersiveControls> {
         // Hover tooltips get in the way over video (the stats chips have
         // some); the controls label themselves for screen readers instead.
         return PopScope(
-          canPop: !_episodesOpen,
+          // A locked screen only shows the way to unlock.
+          canPop: !_episodesOpen && !_locked,
           onPopInvokedWithResult: (didPop, _) {
-            if (!didPop) _closeEpisodes();
+            if (didPop) return;
+            _locked ? _revealUnlock() : _closeEpisodes();
           },
           child: TooltipVisibility(visible: false, child: controls),
         );
@@ -622,6 +674,7 @@ class _PlayerImmersiveControlsState extends State<PlayerImmersiveControls> {
                   _showPanel(#settings, widget.onShowSettings, anchor),
               onToggleFullscreen: widget.onToggleFullscreen,
               onEpisodes: widget.chrome.episodes == null ? null : _openEpisodes,
+              onLock: _touch ? _lockScreen : null,
             ),
           ),
         ),
@@ -638,40 +691,43 @@ class _PlayerImmersiveControlsState extends State<PlayerImmersiveControls> {
     return Positioned(
       right: _insets.right,
       bottom: _offerClearance,
-      child: MouseRegion(
-        onEnter: (_) => _setHold(#offers, true),
-        onExit: (_) => _setHold(#offers, false),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            PlayerSkipSegmentOffer(
-              segment: engine.skipSegment,
-              controlsVisible: _visibility,
-              fallback: _SkipForwardOffer(
-                engine: engine,
+      child: Offstage(
+        offstage: _locked,
+        child: MouseRegion(
+          onEnter: (_) => _setHold(#offers, true),
+          onExit: (_) => _setHold(#offers, false),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              PlayerSkipSegmentOffer(
+                segment: engine.skipSegment,
                 controlsVisible: _visibility,
-              ),
-              plate: (label, _) => _OfferButton.outlined(
-                key: const Key('player_skip_segment_button'),
-                label: label,
-                onPressed: () => unawaited(engine.skipCurrentSegment()),
-              ),
-            ),
-            if (next != null)
-              PlayerNextOffer(
-                finishing: engine.finishing,
-                completed: engine.completed,
-                title: next.title,
-                controlsVisible: _visibility,
-                plate: (label, detail) => _OfferButton.filled(
-                  key: const Key('player_next_file_prompt'),
+                fallback: _SkipForwardOffer(
+                  engine: engine,
+                  controlsVisible: _visibility,
+                ),
+                plate: (label, _) => _OfferButton.outlined(
+                  key: const Key('player_skip_segment_button'),
                   label: label,
-                  detail: detail,
-                  onPressed: next.play,
+                  onPressed: () => unawaited(engine.skipCurrentSegment()),
                 ),
               ),
-          ],
+              if (next != null)
+                PlayerNextOffer(
+                  finishing: engine.finishing,
+                  completed: engine.completed,
+                  title: next.title,
+                  controlsVisible: _visibility,
+                  plate: (label, detail) => _OfferButton.filled(
+                    key: const Key('player_next_file_prompt'),
+                    label: label,
+                    detail: detail,
+                    onPressed: next.play,
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     );

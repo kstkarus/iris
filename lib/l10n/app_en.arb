@@ -184,6 +184,18 @@
   "playerAudioTracksTitle": "Audio",
   "playerSubtitleTracksTitle": "Subtitles",
   "playerSettingsTitle": "Settings",
+  "playerLockScreen": "Lock screen",
+  "@playerLockScreen": {
+    "description": "Button: the player stops taking touches until unlocked; playback goes on."
+  },
+  "playerUnlockScreen": "Unlock",
+  "@playerUnlockScreen": {
+    "description": "The plate a tap on a locked player shows."
+  },
+  "playerScreenLocked": "Screen locked, tap to unlock",
+  "@playerScreenLocked": {
+    "description": "Read out over a locked player."
+  },
   "playerDecoderSettingsTitle": "Decoder",
   "playerDecoderSettingsDescription": "Change this only if video stutters or shows green frames on your device. Technical details below show the decoder in use.",
   "playerDecoderAutoSafe": "Auto (recommended)",

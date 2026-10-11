@@ -361,6 +361,16 @@ class AppLocalizationsRu extends AppLocalizations {
   String get playerSettingsTitle => 'Настройки';
 
   @override
+  String get playerLockScreen => 'Заблокировать экран';
+
+  @override
+  String get playerUnlockScreen => 'Разблокировать';
+
+  @override
+  String get playerScreenLocked =>
+      'Экран заблокирован, коснитесь, чтобы разблокировать';
+
+  @override
   String get playerDecoderSettingsTitle => 'Декодер';
 
   @override

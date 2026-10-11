@@ -1944,6 +1944,7 @@ void main() {
           'player_episodes_button',
           'player_tracks_button',
           'player_settings_button',
+          'player_lock_button',
         ]) {
           final button = tester.getRect(find.byKey(Key(key)));
           expect(button.width, greaterThanOrEqualTo(48), reason: key);
@@ -2383,6 +2384,131 @@ void main() {
       await tester.pump();
       expect(platformPlayer.nativeProperties['sub-pos'], '100');
       await tester.pump(const Duration(seconds: 1));
+    });
+
+    Finder unlockPlate() => find.byKey(const Key('player_unlock_button'));
+
+    testWidgets('lock the screen: no touch gets through and playback goes on '
+        'until unlocked', (tester) async {
+      setTestWindowSize(tester, phone);
+      final platformPlayer = _FakePlatformPlayer(
+        configuration: const PlayerConfiguration(),
+      );
+      var restarts = 0;
+      await tester.pumpWidget(
+        _wrapViewport(
+          platformPlayer: platformPlayer,
+          input: PlayerInputMode.touch,
+          chrome: PlayerChrome(
+            title: 'Episode 11',
+            onBack: () {},
+            notice: PlayerNotice(
+              message: 'Resuming from 5:00',
+              actionLabel: 'Start over',
+              onAction: () => restarts++,
+              onTimeout: () {},
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      platformPlayer
+        ..emitDuration(const Duration(minutes: 24))
+        ..emitPosition(const Duration(minutes: 5))
+        ..emitPlaying(true);
+      await _deliverPlayerEvent(tester);
+
+      await tester.tap(find.byKey(const Key('player_lock_button')));
+      await tester.pump();
+      expect(opacity(tester), 0);
+      expect(find.byKey(const Key('player_notice')), findsNothing);
+      expect(unlockPlate(), findsNothing);
+
+      await tester.tapAt(right);
+      await tester.pump(const Duration(milliseconds: 100));
+      await tester.tapAt(right);
+      await tester.pump(const Duration(milliseconds: 400));
+      final press = await tester.startGesture(middle);
+      await tester.pump(kLongPressTimeout + const Duration(milliseconds: 100));
+      await press.up();
+      await tester.pump();
+      expect(platformPlayer.seeks, isEmpty);
+      expect(platformPlayer.rates, isEmpty);
+      expect(platformPlayer.playOrPauseCount, 0);
+      expect(platformPlayer.state.playing, isTrue, reason: 'it plays on');
+      expect(opacity(tester), 0);
+      expect(unlockPlate(), findsOneWidget, reason: 'a tap shows the way out');
+
+      await tester.pump(const Duration(seconds: 3));
+      expect(unlockPlate(), findsNothing);
+
+      await tester.tapAt(middle);
+      await tester.pump();
+      await tester.tap(unlockPlate());
+      await tester.pump();
+      expect(unlockPlate(), findsNothing);
+      expect(opacity(tester), 1);
+      await tester.tap(find.byKey(const Key('player_notice_action')));
+      expect(restarts, 1);
+    });
+
+    testWidgets('only show the way to unlock on Back while locked', (
+      tester,
+    ) async {
+      setTestWindowSize(tester, phone);
+      var leaves = 0;
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        (call) async {
+          if (call.method == 'SystemNavigator.pop') leaves++;
+          return null;
+        },
+      );
+      addTearDown(
+        () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          SystemChannels.platform,
+          null,
+        ),
+      );
+      await tester.pumpWidget(
+        _wrapViewport(input: PlayerInputMode.touch, chrome: chrome()),
+      );
+      await tester.pump();
+
+      await tester.tap(find.byKey(const Key('player_lock_button')));
+      await tester.pump();
+      await tester.binding.handlePopRoute();
+      await tester.pump();
+      expect(leaves, 0, reason: 'the player stays');
+      expect(unlockPlate(), findsOneWidget);
+
+      await tester.tap(unlockPlate());
+      await tester.pump();
+      await tester.binding.handlePopRoute();
+      await tester.pump();
+      expect(leaves, 1);
+    });
+
+    testWidgets('let go of 2x when the screen locks', (tester) async {
+      final platformPlayer = await playerAt(tester, playing: true);
+
+      final press = await tester.startGesture(middle);
+      await tester.pump(kLongPressTimeout + const Duration(milliseconds: 100));
+      expect(platformPlayer.rates, [2]);
+
+      await tester.tap(find.byKey(const Key('player_lock_button')));
+      await tester.pump();
+      expect(platformPlayer.rates, [2, 1]);
+      await press.up();
+      await tester.pump();
+      expect(platformPlayer.rates, [2, 1]);
+    });
+
+    testWidgets('lock only by touch', (tester) async {
+      setTestWindowSize(tester, TestWindowSizes.landscape);
+      await tester.pumpWidget(_wrapViewport(chrome: chrome()));
+      await tester.pump();
+      expect(find.byKey(const Key('player_lock_button')), findsNothing);
     });
   });
 }

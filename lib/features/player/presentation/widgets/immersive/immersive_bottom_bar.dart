@@ -21,6 +21,7 @@ class _BottomSection extends StatelessWidget {
     required this.onShowSettings,
     required this.onToggleFullscreen,
     required this.onEpisodes,
+    required this.onLock,
   });
 
   static const titleAnimation = Duration(milliseconds: 200);
@@ -57,6 +58,9 @@ class _BottomSection extends StatelessWidget {
   final VoidCallback onToggleFullscreen;
   final VoidCallback? onEpisodes;
 
+  /// Locks the screen; by touch only.
+  final VoidCallback? onLock;
+
   @override
   Widget build(BuildContext context) {
     final buttonInset = metrics.barButtonInset;
@@ -89,6 +93,7 @@ class _BottomSection extends StatelessWidget {
             onShowSettings: onShowSettings,
             onToggleFullscreen: onToggleFullscreen,
             onEpisodes: onEpisodes,
+            onLock: onLock,
           );
           return Column(
             mainAxisSize: MainAxisSize.min,
@@ -366,6 +371,7 @@ class _BarButtons extends StatelessWidget {
     required this.onShowSettings,
     required this.onToggleFullscreen,
     required this.onEpisodes,
+    required this.onLock,
   });
 
   final Player player;
@@ -379,12 +385,14 @@ class _BarButtons extends StatelessWidget {
   final ValueChanged<BuildContext> onShowSettings;
   final VoidCallback onToggleFullscreen;
   final VoidCallback? onEpisodes;
+  final VoidCallback? onLock;
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final next = this.next;
     final onEpisodes = this.onEpisodes;
+    final onLock = this.onLock;
     final size = metrics.barButton;
     final touch = metrics.touch;
     final playback = [
@@ -427,6 +435,14 @@ class _BarButtons extends StatelessWidget {
           onPressed: () => onShowSettings(anchor),
         ),
       ),
+      if (onLock != null)
+        _BarButton(
+          key: const Key('player_lock_button'),
+          size: size,
+          glyph: const PixelIcon(PixelGlyph.lock),
+          label: l10n.playerLockScreen,
+          onPressed: onLock,
+        ),
       // A phone's player is always full screen.
       if (!touch)
         ValueListenableBuilder<bool>(

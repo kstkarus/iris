@@ -704,6 +704,24 @@ abstract class AppLocalizations {
   /// **'Settings'**
   String get playerSettingsTitle;
 
+  /// Button: the player stops taking touches until unlocked; playback goes on.
+  ///
+  /// In en, this message translates to:
+  /// **'Lock screen'**
+  String get playerLockScreen;
+
+  /// The plate a tap on a locked player shows.
+  ///
+  /// In en, this message translates to:
+  /// **'Unlock'**
+  String get playerUnlockScreen;
+
+  /// Read out over a locked player.
+  ///
+  /// In en, this message translates to:
+  /// **'Screen locked, tap to unlock'**
+  String get playerScreenLocked;
+
   /// No description provided for @playerDecoderSettingsTitle.
   ///
   /// In en, this message translates to:

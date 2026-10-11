@@ -266,6 +266,28 @@ class PixelGlyph {
     '.......',
   ]);
 
+  /// A closed padlock: the screen takes no touches.
+  static const lock = PixelGlyph._([
+    '..###..',
+    '.#...#.',
+    '.#...#.',
+    '#######',
+    '###.###',
+    '###.###',
+    '#######',
+  ]);
+
+  /// The padlock with its shackle let go on the right.
+  static const lockOpen = PixelGlyph._([
+    '..###..',
+    '.#...#.',
+    '.#.....',
+    '#######',
+    '###.###',
+    '###.###',
+    '#######',
+  ]);
+
   static const volumeOff = PixelGlyph._([
     '..#....',
     '.##....',
