@@ -5,12 +5,12 @@ import 'package:iris/features/online_sources/data/datasources/kodik_data_source.
 import 'package:iris/features/online_sources/data/datasources/yummy_anime_data_source.dart';
 import 'package:iris/features/online_sources/data/mappers/yummy_anime_mapper.dart';
 import 'package:iris/features/online_sources/data/models/video_link_dto.dart';
-import 'package:iris/features/online_sources/data/models/yummy_anime_dto.dart';
 import 'package:iris/features/online_sources/domain/entities/online_provider.dart';
 import 'package:iris/features/online_sources/domain/entities/online_release.dart';
 import 'package:iris/features/online_sources/domain/entities/online_stream.dart';
 import 'package:iris/features/online_sources/domain/repositories/online_sources_repository.dart';
 import 'package:iris/shared/network/network_exceptions.dart';
+import 'package:iris/shared/network/search_all.dart';
 
 /// Follows anicli-api 0.12.0, `anicli_api/source/yummy_anime.py`, with its
 /// Kodik and Aksor players. Each dub is a release of its own.
@@ -38,26 +38,13 @@ class YummyAnimeOnlineSourcesRepository implements OnlineSourcesRepository {
       for (final title in titles)
         if (title.trim().isNotEmpty) title.trim(),
     };
-    final results = await Future.wait(
-      queries.map((query) async {
-        try {
-          return (items: await dataSource.search(query), error: null);
-        } on Object catch (error) {
-          return (items: const <YummyAnimeDto>[], error: error);
-        }
-      }),
+    final found = await searchAll(
+      queries,
+      dataSource.search,
+      keep: (item) => item.shikimoriId == id && item.animeId != 0,
     );
-    final matching = <int, YummyAnimeDto>{
-      for (final result in results)
-        for (final item in result.items)
-          if (item.shikimoriId == id && item.animeId != 0) item.animeId: item,
-    };
-    if (matching.isEmpty) {
-      for (final result in results) {
-        if (result.error case final error?) throw error;
-      }
-      return const [];
-    }
+    if (found.isEmpty) return const [];
+    final matching = {for (final item in found) item.animeId: item};
     final releases = await Future.wait(
       matching.values.map(
         (anime) async => mapYummyReleases(

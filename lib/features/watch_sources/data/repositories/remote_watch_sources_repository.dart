@@ -1,8 +1,8 @@
 import 'package:iris/features/watch_sources/data/datasources/remote_watch_sources_data_source.dart';
 import 'package:iris/features/watch_sources/data/mappers/nyaa_watch_source_mapper.dart';
-import 'package:iris/features/watch_sources/data/models/nyaa_watch_source_dto.dart';
 import 'package:iris/features/watch_sources/domain/entities/watch_source_item.dart';
 import 'package:iris/features/watch_sources/domain/repositories/watch_sources_repository.dart';
+import 'package:iris/shared/network/search_all.dart';
 
 class RemoteWatchSourcesRepository implements WatchSourcesRepository {
   const RemoteWatchSourcesRepository({required this.dataSource});
@@ -16,28 +16,16 @@ class RemoteWatchSourcesRepository implements WatchSourcesRepository {
   /// "no sources".
   @override
   Future<List<WatchSourceItem>> fetchSources(List<String> titles) async {
-    final results = await Future.wait(
-      titles.map((title) async {
-        try {
-          return (items: await dataSource.fetchSources(title), error: null);
-        } on Object catch (error) {
-          return (items: const <NyaaWatchSourceDto>[], error: error);
-        }
-      }),
+    final found = await searchAll(
+      titles,
+      dataSource.fetchSources,
+      keep: (item) => isWatchableNyaaCategory(item.category),
     );
-    final failure = results.where((result) => result.error != null);
-
     final seen = <String>{};
-    final items = [
-      for (final result in results)
-        for (final item in result.items)
-          if (isWatchableNyaaCategory(item.category) &&
-              seen.add(item.link.isEmpty ? item.magnet : item.link))
-            mapNyaaWatchSourceToDomain(item),
+    return [
+      for (final item in found)
+        if (seen.add(item.link.isEmpty ? item.magnet : item.link))
+          mapNyaaWatchSourceToDomain(item),
     ];
-    if (items.isEmpty && failure.isNotEmpty) {
-      throw failure.first.error!;
-    }
-    return items;
   }
 }
