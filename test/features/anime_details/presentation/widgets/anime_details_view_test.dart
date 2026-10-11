@@ -13,13 +13,13 @@ import 'package:iris/features/anime_details/presentation/cubit/anime_details_cub
 import 'package:iris/features/anime_details/presentation/models/anime_details_preview.dart';
 import 'package:iris/features/anime_details/presentation/pages/anime_details_page.dart';
 import 'package:iris/features/anime_details/presentation/widgets/anime_details_view.dart';
-import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/widgets/app_skeleton.dart';
 import 'package:iris/shared/utils/bayer_mask.dart';
 import 'package:iris/shared/widgets/dither_transition.dart';
 import 'package:iris/shared/widgets/dithered_image.dart';
 import 'package:iris/shared/widgets/spec_table.dart';
 
+import '../../../../helpers/test_app.dart';
 import '../../../../helpers/test_window.dart';
 
 void main() {
@@ -157,11 +157,8 @@ void main() {
     );
 
     await tester.pumpWidget(
-      MaterialApp(
-        locale: const Locale('en'),
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        home: BlocProvider.value(
+      testApp(
+        BlocProvider.value(
           value: cubit..loadAnime(),
           child: const Scaffold(body: AnimeDetailsView()),
         ),
@@ -292,14 +289,12 @@ void main() {
     );
 
     await tester.pumpWidget(
-      MaterialApp(
-        locale: const Locale('ru'),
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        home: BlocProvider.value(
+      testApp(
+        BlocProvider.value(
           value: cubit..loadAnime(),
           child: const Scaffold(body: AnimeDetailsView()),
         ),
+        locale: const Locale('ru'),
       ),
     );
 
@@ -321,11 +316,8 @@ void main() {
     final cubit = AnimeDetailsCubit(animeId: '5114', repository: repository);
 
     await tester.pumpWidget(
-      MaterialApp(
-        locale: const Locale('en'),
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        home: BlocProvider.value(
+      testApp(
+        BlocProvider.value(
           value: cubit..loadAnime(),
           child: const Scaffold(body: AnimeDetailsView()),
         ),
@@ -445,11 +437,8 @@ void main() {
       );
 
       await tester.pumpWidget(
-        MaterialApp(
-          locale: const Locale('en'),
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          home: BlocProvider.value(
+        testApp(
+          BlocProvider.value(
             value: cubit..loadAnime(),
             child: const AnimeDetailsPage(),
           ),
@@ -477,11 +466,8 @@ Future<void> _pumpPage(WidgetTester tester) async {
     repository: _SuccessAnimeDetailsRepository(_longDetails),
   );
   await tester.pumpWidget(
-    MaterialApp(
-      locale: const Locale('en'),
-      localizationsDelegates: AppLocalizations.localizationsDelegates,
-      supportedLocales: AppLocalizations.supportedLocales,
-      home: BlocProvider.value(
+    testApp(
+      BlocProvider.value(
         value: cubit..loadAnime(),
         child: const AnimeDetailsPage(),
       ),
@@ -525,14 +511,12 @@ Widget _app(
   AnimeDetailsPreview? preview,
   String locale = 'en',
 }) {
-  return MaterialApp(
-    locale: Locale(locale),
-    localizationsDelegates: AppLocalizations.localizationsDelegates,
-    supportedLocales: AppLocalizations.supportedLocales,
-    home: BlocProvider.value(
+  return testApp(
+    BlocProvider.value(
       value: cubit,
       child: Scaffold(body: AnimeDetailsView(preview: preview)),
     ),
+    locale: Locale(locale),
   );
 }
 

@@ -21,10 +21,10 @@ import 'package:iris/features/watch_sources/presentation/cubit/watch_sources_cub
 import 'package:iris/features/watch_sources/presentation/cubit/watch_sources_tab_cubit.dart';
 import 'package:iris/features/watch_sources/presentation/models/anime_watch_sources_args.dart';
 import 'package:iris/features/watch_sources/presentation/pages/watch_sources_page.dart';
-import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/online/online_source_link.dart';
 
 import '../../../../helpers/fake_watch_progress_repository.dart';
+import '../../../../helpers/test_app.dart';
 import '../../../../helpers/test_window.dart';
 
 const _link = 'online:anilibria/9542?anime=52991';
@@ -409,14 +409,7 @@ Future<_RecordedNavigation> _pumpPage(
   );
   addTearDown(router.dispose);
 
-  await tester.pumpWidget(
-    MaterialApp.router(
-      locale: const Locale('en'),
-      localizationsDelegates: AppLocalizations.localizationsDelegates,
-      supportedLocales: AppLocalizations.supportedLocales,
-      routerConfig: router,
-    ),
-  );
+  await tester.pumpWidget(testRouterApp(router));
   await tester.pump();
   await tester.pump(const Duration(seconds: 1));
   return navigation;

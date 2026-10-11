@@ -21,12 +21,12 @@ import 'package:iris/features/watch_sources/presentation/cubit/watch_sources_cub
 import 'package:iris/features/watch_sources/presentation/models/anime_watch_sources_args.dart';
 import 'package:iris/features/watch_sources/presentation/pages/watch_sources_page.dart';
 import 'package:iris/features/watch_sources/presentation/widgets/watch_sources_view.dart';
-import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/widgets/app_skeleton.dart';
 import 'package:iris/shared/widgets/dither_transition.dart';
 import 'package:iris/shared/widgets/search_field.dart';
 
 import '../../../../helpers/fake_watch_progress_repository.dart';
+import '../../../../helpers/test_app.dart';
 import '../../../../helpers/test_window.dart';
 
 void main() {
@@ -181,11 +181,8 @@ void main() {
     );
 
     await tester.pumpWidget(
-      MaterialApp(
-        locale: const Locale('ru'),
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        home: MultiBlocProvider(
+      testApp(
+        MultiBlocProvider(
           providers: [
             BlocProvider.value(value: cubit..loadSources()),
             BlocProvider(create: (_) => _noOnlineReleases()),
@@ -199,6 +196,7 @@ void main() {
             ),
           ),
         ),
+        locale: const Locale('ru'),
       ),
     );
     await tester.pumpAndSettle();
@@ -373,11 +371,8 @@ void main() {
     addTearDown(history.close);
 
     await tester.pumpWidget(
-      MaterialApp(
-        locale: const Locale('en'),
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        home: MultiBlocProvider(
+      testApp(
+        MultiBlocProvider(
           providers: [
             BlocProvider.value(value: history),
             BlocProvider.value(value: cubit..loadSources()),
@@ -445,11 +440,8 @@ void main() {
       );
 
       await tester.pumpWidget(
-        MaterialApp(
-          locale: const Locale('en'),
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          home: MultiBlocProvider(
+        testApp(
+          MultiBlocProvider(
             providers: [
               BlocProvider.value(value: cubit..loadSources()),
               BlocProvider(create: (_) => _noOnlineReleases()),
@@ -508,11 +500,8 @@ Future<void> _pumpView(
   required WatchSourcesCubit cubit,
 }) async {
   await tester.pumpWidget(
-    MaterialApp(
-      locale: const Locale('en'),
-      localizationsDelegates: AppLocalizations.localizationsDelegates,
-      supportedLocales: AppLocalizations.supportedLocales,
-      home: BlocProvider.value(
+    testApp(
+      BlocProvider.value(
         value: cubit,
         child: const Scaffold(body: WatchSourcesView()),
       ),
@@ -564,14 +553,7 @@ Future<_RecordedNavigation> _pumpRoutedView(WidgetTester tester) async {
   );
   addTearDown(router.dispose);
 
-  await tester.pumpWidget(
-    MaterialApp.router(
-      locale: const Locale('en'),
-      localizationsDelegates: AppLocalizations.localizationsDelegates,
-      supportedLocales: AppLocalizations.supportedLocales,
-      routerConfig: router,
-    ),
-  );
+  await tester.pumpWidget(testRouterApp(router));
   await tester.pumpAndSettle();
 
   return navigation;

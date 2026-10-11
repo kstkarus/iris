@@ -7,7 +7,8 @@ import 'package:go_router/go_router.dart';
 import 'package:iris/features/anime_details/domain/entities/related_anime.dart';
 import 'package:iris/features/anime_details/presentation/models/anime_details_preview.dart';
 import 'package:iris/features/anime_details/presentation/widgets/related_anime_section.dart';
-import 'package:iris/l10n/generated/app_localizations.dart';
+
+import '../../../../helpers/test_app.dart';
 
 void main() {
   test('leaves out promos and lists before and after first, by date', () {
@@ -133,12 +134,7 @@ Widget _app(
       ),
     ],
   );
-  return MaterialApp.router(
-    locale: const Locale('en'),
-    localizationsDelegates: AppLocalizations.localizationsDelegates,
-    supportedLocales: AppLocalizations.supportedLocales,
-    routerConfig: router,
-  );
+  return testRouterApp(router);
 }
 
 RelatedAnime _anime(

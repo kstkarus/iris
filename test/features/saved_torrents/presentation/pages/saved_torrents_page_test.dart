@@ -13,9 +13,9 @@ import 'package:iris/features/saved_torrents/domain/entities/saved_torrent.dart'
 import 'package:iris/features/saved_torrents/presentation/cubit/saved_torrents_cubit.dart';
 import 'package:iris/features/saved_torrents/presentation/pages/saved_torrents_page.dart';
 import 'package:iris/features/saved_torrents/presentation/widgets/add_saved_torrent_sheet.dart';
-import 'package:iris/l10n/generated/app_localizations.dart';
 
 import '../../../../helpers/fake_watch_progress_repository.dart';
+import '../../../../helpers/test_app.dart';
 import '../../../../helpers/test_window.dart';
 
 const _hash = '065c4691de84f964e143103b3bd0de17be5bfd0a';
@@ -44,13 +44,11 @@ void main() {
   }) async {
     if (size != null) setTestWindowSize(tester, size);
     await tester.pumpWidget(
-      MaterialApp(
+      testApp(
         // A new page each time, so a changed platform builds afresh.
         key: UniqueKey(),
         locale: const Locale('ru'),
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        home: MultiBlocProvider(
+        MultiBlocProvider(
           providers: [
             BlocProvider(
               create: (_) => SavedTorrentsCubit(

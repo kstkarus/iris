@@ -12,8 +12,8 @@ import 'package:iris/features/anime_list/presentation/bloc/anime_list_bloc.dart'
 import 'package:iris/features/anime_list/presentation/bloc/anime_list_event.dart';
 import 'package:iris/features/anime_list/presentation/cubit/anime_genres_cubit.dart';
 import 'package:iris/features/anime_list/presentation/widgets/anime_list_criteria_sheet.dart';
-import 'package:iris/l10n/generated/app_localizations.dart';
 
+import '../../../../helpers/test_app.dart';
 import '../../../../helpers/test_window.dart';
 
 void main() {
@@ -38,10 +38,8 @@ void main() {
       ..add(AnimeListAccountChanged(signedIn: signedIn, reload: false))
       ..add(const AnimeListStarted());
     await tester.pumpWidget(
-      MaterialApp(
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        home: MultiBlocProvider(
+      testApp(
+        MultiBlocProvider(
           providers: [
             BlocProvider.value(value: bloc),
             BlocProvider.value(value: genres),

@@ -2,9 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:iris/shared/widgets/pixel_icon.dart';
-import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/widgets/search_field.dart';
 import 'package:iris/shared/widgets/search_toolbar.dart';
+
+import '../../helpers/test_app.dart';
 
 void main() {
   for (final isWide in [true, false]) {
@@ -14,10 +15,8 @@ void main() {
       addTearDown(controller.dispose);
 
       await tester.pumpWidget(
-        MaterialApp(
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          home: Scaffold(
+        testApp(
+          Scaffold(
             body: SearchToolbar(
               searchField: SearchField(
                 controller: controller,

@@ -16,9 +16,9 @@ import 'package:iris/features/profile/presentation/cubit/friends_cubit.dart';
 import 'package:iris/features/profile/presentation/cubit/user_list_cubit.dart';
 import 'package:iris/features/profile/presentation/pages/profile_page.dart';
 import 'package:iris/features/profile/presentation/widgets/user_list_view.dart';
-import 'package:iris/l10n/generated/app_localizations.dart';
 
 import '../../../entities/friend/friend_test_doubles.dart';
+import '../../../helpers/test_app.dart';
 import '../../auth/presentation/auth_test_doubles.dart';
 import 'user_list_test_doubles.dart';
 
@@ -62,10 +62,8 @@ void main() {
       await friendsCubit.close();
     });
     await tester.pumpWidget(
-      MaterialApp(
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        home: MultiBlocProvider(
+      testApp(
+        MultiBlocProvider(
           providers: [
             BlocProvider.value(value: cubit),
             BlocProvider.value(value: userList),

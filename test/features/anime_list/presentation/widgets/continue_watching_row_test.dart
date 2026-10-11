@@ -3,7 +3,8 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:iris/entities/watch_progress/domain/watch_progress.dart';
 import 'package:iris/features/anime_list/presentation/widgets/continue_watching_row.dart';
-import 'package:iris/l10n/generated/app_localizations.dart';
+
+import '../../../../helpers/test_app.dart';
 
 void main() {
   test('leaves out files only looked at, keeping the one being watched', () {
@@ -68,12 +69,7 @@ void main() {
 }
 
 Widget _app(Widget child) {
-  return MaterialApp(
-    locale: const Locale('en'),
-    localizationsDelegates: AppLocalizations.localizationsDelegates,
-    supportedLocales: AppLocalizations.supportedLocales,
-    home: Scaffold(body: SingleChildScrollView(child: child)),
-  );
+  return testApp(Scaffold(body: SingleChildScrollView(child: child)));
 }
 
 WatchProgress _progress(

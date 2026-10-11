@@ -5,9 +5,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:iris/entities/user_rate/domain/user_rate.dart';
 import 'package:iris/features/anime_details/presentation/cubit/friend_rates_cubit.dart';
 import 'package:iris/features/anime_details/presentation/widgets/friends_section.dart';
-import 'package:iris/l10n/generated/app_localizations.dart';
 
 import '../../../../entities/friend/friend_test_doubles.dart';
+import '../../../../helpers/test_app.dart';
 
 void main() {
   Future<FriendRatesCubit> pumpSection(
@@ -17,10 +17,8 @@ void main() {
     final cubit = FriendRatesCubit(animeId: '10', repository: repository);
     addTearDown(cubit.close);
     await tester.pumpWidget(
-      MaterialApp(
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        home: Scaffold(
+      testApp(
+        Scaffold(
           body: BlocProvider.value(
             value: cubit,
             child: const FriendsSection(totalEpisodes: 12),

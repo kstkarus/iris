@@ -5,9 +5,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:iris/entities/watch_progress/domain/watch_progress.dart';
 import 'package:iris/entities/watch_progress/presentation/watch_progress_cubit.dart';
 import 'package:iris/features/anime_details/presentation/widgets/recently_watched_section.dart';
-import 'package:iris/l10n/generated/app_localizations.dart';
 
 import '../../../../helpers/fake_watch_progress_repository.dart';
+import '../../../../helpers/test_app.dart';
 
 WatchProgress _progress(
   String torrentKey, {
@@ -37,11 +37,8 @@ void main() {
     )..load();
     addTearDown(cubit.close);
     await tester.pumpWidget(
-      MaterialApp(
-        locale: const Locale('en'),
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        home: BlocProvider.value(
+      testApp(
+        BlocProvider.value(
           value: cubit,
           child: const Scaffold(
             body: SingleChildScrollView(
