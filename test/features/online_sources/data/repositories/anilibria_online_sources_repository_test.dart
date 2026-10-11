@@ -194,7 +194,6 @@ void main() {
     );
     expect([for (final s in streams) s.quality], [1080, 720, 480]);
     expect(streams.every((s) => s.format == OnlineStreamFormat.hls), isTrue);
-    expect(streams.every((s) => s.httpHeaders.isEmpty), isTrue);
     expect(
       streams.first.url,
       endsWith('/9542/1/1080/aa675e5f3fe5b528517d812182344011.m3u8'),

@@ -939,7 +939,7 @@ void main() {
     expect(find.byKey(const Key('player_adaptive_sheet_dialog')), findsNothing);
   });
 
-  testWidgets('sends the session headers with the stream', (tester) async {
+  testWidgets('opens the session stream', (tester) async {
     final platformPlayer = _FakePlatformPlayer(
       configuration: const PlayerConfiguration(),
     );
@@ -949,25 +949,15 @@ void main() {
         session: const PlayerSession(
           sessionId: '7',
           streamUrl: 'https://video.example/episode/1.m3u8',
-          httpHeaders: {'Referer': 'https://player.example/'},
         ),
       ),
     );
     await tester.pump();
 
-    final media = platformPlayer.lastOpened! as Media;
-    expect(media.uri, 'https://video.example/episode/1.m3u8');
-    expect(media.httpHeaders, {'Referer': 'https://player.example/'});
-  });
-
-  testWidgets('sends no headers for a torrent stream', (tester) async {
-    final platformPlayer = _FakePlatformPlayer(
-      configuration: const PlayerConfiguration(),
+    expect(
+      (platformPlayer.lastOpened! as Media).uri,
+      'https://video.example/episode/1.m3u8',
     );
-    await tester.pumpWidget(_wrapViewport(platformPlayer: platformPlayer));
-    await tester.pump();
-
-    expect((platformPlayer.lastOpened! as Media).httpHeaders, isNull);
   });
 
   testWidgets('fits a 16:9 video frame into a wide window without overflow', (

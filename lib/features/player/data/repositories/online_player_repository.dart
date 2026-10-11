@@ -98,11 +98,7 @@ class OnlinePlayerRepository implements PlayerRepository {
       if (streams.isEmpty) throw StateError('The episode has no streams.');
       final stream = streams.first;
       return PlayerLaunchReadyUpdate(
-        PlayerSession(
-          sessionId: sessionId,
-          streamUrl: stream.url,
-          httpHeaders: stream.httpHeaders,
-        ),
+        PlayerSession(sessionId: sessionId, streamUrl: stream.url),
       );
     } on Object catch (error) {
       developer.log(

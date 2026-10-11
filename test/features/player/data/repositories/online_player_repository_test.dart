@@ -80,7 +80,6 @@ void main() {
         PlayerSession(
           sessionId: _link,
           streamUrl: 'https://cdn.example.test/e1/1080.m3u8',
-          httpHeaders: {'Referer': 'https://example.test/'},
         ),
       ),
     ]);
@@ -221,7 +220,6 @@ class _FakeOnlineSources implements OnlineSourcesRepository {
       url: 'https://cdn.example.test/e1/1080.m3u8',
       quality: 1080,
       format: OnlineStreamFormat.hls,
-      httpHeaders: {'Referer': 'https://example.test/'},
     ),
     OnlineStream(
       url: 'https://cdn.example.test/e1/720.m3u8',
