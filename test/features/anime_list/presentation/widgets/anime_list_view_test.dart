@@ -19,6 +19,7 @@ import 'package:iris/features/anime_list/presentation/bloc/anime_search_bloc.dar
 import 'package:iris/features/anime_list/presentation/pages/anime_list_page.dart';
 import 'package:iris/features/anime_list/presentation/widgets/anime_card.dart';
 import 'package:iris/features/anime_list/presentation/widgets/anime_list_view.dart';
+import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/widgets/app_skeleton.dart';
 import 'package:iris/shared/widgets/search_field.dart';
 import 'package:iris/shared/widgets/search_toolbar.dart';
@@ -356,6 +357,18 @@ void main() {
 
     expect(repository.calls.last.query.sort, AnimeListSortOption.popularity);
     expect(repository.calls.last.query.filters, const AnimeListFilters());
+  });
+
+  test('the filter caption lists kinds and statuses in sheet order', () {
+    final labels = animeListFilterLabels(
+      lookupAppLocalizations(const Locale('en')),
+      const AnimeListFilters(
+        kinds: {AnimeKindFilter.ona, AnimeKindFilter.tv},
+        statuses: {AnimeStatusFilter.announced, AnimeStatusFilter.released},
+      ),
+    );
+
+    expect(labels, ['TV', 'ONA', 'Released', 'Announced']);
   });
 
   testWidgets('loads the next page near the end of the list', (tester) async {

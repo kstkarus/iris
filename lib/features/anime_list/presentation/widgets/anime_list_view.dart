@@ -505,8 +505,10 @@ List<String> animeListFilterLabels(
   AppLocalizations l10n,
   AnimeListFilters filters,
 ) => [
-  for (final kind in filters.kinds) animeKindFilterLabel(l10n, kind),
-  for (final status in filters.statuses) animeStatusFilterLabel(l10n, status),
+  for (final kind in AnimeKindFilter.values)
+    if (filters.kinds.contains(kind)) animeKindFilterLabel(l10n, kind),
+  for (final status in AnimeStatusFilter.values)
+    if (filters.statuses.contains(status)) animeStatusFilterLabel(l10n, status),
   for (final status in UserRateStatus.values)
     if (filters.myList.contains(status)) userRateStatusLabel(l10n, status),
   if (filters.hideCompleted) l10n.animeListHideCompleted,
