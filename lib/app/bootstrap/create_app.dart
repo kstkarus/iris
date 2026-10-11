@@ -10,7 +10,7 @@ import 'package:iris/entities/watch_progress/domain/watch_progress_repository.da
 import 'package:iris/entities/watch_progress/presentation/watch_progress_cubit.dart';
 import 'package:iris/features/auth/domain/repositories/auth_repository.dart';
 import 'package:iris/features/auth/presentation/cubit/auth_cubit.dart';
-import 'package:iris/features/auth/presentation/cubit/auth_state.dart';
+import 'package:iris/features/auth/presentation/widgets/account_listener.dart';
 import 'package:iris/shared/utils/playback_runtime_initializer.dart';
 
 Future<Widget> createApp({bool useMocks = false}) async {
@@ -39,10 +39,8 @@ Future<Widget> createApp({bool useMocks = false}) async {
             UserRateBookCubit(repository: serviceLocator<UserRateRepository>()),
       ),
     ],
-    child: BlocListener<AuthCubit, AuthState>(
-      listenWhen: (previous, current) =>
-          accountIdOf(previous) != accountIdOf(current),
-      listener: (context, _) => context.read<UserRateBookCubit>().clear(),
+    child: AccountListener(
+      onChanged: (context, _) => context.read<UserRateBookCubit>().clear(),
       child: IrisApp(router: serviceLocator<GoRouter>()),
     ),
   );

@@ -25,6 +25,7 @@ import 'package:iris/features/anime_list/presentation/bloc/anime_list_event.dart
 import 'package:iris/features/anime_list/presentation/pages/anime_list_page.dart';
 import 'package:iris/features/auth/presentation/cubit/auth_cubit.dart';
 import 'package:iris/features/auth/presentation/cubit/auth_state.dart';
+import 'package:iris/features/auth/presentation/widgets/account_listener.dart';
 import 'package:iris/features/downloads/domain/repositories/downloads_repository.dart';
 import 'package:iris/features/downloads/presentation/cubit/download_manager_cubit.dart';
 import 'package:iris/features/downloads/presentation/cubit/download_selection_cubit.dart';
@@ -253,12 +254,10 @@ abstract final class AppRouter {
                         ),
                       ],
                       // The list and the friends follow the account.
-                      child: BlocListener<AuthCubit, AuthState>(
-                        listenWhen: (previous, current) =>
-                            accountIdOf(previous) != accountIdOf(current),
-                        listener: (context, auth) {
-                          context.read<UserListCubit>().show(accountIdOf(auth));
-                          context.read<FriendsCubit>().show(accountIdOf(auth));
+                      child: AccountListener(
+                        onChanged: (context, accountId) {
+                          context.read<UserListCubit>().show(accountId);
+                          context.read<FriendsCubit>().show(accountId);
                         },
                         child: ProfilePage(
                           onOpenAnime: (entry) => _openListed(context, entry),
@@ -336,11 +335,8 @@ abstract final class AppRouter {
               ],
               // The list follows the session: signing in or out elsewhere
               // shows or hides it here.
-              child: BlocListener<AuthCubit, AuthState>(
-                listenWhen: (previous, current) =>
-                    accountIdOf(previous) != accountIdOf(current),
-                listener: (context, auth) {
-                  final accountId = accountIdOf(auth);
+              child: AccountListener(
+                onChanged: (context, accountId) {
                   context.read<UserRateCubit>().accountChanged(accountId);
                   context.read<FriendRatesCubit>().show(accountId);
                 },
