@@ -158,10 +158,9 @@ class _Content extends StatelessWidget {
 /// The cover as a colour halftone, set in the same square grain as the
 /// rest of the page; a tap develops it into the original and back.
 class _Halftone extends StatelessWidget {
-  const _Halftone({required this.head, this.alignment = Alignment.center});
+  const _Halftone({required this.head});
 
   final AnimeDetailsPreview head;
-  final Alignment alignment;
 
   @override
   Widget build(BuildContext context) {
@@ -172,7 +171,6 @@ class _Halftone extends StatelessWidget {
     final l10n = AppLocalizations.of(context);
     return DitheredImage(
       image: networkImage(url),
-      alignment: alignment,
       semanticLabel: head.anime.name,
       showOriginalLabel: l10n.animeDetailsShowCover,
       showHalftoneLabel: l10n.animeDetailsShowHalftone,
@@ -180,8 +178,8 @@ class _Halftone extends StatelessWidget {
   }
 }
 
-/// Phones: a band of the cover, the title under it as large as it fits,
-/// the action right after it, then the facts and the sections.
+/// Phones: the whole cover, small, with the title beside it as large as
+/// it fits; the action right after them, then the facts and the sections.
 class _CompactLayout extends StatelessWidget {
   const _CompactLayout({
     required this.head,
@@ -199,6 +197,13 @@ class _CompactLayout extends StatelessWidget {
   final List<String> dubs;
   final VoidCallback? onRetry;
 
+  /// The cover takes about a third of the width, so the title beside it
+  /// still sets large.
+  static const _posterShare = 0.36;
+  static const _minPosterWidth = 112.0;
+  static const _maxPosterWidth = 160.0;
+  static const _gap = 16.0;
+
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
@@ -206,12 +211,30 @@ class _CompactLayout extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          AspectRatio(
-            aspectRatio: 4 / 3,
-            child: _Halftone(head: head, alignment: const Alignment(0, -0.5)),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final posterWidth = (constraints.maxWidth * _posterShare).clamp(
+                _minPosterWidth,
+                _maxPosterWidth,
+              );
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SizedBox(
+                    width: posterWidth,
+                    child: AspectRatio(
+                      aspectRatio: PosterImage.aspectRatio,
+                      child: _Halftone(head: head),
+                    ),
+                  ),
+                  const SizedBox(width: _gap),
+                  Expanded(
+                    child: _Titles(head: head, maxSize: 36, minSize: 22),
+                  ),
+                ],
+              );
+            },
           ),
-          const SizedBox(height: 20),
-          _Titles(head: head, maxSize: 48),
           const SizedBox(height: 24),
           _WatchSourcesButton(head: head),
           const SizedBox(height: 28),
@@ -350,10 +373,15 @@ class _TwoPaneLayout extends StatelessWidget {
 }
 
 class _Titles extends StatelessWidget {
-  const _Titles({required this.head, required this.maxSize});
+  const _Titles({
+    required this.head,
+    required this.maxSize,
+    required this.minSize,
+  });
 
   final AnimeDetailsPreview head;
   final double maxSize;
+  final double minSize;
 
   @override
   Widget build(BuildContext context) {
@@ -361,7 +389,12 @@ class _Titles extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         HeadlineAnchor(
-          child: DisplayTitle(head.anime.name, maxSize: maxSize, maxLines: 4),
+          child: DisplayTitle(
+            head.anime.name,
+            maxSize: maxSize,
+            minSize: minSize,
+            maxLines: 4,
+          ),
         ),
         _RussianTitle(head: head),
       ],

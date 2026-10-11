@@ -450,7 +450,13 @@ void main() {
       final title = tester.getRect(find.text(_longDetails.anime.name));
       final poster = tester.getRect(find.byType(DitheredImage).first);
       final description = tester.getRect(find.text(_longDetails.description));
-      if (entry.value.width < 840) {
+      if (entry.value.width < 600) {
+        // The cover and the title side by side; the text below starts
+        // under the cover.
+        expect(title.left, greaterThan(poster.right));
+        expect(title.top, poster.top);
+        expect(description.left, poster.left);
+      } else if (entry.value.width < 840) {
         expect(description.left, title.left);
       } else {
         expect(description.left, greaterThan(poster.right));

@@ -98,7 +98,8 @@ void main() {
       final title = tester.getRect(find.text(_firstTitle));
       final description = tester.getRect(find.text(_description));
       if (isPhone) {
-        expect(description.left, title.left, reason: 'single column');
+        expect(title.left, greaterThan(poster.right), reason: 'title beside');
+        expect(description.left, poster.left, reason: 'single column');
       } else {
         expect(
           description.left,
