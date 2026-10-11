@@ -2000,12 +2000,6 @@ abstract class AppLocalizations {
   /// **'Episode {episode} marked on Shikimori'**
   String playerMarked(int episode);
 
-  /// No description provided for @playerMarkUndo.
-  ///
-  /// In en, this message translates to:
-  /// **'Undo'**
-  String get playerMarkUndo;
-
   /// No description provided for @playerMarkOffer.
   ///
   /// In en, this message translates to:

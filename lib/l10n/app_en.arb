@@ -701,7 +701,6 @@
       }
     }
   },
-  "playerMarkUndo": "Undo",
   "playerMarkOffer": "Mark episode {episode} on Shikimori?",
   "@playerMarkOffer": {
     "placeholders": {

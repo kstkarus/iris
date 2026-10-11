@@ -1135,9 +1135,6 @@ class AppLocalizationsRu extends AppLocalizations {
   }
 
   @override
-  String get playerMarkUndo => 'Отменить';
-
-  @override
   String playerMarkOffer(int episode) {
     return 'Отметить $episode серию на Шикимори?';
   }

@@ -393,7 +393,6 @@
   "animeDetailsFactRating": "Рейтинг",
   "animeDetailsDubsTitle": "Озвучка",
   "playerMarked": "{episode} серия отмечена на Шикимори",
-  "playerMarkUndo": "Отменить",
   "playerMarkOffer": "Отметить {episode} серию на Шикимори?",
   "playerMarkAction": "Отметить",
   "playerMarkFailed": "Шикимори не сохранил отметку.",

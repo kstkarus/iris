@@ -1121,9 +1121,6 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get playerMarkUndo => 'Undo';
-
-  @override
   String playerMarkOffer(int episode) {
     return 'Mark episode $episode on Shikimori?';
   }
