@@ -6,6 +6,7 @@ import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 
 import 'package:iris/features/player/presentation/widgets/media_kit_pixel_buttons.dart';
+import 'package:iris/features/player/domain/entities/player_playback_diagnostics.dart';
 import 'package:iris/features/player/domain/entities/player_playback_stats.dart';
 import 'package:iris/features/player/domain/entities/player_skip_segment.dart';
 import 'package:iris/features/player/domain/repositories/player_repository.dart';
@@ -15,7 +16,7 @@ import 'package:iris/features/player/presentation/playback/media_kit_player_engi
 import 'package:iris/features/player/presentation/playback/player_engine.dart';
 import 'package:iris/features/player/presentation/widgets/player_adaptive_layout.dart';
 import 'package:iris/features/player/presentation/widgets/player_auto_hiding_offer.dart';
-import 'package:iris/features/player/presentation/widgets/player_buffer_health_tracker.dart';
+import 'package:iris/features/player/presentation/playback/player_buffer_margin.dart';
 import 'package:iris/features/player/presentation/widgets/player_countdown.dart';
 import 'package:iris/features/player/presentation/widgets/player_immersive_controls.dart';
 import 'package:iris/features/player/presentation/widgets/player_overlay_preferences.dart';
@@ -26,12 +27,19 @@ import 'package:iris/features/player/presentation/widgets/player_viewport_factor
 import 'package:iris/features/player/presentation/widgets/player_wait_indicator.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/widgets/pixel_icon.dart';
+import 'package:iris/features/player/presentation/widgets/player_offers.dart';
+import 'package:iris/features/player/presentation/widgets/player_colors.dart';
 
 export 'package:iris/features/player/presentation/playback/media_kit_player_engine.dart'
     show
         MediaKitFirstFrameAwaiter,
         MediaKitPlayerBuilder,
         MediaKitVideoControllerBuilder;
+
+part 'media_kit/media_kit_controls_themes.dart';
+part 'media_kit/player_controls_frame.dart';
+part 'media_kit/player_wait_overlay.dart';
+part 'media_kit/player_controls_stats_panel.dart';
 
 typedef MediaKitVideoSurfaceBuilder =
     Widget Function({
@@ -43,90 +51,6 @@ typedef MediaKitVideoSurfaceBuilder =
 /// Wraps the built controls, in the page and in full screen.
 typedef MediaKitControlsDecorator =
     Widget Function(VideoState state, Widget controls);
-
-/// Video controls flavour and its themes, chosen per platform.
-///
-/// Touch platforms use [MaterialVideoControls]; desktop platforms use
-/// [MaterialDesktopVideoControls] (mouse hover, keyboard shortcuts).
-sealed class MediaKitVideoControlsThemes {
-  const MediaKitVideoControlsThemes();
-
-  List<Widget> get topButtonBar;
-
-  VideoControlsBuilder get controlsBuilder;
-
-  MediaKitControlsDecorator? get decorateControls;
-
-  /// [controlsBuilder] wrapped by [decorateControls].
-  VideoControlsBuilder get controls => (state) {
-    final controls = controlsBuilder(state);
-    return decorateControls?.call(state, controls) ?? controls;
-  };
-}
-
-final class MediaKitMobileVideoControlsThemes
-    extends MediaKitVideoControlsThemes {
-  const MediaKitMobileVideoControlsThemes({
-    required this.normal,
-    required this.fullscreen,
-    this.decorateControls,
-  });
-
-  final MaterialVideoControlsThemeData normal;
-  final MaterialVideoControlsThemeData fullscreen;
-
-  @override
-  final MediaKitControlsDecorator? decorateControls;
-
-  @override
-  List<Widget> get topButtonBar => normal.topButtonBar;
-
-  @override
-  VideoControlsBuilder get controlsBuilder => MaterialVideoControls;
-}
-
-final class MediaKitDesktopVideoControlsThemes
-    extends MediaKitVideoControlsThemes {
-  const MediaKitDesktopVideoControlsThemes({
-    required this.normal,
-    required this.fullscreen,
-    this.decorateControls,
-  });
-
-  final MaterialDesktopVideoControlsThemeData normal;
-  final MaterialDesktopVideoControlsThemeData fullscreen;
-
-  @override
-  final MediaKitControlsDecorator? decorateControls;
-
-  @override
-  List<Widget> get topButtonBar => normal.topButtonBar;
-
-  @override
-  VideoControlsBuilder get controlsBuilder => MaterialDesktopVideoControls;
-}
-
-/// No media_kit controls: [PlayerImmersiveControls] are drawn over the
-/// video instead.
-final class MediaKitImmersiveVideoControlsThemes
-    extends MediaKitVideoControlsThemes {
-  const MediaKitImmersiveVideoControlsThemes({required this.subtitleLift});
-
-  /// Pixels kept clear at the bottom of the Flutter subtitle view.
-  final ValueListenable<double> subtitleLift;
-
-  @override
-  List<Widget> get topButtonBar => const [];
-
-  /// Draws nothing; only moves the Flutter subtitle view, which belongs to
-  /// the [VideoState].
-  @override
-  VideoControlsBuilder get controlsBuilder =>
-      (state) => _SubtitleLift(video: state, lift: subtitleLift);
-
-  @override
-  MediaKitControlsDecorator? get decorateControls => null;
-}
 
 /// Switches the native window in or out of full screen.
 typedef NativeFullscreenToggle = Future<void> Function();
@@ -378,10 +302,9 @@ class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
       child: DecoratedBox(
         decoration: BoxDecoration(
           color: theme.colorScheme.surfaceContainerHighest,
-          borderRadius: BorderRadius.zero,
         ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.zero,
+        child: ClipRect(
+          clipBehavior: Clip.antiAlias,
           child: Stack(
             fit: StackFit.expand,
             children: [
@@ -496,18 +419,10 @@ class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
     AppLocalizations l10n,
     ColorScheme colorScheme,
   ) {
-    if (isDesktopPlayerPlatform()) {
-      final desktopTheme = _buildDesktopControlsTheme(l10n, colorScheme);
-      return MediaKitDesktopVideoControlsThemes(
-        normal: desktopTheme,
-        fullscreen: desktopTheme,
-        decorateControls: _decorateControls,
-      );
-    }
-
+    final theme = _buildControlsTheme(l10n, colorScheme);
     return MediaKitMobileVideoControlsThemes(
-      normal: _buildControlsTheme(l10n, colorScheme),
-      fullscreen: _buildControlsTheme(l10n, colorScheme),
+      normal: theme,
+      fullscreen: theme,
       decorateControls: _decorateControls,
     );
   }
@@ -533,67 +448,6 @@ class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
             isBufferingListenable: engine.buffering,
           ),
         ),
-      ),
-    );
-  }
-
-  /// Desktop controls: hover shows/hides the bars, double-click toggles
-  /// fullscreen, mouse wheel changes volume. The package default keyboard
-  /// shortcuts stay active: Space play/pause, Left/Right seek, Up/Down volume,
-  /// F fullscreen, Esc exit fullscreen.
-  MaterialDesktopVideoControlsThemeData _buildDesktopControlsTheme(
-    AppLocalizations l10n,
-    ColorScheme colorScheme,
-  ) {
-    return MaterialDesktopVideoControlsThemeData(
-      topButtonBar: [
-        _buildStatsPanel(),
-        const SizedBox(width: 8),
-        // Each opens its panel as a popover from itself.
-        Builder(
-          builder: (anchor) => MaterialDesktopCustomButton(
-            key: _trackSelectorButtonKey,
-            icon: _trackSelectorGlyph(l10n),
-            iconSize: 24,
-            onPressed: () => _showTrackSelectorSheet(anchor: anchor),
-          ),
-        ),
-        Builder(
-          builder: (anchor) => MaterialDesktopCustomButton(
-            key: _settingsButtonKey,
-            icon: _settingsGlyph(l10n),
-            iconSize: 24,
-            onPressed: () => _showSettingsSheet(anchor: anchor),
-          ),
-        ),
-      ],
-      bottomButtonBar: [
-        const MaterialDesktopPlayOrPauseButton(),
-        if (widget.next != null)
-          MaterialDesktopCustomButton(
-            key: const Key('player_next_file_button'),
-            icon: Tooltip(
-              message: l10n.playerPlayNext,
-              child: const PixelIcon(PixelGlyph.skipNext, size: 21),
-            ),
-            iconSize: 24,
-            onPressed: _playNext,
-          ),
-        const MaterialDesktopVolumeButton(),
-        const MaterialDesktopPositionIndicator(),
-        const Spacer(),
-        _skipForwardButton(l10n),
-        const MaterialDesktopFullscreenButton(),
-      ],
-      toggleFullscreenOnDoublePress: true,
-      modifyVolumeOnScroll: true,
-      hideMouseOnControlsRemoval: true,
-      buttonBarButtonSize: 24,
-      seekBarPositionColor: playerAccentColor(colorScheme),
-      seekBarThumbColor: playerAccentColor(colorScheme),
-      bufferingIndicatorBuilder: (context) => _PlayerControlsBufferingOverlay(
-        startupPhaseListenable: widget.engine.phase,
-        label: l10n.playerBuffering,
       ),
     );
   }
@@ -740,394 +594,6 @@ class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
   }
 }
 
-/// Sits on top of the media_kit controls, in the page and in full screen:
-/// offers to skip the opening and to play the next file, shows startup
-/// progress in full screen (where the page's overlays are hidden) and
-/// reports the full-screen route.
-class _PlayerControlsFrame extends StatefulWidget {
-  const _PlayerControlsFrame({
-    required this.phase,
-    required this.finishing,
-    required this.completed,
-    required this.nextTitle,
-    required this.onPlayNext,
-    required this.skipSegment,
-    required this.onSkip,
-    required this.openingLabel,
-    required this.bufferingLabel,
-    required this.stats,
-    required this.onFullscreenRoute,
-    required this.onInlineShown,
-    required this.child,
-  });
-
-  final ValueListenable<PlayerEnginePhase> phase;
-  final ValueListenable<bool> finishing;
-  final ValueListenable<bool> completed;
-  final ValueListenable<String?> nextTitle;
-  final VoidCallback onPlayNext;
-  final ValueListenable<PlayerSkipSegment?> skipSegment;
-  final VoidCallback onSkip;
-  final String openingLabel;
-  final String bufferingLabel;
-  final ValueListenable<PlayerPlaybackStats?> stats;
-  final ValueChanged<ModalRoute<Object?>> onFullscreenRoute;
-  final VoidCallback onInlineShown;
-  final Widget child;
-
-  @override
-  State<_PlayerControlsFrame> createState() => _PlayerControlsFrameState();
-}
-
-class _PlayerControlsFrameState extends State<_PlayerControlsFrame> {
-  final _activity = PlayerPointerActivity();
-  late final _nextState = Listenable.merge([
-    widget.finishing,
-    widget.completed,
-    widget.nextTitle,
-  ]);
-
-  @override
-  void dispose() {
-    _activity.dispose();
-    super.dispose();
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    if (isFullscreen(context)) {
-      final route = ModalRoute.of(context);
-      if (route != null) widget.onFullscreenRoute(route);
-    } else {
-      widget.onInlineShown();
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
-    final fullscreen = isFullscreen(context);
-    return Listener(
-      behavior: HitTestBehavior.translucent,
-      onPointerHover: (_) => _activity.ping(),
-      onPointerDown: (_) => _activity.ping(),
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          widget.child,
-          ValueListenableBuilder<PlayerSkipSegment?>(
-            valueListenable: widget.skipSegment,
-            builder: (context, segment, _) {
-              if (segment == null) return const SizedBox.shrink();
-              return PlayerAutoHidingOffer(
-                key: ValueKey(segment),
-                activity: _activity,
-                child: _PlayerActionPill(
-                  actionKey: const Key('player_skip_segment_button'),
-                  label: segment.kind == PlayerSkipKind.recap
-                      ? l10n.playerSkipRecap
-                      : l10n.playerSkipOpening,
-                  onPressed: widget.onSkip,
-                ),
-              );
-            },
-          ),
-          ListenableBuilder(
-            listenable: _nextState,
-            builder: (context, _) {
-              final title = widget.nextTitle.value;
-              final completed = widget.completed.value;
-              if (title == null || !(widget.finishing.value || completed)) {
-                return const SizedBox.shrink();
-              }
-              return PlayerAutoHidingOffer(
-                activity: _activity,
-                // Once the file has ended there is nothing left to cover.
-                pinned: completed,
-                child: _PlayerActionPill(
-                  actionKey: const Key('player_next_file_prompt'),
-                  label: l10n.playerPlayNext,
-                  detail: title,
-                  onPressed: widget.onPlayNext,
-                ),
-              );
-            },
-          ),
-          if (fullscreen)
-            // Progress only: the controls (exit full screen, volume) stay
-            // usable.
-            IgnorePointer(
-              child: ValueListenableBuilder<PlayerEnginePhase>(
-                valueListenable: widget.phase,
-                builder: (context, phase, _) => switch (phase) {
-                  PlayerEnginePhase.openingSource => _PlayerStartupOverlay(
-                    label: widget.openingLabel,
-                    stats: widget.stats,
-                  ),
-                  PlayerEnginePhase.waitingForFirstFrame =>
-                    _PlayerStartupOverlay(
-                      label: widget.bufferingLabel,
-                      stats: widget.stats,
-                    ),
-                  PlayerEnginePhase.ready ||
-                  PlayerEnginePhase.failed => const SizedBox.shrink(),
-                },
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-/// One action over the video, as in streaming apps; playback never moves
-/// on by itself. The label says what it does, so it carries no glyph.
-class _PlayerActionPill extends StatelessWidget {
-  const _PlayerActionPill({
-    required this.actionKey,
-    required this.label,
-    required this.onPressed,
-    this.detail,
-  });
-
-  final Key actionKey;
-  final String label;
-  final String? detail;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final detail = this.detail;
-    return Align(
-      alignment: AlignmentDirectional.bottomEnd,
-      child: Padding(
-        // Clear of the bottom button bar and the seek bar.
-        padding: const EdgeInsetsDirectional.fromSTEB(16, 16, 16, 72),
-        child: PlayerCountdownBar(
-          color: theme.colorScheme.onPrimary,
-          child: FilledButton(
-            key: actionKey,
-            onPressed: onPressed,
-            style: FilledButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-              // The plate is the whole touch target, so the countdown runs
-              // along its visible edge, not below it.
-              minimumSize: const Size(64, 48),
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            ),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 220),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(label),
-                  if (detail != null)
-                    // Inherits the button's colour.
-                    Text(
-                      detail,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: theme.textTheme.labelSmall?.fontSize,
-                        fontWeight: FontWeight.w400,
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Keeps the Flutter subtitle view above [lift] pixels of controls.
-class _SubtitleLift extends StatefulWidget {
-  const _SubtitleLift({required this.video, required this.lift});
-
-  final VideoState video;
-  final ValueListenable<double> lift;
-
-  @override
-  State<_SubtitleLift> createState() => _SubtitleLiftState();
-}
-
-class _SubtitleLiftState extends State<_SubtitleLift> {
-  @override
-  void initState() {
-    super.initState();
-    widget.lift.addListener(_apply);
-    // The subtitle view mounts in the same frame.
-    WidgetsBinding.instance.addPostFrameCallback((_) => _apply());
-  }
-
-  @override
-  void didUpdateWidget(covariant _SubtitleLift oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.lift != widget.lift) {
-      oldWidget.lift.removeListener(_apply);
-      widget.lift.addListener(_apply);
-    }
-  }
-
-  @override
-  void dispose() {
-    widget.lift.removeListener(_apply);
-    super.dispose();
-  }
-
-  void _apply() {
-    if (!mounted || !widget.video.mounted) return;
-    final base = widget.video.widget.subtitleViewConfiguration.padding;
-    widget.video.setSubtitleViewPadding(
-      base.copyWith(bottom: base.bottom + widget.lift.value),
-      duration: const Duration(milliseconds: 200),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) => const SizedBox.shrink();
-}
-
-class _BufferingIndicator extends StatelessWidget {
-  const _BufferingIndicator({required this.label, this.stats});
-
-  final String label;
-  final ValueListenable<PlayerPlaybackStats?>? stats;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        BlockRunner(
-          color: playerAccentColor(Theme.of(context).colorScheme),
-          trackColor: Colors.white24,
-        ),
-        const SizedBox(height: 12),
-        PlayerWaitLabel(
-          label: label,
-          stats: stats,
-          style: const TextStyle(color: Colors.white),
-        ),
-      ],
-    );
-  }
-}
-
-class _PlayerStartupOverlay extends StatelessWidget {
-  const _PlayerStartupOverlay({
-    required this.label,
-    required this.stats,
-    super.key,
-  });
-
-  final String label;
-  final ValueListenable<PlayerPlaybackStats?> stats;
-
-  @override
-  Widget build(BuildContext context) {
-    return ColoredBox(
-      color: Colors.black54,
-      child: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: _BufferingIndicator(label: label, stats: stats),
-        ),
-      ),
-    );
-  }
-}
-
-class _PlayerControlsStatsPanel extends StatelessWidget {
-  const _PlayerControlsStatsPanel({
-    required this.immersive,
-    required this.listenable,
-    required this.diagnosticsListenable,
-    required this.startupPhaseListenable,
-    required this.trackListenable,
-    required this.bufferMarginStateListenable,
-    required this.isBufferingListenable,
-  });
-
-  final ValueListenable<PlayerPlaybackStats?> listenable;
-  final ValueListenable<PlayerPlaybackDiagnostics?> diagnosticsListenable;
-  final ValueListenable<PlayerEnginePhase> startupPhaseListenable;
-  final ValueListenable<Track> trackListenable;
-  final ValueListenable<PlayerBufferMarginState> bufferMarginStateListenable;
-  final ValueListenable<bool> isBufferingListenable;
-  final bool immersive;
-
-  @override
-  Widget build(BuildContext context) {
-    return ListenableBuilder(
-      listenable: Listenable.merge([
-        startupPhaseListenable,
-        trackListenable,
-        bufferMarginStateListenable,
-        isBufferingListenable,
-        playerDetailedStatsEnabled,
-      ]),
-      builder: (context, child) {
-        if (startupPhaseListenable.value != PlayerEnginePhase.ready) {
-          return const SizedBox.shrink();
-        }
-        // Over a full-bleed video the numbers show up when they explain
-        // something: a stall, a thin buffer, or when asked for.
-        final detailed = playerDetailedStatsEnabled.value;
-        final buffering = isBufferingListenable.value;
-        final bufferMargin = bufferMarginStateListenable.value;
-        if (immersive &&
-            !detailed &&
-            !buffering &&
-            bufferMargin != PlayerBufferMarginState.insufficient) {
-          return const SizedBox.shrink();
-        }
-
-        final track = trackListenable.value;
-        return PlayerPlaybackStatsListenable(
-          listenable: listenable,
-          videoCodec: track.video.codec,
-          audioCodec: track.audio.codec,
-          diagnosticsListenable: diagnosticsListenable,
-          bufferMarginState: bufferMargin,
-          isBuffering: buffering,
-          detailed: detailed,
-          immersive: immersive,
-        );
-      },
-    );
-  }
-}
-
-class _PlayerControlsBufferingOverlay extends StatelessWidget {
-  const _PlayerControlsBufferingOverlay({
-    required this.startupPhaseListenable,
-    required this.label,
-  });
-
-  final ValueListenable<PlayerEnginePhase> startupPhaseListenable;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return ValueListenableBuilder<PlayerEnginePhase>(
-      valueListenable: startupPhaseListenable,
-      builder: (context, phase, child) {
-        if (phase != PlayerEnginePhase.ready) {
-          return const SizedBox.shrink();
-        }
-
-        return _BufferingIndicator(label: label);
-      },
-    );
-  }
-}
-
 Widget _defaultVideoSurfaceBuilder({
   required VideoController controller,
   required SubtitleViewConfiguration subtitleViewConfiguration,
@@ -1143,12 +609,6 @@ Widget _defaultVideoSurfaceBuilder({
   return switch (controlsThemes) {
     MediaKitMobileVideoControlsThemes(:final normal, :final fullscreen) =>
       MaterialVideoControlsTheme(
-        normal: normal,
-        fullscreen: fullscreen,
-        child: video,
-      ),
-    MediaKitDesktopVideoControlsThemes(:final normal, :final fullscreen) =>
-      MaterialDesktopVideoControlsTheme(
         normal: normal,
         fullscreen: fullscreen,
         child: video,

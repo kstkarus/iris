@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:media_kit/media_kit.dart';
 
 import 'package:iris/features/player/presentation/widgets/player_choice_row.dart';
-import 'package:iris/features/player/presentation/widgets/player_popover.dart';
+import 'package:iris/features/player/presentation/widgets/player_panel.dart';
 import 'package:iris/features/player/presentation/widgets/player_track_option_formatter.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/widgets/section_label.dart';
@@ -41,8 +41,6 @@ class PlayerTrackSelectorSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final theme = Theme.of(context);
-    final mediaQuery = MediaQuery.of(context);
     final audio = _TrackSection<AudioTrack>(
       title: l10n.playerAudioTracksTitle,
       tracks: _buildAudioOptions(audioTracks),
@@ -70,60 +68,27 @@ class PlayerTrackSelectorSheet extends StatelessWidget {
       onSelected: onSubtitleTrackSelected,
     );
 
-    return SafeArea(
-      child: ConstrainedBox(
-        constraints: BoxConstraints(maxHeight: mediaQuery.size.height * 0.8),
-        child: SingleChildScrollView(
-          padding: EdgeInsets.fromLTRB(
-            20,
-            16,
-            20,
-            20 + mediaQuery.viewInsets.bottom,
-          ),
-          child: Material(
-            // Ink paints on the nearest Material: this one scrolls with the list,
-            // so the sheet's edge clips the highlight.
-            type: MaterialType.transparency,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
+    return PlayerPanel(
+      title: l10n.playerAudioAndSubtitles,
+      maxHeightFactor: 0.8,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          if (constraints.maxWidth < _sideBySideMinWidth) {
+            return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // A popover's button already names it.
-                if (!isInPlayerPopover(context)) ...[
-                  Text(
-                    l10n.playerAudioAndSubtitles,
-                    style: theme.textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                ],
-                LayoutBuilder(
-                  builder: (context, constraints) {
-                    if (constraints.maxWidth < _sideBySideMinWidth) {
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          audio,
-                          const SizedBox(height: 20),
-                          subtitles,
-                        ],
-                      );
-                    }
-                    return Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(child: audio),
-                        const SizedBox(width: _columnGap),
-                        Expanded(child: subtitles),
-                      ],
-                    );
-                  },
-                ),
-              ],
-            ),
-          ),
-        ),
+              children: [audio, const SizedBox(height: 20), subtitles],
+            );
+          }
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(child: audio),
+              const SizedBox(width: _columnGap),
+              Expanded(child: subtitles),
+            ],
+          );
+        },
       ),
     );
   }

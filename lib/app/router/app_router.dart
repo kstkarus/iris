@@ -213,13 +213,15 @@ abstract final class AppRouter {
                           context.pushNamed(
                             'player',
                             extra: AnimePlayerArgs(
-                              animeId: item.animeId,
-                              animeTitle: item.animeTitle,
-                              sourceTitle: item.sourceTitle,
-                              sessionId: item.id,
-                              fileIndex: item.fileIndex,
-                              fileName: item.fileName,
-                              magnet: item.magnet,
+                              AnimePlayerSource(
+                                animeId: item.animeId,
+                                animeTitle: item.animeTitle,
+                                sourceTitle: item.sourceTitle,
+                                sessionId: item.id,
+                                fileIndex: item.fileIndex,
+                                fileName: item.fileName,
+                                magnet: item.magnet,
+                              ),
                             ),
                           );
                         },
@@ -443,7 +445,8 @@ abstract final class AppRouter {
           name: 'player',
           builder: (context, state) {
             final args = state.extra;
-            if (args is! AnimePlayerArgs || args.sessionId.trim().isEmpty) {
+            if (args is! AnimePlayerArgs ||
+                args.source.sessionId.trim().isEmpty) {
               _reportInvalidRouteArgs(routeName: 'player', extra: state.extra);
               return const _InvalidRoutePage();
             }
@@ -465,16 +468,7 @@ abstract final class AppRouter {
                 // Below the preference cubits: the media player reads them.
                 BlocProvider(
                   create: (context) => PlayerCubit(
-                    source: AnimePlayerSource(
-                      animeId: args.animeId,
-                      animeTitle: args.animeTitle,
-                      sourceTitle: args.sourceTitle,
-                      sessionId: args.sessionId,
-                      fileIndex: args.fileIndex,
-                      fileName: args.fileName,
-                      magnet: args.magnet,
-                      files: args.files,
-                    ),
+                    source: args.source,
                     repository: serviceLocator<PlayerRepository>(),
                     engine: viewportFactory.createEngine(
                       subtitlePreferences: context

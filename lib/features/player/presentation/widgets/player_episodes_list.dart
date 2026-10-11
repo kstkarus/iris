@@ -3,7 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:iris/entities/watch_progress/domain/watch_progress.dart';
 import 'package:iris/entities/watch_progress/presentation/watch_progress_line.dart';
 import 'package:iris/features/player/domain/entities/player_video_file.dart';
-import 'package:iris/features/player/presentation/widgets/player_episode_cards.dart';
+import 'package:iris/features/player/domain/player_episode_names.dart';
+import 'package:iris/features/player/presentation/widgets/reveal_after_layout.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/utils/byte_size_formatter.dart';
 import 'package:iris/shared/utils/file_display_name.dart';
@@ -57,15 +58,10 @@ class _PlayerEpisodesListState extends State<PlayerEpisodesList> {
   }
 
   void _revealCurrent({required bool animate}) {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final currentContext = _currentKey.currentContext;
-      if (!mounted || currentContext == null) return;
-      Scrollable.ensureVisible(
-        currentContext,
-        alignment: 0.3,
-        duration: animate ? const Duration(milliseconds: 250) : Duration.zero,
-      );
-    });
+    revealAfterLayout(
+      _currentKey,
+      duration: animate ? const Duration(milliseconds: 250) : Duration.zero,
+    );
   }
 
   @override
@@ -83,7 +79,7 @@ class _PlayerEpisodesListState extends State<PlayerEpisodesList> {
             _EpisodeRow(
               key: file.index == widget.currentFileIndex ? _currentKey : null,
               file: file,
-              number: file.numberLabel ?? '${position + 1}'.padLeft(2, '0'),
+              number: episodeNumberLabel(file, position),
               ownName: names[file.index],
               isCurrent: file.index == widget.currentFileIndex,
               progress: widget.progressByFile[file.index],

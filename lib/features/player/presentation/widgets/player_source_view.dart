@@ -3,6 +3,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:iris/entities/watch_progress/domain/watch_progress.dart';
 import 'package:iris/features/player/domain/entities/player_video_file.dart';
+import 'package:iris/features/player/domain/player_continue_target.dart';
+import 'package:iris/features/player/domain/player_episode_names.dart';
 import 'package:iris/features/player/presentation/cubit/player_source_cubit.dart';
 import 'package:iris/features/player/presentation/cubit/player_source_state.dart';
 import 'package:iris/features/player/presentation/widgets/player_episodes_list.dart';
@@ -61,44 +63,23 @@ class _SuccessState extends StatelessWidget {
   final Map<int, WatchProgress> progressByFile;
   final ValueChanged<PlayerVideoFile> onFileSelected;
 
-  /// The file to continue with: the last one watched, or the one after it
-  /// when that was finished.
-  ({PlayerVideoFile file, bool isNext})? _continueTarget() {
-    WatchProgress? latest;
-    for (final progress in progressByFile.values) {
-      if (latest == null || progress.updatedAt.isAfter(latest.updatedAt)) {
-        latest = progress;
-      }
-    }
-    if (latest == null) return null;
-    final position = files.indexWhere(
-      (file) => file.index == latest!.fileIndex,
-    );
-    if (position < 0) return null;
-    if (!latest.isFinished) return (file: files[position], isNext: false);
-    if (position + 1 >= files.length) return null;
-    return (file: files[position + 1], isNext: true);
-  }
-
   @override
   Widget build(BuildContext context) {
-    final continueTarget = files.length > 1 ? _continueTarget() : null;
+    final target = files.length > 1
+        ? continueTarget(files, progressByFile)
+        : null;
     // Text rows instead of a card and a button per file: the whole row
     // starts the file, so 24 episodes stay scannable.
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (continueTarget != null) ...[
+        if (target != null) ...[
           _ContinueCard(
-            file: continueTarget.file,
-            number:
-                continueTarget.file.numberLabel ??
-                '${files.indexOf(continueTarget.file) + 1}'.padLeft(2, '0'),
-            progress: continueTarget.isNext
-                ? null
-                : progressByFile[continueTarget.file.index],
-            isNext: continueTarget.isNext,
-            onPressed: () => onFileSelected(continueTarget.file),
+            file: target.file,
+            number: episodeNumberLabel(target.file, files.indexOf(target.file)),
+            progress: target.isNext ? null : progressByFile[target.file.index],
+            isNext: target.isNext,
+            onPressed: () => onFileSelected(target.file),
           ),
           const SizedBox(height: 16),
         ],

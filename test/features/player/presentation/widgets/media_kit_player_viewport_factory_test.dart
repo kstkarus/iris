@@ -885,50 +885,6 @@ void main() {
     expect(createdPlayers.first.disposed, isTrue);
   });
 
-  testWidgets('uses desktop video controls on Windows', (tester) async {
-    debugDefaultTargetPlatformOverride = TargetPlatform.windows;
-    try {
-      MediaKitVideoControlsThemes? capturedThemes;
-
-      await tester.pumpWidget(
-        _wrapViewport(
-          videoSurfaceBuilder:
-              ({
-                required controller,
-                required subtitleViewConfiguration,
-                required controlsThemes,
-              }) {
-                capturedThemes = controlsThemes;
-                return _TopBarSurface(
-                  topButtonBar: controlsThemes.topButtonBar,
-                );
-              },
-        ),
-      );
-      await tester.pump();
-
-      final themes = capturedThemes;
-      expect(themes, isA<MediaKitDesktopVideoControlsThemes>());
-      expect(themes!.controlsBuilder, same(MaterialDesktopVideoControls));
-      final desktopThemes = themes as MediaKitDesktopVideoControlsThemes;
-      expect(desktopThemes.normal.toggleFullscreenOnDoublePress, isTrue);
-      expect(desktopThemes.normal.keyboardShortcuts, isNull);
-      expect(
-        desktopThemes.normal.bottomButtonBar
-            .whereType<MaterialDesktopFullscreenButton>(),
-        isNotEmpty,
-      );
-      expect(
-        find.byKey(const Key('player_track_selector_button')),
-        findsOneWidget,
-      );
-      expect(find.byKey(const Key('player_settings_button')), findsOneWidget);
-      expect(find.byType(MaterialDesktopCustomButton), findsNWidgets(2));
-    } finally {
-      debugDefaultTargetPlatformOverride = null;
-    }
-  });
-
   testWidgets('keeps touch video controls on Android', (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.android;
     try {

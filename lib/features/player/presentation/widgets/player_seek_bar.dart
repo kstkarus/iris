@@ -176,8 +176,8 @@ class _PlayerSeekBarState extends State<PlayerSeekBar> {
                       right: 0,
                       top: _trackTop - trackHeight / 2,
                       height: trackHeight,
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.zero,
+                      child: ClipRect(
+                        clipBehavior: Clip.antiAlias,
                         child: Stack(
                           fit: StackFit.expand,
                           children: [

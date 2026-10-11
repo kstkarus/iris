@@ -2,7 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:media_kit/media_kit.dart';
 
 import 'package:iris/features/player/domain/entities/player_track_preferences.dart';
-import 'package:iris/features/player/presentation/widgets/player_track_matcher.dart';
+import 'package:iris/features/player/presentation/playback/player_track_matcher.dart';
 
 void main() {
   final audio = [

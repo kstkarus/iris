@@ -19,7 +19,6 @@ import 'package:iris/features/player/presentation/cubit/player_state.dart';
 import 'package:iris/features/player/presentation/cubit/player_subtitle_preferences_cubit.dart';
 import 'package:iris/features/player/presentation/pages/player_page.dart';
 import 'package:iris/features/player/presentation/playback/player_engine.dart';
-import 'package:iris/features/player/presentation/widgets/player_adaptive_layout.dart';
 import 'package:iris/features/player/presentation/widgets/player_countdown.dart';
 import 'package:iris/features/player/presentation/widgets/player_viewport_factory.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
@@ -489,14 +488,6 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byType(PlayerPage), findsNothing);
     }, variant: desktop);
-  });
-
-  test('detects desktop platforms', () {
-    expect(isDesktopPlayerPlatform(TargetPlatform.windows), isTrue);
-    expect(isDesktopPlayerPlatform(TargetPlatform.linux), isTrue);
-    expect(isDesktopPlayerPlatform(TargetPlatform.macOS), isTrue);
-    expect(isDesktopPlayerPlatform(TargetPlatform.android), isFalse);
-    expect(isDesktopPlayerPlatform(TargetPlatform.iOS), isFalse);
   });
 }
 

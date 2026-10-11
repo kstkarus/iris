@@ -1,3 +1,5 @@
+import 'package:iris/shared/utils/enum_by_name.dart';
+
 enum PlayerHwdecModePreset {
   autoSafe,
   mediacodec,
@@ -23,7 +25,7 @@ class PlayerDecodingPreferences {
 
   factory PlayerDecodingPreferences.fromJson(Map<String, Object?> json) {
     return PlayerDecodingPreferences(
-      hwdecMode: _parseEnum(
+      hwdecMode: enumByName(
         PlayerHwdecModePreset.values,
         json['hwdecMode'],
         const PlayerDecodingPreferences.defaults().hwdecMode,
@@ -42,19 +44,4 @@ class PlayerDecodingPreferences {
 
   @override
   int get hashCode => hwdecMode.hashCode;
-}
-
-T _parseEnum<T extends Enum>(List<T> values, Object? rawValue, T fallback) {
-  final name = rawValue as String?;
-  if (name == null) {
-    return fallback;
-  }
-
-  for (final value in values) {
-    if (value.name == name) {
-      return value;
-    }
-  }
-
-  return fallback;
 }

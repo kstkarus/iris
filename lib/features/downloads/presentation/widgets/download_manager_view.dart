@@ -555,7 +555,11 @@ String _facts(AppLocalizations l10n, DownloadItem item) {
         l10n.downloadNoPeers
       else ...[
         ?_timeLeft(l10n, item),
-        l10n.playerRate(formatByteSize(l10n, item.downloadRateBytesPerSecond)),
+        formatTransferRate(
+          l10n,
+          item.downloadRateBytesPerSecond,
+          compact: false,
+        ),
       ],
     ].join(' · '),
     _ => '${formatByteSize(l10n, item.downloadedBytes)} / $total',

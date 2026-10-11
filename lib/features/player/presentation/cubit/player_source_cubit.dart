@@ -3,7 +3,7 @@ import 'dart:developer' as developer;
 
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:iris/features/player/data/exceptions/no_playable_video_exception.dart';
+import 'package:iris/features/player/domain/entities/no_playable_video_exception.dart';
 import 'package:iris/features/player/domain/entities/prepared_player_source.dart';
 import 'package:iris/features/player/domain/repositories/player_repository.dart';
 import 'package:iris/features/player/presentation/cubit/player_source_state.dart';

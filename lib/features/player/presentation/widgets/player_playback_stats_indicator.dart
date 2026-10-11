@@ -2,11 +2,12 @@ import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart' show NumberFormat;
 
+import 'package:iris/features/player/domain/entities/player_playback_diagnostics.dart';
 import 'package:iris/features/player/domain/entities/player_playback_stats.dart';
-import 'package:iris/features/player/presentation/widgets/player_buffer_health_tracker.dart';
+import 'package:iris/features/player/presentation/playback/player_buffer_margin.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
+import 'package:iris/shared/utils/byte_size_formatter.dart';
 import 'package:iris/shared/widgets/segmented_bar.dart';
 
 class PlayerPlaybackStatsListenable extends StatelessWidget {
@@ -14,7 +15,6 @@ class PlayerPlaybackStatsListenable extends StatelessWidget {
     required this.listenable,
     this.videoCodec,
     this.audioCodec,
-    this.diagnostics,
     this.diagnosticsListenable,
     this.isBuffering = false,
     this.bufferMarginState,
@@ -30,7 +30,6 @@ class PlayerPlaybackStatsListenable extends StatelessWidget {
   final bool immersive;
   final String? videoCodec;
   final String? audioCodec;
-  final PlayerPlaybackDiagnostics? diagnostics;
   final ValueListenable<PlayerPlaybackDiagnostics?>? diagnosticsListenable;
   final bool isBuffering;
   final PlayerBufferMarginState? bufferMarginState;
@@ -45,7 +44,7 @@ class PlayerPlaybackStatsListenable extends StatelessWidget {
         // An online stream has no transport stats; its decoder still has
         // something to show.
         final stats = listenable.value;
-        final diagnostics = diagnosticsListenable?.value ?? this.diagnostics;
+        final diagnostics = diagnosticsListenable?.value;
         if (stats == null && diagnostics == null && !isBuffering) {
           return const SizedBox.shrink();
         }
@@ -76,10 +75,6 @@ class PlayerPlaybackStatsIndicator extends StatelessWidget {
     this.immersive = false,
     super.key,
   });
-
-  /// Metrics shown when technical details are off: what a viewer needs to
-  /// understand stalls (speed, buffer, buffering).
-  static const _essentialPriorities = {0, 2, 9};
 
   /// Transport metrics (speed, peers, read-ahead, memory); null for a
   /// stream that has none, which shows the rest.
@@ -113,12 +108,9 @@ class PlayerPlaybackStatsIndicator extends StatelessWidget {
           height: 1.1,
         );
 
-    final metrics = _buildMetrics(l10n)
-        .where(
-          (metric) =>
-              detailed || _essentialPriorities.contains(metric.priority),
-        )
-        .toList();
+    final metrics = _buildMetrics(
+      l10n,
+    ).where((metric) => detailed || metric.kind.essential).toList();
     if (metrics.isEmpty) {
       return const SizedBox.shrink();
     }
@@ -158,14 +150,12 @@ class PlayerPlaybackStatsIndicator extends StatelessWidget {
   }
 
   List<_PlayerOverlayMetricItem> _buildMetrics(AppLocalizations l10n) {
-    // TODO(kstk): Add a user-facing setting to choose which overlay metrics
-    // should stay visible in the player.
     final stats = this.stats;
     final items = <_PlayerOverlayMetricItem>[
       if (stats != null) ...[
         _PlayerOverlayMetricItem(
           value: formatTransferRate(l10n, stats.downloadRateBytesPerSecond),
-          priority: 0,
+          kind: _Metric.speed,
           tooltip: l10n.playerRuntimeStatsSpeed(
             formatTransferRate(l10n, stats.downloadRateBytesPerSecond),
           ),
@@ -173,7 +163,7 @@ class PlayerPlaybackStatsIndicator extends StatelessWidget {
         _PlayerOverlayMetricItem(
           value: stats.activePeers.toString(),
           label: _labelOf(l10n.playerRuntimeStatsPeers('')),
-          priority: 1,
+          kind: _Metric.peers,
           tooltip: l10n.playerRuntimeStatsPeers(stats.activePeers.toString()),
         ),
       ],
@@ -189,7 +179,7 @@ class PlayerPlaybackStatsIndicator extends StatelessWidget {
       items.add(
         _PlayerOverlayMetricItem(
           value: _formatBufferedWindowProgress(bufferedWindowProgress),
-          priority: 2,
+          kind: _Metric.buffer,
           buffer: bufferedWindowProgress,
           warning: !bufferSufficient,
         ),
@@ -202,7 +192,7 @@ class PlayerPlaybackStatsIndicator extends StatelessWidget {
         _PlayerOverlayMetricItem(
           value: hwdec,
           label: 'hwdec',
-          priority: 3,
+          kind: _Metric.hwdec,
           tooltip: 'hwdec $hwdec',
         ),
       );
@@ -214,7 +204,7 @@ class PlayerPlaybackStatsIndicator extends StatelessWidget {
         _PlayerOverlayMetricItem(
           value: currentVo,
           label: 'vo',
-          priority: 4,
+          kind: _Metric.vo,
           tooltip: 'vo $currentVo',
         ),
       );
@@ -226,7 +216,7 @@ class PlayerPlaybackStatsIndicator extends StatelessWidget {
         _PlayerOverlayMetricItem(
           value: videoDecoder,
           label: 'dec',
-          priority: 5,
+          kind: _Metric.decoder,
           tooltip: _decoderTooltip(diagnostics),
         ),
       );
@@ -238,7 +228,7 @@ class PlayerPlaybackStatsIndicator extends StatelessWidget {
         _PlayerOverlayMetricItem(
           value: shortVideoCodec,
           label: _labelOf(l10n.playerRuntimeStatsVideoCodec('')),
-          priority: 6,
+          kind: _Metric.videoCodec,
           tooltip: l10n.playerRuntimeStatsVideoCodec(shortVideoCodec),
         ),
       );
@@ -250,7 +240,7 @@ class PlayerPlaybackStatsIndicator extends StatelessWidget {
         _PlayerOverlayMetricItem(
           value: shortAudioCodec,
           label: _labelOf(l10n.playerRuntimeStatsAudioCodec('')),
-          priority: 7,
+          kind: _Metric.audioCodec,
           tooltip: l10n.playerRuntimeStatsAudioCodec(shortAudioCodec),
         ),
       );
@@ -258,12 +248,12 @@ class PlayerPlaybackStatsIndicator extends StatelessWidget {
 
     final memory = stats?.appMemoryBytes;
     if (memory != null) {
-      final formattedMemory = _formatMemory(l10n, memory);
+      final formattedMemory = formatByteSize(l10n, memory, compact: true);
       items.add(
         _PlayerOverlayMetricItem(
           value: formattedMemory,
           label: _labelOf(l10n.playerRuntimeStatsMemory('')),
-          priority: 8,
+          kind: _Metric.memory,
           tooltip: l10n.playerRuntimeStatsMemory(formattedMemory),
         ),
       );
@@ -273,61 +263,14 @@ class PlayerPlaybackStatsIndicator extends StatelessWidget {
       items.add(
         _PlayerOverlayMetricItem(
           value: l10n.playerBuffering,
-          priority: 9,
+          kind: _Metric.buffering,
           tooltip: l10n.playerBuffering,
         ),
       );
     }
 
-    items.sort((left, right) => left.priority.compareTo(right.priority));
     return items;
   }
-}
-
-class PlayerPlaybackDiagnostics {
-  const PlayerPlaybackDiagnostics({
-    this.hwdecCurrent,
-    this.currentVo,
-    this.videoCodec,
-    this.videoDecoder,
-    this.videoDecoderDescription,
-  });
-
-  final String? hwdecCurrent;
-  final String? currentVo;
-  final String? videoCodec;
-  final String? videoDecoder;
-  final String? videoDecoderDescription;
-
-  bool get isEmpty =>
-      _nonBlank(hwdecCurrent) == null &&
-      _nonBlank(currentVo) == null &&
-      _nonBlank(videoCodec) == null &&
-      _nonBlank(videoDecoder) == null &&
-      _nonBlank(videoDecoderDescription) == null;
-
-  @override
-  bool operator ==(Object other) {
-    if (identical(this, other)) {
-      return true;
-    }
-
-    return other is PlayerPlaybackDiagnostics &&
-        other.hwdecCurrent == hwdecCurrent &&
-        other.currentVo == currentVo &&
-        other.videoCodec == videoCodec &&
-        other.videoDecoder == videoDecoder &&
-        other.videoDecoderDescription == videoDecoderDescription;
-  }
-
-  @override
-  int get hashCode => Object.hash(
-    hwdecCurrent,
-    currentVo,
-    videoCodec,
-    videoDecoder,
-    videoDecoderDescription,
-  );
 }
 
 class _MetricChip extends StatelessWidget {
@@ -384,10 +327,30 @@ class _MetricChip extends StatelessWidget {
   }
 }
 
+/// The overlay's metrics, in the order they are shown.
+enum _Metric {
+  speed(essential: true),
+  peers,
+  buffer(essential: true),
+  hwdec,
+  vo,
+  decoder,
+  videoCodec,
+  audioCodec,
+  memory,
+  buffering(essential: true);
+
+  const _Metric({this.essential = false});
+
+  /// Shown also when technical details are off: what a viewer needs to
+  /// understand stalls.
+  final bool essential;
+}
+
 class _PlayerOverlayMetricItem {
   const _PlayerOverlayMetricItem({
     required this.value,
-    required this.priority,
+    required this.kind,
     this.label,
     this.buffer,
     this.warning = false,
@@ -395,7 +358,7 @@ class _PlayerOverlayMetricItem {
   });
 
   final String value;
-  final int priority;
+  final _Metric kind;
 
   /// A short key before the value, for values that do not name
   /// themselves ("42" peers, "gpu" output). Speed carries its unit and
@@ -597,15 +560,6 @@ double _resolveMaxChipWidth(double maxWidth) {
   return math.max(_chipMinimumWidth, math.min(target, _chipMaximumWidth));
 }
 
-/// "2.4 MB/s", in the app's byte units.
-String formatTransferRate(AppLocalizations l10n, int bytesPerSecond) {
-  return l10n.playerRate(_formatBytes(l10n, bytesPerSecond));
-}
-
-String _formatMemory(AppLocalizations l10n, int bytes) {
-  return _formatBytes(l10n, bytes);
-}
-
 double _resolveBufferedWindowProgress(PlayerPlaybackStats stats) {
   if (stats.readaheadWindow <= 0 || stats.bufferPieces <= 0) {
     return 0;
@@ -616,29 +570,6 @@ double _resolveBufferedWindowProgress(PlayerPlaybackStats stats) {
 
 String _formatBufferedWindowProgress(double progress) {
   return '${(progress * 100).round()}%';
-}
-
-String _formatBytes(AppLocalizations l10n, int bytes) {
-  final units = [
-    l10n.byteUnitB,
-    l10n.byteUnitKB,
-    l10n.byteUnitMB,
-    l10n.byteUnitGB,
-  ];
-  var value = bytes.toDouble();
-  var unitIndex = 0;
-
-  while (value >= 1024 && unitIndex < units.length - 1) {
-    value /= 1024;
-    unitIndex++;
-  }
-
-  final fractionDigits = unitIndex <= 1 || value >= 10 ? 0 : 1;
-  final number = NumberFormat.decimalPatternDigits(
-    locale: l10n.localeName,
-    decimalDigits: fractionDigits,
-  ).format(value);
-  return '$number ${units[unitIndex]}';
 }
 
 String? _shortCodec(String? codec) {

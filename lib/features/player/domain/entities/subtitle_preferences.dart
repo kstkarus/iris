@@ -1,3 +1,5 @@
+import 'package:iris/shared/utils/enum_by_name.dart';
+
 enum SubtitleTextScalePreset { compact, normal, large, xLarge }
 
 enum SubtitleTextColorPreset { white, yellow, cyan }
@@ -59,22 +61,22 @@ class SubtitlePreferences {
       libassEnabled:
           json['libassEnabled'] as bool? ??
           const SubtitlePreferences.defaults().libassEnabled,
-      textScale: _parseEnum(
+      textScale: enumByName(
         SubtitleTextScalePreset.values,
         json['textScale'],
         const SubtitlePreferences.defaults().textScale,
       ),
-      textColor: _parseEnum(
+      textColor: enumByName(
         SubtitleTextColorPreset.values,
         json['textColor'],
         const SubtitlePreferences.defaults().textColor,
       ),
-      backgroundStyle: _parseEnum(
+      backgroundStyle: enumByName(
         SubtitleBackgroundStylePreset.values,
         json['backgroundStyle'],
         const SubtitlePreferences.defaults().backgroundStyle,
       ),
-      verticalPosition: _parseEnum(
+      verticalPosition: enumByName(
         SubtitleVerticalPositionPreset.values,
         json['verticalPosition'],
         const SubtitlePreferences.defaults().verticalPosition,
@@ -104,19 +106,4 @@ class SubtitlePreferences {
     backgroundStyle,
     verticalPosition,
   );
-}
-
-T _parseEnum<T extends Enum>(List<T> values, Object? rawValue, T fallback) {
-  final name = rawValue as String?;
-  if (name == null) {
-    return fallback;
-  }
-
-  for (final value in values) {
-    if (value.name == name) {
-      return value;
-    }
-  }
-
-  return fallback;
 }

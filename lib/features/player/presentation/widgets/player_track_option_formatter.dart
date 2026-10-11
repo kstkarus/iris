@@ -2,8 +2,8 @@ import 'package:media_kit/media_kit.dart';
 
 String formatAudioTrackLabel(
   AudioTrack track, {
-  String autoLabel = 'Auto',
-  String offLabel = 'Off',
+  required String autoLabel,
+  required String offLabel,
 }) {
   if (track.id == AudioTrack.auto().id) {
     return autoLabel;
@@ -22,8 +22,8 @@ String formatAudioTrackLabel(
 
 String formatSubtitleTrackLabel(
   SubtitleTrack track, {
-  String autoLabel = 'Auto',
-  String offLabel = 'Off',
+  required String autoLabel,
+  required String offLabel,
 }) {
   if (track.id == SubtitleTrack.auto().id) {
     return autoLabel;

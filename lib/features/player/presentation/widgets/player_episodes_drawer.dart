@@ -96,15 +96,13 @@ class _Panel extends StatelessWidget {
     final l10n = AppLocalizations.of(context);
     final theme = Theme.of(context);
     final caption = this.caption;
-    final radius = BorderRadius.zero;
-    return ClipRRect(
-      borderRadius: radius,
+    return ClipRect(
+      clipBehavior: Clip.antiAlias,
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
         child: DecoratedBox(
           decoration: BoxDecoration(
             color: const Color(0xCC121212),
-            borderRadius: radius,
             border: Border.all(color: Colors.white12),
           ),
           child: Column(

@@ -10,7 +10,7 @@ import 'package:iris/features/player/domain/entities/player_video_file.dart';
 import 'package:iris/features/player/presentation/cubit/episode_mark_cubit.dart';
 import 'package:iris/features/player/presentation/cubit/player_cubit.dart';
 import 'package:iris/features/player/presentation/cubit/player_state.dart';
-import 'package:iris/features/player/presentation/widgets/player_adaptive_layout.dart';
+import 'package:iris/features/player/presentation/models/player_chrome_mapper.dart';
 import 'package:iris/features/player/presentation/widgets/player_countdown.dart';
 import 'package:iris/features/player/presentation/widgets/player_episode_cards.dart';
 import 'package:iris/features/player/presentation/widgets/player_episodes_list.dart';
@@ -18,9 +18,9 @@ import 'package:iris/features/player/presentation/widgets/player_view.dart';
 import 'package:iris/features/player/presentation/widgets/player_viewport_factory.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/utils/duration_formatter.dart';
+import 'package:iris/shared/utils/desktop_platform.dart';
 import 'package:iris/shared/utils/file_display_name.dart';
 import 'package:iris/shared/theme/over_video_theme.dart';
-import 'package:iris/shared/utils/release_title.dart';
 import 'package:iris/shared/widgets/adaptive/window_size_class.dart';
 import 'package:iris/shared/widgets/page_title.dart';
 import 'package:iris/shared/widgets/pixel_icon.dart';
@@ -93,7 +93,7 @@ class _PlayerPageState extends State<PlayerPage> {
 
   void _showResumeSnackBar(BuildContext context, PlayerCubit cubit) {
     _closePlaybackSnackBar();
-    final behavior = _snackBarPlacement(context);
+    final placement = _snackBarPlacement(context);
     // One snackbar at a time: this replaces whatever is showing instead of
     // queueing behind it.
     final controller = (ScaffoldMessenger.of(context)..hideCurrentSnackBar())
@@ -102,13 +102,13 @@ class _PlayerPageState extends State<PlayerPage> {
             key: const Key('player_resume_snackbar'),
             content: _ResumeSnackBarContent(
               cubit: cubit,
-              floating: behavior.behavior == SnackBarBehavior.floating,
+              floating: placement.behavior == SnackBarBehavior.floating,
             ),
             // Its content counts down once the file starts, like the
             // immersive notice, and closes it.
             duration: const Duration(days: 1),
-            behavior: behavior.behavior,
-            width: behavior.width,
+            behavior: placement.behavior,
+            width: placement.width,
             // The content pads itself, so the countdown can run along the
             // snackbar's edge.
             padding: EdgeInsets.zero,
@@ -125,7 +125,7 @@ class _PlayerPageState extends State<PlayerPage> {
 
   @override
   Widget build(BuildContext context) {
-    final page = isDesktopPlayerPlatform()
+    final page = isDesktopPlatform
         ? _buildImmersive(context)
         : _buildAdaptive(context);
     // Pages opened without a list to mark (as in tests) only play.
@@ -174,6 +174,10 @@ class _PlayerPageState extends State<PlayerPage> {
             // video keeps the height.
             final sidePaneVisible = _sidePaneChoice ?? !sizeClass.isCompact;
             final margin = sizeClass.pageMargin;
+            final player = PlayerView(
+              key: _playerKey,
+              viewportFactory: widget.viewportFactory,
+            );
 
             return Scaffold(
               appBar: AppBar(
@@ -204,18 +208,12 @@ class _PlayerPageState extends State<PlayerPage> {
                     ? _SideBySideLayout(
                         margin: margin,
                         showPane: sidePaneVisible,
-                        player: PlayerView(
-                          key: _playerKey,
-                          viewportFactory: widget.viewportFactory,
-                        ),
+                        player: player,
                         pane: _EpisodesPane(source: source),
                       )
                     : _StackedLayout(
                         margin: margin,
-                        player: PlayerView(
-                          key: _playerKey,
-                          viewportFactory: widget.viewportFactory,
-                        ),
+                        player: player,
                         episodes: hasEpisodes
                             ? _EpisodesPane(source: source)
                             : null,
@@ -230,7 +228,7 @@ class _PlayerPageState extends State<PlayerPage> {
 
   Widget _buildImmersive(BuildContext context) {
     return Theme(
-      data: immersivePlayerTheme(Theme.of(context)),
+      data: OverVideoTheme.of(Theme.of(context)),
       child: BlocConsumer<PlayerCubit, PlayerState>(
         listener: _showPlaybackMessages,
         builder: (context, state) {
@@ -248,40 +246,11 @@ class _PlayerPageState extends State<PlayerPage> {
   }
 
   PlayerChrome _immersiveChrome(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
     final cubit = context.read<PlayerCubit>();
     final source = cubit.source;
-    final release = source.sourceTitle.trim();
-    final anime = source.animeTitle.trim();
-    // Saved torrents carry their release name as the anime title too.
-    final overline = anime.isNotEmpty && anime != release
-        ? anime
-        : releaseDisplayTitle(release);
-    final episode = source.episodeNumber;
-    final count = source.files.length;
-    final position = source.files.indexWhere(
-      (file) => file.index == source.fileIndex,
-    );
-    final inRelease = count > 1 && position >= 0;
-    // Where the episode number is the file's place, the place adds only
-    // the total: "Episode 20 of 37" instead of a line repeating the 20.
-    final placeIsNumber = inRelease && episode == position + 1;
-    final details = inRelease && !placeIsNumber
-        ? l10n.playerEpisodePosition(position + 1, count)
-        : null;
-    final episodesCaption = [
-      if (release.isNotEmpty) release,
-      l10n.animeEpisodeCount('$count', count),
-    ].join(' · ');
-
-    return PlayerChrome(
-      title: episode == null
-          ? fileDisplayName(source.fileName)
-          : l10n.playerEpisodeNumber(episode),
-      titleDetail: placeIsNumber ? l10n.playerEpisodeOfTotal(count) : null,
-      overline: overline,
-      details: details,
-      episodesCaption: episodesCaption,
+    return playerChromeFor(
+      AppLocalizations.of(context),
+      source,
       onBack: () => Navigator.of(context).maybePop(),
       notice: _notice ?? _markNotice,
       episodes: source.files.length > 1
@@ -310,7 +279,7 @@ class _PlayerPageState extends State<PlayerPage> {
       return;
     }
 
-    if (isDesktopPlayerPlatform()) {
+    if (isDesktopPlatform) {
       final choice = resumeChoice(AppLocalizations.of(context), cubit, state);
       setState(
         () => _notice = PlayerNotice(
@@ -353,7 +322,7 @@ class _PlayerPageState extends State<PlayerPage> {
       EpisodeMarkIdle() || EpisodeMarkSaving() => null,
     };
 
-    if (isDesktopPlayerPlatform()) {
+    if (isDesktopPlatform) {
       setState(
         () => _markNotice = notice == null
             ? null
@@ -490,16 +459,11 @@ class _ResumeSnackBarContent extends StatelessWidget {
 ({SnackBarBehavior behavior, double? width}) _snackBarPlacement(
   BuildContext context,
 ) {
-  final width = MediaQuery.sizeOf(context).width;
-  if (WindowSizeClass.fromWidth(width).isCompact) {
+  if (WindowSizeClass.of(context).isCompact) {
     return (behavior: SnackBarBehavior.fixed, width: null);
   }
   return (behavior: SnackBarBehavior.floating, width: 480);
 }
-
-/// The app's colours as they read over video: its dark theme, so dialogs
-/// and progress opened from the player match it.
-ThemeData immersivePlayerTheme(ThemeData base) => OverVideoTheme.of(base);
 
 class _SideBySideLayout extends StatelessWidget {
   const _SideBySideLayout({
@@ -565,17 +529,14 @@ class _StackedLayout extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final episodes = this.episodes;
-    final framedPlayer = Padding(
-      padding: EdgeInsets.fromLTRB(margin, 8, margin, 16),
-      child: player,
-    );
-    if (episodes == null) return framedPlayer;
+    final padding = EdgeInsets.fromLTRB(margin, 8, margin, 16);
+    if (episodes == null) return Padding(padding: padding, child: player);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Padding(
-          padding: EdgeInsets.fromLTRB(margin, 8, margin, 16),
+          padding: padding,
           child: AspectRatio(aspectRatio: 16 / 9, child: player),
         ),
         const Divider(height: 1),
@@ -596,10 +557,7 @@ class _EpisodesPane extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final theme = Theme.of(context);
-    final torrentKey = source.torrentKey;
-    final progress = torrentKey == null
-        ? const <int, WatchProgress>{}
-        : progressByFile(context.watchWatchProgress(), torrentKey);
+    final progress = _sourceProgress(context, source);
 
     // Shown and hidden only by the app bar toggle; one control per action.
     return Column(
@@ -634,10 +592,7 @@ class _EpisodeCardsPane extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final torrentKey = source.torrentKey;
-    final progress = torrentKey == null
-        ? const <int, WatchProgress>{}
-        : progressByFile(context.watchWatchProgress(), torrentKey);
+    final progress = _sourceProgress(context, source);
     return PlayerEpisodeCards(
       files: source.files,
       currentFileIndex: source.fileIndex,
@@ -645,4 +600,15 @@ class _EpisodeCardsPane extends StatelessWidget {
       onSelected: onSelected,
     );
   }
+}
+
+/// Watch progress of [source]'s files, keyed by file index.
+Map<int, WatchProgress> _sourceProgress(
+  BuildContext context,
+  AnimePlayerSource source,
+) {
+  final torrentKey = source.torrentKey;
+  return torrentKey == null
+      ? const {}
+      : progressByFile(context.watchWatchProgress(), torrentKey);
 }

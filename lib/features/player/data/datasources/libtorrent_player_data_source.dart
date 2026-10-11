@@ -3,7 +3,7 @@ import 'dart:developer' as developer;
 
 import 'package:iris/features/player/data/adapters/libtorrent_engine_adapter.dart';
 import 'package:iris/features/player/data/adapters/player_runtime_memory_adapter.dart';
-import 'package:iris/features/player/data/exceptions/no_playable_video_exception.dart';
+import 'package:iris/features/player/domain/entities/no_playable_video_exception.dart';
 import 'package:iris/features/player/data/models/playback_launch_update_model.dart';
 import 'package:iris/features/player/data/models/playback_runtime_stats_model.dart';
 import 'package:iris/features/player/data/models/playback_stream_descriptor.dart';
@@ -64,7 +64,8 @@ class LibtorrentPlayerDataSource {
     torrent.sessionIds.add(sessionId);
     final torrentId = torrent.torrentId;
     try {
-      await _awaitMetadata(torrent.metadata, cancelled);
+      // The torrent itself is left to the session release below.
+      await unlessCancelled(torrent.metadata, cancelled);
     } catch (_) {
       await disposePlayback(sessionId: sessionId);
       rethrow;
@@ -131,16 +132,6 @@ class LibtorrentPlayerDataSource {
     );
     _torrentsByKey[torrentKey] = torrent;
     return torrent;
-  }
-
-  /// Waits for [metadata] unless [cancelled] completes first. The torrent
-  /// itself is left to the caller, which releases its session.
-  Future<void> _awaitMetadata(Future<void> metadata, Future<void>? cancelled) {
-    if (cancelled == null) return metadata;
-    return Future.any<void>([
-      metadata,
-      cancelled.then<void>((_) => throw const PreparationCancelledException()),
-    ]);
   }
 
   Stream<PlaybackLaunchUpdateModel> startPlayback({
@@ -370,7 +361,7 @@ class LibtorrentPlayerDataSource {
       }
 
       developer.log(
-        'Background playback HTTP probe could not confirm a playable media container. sessionId=$sessionId url=$url status=${lastResult?.statusCode} firstBytesHex=${lastResult == null ? 'none' : _toHex(lastResult.firstBytes)}',
+        'Background playback HTTP probe could not confirm a playable media container. sessionId=$sessionId url=$url status=${lastResult?.statusCode} firstBytesHex=${lastResult == null ? 'none' : formatBytesHex(lastResult.firstBytes)}',
         name: 'iris.player.datasource',
       );
     } catch (error, stackTrace) {
@@ -419,12 +410,4 @@ class _BackgroundProbeToken {
   void cancel() {
     isCancelled = true;
   }
-}
-
-String _toHex(List<int> bytes) {
-  if (bytes.isEmpty) {
-    return 'empty';
-  }
-
-  return bytes.map((byte) => byte.toRadixString(16).padLeft(2, '0')).join(' ');
 }

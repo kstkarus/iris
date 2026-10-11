@@ -222,8 +222,8 @@ class PlayerCubit extends Cubit<PlayerState> {
     final duration = _lastDuration;
     if (duration != null) reportProgress(duration, duration, flush: true);
     final current = state;
-    if (current is PlayerReady && !current.completed) {
-      _emitIfOpen(current.copyWith(completed: true, showResumeNotice: false));
+    if (current is PlayerReady && current.showResumeNotice) {
+      _emitIfOpen(current.copyWith(showResumeNotice: false));
     }
   }
 

@@ -3,7 +3,6 @@ import 'dart:developer' as developer;
 
 import 'package:libtorrent_flutter/libtorrent_flutter.dart';
 
-import 'package:iris/features/player/data/exceptions/torrent_metadata_unavailable_exception.dart';
 import 'package:iris/features/player/data/models/playback_runtime_stats_model.dart';
 import 'package:iris/features/player/data/models/playback_stream_descriptor.dart';
 import 'package:iris/features/player/data/models/torrent_file_descriptor.dart';
@@ -28,7 +27,7 @@ abstract interface class LibtorrentEngineAdapter {
   PlaybackStreamDescriptor startStream(
     int torrentId, {
     required int fileIndex,
-    int maxCacheBytes = torrentStreamCacheBytes,
+    required int maxCacheBytes,
   });
 
   PlaybackRuntimeStatsModel? getPlaybackRuntimeStats(int streamId);
@@ -162,7 +161,7 @@ class LibtorrentEngineAdapterImpl implements LibtorrentEngineAdapter {
   PlaybackStreamDescriptor startStream(
     int torrentId, {
     required int fileIndex,
-    int maxCacheBytes = torrentStreamCacheBytes,
+    required int maxCacheBytes,
   }) {
     final stream = _engineClient.startStream(
       torrentId,
@@ -220,10 +219,7 @@ class LibtorrentEngineAdapterImpl implements LibtorrentEngineAdapter {
         'Timed out while waiting for torrent metadata. torrentId=$torrentId timeout=${_metadataWaitTimeout.inSeconds}s',
         name: 'iris.player.libtorrent',
       );
-      throw TorrentMetadataUnavailableException(
-        torrentId: torrentId,
-        timeout: _metadataWaitTimeout,
-      );
+      rethrow;
     } on TorrentMetadataFailedException catch (error) {
       developer.log(
         'Torrent failed before its metadata arrived. torrentId=$torrentId',

@@ -21,3 +21,11 @@ String summarizeTorrentFiles(List<TorrentFileDescriptor> files) {
       })
       .join(' || ');
 }
+
+String formatBytesHex(List<int> bytes) {
+  if (bytes.isEmpty) {
+    return 'empty';
+  }
+
+  return bytes.map((byte) => byte.toRadixString(16).padLeft(2, '0')).join(' ');
+}

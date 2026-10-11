@@ -53,7 +53,11 @@ void main() {
     final engine = _FakeEngineClient();
     final adapter = LibtorrentEngineAdapterImpl(engineClient: engine);
 
-    adapter.startStream(42, fileIndex: 7);
+    adapter.startStream(
+      42,
+      fileIndex: 7,
+      maxCacheBytes: torrentStreamCacheBytes,
+    );
 
     expect(engine.startStreamTorrentId, 42);
     expect(engine.startStreamFileIndex, 7);
