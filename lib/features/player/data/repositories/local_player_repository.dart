@@ -9,9 +9,6 @@ import 'package:iris/features/player/domain/entities/prepared_player_source.dart
 import 'package:iris/features/player/domain/repositories/player_repository.dart';
 
 class LocalPlayerRepository implements PlayerRepository {
-  @override
-  Future<void> stopPlayback({required String sessionId}) async {}
-
   const LocalPlayerRepository({
     required DownloadsRepository downloadsRepository,
     required PlayerRuntimeMemoryAdapter memoryAdapter,
@@ -22,6 +19,9 @@ class LocalPlayerRepository implements PlayerRepository {
   final PlayerRuntimeMemoryAdapter _memoryAdapter;
 
   @override
+  Future<void> stopPlayback({required String sessionId}) async {}
+
+  @override
   Future<void> disposePlayback({required String sessionId}) async {}
 
   @override
@@ -29,7 +29,7 @@ class LocalPlayerRepository implements PlayerRepository {
     required String magnet,
     Future<void>? cancelled,
   }) {
-    throw UnsupportedError('Online playback sources are disabled.');
+    throw UnsupportedError('Completed downloads have no source to prepare.');
   }
 
   @override

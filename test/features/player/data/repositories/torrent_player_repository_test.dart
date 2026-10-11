@@ -206,7 +206,7 @@ class _UnusedLibtorrentEngineAdapter implements LibtorrentEngineAdapter {
   PlaybackStreamDescriptor startStream(
     int torrentId, {
     required int fileIndex,
-    int maxCacheBytes = 0,
+    required int maxCacheBytes,
   }) {
     throw UnimplementedError();
   }

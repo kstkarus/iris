@@ -35,15 +35,7 @@ class OnlinePlayerRepository implements PlayerRepository {
     required String magnet,
     Future<void>? cancelled,
   }) async {
-    final request = _release(magnet);
-    final release = cancelled == null
-        ? await request
-        : await Future.any([
-            request,
-            cancelled.then<OnlineRelease>(
-              (_) => throw const PreparationCancelledException(),
-            ),
-          ]);
+    final release = await unlessCancelled(_release(magnet), cancelled);
     return PreparedPlayerSource(
       sessionId: magnet,
       files: [

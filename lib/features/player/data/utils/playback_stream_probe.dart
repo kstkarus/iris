@@ -2,6 +2,10 @@ import 'dart:convert';
 import 'dart:developer' as developer;
 import 'dart:io';
 
+import 'package:iris/features/player/data/utils/player_debug_formatter.dart';
+
+const _sniffedByteCount = 64;
+
 abstract interface class PlaybackStreamProbe {
   Future<PlaybackProbeResult> probe(String url);
 }
@@ -78,17 +82,18 @@ class HttpPlaybackStreamProbe implements PlaybackStreamProbe {
     try {
       final result = await () async {
         final request = await client.getUrl(Uri.parse(url));
-        request.headers.set(HttpHeaders.rangeHeader, 'bytes=0-63');
+        request.headers.set(
+          HttpHeaders.rangeHeader,
+          'bytes=0-${_sniffedByteCount - 1}',
+        );
         final response = await request.close();
-        final bytes = await response.fold<List<int>>(<int>[], (buffer, chunk) {
-          if (buffer.length >= 64) {
-            return buffer;
-          }
-
-          final remaining = 64 - buffer.length;
-          buffer.addAll(chunk.take(remaining));
-          return buffer;
-        });
+        final bytes = <int>[];
+        // Leaving the loop cancels the response, so a server that ignores
+        // Range does not stream the whole file to the probe.
+        await for (final chunk in response) {
+          bytes.addAll(chunk.take(_sniffedByteCount - bytes.length));
+          if (bytes.length >= _sniffedByteCount) break;
+        }
 
         return PlaybackProbeResult(
           statusCode: response.statusCode,
@@ -100,7 +105,7 @@ class HttpPlaybackStreamProbe implements PlaybackStreamProbe {
       }().timeout(timeout);
 
       developer.log(
-        'HTTP probe completed. status=${result.statusCode} contentType=${result.contentType} contentLength=${result.contentLength} acceptRanges=${result.acceptRanges} firstBytesHex=${_toHex(result.firstBytes)} firstBytesText=${_toAscii(result.firstBytes)} looksLikePlayableMedia=${result.looksLikePlayableMedia}',
+        'HTTP probe completed. status=${result.statusCode} contentType=${result.contentType} contentLength=${result.contentLength} acceptRanges=${result.acceptRanges} firstBytesHex=${formatBytesHex(result.firstBytes)} firstBytesText=${_toAscii(result.firstBytes)} looksLikePlayableMedia=${result.looksLikePlayableMedia}',
         name: 'iris.player.http_probe',
       );
       return result;
@@ -137,14 +142,6 @@ bool _startsWith(List<int> bytes, List<int> prefix) {
   }
 
   return true;
-}
-
-String _toHex(List<int> bytes) {
-  if (bytes.isEmpty) {
-    return 'empty';
-  }
-
-  return bytes.map((byte) => byte.toRadixString(16).padLeft(2, '0')).join(' ');
 }
 
 String _toAscii(List<int> bytes) {

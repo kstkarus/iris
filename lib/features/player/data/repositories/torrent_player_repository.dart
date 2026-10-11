@@ -1,7 +1,7 @@
 import 'dart:developer' as developer;
 
 import 'package:iris/features/player/data/datasources/libtorrent_player_data_source.dart';
-import 'package:iris/features/player/data/exceptions/no_playable_video_exception.dart';
+import 'package:iris/features/player/domain/entities/no_playable_video_exception.dart';
 import 'package:iris/features/player/data/models/playback_runtime_stats_model.dart';
 import 'package:iris/features/player/data/models/playback_launch_update_model.dart';
 import 'package:iris/features/player/data/models/torrent_file_descriptor.dart';

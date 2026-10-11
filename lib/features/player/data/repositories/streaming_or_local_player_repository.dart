@@ -7,7 +7,7 @@ import 'package:iris/features/player/domain/repositories/player_repository.dart'
 /// Streams torrents by default, plays online releases from their video
 /// servers and completed downloads from disk.
 ///
-/// Streaming sessions are numeric libtorrent torrent ids, online sessions
+/// Streaming sessions are numeric session counters, online sessions
 /// are the release's [OnlineSourceLink], and download ids are
 /// `<info-hash>-<file index>`, so the session id alone selects the backend.
 class StreamingOrLocalPlayerRepository implements PlayerRepository {

@@ -5,8 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:iris/features/player/data/adapters/libtorrent_engine_adapter.dart';
 import 'package:iris/features/player/data/adapters/player_runtime_memory_adapter.dart';
 import 'package:iris/features/player/data/datasources/libtorrent_player_data_source.dart';
-import 'package:iris/features/player/data/exceptions/no_playable_video_exception.dart';
-import 'package:iris/features/player/data/exceptions/torrent_metadata_unavailable_exception.dart';
+import 'package:iris/features/player/domain/entities/no_playable_video_exception.dart';
 import 'package:iris/features/player/data/models/playback_runtime_stats_model.dart';
 import 'package:iris/features/player/data/models/playback_launch_update_model.dart';
 import 'package:iris/features/player/data/models/playback_stream_descriptor.dart';
@@ -232,9 +231,9 @@ void main() {
     final engine = _FakeLibtorrentEngineAdapter(
       files: const [],
       streamUrl: 'http://127.0.0.1:8080/stream/0',
-      waitForMetadataError: const TorrentMetadataUnavailableException(
-        torrentId: 42,
-        timeout: Duration(seconds: 90),
+      waitForMetadataError: TimeoutException(
+        'No metadata',
+        const Duration(seconds: 90),
       ),
     );
 
@@ -242,7 +241,7 @@ void main() {
 
     await expectLater(
       () => dataSource.prepareSource(magnet: 'magnet:?xt=urn:btih:no-meta'),
-      throwsA(isA<TorrentMetadataUnavailableException>()),
+      throwsA(isA<TimeoutException>()),
     );
     expect(engine.disposedTorrentIds, [42]);
   });
@@ -812,7 +811,7 @@ class _FakeLibtorrentEngineAdapter implements LibtorrentEngineAdapter {
   PlaybackStreamDescriptor startStream(
     int torrentId, {
     required int fileIndex,
-    int maxCacheBytes = 0,
+    required int maxCacheBytes,
   }) {
     startStreamCallCount++;
     final error = startStreamError;
