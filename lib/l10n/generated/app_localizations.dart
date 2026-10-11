@@ -626,18 +626,6 @@ abstract class AppLocalizations {
   /// **'{count, plural, =1{1 peer} other{{count} peers}}'**
   String playerWaitPeers(int count);
 
-  /// No description provided for @playerStreamPreparationProgress.
-  ///
-  /// In en, this message translates to:
-  /// **'{percent}% ready for playback'**
-  String playerStreamPreparationProgress(int percent);
-
-  /// No description provided for @playerStreamPreparationSpeed.
-  ///
-  /// In en, this message translates to:
-  /// **'Current speed: {value}'**
-  String playerStreamPreparationSpeed(String value);
-
   /// No description provided for @playerRuntimeStatsSpeed.
   ///
   /// In en, this message translates to:

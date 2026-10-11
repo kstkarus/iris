@@ -136,22 +136,6 @@
       }
     }
   },
-  "playerStreamPreparationProgress": "{percent}% ready for playback",
-  "@playerStreamPreparationProgress": {
-    "placeholders": {
-      "percent": {
-        "type": "int"
-      }
-    }
-  },
-  "playerStreamPreparationSpeed": "Current speed: {value}",
-  "@playerStreamPreparationSpeed": {
-    "placeholders": {
-      "value": {
-        "type": "String"
-      }
-    }
-  },
   "playerRuntimeStatsSpeed": "Speed {value}",
   "@playerRuntimeStatsSpeed": {
     "placeholders": {

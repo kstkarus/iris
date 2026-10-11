@@ -5,7 +5,6 @@ import 'package:iris/features/player/presentation/cubit/player_cubit.dart';
 import 'package:iris/features/player/presentation/cubit/player_state.dart';
 import 'package:iris/features/player/presentation/widgets/player_viewport_factory.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
-import 'package:iris/shared/utils/byte_size_formatter.dart';
 import 'package:iris/shared/widgets/status_views.dart';
 import 'package:iris/shared/widgets/pixel_icon.dart';
 
@@ -71,15 +70,7 @@ class _LoadingState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
-    // No launch reports progress any more: these lines always read zero.
-    return LoadingView(
-      label: l10n.playerPreparing,
-      details: [
-        l10n.playerStreamPreparationProgress(0),
-        l10n.playerStreamPreparationSpeed(formatTransferRate(l10n, 0)),
-      ],
-    );
+    return LoadingView(label: AppLocalizations.of(context).playerPreparing);
   }
 }
 

@@ -310,16 +310,6 @@ class AppLocalizationsRu extends AppLocalizations {
   }
 
   @override
-  String playerStreamPreparationProgress(int percent) {
-    return 'Готовно для старта: $percent%';
-  }
-
-  @override
-  String playerStreamPreparationSpeed(String value) {
-    return 'Текущая скорость: $value';
-  }
-
-  @override
   String playerRuntimeStatsSpeed(String value) {
     return 'Скорость $value';
   }

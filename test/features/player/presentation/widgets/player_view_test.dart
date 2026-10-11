@@ -21,7 +21,9 @@ void main() {
     await tester.pumpWidget(_wrap(cubit: cubit));
 
     expect(find.text('Preparing video'), findsOneWidget);
-    expect(find.text('0% ready for playback'), findsOneWidget);
+    // Nothing reports progress before the player opens: no zero figures.
+    expect(find.textContaining('%'), findsNothing);
+    expect(find.textContaining('/s'), findsNothing);
   });
 
   testWidgets('shows player viewport when playback is ready', (tester) async {

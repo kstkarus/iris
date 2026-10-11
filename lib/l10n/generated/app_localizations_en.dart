@@ -303,16 +303,6 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String playerStreamPreparationProgress(int percent) {
-    return '$percent% ready for playback';
-  }
-
-  @override
-  String playerStreamPreparationSpeed(String value) {
-    return 'Current speed: $value';
-  }
-
-  @override
   String playerRuntimeStatsSpeed(String value) {
     return 'Speed $value';
   }

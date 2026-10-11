@@ -115,22 +115,6 @@
   "playerBuffering": "Буферизация",
   "playerWaitNoPeers": "Пиров пока нет",
   "playerWaitPeers": "{count, plural, one{{count} пир} few{{count} пира} many{{count} пиров} other{{count} пира}}",
-  "playerStreamPreparationProgress": "Готовно для старта: {percent}%",
-  "@playerStreamPreparationProgress": {
-    "placeholders": {
-      "percent": {
-        "type": "int"
-      }
-    }
-  },
-  "playerStreamPreparationSpeed": "Текущая скорость: {value}",
-  "@playerStreamPreparationSpeed": {
-    "placeholders": {
-      "value": {
-        "type": "String"
-      }
-    }
-  },
   "playerRuntimeStatsSpeed": "Скорость {value}",
   "@playerRuntimeStatsSpeed": {
     "placeholders": {
