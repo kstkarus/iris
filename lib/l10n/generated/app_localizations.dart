@@ -722,6 +722,12 @@ abstract class AppLocalizations {
   /// **'Screen locked, tap to unlock'**
   String get playerScreenLocked;
 
+  /// Label of the player slider that sets the screen brightness.
+  ///
+  /// In en, this message translates to:
+  /// **'Brightness'**
+  String get playerBrightness;
+
   /// No description provided for @playerDecoderSettingsTitle.
   ///
   /// In en, this message translates to:

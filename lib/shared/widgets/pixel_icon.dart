@@ -266,6 +266,17 @@ class PixelGlyph {
     '.......',
   ]);
 
+  /// A sun: the screen's brightness.
+  static const brightness = PixelGlyph._([
+    '#..#..#',
+    '.#...#.',
+    '..###..',
+    '#.###.#',
+    '..###..',
+    '.#...#.',
+    '#..#..#',
+  ]);
+
   /// A closed padlock: the screen takes no touches.
   static const lock = PixelGlyph._([
     '..###..',

@@ -18,6 +18,7 @@ import 'package:iris/features/player/presentation/widgets/player_viewport_factor
 import 'package:iris/features/player/presentation/widgets/player_wait_indicator.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/utils/duration_formatter.dart';
+import 'package:iris/shared/window/screen_brightness_control.dart';
 import 'package:iris/shared/widgets/pixel_icon.dart';
 import 'package:iris/features/player/presentation/widgets/player_glyph_switcher.dart';
 import 'package:iris/features/player/presentation/widgets/player_offers.dart';
@@ -30,6 +31,7 @@ part 'immersive/height_reporter.dart';
 part 'immersive/controls_metrics.dart';
 part 'immersive/touch_gestures.dart';
 part 'immersive/screen_lock.dart';
+part 'immersive/brightness_slider.dart';
 
 /// How fast the controls, and what hides with them, fade.
 const _controlsFade = Duration(milliseconds: 250);
@@ -73,6 +75,7 @@ class PlayerImmersiveControls extends StatefulWidget {
     this.input = PlayerInputMode.pointer,
     this.onSubtitleClearance,
     this.videoFit,
+    this.brightness,
     this.next,
     super.key,
   });
@@ -112,6 +115,9 @@ class PlayerImmersiveControls extends StatefulWidget {
   /// How the video fits its box; by touch a pinch switches it between the
   /// whole video and the screen filled with it.
   final ValueNotifier<BoxFit>? videoFit;
+
+  /// By touch, a slider at the left sets it while the controls show.
+  final ScreenBrightnessControl? brightness;
 
   @override
   State<PlayerImmersiveControls> createState() =>
@@ -678,6 +684,19 @@ class _PlayerImmersiveControlsState extends State<PlayerImmersiveControls> {
             ),
           ),
         ),
+        if (widget.brightness case final brightness? when _touch)
+          // Between the back button and the bottom controls, beside the
+          // titles' column.
+          AnimatedPositioned(
+            duration: _BottomSection.titleAnimation,
+            left: _insets.left - _BrightnessSlider.glyphInset,
+            top: _insets.top + metrics.backButton + 12,
+            bottom: _bottomHeight + 12,
+            child: _BrightnessSlider(
+              control: brightness,
+              onActive: (active) => _setHold(#brightness, active),
+            ),
+          ),
       ],
     );
   }

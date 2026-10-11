@@ -23,6 +23,7 @@ import 'package:iris/features/player/presentation/widgets/player_viewport_factor
 import 'package:iris/features/player/presentation/widgets/player_overlay_preferences.dart';
 import 'package:iris/features/player/presentation/widgets/player_track_selector_sheet.dart';
 import 'package:iris/features/player/presentation/widgets/player_wait_indicator.dart';
+import 'package:iris/shared/window/screen_brightness_control.dart';
 
 import '../../../../helpers/fake_player_repository.dart';
 import '../../../../helpers/test_app.dart';
@@ -1930,6 +1931,7 @@ void main() {
             input: PlayerInputMode.touch,
             chrome: chrome(episodes: (context, close) => const SizedBox()),
             next: PlayerNextFile(title: 'Episode 12', play: () {}),
+            brightness: _FakeScreenBrightness(0.5),
           ),
         );
         await tester.pump();
@@ -1945,6 +1947,7 @@ void main() {
           'player_tracks_button',
           'player_settings_button',
           'player_lock_button',
+          'player_brightness_slider',
         ]) {
           final button = tester.getRect(find.byKey(Key(key)));
           expect(button.width, greaterThanOrEqualTo(48), reason: key);
@@ -2504,6 +2507,69 @@ void main() {
       expect(platformPlayer.rates, [2, 1]);
     });
 
+    testWidgets('set the brightness from a slider at the left that keeps the '
+        'controls while dragged, and give it back on leaving', (tester) async {
+      setTestWindowSize(tester, phone);
+      final brightness = _FakeScreenBrightness(0.4);
+      final platformPlayer = _FakePlatformPlayer(
+        configuration: const PlayerConfiguration(),
+      );
+      await tester.pumpWidget(
+        _wrapViewport(
+          platformPlayer: platformPlayer,
+          input: PlayerInputMode.touch,
+          chrome: chrome(),
+          brightness: brightness,
+        ),
+      );
+      await tester.pump();
+      platformPlayer.emitPlaying(true);
+      await _deliverPlayerEvent(tester);
+
+      final slider = find.byKey(const Key('player_brightness_slider'));
+      final track = tester.getRect(slider);
+      expect(track.left, greaterThanOrEqualTo(0));
+      expect(track.center.dx, lessThan(phone.width * 0.2), reason: 'at left');
+      expect(
+        track.bottom,
+        lessThanOrEqualTo(
+          tester.getRect(find.byKey(const Key('player_seek_bar'))).top,
+        ),
+      );
+      expect(track.height, greaterThanOrEqualTo(48));
+
+      final drag = await tester.startGesture(track.center);
+      await drag.moveBy(const Offset(0, -20));
+      await drag.moveBy(Offset(0, -track.height / 4));
+      await tester.pump(const Duration(seconds: 5));
+      expect(opacity(tester), 1, reason: 'the drag holds the controls');
+      expect(brightness.values.last, closeTo(0.75 + 20 / track.height, 0.01));
+      await drag.up();
+      await tester.pump(PlayerImmersiveControls.hideAfter);
+      await tester.pump();
+      expect(opacity(tester), 0);
+      expect(brightness.resets, 0);
+
+      await tester.pumpWidget(const SizedBox());
+      expect(brightness.resets, 1);
+    });
+
+    testWidgets('show no brightness slider without a control for it or with '
+        'a pointer', (tester) async {
+      setTestWindowSize(tester, phone);
+      await tester.pumpWidget(
+        _wrapViewport(input: PlayerInputMode.touch, chrome: chrome()),
+      );
+      await tester.pump();
+      expect(find.byKey(const Key('player_brightness_slider')), findsNothing);
+
+      await tester.pumpWidget(
+        _wrapViewport(chrome: chrome(), brightness: _FakeScreenBrightness(1)),
+      );
+      await tester.pump();
+      expect(find.byKey(const Key('player_brightness_slider')), findsNothing);
+    });
+
     testWidgets('lock only by touch', (tester) async {
       setTestWindowSize(tester, TestWindowSizes.landscape);
       await tester.pumpWidget(_wrapViewport(chrome: chrome()));
@@ -2610,6 +2676,7 @@ Widget _wrapViewport({
   NativeFullscreenToggle? enterNativeFullscreen,
   NativeFullscreenToggle? exitNativeFullscreen,
   PlayerSession session = _session,
+  ScreenBrightnessControl? brightness,
 }) {
   final effectivePlatformPlayer =
       platformPlayer ??
@@ -2629,6 +2696,7 @@ Widget _wrapViewport({
     repository: repository ?? StubPlayerRepository(),
     enterNativeFullscreen: enterNativeFullscreen ?? () async {},
     exitNativeFullscreen: exitNativeFullscreen ?? () async {},
+    brightness: brightness,
     playerBuilder:
         playerBuilder ??
         (configuration) => Player(platformPlayer: effectivePlatformPlayer),
@@ -2909,6 +2977,23 @@ class _FakePlatformPlayer extends PlatformPlayer {
     state = state.copyWith(volume: volume);
     volumeController.add(volume);
   }
+}
+
+class _FakeScreenBrightness implements ScreenBrightnessControl {
+  _FakeScreenBrightness(this.initial);
+
+  final double initial;
+  final values = <double>[];
+  int resets = 0;
+
+  @override
+  Future<double> current() async => values.isEmpty ? initial : values.last;
+
+  @override
+  Future<void> set(double brightness) async => values.add(brightness);
+
+  @override
+  Future<void> reset() async => resets++;
 }
 
 class _ControllablePlatformPlayer extends _FakePlatformPlayer {

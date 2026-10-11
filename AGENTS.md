@@ -25,6 +25,8 @@
 - Models: plain immutable Dart classes, JSON parsed by hand in `data/` with
   `shared/utils/json_read.dart`; no code generation
 - Video playback: `media_kit`, `media_kit_video`, `media_kit_libs_video`
+- Screen brightness in the player (Android/iOS only, app-level, reset on
+  leave): `screen_brightness` behind `shared/window/screen_brightness_control.dart`
 - Torrents: `libtorrent_flutter` (version pinned on purpose, see `pubspec.yaml`)
 - Loading placeholders: `skeletonizer`
 - Remote images: `cached_network_image_ce` (disk cache), always through

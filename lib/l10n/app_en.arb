@@ -196,6 +196,10 @@
   "@playerScreenLocked": {
     "description": "Read out over a locked player."
   },
+  "playerBrightness": "Brightness",
+  "@playerBrightness": {
+    "description": "Label of the player slider that sets the screen brightness."
+  },
   "playerDecoderSettingsTitle": "Decoder",
   "playerDecoderSettingsDescription": "Change this only if video stutters or shows green frames on your device. Technical details below show the decoder in use.",
   "playerDecoderAutoSafe": "Auto (recommended)",

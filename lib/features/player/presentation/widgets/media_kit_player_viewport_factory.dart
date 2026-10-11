@@ -22,6 +22,7 @@ import 'package:iris/features/player/presentation/widgets/player_subtitle_settin
 import 'package:iris/features/player/presentation/widgets/player_track_selector_sheet.dart';
 import 'package:iris/features/player/presentation/widgets/player_viewport_factory.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
+import 'package:iris/shared/window/screen_brightness_control.dart';
 
 export 'package:iris/features/player/presentation/playback/media_kit_player_engine.dart'
     show
@@ -55,7 +56,9 @@ class MediaKitPlayerViewportFactory implements PlayerViewportFactory {
     Duration mediaKitStartupTimeout = const Duration(seconds: 45),
     NativeFullscreenToggle enterNativeFullscreen = defaultEnterNativeFullscreen,
     NativeFullscreenToggle exitNativeFullscreen = defaultExitNativeFullscreen,
+    ScreenBrightnessControl? brightness,
   }) : _repository = repository,
+       _brightness = brightness,
        _enterNativeFullscreen = enterNativeFullscreen,
        _exitNativeFullscreen = exitNativeFullscreen,
        _playerBuilder = playerBuilder,
@@ -73,6 +76,10 @@ class MediaKitPlayerViewportFactory implements PlayerViewportFactory {
   final Duration _mediaKitStartupTimeout;
   final NativeFullscreenToggle _enterNativeFullscreen;
   final NativeFullscreenToggle _exitNativeFullscreen;
+
+  /// The screen's brightness by touch; null where there is none to set
+  /// (desktop), and the player shows no slider.
+  final ScreenBrightnessControl? _brightness;
 
   @override
   MediaKitPlayerEngine createEngine({
@@ -105,6 +112,7 @@ class MediaKitPlayerViewportFactory implements PlayerViewportFactory {
       videoSurfaceBuilder: _videoSurfaceBuilder,
       enterNativeFullscreen: _enterNativeFullscreen,
       exitNativeFullscreen: _exitNativeFullscreen,
+      brightness: _brightness,
     );
   }
 }
@@ -118,6 +126,7 @@ class _MediaKitPlayerViewport extends StatefulWidget {
     required this.videoSurfaceBuilder,
     required this.enterNativeFullscreen,
     required this.exitNativeFullscreen,
+    required this.brightness,
   });
 
   final MediaKitPlayerEngine engine;
@@ -127,6 +136,7 @@ class _MediaKitPlayerViewport extends StatefulWidget {
   final MediaKitVideoSurfaceBuilder videoSurfaceBuilder;
   final NativeFullscreenToggle enterNativeFullscreen;
   final NativeFullscreenToggle exitNativeFullscreen;
+  final ScreenBrightnessControl? brightness;
 
   @override
   State<_MediaKitPlayerViewport> createState() =>
@@ -172,6 +182,9 @@ class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
   void dispose() {
     widget.engine.removeListener(_onEngineChanged);
     if (_windowFullscreen.value) unawaited(widget.exitNativeFullscreen());
+    // The system's brightness again once the video is gone.
+    final brightness = widget.brightness;
+    if (brightness != null) unawaited(brightness.reset());
     _windowFullscreen.dispose();
     _subtitleLift.dispose();
     _videoFit.dispose();
@@ -260,6 +273,7 @@ class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
       onToggleFullscreen: _toggleWindowFullscreen,
       onSubtitleClearance: _liftSubtitles,
       videoFit: _videoFit,
+      brightness: widget.brightness,
       onShowTracks: (anchor) => _showTrackSelectorSheet(anchor: anchor),
       onShowSettings: (anchor) => _showSettingsSheet(anchor: anchor),
     );

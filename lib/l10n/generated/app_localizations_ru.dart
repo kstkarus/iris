@@ -371,6 +371,9 @@ class AppLocalizationsRu extends AppLocalizations {
       'Экран заблокирован, коснитесь, чтобы разблокировать';
 
   @override
+  String get playerBrightness => 'Яркость';
+
+  @override
   String get playerDecoderSettingsTitle => 'Декодер';
 
   @override

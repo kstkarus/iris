@@ -52,6 +52,7 @@ dependencies:
   flutter_web_auth_2: ^5.1.0
   flutter_secure_storage: ^11.2.0
   cached_network_image_ce: ^4.13.1
+  screen_brightness: ^2.1.11
 
 dev_dependencies:
   flutter_test:

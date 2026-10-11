@@ -363,6 +363,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get playerScreenLocked => 'Screen locked, tap to unlock';
 
   @override
+  String get playerBrightness => 'Brightness';
+
+  @override
   String get playerDecoderSettingsTitle => 'Decoder';
 
   @override

@@ -166,6 +166,7 @@
   "playerLockScreen": "Заблокировать экран",
   "playerUnlockScreen": "Разблокировать",
   "playerScreenLocked": "Экран заблокирован, коснитесь, чтобы разблокировать",
+  "playerBrightness": "Яркость",
   "playerDecoderSettingsTitle": "Декодер",
   "playerDecoderSettingsDescription": "Меняйте это, только если видео тормозит или показывает зелёные кадры на вашем устройстве. Текущий декодер видно в технических подробностях ниже.",
   "playerDecoderAutoSafe": "Авто (рекомендуется)",
