@@ -1,5 +1,6 @@
 import 'package:iris/features/anime_list/domain/entities/anime_list_item.dart';
 import 'package:iris/features/anime_list/domain/entities/anime_list_query.dart';
+import 'package:iris/shared/utils/equality.dart';
 
 enum AnimeListErrorType { none, initial, loadMore }
 
@@ -67,7 +68,7 @@ class AnimeListState {
     }
 
     return other is AnimeListState &&
-        _sameItems(other.items, items) &&
+        sameList(other.items, items) &&
         other.page == page &&
         other.query == query &&
         other.sort == sort &&
@@ -94,18 +95,4 @@ class AnimeListState {
     errorType,
     signedIn,
   );
-}
-
-bool _sameItems(List<AnimeListItem> first, List<AnimeListItem> second) {
-  if (first.length != second.length) {
-    return false;
-  }
-
-  for (var index = 0; index < first.length; index++) {
-    if (first[index] != second[index]) {
-      return false;
-    }
-  }
-
-  return true;
 }
