@@ -29,7 +29,8 @@
 - Loading placeholders: `skeletonizer`
 - Files: `path_provider`, `path`
 - Formatting / dates: `intl`
-- Testing: `flutter_test` with hand-written fakes (shared ones in `test/helpers/`)
+- Testing: `flutter_test` with hand-written fakes (shared ones in `test/helpers/`),
+  `fake_async` for timers instead of real sleeps
 
 ## Architecture
 Use **FSD light** for repo organization and **clean architecture inside each feature**.
