@@ -1,5 +1,6 @@
 import 'package:iris/entities/watch_progress/domain/watch_progress.dart';
 import 'package:iris/shared/torrent/torrent_key.dart';
+import 'package:iris/shared/utils/json_read.dart';
 
 abstract final class WatchProgressModel {
   static Map<String, Object?> toJson(WatchProgress progress) => {
@@ -34,16 +35,14 @@ abstract final class WatchProgressModel {
     return WatchProgress(
       torrentKey: canonicalTorrentKey(torrentKey),
       fileIndex: fileIndex,
-      fileName: _string(json['fileName']),
-      magnet: _string(json['magnet']),
-      sourceTitle: _string(json['sourceTitle']),
+      fileName: jsonString(json['fileName']),
+      magnet: jsonString(json['magnet']),
+      sourceTitle: jsonString(json['sourceTitle']),
       position: Duration(milliseconds: positionMs),
       duration: Duration(milliseconds: durationMs),
       updatedAt: updatedAt,
-      animeId: _string(json['animeId']),
-      animeTitle: _string(json['animeTitle']),
+      animeId: jsonString(json['animeId']),
+      animeTitle: jsonString(json['animeTitle']),
     );
   }
 }
-
-String _string(Object? value) => value is String ? value : '';

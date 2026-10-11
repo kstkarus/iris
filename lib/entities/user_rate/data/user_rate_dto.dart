@@ -1,4 +1,5 @@
 import 'package:iris/entities/user_rate/domain/user_rate.dart';
+import 'package:iris/shared/utils/json_read.dart';
 
 /// A user rate as both Shikimori APIs give it: `userRate` in GraphQL and
 /// the `/api/v2/user_rates` body.
@@ -15,14 +16,12 @@ class UserRateDto {
     if (json is! Map) return null;
     final id = json['id'];
     final status = statusFromApi(json['status']);
-    final episodes = json['episodes'];
-    final score = json['score'];
     if (id == null || status == null) return null;
     return UserRateDto(
       id: '$id',
       status: status,
-      episodes: episodes is num ? episodes.toInt() : 0,
-      score: score is num ? score.toInt() : 0,
+      episodes: jsonInt(json['episodes']),
+      score: jsonInt(json['score']),
     );
   }
 

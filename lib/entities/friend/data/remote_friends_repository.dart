@@ -6,6 +6,7 @@ import 'package:iris/entities/user_rate/data/user_rate_dto.dart';
 import 'package:iris/entities/user_rate/domain/user_rate.dart';
 import 'package:iris/shared/network/dio_exception_mapper.dart';
 import 'package:iris/shared/network/network_exceptions.dart';
+import 'package:iris/shared/utils/json_read.dart';
 
 /// Reads friends and their entries through REST: GraphQL has neither.
 ///
@@ -79,11 +80,7 @@ class RemoteFriendsRepository implements FriendsRepository {
     if (id == null || nickname is! String) return null;
     final image = json['image'];
     final avatar = image is Map ? image['x160'] : json['avatar'];
-    return Friend(
-      id: '$id',
-      nickname: nickname,
-      avatarUrl: avatar is String ? avatar : '',
-    );
+    return Friend(id: '$id', nickname: nickname, avatarUrl: jsonString(avatar));
   }
 
   static Future<T> _kept<T>(

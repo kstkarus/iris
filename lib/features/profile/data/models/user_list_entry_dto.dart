@@ -1,6 +1,7 @@
 import 'package:iris/entities/user_rate/data/user_rate_dto.dart';
 import 'package:iris/features/profile/domain/entities/user_list_entry.dart';
 import 'package:iris/shared/utils/incomplete_date.dart';
+import 'package:iris/shared/utils/json_read.dart';
 
 /// One `userRates` item of the GraphQL API, with its anime.
 abstract final class UserListEntryDto {
@@ -18,31 +19,24 @@ abstract final class UserListEntryDto {
     if (json is! Map) return null;
     final id = json['id'];
     if (id == null) return null;
-    final airedOn = _map(json['airedOn']);
+    final airedOn = jsonMap(json['airedOn']);
     return ListedAnime(
       id: '$id',
-      name: _string(json['name']),
-      russian: _string(json['russian']),
-      kind: _string(json['kind']),
-      score: _number(json['score']).toDouble(),
-      status: _string(json['status']),
-      episodes: _number(json['episodes']).toInt(),
-      episodesAired: _number(json['episodesAired']).toInt(),
+      name: jsonString(json['name']),
+      russian: jsonString(json['russian']),
+      kind: jsonString(json['kind']),
+      score: jsonNum(json['score']).toDouble(),
+      status: jsonString(json['status']),
+      episodes: jsonInt(json['episodes']),
+      episodesAired: jsonInt(json['episodesAired']),
       airedOn: incompleteIsoDate(
-        year: _number(airedOn['year']).toInt(),
-        month: _number(airedOn['month']).toInt(),
-        day: _number(airedOn['day']).toInt(),
-        date: _string(airedOn['date']),
+        year: jsonInt(airedOn['year']),
+        month: jsonInt(airedOn['month']),
+        day: jsonInt(airedOn['day']),
+        date: jsonString(airedOn['date']),
       ),
-      posterUrl: _string(_map(json['poster'])['mainUrl']),
-      nextEpisodeAt: DateTime.tryParse(_string(json['nextEpisodeAt'])),
+      posterUrl: jsonString(jsonMap(json['poster'])['mainUrl']),
+      nextEpisodeAt: DateTime.tryParse(jsonString(json['nextEpisodeAt'])),
     );
   }
-
-  static Map<Object?, Object?> _map(Object? value) =>
-      value is Map ? value : const {};
-
-  static String _string(Object? value) => value is String ? value : '';
-
-  static num _number(Object? value) => value is num ? value : 0;
 }

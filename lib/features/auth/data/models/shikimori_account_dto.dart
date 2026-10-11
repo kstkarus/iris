@@ -1,4 +1,5 @@
 import 'package:iris/features/auth/domain/entities/shikimori_account.dart';
+import 'package:iris/shared/utils/json_read.dart';
 
 /// `currentUser` from Shikimori's GraphQL API, also the cached copy.
 class ShikimoriAccountDto {
@@ -14,11 +15,10 @@ class ShikimoriAccountDto {
     final id = json['id'];
     final nickname = json['nickname'];
     if (id == null || nickname is! String) return null;
-    final avatarUrl = json['avatarUrl'];
     return ShikimoriAccountDto(
       id: '$id',
       nickname: nickname,
-      avatarUrl: avatarUrl is String ? avatarUrl : '',
+      avatarUrl: jsonString(json['avatarUrl']),
     );
   }
 
