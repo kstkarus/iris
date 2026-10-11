@@ -10,6 +10,8 @@ import 'package:iris/features/anime_list/domain/entities/anime_list_query.dart';
 import 'package:iris/shared/network/network_exceptions.dart';
 import 'package:iris/shared/network/shikimori_graph_ql_client.dart';
 
+import '../../../../helpers/fake_http_adapter.dart';
+
 void main() {
   test(
     'maps a successful remote anime page response to a page result',
@@ -17,8 +19,8 @@ void main() {
       final repository = RemoteAnimeListRepository(
         dataSource: RemoteAnimeListDataSource(
           client: ShikimoriGraphQlClient(
-            dio: _buildDioWithResponse(
-              data: {
+            dio: fakeDio(
+              (_) => FakeReply(200, {
                 'data': {
                   'animes': [
                     {
@@ -38,7 +40,7 @@ void main() {
                     },
                   ],
                 },
-              },
+              }),
             ),
           ),
         ),
@@ -79,10 +81,10 @@ void main() {
     final repository = RemoteAnimeListRepository(
       dataSource: RemoteAnimeListDataSource(
         client: ShikimoriGraphQlClient(
-          dio: _buildDioWithResponse(
-            data: {
+          dio: fakeDio(
+            (_) => FakeReply(200, {
               'data': {'animes': []},
-            },
+            }),
           ),
         ),
       ),
@@ -101,8 +103,8 @@ void main() {
     final repository = RemoteAnimeListRepository(
       dataSource: RemoteAnimeListDataSource(
         client: ShikimoriGraphQlClient(
-          dio: _buildDioWithError(
-            DioException(
+          dio: fakeDio(
+            (_) => throw DioException(
               requestOptions: RequestOptions(path: '/api/graphql'),
               type: DioExceptionType.connectionError,
             ),
@@ -121,24 +123,12 @@ void main() {
 
   test('passes query criteria to the remote source request', () async {
     Map<String, dynamic>? requestPayload;
-    final dio = Dio();
-
-    dio.interceptors.add(
-      InterceptorsWrapper(
-        onRequest: (options, handler) {
-          requestPayload = Map<String, dynamic>.from(options.data as Map);
-          handler.resolve(
-            Response<dynamic>(
-              requestOptions: options,
-              data: {
-                'data': {'animes': []},
-              },
-              statusCode: 200,
-            ),
-          );
-        },
-      ),
-    );
+    final dio = fakeDio((options) {
+      requestPayload = Map<String, dynamic>.from(options.data as Map);
+      return FakeReply(200, {
+        'data': {'animes': []},
+      });
+    });
 
     final repository = RemoteAnimeListRepository(
       dataSource: RemoteAnimeListDataSource(
@@ -173,38 +163,4 @@ void main() {
       'duration': null,
     });
   });
-}
-
-Dio _buildDioWithResponse({required Object? data}) {
-  final dio = Dio();
-
-  dio.interceptors.add(
-    InterceptorsWrapper(
-      onRequest: (options, handler) {
-        handler.resolve(
-          Response<dynamic>(
-            requestOptions: options,
-            data: data,
-            statusCode: 200,
-          ),
-        );
-      },
-    ),
-  );
-
-  return dio;
-}
-
-Dio _buildDioWithError(DioException error) {
-  final dio = Dio();
-
-  dio.interceptors.add(
-    InterceptorsWrapper(
-      onRequest: (options, handler) {
-        handler.reject(error);
-      },
-    ),
-  );
-
-  return dio;
 }

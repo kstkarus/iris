@@ -5,9 +5,10 @@ import 'package:iris/entities/watch_progress/domain/watch_progress.dart';
 import 'package:iris/features/player/domain/entities/player_video_file.dart';
 import 'package:iris/features/player/presentation/widgets/player_episode_cards.dart';
 import 'package:iris/features/player/presentation/widgets/player_episodes_drawer.dart';
-import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/widgets/pixel_icon.dart';
 import 'package:iris/shared/widgets/segmented_bar.dart';
+
+import '../../../../helpers/test_app.dart';
 
 PlayerVideoFile _file(int index, String name) =>
     PlayerVideoFile(index: index, name: name, size: 1, extension: 'mkv');
@@ -23,12 +24,9 @@ WatchProgress _progress(int fileIndex, Duration position) => WatchProgress(
   updatedAt: DateTime(2026),
 );
 
-Widget _wrap(Widget child) => MaterialApp(
-  locale: const Locale('en'),
-  localizationsDelegates: AppLocalizations.localizationsDelegates,
-  supportedLocales: AppLocalizations.supportedLocales,
+Widget _wrap(Widget child) => testApp(
+  Scaffold(body: child),
   theme: ThemeData(brightness: Brightness.dark),
-  home: Scaffold(body: child),
 );
 
 void main() {

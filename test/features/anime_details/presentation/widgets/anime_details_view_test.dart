@@ -13,14 +13,15 @@ import 'package:iris/features/anime_details/presentation/cubit/anime_details_cub
 import 'package:iris/features/anime_details/presentation/models/anime_details_preview.dart';
 import 'package:iris/features/anime_details/presentation/pages/anime_details_page.dart';
 import 'package:iris/features/anime_details/presentation/widgets/anime_details_view.dart';
-import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/widgets/app_skeleton.dart';
 import 'package:iris/shared/utils/bayer_mask.dart';
 import 'package:iris/shared/widgets/dither_transition.dart';
 import 'package:iris/shared/widgets/dithered_image.dart';
 import 'package:iris/shared/widgets/spec_table.dart';
 
+import '../../../../helpers/test_app.dart';
 import '../../../../helpers/test_window.dart';
+import '../../anime_details_test_doubles.dart';
 
 void main() {
   testWidgets('without a preview the whole page is noise while loading', (
@@ -29,7 +30,7 @@ void main() {
     final semantics = tester.ensureSemantics();
     final cubit = AnimeDetailsCubit(
       animeId: '5114',
-      repository: _PendingAnimeDetailsRepository(),
+      repository: PendingAnimeDetailsRepository(),
     );
 
     await tester.pumpWidget(_app(cubit..loadAnime()));
@@ -46,16 +47,16 @@ void main() {
   ) async {
     final cubit = AnimeDetailsCubit(
       animeId: '5114',
-      repository: _PendingAnimeDetailsRepository(),
+      repository: PendingAnimeDetailsRepository(),
     );
 
     await tester.pumpWidget(_app(cubit..loadAnime(), preview: _preview));
     await tester.pump();
 
-    expect(find.text(_details.anime.name), findsOneWidget);
+    expect(find.text(fmaDetails.anime.name), findsOneWidget);
     expect(find.text('64'), findsOneWidget);
     expect(
-      _skeletonAround(tester, find.text(_details.anime.name)).enabled,
+      _skeletonAround(tester, find.text(fmaDetails.anime.name)).enabled,
       isFalse,
     );
     final button = find.widgetWithText(FilledButton, 'Choose source');
@@ -69,7 +70,7 @@ void main() {
     setTestWindowSize(tester, const Size(1536, 800));
     final cubit = AnimeDetailsCubit(
       animeId: '5114',
-      repository: _PendingAnimeDetailsRepository(),
+      repository: PendingAnimeDetailsRepository(),
     );
     final preview = AnimeDetailsPreview.fromSummary(
       AnimeSummary(
@@ -102,7 +103,7 @@ void main() {
     final details = Completer<AnimeDetails>();
     final cubit = AnimeDetailsCubit(
       animeId: '5114',
-      repository: _CompleterAnimeDetailsRepository(details),
+      repository: PendingAnimeDetailsRepository(details.future),
     );
 
     await tester.pumpWidget(_app(cubit..loadAnime(), preview: _preview));
@@ -117,8 +118,8 @@ void main() {
 
     details.complete(
       AnimeDetails(
-        anime: _details.anime,
-        description: _details.description,
+        anime: fmaDetails.anime,
+        description: fmaDetails.description,
         studios: const ['Bones'],
         rating: 'r',
       ),
@@ -133,35 +134,32 @@ void main() {
     final details = Completer<AnimeDetails>();
     final cubit = AnimeDetailsCubit(
       animeId: '5114',
-      repository: _CompleterAnimeDetailsRepository(details),
+      repository: PendingAnimeDetailsRepository(details.future),
     );
 
     await tester.pumpWidget(_app(cubit..loadAnime(), preview: _preview));
     await tester.pump();
 
-    details.complete(_details);
+    details.complete(fmaDetails);
     await tester.pump();
     await tester.pump(DitherTransition.duration ~/ 2);
-    expect(find.text(_details.description), findsOneWidget);
+    expect(find.text(fmaDetails.description), findsOneWidget);
     expect(_standIn, findsOneWidget, reason: 'still leaving');
 
     await tester.pump(DitherTransition.duration);
     expect(_standIn, findsNothing);
-    expect(find.text(_details.anime.name), findsOneWidget);
+    expect(find.text(fmaDetails.anime.name), findsOneWidget);
   });
 
   testWidgets('shows anime details when loading succeeds', (tester) async {
     final cubit = AnimeDetailsCubit(
       animeId: '5114',
-      repository: _SuccessAnimeDetailsRepository(_details),
+      repository: const FixedAnimeDetailsRepository(),
     );
 
     await tester.pumpWidget(
-      MaterialApp(
-        locale: const Locale('en'),
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        home: BlocProvider.value(
+      testApp(
+        BlocProvider.value(
           value: cubit..loadAnime(),
           child: const Scaffold(body: AnimeDetailsView()),
         ),
@@ -219,7 +217,7 @@ void main() {
     );
     final cubit = AnimeDetailsCubit(
       animeId: '5114',
-      repository: _SuccessAnimeDetailsRepository(airing),
+      repository: FixedAnimeDetailsRepository(airing),
     );
 
     await tester.pumpWidget(_app(cubit..loadAnime(), locale: 'ru'));
@@ -245,7 +243,7 @@ void main() {
     final dubs = [for (var i = 1; i <= 16; i++) 'Team $i'];
     final cubit = AnimeDetailsCubit(
       animeId: '5114',
-      repository: _SuccessAnimeDetailsRepository(
+      repository: FixedAnimeDetailsRepository(
         AnimeDetails(
           anime: AnimeSummary(
             id: '5114',
@@ -288,18 +286,16 @@ void main() {
   ) async {
     final cubit = AnimeDetailsCubit(
       animeId: '5114',
-      repository: _SuccessAnimeDetailsRepository(_details),
+      repository: const FixedAnimeDetailsRepository(),
     );
 
     await tester.pumpWidget(
-      MaterialApp(
-        locale: const Locale('ru'),
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        home: BlocProvider.value(
+      testApp(
+        BlocProvider.value(
           value: cubit..loadAnime(),
           child: const Scaffold(body: AnimeDetailsView()),
         ),
+        locale: const Locale('ru'),
       ),
     );
 
@@ -321,11 +317,8 @@ void main() {
     final cubit = AnimeDetailsCubit(animeId: '5114', repository: repository);
 
     await tester.pumpWidget(
-      MaterialApp(
-        locale: const Locale('en'),
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        home: BlocProvider.value(
+      testApp(
+        BlocProvider.value(
           value: cubit..loadAnime(),
           child: const Scaffold(body: AnimeDetailsView()),
         ),
@@ -365,7 +358,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Unable to load anime details.'), findsNothing);
-    expect(find.text(_details.description), findsOneWidget);
+    expect(find.text(fmaDetails.description), findsOneWidget);
   });
 
   for (final entry in {
@@ -441,15 +434,12 @@ void main() {
       setTestWindowSize(tester, entry.value);
       final cubit = AnimeDetailsCubit(
         animeId: '5114',
-        repository: _SuccessAnimeDetailsRepository(_longDetails),
+        repository: FixedAnimeDetailsRepository(_longDetails),
       );
 
       await tester.pumpWidget(
-        MaterialApp(
-          locale: const Locale('en'),
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          home: BlocProvider.value(
+        testApp(
+          BlocProvider.value(
             value: cubit..loadAnime(),
             child: const AnimeDetailsPage(),
           ),
@@ -474,14 +464,11 @@ void main() {
 Future<void> _pumpPage(WidgetTester tester) async {
   final cubit = AnimeDetailsCubit(
     animeId: '5114',
-    repository: _SuccessAnimeDetailsRepository(_longDetails),
+    repository: FixedAnimeDetailsRepository(_longDetails),
   );
   await tester.pumpWidget(
-    MaterialApp(
-      locale: const Locale('en'),
-      localizationsDelegates: AppLocalizations.localizationsDelegates,
-      supportedLocales: AppLocalizations.supportedLocales,
-      home: BlocProvider.value(
+    testApp(
+      BlocProvider.value(
         value: cubit..loadAnime(),
         child: const AnimeDetailsPage(),
       ),
@@ -525,14 +512,12 @@ Widget _app(
   AnimeDetailsPreview? preview,
   String locale = 'en',
 }) {
-  return MaterialApp(
-    locale: Locale(locale),
-    localizationsDelegates: AppLocalizations.localizationsDelegates,
-    supportedLocales: AppLocalizations.supportedLocales,
-    home: BlocProvider.value(
+  return testApp(
+    BlocProvider.value(
       value: cubit,
       child: Scaffold(body: AnimeDetailsView(preview: preview)),
     ),
+    locale: Locale(locale),
   );
 }
 
@@ -545,31 +530,6 @@ AppSkeleton _skeletonAround(WidgetTester tester, Finder finder) =>
 /// How the stand-in description begins.
 final _standIn = find.textContaining('A few sentences');
 
-class _CompleterAnimeDetailsRepository implements AnimeDetailsRepository {
-  const _CompleterAnimeDetailsRepository(this.details);
-
-  final Completer<AnimeDetails> details;
-
-  @override
-  Future<AnimeDetails> fetchAnimeDetails(String id) => details.future;
-}
-
-class _PendingAnimeDetailsRepository implements AnimeDetailsRepository {
-  @override
-  Future<AnimeDetails> fetchAnimeDetails(String id) {
-    return Completer<AnimeDetails>().future;
-  }
-}
-
-class _SuccessAnimeDetailsRepository implements AnimeDetailsRepository {
-  const _SuccessAnimeDetailsRepository(this.details);
-
-  final AnimeDetails details;
-
-  @override
-  Future<AnimeDetails> fetchAnimeDetails(String id) async => details;
-}
-
 class _ToggleAnimeDetailsRepository implements AnimeDetailsRepository {
   bool shouldFail = true;
 
@@ -579,43 +539,26 @@ class _ToggleAnimeDetailsRepository implements AnimeDetailsRepository {
       throw Exception('First call fails');
     }
 
-    return _details;
+    return fmaDetails;
   }
 }
 
-const _details = AnimeDetails(
-  anime: AnimeSummary(
-    id: '5114',
-    name: 'Fullmetal Alchemist: Brotherhood',
-    russian: 'Fullmetal Alchemist: Brotherhood RU',
-    kind: 'tv',
-    score: 9.12,
-    status: 'released',
-    episodes: 64,
-    episodesAired: 64,
-    airedOn: '2009-04-05',
-    posterUrl: 'https://shikimori.one/posters/5114/original.jpg',
-  ),
-  description:
-      'Two brothers search for a Philosopher\'s Stone after a failed ritual.',
-);
-
 final _preview = AnimeDetailsPreview.fromSummary(
   AnimeSummary(
-    id: _details.anime.id,
-    name: _details.anime.name,
-    russian: _details.anime.russian,
-    kind: _details.anime.kind,
-    score: _details.anime.score,
-    status: _details.anime.status,
-    episodes: _details.anime.episodes,
-    episodesAired: _details.anime.episodesAired,
-    airedOn: _details.anime.airedOn,
+    id: fmaDetails.anime.id,
+    name: fmaDetails.anime.name,
+    russian: fmaDetails.anime.russian,
+    kind: fmaDetails.anime.kind,
+    score: fmaDetails.anime.score,
+    status: fmaDetails.anime.status,
+    episodes: fmaDetails.anime.episodes,
+    episodesAired: fmaDetails.anime.episodesAired,
+    airedOn: fmaDetails.anime.airedOn,
     posterUrl: 'https://shikimori.one/posters/5114/main.jpg',
   ),
 );
 
 final _longDetails = AnimeDetails(
-  anime: _details.anime,
-  description: List.filled(40, _details.description).join(' '),
+  anime: fmaDetails.anime,
+  description: List.filled(40, fmaDetails.description).join(' '),
 );

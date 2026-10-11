@@ -3,18 +3,16 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:iris/features/player/domain/entities/player_playback_stats.dart';
 import 'package:iris/features/player/presentation/widgets/player_wait_indicator.dart';
-import 'package:iris/l10n/generated/app_localizations.dart';
+
+import '../../../../helpers/test_app.dart';
 
 void main() {
   const color = Color(0xFF00FF00);
   const track = Color(0x3DFFFFFF);
 
   Widget app(Widget child, {bool disableAnimations = false}) {
-    return MaterialApp(
-      locale: const Locale('en'),
-      localizationsDelegates: AppLocalizations.localizationsDelegates,
-      supportedLocales: AppLocalizations.supportedLocales,
-      home: MediaQuery(
+    return testApp(
+      MediaQuery(
         data: MediaQueryData(disableAnimations: disableAnimations),
         child: Center(child: child),
       ),

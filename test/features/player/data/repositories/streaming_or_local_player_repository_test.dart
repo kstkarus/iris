@@ -6,7 +6,8 @@ import 'package:iris/features/player/data/repositories/streaming_or_local_player
 import 'package:iris/features/player/domain/entities/player_launch_update.dart';
 import 'package:iris/features/player/domain/entities/player_playback_stats.dart';
 import 'package:iris/features/player/domain/entities/prepared_player_source.dart';
-import 'package:iris/features/player/domain/repositories/player_repository.dart';
+
+import '../../../../helpers/fake_player_repository.dart';
 
 void main() {
   late _RecordingPlayerRepository streaming;
@@ -81,10 +82,7 @@ void main() {
   });
 }
 
-class _RecordingPlayerRepository implements PlayerRepository {
-  @override
-  Future<void> stopPlayback({required String sessionId}) async {}
-
+class _RecordingPlayerRepository extends StubPlayerRepository {
   _RecordingPlayerRepository(this.name);
 
   final String name;

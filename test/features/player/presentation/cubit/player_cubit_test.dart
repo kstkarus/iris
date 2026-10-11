@@ -2,30 +2,23 @@ import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:iris/features/player/domain/entities/anime_player_source.dart';
 import 'package:iris/features/player/domain/entities/player_launch_update.dart';
-import 'package:iris/features/player/domain/entities/player_playback_stats.dart';
 import 'package:iris/features/player/domain/entities/player_session.dart';
-import 'package:iris/features/player/domain/entities/prepared_player_source.dart';
-import 'package:iris/features/player/domain/repositories/player_repository.dart';
 import 'package:iris/features/player/presentation/cubit/player_cubit.dart';
 import 'package:iris/features/player/presentation/cubit/player_state.dart';
 
 import '../../../../helpers/fake_player_engine.dart';
+import '../../../../helpers/fake_player_repository.dart';
+import '../../player_test_doubles.dart';
 
 void main() {
   test(
-    'emits preparation progress then ready when playback starts for selected file',
+    'emits preparing then ready when playback starts for the selected file',
     () async {
       final cubit = PlayerCubit(
-        source: _source,
+        source: fmaPlayerSource,
         engine: FakePlayerEngine(),
-        repository: _SuccessPlayerRepository(
-          const PlayerSession(
-            sessionId: '42',
-            streamUrl: 'http://127.0.0.1:8080/stream/2',
-          ),
-        ),
+        repository: _readyRepository(),
       );
 
       expectLater(
@@ -45,10 +38,12 @@ void main() {
     },
   );
 
-  test('emits generic failure when repository throws', () async {
-    final repository = _FailingPlayerRepository();
+  test('a failed launch update ends in the generic failure', () async {
+    final repository = _scriptedRepository([
+      Stream.value(const PlayerLaunchFailureUpdate()),
+    ]);
     final cubit = PlayerCubit(
-      source: _source,
+      source: fmaPlayerSource,
       repository: repository,
       engine: FakePlayerEngine(),
     );
@@ -66,13 +61,13 @@ void main() {
   test(
     'keeps the session after a failed launch, so retry starts it again',
     () async {
-      final repository = _ScriptedPlayerRepository([
+      final repository = _scriptedRepository([
         Stream.value(const PlayerLaunchFailureUpdate()),
         Stream.value(const PlayerLaunchReadyUpdate(_playerSession)),
       ]);
       final engine = FakePlayerEngine();
       final cubit = PlayerCubit(
-        source: _source,
+        source: fmaPlayerSource,
         repository: repository,
         engine: engine,
       );
@@ -97,12 +92,12 @@ void main() {
   test(
     'keeps the session when the launch stream fails, so retry starts it again',
     () async {
-      final repository = _ScriptedPlayerRepository([
+      final repository = _scriptedRepository([
         Stream.error(StateError('stream broke')),
         Stream.value(const PlayerLaunchReadyUpdate(_playerSession)),
       ]);
       final cubit = PlayerCubit(
-        source: _source,
+        source: fmaPlayerSource,
         repository: repository,
         engine: FakePlayerEngine(),
       );
@@ -122,14 +117,9 @@ void main() {
   );
 
   test('disposes active playback on close', () async {
-    final repository = _SuccessPlayerRepository(
-      const PlayerSession(
-        sessionId: '42',
-        streamUrl: 'http://127.0.0.1:8080/stream/2',
-      ),
-    );
+    final repository = _readyRepository();
     final cubit = PlayerCubit(
-      source: _source,
+      source: fmaPlayerSource,
       repository: repository,
       engine: FakePlayerEngine(),
     );
@@ -147,7 +137,7 @@ void main() {
     () async {
       final repository = _ControlledPlayerRepository();
       final cubit = PlayerCubit(
-        source: _source,
+        source: fmaPlayerSource,
         repository: repository,
         engine: FakePlayerEngine(),
       );
@@ -174,7 +164,7 @@ void main() {
   test('cancels active launch subscription when cubit closes', () async {
     final repository = _ControlledPlayerRepository();
     final cubit = PlayerCubit(
-      source: _source,
+      source: fmaPlayerSource,
       repository: repository,
       engine: FakePlayerEngine(),
     );
@@ -191,14 +181,9 @@ void main() {
   test('opens the media player for the ready stream', () async {
     final engine = FakePlayerEngine();
     final cubit = PlayerCubit(
-      source: _source,
+      source: fmaPlayerSource,
       engine: engine,
-      repository: _SuccessPlayerRepository(
-        const PlayerSession(
-          sessionId: '42',
-          streamUrl: 'http://127.0.0.1:8080/stream/2',
-        ),
-      ),
+      repository: _readyRepository(),
     );
     addTearDown(cubit.close);
 
@@ -210,22 +195,17 @@ void main() {
   test(
     'disposes the session only after the media player released the stream',
     () async {
-      final repository = _SuccessPlayerRepository(
-        const PlayerSession(
-          sessionId: '42',
-          streamUrl: 'http://127.0.0.1:8080/stream/2',
-        ),
-      );
+      final repository = _readyRepository();
       final engine = FakePlayerEngine()..closeGate = Completer<void>();
       final cubit = PlayerCubit(
-        source: _source,
+        source: fmaPlayerSource,
         repository: repository,
         engine: engine,
       );
       await cubit.loadPlayback();
 
       final closing = cubit.close();
-      await Future<void>.delayed(const Duration(milliseconds: 20));
+      await pumpEventQueue();
       expect(repository.disposedSessionIds, isEmpty);
 
       engine.closeGate!.complete();
@@ -235,14 +215,9 @@ void main() {
   );
 
   test('disposes the session anyway when the release times out', () async {
-    final repository = _SuccessPlayerRepository(
-      const PlayerSession(
-        sessionId: '42',
-        streamUrl: 'http://127.0.0.1:8080/stream/2',
-      ),
-    );
+    final repository = _readyRepository();
     final cubit = PlayerCubit(
-      source: _source,
+      source: fmaPlayerSource,
       repository: repository,
       engine: FakePlayerEngine()..closeGate = Completer<void>(),
       engineReleaseTimeout: const Duration(milliseconds: 50),
@@ -255,104 +230,26 @@ void main() {
   });
 }
 
-class _SuccessPlayerRepository implements PlayerRepository {
-  @override
-  Future<void> stopPlayback({required String sessionId}) async {}
-
-  _SuccessPlayerRepository(this.session);
-
-  final PlayerSession session;
-  final List<String> startedSessionIds = [];
-  final List<int> startedFileIndices = [];
-  final List<String> disposedSessionIds = [];
-
-  @override
-  Future<void> disposePlayback({required String sessionId}) async {
-    disposedSessionIds.add(sessionId);
-  }
-
-  @override
-  Future<PreparedPlayerSource> prepareSource({
-    required String magnet,
-    Future<void>? cancelled,
-  }) {
-    throw UnimplementedError();
-  }
-
-  @override
-  Stream<PlayerLaunchUpdate> startPlayback({
-    required String sessionId,
-    required int fileIndex,
-  }) async* {
-    startedSessionIds.add(sessionId);
-    startedFileIndices.add(fileIndex);
-    yield PlayerLaunchReadyUpdate(session);
-  }
-
-  @override
-  Stream<PlayerPlaybackStats> watchPlaybackStats({required String sessionId}) {
-    return const Stream.empty();
-  }
+StubPlayerRepository _readyRepository() {
+  return StubPlayerRepository(
+    launches: (_) =>
+        Stream.value(const PlayerLaunchReadyUpdate(_playerSession)),
+  );
 }
 
-class _FailingPlayerRepository implements PlayerRepository {
-  @override
-  Future<void> stopPlayback({required String sessionId}) async {}
-
-  final List<String> disposedSessionIds = [];
-
-  @override
-  Future<void> disposePlayback({required String sessionId}) async {
-    disposedSessionIds.add(sessionId);
-  }
-
-  @override
-  Future<PreparedPlayerSource> prepareSource({
-    required String magnet,
-    Future<void>? cancelled,
-  }) {
-    throw UnimplementedError();
-  }
-
-  @override
-  Stream<PlayerLaunchUpdate> startPlayback({
-    required String sessionId,
-    required int fileIndex,
-  }) async* {
-    yield const PlayerLaunchFailureUpdate();
-  }
-
-  @override
-  Stream<PlayerPlaybackStats> watchPlaybackStats({required String sessionId}) {
-    return const Stream.empty();
-  }
+/// Answers each start with the next scripted stream.
+StubPlayerRepository _scriptedRepository(
+  List<Stream<PlayerLaunchUpdate>> launches,
+) {
+  return StubPlayerRepository(launches: (_) => launches.removeAt(0));
 }
 
-class _ControlledPlayerRepository implements PlayerRepository {
-  @override
-  Future<void> stopPlayback({required String sessionId}) async {}
-
-  final List<String> startedSessionIds = [];
-  final List<int> startedFileIndices = [];
-  final List<String> disposedSessionIds = [];
+class _ControlledPlayerRepository extends StubPlayerRepository {
   int cancelledLaunchCount = 0;
   StreamController<PlayerLaunchUpdate>? _controller;
 
-  @override
-  Future<void> disposePlayback({required String sessionId}) async {
-    disposedSessionIds.add(sessionId);
-  }
-
   void emit(PlayerLaunchUpdate update) {
     _controller?.add(update);
-  }
-
-  @override
-  Future<PreparedPlayerSource> prepareSource({
-    required String magnet,
-    Future<void>? cancelled,
-  }) {
-    throw UnimplementedError();
   }
 
   @override
@@ -370,62 +267,9 @@ class _ControlledPlayerRepository implements PlayerRepository {
     _controller = controller;
     return controller.stream;
   }
-
-  @override
-  Stream<PlayerPlaybackStats> watchPlaybackStats({required String sessionId}) {
-    return const Stream.empty();
-  }
-}
-
-/// Answers each start with the next scripted stream.
-class _ScriptedPlayerRepository implements PlayerRepository {
-  _ScriptedPlayerRepository(this._launches);
-
-  final List<Stream<PlayerLaunchUpdate>> _launches;
-  final List<String> startedSessionIds = [];
-  final List<String> disposedSessionIds = [];
-
-  @override
-  Future<void> stopPlayback({required String sessionId}) async {}
-
-  @override
-  Future<void> disposePlayback({required String sessionId}) async {
-    disposedSessionIds.add(sessionId);
-  }
-
-  @override
-  Future<PreparedPlayerSource> prepareSource({
-    required String magnet,
-    Future<void>? cancelled,
-  }) {
-    throw UnimplementedError();
-  }
-
-  @override
-  Stream<PlayerLaunchUpdate> startPlayback({
-    required String sessionId,
-    required int fileIndex,
-  }) {
-    startedSessionIds.add(sessionId);
-    return _launches.removeAt(0);
-  }
-
-  @override
-  Stream<PlayerPlaybackStats> watchPlaybackStats({required String sessionId}) {
-    return const Stream.empty();
-  }
 }
 
 const _playerSession = PlayerSession(
   sessionId: '42',
   streamUrl: 'http://127.0.0.1:8080/stream/2',
-);
-
-const _source = AnimePlayerSource(
-  animeId: '5114',
-  animeTitle: 'Fullmetal Alchemist: Brotherhood',
-  sourceTitle: '[Mock] Fullmetal Alchemist: Brotherhood Batch',
-  sessionId: '42',
-  fileIndex: 2,
-  fileName: 'episode-02.mkv',
 );

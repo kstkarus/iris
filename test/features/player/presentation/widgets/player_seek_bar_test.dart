@@ -4,7 +4,8 @@ import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:iris/features/player/presentation/widgets/player_seek_bar.dart';
-import 'package:iris/l10n/generated/app_localizations.dart';
+
+import '../../../../helpers/test_app.dart';
 
 void main() {
   testWidgets('shows a time only where the pointer would seek to', (
@@ -121,11 +122,8 @@ void main() {
 }
 
 Widget _app(Widget child) {
-  return MaterialApp(
-    locale: const Locale('en'),
-    localizationsDelegates: AppLocalizations.localizationsDelegates,
-    supportedLocales: AppLocalizations.supportedLocales,
-    home: Scaffold(
+  return testApp(
+    Scaffold(
       body: Center(child: SizedBox(width: 400, child: child)),
     ),
   );

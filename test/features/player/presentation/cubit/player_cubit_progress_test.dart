@@ -6,13 +6,10 @@ import 'package:iris/entities/watch_progress/domain/watch_progress.dart';
 import 'package:iris/entities/watch_progress/domain/watch_progress_repository.dart';
 import 'package:iris/features/player/domain/entities/anime_player_source.dart';
 import 'package:iris/features/player/domain/entities/player_launch_update.dart';
-import 'package:iris/features/player/domain/entities/player_playback_stats.dart';
 import 'package:iris/features/player/domain/entities/player_session.dart';
 import 'package:iris/features/player/domain/entities/player_skip_segment.dart';
 import 'package:iris/features/player/domain/entities/player_track_preferences.dart';
 import 'package:iris/features/player/domain/entities/player_video_file.dart';
-import 'package:iris/features/player/domain/entities/prepared_player_source.dart';
-import 'package:iris/features/player/domain/repositories/player_repository.dart';
 import 'package:iris/features/player/domain/repositories/player_skip_times_repository.dart';
 import 'package:iris/features/player/domain/repositories/player_track_preferences_repository.dart';
 import 'package:iris/features/player/presentation/cubit/player_cubit.dart';
@@ -21,6 +18,7 @@ import 'package:iris/features/player/presentation/playback/player_engine.dart';
 import 'package:iris/shared/torrent/torrent_key.dart';
 
 import '../../../../helpers/fake_player_engine.dart';
+import '../../../../helpers/fake_player_repository.dart';
 
 const _hash = '065c4691de84f964e143103b3bd0de17be5bfd0a';
 const _magnet = 'magnet:?xt=urn:btih:$_hash';
@@ -435,16 +433,8 @@ class _RecordingSkipTimesRepository implements PlayerSkipTimesRepository {
   }
 }
 
-class _RecordingPlayerRepository implements PlayerRepository {
+class _RecordingPlayerRepository extends StubPlayerRepository {
   final List<String> events = [];
-
-  @override
-  Future<PreparedPlayerSource> prepareSource({
-    required String magnet,
-    Future<void>? cancelled,
-  }) {
-    throw UnimplementedError();
-  }
 
   @override
   Stream<PlayerLaunchUpdate> startPlayback({
@@ -458,11 +448,6 @@ class _RecordingPlayerRepository implements PlayerRepository {
         streamUrl: 'http://127.0.0.1/stream/$fileIndex',
       ),
     );
-  }
-
-  @override
-  Stream<PlayerPlaybackStats> watchPlaybackStats({required String sessionId}) {
-    return const Stream.empty();
   }
 
   @override

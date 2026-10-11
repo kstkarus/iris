@@ -9,7 +9,8 @@ import 'package:iris/entities/user_rate/domain/user_rate.dart';
 import 'package:iris/entities/user_rate/presentation/user_rate_book_cubit.dart';
 import 'package:iris/features/anime_list/domain/entities/anime_list_item.dart';
 import 'package:iris/features/anime_list/presentation/widgets/anime_card.dart';
-import 'package:iris/l10n/generated/app_localizations.dart';
+
+import '../../../../helpers/test_app.dart';
 
 void main() {
   AnimeListItem item({UserRate? userRate}) => AnimeListItem(
@@ -35,10 +36,8 @@ void main() {
   }) async {
     final card = SizedBox(width: 200, child: AnimeCard(item: item));
     await tester.pumpWidget(
-      MaterialApp(
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        home: Scaffold(
+      testApp(
+        Scaffold(
           body: book == null
               ? card
               : BlocProvider.value(value: book, child: card),

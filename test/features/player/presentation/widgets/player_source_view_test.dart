@@ -3,21 +3,20 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:iris/entities/watch_progress/domain/watch_progress.dart';
-import 'package:iris/features/player/domain/entities/player_launch_update.dart';
-import 'package:iris/features/player/domain/entities/player_playback_stats.dart';
 import 'package:iris/features/player/domain/entities/player_video_file.dart';
 import 'package:iris/features/player/domain/entities/prepared_player_source.dart';
-import 'package:iris/features/player/domain/repositories/player_repository.dart';
 import 'package:iris/features/player/presentation/cubit/player_source_cubit.dart';
 import 'package:iris/features/player/presentation/cubit/player_source_state.dart';
 import 'package:iris/features/player/presentation/widgets/player_source_view.dart';
-import 'package:iris/l10n/generated/app_localizations.dart';
+
+import '../../../../helpers/test_app.dart';
+import '../../player_test_doubles.dart';
 
 void main() {
   testWidgets('shows loading state while source is being prepared', (
     tester,
   ) async {
-    final cubit = _FakePlayerSourceCubit(const PlayerSourceLoading());
+    final cubit = FakePlayerSourceCubit(const PlayerSourceLoading());
 
     await tester.pumpWidget(_wrap(cubit: cubit));
 
@@ -27,7 +26,7 @@ void main() {
   testWidgets('lists files with sizes and opens the tapped one', (
     tester,
   ) async {
-    final cubit = _FakePlayerSourceCubit(
+    final cubit = FakePlayerSourceCubit(
       const PlayerSourceReady(
         PreparedPlayerSource(
           sessionId: '42',
@@ -69,7 +68,7 @@ void main() {
   ) async {
     await tester.pumpWidget(
       _wrap(
-        cubit: _FakePlayerSourceCubit(
+        cubit: FakePlayerSourceCubit(
           const PlayerSourceReady(
             PreparedPlayerSource(
               sessionId: 'online:anilibria/9542',
@@ -113,7 +112,7 @@ void main() {
   ) async {
     await tester.pumpWidget(
       _wrap(
-        cubit: _FakePlayerSourceCubit(
+        cubit: FakePlayerSourceCubit(
           const PlayerSourceReady(
             PreparedPlayerSource(
               sessionId: 'online:yummy_anime/10661:AniDUB',
@@ -149,16 +148,9 @@ void main() {
     tester,
   ) async {
     await tester.pumpWidget(
-      MaterialApp(
-        locale: const Locale('en'),
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        home: BlocProvider<PlayerSourceCubit>.value(
-          value: _FakePlayerSourceCubit(const PlayerSourceLoading()),
-          child: Scaffold(
-            body: PlayerSourceView(isOnline: true, onFileSelected: (_) {}),
-          ),
-        ),
+      _wrap(
+        cubit: FakePlayerSourceCubit(const PlayerSourceLoading()),
+        isOnline: true,
       ),
     );
 
@@ -171,7 +163,7 @@ void main() {
     final selected = <int>[];
     await tester.pumpWidget(
       _wrap(
-        cubit: _FakePlayerSourceCubit(
+        cubit: FakePlayerSourceCubit(
           const PlayerSourceReady(
             PreparedPlayerSource(sessionId: '42', files: _episodes),
           ),
@@ -194,7 +186,7 @@ void main() {
   testWidgets('offers the next file after a finished one', (tester) async {
     await tester.pumpWidget(
       _wrap(
-        cubit: _FakePlayerSourceCubit(
+        cubit: FakePlayerSourceCubit(
           const PlayerSourceReady(
             PreparedPlayerSource(sessionId: '42', files: _episodes),
           ),
@@ -212,7 +204,7 @@ void main() {
   });
 
   testWidgets('shows unsupported-source failure state', (tester) async {
-    final cubit = _FakePlayerSourceCubit(
+    final cubit = FakePlayerSourceCubit(
       const PlayerSourceFailure(PlayerSourceFailureType.unsupportedSource),
     );
 
@@ -226,19 +218,18 @@ void main() {
 }
 
 Widget _wrap({
-  required _FakePlayerSourceCubit cubit,
+  required FakePlayerSourceCubit cubit,
   Map<int, WatchProgress> progressByFile = const {},
   ValueChanged<PlayerVideoFile>? onFileSelected,
+  bool isOnline = false,
 }) {
-  return MaterialApp(
-    locale: const Locale('en'),
-    localizationsDelegates: AppLocalizations.localizationsDelegates,
-    supportedLocales: AppLocalizations.supportedLocales,
-    home: BlocProvider<PlayerSourceCubit>.value(
+  return testApp(
+    BlocProvider<PlayerSourceCubit>.value(
       value: cubit,
       child: Scaffold(
         body: PlayerSourceView(
           progressByFile: progressByFile,
+          isOnline: isOnline,
           onFileSelected: onFileSelected ?? (_) {},
         ),
       ),
@@ -262,43 +253,4 @@ WatchProgress _progress(int fileIndex, int seconds, {int minute = 0}) {
     duration: const Duration(minutes: 24),
     updatedAt: DateTime.utc(2026, 10, 4, 12, minute),
   );
-}
-
-class _FakePlayerSourceCubit extends PlayerSourceCubit {
-  _FakePlayerSourceCubit(PlayerSourceState initialState)
-    : super(
-        magnet: 'magnet:?xt=urn:btih:test-source',
-        repository: _UnusedPlayerRepository(),
-      ) {
-    emit(initialState);
-  }
-}
-
-class _UnusedPlayerRepository implements PlayerRepository {
-  @override
-  Future<void> stopPlayback({required String sessionId}) async {}
-
-  @override
-  Future<void> disposePlayback({required String sessionId}) async {}
-
-  @override
-  Future<PreparedPlayerSource> prepareSource({
-    required String magnet,
-    Future<void>? cancelled,
-  }) {
-    throw UnimplementedError();
-  }
-
-  @override
-  Stream<PlayerLaunchUpdate> startPlayback({
-    required String sessionId,
-    required int fileIndex,
-  }) {
-    throw UnimplementedError();
-  }
-
-  @override
-  Stream<PlayerPlaybackStats> watchPlaybackStats({required String sessionId}) {
-    return const Stream.empty();
-  }
 }

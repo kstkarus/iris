@@ -7,6 +7,9 @@ abstract final class TestWindowSizes {
   static const tablet = Size(1024, 768);
   static const desktop = Size(1920, 1080);
 
+  /// A 720p desktop window, the player's usual test size.
+  static const landscape = Size(1280, 720);
+
   static const all = {'phone': phone, 'tablet': tablet, 'desktop': desktop};
 }
 

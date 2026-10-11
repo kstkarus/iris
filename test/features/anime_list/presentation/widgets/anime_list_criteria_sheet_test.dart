@@ -4,26 +4,25 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:iris/entities/user_rate/domain/user_rate.dart';
 import 'package:iris/features/anime_list/data/repositories/mock_anime_genres_repository.dart';
-import 'package:iris/features/anime_list/domain/entities/anime_list_page_result.dart';
 import 'package:iris/features/anime_list/domain/entities/anime_list_query.dart';
 import 'package:iris/features/anime_list/domain/entities/season_filter.dart';
-import 'package:iris/features/anime_list/domain/repositories/anime_list_repository.dart';
 import 'package:iris/features/anime_list/presentation/bloc/anime_list_bloc.dart';
 import 'package:iris/features/anime_list/presentation/bloc/anime_list_event.dart';
 import 'package:iris/features/anime_list/presentation/cubit/anime_genres_cubit.dart';
 import 'package:iris/features/anime_list/presentation/widgets/anime_list_criteria_sheet.dart';
-import 'package:iris/l10n/generated/app_localizations.dart';
 
+import '../../../../helpers/test_app.dart';
 import '../../../../helpers/test_window.dart';
+import '../../anime_list_test_doubles.dart';
 
 void main() {
-  late List<AnimeListQuery> queries;
+  late RecordingAnimeListRepository repository;
   late AnimeListBloc bloc;
   late AnimeGenresCubit genres;
 
   setUp(() {
-    queries = [];
-    bloc = AnimeListBloc(repository: _Repository(queries));
+    repository = RecordingAnimeListRepository();
+    bloc = AnimeListBloc(repository: repository);
     genres = AnimeGenresCubit(repository: const MockAnimeGenresRepository());
   });
 
@@ -38,10 +37,8 @@ void main() {
       ..add(AnimeListAccountChanged(signedIn: signedIn, reload: false))
       ..add(const AnimeListStarted());
     await tester.pumpWidget(
-      MaterialApp(
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        home: MultiBlocProvider(
+      testApp(
+        MultiBlocProvider(
           providers: [
             BlocProvider.value(value: bloc),
             BlocProvider.value(value: genres),
@@ -87,7 +84,7 @@ void main() {
     await tester.tap(find.text('Apply'));
     await tester.pumpAndSettle();
 
-    final filters = queries.last.filters;
+    final filters = repository.queries.last.filters;
     expect(filters.myList, {UserRateStatus.watching});
     expect(filters.hideCompleted, isTrue);
     expect(filters.genres.map((genre) => genre.name), {'Fantasy', 'Military'});
@@ -95,23 +92,4 @@ void main() {
     expect(filters.ratings, {AnimeRatingFilter.pg13});
     expect(filters.durations, {AnimeDurationFilter.long});
   });
-}
-
-class _Repository implements AnimeListRepository {
-  _Repository(this.queries);
-
-  final List<AnimeListQuery> queries;
-
-  @override
-  Future<AnimeListPageResult> fetchAnimePage({
-    required AnimeListQuery query,
-  }) async {
-    queries.add(query);
-    return AnimeListPageResult(
-      items: const [],
-      page: query.page,
-      hasMore: false,
-      query: query.search,
-    );
-  }
 }

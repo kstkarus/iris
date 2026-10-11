@@ -1,12 +1,13 @@
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:iris/features/player/domain/entities/subtitle_preferences.dart';
-import 'package:iris/features/player/domain/repositories/subtitle_preferences_repository.dart';
 import 'package:iris/features/player/presentation/cubit/player_subtitle_preferences_cubit.dart';
+
+import '../../player_test_doubles.dart';
 
 void main() {
   test('loads saved preferences from repository', () async {
-    final repository = _FakeSubtitlePreferencesRepository(
+    final repository = MemorySubtitlePreferencesRepository(
       const SubtitlePreferences(
         libassEnabled: false,
         textScale: SubtitleTextScalePreset.large,
@@ -27,7 +28,7 @@ void main() {
   });
 
   test('persists updates immediately', () async {
-    final repository = _FakeSubtitlePreferencesRepository(
+    final repository = MemorySubtitlePreferencesRepository(
       const SubtitlePreferences.defaults(),
     );
     final cubit = PlayerSubtitlePreferencesCubit(repository: repository);
@@ -43,7 +44,7 @@ void main() {
   test(
     'resets the look but keeps the renderer, which restarts video',
     () async {
-      final repository = _FakeSubtitlePreferencesRepository(
+      final repository = MemorySubtitlePreferencesRepository(
         const SubtitlePreferences(
           libassEnabled: false,
           textScale: SubtitleTextScalePreset.large,
@@ -64,23 +65,4 @@ void main() {
       expect(repository.savedStates.last, expected);
     },
   );
-}
-
-class _FakeSubtitlePreferencesRepository
-    implements SubtitlePreferencesRepository {
-  _FakeSubtitlePreferencesRepository(this.loadedState);
-
-  SubtitlePreferences loadedState;
-  final List<SubtitlePreferences> savedStates = [];
-
-  @override
-  Future<SubtitlePreferences> loadPreferences() async {
-    return loadedState;
-  }
-
-  @override
-  Future<void> savePreferences(SubtitlePreferences preferences) async {
-    savedStates.add(preferences);
-    loadedState = preferences;
-  }
 }

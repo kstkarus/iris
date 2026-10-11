@@ -1,18 +1,18 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:iris/features/player/domain/entities/player_decoding_preferences.dart';
 import 'package:iris/features/player/domain/entities/subtitle_preferences.dart';
-import 'package:iris/features/player/domain/repositories/player_decoding_preferences_repository.dart';
-import 'package:iris/features/player/domain/repositories/subtitle_preferences_repository.dart';
 import 'package:iris/features/player/presentation/cubit/player_decoding_preferences_cubit.dart';
 import 'package:iris/features/player/presentation/cubit/player_subtitle_preferences_cubit.dart';
 import 'package:iris/features/player/presentation/widgets/player_choice_row.dart';
 import 'package:iris/features/player/presentation/widgets/player_overlay_preferences.dart';
 import 'package:iris/features/player/presentation/widgets/player_subtitle_settings_sheet.dart';
-import 'package:iris/l10n/generated/app_localizations.dart';
+
+import '../../../../helpers/test_app.dart';
+import '../../../../helpers/test_window.dart';
+import '../../player_test_doubles.dart';
 
 void main() {
   tearDown(() => playerDetailedStatsEnabled.value = false);
@@ -38,7 +38,7 @@ void main() {
   });
 
   testWidgets('updates cubit when selecting presets', (tester) async {
-    final repository = _FakeSubtitlePreferencesRepository(
+    final repository = MemorySubtitlePreferencesRepository(
       const SubtitlePreferences.defaults(),
     );
     final cubit = PlayerSubtitlePreferencesCubit(repository: repository);
@@ -91,9 +91,7 @@ void main() {
     tester,
   ) async {
     final cubit = PlayerSubtitlePreferencesCubit(
-      repository: _FakeSubtitlePreferencesRepository(
-        const SubtitlePreferences.defaults(),
-      ),
+      repository: MemorySubtitlePreferencesRepository(),
     );
     const warning =
         "A custom colour, background or position replaces the release's "
@@ -115,7 +113,7 @@ void main() {
   });
 
   testWidgets('resets the look and keeps the renderer', (tester) async {
-    final repository = _FakeSubtitlePreferencesRepository(
+    final repository = MemorySubtitlePreferencesRepository(
       const SubtitlePreferences(
         libassEnabled: false,
         textScale: SubtitleTextScalePreset.compact,
@@ -143,9 +141,7 @@ void main() {
   testWidgets('Advanced unfolds the decoder, renderer and technical details', (
     tester,
   ) async {
-    final decodingRepository = _FakePlayerDecodingPreferencesRepository(
-      const PlayerDecodingPreferences.defaults(),
-    );
+    final decodingRepository = MemoryDecodingPreferencesRepository();
     final decodingCubit = PlayerDecodingPreferencesCubit(
       repository: decodingRepository,
     );
@@ -192,9 +188,7 @@ void main() {
   testWidgets('scrolls Advanced into view once it has unfolded', (
     tester,
   ) async {
-    tester.view.physicalSize = const Size(390, 844);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
+    setTestWindowSize(tester, TestWindowSizes.phone);
 
     await tester.pumpWidget(_wrap(child: const _OpenSettingsButton()));
     await tester.tap(find.text('Open'));
@@ -238,76 +232,56 @@ void main() {
   );
 
   testWidgets('shows MediaCodec decoder options on Android', (tester) async {
-    debugDefaultTargetPlatformOverride = TargetPlatform.android;
-    try {
-      await tester.pumpWidget(
-        _wrap(child: const PlayerSubtitleSettingsSheet()),
-      );
+    await tester.pumpWidget(_wrap(child: const PlayerSubtitleSettingsSheet()));
 
-      expect(find.text('Auto (recommended)'), findsOneWidget);
-      expect(find.text('MediaCodec'), findsOneWidget);
-      expect(find.text('MediaCodec (copy-back)'), findsOneWidget);
-      expect(find.text('Software only'), findsOneWidget);
-    } finally {
-      debugDefaultTargetPlatformOverride = null;
-    }
-  });
+    expect(find.text('Auto (recommended)'), findsOneWidget);
+    expect(find.text('MediaCodec'), findsOneWidget);
+    expect(find.text('MediaCodec (copy-back)'), findsOneWidget);
+    expect(find.text('Software only'), findsOneWidget);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.android));
 
   testWidgets('hides MediaCodec decoder options on desktop', (tester) async {
-    debugDefaultTargetPlatformOverride = TargetPlatform.windows;
-    try {
-      await tester.pumpWidget(
-        _wrap(child: const PlayerSubtitleSettingsSheet()),
-      );
+    await tester.pumpWidget(_wrap(child: const PlayerSubtitleSettingsSheet()));
 
-      expect(find.text('Auto (recommended)'), findsOneWidget);
-      expect(find.text('Software only'), findsOneWidget);
-      expect(find.text('MediaCodec'), findsNothing);
-      expect(find.text('MediaCodec (copy-back)'), findsNothing);
-    } finally {
-      debugDefaultTargetPlatformOverride = null;
-    }
-  });
+    expect(find.text('Auto (recommended)'), findsOneWidget);
+    expect(find.text('Software only'), findsOneWidget);
+    expect(find.text('MediaCodec'), findsNothing);
+    expect(find.text('MediaCodec (copy-back)'), findsNothing);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.windows));
 
   testWidgets(
     'shows auto decoder as selected on desktop for a stored MediaCodec preset',
     (tester) async {
-      debugDefaultTargetPlatformOverride = TargetPlatform.windows;
-      try {
-        final decodingCubit = PlayerDecodingPreferencesCubit(
-          repository: _FakePlayerDecodingPreferencesRepository(
-            const PlayerDecodingPreferences(
-              hwdecMode: PlayerHwdecModePreset.mediacodecCopy,
-            ),
+      final decodingCubit = PlayerDecodingPreferencesCubit(
+        repository: MemoryDecodingPreferencesRepository(
+          const PlayerDecodingPreferences(
+            hwdecMode: PlayerHwdecModePreset.mediacodecCopy,
           ),
-        );
-        await decodingCubit.loadPreferences();
+        ),
+      );
+      await decodingCubit.loadPreferences();
 
-        await tester.pumpWidget(
-          _wrap(
-            decodingCubit: decodingCubit,
-            child: const PlayerSubtitleSettingsSheet(),
-          ),
-        );
+      await tester.pumpWidget(
+        _wrap(
+          decodingCubit: decodingCubit,
+          child: const PlayerSubtitleSettingsSheet(),
+        ),
+      );
 
-        final autoRow = tester.widget<PlayerChoiceRow>(
-          find.ancestor(
-            of: find.text('Auto (recommended)'),
-            matching: find.byType(PlayerChoiceRow),
-          ),
-        );
-        expect(autoRow.selected, isTrue);
-        expect(find.text('Decoder: Auto · ASS rendering: on'), findsOneWidget);
-      } finally {
-        debugDefaultTargetPlatformOverride = null;
-      }
+      final autoRow = tester.widget<PlayerChoiceRow>(
+        find.ancestor(
+          of: find.text('Auto (recommended)'),
+          matching: find.byType(PlayerChoiceRow),
+        ),
+      );
+      expect(autoRow.selected, isTrue);
+      expect(find.text('Decoder: Auto · ASS rendering: on'), findsOneWidget);
     },
+    variant: TargetPlatformVariant.only(TargetPlatform.windows),
   );
 
   testWidgets('opens settings as a dialog on wide windows', (tester) async {
-    tester.view.physicalSize = const Size(1280, 800);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
+    setTestWindowSize(tester, const Size(1280, 800));
 
     await tester.pumpWidget(_wrap(child: const _OpenSettingsButton()));
 
@@ -332,9 +306,7 @@ void main() {
   testWidgets('opens settings as a bottom sheet on compact phones', (
     tester,
   ) async {
-    tester.view.physicalSize = const Size(400, 800);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
+    setTestWindowSize(tester, const Size(400, 800));
 
     await tester.pumpWidget(_wrap(child: const _OpenSettingsButton()));
 
@@ -350,9 +322,7 @@ void main() {
   testWidgets('leaves the video lightly dimmed behind the settings', (
     tester,
   ) async {
-    tester.view.physicalSize = const Size(400, 800);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
+    setTestWindowSize(tester, const Size(400, 800));
 
     await tester.pumpWidget(_wrap(child: const _OpenSettingsButton()));
     await tester.tap(find.text('Open'));
@@ -385,23 +355,16 @@ Widget _wrap({
   final subtitleCubit =
       cubit ??
       PlayerSubtitlePreferencesCubit(
-        repository: _FakeSubtitlePreferencesRepository(
-          const SubtitlePreferences.defaults(),
-        ),
+        repository: MemorySubtitlePreferencesRepository(),
       );
   final effectiveDecodingCubit =
       decodingCubit ??
       PlayerDecodingPreferencesCubit(
-        repository: _FakePlayerDecodingPreferencesRepository(
-          const PlayerDecodingPreferences.defaults(),
-        ),
+        repository: MemoryDecodingPreferencesRepository(),
       );
 
-  return MaterialApp(
-    locale: const Locale('en'),
-    localizationsDelegates: AppLocalizations.localizationsDelegates,
-    supportedLocales: AppLocalizations.supportedLocales,
-    home: MultiBlocProvider(
+  return testApp(
+    MultiBlocProvider(
       providers: [
         BlocProvider<PlayerSubtitlePreferencesCubit>.value(
           value: subtitleCubit,
@@ -413,34 +376,4 @@ Widget _wrap({
       child: Scaffold(body: child),
     ),
   );
-}
-
-class _FakePlayerDecodingPreferencesRepository
-    implements PlayerDecodingPreferencesRepository {
-  _FakePlayerDecodingPreferencesRepository(this.state);
-
-  PlayerDecodingPreferences state;
-
-  @override
-  Future<PlayerDecodingPreferences> loadPreferences() async => state;
-
-  @override
-  Future<void> savePreferences(PlayerDecodingPreferences preferences) async {
-    state = preferences;
-  }
-}
-
-class _FakeSubtitlePreferencesRepository
-    implements SubtitlePreferencesRepository {
-  _FakeSubtitlePreferencesRepository(this.state);
-
-  SubtitlePreferences state;
-
-  @override
-  Future<SubtitlePreferences> loadPreferences() async => state;
-
-  @override
-  Future<void> savePreferences(SubtitlePreferences preferences) async {
-    state = preferences;
-  }
 }

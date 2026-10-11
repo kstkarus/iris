@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -8,9 +6,10 @@ import 'package:iris/features/online_sources/data/models/video_link_dto.dart';
 import 'package:iris/shared/network/network_exceptions.dart';
 import 'package:iris/shared/network/video_server_dio_factory.dart';
 
+import '../../../../helpers/fake_http_adapter.dart';
+
 /// Recorded from the live player (trimmed; CDN hosts replaced).
-String _fixture(String name) =>
-    File('test/fixtures/kodik/$name').readAsStringSync();
+String _fixture(String name) => readFixture('kodik/$name');
 
 const _player =
     'https://kodikplayer.com/season/94795/d5a209e95d68094e346175d7357ef0c7/'
@@ -28,27 +27,18 @@ void main() {
   }) {
     final dio = createVideoServerDio();
     var refused = 0;
-    dio.interceptors.add(
-      InterceptorsWrapper(
-        onRequest: (options, handler) {
-          requests.add(options);
-          final path = options.uri.path;
-          Response<String> answer(int status, String body) =>
-              Response(requestOptions: options, statusCode: status, data: body);
-          if (path.startsWith('/season/')) {
-            handler.resolve(
-              answer(200, page.isEmpty ? _fixture('page.html') : page),
-            );
-          } else if (path.startsWith('/assets/js/')) {
-            handler.resolve(answer(200, _fixture('player.js')));
-          } else if (path == apiPath && refused++ >= refusals) {
-            handler.resolve(answer(200, _fixture('api.json')));
-          } else {
-            handler.resolve(answer(404, 'Not Found'));
-          }
-        },
-      ),
-    );
+    dio.httpClientAdapter = FakeHttpAdapter((options) {
+      requests.add(options);
+      final path = options.uri.path;
+      if (path.startsWith('/season/')) {
+        return FakeReply.text(200, page.isEmpty ? _fixture('page.html') : page);
+      } else if (path.startsWith('/assets/js/')) {
+        return FakeReply.text(200, _fixture('player.js'));
+      } else if (path == apiPath && refused++ >= refusals) {
+        return FakeReply.text(200, _fixture('api.json'));
+      }
+      return const FakeReply.text(404, 'Not Found');
+    });
     return KodikDataSource(dio: dio);
   }
 

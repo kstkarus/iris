@@ -3,39 +3,25 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:iris/features/player/domain/entities/anime_player_source.dart';
-import 'package:iris/features/player/domain/entities/player_launch_update.dart';
-import 'package:iris/features/player/domain/entities/player_playback_stats.dart';
 import 'package:iris/features/player/domain/entities/player_session.dart';
 import 'package:iris/features/player/domain/entities/player_video_file.dart';
-import 'package:iris/features/player/domain/entities/prepared_player_source.dart';
-import 'package:iris/features/player/domain/repositories/player_repository.dart';
 import 'package:iris/entities/user_rate/data/mock_user_rate_repository.dart';
 import 'package:iris/entities/user_rate/domain/mark_episode_watched.dart';
 import 'package:iris/entities/user_rate/domain/user_rate.dart';
 import 'package:iris/features/player/presentation/cubit/episode_mark_cubit.dart';
 import 'package:iris/features/player/presentation/cubit/player_cubit.dart';
-import 'package:iris/features/player/presentation/cubit/player_decoding_preferences_cubit.dart';
 import 'package:iris/features/player/presentation/cubit/player_state.dart';
-import 'package:iris/features/player/presentation/cubit/player_subtitle_preferences_cubit.dart';
 import 'package:iris/features/player/presentation/pages/player_page.dart';
-import 'package:iris/features/player/presentation/playback/player_engine.dart';
-import 'package:iris/features/player/presentation/widgets/player_countdown.dart';
-import 'package:iris/features/player/presentation/widgets/player_viewport_factory.dart';
-import 'package:iris/l10n/generated/app_localizations.dart';
 
-import '../../../../helpers/fake_player_engine.dart';
+import '../../../../helpers/test_app.dart';
+import '../../../../helpers/test_window.dart';
+import '../../player_test_doubles.dart';
 
 void main() {
-  void setWindow(WidgetTester tester, Size size) {
-    tester.view.physicalSize = size;
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-  }
-
   testWidgets('titles the app bar with the episode and the release', (
     tester,
   ) async {
-    setWindow(tester, const Size(400, 800));
+    setTestWindowSize(tester, const Size(400, 800));
 
     await tester.pumpWidget(_wrap());
 
@@ -45,7 +31,10 @@ void main() {
       findsOneWidget,
     );
     expect(
-      find.descendant(of: appBar, matching: find.text(_source.sourceTitle)),
+      find.descendant(
+        of: appBar,
+        matching: find.text(fmaPlayerSource.sourceTitle),
+      ),
       findsOneWidget,
     );
     expect(find.text('Iris'), findsNothing);
@@ -54,7 +43,7 @@ void main() {
   });
 
   testWidgets('lists episodes below the video on phones', (tester) async {
-    setWindow(tester, const Size(400, 800));
+    setTestWindowSize(tester, const Size(400, 800));
 
     await tester.pumpWidget(_wrap(source: _seriesSource));
 
@@ -69,7 +58,7 @@ void main() {
 
   testWidgets('shows a hideable episodes pane beside the video on wide '
       'windows', (tester) async {
-    setWindow(tester, const Size(1280, 720));
+    setTestWindowSize(tester, TestWindowSizes.landscape);
 
     await tester.pumpWidget(_wrap(source: _seriesSource));
 
@@ -98,7 +87,7 @@ void main() {
   group('in short windows', () {
     testWidgets('gives the video the full height of a compact landscape '
         'window, with the episodes behind the toggle', (tester) async {
-      setWindow(tester, const Size(500, 300));
+      setTestWindowSize(tester, const Size(500, 300));
 
       await tester.pumpWidget(_wrap(source: _seriesSource));
 
@@ -125,7 +114,7 @@ void main() {
     testWidgets('keeps the episodes beside the video on a 640x360 phone', (
       tester,
     ) async {
-      setWindow(tester, const Size(640, 360));
+      setTestWindowSize(tester, const Size(640, 360));
 
       await tester.pumpWidget(_wrap(source: _seriesSource));
 
@@ -140,7 +129,7 @@ void main() {
 
     testWidgets('keeps a 16:9 video full width on a 360x640 phone, with the '
         'episodes below', (tester) async {
-      setWindow(tester, const Size(360, 640));
+      setTestWindowSize(tester, const Size(360, 640));
 
       await tester.pumpWidget(_wrap(source: _seriesSource));
 
@@ -156,11 +145,11 @@ void main() {
   });
 
   testWidgets('keeps the video alive when the layout switches', (tester) async {
-    setWindow(tester, const Size(1280, 720));
+    setTestWindowSize(tester, TestWindowSizes.landscape);
     await tester.pumpWidget(_wrap(source: _seriesSource));
     final before = tester.state(find.byKey(const Key('player_video_surface')));
 
-    setWindow(tester, const Size(400, 800));
+    setTestWindowSize(tester, const Size(400, 800));
     await tester.pump();
 
     expect(
@@ -173,12 +162,12 @@ void main() {
   testWidgets('announces an automatic resume with a Start over action', (
     tester,
   ) async {
-    setWindow(tester, const Size(1280, 720));
+    setTestWindowSize(tester, TestWindowSizes.landscape);
 
     await tester.pumpWidget(_wrap());
     // The page reacts to the launch finishing, not to its initial state.
     (tester.element(find.byType(PlayerPage)).read<PlayerCubit>()
-            as _FakePlayerCubit)
+            as FakePlayerCubit)
         .push(
           const PlayerReady(
             PlayerSession(sessionId: '42', streamUrl: 'http://127.0.0.1/2'),
@@ -203,7 +192,7 @@ void main() {
     expect(find.text('Picking up at 12:34'), findsOneWidget);
 
     (tester.element(find.byType(PlayerPage)).read<PlayerCubit>()
-            as _FakePlayerCubit)
+            as FakePlayerCubit)
         .push(
           const PlayerReady(
             PlayerSession(sessionId: '42', streamUrl: 'http://127.0.0.1/2'),
@@ -217,7 +206,7 @@ void main() {
 
     // Its action belongs to that file: switching files closes it.
     (tester.element(find.byType(PlayerPage)).read<PlayerCubit>()
-            as _FakePlayerCubit)
+            as FakePlayerCubit)
         .push(const PlayerPreparing());
     // The loading spinner never settles; let the snackbar animate out.
     for (var frame = 0; frame < 5; frame++) {
@@ -228,12 +217,12 @@ void main() {
 
   testWidgets('a torrent episode watched to its ending is offered for the '
       'list', (tester) async {
-    setWindow(tester, const Size(400, 800));
+    setTestWindowSize(tester, const Size(400, 800));
     final rates = MockUserRateRepository();
     await tester.pumpWidget(_wrap(rates: rates));
     final cubit =
         tester.element(find.byType(PlayerPage)).read<PlayerCubit>()
-            as _FakePlayerCubit;
+            as FakePlayerCubit;
 
     cubit.push((cubit.state as PlayerReady).copyWith(watched: true));
     await tester.pumpAndSettle();
@@ -257,12 +246,12 @@ void main() {
     testWidgets('an online episode is marked at once, inside the player', (
       tester,
     ) async {
-      setWindow(tester, const Size(1280, 720));
+      setTestWindowSize(tester, TestWindowSizes.landscape);
       final rates = MockUserRateRepository();
       await tester.pumpWidget(_wrap(source: _onlineSource, rates: rates));
       final cubit =
           tester.element(find.byType(PlayerPage)).read<PlayerCubit>()
-              as _FakePlayerCubit;
+              as FakePlayerCubit;
 
       cubit.push((cubit.state as PlayerReady).copyWith(watched: true));
       await tester.pump();
@@ -282,7 +271,7 @@ void main() {
     }, variant: desktop);
 
     testWidgets('fills the window with the immersive player', (tester) async {
-      setWindow(tester, const Size(1280, 720));
+      setTestWindowSize(tester, TestWindowSizes.landscape);
 
       await tester.pumpWidget(_wrap(source: _seriesSource));
 
@@ -313,7 +302,7 @@ void main() {
     testWidgets('keeps the place apart when it differs from the number', (
       tester,
     ) async {
-      setWindow(tester, const Size(1280, 720));
+      setTestWindowSize(tester, TestWindowSizes.landscape);
 
       await tester.pumpWidget(
         _wrap(
@@ -350,7 +339,7 @@ void main() {
     testWidgets('names a torrent without an anime by its release', (
       tester,
     ) async {
-      setWindow(tester, const Size(1280, 720));
+      setTestWindowSize(tester, TestWindowSizes.landscape);
 
       await tester.pumpWidget(
         _wrap(
@@ -394,7 +383,7 @@ void main() {
     }, variant: desktop);
 
     testWidgets('plays an episode picked in the drawer', (tester) async {
-      setWindow(tester, const Size(1280, 720));
+      setTestWindowSize(tester, TestWindowSizes.landscape);
 
       await tester.pumpWidget(_wrap(source: _seriesSource));
 
@@ -403,7 +392,7 @@ void main() {
       await tester.pump();
       final cubit =
           tester.element(find.byType(PlayerPage)).read<PlayerCubit>()
-              as _FakePlayerCubit;
+              as FakePlayerCubit;
       expect(cubit.playedFiles, [3]);
 
       await tester.tap(find.byKey(const ValueKey('player_episode_card_2')));
@@ -412,11 +401,11 @@ void main() {
 
     testWidgets('announces the resume inside the player instead of a '
         'snackbar', (tester) async {
-      setWindow(tester, const Size(1280, 720));
+      setTestWindowSize(tester, TestWindowSizes.landscape);
       await tester.pumpWidget(_wrap());
       final cubit =
           tester.element(find.byType(PlayerPage)).read<PlayerCubit>()
-              as _FakePlayerCubit;
+              as FakePlayerCubit;
 
       cubit.push(
         const PlayerReady(
@@ -463,18 +452,15 @@ void main() {
     }, variant: desktop);
 
     testWidgets('goes back from the player', (tester) async {
-      setWindow(tester, const Size(1280, 720));
+      setTestWindowSize(tester, TestWindowSizes.landscape);
 
       await tester.pumpWidget(
-        MaterialApp(
-          locale: const Locale('en'),
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          home: Builder(
+        testApp(
+          Builder(
             builder: (context) => TextButton(
-              onPressed: () => Navigator.of(
-                context,
-              ).push(MaterialPageRoute<void>(builder: (_) => _page(_source))),
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(builder: (_) => _page(fmaPlayerSource)),
+              ),
               child: const Text('open'),
             ),
           ),
@@ -492,18 +478,15 @@ void main() {
 }
 
 Widget _wrap({
-  AnimePlayerSource source = _source,
+  AnimePlayerSource source = fmaPlayerSource,
   PlayerState state = const PlayerReady(
     PlayerSession(sessionId: '42', streamUrl: 'http://127.0.0.1:8080/stream/2'),
   ),
   MockUserRateRepository? rates,
 }) {
   final page = _page(source, state);
-  return MaterialApp(
-    locale: const Locale('en'),
-    localizationsDelegates: AppLocalizations.localizationsDelegates,
-    supportedLocales: AppLocalizations.supportedLocales,
-    home: rates == null
+  return testApp(
+    rates == null
         ? page
         : BlocProvider(
             create: (_) => EpisodeMarkCubit(
@@ -522,135 +505,10 @@ Widget _page(
   ),
 ]) {
   return BlocProvider<PlayerCubit>(
-    create: (_) => _FakePlayerCubit(source, state),
-    child: const PlayerPage(viewportFactory: _FakeViewportFactory()),
+    create: (_) => FakePlayerCubit(state, source: source),
+    child: const PlayerPage(viewportFactory: FakePlayerViewportFactory()),
   );
 }
-
-class _FakePlayerCubit extends PlayerCubit {
-  _FakePlayerCubit(AnimePlayerSource source, PlayerState initialState)
-    : super(
-        source: source,
-        repository: _UnusedPlayerRepository(),
-        engine: FakePlayerEngine(),
-      ) {
-    emit(initialState);
-  }
-
-  void push(PlayerState next) => emit(next);
-
-  final playedFiles = <int>[];
-
-  @override
-  Future<void> playFile(PlayerVideoFile file) async {
-    playedFiles.add(file.index);
-  }
-
-  @override
-  Future<void> loadPlayback() async {}
-}
-
-class _UnusedPlayerRepository implements PlayerRepository {
-  @override
-  Future<void> stopPlayback({required String sessionId}) async {}
-
-  @override
-  Future<void> disposePlayback({required String sessionId}) async {}
-
-  @override
-  Future<PreparedPlayerSource> prepareSource({
-    required String magnet,
-    Future<void>? cancelled,
-  }) {
-    throw UnimplementedError();
-  }
-
-  @override
-  Stream<PlayerLaunchUpdate> startPlayback({
-    required String sessionId,
-    required int fileIndex,
-  }) {
-    throw UnimplementedError();
-  }
-
-  @override
-  Stream<PlayerPlaybackStats> watchPlaybackStats({required String sessionId}) {
-    return const Stream.empty();
-  }
-}
-
-class _FakeViewportFactory implements PlayerViewportFactory {
-  const _FakeViewportFactory();
-
-  @override
-  PlayerEngine createEngine({
-    required PlayerSubtitlePreferencesCubit subtitlePreferences,
-    required PlayerDecodingPreferencesCubit decodingPreferences,
-  }) {
-    return FakePlayerEngine();
-  }
-
-  @override
-  Widget build({
-    required PlayerEngine engine,
-    PlayerNextFile? next,
-    PlayerChrome? chrome,
-  }) {
-    const surface = _FakeVideoSurface(key: Key('player_video_surface'));
-    if (chrome == null) return surface;
-    final episodes = chrome.episodes;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const SizedBox(height: 200, child: surface),
-        Text('overline: ${chrome.overline}'),
-        Text('details: ${chrome.details}'),
-        Text('title: ${chrome.title}'),
-        Text('titleDetail: ${chrome.titleDetail}'),
-        Text('episodes: ${chrome.episodesCaption}'),
-        if (chrome.notice case final notice?)
-          // Counts down as the immersive player's notice does.
-          PlayerCountdown(
-            duration: notice.timeout,
-            onElapsed: notice.onTimeout,
-            child: TextButton(
-              onPressed: notice.onAction,
-              child: Text('notice: ${notice.message} / ${notice.actionLabel}'),
-            ),
-          ),
-        TextButton(onPressed: chrome.onBack, child: const Text('back')),
-        if (episodes != null)
-          Expanded(
-            child: Builder(builder: (context) => episodes(context, () {})),
-          ),
-      ],
-    );
-  }
-}
-
-/// Stateful so tests can tell a kept surface from a recreated one.
-class _FakeVideoSurface extends StatefulWidget {
-  const _FakeVideoSurface({super.key});
-
-  @override
-  State<_FakeVideoSurface> createState() => _FakeVideoSurfaceState();
-}
-
-class _FakeVideoSurfaceState extends State<_FakeVideoSurface> {
-  @override
-  Widget build(BuildContext context) {
-    return const ColoredBox(color: Colors.black, child: SizedBox.expand());
-  }
-}
-
-const _source = AnimePlayerSource(
-  animeId: '5114',
-  animeTitle: 'Fullmetal Alchemist: Brotherhood',
-  sourceTitle: '[Mock] Fullmetal Alchemist: Brotherhood Batch',
-  sessionId: '42',
-  fileIndex: 2,
-  fileName: 'episode-02.mkv',
-);
 
 /// An online release: its episodes come numbered.
 const _onlineSource = AnimePlayerSource(

@@ -18,9 +18,9 @@ import 'package:iris/features/downloads/presentation/models/download_selection_a
 import 'package:iris/features/downloads/presentation/pages/download_manager_page.dart';
 import 'package:iris/features/downloads/presentation/pages/download_selection_page.dart';
 import 'package:iris/features/downloads/presentation/widgets/download_manager_view.dart';
-import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/widgets/adaptive/adaptive_content_width.dart';
 
+import '../../../../helpers/test_app.dart';
 import '../../../../helpers/test_window.dart';
 
 void main() {
@@ -417,14 +417,7 @@ void main() {
 }
 
 Future<void> _pumpApp(WidgetTester tester, Widget home) async {
-  await tester.pumpWidget(
-    MaterialApp(
-      locale: const Locale('en'),
-      localizationsDelegates: AppLocalizations.localizationsDelegates,
-      supportedLocales: AppLocalizations.supportedLocales,
-      home: home,
-    ),
-  );
+  await tester.pumpWidget(testApp(home));
   await tester.pumpAndSettle();
 }
 

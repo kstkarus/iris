@@ -3,10 +3,12 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:iris/entities/watch_progress/domain/watch_progress.dart';
-import 'package:iris/entities/watch_progress/domain/watch_progress_repository.dart';
 import 'package:iris/entities/watch_progress/presentation/watch_progress_cubit.dart';
 import 'package:iris/features/anime_details/presentation/widgets/recently_watched_section.dart';
-import 'package:iris/l10n/generated/app_localizations.dart';
+
+import '../../../../helpers/fake_watch_progress_repository.dart';
+import '../../../../helpers/test_app.dart';
+import '../../../../helpers/test_window.dart';
 
 WatchProgress _progress(
   String torrentKey, {
@@ -32,15 +34,12 @@ WatchProgress _progress(
 void main() {
   Future<void> pump(WidgetTester tester, List<WatchProgress> items) async {
     final cubit = WatchProgressCubit(
-      repository: _StubWatchProgressRepository(items),
+      repository: FixedWatchProgressRepository(items),
     )..load();
     addTearDown(cubit.close);
     await tester.pumpWidget(
-      MaterialApp(
-        locale: const Locale('en'),
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        home: BlocProvider.value(
+      testApp(
+        BlocProvider.value(
           value: cubit,
           child: const Scaffold(
             body: SingleChildScrollView(
@@ -95,9 +94,7 @@ void main() {
   });
 
   testWidgets('keeps the button by its row on a wide window', (tester) async {
-    tester.view.physicalSize = const Size(1800, 900);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
+    setTestWindowSize(tester, const Size(1800, 900));
     await pump(tester, [_progress('aaa')]);
 
     final button = tester.getRect(find.byType(OutlinedButton));
@@ -110,25 +107,4 @@ void main() {
 
     expect(find.text('RECENTLY WATCHED'), findsNothing);
   });
-}
-
-class _StubWatchProgressRepository implements WatchProgressRepository {
-  const _StubWatchProgressRepository(this.items);
-
-  final List<WatchProgress> items;
-
-  @override
-  Stream<List<WatchProgress>> watchAll() => Stream.value(items);
-
-  @override
-  Future<WatchProgress?> find({
-    required String torrentKey,
-    required int fileIndex,
-  }) async => null;
-
-  @override
-  Future<void> save(WatchProgress progress) async {}
-
-  @override
-  Future<void> removeTorrent({required String torrentKey}) async {}
 }

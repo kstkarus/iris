@@ -1,16 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/widgets/fold_row.dart';
+
+import '../../helpers/test_app.dart';
 
 void main() {
   Future<void> pumpList(WidgetTester tester, int count) {
     return tester.pumpWidget(
-      MaterialApp(
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        home: Scaffold(
+      testApp(
+        Scaffold(
           body: FoldingList(
             items: [for (var index = 0; index < count; index++) 'item $index'],
             visible: 2,

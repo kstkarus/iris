@@ -1,43 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:iris/app/router/app_shell_page.dart';
-import 'package:iris/app/bootstrap/create_app.dart';
 
-Future<void> _pumpUntilVisible(
-  WidgetTester tester,
-  Finder finder, {
-  Duration timeout = const Duration(seconds: 5),
-  Duration step = const Duration(milliseconds: 16),
-}) async {
-  var elapsed = Duration.zero;
-
-  while (elapsed < timeout) {
-    await tester.pump(step);
-
-    if (finder.evaluate().isNotEmpty) {
-      return;
-    }
-
-    elapsed += step;
-  }
-
-  fail('Widget was not found within $timeout: $finder');
-}
-
-Future<void> _pumpMockApp(WidgetTester tester) async {
-  SharedPreferences.setMockInitialValues({});
-  await tester.pumpWidget(await createApp(useMocks: true));
-  await _pumpUntilVisible(
-    tester,
-    find.text('Fullmetal Alchemist: Brotherhood'),
-  );
-}
+import 'helpers/mock_app.dart';
 
 void main() {
   testWidgets('App opens details after tapping an anime card', (tester) async {
-    await _pumpMockApp(tester);
+    await pumpMockApp(tester);
 
     expect(find.text('Iris'), findsNothing);
     // The navigation names the section; the page does not repeat it.
@@ -54,7 +24,7 @@ void main() {
     // Covers start under the catalog's heading.
     await _tapVisible(tester, find.text('Fullmetal Alchemist: Brotherhood'));
     await tester.pump();
-    await _pumpUntilVisible(
+    await pumpUntilVisible(
       tester,
       find.widgetWithText(FilledButton, 'Choose source'),
     );
@@ -71,7 +41,7 @@ void main() {
   testWidgets('App opens watch sources after tapping Watch on details', (
     tester,
   ) async {
-    await _pumpMockApp(tester);
+    await pumpMockApp(tester);
     await _openWatchSources(tester);
 
     expect(find.text('Watch sources'), findsOneWidget);
@@ -83,53 +53,21 @@ void main() {
     expect(find.byKey(_sourceDownloadButton), findsWidgets);
   });
 
-  testWidgets('App streams a source through the file picker into the player', (
-    tester,
-  ) async {
-    await _pumpMockApp(tester);
-    await _openWatchSources(tester);
-
-    await _tapVisible(tester, find.byKey(_sourceWatchButton).last);
-    await _pumpUntilVisible(tester, find.text('Choose File'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Choose File'), findsOneWidget);
-    expect(find.text('episode-01'), findsOneWidget);
-    expect(find.text('episode-02'), findsOneWidget);
-
-    await _tapVisible(tester, find.text('episode-01').first);
-    await _pumpUntilVisible(tester, _playerSurface);
-
-    expect(find.byKey(const Key('mock_player_surface')), findsOneWidget);
-  });
-
-  testWidgets('App opens download file selection from a source', (
-    tester,
-  ) async {
-    await _pumpMockApp(tester);
-    await _openWatchSources(tester);
-
-    await _tapVisible(tester, find.byKey(_sourceDownloadButton).last);
-    await _pumpUntilVisible(tester, find.text('Download a file'));
-
-    expect(find.text('Download a file'), findsOneWidget);
-    expect(find.text('episode-01'), findsOneWidget);
-  });
-
   testWidgets('App opens player from a completed download', (tester) async {
-    await _pumpMockApp(tester);
+    await pumpMockApp(tester);
     await _openWatchSources(tester);
 
     await _tapVisible(tester, find.byKey(_sourceDownloadButton).last);
-    await _pumpUntilVisible(tester, find.text('Download a file'));
+    await pumpUntilVisible(tester, find.text('Download a file'));
     await tester.pumpAndSettle();
+    expect(find.text('episode-01'), findsOneWidget);
 
     await tester.tap(find.byTooltip('Download').first);
-    await _pumpUntilVisible(tester, find.byTooltip('Watch'));
+    await pumpUntilVisible(tester, find.byTooltip('Watch'));
     // Let the route transition back to the shell finish before tapping.
     await tester.pumpAndSettle();
     await _tapVisible(tester, find.byTooltip('Watch'));
-    await _pumpUntilVisible(tester, _playerSurface);
+    await pumpUntilVisible(tester, _playerSurface);
 
     expect(find.byKey(const Key('mock_player_surface')), findsOneWidget);
   });
@@ -137,10 +75,10 @@ void main() {
   testWidgets('App streams a saved magnet independently of the catalog', (
     tester,
   ) async {
-    await _pumpMockApp(tester);
+    await pumpMockApp(tester);
 
     await _tapVisible(tester, find.text('Torrents'));
-    await _pumpUntilVisible(tester, find.text('No saved torrents yet'));
+    await pumpUntilVisible(tester, find.text('No saved torrents yet'));
     await tester.pumpAndSettle();
 
     await _tapVisible(tester, find.text('Add torrent').last);
@@ -160,10 +98,10 @@ void main() {
       tester,
       find.byKey(const Key('saved_torrent_watch_button')),
     );
-    await _pumpUntilVisible(tester, find.text('Choose File'));
+    await pumpUntilVisible(tester, find.text('Choose File'));
     await tester.pumpAndSettle();
     await _tapVisible(tester, find.text('episode-01').first);
-    await _pumpUntilVisible(tester, _playerSurface);
+    await pumpUntilVisible(tester, _playerSurface);
 
     expect(find.byKey(const Key('mock_player_surface')), findsOneWidget);
 
@@ -208,7 +146,7 @@ void main() {
         matching: find.widgetWithText(FilledButton, 'Continue'),
       ),
     );
-    await _pumpUntilVisible(tester, _playerSurface);
+    await pumpUntilVisible(tester, _playerSurface);
     // Not pumpAndSettle: the notice's countdown would run out meanwhile.
     await tester.pump(const Duration(seconds: 1));
     expect(find.text('Resumed from 5:00'), findsOneWidget);
@@ -249,13 +187,13 @@ Future<void> _tapVisible(WidgetTester tester, Finder finder) async {
 Future<void> _openWatchSources(WidgetTester tester) async {
   // Covers start under the catalog's heading.
   await _tapVisible(tester, find.text('Fullmetal Alchemist: Brotherhood'));
-  await _pumpUntilVisible(
+  await pumpUntilVisible(
     tester,
     find.widgetWithText(FilledButton, 'Choose source'),
   );
   await tester.pumpAndSettle();
 
   await _tapVisible(tester, find.widgetWithText(FilledButton, 'Choose source'));
-  await _pumpUntilVisible(tester, find.text('Watch sources'));
+  await pumpUntilVisible(tester, find.text('Watch sources'));
   await tester.pumpAndSettle();
 }

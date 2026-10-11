@@ -9,9 +9,10 @@ import 'package:iris/entities/user_rate/domain/user_rate.dart';
 import 'package:iris/entities/user_rate/domain/user_rate_repository.dart';
 import 'package:iris/entities/user_rate/presentation/user_rate_cubit.dart';
 import 'package:iris/features/anime_details/presentation/widgets/my_list_section.dart';
-import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/widgets/app_skeleton.dart';
 import 'package:iris/shared/widgets/status_views.dart';
+
+import '../../../../helpers/test_app.dart';
 
 void main() {
   late MockUserRateRepository repository;
@@ -26,10 +27,8 @@ void main() {
 
   Future<void> pumpSection(WidgetTester tester, {int total = 12}) async {
     await tester.pumpWidget(
-      MaterialApp(
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        home: Scaffold(
+      testApp(
+        Scaffold(
           body: BlocProvider.value(
             value: cubit,
             child: MyListSection(totalEpisodes: total),
@@ -55,10 +54,8 @@ void main() {
     addTearDown(slow.close);
     unawaited(slow.accountChanged('42'));
     await tester.pumpWidget(
-      MaterialApp(
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        home: Scaffold(
+      testApp(
+        Scaffold(
           body: BlocProvider.value(
             value: slow,
             child: const MyListSection(totalEpisodes: 12),

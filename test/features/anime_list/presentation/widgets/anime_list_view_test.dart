@@ -8,7 +8,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:iris/entities/anime/domain/anime_summary.dart';
 
 import 'package:iris/entities/watch_progress/domain/watch_progress.dart';
-import 'package:iris/entities/watch_progress/domain/watch_progress_repository.dart';
 import 'package:iris/entities/watch_progress/presentation/watch_progress_cubit.dart';
 import 'package:iris/features/anime_list/domain/entities/anime_list_item.dart';
 import 'package:iris/features/anime_list/domain/entities/anime_list_page_result.dart';
@@ -20,12 +19,13 @@ import 'package:iris/features/anime_list/presentation/bloc/anime_search_bloc.dar
 import 'package:iris/features/anime_list/presentation/pages/anime_list_page.dart';
 import 'package:iris/features/anime_list/presentation/widgets/anime_card.dart';
 import 'package:iris/features/anime_list/presentation/widgets/anime_list_view.dart';
-import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/widgets/app_skeleton.dart';
 import 'package:iris/shared/widgets/search_field.dart';
 import 'package:iris/shared/widgets/search_toolbar.dart';
 import 'package:iris/shared/widgets/dither_transition.dart';
 
+import '../../../../helpers/fake_watch_progress_repository.dart';
+import '../../../../helpers/test_app.dart';
 import '../../../../helpers/test_window.dart';
 
 void main() {
@@ -58,7 +58,9 @@ void main() {
     tester,
   ) async {
     final page = Completer<AnimeListPageResult>();
-    final bloc = AnimeListBloc(repository: _CompleterAnimeListRepository(page));
+    final bloc = AnimeListBloc(
+      repository: _PendingAnimeListRepository(page.future),
+    );
 
     await tester.pumpWidget(
       _wrapWithApp(
@@ -84,20 +86,10 @@ void main() {
   testWidgets('shows search field and anime cards when loading succeeds', (
     tester,
   ) async {
-    final bloc = AnimeListBloc(
-      repository: _SuccessAnimeListRepository(initialResult: _pageOneResult),
+    await _pumpCatalog(
+      tester,
+      _SuccessAnimeListRepository(initialResult: _pageOneResult),
     );
-
-    await tester.pumpWidget(
-      _wrapWithApp(
-        BlocProvider.value(
-          value: bloc..add(const AnimeListStarted()),
-          child: const Scaffold(body: AnimeListView()),
-        ),
-      ),
-    );
-
-    await tester.pumpAndSettle();
 
     expect(find.byType(TextField), findsOneWidget);
     expect(find.text('Search anime'), findsOneWidget);
@@ -302,22 +294,13 @@ void main() {
     expect(search.query.sort, AnimeListSortOption.score);
   });
 
-  testWidgets('opens bottom sheet with sort and filter controls', (
+  testWidgets('opens the filter & sort panel with its controls', (
     tester,
   ) async {
-    final bloc = AnimeListBloc(
-      repository: _SuccessAnimeListRepository(initialResult: _pageOneResult),
+    await _pumpCatalog(
+      tester,
+      _SuccessAnimeListRepository(initialResult: _pageOneResult),
     );
-
-    await tester.pumpWidget(
-      _wrapWithApp(
-        BlocProvider.value(
-          value: bloc..add(const AnimeListStarted()),
-          child: const Scaffold(body: AnimeListView()),
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
 
     await tester.tap(find.text('Filter & Sort'));
     await tester.pumpAndSettle();
@@ -332,23 +315,13 @@ void main() {
     expect(find.text('Reset'), findsOneWidget);
   });
 
-  testWidgets('applies selected filters and sort from bottom sheet', (
+  testWidgets('applies filters and sort from the filter & sort panel', (
     tester,
   ) async {
     final repository = _TrackingAnimeListRepository(
       resultsByQuery: {'': _pageOneResult},
     );
-    final bloc = AnimeListBloc(repository: repository);
-
-    await tester.pumpWidget(
-      _wrapWithApp(
-        BlocProvider.value(
-          value: bloc..add(const AnimeListStarted()),
-          child: const Scaffold(body: AnimeListView()),
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
+    await _pumpCatalog(tester, repository);
 
     await tester.tap(find.text('Filter & Sort'));
     await tester.pumpAndSettle();
@@ -370,17 +343,7 @@ void main() {
     final repository = _TrackingAnimeListRepository(
       resultsByQuery: {'': _pageOneResult},
     );
-    final bloc = AnimeListBloc(repository: repository);
-
-    await tester.pumpWidget(
-      _wrapWithApp(
-        BlocProvider.value(
-          value: bloc..add(const AnimeListStarted()),
-          child: const Scaffold(body: AnimeListView()),
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
+    await _pumpCatalog(tester, repository);
 
     await tester.tap(find.text('Filter & Sort'));
     await tester.pumpAndSettle();
@@ -429,7 +392,7 @@ void main() {
           : 'a failed catalog without history is only the error',
       (tester) async {
         final history = WatchProgressCubit(
-          repository: _StubWatchProgressRepository([
+          repository: FixedWatchProgressRepository([
             if (watched) _watchProgress,
           ]),
         )..load();
@@ -548,17 +511,7 @@ void main() {
       resultsByQuery: {'': _singleItemResult},
       pagedResults: {2: _pageTwoResult},
     );
-    final bloc = AnimeListBloc(repository: repository);
-
-    await tester.pumpWidget(
-      _wrapWithApp(
-        BlocProvider.value(
-          value: bloc..add(const AnimeListStarted()),
-          child: const Scaffold(body: AnimeListView()),
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
+    await _pumpCatalog(tester, repository);
 
     expect(repository.calls.map((call) => call.query.page), [1, 2]);
     expect(find.text('Steins;Gate'), findsOneWidget);
@@ -567,11 +520,8 @@ void main() {
 
 /// The app around [child], with search results served by [search].
 Widget _wrapWithApp(Widget child, {AnimeListRepository? search}) {
-  return MaterialApp(
-    locale: const Locale('en'),
-    localizationsDelegates: AppLocalizations.localizationsDelegates,
-    supportedLocales: AppLocalizations.supportedLocales,
-    home: BlocProvider(
+  return testApp(
+    BlocProvider(
       create: (_) =>
           AnimeSearchBloc(repository: search ?? _PendingAnimeListRepository()),
       child: child,
@@ -611,22 +561,16 @@ int _firstPages(_TrackingAnimeListRepository repository, String search) =>
         .where((call) => call.query.page == 1 && call.query.search == search)
         .length;
 
+/// Answers with [answer], which by default never completes.
 class _PendingAnimeListRepository implements AnimeListRepository {
-  @override
-  Future<AnimeListPageResult> fetchAnimePage({required AnimeListQuery query}) {
-    return Completer<AnimeListPageResult>().future;
-  }
-}
+  _PendingAnimeListRepository([Future<AnimeListPageResult>? answer])
+    : answer = answer ?? Completer<AnimeListPageResult>().future;
 
-class _CompleterAnimeListRepository implements AnimeListRepository {
-  const _CompleterAnimeListRepository(this.page);
-
-  final Completer<AnimeListPageResult> page;
+  final Future<AnimeListPageResult> answer;
 
   @override
-  Future<AnimeListPageResult> fetchAnimePage({required AnimeListQuery query}) {
-    return page.future;
-  }
+  Future<AnimeListPageResult> fetchAnimePage({required AnimeListQuery query}) =>
+      answer;
 }
 
 class _SuccessAnimeListRepository implements AnimeListRepository {
@@ -870,27 +814,6 @@ class _FailingAnimeListRepository implements AnimeListRepository {
   }) async {
     throw Exception('offline');
   }
-}
-
-class _StubWatchProgressRepository implements WatchProgressRepository {
-  const _StubWatchProgressRepository(this.items);
-
-  final List<WatchProgress> items;
-
-  @override
-  Stream<List<WatchProgress>> watchAll() => Stream.value(items);
-
-  @override
-  Future<WatchProgress?> find({
-    required String torrentKey,
-    required int fileIndex,
-  }) async => null;
-
-  @override
-  Future<void> save(WatchProgress progress) async {}
-
-  @override
-  Future<void> removeTorrent({required String torrentKey}) async {}
 }
 
 final _watchProgress = WatchProgress(

@@ -5,15 +5,16 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:iris/features/downloads/domain/entities/download_item.dart';
 import 'package:iris/features/downloads/domain/entities/download_status.dart';
 import 'package:iris/features/downloads/domain/repositories/downloads_repository.dart';
-import 'package:iris/features/player/data/adapters/player_runtime_memory_adapter.dart';
 import 'package:iris/features/player/data/repositories/local_player_repository.dart';
 import 'package:iris/features/player/domain/entities/player_launch_update.dart';
+
+import '../../player_test_doubles.dart';
 
 void main() {
   test('opens only a completed download as a local media file', () async {
     final repository = LocalPlayerRepository(
       downloadsRepository: _DownloadsRepositoryFake(_completedDownload),
-      memoryAdapter: const _MemoryAdapterFake(),
+      memoryAdapter: const FixedMemoryAdapter(1024),
     );
 
     final updates = await repository
@@ -29,7 +30,7 @@ void main() {
   test('rejects a missing or unfinished download', () async {
     final repository = LocalPlayerRepository(
       downloadsRepository: _DownloadsRepositoryFake(null),
-      memoryAdapter: const _MemoryAdapterFake(),
+      memoryAdapter: const FixedMemoryAdapter(1024),
     );
 
     final updates = await repository
@@ -66,11 +67,4 @@ class _DownloadsRepositoryFake extends Fake implements DownloadsRepository {
 
   @override
   Future<DownloadItem?> findCompletedById({required String id}) async => item;
-}
-
-class _MemoryAdapterFake implements PlayerRuntimeMemoryAdapter {
-  const _MemoryAdapterFake();
-
-  @override
-  Future<int?> getAppMemoryBytes() async => 1024;
 }

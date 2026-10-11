@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -8,25 +6,17 @@ import 'package:iris/features/online_sources/data/models/video_link_dto.dart';
 import 'package:iris/shared/network/network_exceptions.dart';
 import 'package:iris/shared/network/video_server_dio_factory.dart';
 
+import '../../../../helpers/fake_http_adapter.dart';
+
 void main() {
   late List<RequestOptions> requests;
 
   AksorDataSource source({int status = 200}) {
-    final dio = createVideoServerDio();
-    dio.interceptors.add(
-      InterceptorsWrapper(
-        onRequest: (options, handler) {
-          requests.add(options);
-          handler.resolve(
-            Response<String>(
-              requestOptions: options,
-              statusCode: status,
-              data: File('test/fixtures/aksor/video.json').readAsStringSync(),
-            ),
-          );
-        },
-      ),
-    );
+    final dio = createVideoServerDio()
+      ..httpClientAdapter = FakeHttpAdapter((options) {
+        requests.add(options);
+        return FakeReply.text(status, readFixture('aksor/video.json'));
+      });
     return AksorDataSource(dio: dio);
   }
 

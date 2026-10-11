@@ -5,11 +5,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
-import 'package:iris/features/watch_sources/domain/entities/watch_sources_tab.dart';
-import 'package:iris/features/watch_sources/domain/repositories/watch_sources_tab_repository.dart';
 import 'package:iris/features/watch_sources/presentation/cubit/watch_sources_tab_cubit.dart';
 import 'package:iris/entities/watch_progress/domain/watch_progress.dart';
-import 'package:iris/entities/watch_progress/domain/watch_progress_repository.dart';
 import 'package:iris/entities/watch_progress/presentation/watch_progress_cubit.dart';
 import 'package:iris/features/online_sources/data/repositories/mock_online_sources_repository.dart';
 import 'package:iris/features/online_sources/presentation/cubit/online_releases_cubit.dart';
@@ -22,24 +19,21 @@ import 'package:iris/features/watch_sources/presentation/cubit/watch_sources_cub
 import 'package:iris/features/watch_sources/presentation/models/anime_watch_sources_args.dart';
 import 'package:iris/features/watch_sources/presentation/pages/watch_sources_page.dart';
 import 'package:iris/features/watch_sources/presentation/widgets/watch_sources_view.dart';
-import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/widgets/app_skeleton.dart';
 import 'package:iris/shared/widgets/dither_transition.dart';
 import 'package:iris/shared/widgets/search_field.dart';
 
+import '../../../../helpers/fake_watch_progress_repository.dart';
+import '../../../../helpers/test_app.dart';
 import '../../../../helpers/test_window.dart';
+import '../../watch_sources_test_doubles.dart';
 
 void main() {
   testWidgets('shows table-shaped noise while sources are loading', (
     tester,
   ) async {
     final semantics = tester.ensureSemantics();
-    final cubit = WatchSourcesCubit(
-      animeId: '52991',
-      animeTitle: 'Frieren: Beyond Journey\'s End',
-      searchTitles: ['Frieren: Beyond Journey\'s End'],
-      repository: _PendingWatchSourcesRepository(),
-    );
+    final cubit = frierenSourcesCubit(PendingWatchSourcesRepository());
 
     await _pumpView(tester, cubit: cubit..loadSources());
     await tester.pump();
@@ -52,17 +46,14 @@ void main() {
 
   testWidgets('the releases develop out of the noise', (tester) async {
     final sources = Completer<List<WatchSourceItem>>();
-    final cubit = WatchSourcesCubit(
-      animeId: '52991',
-      animeTitle: 'Frieren: Beyond Journey\'s End',
-      searchTitles: ['Frieren: Beyond Journey\'s End'],
-      repository: _CompleterWatchSourcesRepository(sources),
+    final cubit = frierenSourcesCubit(
+      PendingWatchSourcesRepository(sources.future),
     );
 
     await _pumpView(tester, cubit: cubit..loadSources());
     await tester.pump();
 
-    sources.complete(_items);
+    sources.complete(frierenSources);
     await tester.pump();
     await tester.pump(DitherTransition.duration ~/ 2);
     expect(find.text('[SubsPlease] Frieren - 28 (1080p)'), findsOneWidget);
@@ -75,12 +66,7 @@ void main() {
   testWidgets('shows search, sorting and source cards when loading succeeds', (
     tester,
   ) async {
-    final cubit = WatchSourcesCubit(
-      animeId: '52991',
-      animeTitle: 'Frieren: Beyond Journey\'s End',
-      searchTitles: ['Frieren: Beyond Journey\'s End'],
-      repository: const _SuccessWatchSourcesRepository(_items),
-    );
+    final cubit = frierenSourcesCubit(FixedWatchSourcesRepository());
 
     await _pumpView(tester, cubit: cubit..loadSources());
     await tester.pumpAndSettle();
@@ -106,12 +92,7 @@ void main() {
 
   testWidgets('each source row streams on tap and downloads from its '
       'trailing button', (tester) async {
-    final cubit = WatchSourcesCubit(
-      animeId: '52991',
-      animeTitle: "Frieren: Beyond Journey's End",
-      searchTitles: ["Frieren: Beyond Journey's End"],
-      repository: const _SuccessWatchSourcesRepository(_items),
-    );
+    final cubit = frierenSourcesCubit(FixedWatchSourcesRepository());
 
     await _pumpView(tester, cubit: cubit..loadSources());
     await tester.pumpAndSettle();
@@ -129,7 +110,7 @@ void main() {
     );
     expect(
       tester.getCenter(downloadButton.first).dx,
-      greaterThan(tester.getCenter(find.text(_items[1].title)).dx),
+      greaterThan(tester.getCenter(find.text(frierenSources[1].title)).dx),
       reason: 'download is the trailing action',
     );
     expect(find.byType(FilledButton), findsNothing);
@@ -173,19 +154,11 @@ void main() {
     tester,
   ) async {
     setTestWindowSize(tester, const Size(320, 640));
-    final cubit = WatchSourcesCubit(
-      animeId: '52991',
-      animeTitle: "Frieren: Beyond Journey's End",
-      searchTitles: ["Frieren: Beyond Journey's End"],
-      repository: const _SuccessWatchSourcesRepository(_items),
-    );
+    final cubit = frierenSourcesCubit(FixedWatchSourcesRepository());
 
     await tester.pumpWidget(
-      MaterialApp(
-        locale: const Locale('ru'),
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        home: MultiBlocProvider(
+      testApp(
+        MultiBlocProvider(
           providers: [
             BlocProvider.value(value: cubit..loadSources()),
             BlocProvider(create: (_) => _noOnlineReleases()),
@@ -199,6 +172,7 @@ void main() {
             ),
           ),
         ),
+        locale: const Locale('ru'),
       ),
     );
     await tester.pumpAndSettle();
@@ -218,12 +192,7 @@ void main() {
   });
 
   testWidgets('filters cards by local title search', (tester) async {
-    final cubit = WatchSourcesCubit(
-      animeId: '52991',
-      animeTitle: 'Frieren: Beyond Journey\'s End',
-      searchTitles: ['Frieren: Beyond Journey\'s End'],
-      repository: const _SuccessWatchSourcesRepository(_items),
-    );
+    final cubit = frierenSourcesCubit(FixedWatchSourcesRepository());
 
     await _pumpView(tester, cubit: cubit..loadSources());
     await tester.pumpAndSettle();
@@ -244,12 +213,7 @@ void main() {
   testWidgets('keeps the typed query and caret while results filter', (
     tester,
   ) async {
-    final cubit = WatchSourcesCubit(
-      animeId: '52991',
-      animeTitle: 'Frieren: Beyond Journey\'s End',
-      searchTitles: ['Frieren: Beyond Journey\'s End'],
-      repository: const _SuccessWatchSourcesRepository(_items),
-    );
+    final cubit = frierenSourcesCubit(FixedWatchSourcesRepository());
 
     await _pumpView(tester, cubit: cubit..loadSources());
     await tester.pumpAndSettle();
@@ -267,12 +231,7 @@ void main() {
   });
 
   testWidgets('clears the source search with the Clear button', (tester) async {
-    final cubit = WatchSourcesCubit(
-      animeId: '52991',
-      animeTitle: 'Frieren: Beyond Journey\'s End',
-      searchTitles: ['Frieren: Beyond Journey\'s End'],
-      repository: const _SuccessWatchSourcesRepository(_items),
-    );
+    final cubit = frierenSourcesCubit(FixedWatchSourcesRepository());
 
     await _pumpView(tester, cubit: cubit..loadSources());
     await tester.pumpAndSettle();
@@ -295,12 +254,7 @@ void main() {
   testWidgets('shows dedicated empty state for local search results', (
     tester,
   ) async {
-    final cubit = WatchSourcesCubit(
-      animeId: '52991',
-      animeTitle: 'Frieren: Beyond Journey\'s End',
-      searchTitles: ['Frieren: Beyond Journey\'s End'],
-      repository: const _SuccessWatchSourcesRepository(_items),
-    );
+    final cubit = frierenSourcesCubit(FixedWatchSourcesRepository());
 
     await _pumpView(tester, cubit: cubit..loadSources());
     await tester.pumpAndSettle();
@@ -318,12 +272,7 @@ void main() {
   testWidgets('changes card order after selecting another sort option', (
     tester,
   ) async {
-    final cubit = WatchSourcesCubit(
-      animeId: '52991',
-      animeTitle: 'Frieren: Beyond Journey\'s End',
-      searchTitles: ['Frieren: Beyond Journey\'s End'],
-      repository: const _SuccessWatchSourcesRepository(_items),
-    );
+    final cubit = frierenSourcesCubit(FixedWatchSourcesRepository());
 
     await _pumpView(tester, cubit: cubit..loadSources());
     await tester.pumpAndSettle();
@@ -350,14 +299,9 @@ void main() {
   testWidgets('puts releases the user streamed first with a badge', (
     tester,
   ) async {
-    final cubit = WatchSourcesCubit(
-      animeId: '52991',
-      animeTitle: 'Frieren: Beyond Journey\'s End',
-      searchTitles: ['Frieren: Beyond Journey\'s End'],
-      repository: const _SuccessWatchSourcesRepository(_items),
-    );
+    final cubit = frierenSourcesCubit(FixedWatchSourcesRepository());
     final history = WatchProgressCubit(
-      repository: _StubWatchProgressRepository([
+      repository: FixedWatchProgressRepository([
         WatchProgress(
           torrentKey: torrentKeyFromMagnet('magnet:?xt=urn:btih:test-3'),
           fileIndex: 0,
@@ -373,11 +317,8 @@ void main() {
     addTearDown(history.close);
 
     await tester.pumpWidget(
-      MaterialApp(
-        locale: const Locale('en'),
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        home: MultiBlocProvider(
+      testApp(
+        MultiBlocProvider(
           providers: [
             BlocProvider.value(value: history),
             BlocProvider.value(value: cubit..loadSources()),
@@ -400,7 +341,7 @@ void main() {
       animeId: '52991',
       animeTitle: 'Unknown Title',
       searchTitles: ['Unknown Title'],
-      repository: const _SuccessWatchSourcesRepository([]),
+      repository: FixedWatchSourcesRepository([]),
     );
 
     await _pumpView(tester, cubit: cubit..loadSources());
@@ -411,12 +352,7 @@ void main() {
 
   testWidgets('shows error state and retries loading', (tester) async {
     final repository = _ToggleWatchSourcesRepository();
-    final cubit = WatchSourcesCubit(
-      animeId: '52991',
-      animeTitle: 'Frieren: Beyond Journey\'s End',
-      searchTitles: ['Frieren: Beyond Journey\'s End'],
-      repository: repository,
-    );
+    final cubit = frierenSourcesCubit(repository);
 
     await _pumpView(tester, cubit: cubit..loadSources());
     await tester.pumpAndSettle();
@@ -437,19 +373,11 @@ void main() {
       tester,
     ) async {
       setTestWindowSize(tester, entry.value);
-      final cubit = WatchSourcesCubit(
-        animeId: '52991',
-        animeTitle: "Frieren: Beyond Journey's End",
-        searchTitles: ["Frieren: Beyond Journey's End"],
-        repository: const _SuccessWatchSourcesRepository(_items),
-      );
+      final cubit = frierenSourcesCubit(FixedWatchSourcesRepository());
 
       await tester.pumpWidget(
-        MaterialApp(
-          locale: const Locale('en'),
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          home: MultiBlocProvider(
+        testApp(
+          MultiBlocProvider(
             providers: [
               BlocProvider.value(value: cubit..loadSources()),
               BlocProvider(create: (_) => _noOnlineReleases()),
@@ -508,11 +436,8 @@ Future<void> _pumpView(
   required WatchSourcesCubit cubit,
 }) async {
   await tester.pumpWidget(
-    MaterialApp(
-      locale: const Locale('en'),
-      localizationsDelegates: AppLocalizations.localizationsDelegates,
-      supportedLocales: AppLocalizations.supportedLocales,
-      home: BlocProvider.value(
+    testApp(
+      BlocProvider.value(
         value: cubit,
         child: const Scaffold(body: WatchSourcesView()),
       ),
@@ -526,12 +451,8 @@ class _RecordedNavigation {
 
 Future<_RecordedNavigation> _pumpRoutedView(WidgetTester tester) async {
   final navigation = _RecordedNavigation();
-  final cubit = WatchSourcesCubit(
-    animeId: '52991',
-    animeTitle: "Frieren: Beyond Journey's End",
-    searchTitles: ["Frieren: Beyond Journey's End"],
-    repository: const _SuccessWatchSourcesRepository(_items),
-  )..loadSources();
+  final cubit = frierenSourcesCubit(FixedWatchSourcesRepository())
+    ..loadSources();
   addTearDown(cubit.close);
 
   Widget recordRoute(GoRouterState state, String label) {
@@ -564,14 +485,7 @@ Future<_RecordedNavigation> _pumpRoutedView(WidgetTester tester) async {
   );
   addTearDown(router.dispose);
 
-  await tester.pumpWidget(
-    MaterialApp.router(
-      locale: const Locale('en'),
-      localizationsDelegates: AppLocalizations.localizationsDelegates,
-      supportedLocales: AppLocalizations.supportedLocales,
-      routerConfig: router,
-    ),
-  );
+  await tester.pumpWidget(testRouterApp(router));
   await tester.pumpAndSettle();
 
   return navigation;
@@ -593,72 +507,14 @@ String _topTitle(WidgetTester tester) {
   return titles.first;
 }
 
-WatchSourcesTabCubit _tabs() => WatchSourcesTabCubit(repository: _TabMemory());
-
-class _TabMemory implements WatchSourcesTabRepository {
-  WatchSourcesTab? tab;
-
-  @override
-  WatchSourcesTab? loadTab() => tab;
-
-  @override
-  Future<void> saveTab(WatchSourcesTab tab) async => this.tab = tab;
-}
+WatchSourcesTabCubit _tabs() =>
+    WatchSourcesTabCubit(repository: MemoryWatchSourcesTabRepository());
 
 OnlineReleasesCubit _noOnlineReleases() => OnlineReleasesCubit(
   shikimoriId: '52991',
   titles: const [],
   search: const MockOnlineSourcesRepository(),
 )..load();
-
-class _PendingWatchSourcesRepository implements WatchSourcesRepository {
-  @override
-  Future<List<WatchSourceItem>> fetchSources(List<String> titles) {
-    return Completer<List<WatchSourceItem>>().future;
-  }
-}
-
-class _CompleterWatchSourcesRepository implements WatchSourcesRepository {
-  const _CompleterWatchSourcesRepository(this.sources);
-
-  final Completer<List<WatchSourceItem>> sources;
-
-  @override
-  Future<List<WatchSourceItem>> fetchSources(List<String> titles) =>
-      sources.future;
-}
-
-class _SuccessWatchSourcesRepository implements WatchSourcesRepository {
-  const _SuccessWatchSourcesRepository(this.items);
-
-  final List<WatchSourceItem> items;
-
-  @override
-  Future<List<WatchSourceItem>> fetchSources(List<String> titles) async {
-    return items;
-  }
-}
-
-class _StubWatchProgressRepository implements WatchProgressRepository {
-  const _StubWatchProgressRepository(this.items);
-
-  final List<WatchProgress> items;
-
-  @override
-  Stream<List<WatchProgress>> watchAll() => Stream.value(items);
-
-  @override
-  Future<WatchProgress?> find({
-    required String torrentKey,
-    required int fileIndex,
-  }) async => null;
-
-  @override
-  Future<void> save(WatchProgress progress) async {}
-
-  @override
-  Future<void> removeTorrent({required String torrentKey}) async {}
-}
 
 class _ToggleWatchSourcesRepository implements WatchSourcesRepository {
   bool shouldFail = true;
@@ -669,33 +525,6 @@ class _ToggleWatchSourcesRepository implements WatchSourcesRepository {
       throw Exception('First call fails');
     }
 
-    return _items;
+    return frierenSources;
   }
 }
-
-const _items = [
-  WatchSourceItem(
-    title: '[ASW] Frieren - 27',
-    magnet: 'magnet:?xt=urn:btih:test-3',
-    size: '900 MiB',
-    time: '2026-04-01 09:30',
-    seeders: 4,
-    downloads: 45,
-  ),
-  WatchSourceItem(
-    title: '[SubsPlease] Frieren - 28 (1080p)',
-    magnet: 'magnet:?xt=urn:btih:test-1',
-    size: '1.4 GiB',
-    time: '2026-04-14 17:09',
-    seeders: 33,
-    downloads: 269,
-  ),
-  WatchSourceItem(
-    title: '[Judas] Frieren Season Pack Dual-Audio',
-    magnet: 'magnet:?xt=urn:btih:test-2',
-    size: '7.2 GiB',
-    time: '2026-04-15 12:00',
-    seeders: 18,
-    downloads: 520,
-  ),
-];

@@ -1,11 +1,10 @@
-import 'dart:convert';
-import 'dart:typed_data';
-
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:iris/shared/network/rate_limit_interceptor.dart';
 import 'package:iris/shared/network/shikimori_api.dart';
+
+import '../../helpers/fake_http_adapter.dart';
 
 void main() {
   late DateTime now;
@@ -68,19 +67,19 @@ void main() {
   });
 
   test('retries a refused request once after Retry-After', () async {
-    final adapter = _Adapter([429, 200]);
+    final adapter = _answering([429, 200]);
     final dio = Dio()..httpClientAdapter = adapter;
     dio.interceptors.add(limiter(dio));
 
     final response = await dio.get<dynamic>('https://example.org/api');
 
     expect(response.statusCode, 200);
-    expect(adapter.calls, 2);
+    expect(adapter.requests.length, 2);
     expect(waits, contains(const Duration(seconds: 2)));
   });
 
   test('gives up after a second refusal', () async {
-    final adapter = _Adapter([429, 429, 200]);
+    final adapter = _answering([429, 429, 200]);
     final dio = Dio()..httpClientAdapter = adapter;
     dio.interceptors.add(limiter(dio));
 
@@ -94,33 +93,23 @@ void main() {
         ),
       ),
     );
-    expect(adapter.calls, 2);
+    expect(adapter.requests.length, 2);
   });
 }
 
-class _Adapter implements HttpClientAdapter {
-  _Adapter(this.statuses);
-
-  final List<int> statuses;
-  int calls = 0;
-
-  @override
-  Future<ResponseBody> fetch(
-    RequestOptions options,
-    Stream<Uint8List>? requestStream,
-    Future<void>? cancelFuture,
-  ) async {
-    final status = statuses[calls++];
-    return ResponseBody.fromString(
-      jsonEncode({'ok': status == 200}),
+/// Answers the requests in turn with [statuses]; a refusal asks to retry
+/// after two seconds.
+FakeHttpAdapter _answering(List<int> statuses) {
+  late final FakeHttpAdapter adapter;
+  adapter = FakeHttpAdapter((_) {
+    final status = statuses[adapter.requests.length - 1];
+    return FakeReply(
       status,
-      headers: {
-        Headers.contentTypeHeader: [Headers.jsonContentType],
+      {'ok': status == 200},
+      {
         if (status == 429) 'retry-after': ['2'],
       },
     );
-  }
-
-  @override
-  void close({bool force = false}) {}
+  });
+  return adapter;
 }

@@ -3,7 +3,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:media_kit/media_kit.dart';
 
 import 'package:iris/features/player/presentation/widgets/player_track_selector_sheet.dart';
-import 'package:iris/l10n/generated/app_localizations.dart';
+
+import '../../../../helpers/test_app.dart';
+import '../../../../helpers/test_window.dart';
 
 void main() {
   testWidgets('shows audio and subtitle track sections', (tester) async {
@@ -151,9 +153,7 @@ void main() {
           ? 'sets the lists side by side in a wide window'
           : 'stacks the lists in a phone sheet',
       (tester) async {
-        tester.view.physicalSize = Size(width, 800);
-        tester.view.devicePixelRatio = 1;
-        addTearDown(tester.view.reset);
+        setTestWindowSize(tester, Size(width, 800));
 
         await tester.pumpWidget(_wrap(child: _sheet()));
 
@@ -211,12 +211,7 @@ void main() {
 }
 
 Widget _wrap({required Widget child}) {
-  return MaterialApp(
-    locale: const Locale('en'),
-    localizationsDelegates: AppLocalizations.localizationsDelegates,
-    supportedLocales: AppLocalizations.supportedLocales,
-    home: Scaffold(body: child),
-  );
+  return testApp(Scaffold(body: child));
 }
 
 PlayerTrackSelectorSheet _sheet({

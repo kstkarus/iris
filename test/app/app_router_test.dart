@@ -9,7 +9,8 @@ import 'package:iris/app/router/app_router.dart';
 import 'package:iris/entities/friend/domain/friend.dart';
 import 'package:iris/features/auth/domain/repositories/auth_repository.dart';
 import 'package:iris/features/auth/presentation/cubit/auth_cubit.dart';
-import 'package:iris/l10n/generated/app_localizations.dart';
+
+import '../helpers/test_app.dart';
 
 void main() {
   setUp(() async {
@@ -90,10 +91,5 @@ void main() {
 /// The router under the session every page can read, as in the app.
 Widget _app(GoRouter router) => BlocProvider(
   create: (_) => AuthCubit(repository: serviceLocator<AuthRepository>()),
-  child: MaterialApp.router(
-    locale: const Locale('en'),
-    localizationsDelegates: AppLocalizations.localizationsDelegates,
-    supportedLocales: AppLocalizations.supportedLocales,
-    routerConfig: router,
-  ),
+  child: testRouterApp(router),
 );

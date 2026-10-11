@@ -8,25 +8,22 @@ import 'package:iris/features/watch_sources/presentation/cubit/watch_sources_cub
 import 'package:iris/features/watch_sources/presentation/cubit/watch_sources_state.dart';
 import 'package:iris/features/watch_sources/presentation/models/watch_sources_sort_option.dart';
 
+import '../../watch_sources_test_doubles.dart';
+
 void main() {
   test('emits loading then loaded with default sorting by seeders', () async {
-    final cubit = WatchSourcesCubit(
-      animeId: '52991',
-      animeTitle: 'Frieren: Beyond Journey\'s End',
-      searchTitles: ['Frieren: Beyond Journey\'s End'],
-      repository: _SuccessWatchSourcesRepository(_items),
-    );
+    final cubit = frierenSourcesCubit(FixedWatchSourcesRepository());
 
     expectLater(
       cubit.stream,
       emitsInOrder([
         const WatchSourcesLoading(),
         WatchSourcesLoaded(
-          allItems: _items,
+          allItems: frierenSources,
           visibleItems: [
-            _itemWithMostSeeders,
-            _itemWithMostDownloads,
-            _itemOld,
+            frierenMostSeededSource,
+            frierenMostDownloadedSource,
+            frierenOldSource,
           ],
           searchQuery: '',
           sortOption: WatchSourcesSortOption.seedersDesc,
@@ -40,23 +37,18 @@ void main() {
   test(
     'filters sources locally by title without additional repository calls',
     () async {
-      final repository = _CountingWatchSourcesRepository(_items);
-      final cubit = WatchSourcesCubit(
-        animeId: '52991',
-        animeTitle: 'Frieren: Beyond Journey\'s End',
-        searchTitles: ['Frieren: Beyond Journey\'s End'],
-        repository: repository,
-      );
+      final repository = FixedWatchSourcesRepository();
+      final cubit = frierenSourcesCubit(repository);
 
       await cubit.loadSources();
       cubit.updateSearchQuery('dual');
 
-      expect(repository.callCount, 1);
+      expect(repository.fetches, 1);
       expect(
         cubit.state,
         WatchSourcesLoaded(
-          allItems: _items,
-          visibleItems: [_itemWithMostDownloads],
+          allItems: frierenSources,
+          visibleItems: [frierenMostDownloadedSource],
           searchQuery: 'dual',
           sortOption: WatchSourcesSortOption.seedersDesc,
         ),
@@ -65,12 +57,7 @@ void main() {
   );
 
   test('clearing search restores all items', () async {
-    final cubit = WatchSourcesCubit(
-      animeId: '52991',
-      animeTitle: 'Frieren: Beyond Journey\'s End',
-      searchTitles: ['Frieren: Beyond Journey\'s End'],
-      repository: _SuccessWatchSourcesRepository(_items),
-    );
+    final cubit = frierenSourcesCubit(FixedWatchSourcesRepository());
 
     await cubit.loadSources();
     cubit
@@ -80,8 +67,12 @@ void main() {
     expect(
       cubit.state,
       WatchSourcesLoaded(
-        allItems: _items,
-        visibleItems: [_itemWithMostSeeders, _itemWithMostDownloads, _itemOld],
+        allItems: frierenSources,
+        visibleItems: [
+          frierenMostSeededSource,
+          frierenMostDownloadedSource,
+          frierenOldSource,
+        ],
         searchQuery: '',
         sortOption: WatchSourcesSortOption.seedersDesc,
       ),
@@ -89,12 +80,7 @@ void main() {
   });
 
   test('updates visible items when sort option changes', () async {
-    final cubit = WatchSourcesCubit(
-      animeId: '52991',
-      animeTitle: 'Frieren: Beyond Journey\'s End',
-      searchTitles: ['Frieren: Beyond Journey\'s End'],
-      repository: _SuccessWatchSourcesRepository(_items),
-    );
+    final cubit = frierenSourcesCubit(FixedWatchSourcesRepository());
 
     await cubit.loadSources();
     cubit.updateSortOption(WatchSourcesSortOption.titleAsc);
@@ -102,8 +88,12 @@ void main() {
     expect(
       cubit.state,
       WatchSourcesLoaded(
-        allItems: _items,
-        visibleItems: [_itemOld, _itemWithMostDownloads, _itemWithMostSeeders],
+        allItems: frierenSources,
+        visibleItems: [
+          frierenOldSource,
+          frierenMostDownloadedSource,
+          frierenMostSeededSource,
+        ],
         searchQuery: '',
         sortOption: WatchSourcesSortOption.titleAsc,
       ),
@@ -115,7 +105,7 @@ void main() {
       animeId: '1',
       animeTitle: 'Unknown Title',
       searchTitles: ['Unknown Title'],
-      repository: const _SuccessWatchSourcesRepository([]),
+      repository: FixedWatchSourcesRepository([]),
     );
 
     expectLater(
@@ -131,7 +121,7 @@ void main() {
       animeId: '1',
       animeTitle: '',
       searchTitles: const [],
-      repository: const _SuccessWatchSourcesRepository(_items),
+      repository: FixedWatchSourcesRepository(),
     );
 
     expectLater(
@@ -158,60 +148,24 @@ void main() {
     await cubit.loadSources();
   });
 
-  test('does not throw when closed before the sources arrive', () async {
-    final pending = Completer<List<WatchSourceItem>>();
-    final cubit = WatchSourcesCubit(
-      animeId: '52991',
-      animeTitle: 'Frieren: Beyond Journey\'s End',
-      searchTitles: ['Frieren: Beyond Journey\'s End'],
-      repository: _PendingWatchSourcesRepository(pending.future),
-    );
+  for (final fails in [false, true]) {
+    final outcome = fails ? 'the search fails' : 'the sources arrive';
+    test('does not throw when closed before $outcome', () async {
+      final pending = Completer<List<WatchSourceItem>>();
+      final cubit = frierenSourcesCubit(
+        PendingWatchSourcesRepository(pending.future),
+      );
 
-    final load = cubit.loadSources();
-    await cubit.close();
-    pending.complete(_items);
+      final load = cubit.loadSources();
+      await cubit.close();
+      if (fails) {
+        pending.completeError(Exception('Failed to load sources'));
+      } else {
+        pending.complete(frierenSources);
+      }
 
-    await expectLater(load, completes);
-  });
-
-  test('does not throw when closed before the search fails', () async {
-    final pending = Completer<List<WatchSourceItem>>();
-    final cubit = WatchSourcesCubit(
-      animeId: '52991',
-      animeTitle: 'Frieren: Beyond Journey\'s End',
-      searchTitles: ['Frieren: Beyond Journey\'s End'],
-      repository: _PendingWatchSourcesRepository(pending.future),
-    );
-
-    final load = cubit.loadSources();
-    await cubit.close();
-    pending.completeError(Exception('Failed to load sources'));
-
-    await expectLater(load, completes);
-  });
-}
-
-class _SuccessWatchSourcesRepository implements WatchSourcesRepository {
-  const _SuccessWatchSourcesRepository(this.items);
-
-  final List<WatchSourceItem> items;
-
-  @override
-  Future<List<WatchSourceItem>> fetchSources(List<String> titles) async {
-    return items;
-  }
-}
-
-class _CountingWatchSourcesRepository implements WatchSourcesRepository {
-  _CountingWatchSourcesRepository(this.items);
-
-  final List<WatchSourceItem> items;
-  int callCount = 0;
-
-  @override
-  Future<List<WatchSourceItem>> fetchSources(List<String> titles) async {
-    callCount += 1;
-    return items;
+      await expectLater(load, completes);
+    });
   }
 }
 
@@ -221,41 +175,3 @@ class _FailingWatchSourcesRepository implements WatchSourcesRepository {
     throw Exception('Failed to load sources');
   }
 }
-
-class _PendingWatchSourcesRepository implements WatchSourcesRepository {
-  const _PendingWatchSourcesRepository(this.pending);
-
-  final Future<List<WatchSourceItem>> pending;
-
-  @override
-  Future<List<WatchSourceItem>> fetchSources(List<String> titles) => pending;
-}
-
-const _itemWithMostSeeders = WatchSourceItem(
-  title: '[SubsPlease] Frieren - 28 (1080p)',
-  magnet: 'magnet:?xt=urn:btih:test-1',
-  size: '1.4 GiB',
-  time: '2026-04-14 17:09',
-  seeders: 33,
-  downloads: 269,
-);
-
-const _itemWithMostDownloads = WatchSourceItem(
-  title: '[Judas] Frieren Season Pack Dual-Audio',
-  magnet: 'magnet:?xt=urn:btih:test-2',
-  size: '7.2 GiB',
-  time: '2026-04-15 12:00',
-  seeders: 18,
-  downloads: 520,
-);
-
-const _itemOld = WatchSourceItem(
-  title: '[ASW] Frieren - 27',
-  magnet: 'magnet:?xt=urn:btih:test-3',
-  size: '900 MiB',
-  time: '2026-04-01 09:30',
-  seeders: 4,
-  downloads: 45,
-);
-
-const _items = [_itemOld, _itemWithMostSeeders, _itemWithMostDownloads];
