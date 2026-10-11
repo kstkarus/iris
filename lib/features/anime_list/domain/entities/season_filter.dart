@@ -26,21 +26,15 @@ class SeasonFilter {
   final int year;
   final AnimeSeason? season;
 
-  /// Shikimori's `season` value: `fall_2026`, `2025`, `2010_2019`,
-  /// `1900_1999`.
-  String get apiValue => switch (kind) {
-    SeasonFilterKind.season => '${season!.name}_$year',
-    SeasonFilterKind.year => '$year',
-    SeasonFilterKind.decade => '${year}_${year + 9}',
-    SeasonFilterKind.before2000 => '1900_1999',
-  };
-
   @override
   bool operator ==(Object other) =>
-      other is SeasonFilter && other.apiValue == apiValue;
+      other is SeasonFilter &&
+      other.kind == kind &&
+      other.year == year &&
+      other.season == season;
 
   @override
-  int get hashCode => apiValue.hashCode;
+  int get hashCode => Object.hash(kind, year, season);
 }
 
 /// Shikimori's seasons follow the Japanese broadcast quarters: winter is

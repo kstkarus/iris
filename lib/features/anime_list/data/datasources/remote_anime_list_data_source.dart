@@ -1,6 +1,7 @@
 import 'package:iris/entities/anime/data/shikimori_anime_summary.dart';
-import 'package:iris/features/anime_list/domain/entities/anime_list_query.dart';
+import 'package:iris/features/anime_list/data/mappers/anime_list_query_variables.dart';
 import 'package:iris/features/anime_list/data/models/shikimori_anime_dto.dart';
+import 'package:iris/features/anime_list/domain/entities/anime_list_query.dart';
 import 'package:iris/shared/network/shikimori_graph_ql_client.dart';
 
 class RemoteAnimeListDataSource {
@@ -15,7 +16,7 @@ class RemoteAnimeListDataSource {
     final items = await _client.queryList(
       'animes',
       document: _animePageQuery,
-      variables: query.variables,
+      variables: shikimoriAnimeListVariables(query),
     );
     return [for (final item in items) ?ShikimoriAnimeDto.tryParse(item)];
   }

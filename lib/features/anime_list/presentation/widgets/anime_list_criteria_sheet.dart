@@ -10,7 +10,6 @@ import 'package:iris/features/anime_list/presentation/bloc/anime_list_bloc.dart'
 import 'package:iris/features/anime_list/presentation/bloc/anime_list_event.dart';
 import 'package:iris/features/anime_list/presentation/cubit/anime_genres_cubit.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
-import 'package:iris/shared/utils/anime_metadata_formatter.dart';
 import 'package:iris/shared/widgets/adaptive/show_adaptive_sheet.dart';
 import 'package:iris/shared/widgets/option_toggle.dart';
 import 'package:iris/shared/widgets/section_label.dart';
@@ -372,45 +371,38 @@ class _CriteriaSection extends StatelessWidget {
   }
 }
 
-/// How the catalog is ordered, as the sort control and the catalog's
-/// section label name it.
-String animeListSortLabel(AppLocalizations l10n, AnimeListSortOption sort) {
-  switch (sort) {
-    case AnimeListSortOption.popularity:
-      return l10n.animeListSortPopularity;
-    case AnimeListSortOption.score:
-      return l10n.animeListSortScore;
-    case AnimeListSortOption.airedOn:
-      return l10n.animeListSortAiredOn;
-  }
-}
+/// How the catalog is ordered, as the sort control names it.
+String animeListSortLabel(AppLocalizations l10n, AnimeListSortOption sort) =>
+    switch (sort) {
+      AnimeListSortOption.popularity => l10n.animeListSortPopularity,
+      AnimeListSortOption.score => l10n.animeListSortScore,
+      AnimeListSortOption.airedOn => l10n.animeListSortAiredOn,
+    };
 
-String animeKindFilterLabel(AppLocalizations l10n, AnimeKindFilter kind) {
-  switch (kind) {
-    case AnimeKindFilter.tv:
-      return l10n.animeKindTv;
-    case AnimeKindFilter.movie:
-      return l10n.animeKindMovie;
-    case AnimeKindFilter.ova:
-      return l10n.animeKindOva;
-    case AnimeKindFilter.ona:
-      return l10n.animeKindOna;
-  }
-}
+String animeKindFilterLabel(AppLocalizations l10n, AnimeKindFilter kind) =>
+    switch (kind) {
+      AnimeKindFilter.tv => l10n.animeKindTv,
+      AnimeKindFilter.movie => l10n.animeKindMovie,
+      AnimeKindFilter.ova => l10n.animeKindOva,
+      AnimeKindFilter.ona => l10n.animeKindOna,
+    };
 
-String animeStatusFilterLabel(AppLocalizations l10n, AnimeStatusFilter status) {
-  switch (status) {
-    case AnimeStatusFilter.released:
-      return l10n.animeStatusReleased;
-    case AnimeStatusFilter.ongoing:
-      return l10n.animeStatusOngoing;
-    case AnimeStatusFilter.announced:
-      return l10n.animeStatusAnnounced;
-  }
-}
+String animeStatusFilterLabel(
+  AppLocalizations l10n,
+  AnimeStatusFilter status,
+) => switch (status) {
+  AnimeStatusFilter.released => l10n.animeStatusReleased,
+  AnimeStatusFilter.ongoing => l10n.animeStatusOngoing,
+  AnimeStatusFilter.announced => l10n.animeStatusAnnounced,
+};
 
-String animeRatingFilterLabel(AnimeRatingFilter rating) =>
-    formatAgeRating(rating.apiValue) ?? rating.apiValue;
+String animeRatingFilterLabel(AnimeRatingFilter rating) => switch (rating) {
+  AnimeRatingFilter.g => 'G',
+  AnimeRatingFilter.pg => 'PG',
+  AnimeRatingFilter.pg13 => 'PG-13',
+  AnimeRatingFilter.r => 'R-17',
+  AnimeRatingFilter.rPlus => 'R+',
+};
 
 String animeDurationFilterLabel(
   AppLocalizations l10n,

@@ -1,6 +1,7 @@
 import 'package:iris/entities/user_rate/data/mock_user_rate_repository.dart';
 import 'package:iris/entities/user_rate/domain/user_rate.dart';
 import 'package:iris/features/anime_list/data/datasources/mock_anime_list_data_source.dart';
+import 'package:iris/features/anime_list/data/mappers/anime_list_query_variables.dart';
 import 'package:iris/features/anime_list/data/mappers/shikimori_anime_mapper.dart';
 import 'package:iris/features/anime_list/domain/entities/anime_list_item.dart';
 import 'package:iris/features/anime_list/domain/entities/anime_list_query.dart';
