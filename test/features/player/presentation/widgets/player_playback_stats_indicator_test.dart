@@ -5,8 +5,9 @@ import 'package:iris/features/player/domain/entities/player_playback_diagnostics
 import 'package:iris/features/player/domain/entities/player_playback_stats.dart';
 import 'package:iris/features/player/presentation/playback/player_buffer_margin.dart';
 import 'package:iris/features/player/presentation/widgets/player_playback_stats_indicator.dart';
-import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/widgets/segmented_bar.dart';
+
+import '../../../../helpers/test_app.dart';
 
 void main() {
   testWidgets('renders speed and memory when both are available', (
@@ -244,10 +245,5 @@ void main() {
 }
 
 Widget _wrap({required Widget child}) {
-  return MaterialApp(
-    locale: const Locale('en'),
-    localizationsDelegates: AppLocalizations.localizationsDelegates,
-    supportedLocales: AppLocalizations.supportedLocales,
-    home: Scaffold(body: Center(child: child)),
-  );
+  return testApp(Scaffold(body: Center(child: child)));
 }

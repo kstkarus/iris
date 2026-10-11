@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -9,16 +8,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 
-import 'package:iris/features/player/domain/entities/player_launch_update.dart';
 import 'package:iris/features/player/domain/entities/player_playback_stats.dart';
 import 'package:iris/features/player/domain/entities/player_skip_segment.dart';
 import 'package:iris/features/player/domain/entities/player_session.dart';
 import 'package:iris/features/player/domain/entities/player_decoding_preferences.dart';
-import 'package:iris/features/player/domain/entities/prepared_player_source.dart';
-import 'package:iris/features/player/domain/entities/subtitle_preferences.dart';
 import 'package:iris/features/player/domain/repositories/player_repository.dart';
-import 'package:iris/features/player/domain/repositories/player_decoding_preferences_repository.dart';
-import 'package:iris/features/player/domain/repositories/subtitle_preferences_repository.dart';
 import 'package:iris/features/player/presentation/cubit/player_decoding_preferences_cubit.dart';
 import 'package:iris/features/player/presentation/cubit/player_subtitle_preferences_cubit.dart';
 import 'package:iris/features/player/presentation/playback/media_kit_player_engine.dart';
@@ -26,8 +20,12 @@ import 'package:iris/features/player/presentation/widgets/media_kit_player_viewp
 import 'package:iris/features/player/presentation/widgets/player_viewport_factory.dart';
 import 'package:iris/features/player/presentation/widgets/player_overlay_preferences.dart';
 import 'package:iris/features/player/presentation/widgets/player_track_selector_sheet.dart';
-import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/features/player/presentation/widgets/player_wait_indicator.dart';
+
+import '../../../../helpers/fake_player_repository.dart';
+import '../../../../helpers/test_app.dart';
+import '../../../../helpers/test_window.dart';
+import '../../player_test_doubles.dart';
 
 void main() {
   testWidgets(
@@ -51,13 +49,7 @@ void main() {
                 return Column(
                   children: [
                     Row(children: controlsThemes.topButtonBar),
-                    const Expanded(
-                      child: ColoredBox(
-                        key: Key('player_video_surface'),
-                        color: Colors.black,
-                        child: SizedBox.expand(),
-                      ),
-                    ),
+                    const Expanded(child: _videoSurface),
                   ],
                 );
               },
@@ -139,33 +131,6 @@ void main() {
     },
   );
 
-  testWidgets(
-    'shows a dedicated error when media_kit does not prepare the first frame in time',
-    (tester) async {
-      final firstFrameCompleter = Completer<void>();
-      final platformPlayer = _FakePlatformPlayer(
-        configuration: const PlayerConfiguration(),
-      );
-
-      await tester.pumpWidget(
-        _wrapViewport(
-          platformPlayer: platformPlayer,
-          firstFrameFuture: firstFrameCompleter.future,
-        ),
-      );
-      await tester.pump();
-      await tester.pump(const Duration(seconds: 46));
-
-      expect(
-        find.text(
-          'The stream is open, but the player could not prepare the first frame.',
-        ),
-        findsOneWidget,
-      );
-      expect(find.text('Try Again'), findsOneWidget);
-    },
-  );
-
   testWidgets('a hiccup mpv gets over is not shown as an error', (
     tester,
   ) async {
@@ -220,19 +185,7 @@ void main() {
   testWidgets('retry after a failure goes on from where it stopped', (
     tester,
   ) async {
-    final platformPlayer = _FakePlatformPlayer(
-      configuration: const PlayerConfiguration(),
-    );
-
-    await tester.pumpWidget(_wrapViewport(platformPlayer: platformPlayer));
-    await tester.pump();
-    platformPlayer.emitPosition(const Duration(minutes: 2));
-    await _deliverPlayerEvent(tester);
-
-    platformPlayer
-      ..emitError('tcp: Connection reset by peer')
-      ..nativeProperties['idle-active'] = 'yes';
-    await tester.pump(const Duration(seconds: 3));
+    final platformPlayer = await _failMidStream(tester);
     expect(find.text('Unable to start playback.'), findsOneWidget);
 
     await tester.tap(find.text('Try Again'));
@@ -248,18 +201,7 @@ void main() {
   testWidgets('a stream mpv opens at the start is sent where it should be', (
     tester,
   ) async {
-    final platformPlayer = _FakePlatformPlayer(
-      configuration: const PlayerConfiguration(),
-    );
-
-    await tester.pumpWidget(_wrapViewport(platformPlayer: platformPlayer));
-    await tester.pump();
-    platformPlayer.emitPosition(const Duration(minutes: 2));
-    await _deliverPlayerEvent(tester);
-    platformPlayer
-      ..emitError('tcp: Connection reset by peer')
-      ..nativeProperties['idle-active'] = 'yes';
-    await tester.pump(const Duration(seconds: 3));
+    final platformPlayer = await _failMidStream(tester);
 
     // mpv takes no notice of the start position and plays from 0.
     platformPlayer.nativeProperties['time-pos'] = '0.000000';
@@ -273,18 +215,7 @@ void main() {
   testWidgets('a stream opened where it should be is not sought again', (
     tester,
   ) async {
-    final platformPlayer = _FakePlatformPlayer(
-      configuration: const PlayerConfiguration(),
-    );
-
-    await tester.pumpWidget(_wrapViewport(platformPlayer: platformPlayer));
-    await tester.pump();
-    platformPlayer.emitPosition(const Duration(minutes: 2));
-    await _deliverPlayerEvent(tester);
-    platformPlayer
-      ..emitError('tcp: Connection reset by peer')
-      ..nativeProperties['idle-active'] = 'yes';
-    await tester.pump(const Duration(seconds: 3));
+    final platformPlayer = await _failMidStream(tester);
 
     platformPlayer.nativeProperties['time-pos'] = '120.040000';
     await tester.tap(find.text('Try Again'));
@@ -294,7 +225,8 @@ void main() {
     expect(platformPlayer.seeks, isEmpty);
   });
 
-  testWidgets('nothing plays behind the first-frame timeout', (tester) async {
+  testWidgets('shows a dedicated error, with nothing playing behind it, when '
+      'media_kit does not prepare the first frame in time', (tester) async {
     final platformPlayer = _FakePlatformPlayer(
       configuration: const PlayerConfiguration(),
     );
@@ -314,6 +246,7 @@ void main() {
       ),
       findsOneWidget,
     );
+    expect(find.text('Try Again'), findsOneWidget);
     expect(platformPlayer.pauseCount, 1);
   });
 
@@ -490,14 +423,13 @@ void main() {
     'applies the latest subtitle renderer preference after queued recreates',
     (tester) async {
       final subtitleCubit = PlayerSubtitlePreferencesCubit(
-        repository: const _FakeSubtitlePreferencesRepository(),
+        repository: MemorySubtitlePreferencesRepository(),
       );
       final slowOpenCompleter = Completer<void>();
       final createdPlayers = <_ControllablePlatformPlayer>[];
 
       await tester.pumpWidget(
         _wrapViewport(
-          repository: const _FakePlayerRepository(),
           subtitleCubit: subtitleCubit,
           playerBuilder: (configuration) {
             final player = _ControllablePlatformPlayer(
@@ -564,8 +496,8 @@ void main() {
     (tester) async {
       late VideoControllerConfiguration capturedConfiguration;
       final decodingCubit = PlayerDecodingPreferencesCubit(
-        repository: const _FakePlayerDecodingPreferencesRepository(
-          PlayerDecodingPreferences(
+        repository: MemoryDecodingPreferencesRepository(
+          const PlayerDecodingPreferences(
             hwdecMode: PlayerHwdecModePreset.softwareOnly,
           ),
         ),
@@ -613,11 +545,7 @@ void main() {
               required controlsThemes,
             }) {
               controllers.add(controller);
-              return const ColoredBox(
-                key: Key('player_video_surface'),
-                color: Colors.black,
-                child: SizedBox.expand(),
-              );
+              return _videoSurface;
             },
       ),
     );
@@ -886,117 +814,96 @@ void main() {
   });
 
   testWidgets('keeps touch video controls on Android', (tester) async {
-    debugDefaultTargetPlatformOverride = TargetPlatform.android;
-    try {
-      MediaKitVideoControlsThemes? capturedThemes;
+    MediaKitVideoControlsThemes? capturedThemes;
 
-      await tester.pumpWidget(
-        _wrapViewport(
-          videoSurfaceBuilder:
-              ({
-                required controller,
-                required subtitleViewConfiguration,
-                required controlsThemes,
-              }) {
-                capturedThemes = controlsThemes;
-                return _TopBarSurface(
-                  topButtonBar: controlsThemes.topButtonBar,
-                );
-              },
-        ),
-      );
-      await tester.pump();
+    await tester.pumpWidget(
+      _wrapViewport(
+        videoSurfaceBuilder:
+            ({
+              required controller,
+              required subtitleViewConfiguration,
+              required controlsThemes,
+            }) {
+              capturedThemes = controlsThemes;
+              return _TopBarSurface(topButtonBar: controlsThemes.topButtonBar);
+            },
+      ),
+    );
+    await tester.pump();
 
-      final themes = capturedThemes;
-      expect(themes, isA<MediaKitMobileVideoControlsThemes>());
-      expect(themes!.controlsBuilder, same(MaterialVideoControls));
-      final mobileThemes = themes as MediaKitMobileVideoControlsThemes;
-      expect(mobileThemes.normal.seekGesture, isTrue);
-      expect(mobileThemes.normal.volumeGesture, isTrue);
-      // Tracks and settings, each one tap away.
-      expect(find.byType(MaterialCustomButton), findsNWidgets(2));
+    final themes = capturedThemes;
+    expect(themes, isA<MediaKitMobileVideoControlsThemes>());
+    expect(themes!.controlsBuilder, same(MaterialVideoControls));
+    final mobileThemes = themes as MediaKitMobileVideoControlsThemes;
+    expect(mobileThemes.normal.seekGesture, isTrue);
+    expect(mobileThemes.normal.volumeGesture, isTrue);
+    // Tracks and settings, each one tap away.
+    expect(find.byType(MaterialCustomButton), findsNWidgets(2));
 
-      await tester.tap(find.byKey(const Key('player_settings_button')));
-      await tester.pumpAndSettle();
-      expect(find.text('SUBTITLE APPEARANCE'), findsOneWidget);
-    } finally {
-      debugDefaultTargetPlatformOverride = null;
-    }
-  });
+    await tester.tap(find.byKey(const Key('player_settings_button')));
+    await tester.pumpAndSettle();
+    expect(find.text('SUBTITLE APPEARANCE'), findsOneWidget);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.android));
 
   testWidgets('opens the track selector as a popover of its button on '
       'desktop', (tester) async {
-    debugDefaultTargetPlatformOverride = TargetPlatform.windows;
-    try {
-      tester.view.physicalSize = const Size(1280, 720);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.reset);
-      await tester.pumpWidget(
-        _wrapViewport(
-          videoSurfaceBuilder:
-              ({
-                required controller,
-                required subtitleViewConfiguration,
-                required controlsThemes,
-              }) {
-                return _TopBarSurface(
-                  topButtonBar: controlsThemes.topButtonBar,
-                );
-              },
-        ),
-      );
-      await tester.pump();
+    setTestWindowSize(tester, TestWindowSizes.landscape);
+    await tester.pumpWidget(
+      _wrapViewport(
+        videoSurfaceBuilder:
+            ({
+              required controller,
+              required subtitleViewConfiguration,
+              required controlsThemes,
+            }) {
+              return _TopBarSurface(topButtonBar: controlsThemes.topButtonBar);
+            },
+      ),
+    );
+    await tester.pump();
 
-      final button = tester.getRect(
-        find.byKey(const Key('player_track_selector_button')),
-      );
-      await tester.tap(find.byKey(const Key('player_track_selector_button')));
-      await tester.pumpAndSettle();
+    final button = tester.getRect(
+      find.byKey(const Key('player_track_selector_button')),
+    );
+    await tester.tap(find.byKey(const Key('player_track_selector_button')));
+    await tester.pumpAndSettle();
 
-      final popover = find.byKey(const Key('player_popover'));
-      expect(popover, findsOneWidget);
-      expect(
-        find.byKey(const Key('player_adaptive_sheet_dialog')),
-        findsNothing,
-      );
-      expect(find.byType(BottomSheet), findsNothing);
-      expect(
-        find.descendant(
-          of: popover,
-          matching: find.byType(PlayerTrackSelectorSheet),
-        ),
-        findsOneWidget,
-      );
-      // Its button names it.
-      expect(find.text('Audio & subtitles'), findsNothing);
-      // Out of the button at the top, ending in line with it or at the
-      // window's margin.
-      final rect = tester.getRect(popover);
-      expect(rect.top, greaterThan(button.bottom));
-      expect(
-        rect.right,
-        moreOrLessEquals(button.right < 1264 ? button.right : 1264),
-      );
-      // The video stays undimmed.
-      expect(
-        tester.widget<ModalBarrier>(find.byType(ModalBarrier).last).color,
-        isNull,
-      );
+    final popover = find.byKey(const Key('player_popover'));
+    expect(popover, findsOneWidget);
+    expect(find.byKey(const Key('player_adaptive_sheet_dialog')), findsNothing);
+    expect(find.byType(BottomSheet), findsNothing);
+    expect(
+      find.descendant(
+        of: popover,
+        matching: find.byType(PlayerTrackSelectorSheet),
+      ),
+      findsOneWidget,
+    );
+    // Its button names it.
+    expect(find.text('Audio & subtitles'), findsNothing);
+    // Out of the button at the top, ending in line with it or at the
+    // window's margin.
+    final rect = tester.getRect(popover);
+    expect(rect.top, greaterThan(button.bottom));
+    expect(
+      rect.right,
+      moreOrLessEquals(button.right < 1264 ? button.right : 1264),
+    );
+    // The video stays undimmed.
+    expect(
+      tester.widget<ModalBarrier>(find.byType(ModalBarrier).last).color,
+      isNull,
+    );
 
-      await tester.tapAt(const Offset(40, 600));
-      await tester.pumpAndSettle();
-      expect(popover, findsNothing);
-    } finally {
-      debugDefaultTargetPlatformOverride = null;
-    }
-  });
+    await tester.tapAt(const Offset(40, 600));
+    await tester.pumpAndSettle();
+    expect(popover, findsNothing);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.windows));
 
   testWidgets('opens the track selector as a bottom sheet on compact phones', (
     tester,
   ) async {
-    tester.view.physicalSize = const Size(400, 800);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
+    setTestWindowSize(tester, const Size(400, 800));
 
     await tester.pumpWidget(
       _wrapViewport(
@@ -1053,9 +960,7 @@ void main() {
   testWidgets('fits a 16:9 video frame into a wide window without overflow', (
     tester,
   ) async {
-    tester.view.physicalSize = const Size(1600, 700);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
+    setTestWindowSize(tester, const Size(1600, 700));
 
     await tester.pumpWidget(_wrapViewport());
     await tester.pump();
@@ -1072,9 +977,7 @@ void main() {
   testWidgets('keeps a full-width 16:9 video frame on portrait phones', (
     tester,
   ) async {
-    tester.view.physicalSize = const Size(400, 800);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
+    setTestWindowSize(tester, const Size(400, 800));
 
     await tester.pumpWidget(_wrapViewport());
     await tester.pump();
@@ -1146,9 +1049,7 @@ void main() {
     testWidgets('draw the titles over a video that fills the window', (
       tester,
     ) async {
-      tester.view.physicalSize = const Size(1280, 720);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.reset);
+      setTestWindowSize(tester, TestWindowSizes.landscape);
       var backs = 0;
       MediaKitVideoControlsThemes? themes;
 
@@ -1162,11 +1063,7 @@ void main() {
                 required controlsThemes,
               }) {
                 themes = controlsThemes;
-                return const ColoredBox(
-                  key: Key('player_video_surface'),
-                  color: Colors.black,
-                  child: SizedBox.expand(),
-                );
+                return _videoSurface;
               },
         ),
       );
@@ -1192,9 +1089,7 @@ void main() {
       testWidgets('fit the scrims in a ${size.height.toInt()} dp window', (
         tester,
       ) async {
-        tester.view.physicalSize = size;
-        tester.view.devicePixelRatio = 1;
-        addTearDown(tester.view.reset);
+        setTestWindowSize(tester, size);
 
         await tester.pumpWidget(_wrapViewport(chrome: chrome()));
         await tester.pump();
@@ -1208,9 +1103,7 @@ void main() {
       testWidgets('fit every bar button in a ${width.toInt()} dp wide window', (
         tester,
       ) async {
-        tester.view.physicalSize = Size(width, 720);
-        tester.view.devicePixelRatio = 1;
-        addTearDown(tester.view.reset);
+        setTestWindowSize(tester, Size(width, 720));
 
         await tester.pumpWidget(
           _wrapViewport(
@@ -1238,9 +1131,7 @@ void main() {
     testWidgets('keep both scrims at full size in a 600 dp window', (
       tester,
     ) async {
-      tester.view.physicalSize = const Size(800, 600);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.reset);
+      setTestWindowSize(tester, const Size(800, 600));
 
       await tester.pumpWidget(_wrapViewport(chrome: chrome()));
       await tester.pump();
@@ -1362,9 +1253,7 @@ void main() {
     testWidgets('open the episodes in a drawer that Escape closes', (
       tester,
     ) async {
-      tester.view.physicalSize = const Size(1280, 720);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.reset);
+      setTestWindowSize(tester, TestWindowSizes.landscape);
       VoidCallback? closeDrawer;
 
       await tester.pumpWidget(
@@ -1404,9 +1293,7 @@ void main() {
     testWidgets('keep focus and screen readers inside the open episodes', (
       tester,
     ) async {
-      tester.view.physicalSize = const Size(1280, 720);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.reset);
+      setTestWindowSize(tester, TestWindowSizes.landscape);
       final semantics = tester.ensureSemantics();
 
       await tester.pumpWidget(
@@ -1456,6 +1343,7 @@ void main() {
     });
 
     testWidgets('offer to skip the opening above the timeline', (tester) async {
+      setTestWindowSize(tester, TestWindowSizes.landscape);
       final platformPlayer = _FakePlatformPlayer(
         configuration: const PlayerConfiguration(),
       );
@@ -1475,6 +1363,9 @@ void main() {
       await _deliverPlayerEvent(tester);
 
       expect(find.text('Skip opening'), findsOneWidget);
+      final skip = tester.getRect(find.byKey(_skipSegmentButton));
+      final seekBar = tester.getRect(find.byKey(const Key('player_seek_bar')));
+      expect(skip.bottom, lessThan(seekBar.top));
       await tester.tap(find.byKey(_skipSegmentButton));
       await tester.pump();
       expect(platformPlayer.seeks.last, const Duration(seconds: 90));
@@ -1483,9 +1374,7 @@ void main() {
     testWidgets('put the startup spinner in place of the play button', (
       tester,
     ) async {
-      tester.view.physicalSize = const Size(1280, 720);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.reset);
+      setTestWindowSize(tester, TestWindowSizes.landscape);
       final firstFrame = Completer<void>();
       await tester.pumpWidget(
         _wrapViewport(firstFrameFuture: firstFrame.future, chrome: chrome()),
@@ -1520,9 +1409,7 @@ void main() {
     testWidgets('show a notice with its action above the timeline', (
       tester,
     ) async {
-      tester.view.physicalSize = const Size(1280, 720);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.reset);
+      setTestWindowSize(tester, TestWindowSizes.landscape);
       var actions = 0;
       await tester.pumpWidget(
         _wrapViewport(
@@ -1553,9 +1440,7 @@ void main() {
     testWidgets('keep the episodes with the buttons beside the timeline', (
       tester,
     ) async {
-      tester.view.physicalSize = const Size(1280, 720);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.reset);
+      setTestWindowSize(tester, TestWindowSizes.landscape);
       late _FakePlatformPlayer platformPlayer;
       await tester.pumpWidget(
         _wrapViewport(
@@ -1588,9 +1473,7 @@ void main() {
 
     testWidgets('open the tracks above their button and keep the controls '
         'while open', (tester) async {
-      tester.view.physicalSize = const Size(1280, 720);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.reset);
+      setTestWindowSize(tester, TestWindowSizes.landscape);
       final platformPlayer = _FakePlatformPlayer(
         configuration: const PlayerConfiguration(),
       );
@@ -1644,9 +1527,7 @@ void main() {
 
     testWidgets('light a glyph under the pointer and keep the focus with '
         'the player after a click', (tester) async {
-      tester.view.physicalSize = const Size(1280, 720);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.reset);
+      setTestWindowSize(tester, TestWindowSizes.landscape);
       late _FakePlatformPlayer platformPlayer;
       await tester.pumpWidget(
         _wrapViewport(
@@ -1730,9 +1611,7 @@ void main() {
 
     testWidgets('switch the time left to the position and length on a '
         'click', (tester) async {
-      tester.view.physicalSize = const Size(1280, 720);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.reset);
+      setTestWindowSize(tester, TestWindowSizes.landscape);
       late _FakePlatformPlayer platformPlayer;
       await tester.pumpWidget(
         _wrapViewport(
@@ -1763,9 +1642,7 @@ void main() {
 
     testWidgets('show the stats only when asked for or when they explain '
         'a problem', (tester) async {
-      tester.view.physicalSize = const Size(1280, 720);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.reset);
+      setTestWindowSize(tester, TestWindowSizes.landscape);
       final repository = _LateStatsPlayerRepository();
       await tester.pumpWidget(
         _wrapViewport(
@@ -1801,9 +1678,7 @@ void main() {
     });
 
     testWidgets('dim a paused frame', (tester) async {
-      tester.view.physicalSize = const Size(1280, 720);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.reset);
+      setTestWindowSize(tester, TestWindowSizes.landscape);
       late _FakePlatformPlayer platformPlayer;
       await tester.pumpWidget(
         _wrapViewport(
@@ -1832,9 +1707,7 @@ void main() {
 
     testWidgets('raise subtitles before the titles show and lower them '
         'after the titles hide', (tester) async {
-      tester.view.physicalSize = const Size(1280, 720);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.reset);
+      setTestWindowSize(tester, TestWindowSizes.landscape);
       final platformPlayer = _FakePlatformPlayer(
         configuration: const PlayerConfiguration(),
       );
@@ -1864,9 +1737,7 @@ void main() {
     });
 
     testWidgets('show no hover tooltips', (tester) async {
-      tester.view.physicalSize = const Size(1280, 720);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.reset);
+      setTestWindowSize(tester, TestWindowSizes.landscape);
       final semantics = tester.ensureSemantics();
       await tester.pumpWidget(_wrapViewport(chrome: chrome()));
       await tester.pump();
@@ -1913,9 +1784,7 @@ void main() {
     testWidgets('move subtitles drawn by mpv above the visible controls', (
       tester,
     ) async {
-      tester.view.physicalSize = const Size(1280, 720);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.reset);
+      setTestWindowSize(tester, TestWindowSizes.landscape);
       final platformPlayer = _FakePlatformPlayer(
         configuration: const PlayerConfiguration(),
       );
@@ -1941,9 +1810,7 @@ void main() {
 
     testWidgets('retry a failed start over visible controls, with no centre '
         'buttons, and the back button still works', (tester) async {
-      tester.view.physicalSize = const Size(1280, 720);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.reset);
+      setTestWindowSize(tester, TestWindowSizes.landscape);
       final firstFrame = Completer<void>();
       late _FakePlatformPlayer platformPlayer;
       var backs = 0;
@@ -2013,16 +1880,24 @@ class _TopBarSurface extends StatelessWidget {
     return Column(
       children: [
         SizedBox(height: 56, child: Row(children: topButtonBar)),
-        const Expanded(
-          child: ColoredBox(
-            key: Key('player_video_surface'),
-            color: Colors.black,
-            child: SizedBox.expand(),
-          ),
-        ),
+        const Expanded(child: _videoSurface),
       ],
     );
   }
+}
+
+const _videoSurface = ColoredBox(
+  key: Key('player_video_surface'),
+  color: Colors.black,
+  child: SizedBox.expand(),
+);
+
+Widget _blackSurface({
+  required VideoController controller,
+  required SubtitleViewConfiguration subtitleViewConfiguration,
+  required MediaKitVideoControlsThemes controlsThemes,
+}) {
+  return _videoSurface;
 }
 
 const _nextPrompt = Key('player_next_file_prompt');
@@ -2038,6 +1913,22 @@ Widget _pageLayerOnly({
     VideoState(),
     const SizedBox.expand(),
   );
+}
+
+/// Plays to 2:00, then the stream fails and mpv goes idle.
+Future<_FakePlatformPlayer> _failMidStream(WidgetTester tester) async {
+  final platformPlayer = _FakePlatformPlayer(
+    configuration: const PlayerConfiguration(),
+  );
+  await tester.pumpWidget(_wrapViewport(platformPlayer: platformPlayer));
+  await tester.pump();
+  platformPlayer.emitPosition(const Duration(minutes: 2));
+  await _deliverPlayerEvent(tester);
+  platformPlayer
+    ..emitError('tcp: Connection reset by peer')
+    ..nativeProperties['idle-active'] = 'yes';
+  await tester.pump(const Duration(seconds: 3));
+  return platformPlayer;
 }
 
 /// The player's streams deliver after the next frame starts; the rebuild
@@ -2061,7 +1952,7 @@ double _nextPromptOpacity(WidgetTester tester) {
 Widget _wrapViewport({
   _FakePlatformPlayer? platformPlayer,
   Future<void>? firstFrameFuture,
-  PlayerRepository repository = const _FakePlayerRepository(),
+  PlayerRepository? repository,
   PlayerSubtitlePreferencesCubit? subtitleCubit,
   PlayerDecodingPreferencesCubit? decodingCubit,
   MediaKitPlayerBuilder? playerBuilder,
@@ -2081,17 +1972,15 @@ Widget _wrapViewport({
   final effectiveSubtitleCubit =
       subtitleCubit ??
       PlayerSubtitlePreferencesCubit(
-        repository: const _FakeSubtitlePreferencesRepository(),
+        repository: MemorySubtitlePreferencesRepository(),
       );
   final effectiveDecodingCubit =
       decodingCubit ??
       PlayerDecodingPreferencesCubit(
-        repository: const _FakePlayerDecodingPreferencesRepository(
-          PlayerDecodingPreferences.defaults(),
-        ),
+        repository: MemoryDecodingPreferencesRepository(),
       );
   final factory = MediaKitPlayerViewportFactory(
-    repository: repository,
+    repository: repository ?? StubPlayerRepository(),
     enterNativeFullscreen: enterNativeFullscreen ?? () async {},
     exitNativeFullscreen: exitNativeFullscreen ?? () async {},
     playerBuilder:
@@ -2103,26 +1992,11 @@ Widget _wrapViewport({
           player: player,
           firstFrameFuture: effectiveFirstFrameFuture,
         ),
-    videoSurfaceBuilder:
-        videoSurfaceBuilder ??
-        ({
-          required controller,
-          required subtitleViewConfiguration,
-          required controlsThemes,
-        }) {
-          return const ColoredBox(
-            key: Key('player_video_surface'),
-            color: Colors.black,
-            child: SizedBox.expand(),
-          );
-        },
+    videoSurfaceBuilder: videoSurfaceBuilder ?? _blackSurface,
   );
 
-  return MaterialApp(
-    locale: const Locale('en'),
-    localizationsDelegates: AppLocalizations.localizationsDelegates,
-    supportedLocales: AppLocalizations.supportedLocales,
-    home: MultiBlocProvider(
+  return testApp(
+    MultiBlocProvider(
       providers: [
         BlocProvider<PlayerSubtitlePreferencesCubit>.value(
           value: effectiveSubtitleCubit,
@@ -2205,41 +2079,7 @@ class _EngineHostState extends State<_EngineHost> {
   }
 }
 
-class _FakePlayerRepository implements PlayerRepository {
-  @override
-  Future<void> stopPlayback({required String sessionId}) async {}
-
-  const _FakePlayerRepository();
-
-  @override
-  Future<void> disposePlayback({required String sessionId}) async {}
-
-  @override
-  Future<PreparedPlayerSource> prepareSource({
-    required String magnet,
-    Future<void>? cancelled,
-  }) {
-    throw UnimplementedError();
-  }
-
-  @override
-  Stream<PlayerLaunchUpdate> startPlayback({
-    required String sessionId,
-    required int fileIndex,
-  }) {
-    throw UnimplementedError();
-  }
-
-  @override
-  Stream<PlayerPlaybackStats> watchPlaybackStats({required String sessionId}) {
-    return const Stream.empty();
-  }
-}
-
-class _LateStatsPlayerRepository implements PlayerRepository {
-  @override
-  Future<void> stopPlayback({required String sessionId}) async {}
-
+class _LateStatsPlayerRepository extends StubPlayerRepository {
   late final StreamController<PlayerPlaybackStats> _controller =
       StreamController<PlayerPlaybackStats>.broadcast(
         onCancel: () async {
@@ -2256,25 +2096,6 @@ class _LateStatsPlayerRepository implements PlayerRepository {
     if (!_cancelCompleter.isCompleted) {
       _cancelCompleter.complete();
     }
-  }
-
-  @override
-  Future<void> disposePlayback({required String sessionId}) async {}
-
-  @override
-  Future<PreparedPlayerSource> prepareSource({
-    required String magnet,
-    Future<void>? cancelled,
-  }) {
-    throw UnimplementedError();
-  }
-
-  @override
-  Stream<PlayerLaunchUpdate> startPlayback({
-    required String sessionId,
-    required int fileIndex,
-  }) {
-    throw UnimplementedError();
   }
 
   @override
@@ -2296,7 +2117,7 @@ PlayerPlaybackStats _playbackStats({required int downloadRate}) {
 
 /// Hands out one stats stream per watch, as the data source does per stream
 /// of a session.
-class _SwitchingStatsPlayerRepository implements PlayerRepository {
+class _SwitchingStatsPlayerRepository extends StubPlayerRepository {
   final watchedSessionIds = <String>[];
   final _streams = <StreamController<PlayerPlaybackStats>>[];
 
@@ -2317,56 +2138,6 @@ class _SwitchingStatsPlayerRepository implements PlayerRepository {
     _streams.add(controller);
     return controller.stream;
   }
-
-  @override
-  Future<void> stopPlayback({required String sessionId}) async {}
-
-  @override
-  Future<void> disposePlayback({required String sessionId}) async {}
-
-  @override
-  Future<PreparedPlayerSource> prepareSource({
-    required String magnet,
-    Future<void>? cancelled,
-  }) {
-    throw UnimplementedError();
-  }
-
-  @override
-  Stream<PlayerLaunchUpdate> startPlayback({
-    required String sessionId,
-    required int fileIndex,
-  }) {
-    throw UnimplementedError();
-  }
-}
-
-class _FakeSubtitlePreferencesRepository
-    implements SubtitlePreferencesRepository {
-  const _FakeSubtitlePreferencesRepository();
-
-  @override
-  Future<SubtitlePreferences> loadPreferences() async {
-    return const SubtitlePreferences.defaults();
-  }
-
-  @override
-  Future<void> savePreferences(SubtitlePreferences preferences) async {}
-}
-
-class _FakePlayerDecodingPreferencesRepository
-    implements PlayerDecodingPreferencesRepository {
-  const _FakePlayerDecodingPreferencesRepository(this.preferences);
-
-  final PlayerDecodingPreferences preferences;
-
-  @override
-  Future<PlayerDecodingPreferences> loadPreferences() async {
-    return preferences;
-  }
-
-  @override
-  Future<void> savePreferences(PlayerDecodingPreferences preferences) async {}
 }
 
 class _StickyTopBarSurface extends StatefulWidget {
@@ -2388,13 +2159,7 @@ class _StickyTopBarSurfaceState extends State<_StickyTopBarSurface> {
     return Column(
       children: [
         Row(children: _initialTopButtonBar),
-        const Expanded(
-          child: ColoredBox(
-            key: Key('player_video_surface'),
-            color: Colors.black,
-            child: SizedBox.expand(),
-          ),
-        ),
+        const Expanded(child: _videoSurface),
       ],
     );
   }

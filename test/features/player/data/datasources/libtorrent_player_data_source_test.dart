@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:iris/features/player/data/adapters/libtorrent_engine_adapter.dart';
-import 'package:iris/features/player/data/adapters/player_runtime_memory_adapter.dart';
 import 'package:iris/features/player/data/datasources/libtorrent_player_data_source.dart';
 import 'package:iris/features/player/domain/entities/no_playable_video_exception.dart';
 import 'package:iris/features/player/data/models/playback_runtime_stats_model.dart';
@@ -14,6 +13,8 @@ import 'package:iris/features/player/data/models/torrent_file_descriptor.dart';
 import 'package:iris/features/player/data/utils/playback_stream_probe.dart';
 import 'package:iris/shared/torrent/preparation_cancelled_exception.dart';
 import 'package:iris/shared/torrent/torrent_activity_registry.dart';
+
+import '../../player_test_doubles.dart';
 
 const _magnet = 'magnet:?xt=urn:btih:ABCDEF';
 const _otherMagnet = 'magnet:?xt=urn:btih:123456';
@@ -355,7 +356,7 @@ void main() {
     );
     final dataSource = LibtorrentPlayerDataSource(
       engine: engine,
-      memoryAdapter: const _FakePlayerRuntimeMemoryAdapter(134217728),
+      memoryAdapter: const FixedMemoryAdapter(134217728),
       probe: _FakePlaybackStreamProbe(),
       statsPollInterval: Duration.zero,
     );
@@ -612,7 +613,7 @@ void main() {
       );
       final dataSource = LibtorrentPlayerDataSource(
         engine: engine,
-        memoryAdapter: const _FakePlayerRuntimeMemoryAdapter(null),
+        memoryAdapter: const FixedMemoryAdapter(null),
         probe: _FakePlaybackStreamProbe(),
         statsPollInterval: Duration.zero,
       );
@@ -890,13 +891,4 @@ class _BlockingPlaybackStreamProbe implements PlaybackStreamProbe {
     }
     return _result.future;
   }
-}
-
-class _FakePlayerRuntimeMemoryAdapter implements PlayerRuntimeMemoryAdapter {
-  const _FakePlayerRuntimeMemoryAdapter(this.appMemoryBytes);
-
-  final int? appMemoryBytes;
-
-  @override
-  Future<int?> getAppMemoryBytes() async => appMemoryBytes;
 }

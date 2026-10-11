@@ -3,13 +3,12 @@ import 'dart:async';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:iris/features/player/domain/entities/no_playable_video_exception.dart';
-import 'package:iris/features/player/domain/entities/player_launch_update.dart';
-import 'package:iris/features/player/domain/entities/player_playback_stats.dart';
 import 'package:iris/features/player/domain/entities/player_video_file.dart';
 import 'package:iris/features/player/domain/entities/prepared_player_source.dart';
-import 'package:iris/features/player/domain/repositories/player_repository.dart';
 import 'package:iris/features/player/presentation/cubit/player_source_cubit.dart';
 import 'package:iris/features/player/presentation/cubit/player_source_state.dart';
+
+import '../../../../helpers/fake_player_repository.dart';
 
 void main() {
   test('emits loading then success when source files are prepared', () async {
@@ -255,19 +254,10 @@ void main() {
   });
 }
 
-class _PreparedSourceRepository implements PlayerRepository {
-  @override
-  Future<void> stopPlayback({required String sessionId}) async {}
-
+class _PreparedSourceRepository extends StubPlayerRepository {
   _PreparedSourceRepository(this.preparedSource);
 
   final PreparedPlayerSource preparedSource;
-  final List<String> disposedSessionIds = [];
-
-  @override
-  Future<void> disposePlayback({required String sessionId}) async {
-    disposedSessionIds.add(sessionId);
-  }
 
   @override
   Future<PreparedPlayerSource> prepareSource({
@@ -276,28 +266,9 @@ class _PreparedSourceRepository implements PlayerRepository {
   }) async {
     return preparedSource;
   }
-
-  @override
-  Stream<PlayerLaunchUpdate> startPlayback({
-    required String sessionId,
-    required int fileIndex,
-  }) {
-    throw UnimplementedError();
-  }
-
-  @override
-  Stream<PlayerPlaybackStats> watchPlaybackStats({required String sessionId}) {
-    return const Stream.empty();
-  }
 }
 
-class _UnsupportedSourceRepository implements PlayerRepository {
-  @override
-  Future<void> stopPlayback({required String sessionId}) async {}
-
-  @override
-  Future<void> disposePlayback({required String sessionId}) async {}
-
+class _UnsupportedSourceRepository extends StubPlayerRepository {
   @override
   Future<PreparedPlayerSource> prepareSource({
     required String magnet,
@@ -305,28 +276,11 @@ class _UnsupportedSourceRepository implements PlayerRepository {
   }) async {
     throw const NoPlayableVideoException();
   }
-
-  @override
-  Stream<PlayerLaunchUpdate> startPlayback({
-    required String sessionId,
-    required int fileIndex,
-  }) {
-    throw UnimplementedError();
-  }
-
-  @override
-  Stream<PlayerPlaybackStats> watchPlaybackStats({required String sessionId}) {
-    return const Stream.empty();
-  }
 }
 
-class _DeferredSourceRepository implements PlayerRepository {
-  @override
-  Future<void> stopPlayback({required String sessionId}) async {}
-
+class _DeferredSourceRepository extends StubPlayerRepository {
   final Completer<PreparedPlayerSource> _prepareCompleter =
       Completer<PreparedPlayerSource>();
-  final List<String> disposedSessionIds = [];
   final List<Future<void>?> cancellations = [];
 
   void completeWith(PreparedPlayerSource preparedSource) {
@@ -342,29 +296,11 @@ class _DeferredSourceRepository implements PlayerRepository {
   }
 
   @override
-  Future<void> disposePlayback({required String sessionId}) async {
-    disposedSessionIds.add(sessionId);
-  }
-
-  @override
   Future<PreparedPlayerSource> prepareSource({
     required String magnet,
     Future<void>? cancelled,
   }) {
     cancellations.add(cancelled);
     return _prepareCompleter.future;
-  }
-
-  @override
-  Stream<PlayerLaunchUpdate> startPlayback({
-    required String sessionId,
-    required int fileIndex,
-  }) {
-    throw UnimplementedError();
-  }
-
-  @override
-  Stream<PlayerPlaybackStats> watchPlaybackStats({required String sessionId}) {
-    return const Stream.empty();
   }
 }
