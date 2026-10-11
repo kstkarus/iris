@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:iris/shared/widgets/dither_switcher.dart';
+import 'package:iris/shared/widgets/network_image.dart';
 import 'package:iris/shared/widgets/pixel_noise.dart';
 
 /// Cover art in the 2:3 poster ratio, framed by a hairline so light covers
@@ -25,8 +26,8 @@ class PosterImage extends StatelessWidget {
         ),
         child: url.isEmpty
             ? ColoredBox(color: scheme.surfaceContainer)
-            : Image.network(
-                url,
+            : Image(
+                image: networkImage(url),
                 fit: BoxFit.cover,
                 frameBuilder: (context, child, frame, synchronous) {
                   if (synchronous) return child;

@@ -29,6 +29,7 @@ import 'package:iris/shared/widgets/dithered_image.dart';
 import 'package:iris/shared/widgets/labeled_section.dart';
 import 'package:iris/shared/widgets/spec_table.dart';
 import 'package:iris/shared/widgets/status_views.dart';
+import 'package:iris/shared/widgets/network_image.dart';
 
 /// A title page. While its details load, what [preview] already knows is
 /// shown as is and the rest is pixel noise in the shape of the page; the
@@ -170,7 +171,7 @@ class _Halftone extends StatelessWidget {
     }
     final l10n = AppLocalizations.of(context);
     return DitheredImage(
-      image: NetworkImage(url),
+      image: networkImage(url),
       alignment: alignment,
       semanticLabel: head.anime.name,
       showOriginalLabel: l10n.animeDetailsShowCover,

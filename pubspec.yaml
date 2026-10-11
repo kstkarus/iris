@@ -51,6 +51,7 @@ dependencies:
   skeletonizer: ^3.0.0
   flutter_web_auth_2: ^5.1.0
   flutter_secure_storage: ^11.2.0
+  cached_network_image_ce: ^4.13.1
 
 dev_dependencies:
   flutter_test:

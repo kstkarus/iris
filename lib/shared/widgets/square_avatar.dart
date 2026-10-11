@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'package:iris/shared/widgets/network_image.dart';
+
 /// A user's picture: square, framed by a hairline like the covers; a
 /// picture that is missing or does not load leaves the frame empty.
 class SquareAvatar extends StatelessWidget {
@@ -22,8 +24,8 @@ class SquareAvatar extends StatelessWidget {
           ),
           child: url.isEmpty
               ? empty
-              : Image.network(
-                  url,
+              : Image(
+                  image: networkImage(url),
                   fit: BoxFit.cover,
                   errorBuilder: (context, error, stackTrace) => empty,
                 ),

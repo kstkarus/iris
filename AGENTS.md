@@ -27,6 +27,8 @@
 - Video playback: `media_kit`, `media_kit_video`, `media_kit_libs_video`
 - Torrents: `libtorrent_flutter` (version pinned on purpose, see `pubspec.yaml`)
 - Loading placeholders: `skeletonizer`
+- Remote images: `cached_network_image_ce` (disk cache), always through
+  `shared/widgets/network_image.dart`
 - Files: `path_provider`, `path`
 - Formatting / dates: `intl`
 - Testing: `flutter_test` with hand-written fakes (shared ones in `test/helpers/`),
