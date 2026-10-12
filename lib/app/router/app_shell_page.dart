@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:iris/features/app_update/presentation/widgets/update_notice.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/widgets/adaptive/window_size_class.dart';
 import 'package:iris/shared/widgets/marked_tab.dart';
@@ -45,11 +46,20 @@ class AppShellPage extends StatelessWidget {
     if (WindowSizeClass.of(context).isCompact) {
       return Scaffold(
         body: navigationShell,
-        bottomNavigationBar: _BottomTabs(
-          key: navigationBarKey,
-          labels: labels,
-          selectedIndex: navigationShell.currentIndex,
-          onSelected: _select,
+        // At the bottom on phones: the top belongs to the status bar and
+        // each page's own heading, and the thumb is down here.
+        bottomNavigationBar: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const UpdateNotice(),
+            _BottomTabs(
+              key: navigationBarKey,
+              labels: labels,
+              selectedIndex: navigationShell.currentIndex,
+              onSelected: _select,
+            ),
+          ],
         ),
       );
     }
@@ -70,6 +80,7 @@ class AppShellPage extends StatelessWidget {
               selectedIndex: navigationShell.currentIndex,
               onSelected: _select,
             ),
+            const UpdateNotice(),
             Expanded(child: navigationShell),
           ],
         ),

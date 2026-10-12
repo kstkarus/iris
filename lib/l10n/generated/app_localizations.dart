@@ -2048,6 +2048,30 @@ abstract class AppLocalizations {
   /// **'Friends'**
   String get animeDetailsFriendsTitle;
 
+  /// No description provided for @appUpdateAvailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Version {version} is out'**
+  String appUpdateAvailable(String version);
+
+  /// No description provided for @appUpdateDownload.
+  ///
+  /// In en, this message translates to:
+  /// **'Download'**
+  String get appUpdateDownload;
+
+  /// No description provided for @appUpdateLater.
+  ///
+  /// In en, this message translates to:
+  /// **'Later'**
+  String get appUpdateLater;
+
+  /// No description provided for @appUpdateOpenFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not open the download.'**
+  String get appUpdateOpenFailed;
+
   /// No description provided for @charactersTitle.
   ///
   /// In en, this message translates to:

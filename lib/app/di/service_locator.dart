@@ -25,6 +25,8 @@ import 'package:iris/features/anime_details/data/datasources/remote_anime_detail
 import 'package:iris/features/anime_details/data/repositories/mock_anime_details_repository.dart';
 import 'package:iris/features/anime_details/data/repositories/remote_anime_details_repository.dart';
 import 'package:iris/features/anime_details/domain/repositories/anime_details_repository.dart';
+import 'package:iris/features/app_update/data/github_app_update_repository.dart';
+import 'package:iris/features/app_update/domain/repositories/app_update_repository.dart';
 import 'package:iris/features/characters/data/mock_characters_repository.dart';
 import 'package:iris/features/characters/data/remote_characters_repository.dart';
 import 'package:iris/features/characters/domain/repositories/characters_repository.dart';
@@ -223,6 +225,7 @@ void _registerMocks() {
       ),
     )
     ..registerLazySingleton<FriendsRepository>(MockFriendsRepository.new)
+    ..registerLazySingleton<AppUpdateRepository>(NoAppUpdateRepository.new)
     ..registerLazySingleton<CharactersRepository>(MockCharactersRepository.new)
     ..registerLazySingleton<UserListRepository>(
       () => MockUserListRepository(
@@ -310,6 +313,21 @@ Future<void> _registerReal() async {
         client: serviceLocator<ShikimoriRestClient>(),
       ),
     )
+    ..registerLazySingleton<AppUpdateRepository>(() {
+      final platform = kIsWeb
+          ? null
+          : switch (defaultTargetPlatform) {
+              TargetPlatform.android => AppBuildPlatform.android,
+              TargetPlatform.windows => AppBuildPlatform.windows,
+              _ => null,
+            };
+      if (platform == null) return const NoAppUpdateRepository();
+      return GitHubAppUpdateRepository(
+        dio: createJsonApiDio(baseUrl: AppReleasesApi.baseUrl),
+        preferences: serviceLocator<SharedPreferences>(),
+        platform: platform,
+      );
+    })
     ..registerLazySingleton<CharactersRepository>(
       () => RemoteCharactersRepository(
         graphQl: serviceLocator<ShikimoriGraphQlClient>(),

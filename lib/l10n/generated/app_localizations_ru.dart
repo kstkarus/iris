@@ -1164,6 +1164,20 @@ class AppLocalizationsRu extends AppLocalizations {
   String get animeDetailsFriendsTitle => 'Друзья';
 
   @override
+  String appUpdateAvailable(String version) {
+    return 'Вышла версия $version';
+  }
+
+  @override
+  String get appUpdateDownload => 'Скачать';
+
+  @override
+  String get appUpdateLater => 'Позже';
+
+  @override
+  String get appUpdateOpenFailed => 'Не удалось открыть загрузку.';
+
+  @override
   String get charactersTitle => 'Персонажи';
 
   @override

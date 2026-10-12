@@ -726,6 +726,17 @@
   "profileFriendsLoadError": "Friends did not load.",
   "profileFriendsLoading": "Loading friends",
   "animeDetailsFriendsTitle": "Friends",
+  "appUpdateAvailable": "Version {version} is out",
+  "@appUpdateAvailable": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "appUpdateDownload": "Download",
+  "appUpdateLater": "Later",
+  "appUpdateOpenFailed": "Could not open the download.",
   "charactersTitle": "Characters",
   "charactersAll": "All {count}",
   "@charactersAll": {

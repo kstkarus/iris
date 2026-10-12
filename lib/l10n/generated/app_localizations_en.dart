@@ -1149,6 +1149,20 @@ class AppLocalizationsEn extends AppLocalizations {
   String get animeDetailsFriendsTitle => 'Friends';
 
   @override
+  String appUpdateAvailable(String version) {
+    return 'Version $version is out';
+  }
+
+  @override
+  String get appUpdateDownload => 'Download';
+
+  @override
+  String get appUpdateLater => 'Later';
+
+  @override
+  String get appUpdateOpenFailed => 'Could not open the download.';
+
+  @override
   String get charactersTitle => 'Characters';
 
   @override

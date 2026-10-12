@@ -53,6 +53,8 @@ dependencies:
   flutter_secure_storage: ^11.2.0
   cached_network_image_ce: ^4.13.1
   screen_brightness: ^2.1.11
+  package_info_plus: ^10.2.2
+  url_launcher: ^6.3.3
 
 dev_dependencies:
   flutter_test:

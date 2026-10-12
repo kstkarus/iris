@@ -67,6 +67,7 @@ lib/
     saved_torrents/   torrents the user added by hand
     downloads/        offline downloads
     player/           playback
+    app_update/       new releases from GitHub, offered in the shell
 ```
 
 ### Shared helpers — reuse before writing new ones

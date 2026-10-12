@@ -237,6 +237,22 @@ Regenerate localizations after editing `lib/l10n/*.arb` (output in `lib/l10n/gen
 flutter gen-l10n
 ```
 
+## Releases and updates
+
+Pushing a tag `vX.Y.Z` runs `.github/workflows/release.yml`: it builds an APK and a Windows archive (`iris-X.Y.Z-android.apk`, `iris-X.Y.Z-windows-x64.zip`) with the tag as the version name and the run number as the build number, and publishes them as a GitHub release.
+
+```bash
+git tag v1.1.0
+git push origin v1.1.0
+```
+
+The workflow needs two repository secrets (Settings → Secrets and variables → Actions):
+
+- `ANDROID_DEBUG_KEYSTORE`: base64 of the keystore the APKs already installed were signed with (`~/.android/debug.keystore` of the machine that built them; release builds are signed with the debug key, see `android/app/build.gradle.kts`). Android installs an update only over the same signature, so the workflow stops without it. On Windows: `[Convert]::ToBase64String([IO.File]::ReadAllBytes("$env:USERPROFILE\.android\debug.keystore"))`.
+- `SHIKIMORI_CONFIG`: the contents of `config/shikimori.json`; without it the builds say sign-in is not set up.
+
+On Android and Windows the app asks GitHub for the latest release once a launch (`lib/features/app_update/`). When it is newer than the running version, a strip says so: above the tabs on phones, under the top bar on wider windows. Download opens the release's build for the platform in the browser, and the system installs it as usual (on Windows, unpack the archive over the old folder); Later hides that version until a newer one comes out. A failed check shows nothing. iOS has no side-loaded updates, so nothing is offered there.
+
 ## Status
 
 This is an actively evolving private project focused on maintainability, clear boundaries, and a practical user experience for a small group of users.
