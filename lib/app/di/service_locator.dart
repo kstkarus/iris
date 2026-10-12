@@ -25,6 +25,9 @@ import 'package:iris/features/anime_details/data/datasources/remote_anime_detail
 import 'package:iris/features/anime_details/data/repositories/mock_anime_details_repository.dart';
 import 'package:iris/features/anime_details/data/repositories/remote_anime_details_repository.dart';
 import 'package:iris/features/anime_details/domain/repositories/anime_details_repository.dart';
+import 'package:iris/features/characters/data/mock_characters_repository.dart';
+import 'package:iris/features/characters/data/remote_characters_repository.dart';
+import 'package:iris/features/characters/domain/repositories/characters_repository.dart';
 import 'package:iris/features/anime_list/data/repositories/mock_anime_genres_repository.dart';
 import 'package:iris/features/anime_list/data/repositories/remote_anime_genres_repository.dart';
 import 'package:iris/features/anime_list/domain/repositories/anime_genres_repository.dart';
@@ -220,6 +223,7 @@ void _registerMocks() {
       ),
     )
     ..registerLazySingleton<FriendsRepository>(MockFriendsRepository.new)
+    ..registerLazySingleton<CharactersRepository>(MockCharactersRepository.new)
     ..registerLazySingleton<UserListRepository>(
       () => MockUserListRepository(
         rates: _mockUserRates(),
@@ -304,6 +308,12 @@ Future<void> _registerReal() async {
     ..registerLazySingleton<FriendsRepository>(
       () => RemoteFriendsRepository(
         client: serviceLocator<ShikimoriRestClient>(),
+      ),
+    )
+    ..registerLazySingleton<CharactersRepository>(
+      () => RemoteCharactersRepository(
+        graphQl: serviceLocator<ShikimoriGraphQlClient>(),
+        rest: serviceLocator<ShikimoriRestClient>(),
       ),
     )
     ..registerLazySingleton<UserListRepository>(

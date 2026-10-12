@@ -1149,6 +1149,47 @@ class AppLocalizationsEn extends AppLocalizations {
   String get animeDetailsFriendsTitle => 'Friends';
 
   @override
+  String get charactersTitle => 'Characters';
+
+  @override
+  String charactersAll(int count) {
+    return 'All $count';
+  }
+
+  @override
+  String get charactersMainTitle => 'Main';
+
+  @override
+  String get charactersSupportingTitle => 'Supporting';
+
+  @override
+  String get charactersLoading => 'Loading characters...';
+
+  @override
+  String get charactersLoadError => 'Unable to load the characters.';
+
+  @override
+  String get charactersEmpty => 'No characters are listed.';
+
+  @override
+  String get characterLoading => 'Loading the character...';
+
+  @override
+  String get characterLoadError => 'Unable to load the character.';
+
+  @override
+  String get characterDescriptionTitle => 'About';
+
+  @override
+  String get characterAnimeTitle => 'Anime';
+
+  @override
+  String get characterRoleMain => 'Main role';
+
+  @override
+  String get characterRoleSupporting => 'Supporting role';
+
+  @override
   String get animeDetailsFactNextEpisode => 'Next';
 
   @override

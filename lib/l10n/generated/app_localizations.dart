@@ -2048,6 +2048,84 @@ abstract class AppLocalizations {
   /// **'Friends'**
   String get animeDetailsFriendsTitle;
 
+  /// No description provided for @charactersTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Characters'**
+  String get charactersTitle;
+
+  /// Opens the page of all of an anime's characters.
+  ///
+  /// In en, this message translates to:
+  /// **'All {count}'**
+  String charactersAll(int count);
+
+  /// No description provided for @charactersMainTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Main'**
+  String get charactersMainTitle;
+
+  /// No description provided for @charactersSupportingTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Supporting'**
+  String get charactersSupportingTitle;
+
+  /// No description provided for @charactersLoading.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading characters...'**
+  String get charactersLoading;
+
+  /// No description provided for @charactersLoadError.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to load the characters.'**
+  String get charactersLoadError;
+
+  /// No description provided for @charactersEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No characters are listed.'**
+  String get charactersEmpty;
+
+  /// No description provided for @characterLoading.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading the character...'**
+  String get characterLoading;
+
+  /// No description provided for @characterLoadError.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to load the character.'**
+  String get characterLoadError;
+
+  /// No description provided for @characterDescriptionTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'About'**
+  String get characterDescriptionTitle;
+
+  /// No description provided for @characterAnimeTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Anime'**
+  String get characterAnimeTitle;
+
+  /// No description provided for @characterRoleMain.
+  ///
+  /// In en, this message translates to:
+  /// **'Main role'**
+  String get characterRoleMain;
+
+  /// No description provided for @characterRoleSupporting.
+  ///
+  /// In en, this message translates to:
+  /// **'Supporting role'**
+  String get characterRoleSupporting;
+
   /// No description provided for @animeDetailsFactNextEpisode.
   ///
   /// In en, this message translates to:

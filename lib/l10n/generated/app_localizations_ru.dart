@@ -1164,6 +1164,47 @@ class AppLocalizationsRu extends AppLocalizations {
   String get animeDetailsFriendsTitle => 'Друзья';
 
   @override
+  String get charactersTitle => 'Персонажи';
+
+  @override
+  String charactersAll(int count) {
+    return 'Все $count';
+  }
+
+  @override
+  String get charactersMainTitle => 'Главные';
+
+  @override
+  String get charactersSupportingTitle => 'Второстепенные';
+
+  @override
+  String get charactersLoading => 'Загрузка персонажей...';
+
+  @override
+  String get charactersLoadError => 'Не удалось загрузить персонажей.';
+
+  @override
+  String get charactersEmpty => 'Персонажи не указаны.';
+
+  @override
+  String get characterLoading => 'Загрузка персонажа...';
+
+  @override
+  String get characterLoadError => 'Не удалось загрузить персонажа.';
+
+  @override
+  String get characterDescriptionTitle => 'О персонаже';
+
+  @override
+  String get characterAnimeTitle => 'Аниме';
+
+  @override
+  String get characterRoleMain => 'Главная роль';
+
+  @override
+  String get characterRoleSupporting => 'Второстепенная роль';
+
+  @override
   String get animeDetailsFactNextEpisode => 'Следующая';
 
   @override

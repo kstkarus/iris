@@ -59,6 +59,7 @@ lib/
   features/     each with presentation/, domain/, data/
     anime_list/       catalog, filters, continue watching
     anime_details/    title page
+    characters/       a title's characters, character page
     auth/             Shikimori sign-in
     profile/          user lists, friends
     watch_sources/    torrent releases for a title

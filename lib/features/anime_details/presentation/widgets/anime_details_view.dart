@@ -17,6 +17,7 @@ import 'package:iris/features/anime_details/presentation/widgets/friends_section
 import 'package:iris/features/anime_details/presentation/widgets/my_list_section.dart';
 import 'package:iris/features/anime_details/presentation/widgets/recently_watched_section.dart';
 import 'package:iris/features/anime_details/presentation/widgets/related_anime_section.dart';
+import 'package:iris/features/characters/presentation/widgets/characters_section.dart';
 import 'package:iris/features/watch_sources/presentation/models/anime_watch_sources_args.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/utils/anime_metadata_formatter.dart';
@@ -246,6 +247,7 @@ class _CompactLayout extends StatelessWidget {
           _Description(description: description, onRetry: onRetry),
           DubsSection(dubs: dubs),
           RelatedAnimeSection(related: related),
+          CharactersSection(animeId: head.anime.id, animeName: head.anime.name),
           // Last: it arrives a while after the page, and shifts nothing.
           FriendsSection(totalEpisodes: head.anime.episodes),
         ],
@@ -362,6 +364,11 @@ class _TwoPaneLayout extends StatelessWidget {
           ),
           DubsSection(dubs: dubs, labelWidth: labelWidth),
           RelatedAnimeSection(related: related, labelWidth: labelWidth),
+          CharactersSection(
+            animeId: head.anime.id,
+            animeName: head.anime.name,
+            labelWidth: labelWidth,
+          ),
           FriendsSection(
             totalEpisodes: head.anime.episodes,
             labelWidth: labelWidth,

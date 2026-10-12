@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:iris/entities/anime/domain/anime_kind.dart';
 import 'package:iris/features/anime_details/domain/entities/related_anime.dart';
 import 'package:iris/features/anime_details/presentation/models/anime_details_preview.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
@@ -13,10 +14,6 @@ import 'package:iris/shared/widgets/pixel_icon.dart';
 import 'package:iris/shared/widgets/segmented_bar.dart';
 import 'package:iris/shared/widgets/dither_switcher.dart';
 import 'package:iris/shared/widgets/tap_row.dart';
-
-/// Commercials, promo videos and music clips: listed by Shikimori, but
-/// nothing to watch.
-const _promoKinds = {'cm', 'pv', 'music'};
 
 /// What comes before and after first, then the rest of the franchise from
 /// the closest kin outwards.
@@ -37,7 +34,7 @@ const _relationOrder = [
 /// The related anime worth listing, in the order they are listed: by
 /// relation, then by air date, undated last.
 List<RelatedAnime> relatedToShow(List<RelatedAnime> related) {
-  final shown = related.where((item) => !_promoKinds.contains(item.anime.kind));
+  final shown = related.where((item) => !isPromoAnimeKind(item.anime.kind));
   return shown.toList()..sort((a, b) {
     final byRelation = _relationOrder
         .indexOf(a.relation)

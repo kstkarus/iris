@@ -27,6 +27,12 @@ import 'package:iris/features/anime_list/presentation/pages/anime_list_page.dart
 import 'package:iris/features/auth/presentation/cubit/auth_cubit.dart';
 import 'package:iris/features/auth/presentation/cubit/auth_state.dart';
 import 'package:iris/features/auth/presentation/widgets/account_listener.dart';
+import 'package:iris/features/characters/domain/entities/character_summary.dart';
+import 'package:iris/features/characters/domain/repositories/characters_repository.dart';
+import 'package:iris/features/characters/presentation/cubit/anime_characters_cubit.dart';
+import 'package:iris/features/characters/presentation/cubit/character_cubit.dart';
+import 'package:iris/features/characters/presentation/pages/anime_characters_page.dart';
+import 'package:iris/features/characters/presentation/pages/character_page.dart';
 import 'package:iris/features/downloads/domain/repositories/downloads_repository.dart';
 import 'package:iris/features/downloads/presentation/cubit/download_manager_cubit.dart';
 import 'package:iris/features/downloads/presentation/cubit/download_selection_cubit.dart';
@@ -318,6 +324,12 @@ abstract final class AppRouter {
                       ),
                 ),
                 BlocProvider(
+                  create: (_) => AnimeCharactersCubit(
+                    animeId: animeId,
+                    repository: serviceLocator<CharactersRepository>(),
+                  )..load(),
+                ),
+                BlocProvider(
                   create: (context) => FriendRatesCubit(
                     animeId: animeId,
                     repository: serviceLocator<FriendsRepository>(),
@@ -376,6 +388,49 @@ abstract final class AppRouter {
                 ),
               ],
               child: WatchSourcesPage(args: args),
+            );
+          },
+        ),
+        GoRoute(
+          path: '/anime/:id/characters',
+          name: 'anime-characters',
+          builder: (context, state) => BlocProvider(
+            create: (_) => AnimeCharactersCubit(
+              animeId: state.pathParameters['id'] ?? '',
+              repository: serviceLocator<CharactersRepository>(),
+            )..load(),
+            // A link knows only the id.
+            child: AnimeCharactersPage(
+              animeName: switch (state.extra) {
+                final String name => name,
+                _ => '',
+              },
+            ),
+          ),
+        ),
+        GoRoute(
+          path: '/character/:id',
+          name: 'character',
+          builder: (context, state) {
+            final characterId = state.pathParameters['id'] ?? '';
+            return BlocProvider(
+              create: (_) => CharacterCubit(
+                characterId: characterId,
+                repository: serviceLocator<CharactersRepository>(),
+              )..load(),
+              child: CharacterPage(
+                preview: switch (state.extra) {
+                  final CharacterSummary preview
+                      when preview.id == characterId =>
+                    preview,
+                  _ => null,
+                },
+                onOpenAnime: (anime) => context.pushNamed(
+                  'anime-details',
+                  pathParameters: {'id': anime.id},
+                  extra: AnimeDetailsPreview.fromSummary(anime),
+                ),
+              ),
             );
           },
         ),

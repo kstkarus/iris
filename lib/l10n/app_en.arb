@@ -726,6 +726,27 @@
   "profileFriendsLoadError": "Friends did not load.",
   "profileFriendsLoading": "Loading friends",
   "animeDetailsFriendsTitle": "Friends",
+  "charactersTitle": "Characters",
+  "charactersAll": "All {count}",
+  "@charactersAll": {
+    "description": "Opens the page of all of an anime's characters.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "charactersMainTitle": "Main",
+  "charactersSupportingTitle": "Supporting",
+  "charactersLoading": "Loading characters...",
+  "charactersLoadError": "Unable to load the characters.",
+  "charactersEmpty": "No characters are listed.",
+  "characterLoading": "Loading the character...",
+  "characterLoadError": "Unable to load the character.",
+  "characterDescriptionTitle": "About",
+  "characterAnimeTitle": "Anime",
+  "characterRoleMain": "Main role",
+  "characterRoleSupporting": "Supporting role",
   "animeDetailsFactNextEpisode": "Next",
   "animeDetailsFactStudio": "Studio",
   "animeDetailsFactGenres": "Genres",

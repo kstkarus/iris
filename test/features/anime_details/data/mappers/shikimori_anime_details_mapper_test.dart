@@ -6,6 +6,7 @@ import 'package:iris/features/anime_details/data/models/shikimori_anime_details_
 import 'package:iris/features/anime_details/domain/entities/anime_details.dart';
 import 'package:iris/features/anime_details/domain/entities/anime_genre_name.dart';
 import 'package:iris/features/anime_details/domain/entities/related_anime.dart';
+import 'package:iris/shared/utils/shikimori_markup.dart';
 
 void main() {
   test('Shikimori anime details dto maps to a domain entity', () {
@@ -104,6 +105,15 @@ void main() {
       ),
       'Изнывающий от скуки бог смерти Рюк бросает тетрадь. '
       'Убийцу окрещают Кира.',
+    );
+  });
+
+  test('description headings get a line of their own', () {
+    expect(
+      sanitizeShikimoriDescription(
+        'Капитан пиратов.\r\n\r\n[h3]Внешность[/h3]Невысокий паренёк.',
+      ),
+      'Капитан пиратов.\n\nВнешность\nНевысокий паренёк.',
     );
   });
 
