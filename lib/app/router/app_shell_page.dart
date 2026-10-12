@@ -190,7 +190,7 @@ class _Wordmark extends StatelessWidget {
         child: Row(
           children: [
             PixelIcon(
-              PixelGlyph.iris,
+              PixelGlyph.eye,
               size: 21,
               color: theme.colorScheme.onSurface,
             ),

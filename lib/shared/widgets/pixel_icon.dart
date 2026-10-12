@@ -1,24 +1,27 @@
 import 'package:flutter/widgets.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 
-/// A 7×7 bitmap: `#` is a lit pixel. Drawn square by square, so icons keep
-/// the hard pixel edge of the rest of the interface at any size.
+/// A bitmap, 7×7 for icons: `#` is a lit pixel. Drawn square by square, so
+/// icons keep the hard pixel edge of the rest of the interface at any size.
 class PixelGlyph {
   const PixelGlyph._(this.rows);
 
-  static const gridSize = 7;
-
   final List<String> rows;
 
-  /// The app's mark: an iris with its pupil.
-  static const iris = PixelGlyph._([
-    '..###..',
-    '.#...#.',
-    '#..#..#',
-    '#.###.#',
-    '#..#..#',
-    '.#...#.',
-    '..###..',
+  int get width => rows.first.length;
+
+  int get height => rows.length;
+
+  /// The app's mark, also its launcher icon: an eye. Seven rows like the
+  /// icons, wider than they are.
+  static const eye = PixelGlyph._([
+    '...#####...',
+    '.##.....##.',
+    '#...###...#',
+    '#...###...#',
+    '#...###...#',
+    '.##.....##.',
+    '...#####...',
   ]);
 
   static const arrowLeft = PixelGlyph._([
@@ -315,6 +318,7 @@ class PixelGlyph {
 /// An icon drawn from a [PixelGlyph], sized and coloured by the ambient
 /// [IconTheme] like [Icon].
 ///
+/// [size] is the glyph's height; a wider glyph is wider in proportion.
 /// Pixels are whole logical pixels, so the glyph may be a little smaller
 /// than [size]; it stays centred. With [fineGrain] they are whole device
 /// pixels instead, for a size between multiples of seven on a dense screen.
@@ -346,8 +350,9 @@ class PixelIcon extends StatelessWidget {
     // In a loading placeholder the glyph is one block of noise, like the
     // button it usually sits in.
     final icon = Skeleton.unite(
-      child: SizedBox.square(
-        dimension: size,
+      child: SizedBox(
+        width: size * glyph.width / glyph.height,
+        height: size,
         child: CustomPaint(
           painter: _PixelGlyphPainter(
             glyph: glyph,
@@ -389,18 +394,17 @@ class _PixelGlyphPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size canvasSize) {
-    const grid = PixelGlyph.gridSize;
     double snap(double value) =>
         (value * pixelRatio).roundToDouble() / pixelRatio;
-    final cell = snap(size / grid).clamp(1 / pixelRatio, 64.0);
+    final cell = snap(size / glyph.height).clamp(1 / pixelRatio, 64.0);
     final origin = Offset(
-      snap((canvasSize.width - cell * grid) / 2),
-      snap((canvasSize.height - cell * grid) / 2),
+      snap((canvasSize.width - cell * glyph.width) / 2),
+      snap((canvasSize.height - cell * glyph.height) / 2),
     );
     final path = Path();
-    for (var y = 0; y < grid; y++) {
+    for (var y = 0; y < glyph.height; y++) {
       final row = glyph.rows[y];
-      for (var x = 0; x < grid; x++) {
+      for (var x = 0; x < glyph.width; x++) {
         if (row.codeUnitAt(x) != 0x23) continue;
         path.addRect(
           Rect.fromLTWH(origin.dx + x * cell, origin.dy + y * cell, cell, cell),
