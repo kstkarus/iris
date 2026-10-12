@@ -4,6 +4,10 @@ Notable changes to iris, newest first. The format follows [Keep a Changelog](htt
 
 ## [Unreleased]
 
+### Fixed
+
+- The halftone cover on a title's page keeps the same detail at any size. On phones it was much coarser than on a desktop.
+
 ## [1.2.0] - 2026-10-12
 
 ### Added

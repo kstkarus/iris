@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
@@ -8,8 +9,10 @@ import 'package:iris/shared/utils/bayer_mask.dart';
 import 'package:iris/shared/utils/ordered_dither.dart';
 import 'package:iris/shared/widgets/pixel_noise.dart';
 
-/// [image] redrawn as a colour halftone: square [cell]s from a small
-/// palette, with in-between tones mixed by ordered dithering.
+/// [image] redrawn as a colour halftone: square dots from a small palette,
+/// with in-between tones mixed by ordered dithering. About [dotsAcross]
+/// dots span the box's width at any size, so a small cover on a phone
+/// keeps as much of the picture as a large one on a desktop.
 ///
 /// The halftone develops out of the empty panel when the image arrives,
 /// and a tap swaps it for the picture itself and back. Both changes run
@@ -23,7 +26,7 @@ import 'package:iris/shared/widgets/pixel_noise.dart';
 class DitheredImage extends StatefulWidget {
   const DitheredImage({
     required this.image,
-    this.cell = 3,
+    this.dotsAcross = 106,
     this.levels = 5,
     this.alignment = Alignment.center,
     this.semanticLabel,
@@ -34,8 +37,9 @@ class DitheredImage extends StatefulWidget {
 
   final ImageProvider image;
 
-  /// Side of one halftone dot, in logical pixels.
-  final double cell;
+  /// Dots across the box, about: each dot is a whole number of device
+  /// pixels, and never less than [minDotPixels].
+  final int dotsAcross;
 
   /// Steps per colour channel.
   final int levels;
@@ -46,6 +50,20 @@ class DitheredImage extends StatefulWidget {
   /// image does not react to taps.
   final String? showOriginalLabel;
   final String? showHalftoneLabel;
+
+  /// The smallest dot, in device pixels; finer would read as the picture.
+  static const minDotPixels = 2;
+
+  /// The side of one dot, in logical pixels, for a box [width] wide.
+  @visibleForTesting
+  static double dotSize({
+    required double width,
+    required double devicePixelRatio,
+    required int dotsAcross,
+  }) {
+    final pixels = (width * devicePixelRatio / dotsAcross).round();
+    return math.max(pixels, minDotPixels) / devicePixelRatio;
+  }
 
   static const revealDuration = Duration(milliseconds: 520);
   static const appearDuration = Duration(milliseconds: 360);
@@ -204,9 +222,14 @@ class _DitheredImageState extends State<DitheredImage>
       builder: (context, constraints) {
         final size = constraints.biggest;
         if (size.isEmpty || !size.isFinite) return const SizedBox.shrink();
+        final cell = DitheredImage.dotSize(
+          width: size.width,
+          devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
+          dotsAcross: widget.dotsAcross,
+        );
         final grid = _Grid(
-          (size.width / widget.cell).ceil(),
-          (size.height / widget.cell).ceil(),
+          (size.width / cell).ceil(),
+          (size.height / cell).ceil(),
         );
         if (_source != null) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -231,7 +254,7 @@ class _DitheredImageState extends State<DitheredImage>
                   painter: _RevealPainter(
                     halftone: halftone,
                     photo: photo,
-                    cell: widget.cell,
+                    cell: cell,
                     alignment: widget.alignment,
                     appear: _appear,
                     reveal: _curve,
