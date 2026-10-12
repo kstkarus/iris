@@ -7,6 +7,7 @@ Notable changes to iris, newest first. The format follows [Keep a Changelog](htt
 ### Added
 
 - The player's timeline is divided into parts: by the file's chapters, or around the opening, ending and recap from AniSkip. Seeking shows the part's name next to the time.
+- Picture in picture on Android: from the player's button, or by itself when leaving the app while a video plays. The small window has a play/pause button; closing it pauses.
 
 ### Changed
 

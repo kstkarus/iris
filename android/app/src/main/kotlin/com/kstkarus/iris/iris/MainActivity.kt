@@ -5,6 +5,7 @@ import android.Manifest
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.content.res.Configuration
 import android.os.Build
 import android.os.Process
 import android.os.storage.StorageManager
@@ -15,8 +16,15 @@ import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterActivity() {
+    private var pictureInPicture: PictureInPictureController? = null
+
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+
+        pictureInPicture = PictureInPictureController(
+            this,
+            flutterEngine.dartExecutor.binaryMessenger,
+        )
 
         MethodChannel(
             flutterEngine.dartExecutor.binaryMessenger,
@@ -81,6 +89,25 @@ class MainActivity : FlutterActivity() {
                 else -> result.notImplemented()
             }
         }
+    }
+
+    override fun onUserLeaveHint() {
+        super.onUserLeaveHint()
+        pictureInPicture?.onUserLeaveHint()
+    }
+
+    override fun onPictureInPictureModeChanged(
+        isInPictureInPictureMode: Boolean,
+        newConfig: Configuration,
+    ) {
+        super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
+        pictureInPicture?.onModeChanged(isInPictureInPictureMode)
+    }
+
+    override fun onDestroy() {
+        pictureInPicture?.dispose()
+        pictureInPicture = null
+        super.onDestroy()
     }
 
     private fun readAppMemoryBytes(): Long {

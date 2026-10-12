@@ -25,6 +25,7 @@ import 'package:iris/features/player/presentation/widgets/player_overlay_prefere
 import 'package:iris/features/player/presentation/widgets/player_track_selector_sheet.dart';
 import 'package:iris/features/player/presentation/widgets/player_wait_indicator.dart';
 import 'package:iris/shared/widgets/segmented_choice.dart';
+import 'package:iris/shared/window/picture_in_picture.dart';
 import 'package:iris/shared/window/screen_brightness_control.dart';
 
 import '../../../../helpers/fake_player_repository.dart';
@@ -2777,6 +2778,122 @@ void main() {
       expect(find.byKey(const Key('player_lock_button')), findsNothing);
     });
   });
+
+  group('picture in picture', () {
+    const button = Key('player_picture_in_picture_button');
+
+    Future<_FakePlatformPlayer> open(
+      WidgetTester tester,
+      _FakePictureInPicture window,
+    ) async {
+      setTestWindowSize(tester, TestWindowSizes.landscape);
+      final platformPlayer = _FakePlatformPlayer(
+        configuration: const PlayerConfiguration(),
+      );
+      await tester.pumpWidget(
+        _wrapViewport(
+          platformPlayer: platformPlayer,
+          input: PlayerInputMode.touch,
+          pictureInPicture: window,
+        ),
+      );
+      await tester.pump();
+      platformPlayer.emitPlaying(true);
+      await _deliverPlayerEvent(tester);
+      return platformPlayer;
+    }
+
+    testWidgets('go in from a button where the device has it', (tester) async {
+      final window = _FakePictureInPicture();
+      await open(tester, window);
+
+      await tester.tap(find.byKey(button));
+      await tester.pump();
+
+      expect(window.enters, 1);
+    });
+
+    testWidgets('show no button without it', (tester) async {
+      await open(tester, _FakePictureInPicture(supported: false));
+      expect(find.byKey(button), findsNothing);
+
+      await tester.pumpWidget(_wrapViewport(input: PlayerInputMode.touch));
+      await tester.pump();
+      expect(find.byKey(button), findsNothing);
+    });
+
+    testWidgets('say so when the system has it turned off', (tester) async {
+      final window = _FakePictureInPicture(refuses: true);
+      await open(tester, window);
+
+      await tester.tap(find.byKey(button));
+      await tester.pump();
+
+      expect(
+        find.text(
+          'Picture in picture is turned off for iris in the system settings.',
+        ),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('tell the window what plays and in what shape, and let go '
+        'on leaving', (tester) async {
+      final window = _FakePictureInPicture();
+      final platformPlayer = await open(tester, window);
+      expect(window.reports.last, (
+        playing: true,
+        aspectRatio: null,
+        playLabel: 'Play',
+        pauseLabel: 'Pause',
+      ));
+
+      platformPlayer.emitVideoSize(1920, 800);
+      await _deliverPlayerEvent(tester);
+      expect(window.reports.last.aspectRatio, 2.4);
+
+      platformPlayer.emitPlaying(false);
+      await _deliverPlayerEvent(tester);
+      expect(window.reports.last.playing, isFalse);
+
+      await tester.pumpWidget(const SizedBox());
+      expect(window.clears, 1);
+    });
+
+    testWidgets('play and pause from the window, and pause when it is '
+        'closed', (tester) async {
+      final window = _FakePictureInPicture();
+      final platformPlayer = await open(tester, window);
+
+      window.pressPlayPause();
+      await _deliverPlayerEvent(tester);
+      expect(platformPlayer.playOrPauseCount, 1);
+
+      window.pressPlayPause();
+      await _deliverPlayerEvent(tester);
+      window.dismiss();
+      await _deliverPlayerEvent(tester);
+      expect(platformPlayer.pauseCount, 1);
+    });
+
+    testWidgets('show only the video in the window, and the controls on '
+        'return', (tester) async {
+      final window = _FakePictureInPicture();
+      await open(tester, window);
+      expect(_controlsOpacity(tester), 1);
+
+      window.active.value = true;
+      await tester.pump();
+      expect(find.byKey(const Key('player_seek_bar')), findsNothing);
+      expect(find.byKey(const Key('player_video_surface')), findsOneWidget);
+
+      window.active.value = false;
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(find.byKey(const Key('player_seek_bar')), findsOneWidget);
+      expect(_controlsOpacity(tester), 1);
+    });
+  });
 }
 
 const _videoSurface = ColoredBox(
@@ -2882,6 +2999,7 @@ Widget _wrapViewport({
   NativeFullscreenToggle? exitNativeFullscreen,
   PlayerSession session = _session,
   ScreenBrightnessControl? brightness,
+  PictureInPicture? pictureInPicture,
   OnlineQualityPreferences? onlineQuality,
 }) {
   final effectivePlatformPlayer =
@@ -2903,6 +3021,7 @@ Widget _wrapViewport({
     enterNativeFullscreen: enterNativeFullscreen ?? () async {},
     exitNativeFullscreen: exitNativeFullscreen ?? () async {},
     brightness: brightness,
+    pictureInPicture: pictureInPicture,
     onlineQuality: onlineQuality,
     playerBuilder:
         playerBuilder ??
@@ -3212,6 +3331,63 @@ class _FakeScreenBrightness implements ScreenBrightnessControl {
 
   @override
   Future<void> reset() async => resets++;
+}
+
+typedef _PictureInPictureReport = ({
+  bool playing,
+  double? aspectRatio,
+  String playLabel,
+  String pauseLabel,
+});
+
+class _FakePictureInPicture implements PictureInPicture {
+  _FakePictureInPicture({this.supported = true, this.refuses = false});
+
+  final bool supported;
+  final bool refuses;
+  final reports = <_PictureInPictureReport>[];
+  int enters = 0;
+  int clears = 0;
+  final _playPause = StreamController<void>.broadcast();
+  final _dismissed = StreamController<void>.broadcast();
+
+  @override
+  final ValueNotifier<bool> active = ValueNotifier(false);
+
+  void pressPlayPause() => _playPause.add(null);
+
+  void dismiss() => _dismissed.add(null);
+
+  @override
+  Future<bool> isSupported() async => supported;
+
+  @override
+  Stream<void> get playPausePressed => _playPause.stream;
+
+  @override
+  Stream<void> get dismissed => _dismissed.stream;
+
+  @override
+  Future<void> setPlayer({
+    required bool playing,
+    required double? aspectRatio,
+    required String playLabel,
+    required String pauseLabel,
+  }) async => reports.add((
+    playing: playing,
+    aspectRatio: aspectRatio,
+    playLabel: playLabel,
+    pauseLabel: pauseLabel,
+  ));
+
+  @override
+  Future<void> clearPlayer() async => clears++;
+
+  @override
+  Future<bool> enter() async {
+    enters++;
+    return !refuses;
+  }
 }
 
 class _ControllablePlatformPlayer extends _FakePlatformPlayer {

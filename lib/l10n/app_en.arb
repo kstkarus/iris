@@ -470,6 +470,8 @@
   "playerMute": "Mute",
   "playerUnmute": "Unmute",
   "playerAudioAndSubtitles": "Audio & subtitles",
+  "playerPictureInPicture": "Picture in picture",
+  "playerPictureInPictureOff": "Picture in picture is turned off for iris in the system settings.",
   "playerEnterFullscreen": "Full screen",
   "playerExitFullscreen": "Exit full screen",
   "playerCloseEpisodes": "Close episodes",

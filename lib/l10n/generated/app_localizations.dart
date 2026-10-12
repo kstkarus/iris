@@ -1442,6 +1442,18 @@ abstract class AppLocalizations {
   /// **'Audio & subtitles'**
   String get playerAudioAndSubtitles;
 
+  /// No description provided for @playerPictureInPicture.
+  ///
+  /// In en, this message translates to:
+  /// **'Picture in picture'**
+  String get playerPictureInPicture;
+
+  /// No description provided for @playerPictureInPictureOff.
+  ///
+  /// In en, this message translates to:
+  /// **'Picture in picture is turned off for iris in the system settings.'**
+  String get playerPictureInPictureOff;
+
   /// No description provided for @playerEnterFullscreen.
   ///
   /// In en, this message translates to:

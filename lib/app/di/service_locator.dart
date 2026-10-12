@@ -118,6 +118,7 @@ import 'package:iris/shared/storage/shikimori_session_store.dart';
 import 'package:iris/shared/storage/stream_cache_storage.dart';
 import 'package:iris/shared/torrent/torrent_activity_registry.dart';
 import 'package:iris/shared/window/player_screen_mode.dart';
+import 'package:iris/shared/window/picture_in_picture.dart';
 import 'package:iris/shared/window/screen_brightness_control.dart';
 import 'package:iris/shared/window/windows_fullscreen.dart';
 
@@ -447,6 +448,9 @@ Future<void> _registerReal() async {
               // Phones and tablets only; see _registerCommon.
               brightness: serviceLocator.isRegistered<ScreenBrightnessControl>()
                   ? serviceLocator<ScreenBrightnessControl>()
+                  : null,
+              pictureInPicture: defaultTargetPlatform == TargetPlatform.android
+                  ? AndroidPictureInPicture()
                   : null,
             ),
     );

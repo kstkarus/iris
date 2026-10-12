@@ -776,6 +776,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get playerAudioAndSubtitles => 'Audio & subtitles';
 
   @override
+  String get playerPictureInPicture => 'Picture in picture';
+
+  @override
+  String get playerPictureInPictureOff =>
+      'Picture in picture is turned off for iris in the system settings.';
+
+  @override
   String get playerEnterFullscreen => 'Full screen';
 
   @override

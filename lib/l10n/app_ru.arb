@@ -286,6 +286,8 @@
   "playerMute": "Выключить звук",
   "playerUnmute": "Включить звук",
   "playerAudioAndSubtitles": "Аудио и субтитры",
+  "playerPictureInPicture": "Картинка в картинке",
+  "playerPictureInPictureOff": "Картинка в картинке выключена для iris в настройках системы.",
   "playerEnterFullscreen": "Во весь экран",
   "playerExitFullscreen": "Выйти из полноэкранного режима",
   "playerCloseEpisodes": "Закрыть список серий",

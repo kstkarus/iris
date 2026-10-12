@@ -18,6 +18,7 @@ class _BottomSection extends StatelessWidget {
     required this.onToggleMute,
     required this.onVolume,
     required this.openPanel,
+    required this.onPictureInPicture,
     required this.onShowTracks,
     required this.onShowSettings,
     required this.onToggleFullscreen,
@@ -56,6 +57,7 @@ class _BottomSection extends StatelessWidget {
   final VoidCallback onToggleMute;
   final ValueChanged<double> onVolume;
   final Object? openPanel;
+  final VoidCallback? onPictureInPicture;
   final ValueChanged<BuildContext> onShowTracks;
   final ValueChanged<BuildContext> onShowSettings;
   final VoidCallback onToggleFullscreen;
@@ -90,6 +92,7 @@ class _BottomSection extends StatelessWidget {
             onToggleMute: onToggleMute,
             onVolume: onVolume,
             openPanel: openPanel,
+            onPictureInPicture: onPictureInPicture,
             onShowTracks: onShowTracks,
             onShowSettings: onShowSettings,
             onToggleFullscreen: onToggleFullscreen,
@@ -377,6 +380,7 @@ class _BarButtons extends StatelessWidget {
     required this.onToggleMute,
     required this.onVolume,
     required this.openPanel,
+    required this.onPictureInPicture,
     required this.onShowTracks,
     required this.onShowSettings,
     required this.onToggleFullscreen,
@@ -390,6 +394,7 @@ class _BarButtons extends StatelessWidget {
   final VoidCallback onToggleMute;
   final ValueChanged<double> onVolume;
   final Object? openPanel;
+  final VoidCallback? onPictureInPicture;
   final ValueChanged<BuildContext> onShowTracks;
   final ValueChanged<BuildContext> onShowSettings;
   final VoidCallback onToggleFullscreen;
@@ -399,6 +404,7 @@ class _BarButtons extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final next = this.next;
+    final onPictureInPicture = this.onPictureInPicture;
     final onEpisodes = this.onEpisodes;
     final touch = metrics.touch;
     final playback = [
@@ -441,6 +447,14 @@ class _BarButtons extends StatelessWidget {
           onPressed: () => onShowSettings(anchor),
         ),
       ),
+      if (onPictureInPicture != null)
+        _BarButton(
+          key: const Key('player_picture_in_picture_button'),
+          metrics: metrics,
+          glyph: PixelGlyph.pictureInPicture,
+          label: l10n.playerPictureInPicture,
+          onPressed: onPictureInPicture,
+        ),
       // A phone's player is always full screen.
       if (!touch)
         ValueListenableBuilder<bool>(

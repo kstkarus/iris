@@ -211,6 +211,17 @@ class PixelGlyph {
     '..#.#..',
   ]);
 
+  /// A small window in the corner of a large one.
+  static const pictureInPicture = PixelGlyph._([
+    '#######',
+    '#.....#',
+    '#.....#',
+    '#..####',
+    '#..####',
+    '#..####',
+    '#######',
+  ]);
+
   static const fullscreen = PixelGlyph._([
     '##...##',
     '#.....#',

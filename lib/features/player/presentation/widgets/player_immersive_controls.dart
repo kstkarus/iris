@@ -61,6 +61,10 @@ typedef PlayerPanelOpener = Future<void> Function(BuildContext anchor);
 /// Keyboard: Space/K play-pause, ←/→ and J/L ∓10 s, ↑/↓ volume, M mute,
 /// F full screen, N next episode, S skip, E episodes, Esc closes the drawer
 /// or leaves full screen.
+///
+/// In picture in picture only the video shows. The offers keep running
+/// unseen, so the next episode still starts; a notice waits for the full
+/// player and counts down from the start there.
 class PlayerImmersiveControls extends StatefulWidget {
   const PlayerImmersiveControls({
     required this.engine,
@@ -78,6 +82,8 @@ class PlayerImmersiveControls extends StatefulWidget {
     this.videoFit,
     this.brightness,
     this.next,
+    this.pictureInPicture = false,
+    this.onPictureInPicture,
     super.key,
   });
 
@@ -119,6 +125,12 @@ class PlayerImmersiveControls extends StatefulWidget {
 
   /// By touch, a slider at the left sets it while the controls show.
   final ScreenBrightnessControl? brightness;
+
+  /// The player is in a small window over other apps.
+  final bool pictureInPicture;
+
+  /// Goes into picture in picture; null where there is none.
+  final VoidCallback? onPictureInPicture;
 
   @override
   State<PlayerImmersiveControls> createState() =>
@@ -181,6 +193,9 @@ class _PlayerImmersiveControlsState extends State<PlayerImmersiveControls> {
   void didUpdateWidget(covariant PlayerImmersiveControls oldWidget) {
     super.didUpdateWidget(oldWidget);
     _attachPlayer();
+    if (widget.pictureInPicture != oldWidget.pictureInPicture) {
+      widget.pictureInPicture ? _enterPictureInPicture() : _showControls();
+    }
     if (widget.chrome.episodes == null && _episodesOpen) {
       _episodesOpen = false;
     }
@@ -221,6 +236,17 @@ class _PlayerImmersiveControlsState extends State<PlayerImmersiveControls> {
 
   bool get _touch => widget.input == PlayerInputMode.touch;
 
+  /// Nothing over the video in the small window: the controls, the drawer,
+  /// a panel and the volume go.
+  void _enterPictureInPicture() {
+    _hideTimer?.cancel();
+    _volumeHudTimer?.cancel();
+    if (_openPanel != null) Navigator.of(context).maybePop();
+    _controlsVisible = false;
+    _episodesOpen = false;
+    _volumeHud = null;
+  }
+
   /// The bottom controls' height once the titles finish showing or hiding.
   double get _bottomHeight =>
       _barHeight + _insets.bottom + (_playing ? 0 : _titleHeight);
@@ -240,7 +266,8 @@ class _PlayerImmersiveControlsState extends State<PlayerImmersiveControls> {
     final report = widget.onSubtitleClearance;
     if (report == null) return;
     // A little air between the subtitles and the controls.
-    final clearance = _controlsVisible && _barHeight > 0
+    final clearance =
+        !widget.pictureInPicture && _controlsVisible && _barHeight > 0
         ? _subtitleClearanceAbove
         : 0.0;
     final viewSize = _viewSize;
@@ -502,10 +529,12 @@ class _PlayerImmersiveControlsState extends State<PlayerImmersiveControls> {
     _insets = metrics.insets(MediaQuery.paddingOf(context));
     _reportSubtitleClearance();
 
-    final overVideo = Stack(
+    final pictureInPicture = widget.pictureInPicture;
+    // Everything over the video stays built in picture in picture, only
+    // unseen, so it keeps its state for the full player.
+    final overlays = Stack(
       fit: StackFit.expand,
       children: [
-        ColoredBox(color: Colors.black, child: widget.video),
         // A paused frame steps back behind the titles and controls.
         IgnorePointer(
           child: AnimatedOpacity(
@@ -556,7 +585,7 @@ class _PlayerImmersiveControlsState extends State<PlayerImmersiveControls> {
         // where they are, and the controls keep the rest of the screen.
         ?widget.failure,
         _buildOffers(context),
-        if (widget.chrome.notice case final notice?)
+        if (widget.chrome.notice case final notice? when !pictureInPicture)
           Positioned(
             left: _insets.left,
             bottom: _barHeight > 0 ? _subtitleClearanceAbove : _offerClearance,
@@ -573,6 +602,13 @@ class _PlayerImmersiveControlsState extends State<PlayerImmersiveControls> {
             builder: widget.chrome.episodes!,
             caption: widget.chrome.episodesCaption,
           ),
+      ],
+    );
+    final overVideo = Stack(
+      fit: StackFit.expand,
+      children: [
+        ColoredBox(color: Colors.black, child: widget.video),
+        Offstage(offstage: pictureInPicture, child: overlays),
       ],
     );
     final controls = Focus(
@@ -677,6 +713,7 @@ class _PlayerImmersiveControlsState extends State<PlayerImmersiveControls> {
               onToggleMute: _toggleMute,
               onVolume: (volume) => _setVolume(volume, showHud: false),
               openPanel: _openPanel,
+              onPictureInPicture: widget.onPictureInPicture,
               onShowTracks: (anchor) =>
                   _showPanel(#tracks, widget.onShowTracks, anchor),
               onShowSettings: (anchor) =>

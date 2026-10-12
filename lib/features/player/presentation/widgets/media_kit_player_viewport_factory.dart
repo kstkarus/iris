@@ -23,6 +23,7 @@ import 'package:iris/features/player/presentation/widgets/player_subtitle_settin
 import 'package:iris/features/player/presentation/widgets/player_track_selector_sheet.dart';
 import 'package:iris/features/player/presentation/widgets/player_viewport_factory.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
+import 'package:iris/shared/window/picture_in_picture.dart';
 import 'package:iris/shared/window/screen_brightness_control.dart';
 
 export 'package:iris/features/player/presentation/playback/media_kit_player_engine.dart'
@@ -31,6 +32,7 @@ export 'package:iris/features/player/presentation/playback/media_kit_player_engi
         MediaKitPlayerBuilder,
         MediaKitVideoControllerBuilder;
 
+part 'media_kit/picture_in_picture_link.dart';
 part 'media_kit/subtitle_lift.dart';
 part 'media_kit/player_controls_stats_panel.dart';
 
@@ -58,10 +60,12 @@ class MediaKitPlayerViewportFactory implements PlayerViewportFactory {
     NativeFullscreenToggle enterNativeFullscreen = defaultEnterNativeFullscreen,
     NativeFullscreenToggle exitNativeFullscreen = defaultExitNativeFullscreen,
     ScreenBrightnessControl? brightness,
+    PictureInPicture? pictureInPicture,
     OnlineQualityPreferences? onlineQuality,
   }) : _repository = repository,
        _onlineQuality = onlineQuality,
        _brightness = brightness,
+       _pictureInPicture = pictureInPicture,
        _enterNativeFullscreen = enterNativeFullscreen,
        _exitNativeFullscreen = exitNativeFullscreen,
        _playerBuilder = playerBuilder,
@@ -84,6 +88,10 @@ class MediaKitPlayerViewportFactory implements PlayerViewportFactory {
   /// The screen's brightness by touch; null where there is none to set
   /// (desktop), and the player shows no slider.
   final ScreenBrightnessControl? _brightness;
+
+  /// The small window over other apps; null where there is none, and the
+  /// player shows no button for it.
+  final PictureInPicture? _pictureInPicture;
 
   @override
   MediaKitPlayerEngine createEngine({
@@ -118,6 +126,7 @@ class MediaKitPlayerViewportFactory implements PlayerViewportFactory {
       enterNativeFullscreen: _enterNativeFullscreen,
       exitNativeFullscreen: _exitNativeFullscreen,
       brightness: _brightness,
+      pictureInPicture: _pictureInPicture,
     );
   }
 }
@@ -132,6 +141,7 @@ class _MediaKitPlayerViewport extends StatefulWidget {
     required this.enterNativeFullscreen,
     required this.exitNativeFullscreen,
     required this.brightness,
+    required this.pictureInPicture,
   });
 
   final MediaKitPlayerEngine engine;
@@ -142,6 +152,7 @@ class _MediaKitPlayerViewport extends StatefulWidget {
   final NativeFullscreenToggle enterNativeFullscreen;
   final NativeFullscreenToggle exitNativeFullscreen;
   final ScreenBrightnessControl? brightness;
+  final PictureInPicture? pictureInPicture;
 
   @override
   State<_MediaKitPlayerViewport> createState() =>
@@ -166,11 +177,34 @@ class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
   double _clearance = 0;
   Size? _viewSize;
 
+  /// Keeps the small window told what plays; null without one.
+  _PictureInPictureLink? _pictureInPicture;
+
   @override
   void initState() {
     super.initState();
     widget.engine.addListener(_onEngineChanged);
     _videoFit.addListener(_onVideoFitChanged);
+    final pictureInPicture = widget.pictureInPicture;
+    if (pictureInPicture != null) {
+      _pictureInPicture = _PictureInPictureLink(
+        pictureInPicture,
+        engine: widget.engine,
+        onSupported: () {
+          if (mounted) setState(() {});
+        },
+      );
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final l10n = AppLocalizations.of(context);
+    _pictureInPicture?.labels = (
+      play: l10n.playerPlayButton,
+      pause: l10n.playerPauseButton,
+    );
   }
 
   @override
@@ -180,12 +214,14 @@ class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
       oldWidget.engine.removeListener(_onEngineChanged);
       widget.engine.addListener(_onEngineChanged);
       _controller = widget.engine.videoController;
+      _pictureInPicture?.engine = widget.engine;
     }
   }
 
   @override
   void dispose() {
     widget.engine.removeListener(_onEngineChanged);
+    _pictureInPicture?.dispose();
     if (_windowFullscreen.value) unawaited(widget.exitNativeFullscreen());
     // The system's brightness again once the video is gone.
     final brightness = widget.brightness;
@@ -201,7 +237,20 @@ class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
     // A new native player (changed decoding preferences) brings its own
     // controller.
     _controller = widget.engine.videoController;
+    _pictureInPicture?.follow();
     setState(() {});
+  }
+
+  Future<void> _enterPictureInPicture() async {
+    final entered = await _pictureInPicture?.enter() ?? false;
+    if (entered || !mounted) return;
+    ScaffoldMessenger.maybeOf(context)
+      ?..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(AppLocalizations.of(context).playerPictureInPictureOff),
+        ),
+      );
   }
 
   void _onVideoFitChanged() {
@@ -265,6 +314,30 @@ class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
       );
       failure = null;
     }
+    final pictureInPicture = _pictureInPicture;
+    if (pictureInPicture == null) return _buildControls(video, failure, l10n);
+    return ValueListenableBuilder<bool>(
+      valueListenable: pictureInPicture.active,
+      builder: (context, active, _) => _buildControls(
+        video,
+        failure,
+        l10n,
+        pictureInPicture: active,
+        onPictureInPicture: pictureInPicture.supported
+            ? () => unawaited(_enterPictureInPicture())
+            : null,
+      ),
+    );
+  }
+
+  Widget _buildControls(
+    Widget video,
+    Widget? failure,
+    AppLocalizations l10n, {
+    bool pictureInPicture = false,
+    VoidCallback? onPictureInPicture,
+  }) {
+    final engine = widget.engine;
     return PlayerImmersiveControls(
       engine: engine,
       chrome: widget.chrome,
@@ -279,6 +352,8 @@ class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
       onSubtitleClearance: _liftSubtitles,
       videoFit: _videoFit,
       brightness: widget.brightness,
+      pictureInPicture: pictureInPicture,
+      onPictureInPicture: onPictureInPicture,
       onShowTracks: (anchor) => _showTrackSelectorSheet(anchor: anchor),
       onShowSettings: (anchor) => _showSettingsSheet(anchor: anchor),
     );

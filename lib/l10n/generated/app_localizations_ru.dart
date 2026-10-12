@@ -783,6 +783,13 @@ class AppLocalizationsRu extends AppLocalizations {
   String get playerAudioAndSubtitles => 'Аудио и субтитры';
 
   @override
+  String get playerPictureInPicture => 'Картинка в картинке';
+
+  @override
+  String get playerPictureInPictureOff =>
+      'Картинка в картинке выключена для iris в настройках системы.';
+
+  @override
   String get playerEnterFullscreen => 'Во весь экран';
 
   @override
