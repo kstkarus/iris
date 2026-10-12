@@ -4,6 +4,8 @@ Notable changes to iris, newest first. The format follows [Keep a Changelog](htt
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-10-12
+
 ### Added
 
 - The player's timeline is divided into parts: by the file's chapters, or around the opening, ending and recap from AniSkip. Seeking shows the part's name next to the time.
@@ -39,6 +41,7 @@ First published release.
 - Update notice on Android and Windows when a newer release is published.
 - App icon.
 
-[Unreleased]: https://github.com/kstkarus/iris/compare/v1.1.1...HEAD
+[Unreleased]: https://github.com/kstkarus/iris/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/kstkarus/iris/compare/v1.1.1...v1.2.0
 [1.1.1]: https://github.com/kstkarus/iris/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/kstkarus/iris/releases/tag/v1.1.0
