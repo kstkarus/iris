@@ -49,6 +49,21 @@ void main() {
     expect(body(adapter.requests.single)['variables'], {'id': '1'});
   });
 
+  test('reads the episode count of the anime with the entry', () async {
+    server = (_) => const FakeReply(200, {
+      'data': {
+        'animes': [
+          {'id': '1', 'episodes': 12, 'userRate': null},
+        ],
+      },
+    });
+
+    final entry = await repository().fetchWithTotal('1');
+
+    expect(entry.rate, isNull);
+    expect(entry.totalEpisodes, 12);
+  });
+
   test('an anime not in the list has no entry', () async {
     server = (_) => const FakeReply(200, {
       'data': {

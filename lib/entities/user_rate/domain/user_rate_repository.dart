@@ -9,6 +9,10 @@ abstract interface class UserRateRepository {
   /// Null when the anime is not in the list.
   Future<UserRate?> fetch(String animeId);
 
+  /// [fetch], with the anime's episode count as Shikimori has it: 0 while
+  /// unknown, as for many airing anime.
+  Future<({UserRate? rate, int totalEpisodes})> fetchWithTotal(String animeId);
+
   /// Adds the anime to [userId]'s list, or changes the entry [rateId].
   /// Returns the entry as Shikimori keeps it (it may finish the anime
   /// when the last episode is marked).

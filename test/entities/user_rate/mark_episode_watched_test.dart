@@ -72,6 +72,44 @@ void main() {
     );
   });
 
+  test('the last episode completes an anime that was not being '
+      'watched', () async {
+    repository.totalEpisodes['1'] = 1;
+
+    await watch(1);
+    expect(repository.rates['1']?.status, UserRateStatus.completed);
+
+    repository.totalEpisodes['1'] = 12;
+    await keep(UserRateStatus.planned, 3);
+    await watch(12);
+    expect(repository.rates['1']?.status, UserRateStatus.completed);
+  });
+
+  test('the last episode of an anime being watched completes it', () async {
+    repository.totalEpisodes['1'] = 12;
+    await keep(UserRateStatus.watching, 10);
+
+    await watch(11);
+    expect(repository.rates['1']?.status, UserRateStatus.watching);
+    await watch(12);
+    expect(repository.rates['1']?.status, UserRateStatus.completed);
+  });
+
+  test('a rewatch is left for Shikimori to end and count', () async {
+    repository.totalEpisodes['1'] = 12;
+    await keep(UserRateStatus.rewatching, 11);
+
+    await watch(12);
+
+    expect(repository.rates['1']?.status, UserRateStatus.rewatching);
+  });
+
+  test('an anime with no known count stays watching', () async {
+    await watch(24);
+
+    expect(repository.rates['1']?.status, UserRateStatus.watching);
+  });
+
   test('undo takes a new entry out of the list', () async {
     final result = await watch(1) as EpisodeMarked;
 

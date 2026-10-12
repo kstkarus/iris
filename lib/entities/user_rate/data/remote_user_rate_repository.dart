@@ -6,6 +6,7 @@ import 'package:iris/entities/user_rate/domain/user_rate_repository.dart';
 import 'package:iris/shared/network/network_exceptions.dart';
 import 'package:iris/shared/network/shikimori_graph_ql_client.dart';
 import 'package:iris/shared/network/shikimori_rest_client.dart';
+import 'package:iris/shared/utils/json_read.dart';
 
 /// Reads the entry through GraphQL (`Anime.userRate`) and writes it through
 /// REST: Shikimori's GraphQL API has no mutations.
@@ -28,7 +29,13 @@ class RemoteUserRateRepository implements UserRateRepository {
   Stream<UserRateChange> get changes => _changes.stream;
 
   @override
-  Future<UserRate?> fetch(String animeId) async {
+  Future<UserRate?> fetch(String animeId) async =>
+      (await fetchWithTotal(animeId)).rate;
+
+  @override
+  Future<({UserRate? rate, int totalEpisodes})> fetchWithTotal(
+    String animeId,
+  ) async {
     final data = await _graphQl.query(
       document: _userRateQuery,
       variables: {'id': animeId},
@@ -37,12 +44,10 @@ class RemoteUserRateRepository implements UserRateRepository {
     if (animes is! List || animes.isEmpty) {
       throw ResourceNotFoundException('Anime not found for id: $animeId');
     }
-    final anime = animes.first;
-    final rate = anime is Map
-        ? UserRateDto.tryParse(anime['userRate'])?.toEntity()
-        : null;
+    final anime = jsonMap(animes.first);
+    final rate = UserRateDto.tryParse(anime['userRate'])?.toEntity();
     _changes.add(UserRateChange(animeId, rate));
-    return rate;
+    return (rate: rate, totalEpisodes: jsonInt(anime['episodes']));
   }
 
   @override
@@ -92,6 +97,7 @@ const _userRateQuery = r'''
 query UserRate($id: String!) {
   animes(ids: $id, limit: 1, censored: false) {
     id
+    episodes
     userRate {
       id
       status

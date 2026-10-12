@@ -6,6 +6,9 @@ import 'package:iris/entities/user_rate/domain/user_rate_repository.dart';
 /// An in-memory list, for the mock app and tests.
 class MockUserRateRepository implements UserRateRepository {
   final _rates = <String, UserRate>{};
+
+  /// Episode counts by anime id; an anime left out has none known.
+  final totalEpisodes = <String, int>{};
   final _changes = StreamController<UserRateChange>.broadcast();
   var _nextId = 1;
 
@@ -21,6 +24,12 @@ class MockUserRateRepository implements UserRateRepository {
     _changes.add(UserRateChange(animeId, rate));
     return rate;
   }
+
+  @override
+  Future<({UserRate? rate, int totalEpisodes})> fetchWithTotal(
+    String animeId,
+  ) async =>
+      (rate: await fetch(animeId), totalEpisodes: totalEpisodes[animeId] ?? 0);
 
   @override
   Future<UserRate> save({

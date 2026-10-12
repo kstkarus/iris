@@ -187,6 +187,14 @@ class _SlowRates implements UserRateRepository {
   }
 
   @override
+  Future<({UserRate? rate, int totalEpisodes})> fetchWithTotal(
+    String animeId,
+  ) async {
+    await gate.future;
+    return inner.fetchWithTotal(animeId);
+  }
+
+  @override
   Future<UserRate> save({
     required String userId,
     required String animeId,

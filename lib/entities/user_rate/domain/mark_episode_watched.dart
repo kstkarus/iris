@@ -23,7 +23,13 @@ final class EpisodeMarked extends EpisodeMarkResult {
 ///
 /// The count only grows: an episode at or below it changes nothing. An
 /// anime planned, put on hold, dropped or not in the list becomes
-/// watching; a rewatch or a finished anime keeps its status.
+/// watching, or completed with its last episode; a rewatch or a finished
+/// anime keeps its status.
+///
+/// Shikimori finishes an anime by itself when the count reaches the last
+/// episode, but only when the same change leaves the status alone, so the
+/// last episode of an anime that was not being watched (a film added to
+/// the list from its page) is completed here.
 class MarkEpisodeWatched {
   const MarkEpisodeWatched(this._repository);
 
@@ -34,13 +40,18 @@ class MarkEpisodeWatched {
     required String animeId,
     required int episode,
   }) async {
-    final current = await _repository.fetch(animeId);
+    final (rate: current, :totalEpisodes) = await _repository.fetchWithTotal(
+      animeId,
+    );
     if (current != null && current.episodes >= episode) {
       return const EpisodeAlreadyMarked();
     }
+    final last = totalEpisodes > 0 && episode >= totalEpisodes;
     final status = switch (current?.status) {
+      // Shikimori ends a rewatch itself and counts it.
       UserRateStatus.rewatching => UserRateStatus.rewatching,
       UserRateStatus.completed => UserRateStatus.completed,
+      _ when last => UserRateStatus.completed,
       _ => UserRateStatus.watching,
     };
     final saved = await _repository.save(
