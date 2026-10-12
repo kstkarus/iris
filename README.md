@@ -37,8 +37,8 @@ How each feature behaves, and which services it calls, is described in [docs/beh
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/title_desktop.png" alt="A title page on a desktop window" width="64%">
-  <img src="docs/screenshots/character_phone.png" alt="A character's page" width="24%">
+  <img src="docs/screenshots/title_desktop.png" alt="A title page on a desktop window" width="69.2%">
+  <img src="docs/screenshots/character_phone.png" alt="A character's page" width="20%">
 </p>
 
 ## Status
