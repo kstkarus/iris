@@ -9,6 +9,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:media_kit/media_kit.dart';
 
+import 'package:iris/features/player/domain/player_timeline_parts.dart';
 import 'package:iris/features/player/presentation/playback/media_kit_player_engine.dart';
 import 'package:iris/features/player/presentation/widgets/player_auto_hiding_offer.dart';
 import 'package:iris/features/player/presentation/widgets/player_countdown.dart';
@@ -667,6 +668,7 @@ class _PlayerImmersiveControlsState extends State<PlayerImmersiveControls> {
               onTitleHeight: _onTitleHeight,
               onBarHeight: _onBarHeight,
               player: player,
+              timeline: widget.engine.timeline,
               accent: accent,
               next: widget.next,
               fullscreen: widget.fullscreen,

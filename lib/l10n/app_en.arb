@@ -355,6 +355,12 @@
     }
   },
   "playerPlayNext": "Next episode",
+  "playerPartOpening": "Opening",
+  "@playerPartOpening": {
+    "description": "A part of the player timeline, named over the time while seeking: Opening · 1:32"
+  },
+  "playerPartEnding": "Ending",
+  "playerPartRecap": "Recap",
   "playerSkipOpening": "Skip opening",
   "playerSkipRecap": "Skip recap",
   "playerSkipForward": "+{seconds} s",

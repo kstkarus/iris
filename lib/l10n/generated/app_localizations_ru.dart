@@ -655,6 +655,15 @@ class AppLocalizationsRu extends AppLocalizations {
   String get playerPlayNext => 'Следующая серия';
 
   @override
+  String get playerPartOpening => 'Опенинг';
+
+  @override
+  String get playerPartEnding => 'Эндинг';
+
+  @override
+  String get playerPartRecap => 'Пересказ';
+
+  @override
   String get playerSkipOpening => 'Пропустить опенинг';
 
   @override

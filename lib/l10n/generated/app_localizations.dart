@@ -1226,6 +1226,24 @@ abstract class AppLocalizations {
   /// **'Next episode'**
   String get playerPlayNext;
 
+  /// A part of the player timeline, named over the time while seeking: Opening · 1:32
+  ///
+  /// In en, this message translates to:
+  /// **'Opening'**
+  String get playerPartOpening;
+
+  /// No description provided for @playerPartEnding.
+  ///
+  /// In en, this message translates to:
+  /// **'Ending'**
+  String get playerPartEnding;
+
+  /// No description provided for @playerPartRecap.
+  ///
+  /// In en, this message translates to:
+  /// **'Recap'**
+  String get playerPartRecap;
+
   /// No description provided for @playerSkipOpening.
   ///
   /// In en, this message translates to:

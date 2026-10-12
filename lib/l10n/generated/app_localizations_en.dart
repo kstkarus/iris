@@ -647,6 +647,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get playerPlayNext => 'Next episode';
 
   @override
+  String get playerPartOpening => 'Opening';
+
+  @override
+  String get playerPartEnding => 'Ending';
+
+  @override
+  String get playerPartRecap => 'Recap';
+
+  @override
   String get playerSkipOpening => 'Skip opening';
 
   @override

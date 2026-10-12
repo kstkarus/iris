@@ -9,6 +9,7 @@ class _BottomSection extends StatelessWidget {
     required this.onTitleHeight,
     required this.onBarHeight,
     required this.player,
+    required this.timeline,
     required this.accent,
     required this.next,
     required this.fullscreen,
@@ -44,6 +45,9 @@ class _BottomSection extends StatelessWidget {
   /// The timeline and buttons' height.
   final ValueChanged<double> onBarHeight;
   final Player player;
+
+  /// Where the bar is cut: the file's chapters, or its opening and ending.
+  final ValueListenable<List<PlayerTimelinePart>> timeline;
   final Color accent;
   final PlayerNextFile? next;
   final ValueListenable<bool> fullscreen;
@@ -72,6 +76,7 @@ class _BottomSection extends StatelessWidget {
           final singleRow = constraints.maxWidth >= _singleRowMinWidth;
           final timeline = _Timeline(
             player: player,
+            parts: this.timeline,
             metrics: metrics,
             accent: accent,
             onSeek: onSeek,
@@ -231,6 +236,7 @@ class _TitleBlock extends StatelessWidget {
 class _Timeline extends StatelessWidget {
   const _Timeline({
     required this.player,
+    required this.parts,
     required this.metrics,
     required this.accent,
     required this.onSeek,
@@ -238,6 +244,7 @@ class _Timeline extends StatelessWidget {
   });
 
   final Player player;
+  final ValueListenable<List<PlayerTimelinePart>> parts;
   final _ControlsMetrics metrics;
   final Color accent;
   final ValueChanged<Duration> onSeek;
@@ -245,6 +252,13 @@ class _Timeline extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    return ValueListenableBuilder(
+      valueListenable: parts,
+      builder: (context, parts, _) => _bar(parts),
+    );
+  }
+
+  Widget _bar(List<PlayerTimelinePart> parts) {
     return StreamBuilder<Duration>(
       stream: player.stream.duration,
       initialData: player.state.duration,
@@ -268,6 +282,7 @@ class _Timeline extends StatelessWidget {
                         duration: duration,
                         buffered: bufferSnapshot.data ?? Duration.zero,
                         color: accent,
+                        parts: parts,
                         onSeek: onSeek,
                         onActiveChanged: onSeekActive,
                       ),

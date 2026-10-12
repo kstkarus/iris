@@ -1,7 +1,12 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
+import 'package:iris/features/player/domain/entities/player_skip_segment.dart';
+import 'package:iris/features/player/domain/player_timeline_parts.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/utils/duration_formatter.dart';
+import 'package:iris/shared/utils/equality.dart';
 
 /// Times over the video: beside the timeline and above its thumb.
 const playerTimeStyle = TextStyle(
@@ -15,6 +20,10 @@ const playerTimeStyle = TextStyle(
 /// The immersive player's timeline: played and buffered parts, a thumb,
 /// and the time under the pointer while hovering or dragging. Seeks on tap
 /// and when a drag ends.
+///
+/// Cut into [parts] when the file's chapters or its opening and ending are
+/// known, with the part's name beside the time under the pointer. Cuts that
+/// arrive while the bar is up run in from left to right.
 class PlayerSeekBar extends StatefulWidget {
   const PlayerSeekBar({
     required this.position,
@@ -22,6 +31,7 @@ class PlayerSeekBar extends StatefulWidget {
     required this.buffered,
     required this.onSeek,
     required this.color,
+    this.parts = const [],
     this.onActiveChanged,
     super.key,
   });
@@ -35,6 +45,7 @@ class PlayerSeekBar extends StatefulWidget {
   final Duration buffered;
   final ValueChanged<Duration> onSeek;
   final Color color;
+  final List<PlayerTimelinePart> parts;
 
   /// Whether the pointer hovers or drags the bar, so the controls around it
   /// stay visible meanwhile.
@@ -47,8 +58,14 @@ class PlayerSeekBar extends StatefulWidget {
   State<PlayerSeekBar> createState() => _PlayerSeekBarState();
 }
 
-class _PlayerSeekBarState extends State<PlayerSeekBar> {
-  static const _labelWidth = 80.0;
+class _PlayerSeekBarState extends State<PlayerSeekBar>
+    with SingleTickerProviderStateMixin {
+  /// The gap a cut leaves in the track.
+  static const _cutWidth = 2.0;
+
+  /// How long one cut takes to open, and how much later the next starts.
+  static const _cutOpening = Duration(milliseconds: 240);
+  static const _cutStagger = Duration(milliseconds: 50);
 
   /// Visible over a bright frame, still apart from the buffered part.
   static const _unplayedColor = Color(0x52FFFFFF);
@@ -59,6 +76,79 @@ class _PlayerSeekBarState extends State<PlayerSeekBar> {
 
   double? _hoverFraction;
   double? _dragFraction;
+
+  /// Runs the cuts in; at rest at its end, so a bar built with its parts
+  /// known shows them at once.
+  late final _cuts = AnimationController(vsync: this, value: 1);
+
+  @override
+  void didUpdateWidget(PlayerSeekBar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final starts = _cutStarts(widget.parts);
+    if (sameList(starts, _cutStarts(oldWidget.parts)) || starts.isEmpty) {
+      return;
+    }
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _cuts.value = 1;
+      return;
+    }
+    _cuts.duration = _cutOpening + _cutStagger * (starts.length - 1);
+    _cuts.forward(from: 0);
+  }
+
+  @override
+  void dispose() {
+    _cuts.dispose();
+    super.dispose();
+  }
+
+  static List<Duration> _cutStarts(List<PlayerTimelinePart> parts) => [
+    for (final part in parts.skip(1)) part.start,
+  ];
+
+  /// Each cut's position on the bar and how open it is, the leftmost first.
+  List<({double fraction, double width})> _cutsNow() {
+    final starts = _cutStarts(widget.parts);
+    final elapsed = _cuts.value * (_cuts.duration?.inMicroseconds ?? 0);
+    return [
+      for (final (index, start) in starts.indexed)
+        (
+          fraction: _fractionOf(start),
+          width:
+              _cutWidth *
+              (_cuts.duration == null
+                  ? 1.0
+                  : Curves.easeOut.transform(
+                      ((elapsed - _cutStagger.inMicroseconds * index) /
+                              _cutOpening.inMicroseconds)
+                          .clamp(0.0, 1.0),
+                    )),
+        ),
+    ];
+  }
+
+  /// The name of the part at [fraction], when it has one.
+  String? _partNameAt(double fraction, AppLocalizations l10n) {
+    final position = _durationAt(fraction);
+    for (final part in widget.parts) {
+      final atEnd = part == widget.parts.last && position == part.end;
+      if (!part.contains(position) && !atEnd) continue;
+      return part.title ??
+          switch (part.kind) {
+            PlayerSkipKind.opening => l10n.playerPartOpening,
+            PlayerSkipKind.ending => l10n.playerPartEnding,
+            PlayerSkipKind.recap => l10n.playerPartRecap,
+            null => null,
+          };
+    }
+    return null;
+  }
+
+  String _pointText(double fraction, AppLocalizations l10n) {
+    final time = formatPlaybackPosition(_durationAt(fraction));
+    final name = _partNameAt(fraction, l10n);
+    return name == null ? time : '$name · $time';
+  }
 
   bool get _active => _hoverFraction != null || _dragFraction != null;
 
@@ -100,11 +190,14 @@ class _PlayerSeekBarState extends State<PlayerSeekBar> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final seekable = widget.duration > Duration.zero;
+    final partName = _partNameAt(_fractionOf(widget.position), l10n);
+    final value = formatPlaybackPosition(widget.position);
     return Semantics(
       slider: true,
-      label: AppLocalizations.of(context).playerSeekBarLabel,
-      value: formatPlaybackPosition(widget.position),
+      label: l10n.playerSeekBarLabel,
+      value: partName == null ? value : '$partName, $value',
       increasedValue: formatPlaybackPosition(_positionBy(PlayerSeekBar._step)),
       decreasedValue: formatPlaybackPosition(_positionBy(-PlayerSeekBar._step)),
       onIncrease: seekable
@@ -165,9 +258,7 @@ class _PlayerSeekBarState extends State<PlayerSeekBar> {
                       _timeLabel(
                         width: width,
                         fraction: hover ?? played,
-                        text: formatPlaybackPosition(
-                          _durationAt(hover ?? played),
-                        ),
+                        text: _pointText(hover ?? played, l10n),
                         key: const Key('player_seek_bar_time'),
                       ),
                     Positioned(
@@ -175,8 +266,14 @@ class _PlayerSeekBarState extends State<PlayerSeekBar> {
                       right: 0,
                       top: _trackTop - trackHeight / 2,
                       height: trackHeight,
-                      child: ClipRect(
+                      child: ClipPath(
+                        key: const Key('player_seek_bar_track'),
                         clipBehavior: Clip.antiAlias,
+                        clipper: SeekBarCuts(
+                          cuts: _cutsNow(),
+                          cutsAt: _cutsNow,
+                          reclip: _cuts,
+                        ),
                         child: Stack(
                           fit: StackFit.expand,
                           children: [
@@ -232,14 +329,22 @@ class _PlayerSeekBarState extends State<PlayerSeekBar> {
     required String text,
     Key? key,
   }) {
-    final left = (fraction * width - _labelWidth / 2).clamp(
+    final painter = TextPainter(
+      text: TextSpan(text: text, style: playerTimeStyle),
+      textDirection: Directionality.of(context),
+      textScaler: MediaQuery.textScalerOf(context),
+      maxLines: 1,
+    )..layout();
+    final labelWidth = math.min(painter.width + 2, width);
+    painter.dispose();
+    final left = (fraction * width - labelWidth / 2).clamp(
       0.0,
-      (width - _labelWidth).clamp(0.0, double.infinity),
+      (width - labelWidth).clamp(0.0, double.infinity),
     );
     return Positioned(
       left: left,
       top: 0,
-      width: _labelWidth,
+      width: labelWidth,
       // A pointer preview; the slider's value is where playback is.
       child: ExcludeSemantics(
         child: Text(
@@ -250,5 +355,49 @@ class _PlayerSeekBarState extends State<PlayerSeekBar> {
         ),
       ),
     );
+  }
+}
+
+/// The track with a gap at each cut, where the video shows through.
+class SeekBarCuts extends CustomClipper<Path> {
+  SeekBarCuts({required this.cuts, required this.cutsAt, super.reclip});
+
+  /// Where each cut is, as a share of the track, and how wide it is open.
+  final List<({double fraction, double width})> cuts;
+
+  /// The cuts as they are now, read again while they run in.
+  final List<({double fraction, double width})> Function() cutsAt;
+
+  @override
+  Path getClip(Size size) {
+    final path = Path();
+    var left = 0.0;
+    for (final cut in cutsAt()) {
+      final x = cut.fraction * size.width;
+      final gapLeft = (x - cut.width / 2).clamp(0.0, size.width);
+      if (gapLeft > left) {
+        path.addRect(Rect.fromLTRB(left, 0, gapLeft, size.height));
+      }
+      left = math.max(left, (x + cut.width / 2).clamp(0.0, size.width));
+    }
+    if (left < size.width) {
+      path.addRect(Rect.fromLTRB(left, 0, size.width, size.height));
+    }
+    return path;
+  }
+
+  @override
+  bool shouldReclip(SeekBarCuts oldClipper) =>
+      !_sameCuts(oldClipper.cuts, cuts);
+
+  static bool _sameCuts(
+    List<({double fraction, double width})> a,
+    List<({double fraction, double width})> b,
+  ) {
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) return false;
+    }
+    return true;
   }
 }

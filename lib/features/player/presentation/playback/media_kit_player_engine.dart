@@ -18,6 +18,8 @@ import 'package:iris/features/player/domain/entities/player_skip_segment.dart';
 import 'package:iris/features/player/domain/entities/player_track_preferences.dart';
 import 'package:iris/features/player/domain/entities/subtitle_preferences.dart';
 import 'package:iris/features/player/domain/player_chapter_skip_segments.dart';
+import 'package:iris/features/player/domain/player_timeline_parts.dart';
+import 'package:iris/shared/utils/equality.dart';
 import 'package:iris/features/player/domain/repositories/player_repository.dart';
 import 'package:iris/features/player/presentation/cubit/player_decoding_preferences_cubit.dart';
 import 'package:iris/features/player/presentation/cubit/player_subtitle_preferences_cubit.dart';
@@ -252,6 +254,10 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
   /// The opening or recap playing now, when its end is known.
   final skipSegment = ValueNotifier<PlayerSkipSegment?>(null);
 
+  /// The opened file cut into its chapters, or around its looked-up
+  /// opening and ending; empty while neither is known.
+  final timeline = ValueNotifier<List<PlayerTimelinePart>>(const []);
+
   /// The opening is unknown and the file has just started: a fixed jump of
   /// [skipForwardStep] is offered instead.
   final skipForwardOffered = ValueNotifier<bool>(false);
@@ -275,6 +281,7 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
       ? math.max(fastForwardRate, _playbackRate.value)
       : _playbackRate.value;
 
+  List<PlayerChapter> _chapters = const [];
   List<PlayerSkipSegment> _chapterSegments = const [];
   List<PlayerSkipSegment> _lookedUpSegments = const [];
   bool _skipTimesPending = false;
@@ -478,6 +485,7 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
     if (_closed) return;
     _skipTimesPending = false;
     _lookedUpSegments = List.unmodifiable(segments);
+    _refreshTimeline();
     _refreshPositionOffers();
   }
 
@@ -616,6 +624,7 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
     quality.dispose();
     finishing.dispose();
     skipSegment.dispose();
+    timeline.dispose();
     skipForwardOffered.dispose();
     _playbackRate.dispose();
     super.dispose();
@@ -906,6 +915,8 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
   }
 
   void _resetPositionOffers() {
+    _chapters = const [];
+    timeline.value = const [];
     _chapterSegments = const [];
     _lookedUpSegments = const [];
     _skipTimesPending = false;
@@ -913,6 +924,15 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
     _watchedReported = false;
     skipSegment.value = null;
     skipForwardOffered.value = false;
+  }
+
+  void _refreshTimeline() {
+    final parts = timelineParts(
+      chapters: _chapters,
+      segments: _lookedUpSegments,
+      duration: _player?.state.duration ?? Duration.zero,
+    );
+    if (!sameList(parts, timeline.value)) timeline.value = parts;
   }
 
   void _refreshPositionOffers() {
@@ -975,15 +995,18 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
         await _readNativeStringProperty('chapter-list/$index/time') ?? '',
       );
       // The reader drops "0", which is the first chapter's time.
-      if (title == null || (seconds == null && index > 0)) continue;
+      if (seconds == null && index > 0) continue;
       chapters.add(
         PlayerChapter(
-          title: title,
+          // Untitled chapters still end the one before them.
+          title: title ?? '',
           start: Duration(milliseconds: ((seconds ?? 0) * 1000).round()),
         ),
       );
     }
     if (_closed || startupGeneration != _startupGeneration) return;
+    _chapters = List.unmodifiable(chapters);
+    _refreshTimeline();
     _chapterSegments = skipSegmentsFromChapters(
       chapters,
       player.state.duration,
@@ -997,6 +1020,7 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
 
   void _onDuration(Duration duration) {
     if (_closed) return;
+    _refreshTimeline();
     final hasDuration = duration > Duration.zero;
     if (_startupState.hasDuration == hasDuration) return;
 

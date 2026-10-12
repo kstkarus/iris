@@ -27,7 +27,7 @@ List<PlayerSkipSegment> skipSegmentsFromChapters(
   final sorted = [...chapters]..sort((a, b) => a.start.compareTo(b.start));
   final segments = <PlayerSkipSegment>[];
   for (var i = 0; i < sorted.length; i++) {
-    final kind = _kindOf(sorted[i].title);
+    final kind = skipKindOfChapter(sorted[i].title);
     if (kind == null) continue;
     final start = sorted[i].start;
     final end = i + 1 < sorted.length ? sorted[i + 1].start : duration;
@@ -37,7 +37,8 @@ List<PlayerSkipSegment> skipSegmentsFromChapters(
   return segments;
 }
 
-PlayerSkipKind? _kindOf(String title) {
+/// What a chapter's title names it, if a part to skip.
+PlayerSkipKind? skipKindOfChapter(String title) {
   if (_opening.hasMatch(title)) return PlayerSkipKind.opening;
   if (_ending.hasMatch(title)) return PlayerSkipKind.ending;
   if (_recap.hasMatch(title)) return PlayerSkipKind.recap;
