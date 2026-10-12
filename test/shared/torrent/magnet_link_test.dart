@@ -73,6 +73,18 @@ void main() {
     expect(MagnetLink.tryParse('magnet:?xt=urn:btih:%FF'), isNull);
   });
 
+  test('reads the size a link gives', () {
+    expect(
+      MagnetLink.tryParse('magnet:?xt=urn:btih:$hexHash&xl=1500')?.size,
+      1500,
+    );
+    expect(
+      MagnetLink.tryParse('magnet:?xt=urn:btih:$hexHash&xl=lots')?.size,
+      isNull,
+    );
+    expect(MagnetLink.tryParse('magnet:?xt=urn:btih:$hexHash')?.size, isNull);
+  });
+
   test('never throws for malformed input', () {
     const inputs = ['%', 'magnet:?', 'magnet:?&&==&%', 'magnet:?xt=%'];
     for (final input in inputs) {

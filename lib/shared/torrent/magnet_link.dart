@@ -6,6 +6,7 @@ class MagnetLink {
     required this.uri,
     required this.infoHash,
     required this.displayName,
+    this.size,
   });
 
   /// The trimmed link as entered by the user.
@@ -18,6 +19,9 @@ class MagnetLink {
   /// The `dn` parameter, if the link carries one.
   final String? displayName;
 
+  /// The `xl` parameter: all files together, in bytes, if the link says.
+  final int? size;
+
   static const _btihPrefix = 'urn:btih:';
 
   /// Parses [input] or returns null when it is not a magnet link with a
@@ -27,6 +31,7 @@ class MagnetLink {
     final text = input.trim();
     String? infoHash;
     String? displayName;
+    int? size;
     for (final parameter in magnetQueryParameters(text)) {
       final value = parameter.value;
       if (value == null) return null;
@@ -34,6 +39,8 @@ class MagnetLink {
         infoHash = _infoHashFrom(value);
       } else if (parameter.key == 'dn' && value.trim().isNotEmpty) {
         displayName ??= value.trim();
+      } else if (parameter.key == 'xl') {
+        size ??= int.tryParse(value.trim());
       }
     }
     if (infoHash == null) return null;
@@ -42,6 +49,7 @@ class MagnetLink {
       uri: text,
       infoHash: infoHash,
       displayName: displayName,
+      size: size,
     );
   }
 
