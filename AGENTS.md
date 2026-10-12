@@ -266,7 +266,7 @@ A task is done when all of the following are true when applicable:
 - public behavior changes are reflected in `docs/behaviour.md` (and the
   `README.md` overview) when necessary
 - notable user-facing changes are added to `CHANGELOG.md` under
-  "Unreleased" (versioning rules are in `README.md`)
+  "Unreleased" (versioning rules are in `docs/releasing.md`)
 
 ## Git workflow
 - Use Conventional Commits: `type(scope): description`
@@ -289,6 +289,7 @@ A task is done when all of the following are true when applicable:
 Keep this file short. Durable details go into:
 - `README.md` for the overview, setup and releases
 - `docs/behaviour.md` for how each feature behaves in detail
+- `docs/releasing.md` for versioning and publishing a release
 - `docs/private/` (git-ignored) for the owner's roadmaps and decision notes
 - if shared docs become necessary: `docs/architecture.md`, `docs/decisions/`
 
