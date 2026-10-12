@@ -263,7 +263,8 @@ A task is done when all of the following are true when applicable:
 - relevant tests were added or updated
 - `flutter test` passes
 - localizations are regenerated if ARB files changed
-- public behavior changes are reflected in `README.md` when necessary
+- public behavior changes are reflected in `docs/behaviour.md` (and the
+  `README.md` overview) when necessary
 
 ## Git workflow
 - Use Conventional Commits: `type(scope): description`
@@ -284,7 +285,8 @@ A task is done when all of the following are true when applicable:
 
 ## Documentation map
 Keep this file short. Durable details go into:
-- `README.md` for setup and quickstart
+- `README.md` for the overview, setup and releases
+- `docs/behaviour.md` for how each feature behaves in detail
 - `docs/private/` (git-ignored) for the owner's roadmaps and decision notes
 - if shared docs become necessary: `docs/architecture.md`, `docs/decisions/`
 
