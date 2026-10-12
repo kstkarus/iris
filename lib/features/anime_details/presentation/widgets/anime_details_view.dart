@@ -9,7 +9,7 @@ import 'package:iris/features/anime_details/domain/entities/related_anime.dart';
 import 'package:iris/features/anime_details/presentation/cubit/anime_details_cubit.dart';
 import 'package:iris/features/anime_details/presentation/cubit/anime_details_state.dart';
 import 'package:iris/features/anime_details/presentation/models/anime_details_preview.dart';
-import 'package:iris/features/anime_details/presentation/widgets/headline_anchor.dart';
+import 'package:iris/shared/widgets/headline_anchor.dart';
 import 'package:iris/features/anime_details/presentation/widgets/headline_column.dart';
 import 'package:iris/features/anime_details/domain/entities/anime_genre_name.dart';
 import 'package:iris/features/anime_details/presentation/widgets/dubs_section.dart';

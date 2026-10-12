@@ -7,6 +7,7 @@ import 'package:iris/features/characters/domain/entities/anime_character.dart';
 import 'package:iris/features/characters/domain/entities/character_details.dart';
 import 'package:iris/features/characters/domain/entities/character_summary.dart';
 import 'package:iris/features/characters/presentation/cubit/character_cubit.dart';
+import 'package:iris/features/characters/presentation/pages/character_page.dart';
 import 'package:iris/features/characters/presentation/widgets/character_view.dart';
 
 import '../../../helpers/test_app.dart';
@@ -166,4 +167,57 @@ void main() {
     expect(find.text('Unable to load the character.'), findsOneWidget);
     expect(find.text('Try Again'), findsOneWidget);
   });
+
+  for (final MapEntry(key: name, value: size) in {
+    'phone': TestWindowSizes.phone,
+    'desktop': TestWindowSizes.desktop,
+  }.entries) {
+    testWidgets('the bar takes the name over once it is gone on $name', (
+      tester,
+    ) async {
+      setTestWindowSize(tester, size);
+      final cubit = CharacterCubit(
+        characterId: '184947',
+        repository: FakeCharactersRepository(
+          details: details(
+            description: List.filled(200, 'An elf mage.').join(' '),
+          ),
+        ),
+      );
+      addTearDown(cubit.close);
+      await tester.pumpWidget(
+        testApp(
+          BlocProvider.value(
+            value: cubit,
+            child: CharacterPage(preview: _frieren, onOpenAnime: (_) {}),
+          ),
+        ),
+      );
+      await tester.runAsync(cubit.load);
+      await tester.pumpAndSettle();
+      final inBar = find.descendant(
+        of: find.byType(AppBar),
+        matching: find.text('Frieren'),
+      );
+      expect(inBar, findsNothing);
+
+      final onPage = tester.getRect(
+        find.descendant(
+          of: find.byType(SingleChildScrollView),
+          matching: find.text('Frieren'),
+        ),
+      );
+      final barBottom = tester.getRect(find.byType(AppBar)).bottom;
+      final position = tester
+          .state<ScrollableState>(find.byType(Scrollable).last)
+          .position;
+      position.jumpTo(onPage.bottom - barBottom + 4);
+      await tester.pumpAndSettle();
+      expect(inBar, findsOneWidget);
+
+      position.jumpTo(0);
+      await tester.pumpAndSettle();
+      expect(inBar, findsNothing);
+    });
+  }
 }

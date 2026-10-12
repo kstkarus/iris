@@ -16,6 +16,7 @@ import 'package:iris/shared/widgets/adaptive/window_size_class.dart';
 import 'package:iris/shared/widgets/app_skeleton.dart';
 import 'package:iris/shared/widgets/display_title.dart';
 import 'package:iris/shared/widgets/fold_row.dart';
+import 'package:iris/shared/widgets/headline_anchor.dart';
 import 'package:iris/shared/widgets/labeled_section.dart';
 import 'package:iris/shared/widgets/pixel_icon.dart';
 import 'package:iris/shared/widgets/poster_image.dart';
@@ -245,13 +246,15 @@ class _Names extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Semantics(
-          header: true,
-          child: DisplayTitle(
-            characterName(l10n, head),
-            maxSize: maxSize,
-            minSize: minSize,
-            maxLines: 4,
+        HeadlineAnchor(
+          child: Semantics(
+            header: true,
+            child: DisplayTitle(
+              characterName(l10n, head),
+              maxSize: maxSize,
+              minSize: minSize,
+              maxLines: 4,
+            ),
           ),
         ),
         if (other != null)

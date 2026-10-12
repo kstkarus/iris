@@ -1,7 +1,7 @@
 import 'package:flutter/widgets.dart';
 
-/// Where the anime's name sits on the page, so the bar can take the name
-/// over once it has scrolled under the bar.
+/// Where a page's name sits on it, so the bar can take the name over once
+/// it has scrolled under the bar.
 class HeadlineTracker {
   final _anchors = <BuildContext>{};
 
@@ -36,7 +36,7 @@ class HeadlineScope extends InheritedWidget {
       tracker != oldWidget.tracker;
 }
 
-/// Marks [child] as the anime's name for the nearest [HeadlineScope].
+/// Marks [child] as the page's name for the nearest [HeadlineScope].
 class HeadlineAnchor extends StatefulWidget {
   const HeadlineAnchor({required this.child, super.key});
 
