@@ -25,7 +25,37 @@ env:
   ANDROID_CERT_SHA256: 00d5eca0bb73210f8b65095ce62ccfd2cc83d5af6b8a2b1b5feb73026dd5e492
 
 jobs:
+  # Checked before anything is built: the tag matches pubspec.yaml, and
+  # CHANGELOG.md has the version's section, which becomes the release text.
+  notes:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Release notes from the changelog
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          PUBSPEC=$(sed -n 's/^version: *\([^+]*\).*/\1/p' pubspec.yaml)
+          if [ "$PUBSPEC" != "$VERSION" ]; then
+            echo "::error::pubspec.yaml has version $PUBSPEC, the tag is $VERSION."
+            exit 1
+          fi
+          awk -v version="$VERSION" '
+            index($0, "## [" version "]") == 1 { found = 1; next }
+            found && (/^## \[/ || /^\[[^]]+\]: /) { exit }
+            found { print }
+          ' CHANGELOG.md > notes.md
+          if ! grep -q '[^[:space:]]' notes.md; then
+            echo "::error::CHANGELOG.md has no section for $VERSION."
+            exit 1
+          fi
+          cat notes.md
+      - uses: actions/upload-artifact@v4
+        with:
+          name: notes
+          path: notes.md
+
   android:
+    needs: notes
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -99,6 +129,7 @@ jobs:
           path: dist/*
 
   windows:
+    needs: notes
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -144,8 +175,15 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
         with:
+          name: android
           path: dist
-          merge-multiple: true
+      - uses: actions/download-artifact@v4
+        with:
+          name: windows
+          path: dist
+      - uses: actions/download-artifact@v4
+        with:
+          name: notes
       - name: Publish the release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -155,7 +193,7 @@ jobs:
           gh release create "$GITHUB_REF_NAME" dist/*-android-arm64-v8a.apk \
             --repo "$GITHUB_REPOSITORY" \
             --title "$GITHUB_REF_NAME" \
-            --generate-notes
+            --notes-file notes.md
           for FILE in dist/*; do
             case "$FILE" in *-android-arm64-v8a.apk) continue ;; esac
             gh release upload "$GITHUB_REF_NAME" "$FILE" --repo "$GITHUB_REPOSITORY"

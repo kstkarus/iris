@@ -120,16 +120,32 @@ The code is organised by feature (`lib/features/<feature>/{presentation,domain,d
 
 Issues and pull requests are welcome. Run the checks above before opening a pull request. The project's conventions, stack and architecture rules are in [AGENTS.md](AGENTS.md), written mainly for coding agents but valid for everyone.
 
+## Versioning
+
+Versions follow [Semantic Versioning](https://semver.org), read from the user's side:
+
+- **Patch** (1.2.**1**): fixes only.
+- **Minor** (1.**3**.0): new features or noticeable changes; everything that worked keeps working.
+- **Major** (**2**.0.0): changes that break something for existing users, such as a reset or migration of stored data, a raised minimum OS version or a dropped platform.
+
+The version is raised per release, not per commit. Since commits follow [Conventional Commits](https://www.conventionalcommits.org), the weightiest commit since the last release decides: a `feat` makes a minor release, only `fix` commits a patch, and a breaking change a major one. Notable changes are recorded in [CHANGELOG.md](CHANGELOG.md).
+
 ## Releases
 
-Pushing a tag `vX.Y.Z` runs `.github/workflows/release.yml`:
+1. In `CHANGELOG.md`, move the entries under "Unreleased" into a new section `## [X.Y.Z] - YYYY-MM-DD` and update the links at the bottom.
+2. Set `version: X.Y.Z+1` in `pubspec.yaml`. CI replaces the build number.
+3. Commit, then tag and push:
 
-```bash
-git tag v1.2.0
-git push origin v1.2.0
-```
+   ```bash
+   git tag vX.Y.Z
+   git push origin main vX.Y.Z
+   ```
 
-The workflow builds the APKs and the Windows archive and publishes them as a GitHub release. The tag becomes the version name and the run number the build number.
+The tag runs `.github/workflows/release.yml`:
+
+- It first checks that the tag matches `pubspec.yaml` and that `CHANGELOG.md` has the version's section, and stops otherwise.
+- It builds the APKs and the Windows archive. The tag becomes the version name and the run number the build number.
+- It publishes them as a GitHub release, with the changelog section as the release text.
 
 Repository secrets (Settings → Secrets and variables → Actions):
 
