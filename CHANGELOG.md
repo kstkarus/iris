@@ -4,10 +4,13 @@ Notable changes to iris, newest first. The format follows [Keep a Changelog](htt
 
 ## [Unreleased]
 
+## [1.2.1] - 2026-10-12
+
 ### Fixed
 
 - The halftone cover on a title's page keeps the same detail at any size. On phones it was much coarser than on a desktop.
 - The time above the player's timeline no longer breaks onto a second line on Android, where it was measured in the wrong font.
+- Watching the last episode of an anime that was planned, on hold, dropped or not in the Shikimori list marks it completed. It stayed as watching, as with a film watched straight from its page.
 
 ## [1.2.0] - 2026-10-12
 
@@ -46,7 +49,8 @@ First published release.
 - Update notice on Android and Windows when a newer release is published.
 - App icon.
 
-[Unreleased]: https://github.com/kstkarus/iris/compare/v1.2.0...HEAD
+[Unreleased]: https://github.com/kstkarus/iris/compare/v1.2.1...HEAD
+[1.2.1]: https://github.com/kstkarus/iris/compare/v1.2.0...v1.2.1
 [1.2.0]: https://github.com/kstkarus/iris/compare/v1.1.1...v1.2.0
 [1.1.1]: https://github.com/kstkarus/iris/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/kstkarus/iris/releases/tag/v1.1.0
