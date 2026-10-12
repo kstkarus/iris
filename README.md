@@ -75,7 +75,7 @@ git push origin v1.1.0
 
 The workflow needs two repository secrets (Settings → Secrets and variables → Actions):
 
-- `ANDROID_DEBUG_KEYSTORE`: base64 of the keystore the APKs already installed were signed with (`~/.android/debug.keystore` of the machine that built them; release builds are signed with the debug key, see `android/app/build.gradle.kts`). Android installs an update only over the same signature, so the workflow stops without it. On Windows: `[Convert]::ToBase64String([IO.File]::ReadAllBytes("$env:USERPROFILE\.android\debug.keystore"))`.
+- `ANDROID_DEBUG_KEYSTORE`: base64 of the keystore the APKs already installed were signed with (`~/.android/debug.keystore` of the machine that built them; release builds are signed with the debug key, see `android/app/build.gradle.kts`). Android installs an update only over the same signature, so the workflow stops without it, and stops before publishing when the built APK's certificate is not `ANDROID_CERT_SHA256` from the workflow. On Windows: `[Convert]::ToBase64String([IO.File]::ReadAllBytes("$env:USERPROFILE\.android\debug.keystore"))`.
 - `SHIKIMORI_CONFIG`: the contents of `config/shikimori.json`.
 
 The app asks GitHub for the latest release once per launch (`lib/features/app_update/`). When it is newer than the running version, a strip says so: above the tabs on phones, under the top bar on wider windows. Download opens the build in the browser, and Later hides that version until a newer one comes out. A failed check shows nothing.
