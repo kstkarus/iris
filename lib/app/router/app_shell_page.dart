@@ -45,21 +45,16 @@ class AppShellPage extends StatelessWidget {
 
     if (WindowSizeClass.of(context).isCompact) {
       return Scaffold(
-        body: navigationShell,
-        // At the bottom on phones: the top belongs to the status bar and
-        // each page's own heading, and the thumb is down here.
-        bottomNavigationBar: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const UpdateNotice(),
-            _BottomTabs(
-              key: navigationBarKey,
-              labels: labels,
-              selectedIndex: navigationShell.currentIndex,
-              onSelected: _select,
-            ),
-          ],
+        // An update shows over everything, as the app's state rather than
+        // a passing message.
+        body: UpdateNotice(child: navigationShell),
+        // The tabs at the bottom on phones: the top belongs to the status
+        // bar and each page's own heading, and the thumb is down here.
+        bottomNavigationBar: _BottomTabs(
+          key: navigationBarKey,
+          labels: labels,
+          selectedIndex: navigationShell.currentIndex,
+          onSelected: _select,
         ),
       );
     }
@@ -80,8 +75,14 @@ class AppShellPage extends StatelessWidget {
               selectedIndex: navigationShell.currentIndex,
               onSelected: _select,
             ),
-            const UpdateNotice(),
-            Expanded(child: navigationShell),
+            Expanded(
+              // The top bar has taken the status bar's inset.
+              child: MediaQuery.removePadding(
+                context: context,
+                removeTop: true,
+                child: UpdateNotice(child: navigationShell),
+              ),
+            ),
           ],
         ),
       ),
