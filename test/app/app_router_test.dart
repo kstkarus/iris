@@ -84,7 +84,6 @@ void main() {
     expect(router.namedLocation('player'), '/player');
     expect(router.namedLocation('torrent-stream-files'), '/torrent/watch');
     expect(router.namedLocation('torrent-download-files'), '/torrent/download');
-    expect(router.namedLocation('saved-torrents'), '/torrents');
   });
 }
 

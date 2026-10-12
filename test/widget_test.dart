@@ -72,26 +72,30 @@ void main() {
     expect(find.byKey(const Key('mock_player_surface')), findsOneWidget);
   });
 
-  testWidgets('App streams a saved magnet independently of the catalog', (
+  testWidgets('App streams a torrent the user added to an anime', (
     tester,
   ) async {
     await pumpMockApp(tester);
+    await _openWatchSources(tester);
 
-    await _tapVisible(tester, find.text('Torrents'));
-    await pumpUntilVisible(tester, find.text('No saved torrents yet'));
-    await tester.pumpAndSettle();
-
-    await _tapVisible(tester, find.text('Add torrent').last);
+    await _tapVisible(
+      tester,
+      find.byKey(const Key('watch_sources_add_torrent_button')),
+    );
     await tester.pumpAndSettle();
     await tester.enterText(
       find.byKey(const Key('add_saved_torrent_magnet_field')),
       'magnet:?xt=urn:btih:065c4691de84f964e143103b3bd0de17be5bfd0a'
       '&dn=My%20Own%20Release',
     );
-    await tester.pump();
+    await tester.pumpAndSettle();
+    // The link gives way to what it is.
+    expect(find.byKey(const Key('add_saved_torrent_draft')), findsOneWidget);
     await tester.tap(find.byKey(const Key('add_saved_torrent_save_button')));
     await tester.pumpAndSettle();
 
+    // It went to the user's own tab, which now shows.
+    expect(find.text('Mine'), findsOneWidget);
     expect(find.text('My Own Release'), findsOneWidget);
 
     await _tapVisible(
@@ -109,9 +113,6 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('player_back_button')));
     await tester.pumpAndSettle();
-    expect(find.text('Episode 1 · 5:00 / 24:00'), findsOneWidget);
-    // The default test window is too narrow for the row's verb label; the
-    // progress itself sits inside the tappable row.
     expect(
       find.descendant(
         of: find.byKey(const Key('saved_torrent_watch_button')),
@@ -120,21 +121,17 @@ void main() {
       findsOneWidget,
     );
 
-    await _tapVisible(
-      tester,
-      find.descendant(
-        of: find.byWidgetPredicate(
-          (widget) =>
-              widget.key == AppShellPage.navigationBarKey ||
-              widget.key == AppShellPage.topBarKey,
-        ),
-        matching: find.text('Catalog'),
-      ),
-    );
+    // Back to the catalog: what was watched is known to be this anime.
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    // Opening the anime scrolled the catalog to its cover.
+    await tester.fling(find.text('Steins;Gate'), const Offset(0, 2000), 3000);
     await tester.pumpAndSettle();
     final continueCard = find.descendant(
       of: find.byKey(const Key('continue_watching_row')),
-      matching: find.text('My Own Release'),
+      matching: find.text('Fullmetal Alchemist: Brotherhood'),
     );
     expect(continueCard, findsOneWidget);
 

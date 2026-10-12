@@ -7,13 +7,17 @@ import 'package:iris/features/saved_torrents/domain/entities/saved_torrent.dart'
 import 'package:iris/features/saved_torrents/domain/repositories/saved_torrents_repository.dart';
 import 'package:iris/features/saved_torrents/presentation/cubit/saved_torrents_state.dart';
 
+/// The torrents the user added to one anime.
 class SavedTorrentsCubit extends Cubit<SavedTorrentsState> {
   SavedTorrentsCubit({
+    required String animeId,
     required SavedTorrentsRepository repository,
     this.highlightDuration = const Duration(seconds: 2),
-  }) : _repository = repository,
+  }) : _animeId = animeId,
+       _repository = repository,
        super(const SavedTorrentsState());
 
+  final String _animeId;
   final SavedTorrentsRepository _repository;
   final Duration highlightDuration;
   StreamSubscription<List<SavedTorrent>>? _subscription;
@@ -21,27 +25,29 @@ class SavedTorrentsCubit extends Cubit<SavedTorrentsState> {
 
   void load() {
     if (_subscription != null) return;
-    _subscription = _repository.watchTorrents().listen(
-      (torrents) {
-        if (!isClosed) {
-          emit(state.copyWith(isLoading: false, torrents: torrents));
-        }
-      },
-      onError: (Object error, StackTrace stackTrace) {
-        developer.log(
-          'Unable to read saved torrents.',
-          name: 'iris.saved_torrents.cubit',
-          error: error,
-          stackTrace: stackTrace,
+    _subscription = _repository
+        .watchTorrents(_animeId)
+        .listen(
+          (torrents) {
+            if (!isClosed) {
+              emit(state.copyWith(isLoading: false, torrents: torrents));
+            }
+          },
+          onError: (Object error, StackTrace stackTrace) {
+            developer.log(
+              'Unable to read saved torrents.',
+              name: 'iris.saved_torrents.cubit',
+              error: error,
+              stackTrace: stackTrace,
+            );
+            if (!isClosed) emit(state.copyWith(isLoading: false));
+          },
         );
-        if (!isClosed) emit(state.copyWith(isLoading: false));
-      },
-    );
   }
 
-  /// Saves a magnet link. The caller shows feedback based on the result.
-  Future<SaveTorrentResult> add({required String magnet, String? title}) async {
-    final result = await _repository.add(magnet: magnet, title: title);
+  /// Adds a magnet link. The caller shows feedback based on the result.
+  Future<SaveTorrentResult> add(String magnet) async {
+    final result = await _repository.add(animeId: _animeId, magnet: magnet);
     switch (result) {
       case SaveTorrentAdded(:final torrent):
         _highlight(torrent.infoHash);
@@ -53,25 +59,17 @@ class SavedTorrentsCubit extends Cubit<SavedTorrentsState> {
     return result;
   }
 
-  Future<void> rename(String infoHash, String title) {
-    return _repository.rename(infoHash: infoHash, title: title);
-  }
+  Future<void> rename(SavedTorrent torrent, String title) =>
+      _repository.rename(torrent, title);
 
-  /// Removes the torrent; resolves to it, for [restore] to undo.
-  Future<SavedTorrent?> delete(String infoHash) async {
-    final torrent = state.torrents
-        .where((torrent) => torrent.infoHash == infoHash)
-        .firstOrNull;
-    await _repository.delete(infoHash: infoHash);
-    return torrent;
-  }
+  /// Removes the torrent, for [restore] to undo.
+  Future<void> delete(SavedTorrent torrent) => _repository.delete(torrent);
 
   Future<void> restore(SavedTorrent torrent) => _repository.restore(torrent);
 
   /// Moves the torrent to the top of the list when the user opens it.
-  Future<void> markOpened(String infoHash) {
-    return _repository.markOpened(infoHash: infoHash);
-  }
+  Future<void> markOpened(SavedTorrent torrent) =>
+      _repository.markOpened(torrent);
 
   void _highlight(String infoHash) {
     _highlightTimer?.cancel();

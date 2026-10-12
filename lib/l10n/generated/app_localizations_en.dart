@@ -532,17 +532,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get playerPauseButton => 'Pause';
 
   @override
-  String get navigationSavedTorrents => 'Torrents';
-
-  @override
   String get savedTorrentsAddButton => 'Add torrent';
-
-  @override
-  String get savedTorrentsEmptyTitle => 'No saved torrents yet';
-
-  @override
-  String get savedTorrentsEmptyMessage =>
-      'Add one by its magnet link to stream or download it. Added torrents stay here.';
 
   @override
   String get savedTorrentsAddTitle => 'Add torrent';
@@ -557,17 +547,11 @@ class AppLocalizationsEn extends AppLocalizations {
   String get savedTorrentsNameLabel => 'Name';
 
   @override
-  String get savedTorrentsNameHelper => 'Taken from the link if left empty';
-
-  @override
   String get savedTorrentsInvalidMagnet =>
       'Not a magnet link with a torrent hash (xt=urn:btih:…).';
 
   @override
   String get savedTorrentsSaveButton => 'Save';
-
-  @override
-  String get savedTorrentsAdded => 'Torrent added';
 
   @override
   String savedTorrentsDuplicate(String title) {
@@ -611,9 +595,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get downloadsLoading => 'Loading downloaded files...';
-
-  @override
-  String get savedTorrentsLoading => 'Loading saved torrents...';
 
   @override
   String get downloadDeleteFailed =>
@@ -907,11 +888,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get watchSourcesColumnDate => 'Date';
-
-  @override
-  String savedTorrentsPasteHint(String shortcut) {
-    return '$shortcut adds a torrent from the clipboard';
-  }
 
   @override
   String get downloadsFilesTitle => 'Files';
@@ -1364,4 +1340,44 @@ class AppLocalizationsEn extends AppLocalizations {
   String downloadAnnounceFailed(String name) {
     return 'Download failed: $name';
   }
+
+  @override
+  String get watchSourcesMineSection => 'Mine';
+
+  @override
+  String get watchSourcesAddOwnTorrent => 'Add your own torrent';
+
+  @override
+  String savedTorrentsAddWithShortcut(String shortcut) {
+    return 'Add torrent ($shortcut)';
+  }
+
+  @override
+  String get savedTorrentsOr => 'or';
+
+  @override
+  String get savedTorrentsChooseFile => 'Choose a .torrent file';
+
+  @override
+  String get savedTorrentsNotTorrentFile => 'This file is not a torrent.';
+
+  @override
+  String get savedTorrentsFromFile => 'from a file';
+
+  @override
+  String get savedTorrentsFromLink => 'from a link';
+
+  @override
+  String savedTorrentsFileCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count files',
+      one: '1 file',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get savedTorrentsClearDraft => 'Remove';
 }

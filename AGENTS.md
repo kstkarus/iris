@@ -64,7 +64,7 @@ lib/
     profile/          user lists, friends
     watch_sources/    torrent releases for a title
     online_sources/   online releases (AniLibria, yummy_anime)
-    saved_torrents/   torrents the user added by hand
+    saved_torrents/   torrents the user added to an anime by hand
     downloads/        offline downloads
     player/           playback
     app_update/       new releases from GitHub, offered in the shell

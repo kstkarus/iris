@@ -5,6 +5,7 @@ import 'package:iris/shared/torrent/torrent_key.dart';
 abstract final class SavedTorrentModel {
   static Map<String, Object?> toJson(SavedTorrent torrent) {
     return {
+      'animeId': torrent.animeId,
       'infoHash': torrent.infoHash,
       'magnet': torrent.magnet,
       'title': torrent.title,
@@ -14,14 +15,18 @@ abstract final class SavedTorrentModel {
   }
 
   /// Returns null for malformed entries so one bad record does not wipe the
-  /// whole list.
+  /// whole list, and for torrents saved before they belonged to an anime,
+  /// which are let go.
   static SavedTorrent? fromJson(Object? json) {
     if (json is! Map) return null;
+    final animeId = json['animeId'];
     final infoHash = json['infoHash'];
     final magnet = json['magnet'];
     final title = json['title'];
     final addedAt = DateTime.tryParse('${json['addedAt']}');
-    if (infoHash is! String ||
+    if (animeId is! String ||
+        animeId.isEmpty ||
+        infoHash is! String ||
         infoHash.isEmpty ||
         magnet is! String ||
         magnet.isEmpty ||
@@ -31,6 +36,7 @@ abstract final class SavedTorrentModel {
     }
     final lastOpenedRaw = json['lastOpenedAt'];
     return SavedTorrent(
+      animeId: animeId,
       infoHash: canonicalTorrentKey(infoHash),
       magnet: magnet,
       title: title,

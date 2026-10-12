@@ -38,7 +38,6 @@ class AppShellPage extends StatelessWidget {
     final l10n = AppLocalizations.of(context);
     final labels = [
       l10n.navigationCatalog,
-      l10n.navigationSavedTorrents,
       l10n.navigationDownloads,
       l10n.navigationProfile,
     ];

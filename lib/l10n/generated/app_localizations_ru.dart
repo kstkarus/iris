@@ -540,17 +540,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get playerPauseButton => 'Пауза';
 
   @override
-  String get navigationSavedTorrents => 'Раздачи';
-
-  @override
   String get savedTorrentsAddButton => 'Добавить раздачу';
-
-  @override
-  String get savedTorrentsEmptyTitle => 'Пока нет сохранённых раздач';
-
-  @override
-  String get savedTorrentsEmptyMessage =>
-      'Добавьте раздачу по magnet-ссылке, чтобы смотреть или скачать её. Добавленные раздачи останутся здесь.';
 
   @override
   String get savedTorrentsAddTitle => 'Добавить раздачу';
@@ -565,18 +555,11 @@ class AppLocalizationsRu extends AppLocalizations {
   String get savedTorrentsNameLabel => 'Название';
 
   @override
-  String get savedTorrentsNameHelper =>
-      'Если оставить пустым, возьмём из ссылки';
-
-  @override
   String get savedTorrentsInvalidMagnet =>
       'Это не magnet-ссылка с хэшем раздачи (xt=urn:btih:…).';
 
   @override
   String get savedTorrentsSaveButton => 'Сохранить';
-
-  @override
-  String get savedTorrentsAdded => 'Раздача добавлена';
 
   @override
   String savedTorrentsDuplicate(String title) {
@@ -619,9 +602,6 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get downloadsLoading => 'Загружаем список файлов...';
-
-  @override
-  String get savedTorrentsLoading => 'Загружаем раздачи...';
 
   @override
   String get downloadDeleteFailed =>
@@ -920,11 +900,6 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get watchSourcesColumnDate => 'Дата';
-
-  @override
-  String savedTorrentsPasteHint(String shortcut) {
-    return '$shortcut — добавить раздачу из буфера';
-  }
 
   @override
   String get downloadsFilesTitle => 'Файлы';
@@ -1378,4 +1353,46 @@ class AppLocalizationsRu extends AppLocalizations {
   String downloadAnnounceFailed(String name) {
     return 'Ошибка загрузки: $name';
   }
+
+  @override
+  String get watchSourcesMineSection => 'Мои';
+
+  @override
+  String get watchSourcesAddOwnTorrent => 'Добавить свою раздачу';
+
+  @override
+  String savedTorrentsAddWithShortcut(String shortcut) {
+    return 'Добавить раздачу ($shortcut)';
+  }
+
+  @override
+  String get savedTorrentsOr => 'или';
+
+  @override
+  String get savedTorrentsChooseFile => 'Выбрать файл .torrent';
+
+  @override
+  String get savedTorrentsNotTorrentFile => 'Это не торрент-файл.';
+
+  @override
+  String get savedTorrentsFromFile => 'из файла';
+
+  @override
+  String get savedTorrentsFromLink => 'по ссылке';
+
+  @override
+  String savedTorrentsFileCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count файла',
+      many: '$count файлов',
+      few: '$count файла',
+      one: '$count файл',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get savedTorrentsClearDraft => 'Убрать';
 }

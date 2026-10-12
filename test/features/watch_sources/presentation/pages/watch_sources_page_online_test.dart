@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
@@ -21,6 +22,13 @@ import 'package:iris/features/watch_sources/presentation/cubit/watch_sources_cub
 import 'package:iris/features/watch_sources/presentation/cubit/watch_sources_tab_cubit.dart';
 import 'package:iris/features/watch_sources/presentation/models/anime_watch_sources_args.dart';
 import 'package:iris/features/watch_sources/presentation/pages/watch_sources_page.dart';
+import 'package:iris/features/watch_sources/presentation/widgets/watch_sources_view.dart';
+import 'package:iris/features/saved_torrents/data/repositories/shared_preferences_saved_torrents_repository.dart';
+import 'package:iris/features/saved_torrents/presentation/cubit/saved_torrents_cubit.dart';
+import 'package:iris/features/saved_torrents/presentation/widgets/add_saved_torrent_sheet.dart';
+import 'package:iris/shared/torrent/torrent_file_picker.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../../../../helpers/bencode.dart';
 import 'package:iris/shared/online/online_source_link.dart';
 
 import '../../../../helpers/fake_watch_progress_repository.dart';
@@ -366,6 +374,172 @@ void main() {
       expect(tester.takeException(), isNull);
     });
   }
+
+  group("the user's own torrents", () {
+    const magnet =
+        'magnet:?xt=urn:btih:065c4691de84f964e143103b3bd0de17be5bfd0a'
+        '&dn=Frieren%20BD';
+    final addButton = find.byKey(WatchSourcesPage.addButtonKey);
+
+    Future<void> addLink(WidgetTester tester, String link) async {
+      await tester.tap(addButton);
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(AddSavedTorrentForm.magnetFieldKey),
+        link,
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(AddSavedTorrentForm.saveButtonKey));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('one added from the bar shows on its own tab', (tester) async {
+      await _pumpPage(tester, online: _FakeOnlineSources.found());
+      await tester.pumpAndSettle();
+      expect(find.text('Mine'), findsNothing);
+
+      await addLink(tester, magnet);
+
+      expect(find.text('Mine'), findsOneWidget);
+      expect(find.text('Frieren BD'), findsOneWidget);
+      expect(find.text('AniLibria'), findsNothing, reason: 'its tab opened');
+    });
+
+    testWidgets('a .torrent file goes in as its link, named by the file', (
+      tester,
+    ) async {
+      await _pumpPage(
+        tester,
+        online: _FakeOnlineSources.found(),
+        pickFile: () async => torrentFileBytes('Frieren 01-28 [BD]'),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(addButton);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(AddSavedTorrentForm.fileButtonKey));
+      await tester.pumpAndSettle();
+      expect(find.text('1 file · 1 KB · from a file'), findsOneWidget);
+      await tester.tap(find.byKey(AddSavedTorrentForm.saveButtonKey));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Frieren 01-28 [BD]'), findsOneWidget);
+    });
+
+    testWidgets('the same torrent again is shown, not added twice', (
+      tester,
+    ) async {
+      await _pumpPage(
+        tester,
+        online: _FakeOnlineSources.found(),
+        mine: [magnet],
+      );
+      await tester.pumpAndSettle();
+
+      await addLink(tester, magnet);
+
+      expect(find.text('Already added as “Frieren BD”'), findsOneWidget);
+      expect(find.text('Frieren BD'), findsOneWidget);
+    });
+
+    testWidgets('with nothing found anywhere the page offers to add one', (
+      tester,
+    ) async {
+      await _pumpPage(
+        tester,
+        online: _FakeOnlineSources(const []),
+        torrents: const _Torrents.none(),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(WatchSourcesView.addTorrentKey));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(AddSavedTorrentForm.magnetFieldKey), findsOneWidget);
+    });
+
+    testWidgets('plays as this anime', (tester) async {
+      final navigation = await _pumpPage(
+        tester,
+        online: _FakeOnlineSources.found(),
+        mine: [magnet],
+        tabs: MemoryWatchSourcesTabRepository(WatchSourcesTab.mine),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Frieren BD'));
+      await tester.pumpAndSettle();
+
+      final args = navigation.extra! as AnimePlayerSourceArgs;
+      expect(args.animeId, '52991');
+      expect(args.animeTitle, 'Frieren');
+      expect(args.sourceTitle, 'Frieren BD');
+      expect(args.magnet, magnet);
+    });
+
+    testWidgets('deleting the last one dissolves the row, then the tab', (
+      tester,
+    ) async {
+      await _pumpPage(
+        tester,
+        online: _FakeOnlineSources.found(),
+        mine: [magnet],
+        tabs: MemoryWatchSourcesTabRepository(WatchSourcesTab.mine),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.longPress(find.text('Frieren BD'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('saved_torrent_delete')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(find.text('Frieren BD'), findsOneWidget, reason: 'dissolving');
+
+      await tester.pumpAndSettle();
+      expect(find.text('Frieren BD'), findsNothing);
+      expect(find.text('Mine'), findsNothing);
+      expect(find.text('Torrent deleted'), findsOneWidget);
+    });
+
+    testWidgets('a paste adds from the clipboard, but not in the search', (
+      tester,
+    ) async {
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        (call) async => call.method == 'Clipboard.getData'
+            ? <String, Object?>{'text': magnet}
+            : null,
+      );
+      addTearDown(
+        () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          SystemChannels.platform,
+          null,
+        ),
+      );
+      await _pumpPage(
+        tester,
+        online: _FakeOnlineSources.found(),
+        tabs: MemoryWatchSourcesTabRepository(WatchSourcesTab.torrents),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.showKeyboard(find.byType(TextField));
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyV);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await tester.pumpAndSettle();
+      expect(find.byKey(AddSavedTorrentForm.draftKey), findsNothing);
+
+      FocusManager.instance.primaryFocus?.unfocus();
+      await tester.pump();
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyV);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await tester.pumpAndSettle();
+      expect(find.byKey(AddSavedTorrentForm.draftKey), findsOneWidget);
+      expect(find.text('Frieren BD'), findsOneWidget);
+    });
+  });
 }
 
 class _RecordedNavigation {
@@ -378,8 +552,18 @@ Future<_RecordedNavigation> _pumpPage(
   _Torrents torrents = const _Torrents(),
   MemoryWatchSourcesTabRepository? tabs,
   List<WatchProgress> history = const [],
+  List<String> mine = const [],
+  TorrentFilePicker? pickFile,
 }) async {
   final navigation = _RecordedNavigation();
+  SharedPreferences.setMockInitialValues({});
+  final saved = SharedPreferencesSavedTorrentsRepository(
+    await SharedPreferences.getInstance(),
+  );
+  addTearDown(saved.close);
+  for (final magnet in mine) {
+    await saved.add(animeId: '52991', magnet: magnet);
+  }
   const args = AnimeWatchSourcesArgs(
     animeId: '52991',
     animeTitle: 'Frieren',
@@ -417,8 +601,16 @@ Future<_RecordedNavigation> _pumpPage(
                 repository: FixedWatchProgressRepository(history),
               )..load(),
             ),
+            BlocProvider(
+              create: (_) =>
+                  SavedTorrentsCubit(animeId: args.animeId, repository: saved)
+                    ..load(),
+            ),
           ],
-          child: const WatchSourcesPage(args: args),
+          child: WatchSourcesPage(
+            args: args,
+            pickFile: pickFile ?? () async => null,
+          ),
         ),
       ),
       GoRoute(

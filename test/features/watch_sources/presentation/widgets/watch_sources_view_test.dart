@@ -23,6 +23,8 @@ import 'package:iris/shared/widgets/app_skeleton.dart';
 import 'package:iris/shared/widgets/dither_transition.dart';
 import 'package:iris/shared/widgets/search_field.dart';
 
+import 'package:iris/features/saved_torrents/presentation/cubit/saved_torrents_cubit.dart';
+import '../../../../helpers/memory_saved_torrents_repository.dart';
 import '../../../../helpers/fake_watch_progress_repository.dart';
 import '../../../../helpers/test_app.dart';
 import '../../../../helpers/test_window.dart';
@@ -163,6 +165,7 @@ void main() {
             BlocProvider.value(value: cubit..loadSources()),
             BlocProvider(create: (_) => _noOnlineReleases()),
             BlocProvider(create: (_) => _tabs()),
+            BlocProvider(create: (_) => _mine()),
           ],
           child: const WatchSourcesPage(
             args: AnimeWatchSourcesArgs(
@@ -323,7 +326,7 @@ void main() {
             BlocProvider.value(value: history),
             BlocProvider.value(value: cubit..loadSources()),
           ],
-          child: const Scaffold(body: WatchSourcesView()),
+          child: Scaffold(body: WatchSourcesView(onAddTorrent: () {})),
         ),
       ),
     );
@@ -382,6 +385,7 @@ void main() {
               BlocProvider.value(value: cubit..loadSources()),
               BlocProvider(create: (_) => _noOnlineReleases()),
               BlocProvider(create: (_) => _tabs()),
+              BlocProvider(create: (_) => _mine()),
             ],
             child: const WatchSourcesPage(
               args: AnimeWatchSourcesArgs(
@@ -439,7 +443,7 @@ Future<void> _pumpView(
     testApp(
       BlocProvider.value(
         value: cubit,
-        child: const Scaffold(body: WatchSourcesView()),
+        child: Scaffold(body: WatchSourcesView(onAddTorrent: () {})),
       ),
     ),
   );
@@ -467,7 +471,7 @@ Future<_RecordedNavigation> _pumpRoutedView(WidgetTester tester) async {
         path: '/sources',
         builder: (context, state) => BlocProvider.value(
           value: cubit,
-          child: const Scaffold(body: WatchSourcesView()),
+          child: Scaffold(body: WatchSourcesView(onAddTorrent: () {})),
         ),
       ),
       GoRoute(
@@ -506,6 +510,11 @@ String _topTitle(WidgetTester tester) {
 
   return titles.first;
 }
+
+SavedTorrentsCubit _mine() => SavedTorrentsCubit(
+  animeId: '52991',
+  repository: MemorySavedTorrentsRepository(),
+)..load();
 
 WatchSourcesTabCubit _tabs() =>
     WatchSourcesTabCubit(repository: MemoryWatchSourcesTabRepository());

@@ -65,7 +65,6 @@ import 'package:iris/features/profile/presentation/pages/profile_page.dart';
 import 'package:iris/features/profile/presentation/pages/user_profile_page.dart';
 import 'package:iris/features/saved_torrents/domain/repositories/saved_torrents_repository.dart';
 import 'package:iris/features/saved_torrents/presentation/cubit/saved_torrents_cubit.dart';
-import 'package:iris/features/saved_torrents/presentation/pages/saved_torrents_page.dart';
 import 'package:iris/features/watch_sources/domain/repositories/watch_sources_repository.dart';
 import 'package:iris/features/watch_sources/domain/repositories/watch_sources_tab_repository.dart';
 import 'package:iris/features/watch_sources/presentation/cubit/watch_sources_cubit.dart';
@@ -146,45 +145,6 @@ abstract final class AppRouter {
                           context.read<AnimeSearchBloc>().add(event);
                         },
                         child: const AnimeListPage(),
-                      ),
-                    );
-                  },
-                ),
-              ],
-            ),
-            StatefulShellBranch(
-              routes: [
-                GoRoute(
-                  path: '/torrents',
-                  name: 'saved-torrents',
-                  builder: (context, state) {
-                    // Saved torrents are not catalog titles: the player and
-                    // downloads get the torrent's own name and no anime id.
-                    return BlocProvider(
-                      create: (_) => SavedTorrentsCubit(
-                        repository: serviceLocator<SavedTorrentsRepository>(),
-                      )..load(),
-                      child: SavedTorrentsPage(
-                        onWatch: (torrent, {autoOpenFileIndex}) =>
-                            context.pushNamed(
-                              'torrent-stream-files',
-                              extra: AnimePlayerSourceArgs(
-                                animeId: '',
-                                animeTitle: torrent.title,
-                                sourceTitle: torrent.title,
-                                magnet: torrent.magnet,
-                                autoOpenFileIndex: autoOpenFileIndex,
-                              ),
-                            ),
-                        onDownload: (torrent) => context.pushNamed(
-                          'torrent-download-files',
-                          extra: DownloadSelectionArgs(
-                            animeId: '',
-                            animeTitle: torrent.title,
-                            sourceTitle: torrent.title,
-                            magnet: torrent.magnet,
-                          ),
-                        ),
                       ),
                     );
                   },
@@ -385,6 +345,12 @@ abstract final class AppRouter {
                   create: (_) => WatchSourcesTabCubit(
                     repository: serviceLocator<WatchSourcesTabRepository>(),
                   ),
+                ),
+                BlocProvider(
+                  create: (_) => SavedTorrentsCubit(
+                    animeId: args.animeId,
+                    repository: serviceLocator<SavedTorrentsRepository>(),
+                  )..load(),
                 ),
               ],
               child: WatchSourcesPage(args: args),

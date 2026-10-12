@@ -4,6 +4,14 @@ Notable changes to iris, newest first. The format follows [Keep a Changelog](htt
 
 ## [Unreleased]
 
+### Added
+
+- Your own torrents are added to an anime from its sources page, as a magnet link or a `.torrent` file, and show on its Mine tab. What plays from them is known to be that anime: Shikimori marks, AniSkip and Continue watching work as for found torrents.
+
+### Removed
+
+- The Torrents tab. Torrents saved there without an anime are not kept.
+
 ## [1.2.1] - 2026-10-12
 
 ### Fixed

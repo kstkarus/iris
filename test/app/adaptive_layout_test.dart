@@ -246,7 +246,7 @@ void main() {
       expect(tester.takeException(), isNull);
       final bar = find.byKey(AppShellPage.topBarKey);
       final barRect = tester.getRect(bar);
-      for (final label in const ['Каталог', 'Раздачи', 'Загрузки', 'Профиль']) {
+      for (final label in const ['Каталог', 'Загрузки', 'Профиль']) {
         final section = find.ancestor(
           of: find.descendant(of: bar, matching: find.text(label)),
           matching: find.byType(InkWell),
@@ -270,7 +270,7 @@ void main() {
     await pumpMockApp(tester, size: const Size(320, 720));
 
     final bar = find.byKey(AppShellPage.navigationBarKey);
-    for (final label in const ['Каталог', 'Раздачи', 'Загрузки', 'Профиль']) {
+    for (final label in const ['Каталог', 'Загрузки', 'Профиль']) {
       final text = find.descendant(of: bar, matching: find.text(label));
       final paragraph = tester.renderObject<RenderParagraph>(text);
       expect(paragraph.didExceedMaxLines, isFalse, reason: label);

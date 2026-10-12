@@ -1,9 +1,11 @@
-/// A magnet link the user saved to stream or download later.
+/// A torrent the user added to an anime by hand: a magnet link, or a
+/// `.torrent` file kept as one.
 ///
-/// Deliberately independent from the anime catalog: the title is the user's
-/// (or the torrent's own `dn`), never a guessed catalog entry.
+/// It belongs to the anime it was added to, never to one guessed from its
+/// name; the same torrent may be added to several.
 class SavedTorrent {
   const SavedTorrent({
+    required this.animeId,
     required this.infoHash,
     required this.magnet,
     required this.title,
@@ -11,7 +13,9 @@ class SavedTorrent {
     this.lastOpenedAt,
   });
 
-  /// Lower-case info-hash; unique per saved torrent.
+  final String animeId;
+
+  /// Lower-case info-hash; unique among one anime's torrents.
   final String infoHash;
   final String magnet;
   final String title;
@@ -23,6 +27,7 @@ class SavedTorrent {
 
   SavedTorrent copyWith({String? title, DateTime? lastOpenedAt}) {
     return SavedTorrent(
+      animeId: animeId,
       infoHash: infoHash,
       magnet: magnet,
       title: title ?? this.title,
@@ -34,6 +39,7 @@ class SavedTorrent {
   @override
   bool operator ==(Object other) {
     return other is SavedTorrent &&
+        other.animeId == animeId &&
         other.infoHash == infoHash &&
         other.magnet == magnet &&
         other.title == title &&
@@ -43,5 +49,5 @@ class SavedTorrent {
 
   @override
   int get hashCode =>
-      Object.hash(infoHash, magnet, title, addedAt, lastOpenedAt);
+      Object.hash(animeId, infoHash, magnet, title, addedAt, lastOpenedAt);
 }

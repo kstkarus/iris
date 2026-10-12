@@ -28,8 +28,13 @@ import 'package:iris/shared/widgets/tap_row.dart';
 
 /// A title's releases. While they load, the page is pixel noise in the
 /// shape of the table; the releases develop out of it when they arrive.
+/// When none are found it offers to add a torrent of the user's own.
 class WatchSourcesView extends StatelessWidget {
-  const WatchSourcesView({super.key});
+  const WatchSourcesView({required this.onAddTorrent, super.key});
+
+  static const addTorrentKey = Key('watch_sources_add_own_torrent');
+
+  final VoidCallback onAddTorrent;
 
   @override
   Widget build(BuildContext context) {
@@ -47,7 +52,14 @@ class WatchSourcesView extends StatelessWidget {
             enabled: false,
             child: _LoadedState(state: state),
           ),
-          WatchSourcesEmpty() => MessageView(message: l10n.watchSourcesEmpty),
+          WatchSourcesEmpty() => MessageView(
+            message: l10n.watchSourcesEmpty,
+            action: OutlinedButton(
+              key: addTorrentKey,
+              onPressed: onAddTorrent,
+              child: Text(l10n.watchSourcesAddOwnTorrent),
+            ),
+          ),
           WatchSourcesFailure() => RetryView(
             message: l10n.watchSourcesLoadError,
             onRetry: () => context.read<WatchSourcesCubit>().loadSources(),

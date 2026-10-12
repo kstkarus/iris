@@ -20,6 +20,7 @@ void _withCubit(void Function(FakeAsync async, SavedTorrentsCubit cubit) body) {
     SharedPreferences.getInstance().then((preferences) {
       repository = SharedPreferencesSavedTorrentsRepository(preferences);
       cubit = SavedTorrentsCubit(
+        animeId: '1535',
         repository: repository,
         highlightDuration: _highlight,
       )..load();
@@ -36,7 +37,7 @@ void _withCubit(void Function(FakeAsync async, SavedTorrentsCubit cubit) body) {
 
 SaveTorrentResult? _add(FakeAsync async, SavedTorrentsCubit cubit, String m) {
   SaveTorrentResult? result;
-  cubit.add(magnet: m).then((value) => result = value);
+  cubit.add(m).then((value) => result = value);
   async.flushMicrotasks();
   return result;
 }

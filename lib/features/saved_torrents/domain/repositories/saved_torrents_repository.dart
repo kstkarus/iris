@@ -10,7 +10,7 @@ final class SaveTorrentAdded extends SaveTorrentResult {
   final SavedTorrent torrent;
 }
 
-/// The same info-hash is already saved; nothing was changed.
+/// The anime already has the same info-hash; nothing was changed.
 final class SaveTorrentDuplicate extends SaveTorrentResult {
   const SaveTorrentDuplicate(this.existing);
 
@@ -22,18 +22,23 @@ final class SaveTorrentInvalidMagnet extends SaveTorrentResult {
   const SaveTorrentInvalidMagnet();
 }
 
+/// The torrents the user added by hand, kept per anime.
 abstract interface class SavedTorrentsRepository {
-  /// Emits the current list (most recently used first) and every change.
-  Stream<List<SavedTorrent>> watchTorrents();
+  /// Emits [animeId]'s torrents (most recently used first) and every
+  /// change to them.
+  Stream<List<SavedTorrent>> watchTorrents(String animeId);
 
-  /// Saves [magnet]; a blank [title] falls back to the link's `dn` or hash.
-  Future<SaveTorrentResult> add({required String magnet, String? title});
+  /// Adds [magnet] to [animeId], named by the link's `dn` or its hash.
+  Future<SaveTorrentResult> add({
+    required String animeId,
+    required String magnet,
+  });
 
-  Future<void> rename({required String infoHash, required String title});
+  Future<void> rename(SavedTorrent torrent, String title);
 
-  Future<void> markOpened({required String infoHash});
+  Future<void> markOpened(SavedTorrent torrent);
 
-  Future<void> delete({required String infoHash});
+  Future<void> delete(SavedTorrent torrent);
 
   /// Puts back a torrent [delete] removed, as it was (its place in the list
   /// included); nothing when the same info-hash is saved again meanwhile.

@@ -1028,29 +1028,11 @@ abstract class AppLocalizations {
   /// **'Pause'**
   String get playerPauseButton;
 
-  /// No description provided for @navigationSavedTorrents.
-  ///
-  /// In en, this message translates to:
-  /// **'Torrents'**
-  String get navigationSavedTorrents;
-
   /// No description provided for @savedTorrentsAddButton.
   ///
   /// In en, this message translates to:
   /// **'Add torrent'**
   String get savedTorrentsAddButton;
-
-  /// No description provided for @savedTorrentsEmptyTitle.
-  ///
-  /// In en, this message translates to:
-  /// **'No saved torrents yet'**
-  String get savedTorrentsEmptyTitle;
-
-  /// No description provided for @savedTorrentsEmptyMessage.
-  ///
-  /// In en, this message translates to:
-  /// **'Add one by its magnet link to stream or download it. Added torrents stay here.'**
-  String get savedTorrentsEmptyMessage;
 
   /// No description provided for @savedTorrentsAddTitle.
   ///
@@ -1076,12 +1058,6 @@ abstract class AppLocalizations {
   /// **'Name'**
   String get savedTorrentsNameLabel;
 
-  /// No description provided for @savedTorrentsNameHelper.
-  ///
-  /// In en, this message translates to:
-  /// **'Taken from the link if left empty'**
-  String get savedTorrentsNameHelper;
-
   /// No description provided for @savedTorrentsInvalidMagnet.
   ///
   /// In en, this message translates to:
@@ -1093,12 +1069,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Save'**
   String get savedTorrentsSaveButton;
-
-  /// No description provided for @savedTorrentsAdded.
-  ///
-  /// In en, this message translates to:
-  /// **'Torrent added'**
-  String get savedTorrentsAdded;
 
   /// No description provided for @savedTorrentsDuplicate.
   ///
@@ -1171,12 +1141,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Loading downloaded files...'**
   String get downloadsLoading;
-
-  /// No description provided for @savedTorrentsLoading.
-  ///
-  /// In en, this message translates to:
-  /// **'Loading saved torrents...'**
-  String get savedTorrentsLoading;
 
   /// No description provided for @downloadDeleteFailed.
   ///
@@ -1645,12 +1609,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Date'**
   String get watchSourcesColumnDate;
-
-  /// No description provided for @savedTorrentsPasteHint.
-  ///
-  /// In en, this message translates to:
-  /// **'{shortcut} adds a torrent from the clipboard'**
-  String savedTorrentsPasteHint(String shortcut);
 
   /// No description provided for @downloadsFilesTitle.
   ///
@@ -2407,6 +2365,66 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Download failed: {name}'**
   String downloadAnnounceFailed(String name);
+
+  /// No description provided for @watchSourcesMineSection.
+  ///
+  /// In en, this message translates to:
+  /// **'Mine'**
+  String get watchSourcesMineSection;
+
+  /// No description provided for @watchSourcesAddOwnTorrent.
+  ///
+  /// In en, this message translates to:
+  /// **'Add your own torrent'**
+  String get watchSourcesAddOwnTorrent;
+
+  /// No description provided for @savedTorrentsAddWithShortcut.
+  ///
+  /// In en, this message translates to:
+  /// **'Add torrent ({shortcut})'**
+  String savedTorrentsAddWithShortcut(String shortcut);
+
+  /// No description provided for @savedTorrentsOr.
+  ///
+  /// In en, this message translates to:
+  /// **'or'**
+  String get savedTorrentsOr;
+
+  /// No description provided for @savedTorrentsChooseFile.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a .torrent file'**
+  String get savedTorrentsChooseFile;
+
+  /// No description provided for @savedTorrentsNotTorrentFile.
+  ///
+  /// In en, this message translates to:
+  /// **'This file is not a torrent.'**
+  String get savedTorrentsNotTorrentFile;
+
+  /// No description provided for @savedTorrentsFromFile.
+  ///
+  /// In en, this message translates to:
+  /// **'from a file'**
+  String get savedTorrentsFromFile;
+
+  /// No description provided for @savedTorrentsFromLink.
+  ///
+  /// In en, this message translates to:
+  /// **'from a link'**
+  String get savedTorrentsFromLink;
+
+  /// No description provided for @savedTorrentsFileCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 file} other{{count} files}}'**
+  String savedTorrentsFileCount(int count);
+
+  /// No description provided for @savedTorrentsClearDraft.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove'**
+  String get savedTorrentsClearDraft;
 }
 
 class _AppLocalizationsDelegate

@@ -5,6 +5,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:iris/features/saved_torrents/data/repositories/shared_preferences_saved_torrents_repository.dart';
 import 'package:iris/features/saved_torrents/domain/repositories/saved_torrents_repository.dart';
 
+const _anime = '1535';
+const _other = '5114';
 const _hashA = '065c4691de84f964e143103b3bd0de17be5bfd0a';
 const _hashB = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
 const _magnetA = 'magnet:?xt=urn:btih:$_hashA&dn=Death%20Note';
@@ -22,6 +24,9 @@ void main() {
     );
   }
 
+  Future<SaveTorrentResult> add(String magnet, {String anime = _anime}) =>
+      repository.add(animeId: anime, magnet: magnet);
+
   setUp(() async {
     SharedPreferences.setMockInitialValues({});
     preferences = await SharedPreferences.getInstance();
@@ -31,105 +36,126 @@ void main() {
 
   tearDown(() => repository.close());
 
-  test('saves a magnet and names it after dn', () async {
-    final result = await repository.add(magnet: _magnetA);
+  test('adds a magnet to the anime and names it after dn', () async {
+    final result = await add(_magnetA);
 
     expect(result, isA<SaveTorrentAdded>());
-    final torrents = await repository.watchTorrents().first;
+    final torrents = await repository.watchTorrents(_anime).first;
+    expect(torrents.single.animeId, _anime);
     expect(torrents.single.infoHash, _hashA);
     expect(torrents.single.title, 'Death Note');
     expect(torrents.single.addedAt, now);
   });
 
-  test('prefers the user title and falls back to the hash', () async {
-    await repository.add(magnet: _magnetA, title: '  Тетрадь  ');
-    await repository.add(magnet: _magnetB, title: '   ');
+  test('a link without a name goes by its hash', () async {
+    await add(_magnetB);
 
-    final titles = {
-      for (final torrent in await repository.watchTorrents().first)
-        torrent.infoHash: torrent.title,
-    };
-    expect(titles, {_hashA: 'Тетрадь', _hashB: _hashB});
+    expect((await repository.watchTorrents(_anime).first).single.title, _hashB);
+  });
+
+  test('each anime has its own torrents, the same one in several', () async {
+    await add(_magnetA);
+    await add(_magnetB, anime: _other);
+
+    expect(
+      await add(_magnetA, anime: _other),
+      isA<SaveTorrentAdded>(),
+      reason: 'the user may add any torrent to any anime',
+    );
+    expect(
+      (await repository.watchTorrents(_anime).first).map((t) => t.infoHash),
+      [_hashA],
+    );
+    expect(
+      (await repository.watchTorrents(_other).first).map((t) => t.infoHash),
+      unorderedEquals([_hashA, _hashB]),
+    );
   });
 
   test('rejects invalid links and keeps nothing', () async {
-    final result = await repository.add(magnet: 'https://example.com');
+    final result = await add('https://example.com');
 
     expect(result, isA<SaveTorrentInvalidMagnet>());
-    expect(await repository.watchTorrents().first, isEmpty);
+    expect(await repository.watchTorrents(_anime).first, isEmpty);
   });
 
   test(
     'detects duplicates by info-hash regardless of trackers or case',
     () async {
-      await repository.add(magnet: _magnetA, title: 'First');
+      await add(_magnetA);
 
-      final result = await repository.add(
-        magnet: 'magnet:?xt=urn:btih:${_hashA.toUpperCase()}&tr=udp%3A%2F%2Fx',
-        title: 'Second',
+      final result = await add(
+        'magnet:?xt=urn:btih:${_hashA.toUpperCase()}&tr=udp%3A%2F%2Fx',
       );
 
       expect(result, isA<SaveTorrentDuplicate>());
-      expect((result as SaveTorrentDuplicate).existing.title, 'First');
-      expect(await repository.watchTorrents().first, hasLength(1));
+      expect((result as SaveTorrentDuplicate).existing.title, 'Death Note');
+      expect(await repository.watchTorrents(_anime).first, hasLength(1));
     },
   );
 
   test('lists the most recently used torrent first', () async {
-    await repository.add(magnet: _magnetA);
+    await add(_magnetA);
     now = now.add(const Duration(minutes: 1));
-    await repository.add(magnet: _magnetB);
-    expect((await repository.watchTorrents().first).map((t) => t.infoHash), [
-      _hashB,
-      _hashA,
-    ]);
+    await add(_magnetB);
+    var torrents = await repository.watchTorrents(_anime).first;
+    expect(torrents.map((t) => t.infoHash), [_hashB, _hashA]);
 
     now = now.add(const Duration(minutes: 1));
-    await repository.markOpened(infoHash: _hashA);
+    await repository.markOpened(torrents.last);
 
-    final torrents = await repository.watchTorrents().first;
+    torrents = await repository.watchTorrents(_anime).first;
     expect(torrents.map((t) => t.infoHash), [_hashA, _hashB]);
     expect(torrents.first.lastOpenedAt, now);
   });
 
   test('puts back a deleted torrent as it was', () async {
-    await repository.add(magnet: 'magnet:?xt=urn:btih:$_hashA', title: 'A');
-    final saved = (await repository.watchTorrents().first).single;
-    await repository.delete(infoHash: _hashA);
+    await add(_magnetA);
+    final saved = (await repository.watchTorrents(_anime).first).single;
+    await repository.delete(saved);
 
     await repository.restore(saved);
     await repository.restore(saved);
 
-    expect(await repository.watchTorrents().first, [saved]);
+    expect(await repository.watchTorrents(_anime).first, [saved]);
   });
 
   test('renames, ignores blank names and deletes', () async {
-    await repository.add(magnet: _magnetA);
+    await add(_magnetA);
+    await add(_magnetA, anime: _other);
+    final saved = (await repository.watchTorrents(_anime).first).single;
 
-    await repository.rename(infoHash: _hashA, title: 'Renamed');
-    await repository.rename(infoHash: _hashA, title: '  ');
-    expect((await repository.watchTorrents().first).single.title, 'Renamed');
+    await repository.rename(saved, 'Renamed');
+    await repository.rename(saved, '  ');
+    expect(
+      (await repository.watchTorrents(_anime).first).single.title,
+      'Renamed',
+    );
 
-    await repository.delete(infoHash: _hashA);
-    expect(await repository.watchTorrents().first, isEmpty);
+    await repository.delete(saved);
+    expect(await repository.watchTorrents(_anime).first, isEmpty);
+    expect(
+      (await repository.watchTorrents(_other).first).single.title,
+      'Death Note',
+      reason: 'the other anime keeps its copy',
+    );
   });
 
   test('persists across repository instances', () async {
-    await repository.add(magnet: _magnetA, title: 'Kept');
+    await add(_magnetA);
 
     final reopened = create();
     addTearDown(reopened.close);
 
-    final torrents = await reopened.watchTorrents().first;
-    expect(torrents.single.title, 'Kept');
+    final torrents = await reopened.watchTorrents(_anime).first;
     expect(torrents.single.magnet, _magnetA);
   });
 
-  test('emits changes to watchers', () async {
-    final emissions = repository.watchTorrents().take(2).toList();
+  test("emits changes to the anime's watchers", () async {
+    final emissions = repository.watchTorrents(_anime).take(2).toList();
     await Future<void>.delayed(Duration.zero);
 
-    await repository.add(magnet: _magnetA);
+    await add(_magnetA);
 
     final lists = await emissions;
     expect(lists.first, isEmpty);
@@ -138,15 +164,27 @@ void main() {
 
   test('survives corrupted storage and skips malformed entries', () async {
     await preferences.setString('saved_torrents.items', '{not json');
-    expect(await repository.watchTorrents().first, isEmpty);
+    expect(await repository.watchTorrents(_anime).first, isEmpty);
 
     await preferences.setString(
       'saved_torrents.items',
-      '[{"infoHash":"$_hashA","magnet":"$_magnetA","title":"Ok",'
-          '"addedAt":"2026-10-04T12:00:00.000Z"},{"oops":1}]',
+      '[{"animeId":"$_anime","infoHash":"$_hashA","magnet":"$_magnetA",'
+          '"title":"Ok","addedAt":"2026-10-04T12:00:00.000Z"},{"oops":1}]',
     );
-    final torrents = await repository.watchTorrents().first;
+    final torrents = await repository.watchTorrents(_anime).first;
     expect(torrents.single.title, 'Ok');
+  });
+
+  test('lets go of torrents saved before they belonged to an anime', () async {
+    await preferences.setString(
+      'saved_torrents.items',
+      '[{"infoHash":"$_hashA","magnet":"$_magnetA","title":"Old",'
+          '"addedAt":"2026-10-04T12:00:00.000Z"}]',
+    );
+
+    expect(await add(_magnetA), isA<SaveTorrentAdded>());
+    final stored = jsonDecode(preferences.getString('saved_torrents.items')!);
+    expect((stored as List).single['animeId'], _anime);
   });
 
   group('torrents saved before hex and base32 were unified', () {
@@ -155,6 +193,7 @@ void main() {
         'magnet:?xt=urn:btih:AZOENEO6QT4WJYKDCA5TXUG6C67FX7IK';
 
     Map<String, Object?> stored(String infoHash, String magnet, int day) => {
+      'animeId': _anime,
       'infoHash': infoHash,
       'magnet': magnet,
       'title': 'Saved $day',
@@ -173,16 +212,10 @@ void main() {
     test('read with the hex key, so the same magnet is a duplicate', () async {
       await storeRaw([stored(base32A, base32MagnetA, 1)]);
 
-      final torrents = await repository.watchTorrents().first;
+      final torrents = await repository.watchTorrents(_anime).first;
       expect(torrents.single.infoHash, _hashA);
-      expect(
-        await repository.add(magnet: base32MagnetA),
-        isA<SaveTorrentDuplicate>(),
-      );
-      expect(
-        await repository.add(magnet: _magnetA),
-        isA<SaveTorrentDuplicate>(),
-      );
+      expect(await add(base32MagnetA), isA<SaveTorrentDuplicate>());
+      expect(await add(_magnetA), isA<SaveTorrentDuplicate>());
     });
 
     test('both spellings of one torrent show once, the first added', () async {
@@ -191,7 +224,7 @@ void main() {
         stored(_hashA, _magnetA, 2),
       ]);
 
-      final torrents = await repository.watchTorrents().first;
+      final torrents = await repository.watchTorrents(_anime).first;
       expect(torrents.single.title, 'Saved 1');
     });
   });

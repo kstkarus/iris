@@ -211,6 +211,17 @@ class PixelGlyph {
     '..#.#..',
   ]);
 
+  /// A page with its corner folded: a file.
+  static const file = PixelGlyph._([
+    '#####..',
+    '#...##.',
+    '#....##',
+    '#.....#',
+    '#.....#',
+    '#.....#',
+    '#######',
+  ]);
+
   /// A small window in the corner of a large one.
   static const pictureInPicture = PixelGlyph._([
     '#######',

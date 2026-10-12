@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -9,7 +8,6 @@ import 'package:iris/entities/watch_progress/presentation/watch_progress_cubit.d
 import 'package:iris/entities/watch_progress/presentation/watch_progress_line.dart';
 import 'package:iris/features/saved_torrents/domain/entities/saved_torrent.dart';
 import 'package:iris/features/saved_torrents/presentation/cubit/saved_torrents_cubit.dart';
-import 'package:iris/features/saved_torrents/presentation/cubit/saved_torrents_state.dart';
 import 'package:iris/features/saved_torrents/presentation/widgets/saved_torrent_dialogs.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/torrent/torrent_key.dart';
@@ -18,163 +16,66 @@ import 'package:iris/shared/utils/duration_formatter.dart';
 import 'package:iris/shared/utils/episode_number.dart';
 import 'package:iris/shared/utils/file_display_name.dart';
 import 'package:iris/shared/widgets/adaptive/window_size_class.dart';
+import 'package:iris/shared/widgets/dither_list.dart';
 import 'package:iris/shared/widgets/focusable_list_row.dart';
 import 'package:iris/shared/widgets/pixel_icon.dart';
 import 'package:iris/shared/widgets/row_menu_button.dart';
 import 'package:iris/shared/widgets/segmented_bar.dart';
-import 'package:iris/shared/widgets/status_views.dart';
 
 /// Opens a torrent for watching; [autoOpenFileIndex] continues a file.
 typedef SavedTorrentWatchCallback =
     void Function(SavedTorrent torrent, {int? autoOpenFileIndex});
 
-/// The saved torrents as rows under one "add" action; with nothing saved
-/// the page is just the invitation to add, so the action is never shown
-/// twice.
-class SavedTorrentsView extends StatelessWidget {
-  const SavedTorrentsView({
-    required this.onAdd,
+/// The torrents the user added to an anime, most recently used first. Rows
+/// added or deleted while the list shows come and go cell by cell.
+class SavedTorrentsList extends StatelessWidget {
+  const SavedTorrentsList({
     required this.onWatch,
     required this.onDownload,
-    required this.addButtonKey,
     super.key,
   });
 
-  final VoidCallback onAdd;
-  final SavedTorrentWatchCallback onWatch;
-  final ValueChanged<SavedTorrent> onDownload;
-  final Key addButtonKey;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
-    return BlocBuilder<SavedTorrentsCubit, SavedTorrentsState>(
-      builder: (context, state) {
-        if (state.isLoading) {
-          return LoadingView(semanticsLabel: l10n.savedTorrentsLoading);
-        }
-        final addButton = FilledButton(
-          key: addButtonKey,
-          onPressed: onAdd,
-          child: Text(l10n.savedTorrentsAddButton),
-        );
-        final pasteHint = _pasteHint(context);
-        if (state.torrents.isEmpty) {
-          return MessageView(
-            title: l10n.savedTorrentsEmptyTitle,
-            message: l10n.savedTorrentsEmptyMessage,
-            action: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                addButton,
-                if (pasteHint != null) ...[
-                  const SizedBox(height: 16),
-                  Text(pasteHint, style: Theme.of(context).textTheme.bodySmall),
-                ],
-              ],
-            ),
-          );
-        }
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _Header(addButton: addButton, pasteHint: pasteHint),
-            const SizedBox(height: 16),
-            Expanded(
-              child: _TorrentList(
-                state: state,
-                onWatch: onWatch,
-                onDownload: onDownload,
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
-}
-
-/// The paste shortcut in the platform's own spelling, where there is a
-/// keyboard; null on phones.
-String? _pasteHint(BuildContext context) {
-  final shortcut = switch (defaultTargetPlatform) {
-    TargetPlatform.macOS => '⌘V',
-    TargetPlatform.windows || TargetPlatform.linux => 'Ctrl+V',
-    _ => null,
-  };
-  if (shortcut == null) return null;
-  return AppLocalizations.of(context).savedTorrentsPasteHint(shortcut);
-}
-
-/// The add action, with the paste shortcut beside it where there is one.
-class _Header extends StatelessWidget {
-  const _Header({required this.addButton, required this.pasteHint});
-
-  final Widget addButton;
-  final String? pasteHint;
-
-  @override
-  Widget build(BuildContext context) {
-    final pasteHint = this.pasteHint;
-    return Row(
-      children: [
-        Expanded(
-          child: pasteHint == null
-              ? const SizedBox.shrink()
-              : Text(pasteHint, style: Theme.of(context).textTheme.bodySmall),
-        ),
-        const SizedBox(width: 16),
-        addButton,
-      ],
-    );
-  }
-}
-
-class _TorrentList extends StatelessWidget {
-  const _TorrentList({
-    required this.state,
-    required this.onWatch,
-    required this.onDownload,
-  });
-
-  final SavedTorrentsState state;
   final SavedTorrentWatchCallback onWatch;
   final ValueChanged<SavedTorrent> onDownload;
 
   @override
   Widget build(BuildContext context) {
+    final state = context.watch<SavedTorrentsCubit>().state;
     final latestProgress = {
       for (final progress in latestPerTorrent(context.watchWatchProgress()))
         progress.torrentKey: progress,
     };
-    final torrents = state.torrents;
     return LayoutBuilder(
       builder: (context, constraints) {
         final wide = constraints.maxWidth >= WindowSizeClass.mediumMinWidth;
-        return ListView.separated(
+        return DitherList<SavedTorrent>(
           padding: const EdgeInsets.only(bottom: 24),
-          itemCount: torrents.length + 1,
-          separatorBuilder: (_, _) => const SegmentedRule(),
-          itemBuilder: (context, index) {
-            // A rule above the first row as well as between rows.
-            if (index == 0) return const SizedBox.shrink();
-            final torrent = torrents[index - 1];
+          items: state.torrents,
+          keyOf: (torrent) => torrent.infoHash,
+          itemBuilder: (context, torrent) {
             final progress =
                 latestProgress[torrentKeyFromMagnet(torrent.magnet)];
-            return _TorrentRow(
-              key: ValueKey(torrent.infoHash),
-              torrent: torrent,
-              progress: progress,
-              highlighted: torrent.infoHash == state.highlightedInfoHash,
-              wide: wide,
-              // A finished file opens the picker, which offers the next one.
-              onWatch: () => onWatch(
-                torrent,
-                autoOpenFileIndex: progress == null || progress.isFinished
-                    ? null
-                    : progress.fileIndex,
-              ),
-              onDownload: () => onDownload(torrent),
+            // The rule above each row goes with it.
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const SegmentedRule(),
+                _TorrentRow(
+                  torrent: torrent,
+                  progress: progress,
+                  highlighted: torrent.infoHash == state.highlightedInfoHash,
+                  wide: wide,
+                  // A finished file opens the picker, which offers the
+                  // next one.
+                  onWatch: () => onWatch(
+                    torrent,
+                    autoOpenFileIndex: progress == null || progress.isFinished
+                        ? null
+                        : progress.fileIndex,
+                  ),
+                  onDownload: () => onDownload(torrent),
+                ),
+              ],
             );
           },
         );
@@ -194,7 +95,6 @@ class _TorrentRow extends StatefulWidget {
     required this.wide,
     required this.onWatch,
     required this.onDownload,
-    super.key,
   });
 
   final SavedTorrent torrent;
@@ -406,7 +306,7 @@ class _RowMenu extends StatelessWidget {
           context: context,
           currentTitle: torrent.title,
         );
-        if (title != null) await cubit.rename(torrent.infoHash, title);
+        if (title != null) await cubit.rename(torrent, title);
       case _MenuAction.copyLink:
         await Clipboard.setData(ClipboardData(text: torrent.magnet));
         messenger.showSnackBar(
@@ -423,8 +323,7 @@ Future<void> _deleteWithUndo(BuildContext context, SavedTorrent torrent) async {
   final cubit = context.read<SavedTorrentsCubit>();
   final messenger = ScaffoldMessenger.of(context);
   final l10n = AppLocalizations.of(context);
-  final removed = await cubit.delete(torrent.infoHash);
-  if (removed == null) return;
+  await cubit.delete(torrent);
   messenger
     ..hideCurrentSnackBar()
     ..showSnackBar(
@@ -432,7 +331,7 @@ Future<void> _deleteWithUndo(BuildContext context, SavedTorrent torrent) async {
         content: Text(l10n.savedTorrentsDeleted),
         action: SnackBarAction(
           label: l10n.commonUndo,
-          onPressed: () => cubit.restore(removed),
+          onPressed: () => cubit.restore(torrent),
         ),
       ),
     );

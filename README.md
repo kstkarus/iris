@@ -8,7 +8,7 @@ The interface is in English and Russian. Online sources offer Russian dubs and s
 
 - **Catalog.** Popular titles, search, and filters by type, status, genre, season, rating and episode length. When signed in, covers show the title's status in your list.
 - **Title pages.** Details, description, dubs, related titles, characters with their own pages, and the Shikimori friends who have the title in their lists.
-- **Sources.** Online releases from AniLibria and yummy_anime, which serve them through several video hosts, and torrents from Nyaa through a public API mirror. Magnet links you add yourself are kept in the Torrents tab.
+- **Sources.** Online releases from AniLibria and yummy_anime, which serve them through several video hosts, and torrents from Nyaa through a public API mirror. You can add your own torrent to an anime, as a magnet link or a `.torrent` file.
 - **Player.** mpv through `media_kit`, with the same full-screen controls on every platform:
   - audio and subtitle tracks, subtitle styling, playback speed and decoder choice;
   - a timeline divided by the file's chapters or by the opening and ending;

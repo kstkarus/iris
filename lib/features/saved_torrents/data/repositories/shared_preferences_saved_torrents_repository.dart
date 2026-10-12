@@ -30,30 +30,31 @@ class SharedPreferencesSavedTorrentsRepository
       StreamController<List<SavedTorrent>>.broadcast();
 
   @override
-  Stream<List<SavedTorrent>> watchTorrents() async* {
-    yield _sorted(_read());
-    yield* _changes.stream;
+  Stream<List<SavedTorrent>> watchTorrents(String animeId) async* {
+    yield _of(animeId, _read());
+    yield* _changes.stream.map((torrents) => _of(animeId, torrents));
   }
 
   @override
-  Future<SaveTorrentResult> add({required String magnet, String? title}) async {
+  Future<SaveTorrentResult> add({
+    required String animeId,
+    required String magnet,
+  }) async {
     final link = MagnetLink.tryParse(magnet);
     if (link == null) return const SaveTorrentInvalidMagnet();
 
     final torrents = _read();
     for (final existing in torrents) {
-      if (existing.infoHash == link.infoHash) {
+      if (_same(existing, animeId, link.infoHash)) {
         return SaveTorrentDuplicate(existing);
       }
     }
 
-    final trimmedTitle = title?.trim() ?? '';
     final torrent = SavedTorrent(
+      animeId: animeId,
       infoHash: link.infoHash,
       magnet: link.uri,
-      title: trimmedTitle.isNotEmpty
-          ? trimmedTitle
-          : link.displayName ?? link.infoHash,
+      title: link.displayName ?? link.infoHash,
       addedAt: _now(),
     );
     await _write([...torrents, torrent]);
@@ -61,26 +62,24 @@ class SharedPreferencesSavedTorrentsRepository
   }
 
   @override
-  Future<void> rename({required String infoHash, required String title}) {
+  Future<void> rename(SavedTorrent torrent, String title) {
     final trimmed = title.trim();
     if (trimmed.isEmpty) return Future<void>.value();
-    return _update(infoHash, (torrent) => torrent.copyWith(title: trimmed));
+    return _update(torrent, (saved) => saved.copyWith(title: trimmed));
   }
 
   @override
-  Future<void> markOpened({required String infoHash}) {
-    return _update(
-      infoHash,
-      (torrent) => torrent.copyWith(lastOpenedAt: _now()),
-    );
+  Future<void> markOpened(SavedTorrent torrent) {
+    return _update(torrent, (saved) => saved.copyWith(lastOpenedAt: _now()));
   }
 
   @override
-  Future<void> delete({required String infoHash}) async {
+  Future<void> delete(SavedTorrent torrent) async {
     final torrents = _read();
-    final remaining = torrents
-        .where((torrent) => torrent.infoHash != infoHash)
-        .toList();
+    final remaining = [
+      for (final saved in torrents)
+        if (!_same(saved, torrent.animeId, torrent.infoHash)) saved,
+    ];
     if (remaining.length == torrents.length) return;
     await _write(remaining);
   }
@@ -88,38 +87,52 @@ class SharedPreferencesSavedTorrentsRepository
   @override
   Future<void> restore(SavedTorrent torrent) async {
     final torrents = _read();
-    if (torrents.any((saved) => saved.infoHash == torrent.infoHash)) return;
+    if (torrents.any(
+      (saved) => _same(saved, torrent.animeId, torrent.infoHash),
+    )) {
+      return;
+    }
     await _write([...torrents, torrent]);
   }
 
   Future<void> close() => _changes.close();
 
   Future<void> _update(
-    String infoHash,
-    SavedTorrent Function(SavedTorrent torrent) change,
+    SavedTorrent torrent,
+    SavedTorrent Function(SavedTorrent saved) change,
   ) async {
     final torrents = _read();
     final index = torrents.indexWhere(
-      (torrent) => torrent.infoHash == infoHash,
+      (saved) => _same(saved, torrent.animeId, torrent.infoHash),
     );
     if (index < 0) return;
     torrents[index] = change(torrents[index]);
     await _write(torrents);
   }
 
+  static bool _same(SavedTorrent torrent, String animeId, String infoHash) =>
+      torrent.animeId == animeId && torrent.infoHash == infoHash;
+
   List<SavedTorrent> _read() {
     // Both spellings of one info-hash may have been saved before they were
     // unified; the one added first stands.
-    final seen = <String>{};
+    final seen = <(String, String)>{};
     return [
       for (final torrent in _storage.read())
-        if (seen.add(torrent.infoHash)) torrent,
+        if (seen.add((torrent.animeId, torrent.infoHash))) torrent,
     ];
   }
 
   Future<void> _write(List<SavedTorrent> torrents) async {
     await _storage.write(torrents);
-    if (!_changes.isClosed) _changes.add(_sorted(torrents));
+    if (!_changes.isClosed) _changes.add(torrents);
+  }
+
+  List<SavedTorrent> _of(String animeId, List<SavedTorrent> torrents) {
+    return _sorted([
+      for (final torrent in torrents)
+        if (torrent.animeId == animeId) torrent,
+    ]);
   }
 
   List<SavedTorrent> _sorted(List<SavedTorrent> torrents) {

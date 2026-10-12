@@ -280,18 +280,13 @@
   "invalidRouteArgumentsMessage": "This screen was opened with invalid navigation data.",
   "playerPlayButton": "Play",
   "playerPauseButton": "Pause",
-  "navigationSavedTorrents": "Torrents",
   "savedTorrentsAddButton": "Add torrent",
-  "savedTorrentsEmptyTitle": "No saved torrents yet",
-  "savedTorrentsEmptyMessage": "Add one by its magnet link to stream or download it. Added torrents stay here.",
   "savedTorrentsAddTitle": "Add torrent",
   "savedTorrentsMagnetLabel": "Magnet link",
   "savedTorrentsPasteTooltip": "Paste from clipboard",
   "savedTorrentsNameLabel": "Name",
-  "savedTorrentsNameHelper": "Taken from the link if left empty",
   "savedTorrentsInvalidMagnet": "Not a magnet link with a torrent hash (xt=urn:btih:…).",
   "savedTorrentsSaveButton": "Save",
-  "savedTorrentsAdded": "Torrent added",
   "savedTorrentsDuplicate": "Already added as “{title}”",
   "@savedTorrentsDuplicate": {
     "placeholders": {
@@ -325,7 +320,6 @@
   "downloadStorageCacheCleared": "Cache cleared",
   "downloadStorageCacheBusy": "The cache is in use while a video is playing",
   "downloadsLoading": "Loading downloaded files...",
-  "savedTorrentsLoading": "Loading saved torrents...",
   "downloadDeleteFailed": "Unable to delete the files. Close the file if it is open and try again",
   "playerResumedFrom": "Resumed from {position}",
   "@playerResumedFrom": {
@@ -567,7 +561,6 @@
   "watchSourcesColumnSeeders": "Seeders",
   "watchSourcesColumnDownloads": "Downloads",
   "watchSourcesColumnDate": "Date",
-  "savedTorrentsPasteHint": "{shortcut} adds a torrent from the clipboard",
   "downloadsFilesTitle": "Files",
   "commonShowMore": "{count} more",
   "@commonShowMore": {
@@ -819,14 +812,6 @@
       }
     }
   },
-  "@savedTorrentsPasteHint": {
-    "placeholders": {
-      "shortcut": {
-        "type": "String",
-        "example": "Ctrl+V"
-      }
-    }
-  },
   "commonBrowseCatalog": "Browse the catalog",
   "savedTorrentsAddConfirm": "Add",
   "savedTorrentsDeleted": "Torrent deleted",
@@ -901,5 +886,29 @@
         "type": "String"
       }
     }
-  }
+  },
+  "watchSourcesMineSection": "Mine",
+  "watchSourcesAddOwnTorrent": "Add your own torrent",
+  "savedTorrentsAddWithShortcut": "Add torrent ({shortcut})",
+  "@savedTorrentsAddWithShortcut": {
+    "placeholders": {
+      "shortcut": {
+        "type": "String"
+      }
+    }
+  },
+  "savedTorrentsOr": "or",
+  "savedTorrentsChooseFile": "Choose a .torrent file",
+  "savedTorrentsNotTorrentFile": "This file is not a torrent.",
+  "savedTorrentsFromFile": "from a file",
+  "savedTorrentsFromLink": "from a link",
+  "savedTorrentsFileCount": "{count, plural, =1{1 file} other{{count} files}}",
+  "@savedTorrentsFileCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "savedTorrentsClearDraft": "Remove"
 }
