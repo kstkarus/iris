@@ -63,24 +63,36 @@ jobs:
             cp config/shikimori.example.json config/shikimori.json
           fi
       - run: flutter pub get
-      - name: Build APK
+      - name: Build APKs
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
-          flutter build apk --release \
-            --build-name="$VERSION" \
-            --build-number="${{ github.run_number }}" \
-            --dart-define-from-file=config/shikimori.json
+          ARGS=(--release --build-name="$VERSION"
+                --build-number="${{ github.run_number }}"
+                --dart-define-from-file=config/shikimori.json)
           mkdir -p dist
-          cp build/app/outputs/flutter-apk/app-release.apk "dist/iris-$VERSION-android.apk"
-      - name: Check the signature
+          # An APK per ABI, so a device fetches only its own, and a universal
+          # one for whoever does not know which they need. All four share a
+          # version code, so any of them installs over another.
+          flutter build apk "${ARGS[@]}"
+          cp build/app/outputs/flutter-apk/app-release.apk \
+            "dist/iris-$VERSION-android-universal.apk"
+          flutter build apk "${ARGS[@]}" --split-per-abi \
+            -P force-version-code-ignoring-abi=true
+          for ABI in arm64-v8a armeabi-v7a x86_64; do
+            cp "build/app/outputs/flutter-apk/app-$ABI-release.apk" \
+              "dist/iris-$VERSION-android-$ABI.apk"
+          done
+      - name: Check the signatures
         run: |
           BUILD_TOOLS=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
-          CERTS=$("$BUILD_TOOLS/apksigner" verify --print-certs dist/*.apk)
-          echo "$CERTS"
-          if ! grep -q "SHA-256 digest: $ANDROID_CERT_SHA256" <<< "$CERTS"; then
-            echo "::error::The APK is not signed with the key of the installed builds."
-            exit 1
-          fi
+          for APK in dist/*.apk; do
+            CERTS=$("$BUILD_TOOLS/apksigner" verify --print-certs "$APK")
+            echo "$APK: $CERTS"
+            if ! grep -q "SHA-256 digest: $ANDROID_CERT_SHA256" <<< "$CERTS"; then
+              echo "::error::$APK is not signed with the key of the installed builds."
+              exit 1
+            fi
+          done
       - uses: actions/upload-artifact@v4
         with:
           name: android
@@ -138,7 +150,13 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$GITHUB_REF_NAME" dist/* \
+          # The arm64 APK goes up first: builds before 1.1.1 take a
+          # release's first APK as theirs.
+          gh release create "$GITHUB_REF_NAME" dist/*-android-arm64-v8a.apk \
             --repo "$GITHUB_REPOSITORY" \
             --title "$GITHUB_REF_NAME" \
             --generate-notes
+          for FILE in dist/*; do
+            case "$FILE" in *-android-arm64-v8a.apk) continue ;; esac
+            gh release upload "$GITHUB_REF_NAME" "$FILE" --repo "$GITHUB_REPOSITORY"
+          done

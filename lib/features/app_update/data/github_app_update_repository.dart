@@ -1,3 +1,5 @@
+import 'dart:ffi' show Abi;
+
 import 'package:dio/dio.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -15,22 +17,27 @@ abstract final class AppReleasesApi {
   static const latestPath = '/repos/kstkarus/iris/releases/latest';
 }
 
-/// The platforms a release carries a build for, and how its file is named
-/// by the release workflow.
-enum AppBuildPlatform {
-  /// `iris-1.2.3-android.apk`
-  android,
+/// Which file of a release is this build's, by the name the release
+/// workflow gives it.
+final class AppBuildTarget {
+  /// `iris-1.2.3-android-arm64-v8a.apk`: the APK for one ABI. A build
+  /// installed from the universal APK is offered its own ABI's next time.
+  AppBuildTarget.android(String abi) : _suffix = '-android-$abi.apk';
 
   /// `iris-1.2.3-windows-x64.zip`
-  windows;
+  const AppBuildTarget.windows() : _suffix = '-windows-x64.zip';
 
-  bool matches(String assetName) {
-    final name = assetName.toLowerCase();
-    return switch (this) {
-      android => name.endsWith('.apk'),
-      windows => name.contains('windows') && name.endsWith('.zip'),
-    };
-  }
+  final String _suffix;
+
+  bool matches(String assetName) => assetName.toLowerCase().endsWith(_suffix);
+
+  /// The ABI as a release's APK names it, or null for one it has no APK for.
+  static String? androidAbiName(Abi abi) => switch (abi) {
+    Abi.androidArm64 => 'arm64-v8a',
+    Abi.androidArm => 'armeabi-v7a',
+    Abi.androidX64 => 'x86_64',
+    _ => null,
+  };
 }
 
 /// Reads the latest GitHub release. GitHub leaves drafts and pre-releases
@@ -39,18 +46,18 @@ class GitHubAppUpdateRepository implements AppUpdateRepository {
   GitHubAppUpdateRepository({
     required Dio dio,
     required SharedPreferences preferences,
-    required AppBuildPlatform platform,
+    required AppBuildTarget target,
     Future<String> Function()? installed,
   }) : _dio = dio,
        _preferences = preferences,
-       _platform = platform,
+       _target = target,
        _installed = installed ?? _packageVersion;
 
   static const _dismissedKey = 'app_update.dismissed';
 
   final Dio _dio;
   final SharedPreferences _preferences;
-  final AppBuildPlatform _platform;
+  final AppBuildTarget _target;
   final Future<String> Function() _installed;
 
   @override
@@ -78,7 +85,7 @@ class GitHubAppUpdateRepository implements AppUpdateRepository {
       final url = Uri.tryParse(jsonString(fields['browser_download_url']));
       if (url != null &&
           url.hasScheme &&
-          _platform.matches(jsonString(fields['name']))) {
+          _target.matches(jsonString(fields['name']))) {
         return AppRelease(version: version, downloadUrl: url);
       }
     }

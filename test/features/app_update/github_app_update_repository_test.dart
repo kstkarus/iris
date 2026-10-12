@@ -1,3 +1,5 @@
+import 'dart:ffi' show Abi;
+
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -8,17 +10,19 @@ import 'package:iris/features/app_update/domain/entities/app_version.dart';
 
 import '../../helpers/fake_http_adapter.dart';
 
-const _release = {
+final _release = {
   'tag_name': 'v1.3.0',
   'assets': [
     {
       'name': 'iris-1.3.0-windows-x64.zip',
       'browser_download_url': 'https://example.org/iris-1.3.0-windows-x64.zip',
     },
-    {
-      'name': 'iris-1.3.0-android.apk',
-      'browser_download_url': 'https://example.org/iris-1.3.0-android.apk',
-    },
+    for (final abi in ['arm64-v8a', 'armeabi-v7a', 'universal', 'x86_64'])
+      {
+        'name': 'iris-1.3.0-android-$abi.apk',
+        'browser_download_url':
+            'https://example.org/iris-1.3.0-android-$abi.apk',
+      },
   ],
 };
 
@@ -27,7 +31,7 @@ void main() {
 
   Future<GitHubAppUpdateRepository> repository(
     FakeReply reply, {
-    AppBuildPlatform platform = AppBuildPlatform.android,
+    AppBuildTarget? target,
   }) async {
     SharedPreferences.setMockInitialValues({});
     adapter = FakeHttpAdapter((_) => reply);
@@ -35,30 +39,64 @@ void main() {
       dio: Dio(BaseOptions(baseUrl: AppReleasesApi.baseUrl))
         ..httpClientAdapter = adapter,
       preferences: await SharedPreferences.getInstance(),
-      platform: platform,
+      target: target ?? AppBuildTarget.android('arm64-v8a'),
       installed: () async => '1.2.0',
     );
   }
 
   test('offers the build for this platform from the latest release', () async {
-    final android = await repository(const FakeReply(200, _release));
+    final android = await repository(FakeReply(200, _release));
     expect(
       await android.latestRelease(),
       AppRelease(
         version: const AppVersion(1, 3, 0),
-        downloadUrl: Uri.parse('https://example.org/iris-1.3.0-android.apk'),
+        downloadUrl: Uri.parse(
+          'https://example.org/iris-1.3.0-android-arm64-v8a.apk',
+        ),
       ),
     );
     expect(adapter.requests.single.path, AppReleasesApi.latestPath);
 
+    final arm = await repository(
+      FakeReply(200, _release),
+      target: AppBuildTarget.android('armeabi-v7a'),
+    );
+    expect(
+      (await arm.latestRelease())?.downloadUrl.path,
+      '/iris-1.3.0-android-armeabi-v7a.apk',
+    );
+
     final windows = await repository(
-      const FakeReply(200, _release),
-      platform: AppBuildPlatform.windows,
+      FakeReply(200, _release),
+      target: const AppBuildTarget.windows(),
     );
     expect(
       (await windows.latestRelease())?.downloadUrl.path,
       '/iris-1.3.0-windows-x64.zip',
     );
+  });
+
+  test('names the APK of the ABI the app runs as', () {
+    expect(AppBuildTarget.androidAbiName(Abi.androidArm64), 'arm64-v8a');
+    expect(AppBuildTarget.androidAbiName(Abi.androidArm), 'armeabi-v7a');
+    expect(AppBuildTarget.androidAbiName(Abi.androidX64), 'x86_64');
+    expect(AppBuildTarget.androidAbiName(Abi.androidIA32), isNull);
+  });
+
+  test('a release from before the APKs per ABI is no update', () async {
+    final old = await repository(
+      const FakeReply(200, {
+        'tag_name': 'v1.1.0',
+        'assets': [
+          {
+            'name': 'iris-1.1.0-android.apk',
+            'browser_download_url':
+                'https://example.org/iris-1.1.0-android.apk',
+          },
+        ],
+      }),
+    );
+    expect(await old.latestRelease(), isNull);
   });
 
   test('nothing published, or no build here, is no update', () async {
@@ -72,7 +110,7 @@ void main() {
   });
 
   test('reads the running version and keeps the one put off', () async {
-    final updates = await repository(const FakeReply(200, _release));
+    final updates = await repository(FakeReply(200, _release));
 
     expect(await updates.installedVersion(), const AppVersion(1, 2, 0));
     expect(updates.dismissedVersion, isNull);

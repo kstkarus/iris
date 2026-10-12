@@ -34,7 +34,7 @@ How each of these behaves in detail, and which services it asks, is in [docs/beh
 
 Builds are on the [Releases](https://github.com/kstkarus/iris/releases) page:
 
-- **Android:** `iris-X.Y.Z-android.apk`. Later versions install over it, and the app says when one is out.
+- **Android:** `iris-X.Y.Z-android-arm64-v8a.apk` fits almost every phone. `armeabi-v7a` is for old 32-bit phones, `x86_64` for emulators and Chromebooks, and `universal` (about twice the size) runs on all of them. Later versions install over any of these, and the app says when one is out, offering the APK for its own processor.
 - **Windows:** `iris-X.Y.Z-windows-x64.zip`. Unpack it anywhere and run `iris.exe`. To update, unpack the new archive over the old folder.
 - **iOS:** there is no side-loaded build; build it from source.
 
@@ -66,7 +66,7 @@ The screenshots above are rendered by `flutter test .design/readme_screens_test.
 
 ## Releases
 
-Pushing a tag `vX.Y.Z` runs `.github/workflows/release.yml`. It builds the APK and the Windows archive, with the tag as the version name and the run number as the build number, and publishes them as a GitHub release:
+Pushing a tag `vX.Y.Z` runs `.github/workflows/release.yml`. It builds the APKs (one per ABI and a universal one) and the Windows archive, with the tag as the version name and the run number as the build number, and publishes them as a GitHub release:
 
 ```bash
 git tag v1.1.0

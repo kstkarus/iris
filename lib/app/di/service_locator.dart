@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ffi' show Abi;
 import 'dart:io';
 
 import 'package:dio/dio.dart';
@@ -314,18 +315,12 @@ Future<void> _registerReal() async {
       ),
     )
     ..registerLazySingleton<AppUpdateRepository>(() {
-      final platform = kIsWeb
-          ? null
-          : switch (defaultTargetPlatform) {
-              TargetPlatform.android => AppBuildPlatform.android,
-              TargetPlatform.windows => AppBuildPlatform.windows,
-              _ => null,
-            };
-      if (platform == null) return const NoAppUpdateRepository();
+      final target = kIsWeb ? null : _appBuildTarget();
+      if (target == null) return const NoAppUpdateRepository();
       return GitHubAppUpdateRepository(
         dio: createJsonApiDio(baseUrl: AppReleasesApi.baseUrl),
         preferences: serviceLocator<SharedPreferences>(),
-        platform: platform,
+        target: target,
       );
     })
     ..registerLazySingleton<CharactersRepository>(
@@ -561,4 +556,18 @@ void _registerCommon() {
     ..registerFactory<AnimeSearchBloc>(
       () => AnimeSearchBloc(repository: serviceLocator<AnimeListRepository>()),
     );
+}
+
+/// The release file this build updates from, or null where releases carry
+/// none (iOS, an ABI without an APK).
+AppBuildTarget? _appBuildTarget() {
+  switch (defaultTargetPlatform) {
+    case TargetPlatform.android:
+      final abi = AppBuildTarget.androidAbiName(Abi.current());
+      return abi == null ? null : AppBuildTarget.android(abi);
+    case TargetPlatform.windows:
+      return const AppBuildTarget.windows();
+    default:
+      return null;
+  }
 }
