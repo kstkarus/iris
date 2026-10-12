@@ -4,7 +4,7 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <application
-        android:label="iris"
+        android:label="${appLabel}"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity
@@ -29,7 +29,7 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
-        <!-- Takes Shikimori's sign-in redirect (iris://oauth/callback). -->
+        <!-- Takes Shikimori's sign-in redirect (iris://oauth/callback, iris-dev:// in debug builds). -->
         <activity
             android:name="com.linusu.flutter_web_auth_2.CallbackActivity"
             android:exported="true"
@@ -38,7 +38,7 @@
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="iris" />
+                <data android:scheme="${authScheme}" />
             </intent-filter>
         </activity>
         <service

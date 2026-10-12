@@ -48,7 +48,9 @@ flutter run --dart-define-from-file=config/shikimori.json
 flutter run -d windows --dart-define-from-file=config/shikimori.json
 ```
 
-Shikimori sign-in needs the OAuth application's id and secret, which stay out of git. Copy `config/shikimori.example.json` to `config/shikimori.json` (ignored) and fill it in from https://shikimori.io/oauth/applications. The application must list `iris://oauth/callback` and `http://127.0.0.1:43821/oauth/callback` as redirect URIs and allow the `user_rates` scope. Without the file the app still builds and runs, and the Profile tab says sign-in is not set up. The secret ends up inside the built app, where it can be read out; that is accepted for an app shared among friends.
+Shikimori sign-in needs the OAuth application's id and secret, which stay out of git. Copy `config/shikimori.example.json` to `config/shikimori.json` (ignored) and fill it in from https://shikimori.io/oauth/applications. The application must list `iris://oauth/callback`, `iris-dev://oauth/callback` and `http://127.0.0.1:43821/oauth/callback` as redirect URIs and allow the `user_rates` scope. Without the file the app still builds and runs, and the Profile tab says sign-in is not set up. The secret ends up inside the built app, where it can be read out; that is accepted for an app shared among friends.
+
+On Android, `flutter run` (a debug build) installs a separate app, "iris dev" (`com.kstkarus.iris.iris.dev`), beside the release from the Releases page. It has its own data and signs in through `iris-dev://`, so a local build never replaces a newer release or wipes its watch progress and session.
 
 Before calling a change done:
 

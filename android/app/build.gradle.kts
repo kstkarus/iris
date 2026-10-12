@@ -28,9 +28,20 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        manifestPlaceholders["appLabel"] = "iris"
+        manifestPlaceholders["authScheme"] = "iris"
     }
 
     buildTypes {
+        // `flutter run` builds: an app of their own beside the installed
+        // release, so a local build (version code 1) never replaces a newer
+        // release and takes its data with it. Its own name and sign-in link,
+        // or both apps would answer Shikimori's redirect.
+        debug {
+            applicationIdSuffix = ".dev"
+            manifestPlaceholders["appLabel"] = "iris dev"
+            manifestPlaceholders["authScheme"] = "iris-dev"
+        }
         release {
             // TODO: Add your own signing config for the release build.
             // Signing with the debug keys for now, so `flutter run --release` works.

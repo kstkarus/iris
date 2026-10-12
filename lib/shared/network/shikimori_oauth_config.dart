@@ -22,6 +22,10 @@ class ShikimoriOAuthConfig {
   /// Phones: the system opens the app on this link.
   static const appRedirectUri = 'iris://oauth/callback';
 
+  /// Android debug builds, a separate app beside the release with a link
+  /// of its own (`android/app/build.gradle.kts`).
+  static const devAppRedirectUri = 'iris-dev://oauth/callback';
+
   /// Desktop: the system browser comes back to a server the app runs on
   /// this port. Shikimori compares redirects exactly, so the port is fixed.
   static const loopbackRedirectUri = 'http://127.0.0.1:43821/oauth/callback';

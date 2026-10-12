@@ -163,6 +163,8 @@ void _registerNetwork() {
       ShikimoriOAuthConfig.fromEnvironment(
         redirectUri: loopback
             ? ShikimoriOAuthConfig.loopbackRedirectUri
+            : kDebugMode && defaultTargetPlatform == TargetPlatform.android
+            ? ShikimoriOAuthConfig.devAppRedirectUri
             : ShikimoriOAuthConfig.appRedirectUri,
       ),
     )
