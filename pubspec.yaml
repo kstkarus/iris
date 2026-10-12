@@ -99,6 +99,10 @@ flutter:
         - asset: assets/fonts/Geist-Regular.ttf
         - asset: assets/fonts/Geist-Medium.ttf
           weight: 500
+    # Also libass's subtitle font; the same file, bundled once.
+    - family: Noto Sans CJK JP
+      fonts:
+        - asset: assets/fonts/NotoSansCJKjp-Regular.otf
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

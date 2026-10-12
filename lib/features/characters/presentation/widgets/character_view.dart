@@ -9,6 +9,7 @@ import 'package:iris/features/characters/presentation/character_names.dart';
 import 'package:iris/features/characters/presentation/cubit/character_cubit.dart';
 import 'package:iris/features/characters/presentation/cubit/character_state.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
+import 'package:iris/shared/theme/cjk_font.dart';
 import 'package:iris/shared/utils/anime_metadata_formatter.dart';
 import 'package:iris/shared/utils/incomplete_date.dart';
 import 'package:iris/shared/widgets/adaptive/adaptive_content_width.dart';
@@ -275,7 +276,10 @@ class _Names extends StatelessWidget {
               name,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.bodyMedium?.copyWith(color: muted),
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: muted,
+                fontFamilyFallback: cjkFontFallback,
+              ),
             ),
           ),
       ],
