@@ -1,6 +1,6 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/semantics.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:iris/features/player/domain/entities/player_skip_segment.dart';
@@ -158,6 +158,40 @@ void main() {
     );
 
     semantics.dispose();
+  });
+
+  testWidgets('the time is measured in the font the theme draws it in', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _app(
+        // A theme font wider than the engine's default.
+        DefaultTextStyle(
+          style: const TextStyle(letterSpacing: 6),
+          child: _bar(
+            position: const Duration(minutes: 1),
+            onSeek: (_) {},
+            parts: _parts,
+          ),
+        ),
+      ),
+    );
+    final bar = tester.getRect(find.byKey(const Key('player_seek_bar')));
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    addTearDown(mouse.removePointer);
+    await mouse.addPointer(location: Offset.zero);
+    await mouse.moveTo(Offset(bar.center.dx, bar.bottom - 20));
+    await tester.pump();
+
+    final label = tester.renderObject<RenderParagraph>(
+      find.byKey(const Key('player_seek_bar_time')),
+    );
+    expect(
+      label.getMaxIntrinsicWidth(double.infinity),
+      lessThanOrEqualTo(label.size.width),
+      reason: 'the whole time fits its box',
+    );
+    expect(label.size.height, lessThan(2 * 15), reason: 'one line');
   });
 
   testWidgets('cuts that arrive run in from the left', (tester) async {

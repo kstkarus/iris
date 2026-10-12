@@ -7,6 +7,7 @@ Notable changes to iris, newest first. The format follows [Keep a Changelog](htt
 ### Fixed
 
 - The halftone cover on a title's page keeps the same detail at any size. On phones it was much coarser than on a desktop.
+- The time above the player's timeline no longer breaks onto a second line on Android, where it was measured in the wrong font.
 
 ## [1.2.0] - 2026-10-12
 

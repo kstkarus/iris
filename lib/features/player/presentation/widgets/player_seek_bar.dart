@@ -329,8 +329,10 @@ class _PlayerSeekBarState extends State<PlayerSeekBar>
     required String text,
     Key? key,
   }) {
+    // Measured in the style it is drawn in: the theme brings the font.
+    final style = DefaultTextStyle.of(context).style.merge(playerTimeStyle);
     final painter = TextPainter(
-      text: TextSpan(text: text, style: playerTimeStyle),
+      text: TextSpan(text: text, style: style),
       textDirection: Directionality.of(context),
       textScaler: MediaQuery.textScalerOf(context),
       maxLines: 1,
@@ -352,6 +354,9 @@ class _PlayerSeekBarState extends State<PlayerSeekBar>
           key: key,
           textAlign: TextAlign.center,
           style: playerTimeStyle,
+          maxLines: 1,
+          softWrap: false,
+          overflow: TextOverflow.visible,
         ),
       ),
     );
