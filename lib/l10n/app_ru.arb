@@ -415,6 +415,10 @@
   "downloadFailedNoAccess": "Приложению нельзя писать в папку загрузок.",
   "downloadFailedFileMissing": "Файл пропал с устройства. Повторите, чтобы скачать заново.",
   "downloadFailedCouldNotStart": "Загрузка не началась. Проверьте интернет и повторите.",
+  "downloadSelectionEpisodeTitle": "Скачать серию",
+  "downloadSelectionPreparingEpisodes": "Получаем список серий...",
+  "downloadFailedConnectionLost": "Сервер с видео перестал отвечать. Повторите — загрузка продолжится с того же места.",
+  "downloadFailedNotDownloadable": "Эту озвучку не скачать, её можно только смотреть онлайн.",
   "downloadDeleteProgressLost": "Уже скачанные {size} пропадут.",
   "downloadAnnounceCompleted": "Скачано: {name}",
   "downloadAnnounceFailed": "Ошибка загрузки: {name}"

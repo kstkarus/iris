@@ -1,5 +1,6 @@
 import 'package:iris/features/downloads/domain/entities/download_failure.dart';
 import 'package:iris/features/downloads/domain/entities/download_status.dart';
+import 'package:iris/shared/online/online_source_link.dart';
 
 const _notProvided = Object();
 
@@ -28,6 +29,9 @@ class DownloadItem {
   final String animeId;
   final String animeTitle;
   final String sourceTitle;
+
+  /// The torrent, or an online release's [OnlineSourceLink], whose file
+  /// [fileIndex] (an episode, for a release) this is.
   final String magnet;
   final int fileIndex;
   final String fileName;
@@ -46,6 +50,10 @@ class DownloadItem {
   double get progress => totalBytes <= 0
       ? 0
       : (downloadedBytes / totalBytes).clamp(0.0, 1.0).toDouble();
+
+  /// An episode loaded from a video server rather than a torrent: it has
+  /// no peers, and its size is an estimate until it is done.
+  bool get isOnline => OnlineSourceLink.tryParse(magnet) != null;
 
   /// Why a failed download stopped; null for any other status.
   DownloadFailure? get failure => status == DownloadStatus.failed

@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:iris/entities/watch_progress/presentation/watch_progress_cubit.dart';
+import 'package:iris/features/downloads/presentation/models/download_selection_args.dart';
 import 'package:iris/features/online_sources/domain/entities/online_provider.dart';
 import 'package:iris/features/online_sources/domain/entities/online_release.dart';
 import 'package:iris/features/online_sources/presentation/cubit/online_releases_cubit.dart';
@@ -14,6 +15,7 @@ import 'package:iris/shared/utils/watched_first.dart';
 import 'package:iris/shared/widgets/adaptive/adaptive_grid_row.dart';
 import 'package:iris/shared/widgets/app_skeleton.dart';
 import 'package:iris/shared/widgets/dither_switcher.dart';
+import 'package:iris/shared/widgets/pixel_icon.dart';
 import 'package:iris/shared/widgets/segmented_bar.dart';
 import 'package:iris/shared/widgets/source_facts_line.dart';
 import 'package:iris/shared/widgets/status_views.dart';
@@ -21,7 +23,8 @@ import 'package:iris/shared/widgets/tap_row.dart';
 
 /// The anime's releases on video servers, one row per dub, the dubs the
 /// user watched from first. A row opens the release's episodes in the
-/// file picker, as a torrent row opens its files.
+/// file picker, and its download button in the download picker, as a
+/// torrent row does.
 ///
 /// Rows come as the servers answer: each answer develops the list anew out
 /// of the last one, and while a server is still searching a noise row
@@ -99,6 +102,7 @@ class OnlineReleasesList extends StatelessWidget {
               release: ordered[index],
               watched: watched(ordered[index]),
               onTap: () => _open(context, ordered[index]),
+              onDownload: () => _download(context, ordered[index]),
             )
           else
             const _StandInRow(),
@@ -152,6 +156,18 @@ class OnlineReleasesList extends StatelessWidget {
       ),
     );
   }
+
+  void _download(BuildContext context, OnlineRelease release) {
+    context.pushNamed(
+      'torrent-download-files',
+      extra: DownloadSelectionArgs(
+        animeId: animeId,
+        animeTitle: animeTitle,
+        sourceTitle: release.dub,
+        magnet: _link(release),
+      ),
+    );
+  }
 }
 
 /// A row's shape in noise while a server is still searching.
@@ -171,7 +187,12 @@ class _StandInRow extends StatelessWidget {
     return AppSkeleton(
       enabled: true,
       semanticLabel: AppLocalizations.of(context).watchSourcesOnlineLoading,
-      child: _ReleaseRow(release: _standIn, watched: false, onTap: () {}),
+      child: _ReleaseRow(
+        release: _standIn,
+        watched: false,
+        onTap: () {},
+        onDownload: () {},
+      ),
     );
   }
 }
@@ -181,6 +202,7 @@ class _ReleaseRow extends StatelessWidget {
     required this.release,
     required this.watched,
     required this.onTap,
+    required this.onDownload,
   });
 
   final OnlineRelease release;
@@ -188,6 +210,7 @@ class _ReleaseRow extends StatelessWidget {
   /// The user watched from this dub before.
   final bool watched;
   final VoidCallback onTap;
+  final VoidCallback onDownload;
 
   @override
   Widget build(BuildContext context) {
@@ -205,15 +228,30 @@ class _ReleaseRow extends StatelessWidget {
       inkKey: ValueKey('online_release_${release.provider.name}_${release.id}'),
       onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        padding: const EdgeInsets.fromLTRB(12, 12, 0, 12),
+        child: Row(
           children: [
-            Text(release.dub, style: theme.textTheme.bodyMedium),
-            const SizedBox(height: 4),
-            SourceFactsLine(
-              watched: watched,
-              facts: facts.isEmpty ? null : facts,
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(release.dub, style: theme.textTheme.bodyMedium),
+                  const SizedBox(height: 4),
+                  SourceFactsLine(
+                    watched: watched,
+                    facts: facts.isEmpty ? null : facts,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            IconButton(
+              key: ValueKey(
+                'online_release_download_${release.provider.name}_${release.id}',
+              ),
+              tooltip: l10n.downloadsOpenButton,
+              icon: const PixelIcon(PixelGlyph.download, size: 18),
+              onPressed: onDownload,
             ),
           ],
         ),

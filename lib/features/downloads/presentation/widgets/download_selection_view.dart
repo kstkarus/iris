@@ -18,13 +18,19 @@ class DownloadSelectionView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
+    final episodes = context
+        .read<DownloadSelectionCubit>()
+        .args
+        .isOnlineRelease;
     return BlocBuilder<DownloadSelectionCubit, DownloadSelectionState>(
       builder: (context, state) {
         return switch (state) {
           DownloadSelectionInitial() ||
           DownloadSelectionLoading() ||
           DownloadSelectionQueued() => LoadingView(
-            label: l10n.downloadSelectionPreparing,
+            label: episodes
+                ? l10n.downloadSelectionPreparingEpisodes
+                : l10n.downloadSelectionPreparing,
           ),
           DownloadSelectionReady(:final source) => _FileList(
             files: source.files,
@@ -75,13 +81,16 @@ class _FileList extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                         style: theme.textTheme.bodyMedium,
                       ),
-                      const SizedBox(height: 2),
-                      Text(
-                        isEnqueuing
-                            ? l10n.downloadAddingToQueue
-                            : formatByteSize(l10n, file.size),
-                        style: theme.textTheme.bodySmall,
-                      ),
+                      // An online episode's size is not known yet.
+                      if (isEnqueuing || file.size > 0) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          isEnqueuing
+                              ? l10n.downloadAddingToQueue
+                              : formatByteSize(l10n, file.size),
+                          style: theme.textTheme.bodySmall,
+                        ),
+                      ],
                     ],
                   ),
                 ),

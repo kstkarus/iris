@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:iris/features/downloads/domain/entities/download_failure.dart';
 import 'package:iris/features/downloads/domain/entities/download_item.dart';
 import 'package:iris/features/downloads/domain/entities/download_status.dart';
 
@@ -57,5 +58,28 @@ void main() {
     expect(updated.errorMessage, isNull);
     expect(updated.completedAt, isNull);
     expect(updated.id, createItem().id);
+  });
+
+  test('an online release link makes an online episode', () {
+    expect(createItem().isOnline, isFalse);
+    expect(
+      createItem().copyWith(magnet: 'online:anilibria/9542?anime=1').isOnline,
+      isTrue,
+    );
+  });
+
+  test('a failed online episode says whether a retry can help', () {
+    DownloadFailure? failureOf(String message) => createItem()
+        .copyWith(status: DownloadStatus.failed, errorMessage: message)
+        .failure;
+
+    expect(
+      failureOf(downloadConnectionLostMessage),
+      DownloadFailure.connectionLost,
+    );
+    expect(
+      failureOf(downloadNotDownloadableMessage),
+      DownloadFailure.notDownloadable,
+    );
   });
 }

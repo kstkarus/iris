@@ -32,7 +32,9 @@ class DownloadSelectionPage extends StatelessWidget {
       child: Scaffold(
         appBar: FramedAppBar(
           title: PageTitle(
-            title: l10n.downloadSelectionTitle,
+            title: args.isOnlineRelease
+                ? l10n.downloadSelectionEpisodeTitle
+                : l10n.downloadSelectionTitle,
             subtitle: args.sourceTitle,
           ),
         ),

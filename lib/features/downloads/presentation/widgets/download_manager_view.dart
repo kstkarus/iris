@@ -509,23 +509,32 @@ class _Details extends StatelessWidget {
 }
 
 /// Sizes, and while downloading how long is left at what speed; peers
-/// only when there are none, which is why it stands.
+/// only when there are none, which is why it stands. An online episode has
+/// no peers, and its size is a guess (`~`) until it is done, or unknown
+/// before it starts.
 String _facts(AppLocalizations l10n, DownloadItem item) {
-  final total = formatByteSize(l10n, item.totalBytes);
+  final finished = item.status == DownloadStatus.completed;
+  final total = item.totalBytes <= 0
+      ? null
+      : [
+          if (item.isOnline && !finished) '~',
+          formatByteSize(l10n, item.totalBytes),
+        ].join();
+  final loaded = [formatByteSize(l10n, item.downloadedBytes), ?total];
   return switch (item.status) {
-    DownloadStatus.completed => total,
+    DownloadStatus.completed => total ?? '',
     // Nothing of it is here yet: only how big it will be.
-    DownloadStatus.queued when item.downloadedBytes == 0 => total,
+    DownloadStatus.queued when item.downloadedBytes == 0 => total ?? '',
     DownloadStatus.downloading => [
-      '${formatByteSize(l10n, item.downloadedBytes)} / $total',
-      if (item.peers == 0)
+      loaded.join(' / '),
+      if (item.peers == 0 && !item.isOnline)
         l10n.downloadNoPeers
       else ...[
         ?_timeLeft(l10n, item),
         formatTransferRate(l10n, item.downloadRateBytesPerSecond),
       ],
     ].join(' · '),
-    _ => '${formatByteSize(l10n, item.downloadedBytes)} / $total',
+    _ => loaded.join(' / '),
   };
 }
 
@@ -547,6 +556,8 @@ String _failureMessage(AppLocalizations l10n, DownloadFailure failure) {
     DownloadFailure.noAccess => l10n.downloadFailedNoAccess,
     DownloadFailure.fileMissing => l10n.downloadFailedFileMissing,
     DownloadFailure.couldNotStart => l10n.downloadFailedCouldNotStart,
+    DownloadFailure.connectionLost => l10n.downloadFailedConnectionLost,
+    DownloadFailure.notDownloadable => l10n.downloadFailedNotDownloadable,
     DownloadFailure.other => l10n.downloadFailedMessage,
   };
 }

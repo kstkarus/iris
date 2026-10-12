@@ -1269,6 +1269,20 @@ class AppLocalizationsRu extends AppLocalizations {
       'Загрузка не началась. Проверьте интернет и повторите.';
 
   @override
+  String get downloadSelectionEpisodeTitle => 'Скачать серию';
+
+  @override
+  String get downloadSelectionPreparingEpisodes => 'Получаем список серий...';
+
+  @override
+  String get downloadFailedConnectionLost =>
+      'Сервер с видео перестал отвечать. Повторите — загрузка продолжится с того же места.';
+
+  @override
+  String get downloadFailedNotDownloadable =>
+      'Эту озвучку не скачать, её можно только смотреть онлайн.';
+
+  @override
   String downloadDeleteProgressLost(String size) {
     return 'Уже скачанные $size пропадут.';
   }

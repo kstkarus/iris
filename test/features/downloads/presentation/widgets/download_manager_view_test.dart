@@ -168,18 +168,20 @@ void main() {
       int downloaded = 300 * 1024 * 1024,
       int rate = 1024 * 1024,
       int peers = 3,
+      int total = 600 * 1024 * 1024,
+      String magnet = 'magnet:?xt=urn:btih:frieren',
       String? error,
     }) => DownloadItem(
       id: 'frieren-6',
       animeId: '52991',
       animeTitle: 'Frieren',
       sourceTitle: 'Frieren batch',
-      magnet: 'magnet:?xt=urn:btih:frieren',
+      magnet: magnet,
       fileIndex: 5,
       fileName: 'Frieren - 06.mkv',
       relativePath: 'Frieren - 06.mkv',
       localPath: 'Frieren - 06.mkv',
-      totalBytes: 600 * 1024 * 1024,
+      totalBytes: total,
       downloadedBytes: downloaded,
       downloadRateBytesPerSecond: rate,
       peers: peers,
@@ -230,6 +232,38 @@ void main() {
       expect(find.textContaining('left'), findsNothing);
     });
 
+    testWidgets('an online episode has no peers and a guessed size', (
+      tester,
+    ) async {
+      await pump(
+        tester,
+        download(peers: 0, magnet: 'online:anilibria/9542?anime=52991'),
+      );
+
+      expect(find.textContaining('no peers yet'), findsNothing);
+      expect(find.textContaining('300.0 MB / ~600.0 MB'), findsOneWidget);
+      expect(find.textContaining('MB/s'), findsOneWidget);
+    });
+
+    testWidgets('an online episode not started yet shows no size', (
+      tester,
+    ) async {
+      await pump(
+        tester,
+        download(
+          status: DownloadStatus.queued,
+          downloaded: 0,
+          rate: 0,
+          peers: 0,
+          total: 0,
+          magnet: 'online:anilibria/9542?anime=52991',
+        ),
+      );
+
+      // The status stands alone: no "0 B" for a size nobody knows yet.
+      expect(find.text('QUEUED   '), findsOneWidget);
+    });
+
     testWidgets('a queued file shows only its size', (tester) async {
       await pump(
         tester,
@@ -251,6 +285,25 @@ void main() {
 
       expect(
         find.text('The device ran out of space. Free some up and try again.'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('a lost video server says a retry picks up', (tester) async {
+      await pump(
+        tester,
+        download(
+          status: DownloadStatus.failed,
+          magnet: 'online:anilibria/9542?anime=52991',
+          error: downloadConnectionLostMessage,
+        ),
+      );
+
+      expect(
+        find.text(
+          'The video server stopped answering. '
+          'Try again to pick up where it stopped.',
+        ),
         findsOneWidget,
       );
     });

@@ -1254,6 +1254,21 @@ class AppLocalizationsEn extends AppLocalizations {
       'The download did not start. Check the connection and try again.';
 
   @override
+  String get downloadSelectionEpisodeTitle => 'Download an episode';
+
+  @override
+  String get downloadSelectionPreparingEpisodes =>
+      'Loading the episode list...';
+
+  @override
+  String get downloadFailedConnectionLost =>
+      'The video server stopped answering. Try again to pick up where it stopped.';
+
+  @override
+  String get downloadFailedNotDownloadable =>
+      'This dub can\'t be downloaded, only watched online.';
+
+  @override
   String downloadDeleteProgressLost(String size) {
     return 'The $size downloaded so far will be lost.';
   }

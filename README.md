@@ -75,6 +75,8 @@ The watch sources screen also looks the anime up on video servers, ported from [
 - an episode the site gives no stream for is left out, and a release left with none is not offered; a special (12.5) keeps its own number in the picker and the same place in every dub
 - a release opens its episodes in the same picker a torrent opens its files in, with Continue and next episode as for torrents; watch progress belongs to the anime's episode, so switching dub keeps the place
 - an episode's stream links are asked for right before it plays (links expire), the better player first; buffering is mpv's; leaving the picker or the player drops a request still on its way; the stats overlay shows the decoder, without torrent speed or peers
+- a link that expires while the episode plays or waits on pause is renewed: when mpv lets go of a file that had played, the link is asked for again and the episode reopens where it was (up to three times per episode; a file that never started fails as before); Try Again also opens the episode on a fresh link. Torrents and downloads keep their address
+- a release row's Download button opens its episodes in the download picker; see Downloads
 - the sites are asked at once and each one's dubs show as soon as it answers, developing out of noise rows; one waits at the end while another site still searches; when nothing is found the tabs dissolve; when the search fails the online tab says so with Retry
 - `dart run tool/online_sources_smoke.dart [shikimoriId] [title...]` checks every site live
 - animelib (ddos-guard), animego (HTTP 500), dreamcast (timeouts) and hdrezka (bot challenge, broken player) did not answer when this was built; animevost and sameband have no Shikimori ids, and animevost's dub comes through yummy_anime anyway
@@ -124,11 +126,15 @@ Current behavior:
 Downloads use:
 
 - `libtorrent_flutter` to download the selected torrent file into app-internal storage
+- `dio` to download an online episode from its video server (`OnlineEpisodeDownloader`)
 - an Android foreground service to keep the process active while minimized
 
 Current behavior:
 
-- only one download is active at a time; other items remain queued
+- only one download is active at a time, torrent file or online episode; other items remain queued
+- an online episode is loaded in the best quality its server offers as HLS or mp4 (an mp4 first at the same quality); DASH (Aksor) is not loaded, so a dub served only in DASH, or as encrypted or byte-range HLS, fails with a message that it can only be watched online. HLS segments are glued into one file (MPEG-TS, or fragmented MP4 after its init segment) that mpv plays as it is; an mp4 is one file resumed with `Range`
+- a paused, failed or interrupted online episode goes on from the next segment (or byte), in the quality it began in; a state file beside it records how far it got. A server that refuses a segment (403, 404, 410) is asked for a fresh link at once, other errors are tried four times with a growing wait first; if the episode's segment list changed, it starts over. A server that stays silent fails the download with "The video server stopped answering", and Retry picks up where it stopped
+- an online episode has no peers; its size is an estimate (`~`) while it loads, scaled up from the play time loaded so far, and unknown before it starts. A finished one plays from disk and shares watch progress with the episode streamed online, whatever the dub
 - a download is marked completed only when libtorrent reports every wanted piece of the selected file
 - opening the file picker for a torrent that is already downloading reuses that torrent; a queued item of the same torrent starts after the picker is closed
 - the file picker of a torrent that a player still holds (also one that is still closing) waits until the player lets go of it, since the player removes that torrent with its files; leaving the picker cancels the wait

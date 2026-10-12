@@ -73,6 +73,7 @@ import 'package:iris/features/player/presentation/widgets/mock_player_viewport_f
 import 'package:iris/features/player/presentation/widgets/player_viewport_factory.dart';
 import 'package:iris/features/saved_torrents/data/repositories/shared_preferences_saved_torrents_repository.dart';
 import 'package:iris/features/saved_torrents/domain/repositories/saved_torrents_repository.dart';
+import 'package:iris/features/downloads/data/adapters/online_episode_downloader.dart';
 import 'package:iris/features/online_sources/data/datasources/aksor_data_source.dart';
 import 'package:iris/features/online_sources/data/datasources/anilibria_data_source.dart';
 import 'package:iris/features/online_sources/data/datasources/kodik_data_source.dart';
@@ -334,11 +335,7 @@ Future<void> _registerReal() async {
     )
     ..registerLazySingleton<PlayerRuntimeMemoryAdapter>(
       MethodChannelPlayerRuntimeMemoryAdapter.new,
-    );
-
-  await _registerDownloads(supportDirectory);
-
-  serviceLocator
+    )
     ..registerLazySingleton<LibtorrentPlayerDataSource>(
       () => LibtorrentPlayerDataSource(
         engine: serviceLocator<LibtorrentEngineAdapter>(),
@@ -423,6 +420,10 @@ Future<void> _registerReal() async {
                   : null,
             ),
     );
+
+  // Last: the downloads restore at once, and load online episodes through
+  // the online sources registered above.
+  await _registerDownloads(supportDirectory);
 }
 
 Future<void> _registerDownloads(Directory supportDirectory) async {
@@ -456,6 +457,10 @@ Future<void> _registerDownloads(Directory supportDirectory) async {
     storageUsageAdapter: serviceLocator<AppStorageUsageAdapter>(),
     streamCache: serviceLocator<StreamCacheStorage>(),
     activityRegistry: serviceLocator<TorrentActivityRegistry>(),
+    onlineDownloader: OnlineEpisodeDownloader(
+      repository: serviceLocator<OnlineSourcesRepository>(),
+      dio: createVideoServerDio(),
+    ),
   );
   serviceLocator.registerSingleton<DownloadsRepository>(
     repository,

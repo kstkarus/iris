@@ -2216,6 +2216,30 @@ abstract class AppLocalizations {
   /// **'The download did not start. Check the connection and try again.'**
   String get downloadFailedCouldNotStart;
 
+  /// No description provided for @downloadSelectionEpisodeTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Download an episode'**
+  String get downloadSelectionEpisodeTitle;
+
+  /// No description provided for @downloadSelectionPreparingEpisodes.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading the episode list...'**
+  String get downloadSelectionPreparingEpisodes;
+
+  /// No description provided for @downloadFailedConnectionLost.
+  ///
+  /// In en, this message translates to:
+  /// **'The video server stopped answering. Try again to pick up where it stopped.'**
+  String get downloadFailedConnectionLost;
+
+  /// No description provided for @downloadFailedNotDownloadable.
+  ///
+  /// In en, this message translates to:
+  /// **'This dub can\'t be downloaded, only watched online.'**
+  String get downloadFailedNotDownloadable;
+
   /// No description provided for @downloadDeleteProgressLost.
   ///
   /// In en, this message translates to:

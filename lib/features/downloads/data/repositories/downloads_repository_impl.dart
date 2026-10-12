@@ -7,6 +7,7 @@ import 'package:path/path.dart' as path;
 import 'package:iris/features/downloads/data/adapters/app_storage_usage_adapter.dart';
 import 'package:iris/features/downloads/data/adapters/download_foreground_service_adapter.dart';
 import 'package:iris/features/downloads/data/adapters/libtorrent_download_engine_adapter.dart';
+import 'package:iris/features/downloads/data/adapters/online_episode_downloader.dart';
 import 'package:iris/features/downloads/data/datasources/download_registry_data_source.dart';
 import 'package:iris/features/downloads/domain/entities/download_failure.dart';
 import 'package:iris/features/downloads/domain/entities/download_item.dart';
@@ -15,6 +16,7 @@ import 'package:iris/features/downloads/domain/entities/download_storage_usage.d
 import 'package:iris/features/downloads/domain/entities/downloadable_file.dart';
 import 'package:iris/features/downloads/domain/entities/prepared_download_source.dart';
 import 'package:iris/features/downloads/domain/repositories/downloads_repository.dart';
+import 'package:iris/shared/online/online_source_link.dart';
 import 'package:iris/shared/storage/directory_size.dart';
 import 'package:iris/shared/storage/stream_cache_storage.dart';
 import 'package:iris/shared/torrent/preparation_cancelled_exception.dart';
@@ -23,6 +25,8 @@ import 'package:iris/shared/torrent/torrent_key.dart';
 import 'package:iris/shared/torrent/video_file_extensions.dart';
 import 'package:iris/shared/utils/serial_queue.dart';
 
+/// Downloads torrent files through libtorrent and online episodes through
+/// [OnlineEpisodeDownloader], one at a time from one queue.
 class DownloadsRepositoryImpl implements DownloadsRepository {
   DownloadsRepositoryImpl({
     required LibtorrentDownloadEngineAdapter engine,
@@ -32,9 +36,11 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
     required AppStorageUsageAdapter storageUsageAdapter,
     StreamCacheStorage? streamCache,
     TorrentActivityRegistry? activityRegistry,
+    OnlineEpisodeDownloader? onlineDownloader,
     DateTime Function() now = DateTime.now,
     Future<void> Function(Directory folder)? createMetadataFolder,
   }) : _engine = engine,
+       _onlineDownloader = onlineDownloader,
        _streamCache = streamCache,
        _activityRegistry = activityRegistry ?? TorrentActivityRegistry(),
        _registry = registry,
@@ -45,6 +51,9 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
        _now = now;
 
   final LibtorrentDownloadEngineAdapter _engine;
+
+  /// Null where online episodes cannot be downloaded (mock setups).
+  final OnlineEpisodeDownloader? _onlineDownloader;
   final DownloadRegistryDataSource _registry;
   final Directory _downloadsDirectory;
   final DownloadForegroundServiceAdapter _foregroundService;
@@ -57,6 +66,12 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
   final StreamController<List<DownloadItem>> _downloadsController =
       StreamController<List<DownloadItem>>.broadcast();
   final Map<String, _PreparedRuntime> _preparedSources = {};
+
+  /// Online releases whose episodes a selection screen shows, by token.
+  final Map<String, OnlineSourceLink> _preparedReleases = {};
+
+  /// The active download when it is an online episode.
+  OnlineDownloadTask? _onlineTask;
   final Map<String, int> _torrentIdByDownloadId = {};
   // Downloads whose files are being removed; a queued start must skip them.
   final Set<String> _deletingIds = {};
@@ -118,6 +133,8 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
     _deletingIds.add(id);
     var deleted = true;
     try {
+      // The task must let go of its files before they can be removed.
+      await _stopOnline(id);
       if (_releaseTorrent(id, deleteFiles: true)) {
         await _foregroundService.stop();
       }
@@ -155,6 +172,7 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
 
   @override
   Future<void> disposePreparedSource({required String sourceToken}) async {
+    if (_preparedReleases.remove(sourceToken) != null) return;
     final runtime = _preparedSources.remove(sourceToken);
     if (runtime == null) return;
     final directory = runtime.metadataDirectory;
@@ -175,6 +193,17 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
     required String sourceTitle,
   }) async {
     await restore();
+    final release = _preparedReleases[source.sourceToken];
+    if (release != null) {
+      return _enqueueEpisode(
+        source: source,
+        release: release,
+        file: file,
+        animeId: animeId,
+        animeTitle: animeTitle,
+        sourceTitle: sourceTitle,
+      );
+    }
     final runtime = _preparedSources[source.sourceToken];
     if (runtime == null) {
       throw StateError('Prepared download source is no longer available.');
@@ -227,6 +256,50 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
     return item;
   }
 
+  /// Queues episode [file] of an online [release]. Its video's name is
+  /// known once its stream is: [DownloadItem.localPath] names the folder
+  /// until then.
+  Future<DownloadItem> _enqueueEpisode({
+    required PreparedDownloadSource source,
+    required OnlineSourceLink release,
+    required DownloadableFile file,
+    required String animeId,
+    required String animeTitle,
+    required String sourceTitle,
+  }) async {
+    if (!source.files.contains(file)) {
+      throw ArgumentError.value(file, 'file', 'File is not in the source.');
+    }
+    await disposePreparedSource(sourceToken: source.sourceToken);
+    final id = onlineDownloadId(release, file.index);
+    final existing = _find(id);
+    if (existing != null) return existing;
+
+    final directory = _downloadDirectory(id);
+    await directory.create(recursive: true);
+    final item = DownloadItem(
+      id: id,
+      animeId: animeId,
+      animeTitle: animeTitle,
+      sourceTitle: sourceTitle,
+      magnet: release.toString(),
+      fileIndex: file.index,
+      fileName: file.name,
+      relativePath: '',
+      localPath: directory.path,
+      totalBytes: 0,
+      downloadedBytes: 0,
+      downloadRateBytesPerSecond: 0,
+      peers: 0,
+      status: DownloadStatus.queued,
+      createdAt: _now(),
+    );
+    _downloads = [..._downloads, item];
+    await _commit();
+    unawaited(_pumpQueue());
+    return item;
+  }
+
   @override
   Future<DownloadItem?> findCompletedById({required String id}) async {
     await restore();
@@ -248,10 +321,11 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
       return;
     }
 
+    await _stopOnline(id);
     if (_releaseTorrent(id, deleteFiles: false, pauseFirst: true)) {
       await _foregroundService.stop();
     }
-    _replace(item.stopped(DownloadStatus.paused));
+    _replace((_find(id) ?? item).stopped(DownloadStatus.paused));
     await _commit();
     unawaited(_pumpQueue());
   }
@@ -267,6 +341,8 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
     await restore();
     final token =
         'source-${++_sourceSequence}-${_now().microsecondsSinceEpoch}';
+    final release = OnlineSourceLink.tryParse(magnet);
+    if (release != null) return _prepareRelease(token, release, cancelled);
     final torrentKey = torrentKeyFromMagnet(magnet);
     // A player of the same torrent, also one that is still closing, owns the
     // native torrent and removes it with its files when it ends; an add now
@@ -335,6 +411,30 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
     }
   }
 
+  /// The episodes of an online [release], as files to choose from.
+  Future<PreparedDownloadSource> _prepareRelease(
+    String token,
+    OnlineSourceLink release,
+    Future<void>? cancelled,
+  ) async {
+    final downloader = _onlineDownloader;
+    if (downloader == null) {
+      throw UnsupportedError('Online episodes cannot be downloaded here.');
+    }
+    final files = await _unlessCancelled(
+      downloader.episodes(release),
+      cancelled,
+    );
+    if (files.isEmpty) {
+      throw const FormatException('The release has no episodes.');
+    }
+    _preparedReleases[token] = release;
+    return PreparedDownloadSource(
+      sourceToken: token,
+      files: List.unmodifiable(files),
+    );
+  }
+
   Future<void> restore() {
     if (_restored) return Future<void>.value();
     // Concurrent first calls share one read of the registry.
@@ -394,6 +494,8 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
 
   Future<void> close() async {
     _persistTimer?.cancel();
+    final activeId = _activeDownloadId;
+    if (activeId != null) await _stopOnline(activeId);
     _cancelActiveStart();
     await _streamingStartedSubscription?.cancel();
     await _streamingStoppedSubscription?.cancel();
@@ -579,6 +681,10 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
     try {
       final candidate = _nextStartableDownload();
       if (candidate == null) return;
+      if (candidate.isOnline) {
+        await _startEpisode(candidate);
+        return;
+      }
       final started = await _startCandidate(candidate);
       if (started == null) {
         _pumpRequested = true;
@@ -721,6 +827,125 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
     }
   }
 
+  /// Makes episode [candidate] the active download. Its task runs on its
+  /// own; its end frees the slot and pumps the queue.
+  Future<void> _startEpisode(DownloadItem candidate) async {
+    final item = _find(candidate.id);
+    final release = OnlineSourceLink.tryParse(candidate.magnet);
+    final downloader = _onlineDownloader;
+    if (item == null ||
+        !_isStartable(item) ||
+        release == null ||
+        downloader == null) {
+      return;
+    }
+    final task = downloader.start(
+      link: release,
+      fileIndex: item.fileIndex,
+      directory: _downloadDirectory(item.id),
+    );
+    _onlineTask = task;
+    _activeDownloadId = item.id;
+    final progress = task.progress.listen(
+      (update) => unawaited(_onEpisodeProgress(item.id, task, update)),
+    );
+    unawaited(_awaitEpisode(item.id, task, progress));
+    _replace(item.copyWith(status: DownloadStatus.downloading));
+    await _commit();
+    // A pause or delete during the commit has already stopped the service.
+    if (!identical(_onlineTask, task)) return;
+    await _foregroundService.start(text: item.fileName);
+  }
+
+  Future<void> _awaitEpisode(
+    String id,
+    OnlineDownloadTask task,
+    StreamSubscription<OnlineDownloadProgress> progress,
+  ) async {
+    try {
+      final file = await task.done;
+      if (file != null) await _finishEpisode(id, task, file);
+    } on Object catch (error) {
+      await _failEpisode(id, task, _episodeFailureMessage(error));
+    } finally {
+      await progress.cancel();
+    }
+  }
+
+  Future<void> _onEpisodeProgress(
+    String id,
+    OnlineDownloadTask task,
+    OnlineDownloadProgress update,
+  ) async {
+    final item = _find(id);
+    if (item == null || !identical(_onlineTask, task)) return;
+    final updated = item.copyWith(
+      downloadedBytes: update.downloadedBytes,
+      totalBytes: update.totalBytes,
+      downloadRateBytesPerSecond: update.rateBytesPerSecond,
+    );
+    _replace(updated);
+    _emit();
+    _schedulePersist();
+    final percent = (updated.progress * 100).round();
+    if (_lastNotificationPercent != percent) {
+      _lastNotificationPercent = percent;
+      await _foregroundService.update(text: '${item.fileName}: $percent%');
+    }
+  }
+
+  Future<void> _finishEpisode(
+    String id,
+    OnlineDownloadTask task,
+    File file,
+  ) async {
+    final item = _find(id);
+    if (item == null || !identical(_onlineTask, task)) return;
+    final bytes = await file.length();
+    // Re-read after the await: a pause or delete may have come meanwhile.
+    final current = _find(id);
+    if (current == null || !identical(_onlineTask, task)) return;
+    _onlineTask = null;
+    _replace(
+      current
+          .stopped(DownloadStatus.completed)
+          .copyWith(
+            relativePath: path.basename(file.path),
+            localPath: file.path,
+            totalBytes: bytes,
+            downloadedBytes: bytes,
+            completedAt: _now(),
+            errorMessage: null,
+          ),
+    );
+    _clearActiveDownload();
+    await _foregroundService.stop();
+    await _commit();
+    unawaited(_pumpQueue());
+  }
+
+  Future<void> _failEpisode(
+    String id,
+    OnlineDownloadTask task,
+    String message,
+  ) async {
+    final item = _find(id);
+    if (item == null || !identical(_onlineTask, task)) return;
+    _onlineTask = null;
+    await _failActive(item, message);
+  }
+
+  /// Stops the online task of [id], if it is the active one, and waits
+  /// until it has let go of its files.
+  Future<void> _stopOnline(String id) async {
+    final task = _onlineTask;
+    if (task == null || _activeDownloadId != id) return;
+    _onlineTask = null;
+    _clearActiveDownload();
+    await task.cancel();
+    await _foregroundService.stop();
+  }
+
   DownloadItem? _nextStartableDownload() {
     for (final item in _downloads) {
       if (_isStartable(item)) return item;
@@ -731,6 +956,8 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
   bool _isStartable(DownloadItem item) {
     if (item.status != DownloadStatus.queued) return false;
     if (_deletingIds.contains(item.id)) return false;
+    // An episode shares nothing with a player or a selection screen.
+    if (item.isOnline) return _onlineDownloader != null;
     final torrentKey = torrentKeyFromMagnet(item.magnet);
     // Wait until a selection screen or the player holding the same torrent
     // is closed.
@@ -778,11 +1005,11 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
     return _unlessCancelled(stopped, cancelled);
   }
 
-  Future<void> _unlessCancelled(Future<void> work, Future<void>? cancelled) {
+  Future<T> _unlessCancelled<T>(Future<T> work, Future<void>? cancelled) {
     if (cancelled == null) return work;
-    return Future.any<void>([
+    return Future.any<T>([
       work,
-      cancelled.then<void>((_) => throw const PreparationCancelledException()),
+      cancelled.then<T>((_) => throw const PreparationCancelledException()),
     ]);
   }
 
@@ -938,3 +1165,18 @@ String _createDownloadId(String magnet, int fileIndex) {
 Future<void> _createFolder(Directory folder) {
   return folder.create(recursive: true);
 }
+
+/// `online-<provider>-<hash of the release>-<episode>`: a folder name on
+/// every platform, and never read as a stream session or a release link.
+String onlineDownloadId(OnlineSourceLink release, int fileIndex) {
+  final key = torrentKeyFromMagnet('${release.provider}/${release.releaseId}');
+  return 'online-${release.provider}-$key-$fileIndex';
+}
+
+/// The message stored for an episode that did not load.
+String _episodeFailureMessage(Object error) => switch (error) {
+  OnlineDownloadException(:final message) => message,
+  FileSystemException(:final osError?) => osError.message,
+  FileSystemException(:final message) => message,
+  _ => downloadConnectionLostMessage,
+};

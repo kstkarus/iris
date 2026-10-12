@@ -12,6 +12,14 @@ enum DownloadFailure {
   /// The torrent could not be started, usually for want of a connection.
   couldNotStart,
 
+  /// An online episode's video server stopped answering; a retry picks up
+  /// where it stopped.
+  connectionLost,
+
+  /// An online episode comes only in a form that cannot be loaded (DASH,
+  /// encrypted HLS): it can only be watched online.
+  notDownloadable,
+
   /// Anything else the torrent engine reported.
   other,
 }
@@ -36,6 +44,12 @@ DownloadFailure downloadFailureFrom(String? message) {
   if (text == downloadCouldNotStartMessage) {
     return DownloadFailure.couldNotStart;
   }
+  if (text == downloadConnectionLostMessage) {
+    return DownloadFailure.connectionLost;
+  }
+  if (text == downloadNotDownloadableMessage) {
+    return DownloadFailure.notDownloadable;
+  }
   return DownloadFailure.other;
 }
 
@@ -44,3 +58,9 @@ const downloadFileMissingMessage = 'Downloaded file is missing.';
 
 /// Stored when the engine would not start the torrent.
 const downloadCouldNotStartMessage = 'Unable to start the download.';
+
+/// Stored when an online episode's server stopped answering.
+const downloadConnectionLostMessage = 'The video server stopped answering.';
+
+/// Stored when an online episode has no stream that can be loaded.
+const downloadNotDownloadableMessage = 'The episode has no loadable stream.';

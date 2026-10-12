@@ -823,6 +823,10 @@
   "downloadFailedNoAccess": "The app may not write to the downloads folder.",
   "downloadFailedFileMissing": "The file is gone from the device. Try again to download it anew.",
   "downloadFailedCouldNotStart": "The download did not start. Check the connection and try again.",
+  "downloadSelectionEpisodeTitle": "Download an episode",
+  "downloadSelectionPreparingEpisodes": "Loading the episode list...",
+  "downloadFailedConnectionLost": "The video server stopped answering. Try again to pick up where it stopped.",
+  "downloadFailedNotDownloadable": "This dub can't be downloaded, only watched online.",
   "downloadDeleteProgressLost": "The {size} downloaded so far will be lost.",
   "@downloadDeleteProgressLost": {
     "placeholders": {

@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 
 import 'package:iris/entities/watch_progress/domain/watch_progress.dart';
 import 'package:iris/entities/watch_progress/presentation/watch_progress_cubit.dart';
+import 'package:iris/features/downloads/presentation/models/download_selection_args.dart';
 import 'package:iris/features/online_sources/domain/entities/online_episode.dart';
 import 'package:iris/features/online_sources/domain/entities/online_provider.dart';
 import 'package:iris/features/online_sources/domain/entities/online_release.dart';
@@ -155,6 +156,28 @@ void main() {
     expect(find.text('File picker'), findsOneWidget);
     final args = navigation.extra! as AnimePlayerSourceArgs;
     expect(args.magnet, _link);
+    expect(args.sourceTitle, 'AniLibria');
+    expect(args.animeId, '52991');
+    expect(args.animeTitle, 'Frieren');
+  });
+
+  testWidgets('opens the release episodes in the download picker', (
+    tester,
+  ) async {
+    final navigation = await _pumpPage(
+      tester,
+      online: _FakeOnlineSources.found(),
+    );
+
+    await tester.tap(
+      find.byKey(const ValueKey('online_release_download_anilibria_9542')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Download picker'), findsOneWidget);
+    final args = navigation.extra! as DownloadSelectionArgs;
+    expect(args.magnet, _link);
+    expect(args.isOnlineRelease, isTrue);
     expect(args.sourceTitle, 'AniLibria');
     expect(args.animeId, '52991');
     expect(args.animeTitle, 'Frieren');
@@ -404,6 +427,14 @@ Future<_RecordedNavigation> _pumpPage(
         builder: (context, state) {
           navigation.extra = state.extra;
           return const Scaffold(body: Text('File picker'));
+        },
+      ),
+      GoRoute(
+        path: '/torrent/download',
+        name: 'torrent-download-files',
+        builder: (context, state) {
+          navigation.extra = state.extra;
+          return const Scaffold(body: Text('Download picker'));
         },
       ),
     ],
