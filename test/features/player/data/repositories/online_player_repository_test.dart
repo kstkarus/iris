@@ -13,6 +13,8 @@ import 'package:iris/features/player/domain/entities/player_session.dart';
 import 'package:iris/features/player/domain/entities/player_video_file.dart';
 import 'package:iris/shared/torrent/preparation_cancelled_exception.dart';
 
+import '../../../../helpers/memory_online_quality_preferences.dart';
+
 const _link = 'online:anilibria/9542';
 
 const _release = OnlineRelease(
@@ -80,9 +82,34 @@ void main() {
         PlayerSession(
           sessionId: _link,
           streamUrl: 'https://cdn.example.test/e1/1080.m3u8',
+          qualities: [1080, 720],
+          quality: 1080,
         ),
       ),
     ]);
+  });
+
+  test('plays the quality chosen for watching, read as each episode '
+      'starts', () async {
+    final preferences = MemoryOnlineQualityPreferences(watching: 720);
+    repository = OnlinePlayerRepository(
+      repository: sources,
+      qualityPreferences: preferences,
+    );
+
+    final updates = await repository
+        .startPlayback(sessionId: _link, fileIndex: 1)
+        .toList();
+    expect(
+      (updates.single as PlayerLaunchReadyUpdate).session.streamUrl,
+      'https://cdn.example.test/e1/720.m3u8',
+    );
+
+    preferences.watching = null;
+    final renewed = await repository.renewSession(
+      (updates.single as PlayerLaunchReadyUpdate).session,
+    );
+    expect(renewed?.quality, 1080);
   });
 
   test('fetches the release when playback starts from history', () async {
@@ -231,6 +258,8 @@ void main() {
       const PlayerSession(
         sessionId: _link,
         streamUrl: 'https://cdn.example.test/e1/1080.m3u8?fresh',
+        qualities: [1080],
+        quality: 1080,
       ),
     );
   });

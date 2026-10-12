@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 
+import 'package:iris/features/online_sources/domain/repositories/online_quality_preferences.dart';
 import 'package:iris/features/player/domain/entities/player_playback_diagnostics.dart';
 import 'package:iris/features/player/domain/entities/player_playback_stats.dart';
 import 'package:iris/features/player/domain/repositories/player_repository.dart';
@@ -57,7 +58,9 @@ class MediaKitPlayerViewportFactory implements PlayerViewportFactory {
     NativeFullscreenToggle enterNativeFullscreen = defaultEnterNativeFullscreen,
     NativeFullscreenToggle exitNativeFullscreen = defaultExitNativeFullscreen,
     ScreenBrightnessControl? brightness,
+    OnlineQualityPreferences? onlineQuality,
   }) : _repository = repository,
+       _onlineQuality = onlineQuality,
        _brightness = brightness,
        _enterNativeFullscreen = enterNativeFullscreen,
        _exitNativeFullscreen = exitNativeFullscreen,
@@ -69,6 +72,7 @@ class MediaKitPlayerViewportFactory implements PlayerViewportFactory {
        _mediaKitStartupTimeout = mediaKitStartupTimeout;
 
   final PlayerRepository _repository;
+  final OnlineQualityPreferences? _onlineQuality;
   final MediaKitPlayerBuilder? _playerBuilder;
   final MediaKitVideoControllerBuilder? _videoControllerBuilder;
   final MediaKitFirstFrameAwaiter? _firstFrameAwaiter;
@@ -90,6 +94,7 @@ class MediaKitPlayerViewportFactory implements PlayerViewportFactory {
       repository: _repository,
       subtitlePreferences: subtitlePreferences,
       decodingPreferences: decodingPreferences,
+      onlineQuality: _onlineQuality,
       playerBuilder: _playerBuilder,
       videoControllerBuilder: _videoControllerBuilder,
       firstFrameAwaiter: _firstFrameAwaiter,
@@ -334,6 +339,11 @@ class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
         speed: PlayerSpeedSetting(
           rate: widget.engine.playbackRate,
           onSelected: widget.engine.setPlaybackRate,
+        ),
+        quality: PlayerQualitySetting(
+          choice: widget.engine.quality,
+          onSelected: (height) =>
+              unawaited(widget.engine.chooseQuality(height)),
         ),
       );
 

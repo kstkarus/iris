@@ -241,6 +241,17 @@ class AppLocalizationsRu extends AppLocalizations {
   String get watchSourcesOnlineLoadError => 'Онлайн-источники не ответили.';
 
   @override
+  String get onlineQualityTitle => 'Качество';
+
+  @override
+  String get onlineQualityAuto => 'Авто';
+
+  @override
+  String onlineQualityHeight(int height) {
+    return '${height}p';
+  }
+
+  @override
   String watchSourcesOnlineBestQuality(int quality) {
     return 'до ${quality}p';
   }

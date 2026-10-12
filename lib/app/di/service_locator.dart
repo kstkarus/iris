@@ -74,6 +74,8 @@ import 'package:iris/features/player/presentation/widgets/player_viewport_factor
 import 'package:iris/features/saved_torrents/data/repositories/shared_preferences_saved_torrents_repository.dart';
 import 'package:iris/features/saved_torrents/domain/repositories/saved_torrents_repository.dart';
 import 'package:iris/features/downloads/data/adapters/online_episode_downloader.dart';
+import 'package:iris/features/online_sources/data/repositories/shared_preferences_online_quality_preferences.dart';
+import 'package:iris/features/online_sources/domain/repositories/online_quality_preferences.dart';
 import 'package:iris/features/online_sources/data/datasources/aksor_data_source.dart';
 import 'package:iris/features/online_sources/data/datasources/anilibria_data_source.dart';
 import 'package:iris/features/online_sources/data/datasources/kodik_data_source.dart';
@@ -393,6 +395,7 @@ Future<void> _registerReal() async {
         ),
         online: OnlinePlayerRepository(
           repository: serviceLocator<OnlineSourcesRepository>(),
+          qualityPreferences: serviceLocator<OnlineQualityPreferences>(),
         ),
         local: LocalPlayerRepository(
           downloadsRepository: serviceLocator<DownloadsRepository>(),
@@ -409,11 +412,13 @@ Future<void> _registerReal() async {
       () => defaultTargetPlatform == TargetPlatform.windows && !kIsWeb
           ? MediaKitPlayerViewportFactory(
               repository: serviceLocator<PlayerRepository>(),
+              onlineQuality: serviceLocator<OnlineQualityPreferences>(),
               enterNativeFullscreen: WindowsFullscreen.enter,
               exitNativeFullscreen: WindowsFullscreen.exit,
             )
           : MediaKitPlayerViewportFactory(
               repository: serviceLocator<PlayerRepository>(),
+              onlineQuality: serviceLocator<OnlineQualityPreferences>(),
               // Phones and tablets only; see _registerCommon.
               brightness: serviceLocator.isRegistered<ScreenBrightnessControl>()
                   ? serviceLocator<ScreenBrightnessControl>()
@@ -494,6 +499,11 @@ void _registerCommon() {
     )
     ..registerLazySingleton<PlayerDecodingPreferencesRepository>(
       () => PlayerDecodingPreferencesRepositoryImpl(
+        serviceLocator<SharedPreferences>(),
+      ),
+    )
+    ..registerLazySingleton<OnlineQualityPreferences>(
+      () => SharedPreferencesOnlineQualityPreferences(
         serviceLocator<SharedPreferences>(),
       ),
     )

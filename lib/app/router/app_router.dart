@@ -12,6 +12,7 @@ import 'package:iris/entities/watch_progress/domain/watch_progress_repository.da
 import 'package:iris/entities/user_rate/domain/mark_episode_watched.dart';
 import 'package:iris/entities/user_rate/domain/user_rate_repository.dart';
 import 'package:iris/entities/user_rate/presentation/user_rate_cubit.dart';
+import 'package:iris/features/online_sources/domain/repositories/online_quality_preferences.dart';
 import 'package:iris/features/anime_details/domain/repositories/anime_details_repository.dart';
 import 'package:iris/features/anime_details/presentation/cubit/anime_details_cubit.dart';
 import 'package:iris/features/anime_details/presentation/cubit/friend_rates_cubit.dart';
@@ -398,6 +399,7 @@ abstract final class AppRouter {
               create: (_) => DownloadSelectionCubit(
                 args: args,
                 repository: serviceLocator<DownloadsRepository>(),
+                qualityPreferences: serviceLocator<OnlineQualityPreferences>(),
               )..load(),
               child: DownloadSelectionPage(
                 args: args,

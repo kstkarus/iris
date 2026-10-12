@@ -6,6 +6,9 @@ import 'package:flutter/foundation.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 
+import 'package:iris/features/online_sources/domain/online_stream_choice.dart';
+import 'package:iris/features/online_sources/domain/repositories/online_quality_preferences.dart';
+import 'package:iris/features/player/presentation/playback/player_quality_choice.dart';
 import 'package:iris/entities/watch_progress/domain/watch_progress.dart';
 import 'package:iris/features/player/domain/entities/player_decoding_preferences.dart';
 import 'package:iris/features/player/domain/entities/player_playback_diagnostics.dart';
@@ -109,6 +112,7 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
     required PlayerRepository repository,
     required PlayerSubtitlePreferencesCubit subtitlePreferences,
     required PlayerDecodingPreferencesCubit decodingPreferences,
+    OnlineQualityPreferences? onlineQuality,
     MediaKitPlayerBuilder? playerBuilder,
     MediaKitVideoControllerBuilder? videoControllerBuilder,
     MediaKitFirstFrameAwaiter? firstFrameAwaiter,
@@ -116,6 +120,7 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
     this.stopTimeout = const Duration(seconds: 3),
     this.errorGrace = const Duration(seconds: 2),
   }) : _repository = repository,
+       _onlineQuality = onlineQuality,
        _playerBuilder = playerBuilder ?? _defaultPlayerBuilder,
        _videoControllerBuilder =
            videoControllerBuilder ?? _defaultVideoControllerBuilder,
@@ -133,6 +138,10 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
   }
 
   final PlayerRepository _repository;
+
+  /// Where the quality chosen for watching online is kept; null where
+  /// there is no choice to offer.
+  final OnlineQualityPreferences? _onlineQuality;
   final MediaKitPlayerBuilder _playerBuilder;
   final MediaKitVideoControllerBuilder _videoControllerBuilder;
   final MediaKitFirstFrameAwaiter _firstFrameAwaiter;
@@ -229,6 +238,10 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
   /// The opened file played to its end.
   final completed = ValueNotifier<bool>(false);
 
+  /// The qualities the playing file comes in and the chosen one; null when
+  /// it has no choice (a torrent, a download).
+  final quality = ValueNotifier<PlayerQualityChoice?>(null);
+
   /// Playback reached the ending, or, when its start is unknown, the point
   /// where the file counts as watched.
   final finishing = ValueNotifier<bool>(false);
@@ -305,6 +318,7 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
   }) {
     if (_closed) return Future<void>.value();
     _session = session;
+    _refreshQualityChoice();
     _startPosition = startPosition;
     _preferredTracks = preferredTracks;
     _preferredTracksApplied = false;
@@ -354,7 +368,54 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
       return false;
     }
     _session = renewed;
+    _refreshQualityChoice();
     return true;
+  }
+
+  /// Watches online episodes in [height] (null: the best) from now on, and
+  /// reopens the playing one in it where it is. While the new link is asked
+  /// for, the old one plays on; if none comes, it stays.
+  Future<void> chooseQuality(int? height) async {
+    final preferences = _onlineQuality;
+    final session = _session;
+    if (_closed ||
+        preferences == null ||
+        session == null ||
+        session.qualities.isEmpty) {
+      return;
+    }
+    await preferences.setWatching(height);
+    _refreshQualityChoice();
+    if (closestQuality(session.qualities, height) == session.quality) return;
+    final startupGeneration = _startupGeneration;
+    if (!await _renewSession(session) ||
+        _closed ||
+        startupGeneration != _startupGeneration) {
+      return;
+    }
+    developer.log(
+      'Reopening the file in ${_session?.quality}p at $_openPosition.',
+      name: 'iris.player.media',
+    );
+    await _openPlayback();
+  }
+
+  void _refreshQualityChoice() {
+    if (_closed) return;
+    final session = _session;
+    final offered = session?.qualities ?? const <int>[];
+    if (session == null || offered.isEmpty || _onlineQuality == null) {
+      quality.value = null;
+      return;
+    }
+    final wanted = _onlineQuality.watching;
+    quality.value = PlayerQualityChoice(
+      offered: offered,
+      // A height this file lacks shows as the one it plays in.
+      selected: wanted == null || offered.contains(wanted)
+          ? wanted
+          : session.quality,
+    );
   }
 
   /// A file that played was dropped: reopens it where it was on a fresh
@@ -472,6 +533,7 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
     if (_closed) return;
     _startupGeneration++;
     _session = null;
+    _refreshQualityChoice();
     _renewsOnFailure = false;
     completed.value = false;
     _resetPositionOffers();
@@ -551,6 +613,7 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
     bufferMargin.dispose();
     diagnostics.dispose();
     completed.dispose();
+    quality.dispose();
     finishing.dispose();
     skipSegment.dispose();
     skipForwardOffered.dispose();

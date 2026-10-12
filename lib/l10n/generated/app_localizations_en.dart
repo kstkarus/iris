@@ -237,6 +237,17 @@ class AppLocalizationsEn extends AppLocalizations {
   String get watchSourcesOnlineLoadError => 'Online sources did not respond.';
 
   @override
+  String get onlineQualityTitle => 'Quality';
+
+  @override
+  String get onlineQualityAuto => 'Auto';
+
+  @override
+  String onlineQualityHeight(int height) {
+    return '${height}p';
+  }
+
+  @override
   String watchSourcesOnlineBestQuality(int quality) {
     return 'up to ${quality}p';
   }

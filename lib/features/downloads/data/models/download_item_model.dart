@@ -23,6 +23,7 @@ abstract final class DownloadItemModel {
       'errorMessage': item.errorMessage,
       'createdAt': item.createdAt.toIso8601String(),
       'completedAt': item.completedAt?.toIso8601String(),
+      if (item.quality != null) 'quality': item.quality,
     };
   }
 
@@ -45,6 +46,7 @@ abstract final class DownloadItemModel {
       errorMessage: _readNullableString(json, 'errorMessage'),
       createdAt: _readDateTime(json, 'createdAt'),
       completedAt: _readNullableDateTime(json, 'completedAt'),
+      quality: _readNullableInt(json, 'quality'),
     );
   }
 }
@@ -71,6 +73,13 @@ int _readInt(Map<String, Object?> json, String key) {
     return value;
   }
   throw FormatException('Expected "$key" to be an integer.');
+}
+
+/// Absent in records written before online episodes had a quality.
+int? _readNullableInt(Map<String, Object?> json, String key) {
+  final value = json[key];
+  if (value == null || value is int) return value as int?;
+  throw FormatException('Expected "$key" to be an integer or null.');
 }
 
 DownloadStatus _readStatus(Map<String, Object?> json, String key) {

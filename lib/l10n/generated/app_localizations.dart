@@ -518,6 +518,24 @@ abstract class AppLocalizations {
   /// **'Online sources did not respond.'**
   String get watchSourcesOnlineLoadError;
 
+  /// No description provided for @onlineQualityTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Quality'**
+  String get onlineQualityTitle;
+
+  /// No description provided for @onlineQualityAuto.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto'**
+  String get onlineQualityAuto;
+
+  /// A picture height to choose, as in 720p.
+  ///
+  /// In en, this message translates to:
+  /// **'{height}p'**
+  String onlineQualityHeight(int height);
+
   /// No description provided for @watchSourcesOnlineBestQuality.
   ///
   /// In en, this message translates to:

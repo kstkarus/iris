@@ -4,6 +4,8 @@ import 'dart:developer' as developer;
 import 'package:iris/features/online_sources/domain/entities/online_provider.dart';
 import 'package:iris/features/online_sources/domain/entities/online_release.dart';
 import 'package:iris/features/online_sources/domain/online_episode_files.dart';
+import 'package:iris/features/online_sources/domain/online_stream_choice.dart';
+import 'package:iris/features/online_sources/domain/repositories/online_quality_preferences.dart';
 import 'package:iris/shared/online/online_source_link.dart';
 import 'package:iris/features/online_sources/domain/repositories/online_sources_repository.dart';
 import 'package:iris/features/player/domain/entities/player_launch_update.dart';
@@ -19,12 +21,17 @@ import 'package:iris/shared/torrent/preparation_cancelled_exception.dart';
 /// session id.
 ///
 /// Stream links expire, so each episode's link is asked for right before it
-/// plays; mpv does the buffering.
+/// plays; mpv does the buffering. The quality is the one chosen for
+/// watching, the best when none is.
 class OnlinePlayerRepository implements PlayerRepository {
-  OnlinePlayerRepository({required OnlineSourcesRepository repository})
-    : _repository = repository;
+  OnlinePlayerRepository({
+    required OnlineSourcesRepository repository,
+    OnlineQualityPreferences? qualityPreferences,
+  }) : _repository = repository,
+       _qualityPreferences = qualityPreferences;
 
   final OnlineSourcesRepository _repository;
+  final OnlineQualityPreferences? _qualityPreferences;
 
   /// The releases of the sessions in use: "next episode" needs no request.
   final _releases = <String, OnlineRelease>{};
@@ -105,7 +112,8 @@ class OnlinePlayerRepository implements PlayerRepository {
   }
 
   /// Asks for the playing episode's link again: the one mpv holds may have
-  /// expired while it played or waited on pause.
+  /// expired while it played or waited on pause, or another quality was
+  /// chosen.
   @override
   Future<PlayerSession?> renewSession(PlayerSession session) async {
     final fileIndex = _playing[session.sessionId];
@@ -129,8 +137,17 @@ class OnlinePlayerRepository implements PlayerRepository {
       provider: release.provider,
       episodeId: release.episodes[position].id,
     );
-    if (streams.isEmpty) throw StateError('The episode has no streams.');
-    return PlayerSession(sessionId: sessionId, streamUrl: streams.first.url);
+    final stream = chooseOnlineStream(
+      streams,
+      maxQuality: _qualityPreferences?.watching,
+    );
+    if (stream == null) throw StateError('The episode has no streams.');
+    return PlayerSession(
+      sessionId: sessionId,
+      streamUrl: stream.url,
+      qualities: onlineQualities(streams),
+      quality: stream.quality,
+    );
   }
 
   /// No peers or pieces to count: mpv's own buffering is the whole story.

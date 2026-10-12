@@ -8,16 +8,23 @@ import 'package:iris/features/downloads/domain/entities/prepared_download_source
 import 'package:iris/features/downloads/domain/repositories/downloads_repository.dart';
 import 'package:iris/features/downloads/presentation/cubit/download_selection_state.dart';
 import 'package:iris/features/downloads/presentation/models/download_selection_args.dart';
+import 'package:iris/features/online_sources/domain/online_stream_choice.dart';
+import 'package:iris/features/online_sources/domain/repositories/online_quality_preferences.dart';
 
 class DownloadSelectionCubit extends Cubit<DownloadSelectionState> {
   DownloadSelectionCubit({
     required this.args,
     required DownloadsRepository repository,
+    OnlineQualityPreferences? qualityPreferences,
   }) : _repository = repository,
+       _qualityPreferences = qualityPreferences,
        super(const DownloadSelectionInitial());
 
   final DownloadSelectionArgs args;
   final DownloadsRepository _repository;
+
+  /// Remembers the quality last chosen for downloading online episodes.
+  final OnlineQualityPreferences? _qualityPreferences;
   PreparedDownloadSource? _source;
   int _attempt = 0;
   Completer<void>? _preparationCancel;
@@ -40,7 +47,7 @@ class DownloadSelectionCubit extends Cubit<DownloadSelectionState> {
         return;
       }
       _source = source;
-      emit(DownloadSelectionReady(source));
+      emit(DownloadSelectionReady(source, quality: _startingQuality(source)));
     } on FormatException {
       if (_isCurrent(attempt)) {
         emit(
@@ -66,10 +73,31 @@ class DownloadSelectionCubit extends Cubit<DownloadSelectionState> {
     }
   }
 
+  /// The quality last chosen for downloads, or the closest this release
+  /// has; "Auto" for a torrent, which has no choice.
+  int? _startingQuality(PreparedDownloadSource source) {
+    final wanted = _qualityPreferences?.downloading;
+    if (wanted == null || source.qualities.isEmpty) return null;
+    return closestQuality(source.qualities, wanted);
+  }
+
+  /// Loads the episodes in [quality] (null: the best), and remembers it for
+  /// the next downloads.
+  void chooseQuality(int? quality) {
+    final current = state;
+    if (current is! DownloadSelectionReady) return;
+    emit(DownloadSelectionReady(current.source, quality: quality));
+    unawaited(_qualityPreferences?.setDownloading(quality));
+  }
+
   Future<void> enqueue(DownloadableFile file) async {
     final source = _source;
-    if (source == null || state is DownloadSelectionEnqueuing) return;
-    emit(DownloadSelectionEnqueuing(source: source, file: file));
+    final current = state;
+    if (source == null || current is! DownloadSelectionReady) return;
+    final quality = current.quality;
+    emit(
+      DownloadSelectionEnqueuing(source: source, file: file, quality: quality),
+    );
     try {
       final item = await _repository.enqueueDownload(
         source: source,
@@ -77,6 +105,7 @@ class DownloadSelectionCubit extends Cubit<DownloadSelectionState> {
         animeId: args.animeId,
         animeTitle: args.animeTitle,
         sourceTitle: args.sourceTitle,
+        quality: quality,
       );
       _source = null;
       if (!isClosed) emit(DownloadSelectionQueued(item));

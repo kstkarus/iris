@@ -23,6 +23,7 @@ class DownloadItem {
     required this.createdAt,
     this.errorMessage,
     this.completedAt,
+    this.quality,
   });
 
   final String id;
@@ -45,6 +46,10 @@ class DownloadItem {
   final String? errorMessage;
   final DateTime createdAt;
   final DateTime? completedAt;
+
+  /// How tall a picture an online episode loads in at most; null for the
+  /// best, and for a torrent file.
+  final int? quality;
 
   /// The loaded share of the file, from 0 to 1; 0 while its size is unknown.
   double get progress => totalBytes <= 0
@@ -78,6 +83,7 @@ class DownloadItem {
     Object? errorMessage = _notProvided,
     DateTime? createdAt,
     Object? completedAt = _notProvided,
+    int? quality,
   }) {
     assert(
       identical(errorMessage, _notProvided) || errorMessage is String?,
@@ -111,6 +117,7 @@ class DownloadItem {
       completedAt: identical(completedAt, _notProvided)
           ? this.completedAt
           : completedAt as DateTime?,
+      quality: quality ?? this.quality,
     );
   }
 
@@ -137,7 +144,8 @@ class DownloadItem {
         other.status == status &&
         other.errorMessage == errorMessage &&
         other.createdAt == createdAt &&
-        other.completedAt == completedAt;
+        other.completedAt == completedAt &&
+        other.quality == quality;
   }
 
   @override
@@ -159,5 +167,6 @@ class DownloadItem {
     errorMessage,
     createdAt,
     completedAt,
+    quality,
   );
 }

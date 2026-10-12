@@ -5,10 +5,15 @@ class PreparedDownloadSource {
   const PreparedDownloadSource({
     required this.sourceToken,
     required this.files,
+    this.qualities = const [],
   });
 
   final String sourceToken;
   final List<DownloadableFile> files;
+
+  /// The picture heights an online release can be loaded in, tallest
+  /// first; empty for a torrent, whose files come as they are.
+  final List<int> qualities;
 
   @override
   bool operator ==(Object other) {
@@ -18,9 +23,14 @@ class PreparedDownloadSource {
 
     return other is PreparedDownloadSource &&
         other.sourceToken == sourceToken &&
-        sameList(other.files, files);
+        sameList(other.files, files) &&
+        sameList(other.qualities, qualities);
   }
 
   @override
-  int get hashCode => Object.hash(sourceToken, Object.hashAll(files));
+  int get hashCode => Object.hash(
+    sourceToken,
+    Object.hashAll(files),
+    Object.hashAll(qualities),
+  );
 }

@@ -60,7 +60,7 @@ void main() {
     }
   });
 
-  Future<DownloadItem> enqueueEpisode(int index) async {
+  Future<DownloadItem> enqueueEpisode(int index, {int? quality}) async {
     final source = await repository.prepareSource(magnet: _link);
     return repository.enqueueDownload(
       source: source,
@@ -68,6 +68,7 @@ void main() {
       animeId: '52991',
       animeTitle: 'Frieren',
       sourceTitle: 'AniLibria',
+      quality: quality,
     );
   }
 
@@ -80,7 +81,32 @@ void main() {
     final source = await repository.prepareSource(magnet: _link);
 
     expect(source.files, _episodes);
+    expect(source.qualities, [720, 480]);
     expect(online.listed, [OnlineSourceLink.tryParse(_link)]);
+  });
+
+  test('loads an episode in the quality it was queued in, also after a '
+      'restart', () async {
+    final item = await enqueueEpisode(2, quality: 480);
+    await _waitFor(() => online.tasks.isNotEmpty);
+
+    expect(item.quality, 480);
+    expect(online.tasks.single.maxQuality, 480);
+
+    await repository.close();
+    repository = DownloadsRepositoryImpl(
+      engine: _UnusedEngine(),
+      registry: DownloadRegistryDataSource(
+        registryFile: File(path.join(temporaryDirectory.path, 'registry.json')),
+      ),
+      downloadsDirectory: downloadsDirectory,
+      foregroundService: foregroundService,
+      storageUsageAdapter: const _FakeStorageUsageAdapter(),
+      onlineDownloader: online,
+    );
+    await repository.restore();
+    await _waitFor(() => online.tasks.length == 2);
+    expect(online.tasks.last.maxQuality, 480);
   });
 
   test('stops waiting for the episode list when the picker goes', () async {
@@ -246,11 +272,15 @@ class _FakeOnlineDownloader implements OnlineEpisodeDownloader {
   final listed = <OnlineSourceLink>[];
   final tasks = <_FakeTask>[];
   Completer<List<DownloadableFile>>? episodeList;
+  List<int> qualities = const [720, 480];
 
   @override
-  Future<List<DownloadableFile>> episodes(OnlineSourceLink link) async {
+  Future<({List<DownloadableFile> files, List<int> qualities})> episodes(
+    OnlineSourceLink link,
+  ) async {
     listed.add(link);
-    return episodeList?.future ?? _episodes;
+    final files = await (episodeList?.future ?? Future.value(_episodes));
+    return (files: files, qualities: qualities);
   }
 
   @override
@@ -258,18 +288,28 @@ class _FakeOnlineDownloader implements OnlineEpisodeDownloader {
     required OnlineSourceLink link,
     required int fileIndex,
     required Directory directory,
+    int? maxQuality,
   }) {
-    final task = _FakeTask(fileIndex: fileIndex, directory: directory);
+    final task = _FakeTask(
+      fileIndex: fileIndex,
+      directory: directory,
+      maxQuality: maxQuality,
+    );
     tasks.add(task);
     return task;
   }
 }
 
 class _FakeTask implements OnlineDownloadTask {
-  _FakeTask({required this.fileIndex, required this.directory});
+  _FakeTask({
+    required this.fileIndex,
+    required this.directory,
+    required this.maxQuality,
+  });
 
   final int fileIndex;
   final Directory directory;
+  final int? maxQuality;
   final _progress = StreamController<OnlineDownloadProgress>.broadcast();
   final _done = Completer<File?>();
   bool cancelled = false;

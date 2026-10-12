@@ -97,6 +97,17 @@
   "watchSourcesTorrentsSection": "Torrents",
   "watchSourcesOnlineLoading": "Looking for online sources",
   "watchSourcesOnlineLoadError": "Online sources did not respond.",
+  "onlineQualityTitle": "Quality",
+  "onlineQualityAuto": "Auto",
+  "onlineQualityHeight": "{height}p",
+  "@onlineQualityHeight": {
+    "description": "A picture height to choose, as in 720p.",
+    "placeholders": {
+      "height": {
+        "type": "int"
+      }
+    }
+  },
   "watchSourcesOnlineBestQuality": "up to {quality}p",
   "@watchSourcesOnlineBestQuality": {
     "placeholders": {

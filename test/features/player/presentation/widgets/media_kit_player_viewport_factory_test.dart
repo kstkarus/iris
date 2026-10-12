@@ -8,6 +8,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 
+import 'package:iris/features/online_sources/domain/repositories/online_quality_preferences.dart';
 import 'package:iris/features/player/domain/entities/player_playback_stats.dart';
 import 'package:iris/features/player/domain/entities/player_skip_segment.dart';
 import 'package:iris/features/player/domain/entities/player_session.dart';
@@ -23,9 +24,11 @@ import 'package:iris/features/player/presentation/widgets/player_viewport_factor
 import 'package:iris/features/player/presentation/widgets/player_overlay_preferences.dart';
 import 'package:iris/features/player/presentation/widgets/player_track_selector_sheet.dart';
 import 'package:iris/features/player/presentation/widgets/player_wait_indicator.dart';
+import 'package:iris/shared/widgets/segmented_choice.dart';
 import 'package:iris/shared/window/screen_brightness_control.dart';
 
 import '../../../../helpers/fake_player_repository.dart';
+import '../../../../helpers/memory_online_quality_preferences.dart';
 import '../../../../helpers/test_app.dart';
 import '../../../../helpers/test_window.dart';
 import '../../player_test_doubles.dart';
@@ -259,6 +262,111 @@ void main() {
 
     expect(renewals, 3);
     expect(find.text('Unable to start playback.'), findsOneWidget);
+  });
+
+  testWidgets('an online episode offers its qualities in the settings and '
+      'reopens where it was in the one chosen', (tester) async {
+    final preferences = MemoryOnlineQualityPreferences();
+    final repository = StubPlayerRepository()
+      ..renewals = (session) async => PlayerSession(
+        sessionId: session.sessionId,
+        streamUrl: 'https://video.example/${preferences.watching}.m3u8',
+        qualities: const [1080, 720],
+        quality: preferences.watching,
+      );
+    final platformPlayer = _FakePlatformPlayer(
+      configuration: const PlayerConfiguration(),
+    );
+    await tester.pumpWidget(
+      _wrapViewport(
+        platformPlayer: platformPlayer,
+        repository: repository,
+        onlineQuality: preferences,
+        session: _onlineSession,
+      ),
+    );
+    await tester.pump();
+    platformPlayer.emitPosition(const Duration(minutes: 3));
+    await _deliverPlayerEvent(tester);
+
+    await tester.tap(find.byKey(const Key('player_settings_button')));
+    await tester.pumpAndSettle();
+    expect(find.text('Quality'), findsOneWidget);
+    for (final label in ['Auto', '1080p', '720p']) {
+      expect(find.text(label), findsOneWidget, reason: label);
+    }
+    expect(
+      tester
+          .widget<SegmentedChoice<int?>>(
+            find.byKey(const Key('player_quality_choice')),
+          )
+          .selected,
+      isNull,
+    );
+
+    await tester.tap(find.text('720p'));
+    await tester.pump();
+
+    expect(preferences.watching, 720);
+    expect(repository.renewedSessions, [_onlineSession]);
+    expect(platformPlayer.openCount, 2);
+    final reopened = platformPlayer.lastOpened! as Media;
+    expect(reopened.uri, 'https://video.example/720.m3u8');
+    expect(reopened.start, const Duration(minutes: 3));
+    expect(
+      tester
+          .widget<SegmentedChoice<int?>>(
+            find.byKey(const Key('player_quality_choice')),
+          )
+          .selected,
+      720,
+    );
+  });
+
+  testWidgets('choosing the quality that plays opens nothing anew', (
+    tester,
+  ) async {
+    final preferences = MemoryOnlineQualityPreferences(watching: 720);
+    final repository = StubPlayerRepository();
+    final platformPlayer = _FakePlatformPlayer(
+      configuration: const PlayerConfiguration(),
+    );
+    await tester.pumpWidget(
+      _wrapViewport(
+        platformPlayer: platformPlayer,
+        repository: repository,
+        onlineQuality: preferences,
+        session: const PlayerSession(
+          sessionId: 'online:anilibria/9542',
+          streamUrl: 'https://video.example/720.m3u8',
+          qualities: [1080, 720],
+          quality: 720,
+        ),
+      ),
+    );
+    await tester.pump();
+
+    await tester.tap(find.byKey(const Key('player_settings_button')));
+    await tester.pumpAndSettle();
+    // 720 plays: picking it again, or anything that comes to 720, is a no-op.
+    await tester.tap(find.text('720p'));
+    await tester.pump();
+
+    expect(repository.renewedSessions, isEmpty);
+    expect(platformPlayer.openCount, 1);
+  });
+
+  testWidgets('a torrent offers no quality', (tester) async {
+    await tester.pumpWidget(
+      _wrapViewport(onlineQuality: MemoryOnlineQualityPreferences()),
+    );
+    await tester.pump();
+
+    await tester.tap(find.byKey(const Key('player_settings_button')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Playback speed'), findsOneWidget);
+    expect(find.text('Quality'), findsNothing);
   });
 
   testWidgets('a stream mpv opens at the start is sent where it should be', (
@@ -2774,6 +2882,7 @@ Widget _wrapViewport({
   NativeFullscreenToggle? exitNativeFullscreen,
   PlayerSession session = _session,
   ScreenBrightnessControl? brightness,
+  OnlineQualityPreferences? onlineQuality,
 }) {
   final effectivePlatformPlayer =
       platformPlayer ??
@@ -2794,6 +2903,7 @@ Widget _wrapViewport({
     enterNativeFullscreen: enterNativeFullscreen ?? () async {},
     exitNativeFullscreen: exitNativeFullscreen ?? () async {},
     brightness: brightness,
+    onlineQuality: onlineQuality,
     playerBuilder:
         playerBuilder ??
         (configuration) => Player(platformPlayer: effectivePlatformPlayer),
@@ -2842,6 +2952,14 @@ const _plainChrome = PlayerChrome(title: 'Episode 11', onBack: _stayOnPage);
 const _session = PlayerSession(
   sessionId: '42',
   streamUrl: 'http://127.0.0.1:8080/stream/2',
+);
+
+/// An online episode, offered in two qualities and playing the best.
+const _onlineSession = PlayerSession(
+  sessionId: 'online:anilibria/9542',
+  streamUrl: 'https://video.example/1080.m3u8',
+  qualities: [1080, 720],
+  quality: 1080,
 );
 
 /// The link a video server issues afresh for [_session]'s file.

@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import 'package:iris/features/player/presentation/playback/player_quality_choice.dart';
 import 'package:iris/features/player/domain/entities/player_decoding_preferences.dart';
 import 'package:iris/features/player/domain/entities/subtitle_preferences.dart';
 import 'package:iris/features/player/presentation/cubit/player_decoding_preferences_cubit.dart';
@@ -35,12 +36,25 @@ class PlayerSpeedSetting {
   final ValueChanged<double> onSelected;
 }
 
+/// The playing file's quality, offered under the speed while it has a
+/// choice (an online episode).
+class PlayerQualitySetting {
+  const PlayerQualitySetting({required this.choice, required this.onSelected});
+
+  final ValueListenable<PlayerQualityChoice?> choice;
+
+  /// Null is "Auto".
+  final ValueChanged<int?> onSelected;
+}
+
 /// Opens the settings; on wide windows as a popover of [anchor], the
-/// settings button. With [speed], they start with the playback speed.
+/// settings button. With [speed], they start with the playback speed, and
+/// with [quality] the quality follows.
 Future<void> showPlayerSubtitleSettingsSheet(
   BuildContext context, {
   BuildContext? anchor,
   PlayerSpeedSetting? speed,
+  PlayerQualitySetting? quality,
 }) {
   final subtitleCubit = context.read<PlayerSubtitlePreferencesCubit>();
   final decodingCubit = context.read<PlayerDecodingPreferencesCubit>();
@@ -61,7 +75,7 @@ Future<void> showPlayerSubtitleSettingsSheet(
           value: decodingCubit,
         ),
       ],
-      child: PlayerSubtitleSettingsSheet(speed: speed),
+      child: PlayerSubtitleSettingsSheet(speed: speed, quality: quality),
     ),
   );
 }
@@ -70,13 +84,15 @@ Future<void> showPlayerSubtitleSettingsSheet(
 /// change; the decoder, the ASS renderer and the technical overlay folded
 /// under Advanced, for playback problems.
 class PlayerSubtitleSettingsSheet extends StatelessWidget {
-  const PlayerSubtitleSettingsSheet({this.speed, super.key});
+  const PlayerSubtitleSettingsSheet({this.speed, this.quality, super.key});
 
   final PlayerSpeedSetting? speed;
+  final PlayerQualitySetting? quality;
 
   @override
   Widget build(BuildContext context) {
     final speed = this.speed;
+    final quality = this.quality;
     return PlayerPanel(
       title: AppLocalizations.of(context).playerSettingsTitle,
       child: Column(
@@ -84,6 +100,7 @@ class PlayerSubtitleSettingsSheet extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           if (speed != null) _Speed(speed: speed),
+          if (quality != null) _Quality(quality: quality),
           const _Appearance(),
           const SizedBox(height: 8),
           const SegmentedRule(),
@@ -119,6 +136,40 @@ class _Speed extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _Quality extends StatelessWidget {
+  const _Quality({required this.quality});
+
+  final PlayerQualitySetting quality;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return ValueListenableBuilder<PlayerQualityChoice?>(
+      valueListenable: quality.choice,
+      builder: (context, choice, _) {
+        // A torrent or a download comes in one quality only.
+        if (choice == null) return const SizedBox.shrink();
+        return _Labelled(
+          label: l10n.onlineQualityTitle,
+          child: SegmentedChoice<int?>(
+            key: const Key('player_quality_choice'),
+            selected: choice.selected,
+            onSelected: quality.onSelected,
+            options: [
+              SegmentedOption(value: null, label: l10n.onlineQualityAuto),
+              for (final height in choice.offered)
+                SegmentedOption(
+                  value: height,
+                  label: l10n.onlineQualityHeight(height),
+                ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

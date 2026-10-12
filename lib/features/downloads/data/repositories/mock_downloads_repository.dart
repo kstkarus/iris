@@ -41,6 +41,7 @@ class MockDownloadsRepository implements DownloadsRepository {
     required String animeId,
     required String animeTitle,
     required String sourceTitle,
+    int? quality,
   }) async {
     final item = DownloadItem(
       id: 'mock-${file.index}',

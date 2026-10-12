@@ -75,8 +75,27 @@ void main() {
       File(path.join(directory.path, 'online_download.json')).existsSync();
 
   test('offers the episodes as files, by number, of no known size', () async {
-    final files = await downloader((_) => const FakeReply(404)).episodes(_link);
+    sources.streams = [
+      _hls('https://cdn.test/e1/1080.m3u8', quality: 1080),
+      const OnlineStream(
+        url: 'https://cdn.test/e1/1080.mpd',
+        quality: 1080,
+        format: OnlineStreamFormat.dash,
+      ),
+      const OnlineStream(
+        url: 'https://cdn.test/e1/2160.mpd',
+        quality: 2160,
+        format: OnlineStreamFormat.dash,
+      ),
+      _hls('https://cdn.test/e1/720.m3u8'),
+    ];
+    final (:files, :qualities) = await downloader(
+      (_) => const FakeReply(404),
+    ).episodes(_link);
 
+    // Only what can be loaded, as the first episode has it.
+    expect(sources.resolved, ['e1']);
+    expect(qualities, [1080, 720]);
     expect(files, const [
       DownloadableFile(
         index: 1,
@@ -86,6 +105,37 @@ void main() {
       ),
       DownloadableFile(index: 2, name: '02', relativePath: '', size: 0),
     ]);
+  });
+
+  test('an episode that gives no streams yet offers no qualities', () async {
+    sources.failResolve = true;
+
+    final (:files, :qualities) = await downloader(
+      (_) => const FakeReply(404),
+    ).episodes(_link);
+
+    expect(files, hasLength(2));
+    expect(qualities, isEmpty);
+  });
+
+  test('loads the quality asked for, or the closest below it', () async {
+    sources.streams = [
+      _hls('https://cdn.test/e2/1080.m3u8', quality: 1080),
+      _hls('https://cdn.test/e2/720.m3u8'),
+      _hls('https://cdn.test/e2/480.m3u8', quality: 480),
+    ];
+    final asked = <String>[];
+    final task = downloader((options) {
+      final name = options.uri.pathSegments.last;
+      asked.add(name);
+      return name.endsWith('.m3u8')
+          ? FakeReply.text(200, _playlist(1))
+          : FakeReply.text(200, '[$name]');
+    }).start(link: _link, fileIndex: 2, directory: directory, maxQuality: 900);
+
+    await task.done;
+
+    expect(asked.first, '720.m3u8');
   });
 
   test(
@@ -348,6 +398,7 @@ void main() {
 class _FakeOnlineSources implements OnlineSourcesRepository {
   final resolved = <String>[];
   List<OnlineStream> streams = const [];
+  bool failResolve = false;
 
   /// Gives each resolve its own streams, in place of [streams].
   List<OnlineStream> Function()? onResolve;
@@ -364,6 +415,7 @@ class _FakeOnlineSources implements OnlineSourcesRepository {
     required String episodeId,
   }) async {
     resolved.add(episodeId);
+    if (failResolve) throw StateError('offline');
     return onResolve?.call() ?? streams;
   }
 

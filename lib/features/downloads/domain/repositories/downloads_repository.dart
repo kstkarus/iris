@@ -13,12 +13,15 @@ abstract interface class DownloadsRepository {
 
   Future<void> disposePreparedSource({required String sourceToken});
 
+  /// [quality] caps the picture height of an online episode (null: the
+  /// best); a torrent file ignores it.
   Future<DownloadItem> enqueueDownload({
     required PreparedDownloadSource source,
     required DownloadableFile file,
     required String animeId,
     required String animeTitle,
     required String sourceTitle,
+    int? quality,
   });
 
   Stream<List<DownloadItem>> watchDownloads();

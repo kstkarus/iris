@@ -191,6 +191,7 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
     required String animeId,
     required String animeTitle,
     required String sourceTitle,
+    int? quality,
   }) async {
     await restore();
     final release = _preparedReleases[source.sourceToken];
@@ -202,6 +203,7 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
         animeId: animeId,
         animeTitle: animeTitle,
         sourceTitle: sourceTitle,
+        quality: quality,
       );
     }
     final runtime = _preparedSources[source.sourceToken];
@@ -266,6 +268,7 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
     required String animeId,
     required String animeTitle,
     required String sourceTitle,
+    required int? quality,
   }) async {
     if (!source.files.contains(file)) {
       throw ArgumentError.value(file, 'file', 'File is not in the source.');
@@ -293,6 +296,7 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
       peers: 0,
       status: DownloadStatus.queued,
       createdAt: _now(),
+      quality: quality,
     );
     _downloads = [..._downloads, item];
     await _commit();
@@ -421,7 +425,7 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
     if (downloader == null) {
       throw UnsupportedError('Online episodes cannot be downloaded here.');
     }
-    final files = await _unlessCancelled(
+    final (:files, :qualities) = await _unlessCancelled(
       downloader.episodes(release),
       cancelled,
     );
@@ -432,6 +436,7 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
     return PreparedDownloadSource(
       sourceToken: token,
       files: List.unmodifiable(files),
+      qualities: List.unmodifiable(qualities),
     );
   }
 
@@ -843,6 +848,7 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
       link: release,
       fileIndex: item.fileIndex,
       directory: _downloadDirectory(item.id),
+      maxQuality: item.quality,
     );
     _onlineTask = task;
     _activeDownloadId = item.id;

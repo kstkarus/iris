@@ -9,6 +9,7 @@ import 'package:iris/shared/utils/byte_size_formatter.dart';
 import 'package:iris/shared/utils/file_display_name.dart';
 import 'package:iris/shared/widgets/pixel_icon.dart';
 import 'package:iris/shared/widgets/segmented_bar.dart';
+import 'package:iris/shared/widgets/segmented_choice.dart';
 import 'package:iris/shared/widgets/status_views.dart';
 import 'package:iris/shared/widgets/tap_row.dart';
 
@@ -32,13 +33,22 @@ class DownloadSelectionView extends StatelessWidget {
                 ? l10n.downloadSelectionPreparingEpisodes
                 : l10n.downloadSelectionPreparing,
           ),
-          DownloadSelectionReady(:final source) => _FileList(
+          DownloadSelectionReady(:final source, :final quality) => _FileList(
             files: source.files,
+            qualities: source.qualities,
+            quality: quality,
           ),
-          DownloadSelectionEnqueuing(:final source, :final file) => _FileList(
-            files: source.files,
-            enqueuingFile: file,
-          ),
+          DownloadSelectionEnqueuing(
+            :final source,
+            :final file,
+            :final quality,
+          ) =>
+            _FileList(
+              files: source.files,
+              qualities: source.qualities,
+              quality: quality,
+              enqueuingFile: file,
+            ),
           DownloadSelectionFailure(:final type) => _FailureState(type: type),
         };
       },
@@ -47,13 +57,38 @@ class DownloadSelectionView extends StatelessWidget {
 }
 
 class _FileList extends StatelessWidget {
-  const _FileList({required this.files, this.enqueuingFile});
+  const _FileList({
+    required this.files,
+    required this.qualities,
+    required this.quality,
+    this.enqueuingFile,
+  });
 
   final List<DownloadableFile> files;
+
+  /// The heights an online release offers; empty for a torrent.
+  final List<int> qualities;
+  final int? quality;
   final DownloadableFile? enqueuingFile;
 
   @override
   Widget build(BuildContext context) {
+    final list = _list(context);
+    if (qualities.isEmpty) return list;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _QualityChoice(
+          qualities: qualities,
+          quality: quality,
+          enabled: enqueuingFile == null,
+        ),
+        Expanded(child: list),
+      ],
+    );
+  }
+
+  Widget _list(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final theme = Theme.of(context);
     final cubit = context.read<DownloadSelectionCubit>();
@@ -117,6 +152,57 @@ class _FileList extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+/// The quality the next episodes load in, over the episodes.
+class _QualityChoice extends StatelessWidget {
+  const _QualityChoice({
+    required this.qualities,
+    required this.quality,
+    required this.enabled,
+  });
+
+  final List<int> qualities;
+  final int? quality;
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final theme = Theme.of(context);
+    final cubit = context.read<DownloadSelectionCubit>();
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            l10n.onlineQualityTitle,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 6),
+          IgnorePointer(
+            ignoring: !enabled,
+            child: SegmentedChoice<int?>(
+              key: const Key('download_quality_choice'),
+              selected: quality,
+              onSelected: cubit.chooseQuality,
+              options: [
+                SegmentedOption(value: null, label: l10n.onlineQualityAuto),
+                for (final height in qualities)
+                  SegmentedOption(
+                    value: height,
+                    label: l10n.onlineQualityHeight(height),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

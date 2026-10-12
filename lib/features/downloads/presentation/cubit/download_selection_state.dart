@@ -15,16 +15,25 @@ class DownloadSelectionLoading extends DownloadSelectionState {
 }
 
 class DownloadSelectionReady extends DownloadSelectionState {
-  const DownloadSelectionReady(this.source);
+  const DownloadSelectionReady(this.source, {this.quality});
 
   final PreparedDownloadSource source;
+
+  /// The height an online episode is loaded in at most, one of the
+  /// source's qualities; null for the best, and for a torrent.
+  final int? quality;
 }
 
 class DownloadSelectionEnqueuing extends DownloadSelectionState {
-  const DownloadSelectionEnqueuing({required this.source, required this.file});
+  const DownloadSelectionEnqueuing({
+    required this.source,
+    required this.file,
+    this.quality,
+  });
 
   final PreparedDownloadSource source;
   final DownloadableFile file;
+  final int? quality;
 }
 
 class DownloadSelectionQueued extends DownloadSelectionState {

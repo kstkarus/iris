@@ -13,6 +13,7 @@ import 'package:iris/features/online_sources/domain/entities/online_provider.dar
 import 'package:iris/features/online_sources/domain/entities/online_release.dart';
 import 'package:iris/features/online_sources/domain/entities/online_stream.dart';
 import 'package:iris/features/online_sources/domain/online_episode_files.dart';
+import 'package:iris/features/online_sources/domain/online_stream_choice.dart';
 import 'package:iris/features/online_sources/domain/repositories/online_sources_repository.dart';
 import 'package:iris/shared/online/online_source_link.dart';
 
@@ -78,33 +79,61 @@ class OnlineEpisodeDownloader {
   final Future<void> Function(Duration delay) _delay;
   final DateTime Function() _now;
 
-  /// The release's episodes, as files to choose from; their sizes are not
-  /// known before they load.
-  Future<List<DownloadableFile>> episodes(OnlineSourceLink link) async {
+  /// The release's episodes, as files to choose from (their sizes are not
+  /// known before they load), and the heights its first episode can be
+  /// loaded in, tallest first; none when that episode gave no answer.
+  Future<({List<DownloadableFile> files, List<int> qualities})> episodes(
+    OnlineSourceLink link,
+  ) async {
     final release = await _release(link);
     final indices = onlineEpisodeFileIndices(release);
-    return [
-      for (final (position, episode) in release.episodes.indexed)
-        DownloadableFile(
-          index: indices[position],
-          name: onlineEpisodeFileName(episode.number, episode.title),
-          relativePath: '',
-          size: 0,
-        ),
-    ];
+    return (
+      files: [
+        for (final (position, episode) in release.episodes.indexed)
+          DownloadableFile(
+            index: indices[position],
+            name: onlineEpisodeFileName(episode.number, episode.title),
+            relativePath: '',
+            size: 0,
+          ),
+      ],
+      qualities: await _qualities(release),
+    );
   }
 
-  /// Starts loading episode [fileIndex] of [link] into [directory].
+  /// A release's episodes come in the same heights, as far as the sites go:
+  /// the first one speaks for all.
+  Future<List<int>> _qualities(OnlineRelease release) async {
+    if (release.episodes.isEmpty) return const [];
+    try {
+      final streams = await _repository.resolveStreams(
+        provider: release.provider,
+        episodeId: release.episodes.first.id,
+      );
+      return onlineQualities(streams, downloadable: true);
+    } on Object catch (error) {
+      developer.log(
+        'No qualities for ${release.provider.name}/${release.id}: $error',
+        name: 'iris.downloads.online',
+      );
+      return const [];
+    }
+  }
+
+  /// Starts loading episode [fileIndex] of [link] into [directory], at most
+  /// [maxQuality] high (null: the best).
   OnlineDownloadTask start({
     required OnlineSourceLink link,
     required int fileIndex,
     required Directory directory,
+    int? maxQuality,
   }) {
     final task = _Task(
       downloader: this,
       link: link,
       fileIndex: fileIndex,
       directory: directory,
+      maxQuality: maxQuality,
     );
     unawaited(task.run());
     return task;
@@ -134,12 +163,14 @@ class _Task implements OnlineDownloadTask {
     required this.link,
     required this.fileIndex,
     required this.directory,
+    required this.maxQuality,
   });
 
   final OnlineEpisodeDownloader downloader;
   final OnlineSourceLink link;
   final int fileIndex;
   final Directory directory;
+  final int? maxQuality;
 
   final _progress = StreamController<OnlineDownloadProgress>.broadcast();
   final _done = Completer<File?>();
@@ -224,7 +255,7 @@ class _Task implements OnlineDownloadTask {
   }
 
   /// The stream to load: the quality an earlier run loaded, when the server
-  /// still has it, otherwise the best it has, an mp4 before HLS.
+  /// still has it, otherwise the one [maxQuality] asks for.
   Future<OnlineStream> _pickStream(String episodeId, _State? state) async {
     final provider = OnlineProvider.named(link.provider)!;
     final streams = await downloader._repository.resolveStreams(
@@ -246,12 +277,11 @@ class _Task implements OnlineDownloadTask {
         }
       }
     }
-    loadable.sort((left, right) {
-      final quality = right.quality.compareTo(left.quality);
-      if (quality != 0) return quality;
-      return _formatRank(left.format).compareTo(_formatRank(right.format));
-    });
-    return loadable.first;
+    return chooseOnlineStream(
+      loadable,
+      maxQuality: maxQuality,
+      downloadable: true,
+    )!;
   }
 
   Future<File> _loadHls(
@@ -533,12 +563,6 @@ class _Task implements OnlineDownloadTask {
     if (await _stateFile.exists()) await _stateFile.delete();
   }
 }
-
-int _formatRank(OnlineStreamFormat format) => switch (format) {
-  OnlineStreamFormat.mp4 => 0,
-  OnlineStreamFormat.hls => 1,
-  OnlineStreamFormat.dash => 2,
-};
 
 /// `bytes 100-999/1000` gives 1000; 0 when it says nothing usable.
 int _totalFromRange(String? header) {
