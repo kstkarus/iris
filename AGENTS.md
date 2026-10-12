@@ -265,6 +265,8 @@ A task is done when all of the following are true when applicable:
 - localizations are regenerated if ARB files changed
 - public behavior changes are reflected in `docs/behaviour.md` (and the
   `README.md` overview) when necessary
+- notable user-facing changes are added to `CHANGELOG.md` under
+  "Unreleased" (versioning rules are in `README.md`)
 
 ## Git workflow
 - Use Conventional Commits: `type(scope): description`
