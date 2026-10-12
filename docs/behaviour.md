@@ -138,6 +138,13 @@ Current behavior:
 
 On Windows, downloads are stored under `%APPDATA%\com.kstkarus\iris\offline_downloads`, and the Android-only foreground service and storage stats are no-ops.
 
+## Updates
+
+- on Android and Windows the app asks GitHub for the repository's latest release once per launch (`/repos/kstkarus/iris/releases/latest`, `lib/features/app_update/`); drafts and pre-releases are not offered. iOS has no published build and does not check
+- a release is offered when its tag is newer than the running version and was not put off. Android picks the APK for the ABI the app runs as (`Abi.current()`): `-android-arm64-v8a.apk`, `-armeabi-v7a.apk` or `-x86_64.apk`; Windows the `-windows-x64.zip`
+- the offer is a strip at the top of the tab pages: under the status bar on phones, whose inset it takes over from the page below so nothing jumps, and under the top bar on wider windows, on the page frame. It opens its space, then develops in it cell by cell, the way late sections do, and cannot be pressed before it has. It does not show on title pages or in the player
+- Download opens the build in the browser, and the system installs it. Later dissolves the strip, then gives its height back, and hides that version until a newer one comes out. A failed check shows nothing
+
 ## Layout and visual language
 
 Adaptive layout follows the Material 3 window size classes (`lib/shared/widgets/adaptive/window_size_class.dart`): text tabs at the bottom below 600 dp, a top bar with the mark and the sections in small text from 600 dp (Ctrl+1..4 switch sections), multi-column grids and two-pane details/downloads on wider windows. Top-level pages have no app bar: the navigation already names the section. Every page, the top bar and sub-page bars included, keeps to one frame (`AdaptiveContentWidth.page`, 1600 dp, centred) with its content left-aligned inside, so the left edge stays put between pages: the mark and the back arrow sit over it and the sections are centred in the bar. Narrower measures apply only inside the frame, to text (the description, Recently watched) and forms. On the title page the column beside the cover keeps to the cover's height: the title gets the height its Russian name, action and facts leave (`HeadlineColumn`), so a long title sets smaller instead of pushing the facts below the cover; only when even its smallest size does not fit does the column run longer. The title page's bar shows only the way back until the anime's name has wholly scrolled under it; then the name develops in the bar, and dissolves when it comes back into view. Recently watched names its action by what it does: Continue, Watch for a file only looked at (it starts from the beginning), Play next for a finished one.

@@ -1,6 +1,8 @@
 # iris
 
-An anime app for a small circle of friends: browse the [Shikimori](https://shikimori.io) catalog, watch episodes from online dubs or torrents in the app's own player, download them for the road, and keep your Shikimori list in step as you watch. Android, Windows and iOS.
+An anime client for Android, Windows and iOS. It browses the [Shikimori](https://shikimori.io) catalog, plays episodes from online sources and torrents in its own player, downloads them for offline viewing and syncs watch progress with a Shikimori list.
+
+iris does not host video. It plays streams and torrents published by third-party sources.
 
 <p align="center">
   <img src="docs/screenshots/catalog_desktop.png" alt="The catalog on a desktop window" width="100%">
@@ -18,29 +20,53 @@ An anime app for a small circle of friends: browse the [Shikimori](https://shiki
   <img src="docs/screenshots/character_phone.png" alt="A character's page" width="24%">
 </p>
 
-## What it does
+## Features
 
-- **Catalog.** Popular titles from Shikimori, search, and filters by type, status, genre, season, rating and length. Signed in, covers show where a title stands in your list.
-- **Title pages.** Facts, description, dubs, the rest of the franchise, characters (each with a page of their own) and which friends have the title in their lists.
-- **Sources.** Online releases in dozens of dubs and subtitles (AniLibria, yummy_anime through Kodik and Aksor), matched to the title by its Shikimori id, and torrents from Nyaa. Magnet links of your own live in the Torrents tab.
-- **Player.** mpv through `media_kit`, with the app's own full-screen controls on every platform. On phones: swipe to seek, set the brightness, lock the screen. Audio and subtitle tracks, subtitle styling, playback speed, the decoder. It skips openings (from chapters or [AniSkip](https://api.aniskip.com)), offers the next episode and resumes where you stopped. Torrents stream piece by piece, without downloading the whole file first.
-- **Downloads.** Torrent files and online episodes in the quality you pick, queued one at a time, resumed after a pause, a failure or a restart.
-- **Shikimori account.** Set a title's status, score and episodes. An episode watched to its ending counts in your list. Episodes your list counts show as watched on every device, and Up next picks up from there.
-- **Updates.** On Android and Windows the app offers a newer release from this repository's Releases page.
+- **Catalog.** Popular titles, search, and filters by type, status, genre, season, rating and episode length. When signed in, covers show the title's status in the user's list.
+- **Title pages.** Details, description, dubs, related titles, characters with their own pages, and the Shikimori friends who have the title in their lists.
+- **Sources.** Online releases in many dubs and subtitles (AniLibria; yummy_anime through Kodik and Aksor), matched by Shikimori id, and torrents from Nyaa. User-added magnet links are kept in the Torrents tab.
+- **Player.** mpv through `media_kit`, with the same full-screen controls on every platform:
+  - audio and subtitle tracks, subtitle styling, playback speed and decoder choice;
+  - a timeline divided by the file's chapters or by the opening and ending;
+  - opening skip, based on chapters or [AniSkip](https://api.aniskip.com);
+  - next-episode prompt and resume from the last position;
+  - on phones, swipe seeking, brightness control and a screen lock.
 
-How each of these behaves in detail, and which services it asks, is in [docs/behaviour.md](docs/behaviour.md).
+  Torrents stream piece by piece, without downloading the whole file first.
+- **Downloads.** Torrent files and online episodes in a chosen quality. The queue resumes after a pause, an error or an app restart.
+- **Shikimori account.** Status, score and episode count for any title. An episode watched to its ending is counted in the list, and episodes the list counts show as watched on every device.
+- **Updates.** On Android and Windows the app checks this repository's latest release and offers it when it is newer.
+
+Detailed behaviour of each feature, including which services it calls, is described in [docs/behaviour.md](docs/behaviour.md).
+
+## Status
+
+Android and Windows are built and published on every release. iOS builds from source but has no published build and is tested less.
 
 ## Install
 
-Builds are on the [Releases](https://github.com/kstkarus/iris/releases) page:
+Builds are published on the [Releases](https://github.com/kstkarus/iris/releases) page.
 
-- **Android:** `iris-X.Y.Z-android-arm64-v8a.apk` fits almost every phone. `armeabi-v7a` is for old 32-bit phones, `x86_64` for emulators and Chromebooks, and `universal` (about twice the size) runs on all of them. Later versions install over any of these, and the app says when one is out, offering the APK for its own processor.
-- **Windows:** `iris-X.Y.Z-windows-x64.zip`. Unpack it anywhere and run `iris.exe`. To update, unpack the new archive over the old folder.
-- **iOS:** there is no side-loaded build; build it from source.
+- **Android.** Choose the APK for your device's processor:
+
+  | APK | For |
+  |---|---|
+  | `iris-X.Y.Z-android-arm64-v8a.apk` | most phones |
+  | `iris-X.Y.Z-android-armeabi-v7a.apk` | older 32-bit phones |
+  | `iris-X.Y.Z-android-x86_64.apk` | emulators and Chromebooks |
+  | `iris-X.Y.Z-android-universal.apk` | any device (about twice the size) |
+
+  Any of these installs over another. The app then offers updates for its own processor.
+- **Windows.** `iris-X.Y.Z-windows-x64.zip`. Unpack it and run `iris.exe`. To update, unpack the new archive over the old folder.
+- **iOS.** Build from source.
 
 ## Development
 
-Requirements: Flutter (stable, see `FLUTTER_VERSION` in `.github/workflows/release.yml`), Android Studio for Android, and Visual Studio 2022 with "Desktop development with C++" for Windows.
+Requirements:
+
+- Flutter stable (the version is `FLUTTER_VERSION` in `.github/workflows/release.yml`);
+- Android Studio, for Android;
+- Visual Studio 2022 with "Desktop development with C++", for Windows.
 
 ```bash
 flutter pub get
@@ -48,11 +74,26 @@ flutter run --dart-define-from-file=config/shikimori.json
 flutter run -d windows --dart-define-from-file=config/shikimori.json
 ```
 
-Shikimori sign-in needs the OAuth application's id and secret, which stay out of git. Copy `config/shikimori.example.json` to `config/shikimori.json` (ignored) and fill it in from https://shikimori.io/oauth/applications. The application must list `iris://oauth/callback`, `iris-dev://oauth/callback` and `http://127.0.0.1:43821/oauth/callback` as redirect URIs and allow the `user_rates` scope. Without the file the app still builds and runs, and the Profile tab says sign-in is not set up. The secret ends up inside the built app, where it can be read out; that is accepted for an app shared among friends.
+### Shikimori sign-in
 
-On Android, `flutter run` (a debug build) installs a separate app, "iris dev" (`com.kstkarus.iris.iris.dev`), beside the release from the Releases page. It has its own data and signs in through `iris-dev://`, so a local build never replaces a newer release or wipes its watch progress and session.
+Sign-in needs a Shikimori OAuth application:
 
-Before calling a change done:
+1. Copy `config/shikimori.example.json` to `config/shikimori.json`. That file is ignored by git.
+2. Fill in the application's id and secret from https://shikimori.io/oauth/applications.
+
+The application must allow the `user_rates` scope and list these redirect URIs:
+
+- `iris://oauth/callback` (phones);
+- `iris-dev://oauth/callback` (Android debug builds);
+- `http://127.0.0.1:43821/oauth/callback` (desktop).
+
+Without the file the app builds and runs, and the Profile tab reports that sign-in is not configured. The secret is compiled into the app and can be extracted from a build.
+
+### Android debug builds
+
+`flutter run` on Android installs a separate app, "iris dev" (`com.kstkarus.iris.iris.dev`), with its own data. A local build therefore never replaces an installed release or its watch progress and session.
+
+### Checks
 
 ```bash
 dart format .
@@ -60,24 +101,26 @@ flutter analyze
 flutter test
 ```
 
-After editing `lib/l10n/*.arb`, regenerate the localizations with `flutter gen-l10n`.
+After editing `lib/l10n/*.arb`, run `flutter gen-l10n`.
 
-The code is organised by feature (`lib/features/<feature>/{presentation,domain,data}`), with shared pieces in `lib/shared` and `lib/entities`. The conventions, the stack and the rules for the player are in [AGENTS.md](AGENTS.md).
+### Code structure
 
-The screenshots above are rendered by `flutter test .design/readme_screens_test.dart` from real Shikimori and online-source answers. The `.design` folder is local and not in git.
+The code is organised by feature (`lib/features/<feature>/{presentation,domain,data}`), with shared code in `lib/shared` and `lib/entities`. Conventions, the stack and the player's rules are in [AGENTS.md](AGENTS.md).
 
 ## Releases
 
-Pushing a tag `vX.Y.Z` runs `.github/workflows/release.yml`. It builds the APKs (one per ABI and a universal one) and the Windows archive, with the tag as the version name and the run number as the build number, and publishes them as a GitHub release:
+Pushing a tag `vX.Y.Z` runs `.github/workflows/release.yml`:
 
 ```bash
-git tag v1.1.0
-git push origin v1.1.0
+git tag v1.2.0
+git push origin v1.2.0
 ```
 
-The workflow needs two repository secrets (Settings → Secrets and variables → Actions):
+The workflow builds the APKs and the Windows archive and publishes them as a GitHub release. The tag becomes the version name and the run number the build number.
 
-- `ANDROID_DEBUG_KEYSTORE`: base64 of the keystore the APKs already installed were signed with (`~/.android/debug.keystore` of the machine that built them; release builds are signed with the debug key, see `android/app/build.gradle.kts`). Android installs an update only over the same signature, so the workflow stops without it, and stops before publishing when the built APK's certificate is not `ANDROID_CERT_SHA256` from the workflow. On Windows: `[Convert]::ToBase64String([IO.File]::ReadAllBytes("$env:USERPROFILE\.android\debug.keystore"))`.
-- `SHIKIMORI_CONFIG`: the contents of `config/shikimori.json`.
+It needs two repository secrets (Settings → Secrets and variables → Actions):
 
-The app asks GitHub for the latest release once per launch (`lib/features/app_update/`). When it is newer than the running version, a strip says so at the top of the tab pages: under the status bar on phones, under the top bar on wider windows. It opens its space, then develops in it cell by cell, the way late sections do; Later dissolves it before it gives the height back. Download opens the build in the browser, and Later hides that version until a newer one comes out. A failed check shows nothing.
+- **`ANDROID_DEBUG_KEYSTORE`.** Base64 of the keystore that signs release APKs. Releases are currently signed with the Android debug key, see `android/app/build.gradle.kts`.
+  - Android installs an update only over the same signature. The workflow fails without this secret, and also before publishing if the APK's certificate does not match `ANDROID_CERT_SHA256` in the workflow.
+  - To encode it on Windows: `[Convert]::ToBase64String([IO.File]::ReadAllBytes("$env:USERPROFILE\.android\debug.keystore"))`.
+- **`SHIKIMORI_CONFIG`.** The contents of `config/shikimori.json`.
