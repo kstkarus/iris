@@ -1,8 +1,29 @@
 # iris
 
-An anime client for Android, Windows and iOS. It browses the [Shikimori](https://shikimori.io) catalog, plays episodes from online sources and torrents in its own player, downloads them for offline viewing and syncs watch progress with a Shikimori list.
+An ad-free anime client for Android, Windows and iOS. It browses the [Shikimori](https://shikimori.io) catalog, plays episodes from online sources and torrents in its own player, downloads them for offline viewing and syncs watch progress with a Shikimori list.
 
-iris does not host video. It plays streams and torrents published by third-party sources.
+The interface is in English and Russian. Online sources offer Russian dubs and subtitles only; torrents come in whatever languages their releases have.
+
+## Features
+
+- **Catalog.** Popular titles, search, and filters by type, status, genre, season, rating and episode length. When signed in, covers show the title's status in your list.
+- **Title pages.** Details, description, dubs, related titles, characters with their own pages, and the Shikimori friends who have the title in their lists.
+- **Sources.** Online releases from AniLibria and yummy_anime, which serve them through several video hosts, and torrents from Nyaa through a public API mirror. Magnet links you add yourself are kept in the Torrents tab.
+- **Player.** mpv through `media_kit`, with the same full-screen controls on every platform:
+  - audio and subtitle tracks, subtitle styling, playback speed and decoder choice;
+  - a timeline divided by the file's chapters or by the opening and ending;
+  - opening skip, based on chapters or [AniSkip](https://api.aniskip.com);
+  - next-episode prompt and resume from the last position;
+  - on phones, swipe seeking, brightness control and a screen lock.
+
+  Torrents stream piece by piece, without downloading the whole file first.
+- **Downloads.** Torrent files and online episodes in a chosen quality. The queue resumes after a pause, an error or an app restart.
+- **Shikimori account.** Status, score and episode count for any title. Finishing an episode updates the count in your list, and episodes counted there show as watched on every device.
+- **Updates.** On Android and Windows the app checks this repository's latest release and offers it when it is newer.
+
+How each feature behaves, and which services it calls, is described in [docs/behaviour.md](docs/behaviour.md).
+
+## Screenshots
 
 <p align="center">
   <img src="docs/screenshots/catalog_desktop.png" alt="The catalog on a desktop window" width="100%">
@@ -20,28 +41,9 @@ iris does not host video. It plays streams and torrents published by third-party
   <img src="docs/screenshots/character_phone.png" alt="A character's page" width="24%">
 </p>
 
-## Features
-
-- **Catalog.** Popular titles, search, and filters by type, status, genre, season, rating and episode length. When signed in, covers show the title's status in the user's list.
-- **Title pages.** Details, description, dubs, related titles, characters with their own pages, and the Shikimori friends who have the title in their lists.
-- **Sources.** Online releases in many dubs and subtitles (AniLibria; yummy_anime through Kodik and Aksor), matched by Shikimori id, and torrents from Nyaa. User-added magnet links are kept in the Torrents tab.
-- **Player.** mpv through `media_kit`, with the same full-screen controls on every platform:
-  - audio and subtitle tracks, subtitle styling, playback speed and decoder choice;
-  - a timeline divided by the file's chapters or by the opening and ending;
-  - opening skip, based on chapters or [AniSkip](https://api.aniskip.com);
-  - next-episode prompt and resume from the last position;
-  - on phones, swipe seeking, brightness control and a screen lock.
-
-  Torrents stream piece by piece, without downloading the whole file first.
-- **Downloads.** Torrent files and online episodes in a chosen quality. The queue resumes after a pause, an error or an app restart.
-- **Shikimori account.** Status, score and episode count for any title. An episode watched to its ending is counted in the list, and episodes the list counts show as watched on every device.
-- **Updates.** On Android and Windows the app checks this repository's latest release and offers it when it is newer.
-
-Detailed behaviour of each feature, including which services it calls, is described in [docs/behaviour.md](docs/behaviour.md).
-
 ## Status
 
-Android and Windows are built and published on every release. iOS builds from source but has no published build and is tested less.
+Android and Windows builds are published with every release. iOS builds from source; it has no published build and is tested less.
 
 ## Install
 
@@ -60,13 +62,18 @@ Builds are published on the [Releases](https://github.com/kstkarus/iris/releases
 - **Windows.** `iris-X.Y.Z-windows-x64.zip`. Unpack it and run `iris.exe`. To update, unpack the new archive over the old folder.
 - **iOS.** Build from source.
 
+## Disclaimer
+
+iris is not affiliated with Shikimori, AniLibria, yummy_anime, Kodik, Aksor, Nyaa or AniSkip. It does not host or distribute video: it plays streams and torrents published by third parties. You are responsible for complying with the laws of your country. Torrent playback and downloads share data with other peers, who can see your IP address.
+
 ## Development
 
 Requirements:
 
-- Flutter stable (the version is `FLUTTER_VERSION` in `.github/workflows/release.yml`);
-- Android Studio, for Android;
-- Visual Studio 2022 with "Desktop development with C++", for Windows.
+- Flutter 3.47.4, stable channel (the version CI uses, `FLUTTER_VERSION` in `.github/workflows/release.yml`);
+- JDK 17 and Android Studio, for Android;
+- Visual Studio 2022 with "Desktop development with C++", for Windows;
+- Xcode on macOS, for iOS.
 
 ```bash
 flutter pub get
@@ -87,7 +94,9 @@ The application must allow the `user_rates` scope and list these redirect URIs:
 - `iris-dev://oauth/callback` (Android debug builds);
 - `http://127.0.0.1:43821/oauth/callback` (desktop).
 
-Without the file the app builds and runs, and the Profile tab reports that sign-in is not configured. The secret is compiled into the app and can be extracted from a build.
+Without the file the app builds and runs, and the Profile tab reports that sign-in is not configured.
+
+A Shikimori client secret cannot be kept out of a public client: it is compiled into the app and can be extracted from a build. Forks should register their own application.
 
 ### Android debug builds
 
@@ -105,7 +114,11 @@ After editing `lib/l10n/*.arb`, run `flutter gen-l10n`.
 
 ### Code structure
 
-The code is organised by feature (`lib/features/<feature>/{presentation,domain,data}`), with shared code in `lib/shared` and `lib/entities`. Conventions, the stack and the player's rules are in [AGENTS.md](AGENTS.md).
+The code is organised by feature (`lib/features/<feature>/{presentation,domain,data}`), with shared code in `lib/shared` and `lib/entities`.
+
+## Contributing
+
+Issues and pull requests are welcome. Run the checks above before opening a pull request. The project's conventions, stack and architecture rules are in [AGENTS.md](AGENTS.md), written mainly for coding agents but valid for everyone.
 
 ## Releases
 
@@ -118,9 +131,13 @@ git push origin v1.2.0
 
 The workflow builds the APKs and the Windows archive and publishes them as a GitHub release. The tag becomes the version name and the run number the build number.
 
-It needs two repository secrets (Settings → Secrets and variables → Actions):
+Repository secrets (Settings → Secrets and variables → Actions):
 
-- **`ANDROID_DEBUG_KEYSTORE`.** Base64 of the keystore that signs release APKs. Releases are currently signed with the Android debug key, see `android/app/build.gradle.kts`.
-  - Android installs an update only over the same signature. The workflow fails without this secret, and also before publishing if the APK's certificate does not match `ANDROID_CERT_SHA256` in the workflow.
+- **`ANDROID_DEBUG_KEYSTORE`** (required). Base64 of the keystore that signs release APKs. Releases are signed with a debug keystore generated on the maintainer's machine, not the publicly known Android test key; see `android/app/build.gradle.kts`.
+  - Android installs an update only over the same signature. The workflow fails without this secret, and before publishing if the APK's certificate does not match `ANDROID_CERT_SHA256` in the workflow. A fork must set `ANDROID_CERT_SHA256` to its own key's SHA-256.
   - To encode it on Windows: `[Convert]::ToBase64String([IO.File]::ReadAllBytes("$env:USERPROFILE\.android\debug.keystore"))`.
-- **`SHIKIMORI_CONFIG`.** The contents of `config/shikimori.json`.
+- **`SHIKIMORI_CONFIG`** (optional). The contents of `config/shikimori.json`. Without it, releases build with sign-in turned off.
+
+## License
+
+iris is released under the [MIT License](LICENSE). The online source extractors are ported from [anicli-api](https://github.com/vypivshiy/anicli-api) (MIT); this and other third-party licenses are listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
