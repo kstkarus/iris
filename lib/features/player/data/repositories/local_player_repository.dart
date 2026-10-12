@@ -24,6 +24,10 @@ class LocalPlayerRepository implements PlayerRepository {
   @override
   Future<void> disposePlayback({required String sessionId}) async {}
 
+  /// A file on disk does not expire.
+  @override
+  Future<PlayerSession?> renewSession(PlayerSession session) async => null;
+
   @override
   Future<PreparedPlayerSource> prepareSource({
     required String magnet,

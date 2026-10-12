@@ -1,5 +1,6 @@
 import 'package:iris/features/player/domain/entities/player_launch_update.dart';
 import 'package:iris/features/player/domain/entities/player_playback_stats.dart';
+import 'package:iris/features/player/domain/entities/player_session.dart';
 import 'package:iris/features/player/domain/entities/prepared_player_source.dart';
 import 'package:iris/features/player/domain/repositories/player_repository.dart';
 
@@ -34,6 +35,16 @@ class StubPlayerRepository implements PlayerRepository {
     startedSessionIds.add(sessionId);
     startedFileIndices.add(fileIndex);
     return launch(fileIndex);
+  }
+
+  /// Answers [renewSession]; without it, no link is renewed.
+  Future<PlayerSession?> Function(PlayerSession session)? renewals;
+  final renewedSessions = <PlayerSession>[];
+
+  @override
+  Future<PlayerSession?> renewSession(PlayerSession session) async {
+    renewedSessions.add(session);
+    return renewals?.call(session);
   }
 
   @override

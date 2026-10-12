@@ -3,6 +3,7 @@ import 'dart:developer' as developer;
 
 import 'package:iris/features/online_sources/domain/entities/online_provider.dart';
 import 'package:iris/features/online_sources/domain/entities/online_release.dart';
+import 'package:iris/features/online_sources/domain/online_episode_files.dart';
 import 'package:iris/shared/online/online_source_link.dart';
 import 'package:iris/features/online_sources/domain/repositories/online_sources_repository.dart';
 import 'package:iris/features/player/domain/entities/player_launch_update.dart';
@@ -28,6 +29,9 @@ class OnlinePlayerRepository implements PlayerRepository {
   /// The releases of the sessions in use: "next episode" needs no request.
   final _releases = <String, OnlineRelease>{};
 
+  /// The episode each session plays now, to renew its link.
+  final _playing = <String, int>{};
+
   /// Stops waiting when [cancelled] completes; a slow server's late answer
   /// is dropped.
   @override
@@ -39,10 +43,12 @@ class OnlinePlayerRepository implements PlayerRepository {
     return PreparedPlayerSource(
       sessionId: magnet,
       files: [
-        for (final (index, episode) in _fileIndices(release).indexed)
+        for (final (index, episode) in onlineEpisodeFileIndices(
+          release,
+        ).indexed)
           PlayerVideoFile(
             index: episode,
-            name: _episodeName(
+            name: onlineEpisodeFileName(
               release.episodes[index].number,
               release.episodes[index].title,
             ),
@@ -86,20 +92,9 @@ class OnlinePlayerRepository implements PlayerRepository {
     required int fileIndex,
   }) async {
     try {
-      final release = await _release(sessionId);
-      final position = _fileIndices(release).indexOf(fileIndex);
-      if (position < 0) {
-        throw RangeError.value(fileIndex, 'fileIndex', 'No such episode');
-      }
-      final streams = await _repository.resolveStreams(
-        provider: release.provider,
-        episodeId: release.episodes[position].id,
-      );
-      if (streams.isEmpty) throw StateError('The episode has no streams.');
-      final stream = streams.first;
-      return PlayerLaunchReadyUpdate(
-        PlayerSession(sessionId: sessionId, streamUrl: stream.url),
-      );
+      final session = await _resolve(sessionId, fileIndex);
+      _playing[sessionId] = fileIndex;
+      return PlayerLaunchReadyUpdate(session);
     } on Object catch (error) {
       developer.log(
         'Online episode $fileIndex of $sessionId did not start: $error',
@@ -109,6 +104,35 @@ class OnlinePlayerRepository implements PlayerRepository {
     }
   }
 
+  /// Asks for the playing episode's link again: the one mpv holds may have
+  /// expired while it played or waited on pause.
+  @override
+  Future<PlayerSession?> renewSession(PlayerSession session) async {
+    final fileIndex = _playing[session.sessionId];
+    if (fileIndex == null) return null;
+    final renewed = await _resolve(session.sessionId, fileIndex);
+    developer.log(
+      'Renewed the link of online episode $fileIndex of ${session.sessionId}.',
+      name: 'iris.player.online',
+    );
+    return renewed;
+  }
+
+  /// A fresh link to episode [fileIndex] of the release [sessionId] names.
+  Future<PlayerSession> _resolve(String sessionId, int fileIndex) async {
+    final release = await _release(sessionId);
+    final position = onlineEpisodeFileIndices(release).indexOf(fileIndex);
+    if (position < 0) {
+      throw RangeError.value(fileIndex, 'fileIndex', 'No such episode');
+    }
+    final streams = await _repository.resolveStreams(
+      provider: release.provider,
+      episodeId: release.episodes[position].id,
+    );
+    if (streams.isEmpty) throw StateError('The episode has no streams.');
+    return PlayerSession(sessionId: sessionId, streamUrl: streams.first.url);
+  }
+
   /// No peers or pieces to count: mpv's own buffering is the whole story.
   @override
   Stream<PlayerPlaybackStats> watchPlaybackStats({required String sessionId}) {
@@ -116,11 +140,14 @@ class OnlinePlayerRepository implements PlayerRepository {
   }
 
   @override
-  Future<void> stopPlayback({required String sessionId}) async {}
+  Future<void> stopPlayback({required String sessionId}) async {
+    _playing.remove(sessionId);
+  }
 
   @override
   Future<void> disposePlayback({required String sessionId}) async {
     _releases.remove(sessionId);
+    _playing.remove(sessionId);
   }
 
   Future<OnlineRelease> _release(String link) async {
@@ -139,39 +166,4 @@ class OnlinePlayerRepository implements PlayerRepository {
     );
     return _releases[link] = release;
   }
-}
-
-/// Each episode's file index comes from its number alone, so every dub of
-/// an anime files its progress under the same index: 12 is 12, a special
-/// 12.5 is [_firstSpecial] + 1250. A number the release repeats is its own
-/// oddity and keeps its place past both.
-List<int> _fileIndices(OnlineRelease release) {
-  final used = <int>{};
-  return [
-    for (final (position, episode) in release.episodes.indexed)
-      switch (_numberIndex(episode.number)) {
-        final index? when used.add(index) => index,
-        _ => _firstRepeat + position,
-      },
-  ];
-}
-
-const _firstSpecial = 100000;
-const _firstRepeat = 300000;
-
-int? _numberIndex(num number) {
-  if (number < 0) return null;
-  if (number % 1 == 0) return number.toInt();
-  final hundredths = (number * 100).round();
-  return hundredths < _firstRepeat - _firstSpecial
-      ? _firstSpecial + hundredths
-      : null;
-}
-
-/// What watch history keeps as the "file name": `04 «Пристанище душ»`.
-String _episodeName(num number, String title) {
-  final digits = number % 1 == 0
-      ? number.toInt().toString().padLeft(2, '0')
-      : '$number';
-  return title.isEmpty ? digits : '$digits $title';
 }

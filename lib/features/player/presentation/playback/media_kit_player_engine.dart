@@ -176,6 +176,16 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
   /// Whether [PlayerEnginePlaybackStarted] went out for the open file.
   bool _startAnnounced = false;
 
+  /// The file has played since it was opened or its link was last renewed:
+  /// a link that fails now may have expired, so it is renewed once before
+  /// the failure shows.
+  bool _renewsOnFailure = false;
+
+  /// Renewals left for the opened file: a server whose every link plays a
+  /// moment and dies is not asked for ever.
+  int _renewalsLeft = _maxRenewals;
+  static const _maxRenewals = 3;
+
   final List<StreamSubscription<Object?>> _playerSubscriptions = [];
   StreamSubscription<SubtitlePreferences>? _subtitlePreferencesSubscription;
   StreamSubscription<PlayerDecodingPreferences>?
@@ -301,6 +311,8 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
     _lastKnownPosition = null;
     _pendingSeek = null;
     _startAnnounced = false;
+    _renewsOnFailure = false;
+    _renewalsLeft = _maxRenewals;
     completed.value = false;
     _resetPositionOffers();
     _watchPlaybackStats(session.sessionId);
@@ -311,8 +323,59 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
     return _openPlayback();
   }
 
-  /// Opens the current file again after a startup failure.
-  Future<void> retry() => _openPlayback();
+  /// Opens the current file again after a failure, on a fresh link when
+  /// its backend issues links that expire.
+  Future<void> retry() async {
+    final session = _session;
+    if (_closed || session == null) return;
+    final startupGeneration = _startupGeneration;
+    _updateStartupState(const PlayerEngineStartupState.openingSource());
+    await _renewSession(session);
+    // Stopped, or another file opened, while the link was asked for.
+    if (_closed || startupGeneration != _startupGeneration) return;
+    await _openPlayback();
+  }
+
+  /// Swaps [session] for a fresh link when its backend gives one; false
+  /// when it gives none or fails, or the file changed meanwhile.
+  Future<bool> _renewSession(PlayerSession session) async {
+    final PlayerSession? renewed;
+    try {
+      renewed = await _repository.renewSession(session);
+    } catch (error) {
+      developer.log(
+        'The stream link could not be renewed.',
+        name: 'iris.player.media',
+        error: error,
+      );
+      return false;
+    }
+    if (renewed == null || _closed || !identical(_session, session)) {
+      return false;
+    }
+    _session = renewed;
+    return true;
+  }
+
+  /// A file that played was dropped: reopens it where it was on a fresh
+  /// link, or shows the failure when there is none.
+  Future<void> _reopenOnFreshLink(int startupGeneration) async {
+    final session = _session;
+    if (session == null) return;
+    _renewsOnFailure = false;
+    _updateStartupState(const PlayerEngineStartupState.openingSource());
+    final renewed = await _renewSession(session);
+    if (_closed || startupGeneration != _startupGeneration) return;
+    if (!renewed) {
+      _fail(PlayerEngineFailure.generic);
+      return;
+    }
+    developer.log(
+      'Reopening the file on a renewed link at $_openPosition.',
+      name: 'iris.player.media',
+    );
+    await _openPlayback();
+  }
 
   @override
   Future<void> seek(Duration position) async {
@@ -409,6 +472,7 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
     if (_closed) return;
     _startupGeneration++;
     _session = null;
+    _renewsOnFailure = false;
     completed.value = false;
     _resetPositionOffers();
     _stopWatchingPlaybackStats();
@@ -962,6 +1026,11 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
       'mpv dropped the file after an error.',
       name: 'iris.player.media',
     );
+    if (_renewsOnFailure && _renewalsLeft > 0) {
+      _renewalsLeft--;
+      await _reopenOnFreshLink(startupGeneration);
+      return;
+    }
     _fail(PlayerEngineFailure.generic);
   }
 
@@ -1099,6 +1168,7 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
       name: 'iris.player.media',
     );
     _cancelStartupTimeout();
+    _renewsOnFailure = true;
     _updateStartupState(_startupState.copyWith(phase: PlayerEnginePhase.ready));
     // A seek asked for during startup decides where playback is.
     if (_pendingSeek != null) _openTarget = null;

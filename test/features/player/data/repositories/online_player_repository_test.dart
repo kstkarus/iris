@@ -206,6 +206,49 @@ void main() {
     expect(sources.fetched, hasLength(2));
   });
 
+  test('renews the link of the episode that plays', () async {
+    await repository
+        .startPlayback(sessionId: _link, fileIndex: 1)
+        .drain<void>();
+    sources.streams = const [
+      OnlineStream(
+        url: 'https://cdn.example.test/e1/1080.m3u8?fresh',
+        quality: 1080,
+        format: OnlineStreamFormat.hls,
+      ),
+    ];
+
+    final renewed = await repository.renewSession(
+      const PlayerSession(
+        sessionId: _link,
+        streamUrl: 'https://cdn.example.test/e1/1080.m3u8',
+      ),
+    );
+
+    expect(sources.resolved, ['e1', 'e1']);
+    expect(
+      renewed,
+      const PlayerSession(
+        sessionId: _link,
+        streamUrl: 'https://cdn.example.test/e1/1080.m3u8?fresh',
+      ),
+    );
+  });
+
+  test('renews nothing once the episode stopped', () async {
+    await repository
+        .startPlayback(sessionId: _link, fileIndex: 1)
+        .drain<void>();
+    await repository.stopPlayback(sessionId: _link);
+
+    final renewed = await repository.renewSession(
+      const PlayerSession(sessionId: _link, streamUrl: 'https://old.test'),
+    );
+
+    expect(renewed, isNull);
+    expect(sources.resolved, ['e1']);
+  });
+
   test('reports no torrent stats', () async {
     expect(await repository.watchPlaybackStats(sessionId: _link).toList(), []);
   });

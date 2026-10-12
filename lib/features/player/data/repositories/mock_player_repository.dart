@@ -15,6 +15,9 @@ class MockPlayerRepository implements PlayerRepository {
   Future<void> disposePlayback({required String sessionId}) async {}
 
   @override
+  Future<PlayerSession?> renewSession(PlayerSession session) async => null;
+
+  @override
   Future<PreparedPlayerSource> prepareSource({
     required String magnet,
     Future<void>? cancelled,

@@ -28,6 +28,10 @@ class TorrentPlayerRepository implements PlayerRepository {
     return dataSource.disposePlayback(sessionId: sessionId);
   }
 
+  /// The local stream's address lasts as long as the session.
+  @override
+  Future<PlayerSession?> renewSession(PlayerSession session) async => null;
+
   @override
   Stream<PlayerPlaybackStats> watchPlaybackStats({
     required String sessionId,

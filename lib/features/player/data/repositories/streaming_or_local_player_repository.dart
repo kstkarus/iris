@@ -1,6 +1,7 @@
 import 'package:iris/shared/online/online_source_link.dart';
 import 'package:iris/features/player/domain/entities/player_launch_update.dart';
 import 'package:iris/features/player/domain/entities/player_playback_stats.dart';
+import 'package:iris/features/player/domain/entities/player_session.dart';
 import 'package:iris/features/player/domain/entities/prepared_player_source.dart';
 import 'package:iris/features/player/domain/repositories/player_repository.dart';
 
@@ -40,6 +41,11 @@ class StreamingOrLocalPlayerRepository implements PlayerRepository {
     return _backendFor(
       sessionId,
     ).startPlayback(sessionId: sessionId, fileIndex: fileIndex);
+  }
+
+  @override
+  Future<PlayerSession?> renewSession(PlayerSession session) {
+    return _backendFor(session.sessionId).renewSession(session);
   }
 
   @override

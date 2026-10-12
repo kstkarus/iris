@@ -182,6 +182,85 @@ void main() {
     );
   });
 
+  testWidgets('a file that played and is dropped reopens where it was on a '
+      'renewed link', (tester) async {
+    final repository = StubPlayerRepository()
+      ..renewals = (session) async =>
+          const PlayerSession(sessionId: '42', streamUrl: _renewedUrl);
+    final platformPlayer = await _failMidStream(tester, repository: repository);
+
+    expect(repository.renewedSessions, [_session]);
+    expect(platformPlayer.openCount, 2);
+    final reopened = platformPlayer.lastOpened! as Media;
+    expect(reopened.uri, _renewedUrl);
+    expect(reopened.start, const Duration(minutes: 2));
+    expect(find.text('Unable to start playback.'), findsNothing);
+  });
+
+  testWidgets('a dropped file whose link is not renewed shows the failure', (
+    tester,
+  ) async {
+    final repository = StubPlayerRepository()
+      ..renewals = (session) async => throw StateError('no streams');
+    final platformPlayer = await _failMidStream(tester, repository: repository);
+
+    expect(repository.renewedSessions, hasLength(1));
+    expect(platformPlayer.openCount, 1);
+    expect(find.text('Unable to start playback.'), findsOneWidget);
+  });
+
+  testWidgets('a file that never played is not renewed on its own', (
+    tester,
+  ) async {
+    final repository = StubPlayerRepository()
+      ..renewals = (session) async =>
+          const PlayerSession(sessionId: '42', streamUrl: _renewedUrl);
+    final platformPlayer = _FakePlatformPlayer(
+      configuration: const PlayerConfiguration(),
+    );
+    await tester.pumpWidget(
+      _wrapViewport(
+        platformPlayer: platformPlayer,
+        repository: repository,
+        firstFrameFuture: Completer<void>().future,
+      ),
+    );
+    await tester.pump();
+
+    platformPlayer
+      ..emitError('HTTP error 403 Forbidden')
+      ..nativeProperties['idle-active'] = 'yes';
+    await tester.pump(const Duration(seconds: 3));
+
+    expect(repository.renewedSessions, isEmpty);
+    expect(find.text('Unable to start playback.'), findsOneWidget);
+
+    // Retry, though, asks for a fresh link.
+    await tester.tap(find.text('Try Again'));
+    await tester.pump();
+    expect(repository.renewedSessions, [_session]);
+    expect((platformPlayer.lastOpened! as Media).uri, _renewedUrl);
+  });
+
+  testWidgets('a dropped file is renewed only a few times', (tester) async {
+    var renewals = 0;
+    final repository = StubPlayerRepository()
+      ..renewals = (session) async => PlayerSession(
+        sessionId: '42',
+        streamUrl: '$_renewedUrl?${++renewals}',
+      );
+    final platformPlayer = await _failMidStream(tester, repository: repository);
+    for (var drop = 0; drop < 3; drop++) {
+      platformPlayer
+        ..emitError('HTTP error 403 Forbidden')
+        ..nativeProperties['idle-active'] = 'yes';
+      await tester.pump(const Duration(seconds: 3));
+    }
+
+    expect(renewals, 3);
+    expect(find.text('Unable to start playback.'), findsOneWidget);
+  });
+
   testWidgets('a stream mpv opens at the start is sent where it should be', (
     tester,
   ) async {
@@ -2611,11 +2690,16 @@ const _nextPrompt = Key('player_next_file_prompt');
 const _skipSegmentButton = Key('player_skip_segment_button');
 
 /// Plays to 2:00, then the stream fails and mpv goes idle.
-Future<_FakePlatformPlayer> _failMidStream(WidgetTester tester) async {
+Future<_FakePlatformPlayer> _failMidStream(
+  WidgetTester tester, {
+  PlayerRepository? repository,
+}) async {
   final platformPlayer = _FakePlatformPlayer(
     configuration: const PlayerConfiguration(),
   );
-  await tester.pumpWidget(_wrapViewport(platformPlayer: platformPlayer));
+  await tester.pumpWidget(
+    _wrapViewport(platformPlayer: platformPlayer, repository: repository),
+  );
   await tester.pump();
   platformPlayer.emitPosition(const Duration(minutes: 2));
   await _deliverPlayerEvent(tester);
@@ -2759,6 +2843,9 @@ const _session = PlayerSession(
   sessionId: '42',
   streamUrl: 'http://127.0.0.1:8080/stream/2',
 );
+
+/// The link a video server issues afresh for [_session]'s file.
+const _renewedUrl = 'https://video.example/fresh.m3u8';
 
 /// Owns the engine the way PlayerCubit does: opens it for [session] and
 /// closes it when the page goes away.
