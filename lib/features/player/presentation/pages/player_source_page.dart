@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:iris/entities/user_rate/presentation/user_rate_cubit.dart';
+import 'package:iris/entities/user_rate/presentation/user_rate_state.dart';
 import 'package:iris/entities/watch_progress/domain/watch_progress.dart';
 import 'package:iris/entities/watch_progress/presentation/watch_progress_cubit.dart';
 import 'package:iris/shared/online/online_source_link.dart';
@@ -28,6 +30,13 @@ class PlayerSourcePage extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final isOnline = OnlineSourceLink.tryParse(args.magnet) != null;
+    // Pages without an account or an anime have no list (null cubit).
+    final listedEpisodes = context.select<UserRateCubit?, int>(
+      (cubit) => switch (cubit?.state) {
+        UserRateLoaded(:final rate?) => rate.episodes,
+        _ => 0,
+      },
+    );
 
     return BlocListener<PlayerSourceCubit, PlayerSourceState>(
       listenWhen: (_, state) => state is PlayerSourceReady,
@@ -41,6 +50,7 @@ class PlayerSourcePage extends StatelessWidget {
           file: file,
           sessionId: preparedSource.sessionId,
           files: preparedSource.files,
+          listedEpisodes: listedEpisodes,
         );
       },
       child: Scaffold(
@@ -64,6 +74,7 @@ class PlayerSourcePage extends StatelessWidget {
                       context.watchWatchProgress(),
                       sourceProgressKey(args.magnet),
                     ),
+                    listedEpisodes: listedEpisodes,
                     onFileSelected: (file) {
                       final preparedSource =
                           (context.read<PlayerSourceCubit>().state
@@ -74,6 +85,7 @@ class PlayerSourcePage extends StatelessWidget {
                         file: file,
                         sessionId: preparedSource.sessionId,
                         files: preparedSource.files,
+                        listedEpisodes: listedEpisodes,
                       );
                     },
                   ),
@@ -102,6 +114,7 @@ class PlayerSourcePage extends StatelessWidget {
     required PlayerVideoFile file,
     required String sessionId,
     required List<PlayerVideoFile> files,
+    required int listedEpisodes,
   }) {
     final cubit = context.read<PlayerSourceCubit>();
     cubit.transferSessionOwnership();
@@ -118,6 +131,7 @@ class PlayerSourcePage extends StatelessWidget {
             fileName: file.name,
             magnet: args.magnet,
             files: files,
+            listedEpisodes: listedEpisodes,
           ),
         ),
       );

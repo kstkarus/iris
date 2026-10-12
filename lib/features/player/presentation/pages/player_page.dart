@@ -6,6 +6,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:iris/entities/watch_progress/domain/watch_progress.dart';
 import 'package:iris/entities/watch_progress/presentation/watch_progress_cubit.dart';
 import 'package:iris/features/player/domain/entities/anime_player_source.dart';
+import 'package:iris/features/player/domain/listed_episodes.dart';
 import 'package:iris/features/player/domain/entities/player_video_file.dart';
 import 'package:iris/features/player/presentation/cubit/episode_mark_cubit.dart';
 import 'package:iris/features/player/presentation/cubit/player_cubit.dart';
@@ -255,6 +256,7 @@ class _EpisodeCardsPane extends StatelessWidget {
       files: source.files,
       currentFileIndex: source.fileIndex,
       progressByFile: progress,
+      listed: filesCountedInList(source.files, source.listedEpisodes),
       onSelected: onSelected,
     );
   }

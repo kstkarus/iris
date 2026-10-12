@@ -79,3 +79,11 @@ int _commonSuffixLength(List<String> names, int prefix) {
   }
   return length;
 }
+
+/// Whether [name] says nothing but the [number] beside it: an online
+/// episode without a title is named by its number, a torrent file may be
+/// just `01.mkv`.
+bool nameIsJustNumber(String name, String number) {
+  final named = num.tryParse(name.trim());
+  return named != null && named == num.tryParse(number);
+}

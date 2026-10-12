@@ -476,12 +476,21 @@ abstract final class AppRouter {
               return const _InvalidRoutePage();
             }
 
-            return BlocProvider(
+            final page = BlocProvider(
               create: (_) => PlayerSourceCubit(
                 magnet: args.magnet,
                 repository: serviceLocator<PlayerRepository>(),
               )..loadSource(),
               child: PlayerSourcePage(args: args),
+            );
+            // Episodes the list counts as watched, for a title's sources.
+            if (args.animeId.isEmpty) return page;
+            return BlocProvider(
+              create: (context) => UserRateCubit(
+                animeId: args.animeId,
+                repository: serviceLocator<UserRateRepository>(),
+              )..accountChanged(accountIdOf(context.read<AuthCubit>().state)),
+              child: page,
             );
           },
         ),

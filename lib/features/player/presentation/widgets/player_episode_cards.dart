@@ -21,12 +21,17 @@ class PlayerEpisodeCards extends StatefulWidget {
     required this.currentFileIndex,
     required this.progressByFile,
     required this.onSelected,
+    this.listed = const {},
     super.key,
   });
 
   final List<PlayerVideoFile> files;
   final int currentFileIndex;
   final Map<int, WatchProgress> progressByFile;
+
+  /// Files the user's Shikimori list counts as watched, by index; a file
+  /// with progress here shows that instead.
+  final Set<int> listed;
   final ValueChanged<PlayerVideoFile> onSelected;
 
   @override
@@ -59,6 +64,7 @@ class _PlayerEpisodeCardsState extends State<PlayerEpisodeCards> {
               name: names[file.index],
               isCurrent: file.index == widget.currentFileIndex,
               progress: widget.progressByFile[file.index],
+              listed: widget.listed.contains(file.index),
               onTap: () => widget.onSelected(file),
             ),
         ],
@@ -74,6 +80,7 @@ class _EpisodeCard extends StatefulWidget {
     required this.name,
     required this.isCurrent,
     required this.progress,
+    required this.listed,
     required this.onTap,
     super.key,
   });
@@ -87,6 +94,9 @@ class _EpisodeCard extends StatefulWidget {
   final String? name;
   final bool isCurrent;
   final WatchProgress? progress;
+
+  /// Counted as watched in the user's Shikimori list.
+  final bool listed;
   final VoidCallback onTap;
 
   @override
@@ -107,7 +117,7 @@ class _EpisodeCardState extends State<_EpisodeCard> {
     final file = widget.file;
     final progress = widget.progress;
     final episode = file.number;
-    final finished = progress?.isFinished ?? false;
+    final finished = progress?.isFinished ?? widget.listed;
     final partial =
         !finished && progress != null && progress.duration > Duration.zero;
     final name = widget.name;

@@ -12,6 +12,7 @@ class AnimePlayerSource {
     required this.fileName,
     this.magnet = '',
     this.files = const [],
+    this.listedEpisodes = 0,
   });
 
   /// Empty when playback was not started from an anime page.
@@ -28,6 +29,10 @@ class AnimePlayerSource {
   /// Video files of a streamed torrent, in playback order. Empty for local
   /// downloads, which play a single file.
   final List<PlayerVideoFile> files;
+
+  /// Episodes of the anime the user's Shikimori list counted when playback
+  /// started; 0 when unknown.
+  final int listedEpisodes;
 
   /// Identity of the source for watch progress: the torrent, or the anime
   /// for an online release; null without a magnet.
@@ -59,6 +64,7 @@ class AnimePlayerSource {
       fileName: file.name,
       magnet: magnet,
       files: files,
+      listedEpisodes: listedEpisodes,
     );
   }
 
@@ -76,6 +82,7 @@ class AnimePlayerSource {
         other.fileIndex == fileIndex &&
         other.fileName == fileName &&
         other.magnet == magnet &&
+        other.listedEpisodes == listedEpisodes &&
         _sameFiles(other.files, files);
   }
 
@@ -89,6 +96,7 @@ class AnimePlayerSource {
     fileName,
     magnet,
     Object.hashAll(files),
+    listedEpisodes,
   );
 }
 

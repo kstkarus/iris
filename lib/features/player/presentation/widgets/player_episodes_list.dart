@@ -9,6 +9,7 @@ import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/utils/byte_size_formatter.dart';
 import 'package:iris/shared/utils/file_display_name.dart';
 import 'package:iris/shared/widgets/caption_text.dart';
+import 'package:iris/shared/widgets/pixel_icon.dart';
 import 'package:iris/shared/widgets/segmented_bar.dart';
 
 /// The torrent's video files as numbered rows with watch progress; the
@@ -20,6 +21,7 @@ class PlayerEpisodesList extends StatefulWidget {
     required this.currentFileIndex,
     required this.progressByFile,
     required this.onSelected,
+    this.listed = const {},
     this.padding = EdgeInsets.zero,
     this.showSizes = false,
     super.key,
@@ -30,6 +32,10 @@ class PlayerEpisodesList extends StatefulWidget {
   /// The playing file; null when nothing plays yet (the file picker).
   final int? currentFileIndex;
   final Map<int, WatchProgress> progressByFile;
+
+  /// Files the user's Shikimori list counts as watched, by index; a file
+  /// with progress here shows that instead.
+  final Set<int> listed;
   final ValueChanged<PlayerVideoFile> onSelected;
   final EdgeInsetsGeometry padding;
 
@@ -84,6 +90,7 @@ class _PlayerEpisodesListState extends State<PlayerEpisodesList> {
               ownName: names[file.index],
               isCurrent: file.index == widget.currentFileIndex,
               progress: widget.progressByFile[file.index],
+              listed: widget.listed.contains(file.index),
               showSize: widget.showSizes,
               onTap: () => widget.onSelected(file),
             ),
@@ -101,6 +108,7 @@ class _EpisodeRow extends StatelessWidget {
     required this.ownName,
     required this.isCurrent,
     required this.progress,
+    required this.listed,
     required this.showSize,
     required this.onTap,
     super.key,
@@ -116,6 +124,9 @@ class _EpisodeRow extends StatelessWidget {
   final String? ownName;
   final bool isCurrent;
   final WatchProgress? progress;
+
+  /// Counted as watched in the user's Shikimori list.
+  final bool listed;
   final bool showSize;
   final VoidCallback onTap;
 
@@ -125,9 +136,13 @@ class _EpisodeRow extends StatelessWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final progress = this.progress;
-    final finished = progress?.isFinished ?? false;
+    final finished = progress?.isFinished ?? listed;
+    // Progress short of the end is worth its own line; done is a mark.
+    final partial = progress != null && !progress.isFinished;
     final fileName = fileDisplayName(file.name);
     final ownName = this.ownName;
+    final name = ownName ?? fileName;
+    final showName = !nameIsJustNumber(name, number);
     final size = showSize ? _sizeLabel(l10n) : null;
 
     return Material(
@@ -158,16 +173,17 @@ class _EpisodeRow extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      ownName ?? fileName,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: finished && !isCurrent
-                            ? scheme.onSurfaceVariant
-                            : scheme.onSurface,
+                    if (showName)
+                      Text(
+                        name,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: finished && !isCurrent
+                              ? scheme.onSurfaceVariant
+                              : scheme.onSurface,
+                        ),
                       ),
-                    ),
                     // An online episode has no file name to add.
                     if (ownName != null && file.title.isEmpty)
                       Text(
@@ -177,20 +193,33 @@ class _EpisodeRow extends StatelessWidget {
                         style: theme.textTheme.bodySmall,
                       ),
                     if (isCurrent) ...[
-                      const SizedBox(height: 6),
+                      if (showName) const SizedBox(height: 6),
                       CaptionText(
                         l10n.playerNowPlaying,
                         color: scheme.tertiary,
                       ),
-                    ] else if (progress != null) ...[
-                      const SizedBox(height: 10),
+                    ] else if (partial) ...[
+                      if (showName) const SizedBox(height: 10),
                       WatchProgressLine(progress: progress),
                     ],
                   ],
                 ),
               ),
-              if (size != null) ...[
+              if (finished && !isCurrent) ...[
                 const SizedBox(width: 16),
+                Padding(
+                  // Level with the size's first line.
+                  padding: const EdgeInsets.only(top: 1),
+                  child: PixelIcon(
+                    PixelGlyph.check,
+                    size: 14,
+                    color: scheme.onSurfaceVariant,
+                    semanticLabel: l10n.watchProgressWatched,
+                  ),
+                ),
+              ],
+              if (size != null) ...[
+                SizedBox(width: finished && !isCurrent ? 8 : 16),
                 Text(size, style: theme.textTheme.bodySmall),
               ],
             ],

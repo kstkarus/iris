@@ -70,6 +70,35 @@ void main() {
     expect(selected?.index, 2);
   });
 
+  testWidgets('marks what the Shikimori list counts, unless watched here', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _wrap(
+        PlayerEpisodeCards(
+          files: [
+            _file(0, 'Show - 01.mkv'),
+            _file(1, 'Show - 02.mkv'),
+            _file(2, 'Show - 03.mkv'),
+          ],
+          currentFileIndex: 2,
+          progressByFile: {1: _progress(1, const Duration(minutes: 4))},
+          listed: const {0, 1},
+          onSelected: (_) {},
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(
+      find.byWidgetPredicate(
+        (widget) => widget is PixelIcon && widget.glyph == PixelGlyph.check,
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('20:00 left'), findsOneWidget);
+  });
+
   testWidgets('lets the keyboard pick a card in the drawer and leaves '
       'Escape to the player', (tester) async {
     final picked = <int>[];

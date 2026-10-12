@@ -8,6 +8,7 @@ import 'package:iris/features/player/domain/entities/prepared_player_source.dart
 import 'package:iris/features/player/presentation/cubit/player_source_cubit.dart';
 import 'package:iris/features/player/presentation/cubit/player_source_state.dart';
 import 'package:iris/features/player/presentation/widgets/player_source_view.dart';
+import 'package:iris/shared/widgets/pixel_icon.dart';
 
 import '../../../../helpers/test_app.dart';
 import '../../player_test_doubles.dart';
@@ -200,7 +201,70 @@ void main() {
       find.descendant(of: find.byType(Card), matching: find.text('episode-02')),
       findsOneWidget,
     );
-    expect(find.text('Watched'), findsOneWidget);
+    // A mark at the end of the row, not a line of its own.
+    expect(find.text('Watched'), findsNothing);
+    expect(_watchedMarks, findsOneWidget);
+  });
+
+  testWidgets('an online episode named by its number shows the number once', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _wrap(
+        cubit: FakePlayerSourceCubit(
+          const PlayerSourceReady(
+            PreparedPlayerSource(sessionId: '42', files: _online),
+          ),
+        ),
+        progressByFile: {1: _progress(1, 1400)},
+        isOnline: true,
+      ),
+    );
+
+    expect(find.text('01'), findsOneWidget);
+    expect(find.text('02'), findsNWidgets(2));
+    expect(find.widgetWithText(FilledButton, 'Play next'), findsOneWidget);
+  });
+
+  testWidgets('marks what the Shikimori list counts and plays on from it', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _wrap(
+        cubit: FakePlayerSourceCubit(
+          const PlayerSourceReady(
+            PreparedPlayerSource(sessionId: '42', files: _online),
+          ),
+        ),
+        listedEpisodes: 2,
+        isOnline: true,
+      ),
+    );
+
+    expect(_watchedMarks, findsNWidgets(2));
+    expect(
+      find.descendant(of: find.byType(Card), matching: find.text('03')),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('progress here shows over the list mark', (tester) async {
+    await tester.pumpWidget(
+      _wrap(
+        cubit: FakePlayerSourceCubit(
+          const PlayerSourceReady(
+            PreparedPlayerSource(sessionId: '42', files: _online),
+          ),
+        ),
+        progressByFile: {2: _progress(2, 600, minute: 5)},
+        listedEpisodes: 2,
+        isOnline: true,
+      ),
+    );
+
+    expect(_watchedMarks, findsOneWidget);
+    expect(find.widgetWithText(FilledButton, 'Continue'), findsOneWidget);
+    expect(find.text('Stopped at 10:00 of 24:00'), findsWidgets);
   });
 
   testWidgets('shows unsupported-source failure state', (tester) async {
@@ -221,6 +285,7 @@ Widget _wrap({
   required FakePlayerSourceCubit cubit,
   Map<int, WatchProgress> progressByFile = const {},
   ValueChanged<PlayerVideoFile>? onFileSelected,
+  int listedEpisodes = 0,
   bool isOnline = false,
 }) {
   return testApp(
@@ -229,6 +294,7 @@ Widget _wrap({
       child: Scaffold(
         body: PlayerSourceView(
           progressByFile: progressByFile,
+          listedEpisodes: listedEpisodes,
           isOnline: isOnline,
           onFileSelected: onFileSelected ?? (_) {},
         ),
@@ -241,6 +307,36 @@ const _episodes = [
   PlayerVideoFile(index: 1, name: 'episode-01.mkv', size: 1, extension: 'mkv'),
   PlayerVideoFile(index: 2, name: 'episode-02.mkv', size: 1, extension: 'mkv'),
 ];
+
+/// An online release whose episodes have no titles: each is named by its
+/// number.
+const _online = [
+  PlayerVideoFile(
+    index: 1,
+    name: '01',
+    size: 0,
+    extension: 'm3u8',
+    episodeNumber: 1,
+  ),
+  PlayerVideoFile(
+    index: 2,
+    name: '02',
+    size: 0,
+    extension: 'm3u8',
+    episodeNumber: 2,
+  ),
+  PlayerVideoFile(
+    index: 3,
+    name: '03',
+    size: 0,
+    extension: 'm3u8',
+    episodeNumber: 3,
+  ),
+];
+
+final _watchedMarks = find.byWidgetPredicate(
+  (widget) => widget is PixelIcon && widget.glyph == PixelGlyph.check,
+);
 
 WatchProgress _progress(int fileIndex, int seconds, {int minute = 0}) {
   return WatchProgress(

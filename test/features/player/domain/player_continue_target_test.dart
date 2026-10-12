@@ -53,4 +53,63 @@ void main() {
       isNull,
     );
   });
+
+  group('with the Shikimori list', () {
+    const series = [
+      PlayerVideoFile(index: 0, name: 'ep-01.mkv', size: 1, extension: 'mkv'),
+      PlayerVideoFile(index: 1, name: 'ep-02.mkv', size: 1, extension: 'mkv'),
+      PlayerVideoFile(index: 2, name: 'ep-03.mkv', size: 1, extension: 'mkv'),
+      PlayerVideoFile(index: 3, name: 'ep-04.mkv', size: 1, extension: 'mkv'),
+    ];
+    const finished = Duration(minutes: 24);
+
+    test('plays on after what the list counts', () {
+      final target = continueTarget(series, const {}, listed: {0, 1});
+
+      expect(target?.file.index, 2);
+      expect(target?.isNext, isTrue);
+    });
+
+    test('goes with whichever got further', () {
+      expect(
+        continueTarget(
+          series,
+          {0: _progress(0, position: finished, day: 1)},
+          listed: {0, 1, 2},
+        )?.file.index,
+        3,
+      );
+      expect(
+        continueTarget(
+          series,
+          {2: _progress(2, position: finished, day: 1)},
+          listed: {0},
+        )?.file.index,
+        3,
+      );
+    });
+
+    test('a file stopped partway here is gone on with', () {
+      final target = continueTarget(
+        series,
+        {1: _progress(1, position: const Duration(minutes: 5), day: 1)},
+        listed: {0, 1, 2},
+      );
+
+      expect(target?.file.index, 1);
+      expect(target?.isNext, isFalse);
+    });
+
+    test('a list that has it all leaves a rewatch where it is', () {
+      expect(
+        continueTarget(
+          series,
+          {0: _progress(0, position: finished, day: 1)},
+          listed: {0, 1, 2, 3},
+        )?.file.index,
+        1,
+      );
+      expect(continueTarget(series, const {}, listed: {0, 1, 2, 3}), isNull);
+    });
+  });
 }

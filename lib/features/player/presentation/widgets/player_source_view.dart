@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:iris/entities/watch_progress/domain/watch_progress.dart';
 import 'package:iris/features/player/domain/entities/player_video_file.dart';
+import 'package:iris/features/player/domain/listed_episodes.dart';
 import 'package:iris/features/player/domain/player_continue_target.dart';
 import 'package:iris/features/player/domain/player_episode_names.dart';
 import 'package:iris/features/player/presentation/cubit/player_source_cubit.dart';
@@ -16,6 +17,7 @@ class PlayerSourceView extends StatelessWidget {
   const PlayerSourceView({
     required this.onFileSelected,
     this.progressByFile = const {},
+    this.listedEpisodes = 0,
     this.isOnline = false,
     super.key,
   });
@@ -26,6 +28,9 @@ class PlayerSourceView extends StatelessWidget {
 
   /// Watch progress of this torrent's files, keyed by file index.
   final Map<int, WatchProgress> progressByFile;
+
+  /// Episodes of the anime the user's Shikimori list counts as watched.
+  final int listedEpisodes;
 
   /// An online release, whose episodes come from a server, not a torrent.
   final bool isOnline;
@@ -43,6 +48,7 @@ class PlayerSourceView extends StatelessWidget {
           PlayerSourceReady(:final preparedSource) => _SuccessState(
             files: preparedSource.files,
             progressByFile: progressByFile,
+            listed: filesCountedInList(preparedSource.files, listedEpisodes),
             onFileSelected: onFileSelected,
           ),
           PlayerSourceFailure(:final type) => _FailureState(type: type),
@@ -56,17 +62,19 @@ class _SuccessState extends StatelessWidget {
   const _SuccessState({
     required this.files,
     required this.progressByFile,
+    required this.listed,
     required this.onFileSelected,
   });
 
   final List<PlayerVideoFile> files;
   final Map<int, WatchProgress> progressByFile;
+  final Set<int> listed;
   final ValueChanged<PlayerVideoFile> onFileSelected;
 
   @override
   Widget build(BuildContext context) {
     final target = files.length > 1
-        ? continueTarget(files, progressByFile)
+        ? continueTarget(files, progressByFile, listed: listed)
         : null;
     // Text rows instead of a card and a button per file: the whole row
     // starts the file, so 24 episodes stay scannable.
@@ -88,6 +96,7 @@ class _SuccessState extends StatelessWidget {
             files: files,
             currentFileIndex: null,
             progressByFile: progressByFile,
+            listed: listed,
             onSelected: onFileSelected,
             showSizes: true,
           ),
@@ -123,18 +132,20 @@ class _ContinueCard extends StatelessWidget {
     final l10n = AppLocalizations.of(context);
     final theme = Theme.of(context);
     final progress = this.progress;
+    final showName = !nameIsJustNumber(file.displayName, this.number);
     final details = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          file.displayName,
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-          style: theme.textTheme.bodyMedium,
-        ),
+        if (showName)
+          Text(
+            file.displayName,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.bodyMedium,
+          ),
         // The file's own row below carries the bar.
         if (progress != null) ...[
-          const SizedBox(height: 4),
+          if (showName) const SizedBox(height: 4),
           WatchProgressLine(progress: progress, showBar: false),
         ],
       ],
