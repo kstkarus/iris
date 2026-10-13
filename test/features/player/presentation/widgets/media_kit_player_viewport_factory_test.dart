@@ -2843,7 +2843,7 @@ void main() {
       final platformPlayer = await open(tester, window);
       expect(window.reports.last, (
         playing: true,
-        aspectRatio: null,
+        aspectRatio: 1920 / 1080,
         playLabel: 'Play',
         pauseLabel: 'Pause',
       ));
@@ -3218,6 +3218,8 @@ class _FakePlatformPlayer extends PlatformPlayer {
     openCount++;
     lastOpened = playable;
     nativeProperties['idle-active'] = 'no';
+    // mpv sizes the video output of each file it opens.
+    emitVideoSize(1920, 1080);
   }
 
   @override
