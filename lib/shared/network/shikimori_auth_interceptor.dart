@@ -94,15 +94,21 @@ class ShikimoriAuthInterceptor extends Interceptor {
   Future<ShikimoriTokens?> _refresh(ShikimoriTokens tokens) async {
     try {
       final renewed = await _oauth.refresh(tokens.refreshToken);
+      // Signed out (or into another account) while renewing: the renewed
+      // tokens belong to a session that is gone.
+      if (!await _stillSignedInAs(tokens)) return null;
       await _store.write(renewed);
       return renewed;
     } on InvalidGrantException {
-      await _store.expire();
+      if (await _stillSignedInAs(tokens)) await _store.expire();
       return null;
     } on Exception {
       return null;
     }
   }
+
+  Future<bool> _stillSignedInAs(ShikimoriTokens tokens) async =>
+      (await _store.read())?.refreshToken == tokens.refreshToken;
 
   static String _bearer(ShikimoriTokens tokens) =>
       'Bearer ${tokens.accessToken}';

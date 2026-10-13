@@ -151,6 +151,35 @@ void main() {
     expect(oauth.refreshes, 1);
     expect(adapter.requests, hasLength(2));
   });
+
+  test(
+    'a renewal that lands after signing out keeps the app signed out',
+    () async {
+      await store.write(tokens('old', left: const Duration(seconds: 30)));
+      oauth.meanwhile = store.clear;
+
+      await dio.get<dynamic>('/api/animes');
+
+      expect(oauth.refreshes, 1);
+      expect(await store.read(), isNull);
+      expect(sentTokens(), [null]);
+    },
+  );
+
+  test(
+    'a renewal refused after signing in again leaves the new session',
+    () async {
+      await store.write(tokens('old', left: const Duration(seconds: 30)));
+      valid = 'other';
+      oauth
+        ..failure = const InvalidGrantException('revoked')
+        ..meanwhile = () => store.write(tokens('other'));
+
+      await dio.get<dynamic>('/api/animes');
+
+      expect((await store.read())?.accessToken, 'other');
+    },
+  );
 }
 
 class _FakeOAuth implements ShikimoriOAuthClient {
@@ -158,6 +187,9 @@ class _FakeOAuth implements ShikimoriOAuthClient {
 
   final ShikimoriTokens Function() issue;
   Exception? failure;
+
+  /// Runs while the renewal is out, as a sign-out would.
+  Future<void> Function()? meanwhile;
   int refreshes = 0;
   String? lastRefreshToken;
 
@@ -167,6 +199,7 @@ class _FakeOAuth implements ShikimoriOAuthClient {
     lastRefreshToken = refreshToken;
     // Lets requests issued together pile up behind the renewal.
     await Future<void>.delayed(const Duration(milliseconds: 10));
+    await meanwhile?.call();
     final error = failure;
     if (error != null) throw error;
     return issue();
