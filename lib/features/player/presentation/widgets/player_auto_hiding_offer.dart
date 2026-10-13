@@ -8,12 +8,14 @@ import 'package:iris/features/player/presentation/widgets/player_countdown.dart'
 /// countdown; [pinned] keeps it shown.
 ///
 /// A [PlayerCountdownBar] in [child] shows the time left at the start;
-/// resting the pointer on it, or the focus inside it, holds it.
+/// resting the pointer on it, or the focus inside it, holds it. The time
+/// passes only while [running] (the video moving), when given.
 class PlayerAutoHidingOffer extends StatefulWidget {
   const PlayerAutoHidingOffer({
     required this.controlsVisible,
     required this.child,
     this.pinned = false,
+    this.running,
     super.key,
   });
 
@@ -21,6 +23,7 @@ class PlayerAutoHidingOffer extends StatefulWidget {
 
   final ValueListenable<bool> controlsVisible;
   final bool pinned;
+  final ValueListenable<bool>? running;
   final Widget child;
 
   @override
@@ -39,9 +42,15 @@ class _PlayerAutoHidingOfferState extends State<PlayerAutoHidingOffer> {
   @override
   Widget build(BuildContext context) {
     final pinned = widget.pinned;
-    return PlayerCountdown(
-      duration: _intro && !pinned ? PlayerAutoHidingOffer.shownAtStart : null,
-      onElapsed: _endIntro,
+    final running = widget.running ?? _always;
+    return ValueListenableBuilder<bool>(
+      valueListenable: running,
+      builder: (context, running, child) => PlayerCountdown(
+        duration: _intro && !pinned ? PlayerAutoHidingOffer.shownAtStart : null,
+        onElapsed: _endIntro,
+        running: running,
+        child: child!,
+      ),
       child: ValueListenableBuilder<bool>(
         valueListenable: widget.controlsVisible,
         builder: (context, controlsVisible, child) {
@@ -60,3 +69,5 @@ class _PlayerAutoHidingOfferState extends State<PlayerAutoHidingOffer> {
     );
   }
 }
+
+final ValueListenable<bool> _always = ValueNotifier(true);

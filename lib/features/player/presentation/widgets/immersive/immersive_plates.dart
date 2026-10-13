@@ -161,6 +161,7 @@ class _SkipForwardOffer extends StatelessWidget {
         if (!offered) return const SizedBox.shrink();
         return PlayerAutoHidingOffer(
           controlsVisible: controlsVisible,
+          running: engine.advancing,
           child: Semantics(
             label: l10n.playerSkipForwardTooltip(seconds),
             child: _OfferButton.outlined(

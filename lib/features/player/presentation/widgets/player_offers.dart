@@ -17,11 +17,16 @@ class PlayerSkipSegmentOffer extends StatelessWidget {
     required this.controlsVisible,
     required this.plate,
     this.fallback = const SizedBox.shrink(),
+    this.running,
     super.key,
   });
 
   final ValueListenable<PlayerSkipSegment?> segment;
   final ValueListenable<bool> controlsVisible;
+
+  /// Whether the video moves, so its time passes; see
+  /// [PlayerAutoHidingOffer.running].
+  final ValueListenable<bool>? running;
   final PlayerOfferPlate plate;
   final Widget fallback;
 
@@ -35,6 +40,7 @@ class PlayerSkipSegmentOffer extends StatelessWidget {
         return PlayerAutoHidingOffer(
           key: ValueKey(segment),
           controlsVisible: controlsVisible,
+          running: running,
           child: plate(
             segment.kind == PlayerSkipKind.recap
                 ? l10n.playerSkipRecap
@@ -56,8 +62,13 @@ class PlayerNextOffer extends StatelessWidget {
     required this.title,
     required this.controlsVisible,
     required this.plate,
+    this.running,
     super.key,
   });
+
+  /// Whether the video moves, so its time passes; see
+  /// [PlayerAutoHidingOffer.running].
+  final ValueListenable<bool>? running;
 
   final ValueListenable<bool> finishing;
   final ValueListenable<bool> completed;
@@ -80,6 +91,7 @@ class PlayerNextOffer extends StatelessWidget {
         }
         return PlayerAutoHidingOffer(
           controlsVisible: controlsVisible,
+          running: running,
           // Once the file has ended there is nothing left to cover.
           pinned: completed,
           child: plate(l10n.playerPlayNext, title),

@@ -913,6 +913,55 @@ void main() {
     expect(skipOpacity(), 1);
   });
 
+  testWidgets('offers nothing before the picture moves, and counts only '
+      'while it does', (tester) async {
+    setTestWindowSize(tester, TestWindowSizes.landscape);
+    late _FakePlatformPlayer platformPlayer;
+    await tester.pumpWidget(
+      _wrapViewport(
+        playerBuilder: (configuration) {
+          platformPlayer = _FakePlatformPlayer(configuration: configuration);
+          return Player(platformPlayer: platformPlayer);
+        },
+      ),
+    );
+    await tester.pump();
+    // Ready by its header, still filling the buffer.
+    platformPlayer
+      ..emitDuration(const Duration(minutes: 24))
+      ..emitBuffering(true)
+      ..emitPlaying(true)
+      ..emitPosition(const Duration(seconds: 40));
+    await _deliverPlayerEvent(tester);
+    await tester.pump(const Duration(seconds: 20));
+    expect(find.byKey(const Key('player_skip_forward_button')), findsNothing);
+
+    platformPlayer.emitBuffering(false);
+    await _deliverPlayerEvent(tester);
+    double skipOpacity() => tester
+        .widget<AnimatedOpacity>(
+          find.ancestor(
+            of: find.byKey(const Key('player_skip_forward_button')),
+            matching: find.byType(AnimatedOpacity),
+          ),
+        )
+        .opacity;
+    expect(skipOpacity(), 1);
+
+    // Loading again halfway: the offer waits with it.
+    await tester.pump(const Duration(seconds: 4));
+    platformPlayer.emitBuffering(true);
+    await _deliverPlayerEvent(tester);
+    await tester.pump(const Duration(seconds: 30));
+    expect(skipOpacity(), 1);
+
+    platformPlayer.emitBuffering(false);
+    await _deliverPlayerEvent(tester);
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pump();
+    expect(skipOpacity(), 0);
+  });
+
   testWidgets('offers to skip the opening named by a chapter', (tester) async {
     final platformPlayer = _FakePlatformPlayer(
       configuration: const PlayerConfiguration(),
@@ -930,6 +979,7 @@ void main() {
     await tester.pumpWidget(_wrapViewport(platformPlayer: platformPlayer));
     await tester.pump();
     platformPlayer.emitDuration(const Duration(minutes: 24));
+    platformPlayer.emitPlaying(true);
     platformPlayer.emitPosition(const Duration(seconds: 30));
     await _deliverPlayerEvent(tester);
     expect(find.byKey(_skipSegmentButton), findsNothing);
@@ -965,6 +1015,7 @@ void main() {
     );
     await tester.pump();
     platformPlayer.emitDuration(const Duration(minutes: 24));
+    platformPlayer.emitPlaying(true);
     platformPlayer.emitPosition(const Duration(minutes: 1));
     await _deliverPlayerEvent(tester);
     expect(engine.skipForwardOffered.value, isTrue);
@@ -1035,6 +1086,7 @@ void main() {
     );
     await tester.pump();
     platformPlayer.emitDuration(const Duration(minutes: 24));
+    platformPlayer.emitPlaying(true);
     platformPlayer.emitPosition(const Duration(seconds: 40));
     await _deliverPlayerEvent(tester);
     expect(engine.skipForwardOffered.value, isTrue);
@@ -1068,6 +1120,7 @@ void main() {
     await tester.pump();
     engine.expectSkipTimes();
     platformPlayer.emitDuration(const Duration(minutes: 24));
+    platformPlayer.emitPlaying(true);
     platformPlayer.emitPosition(const Duration(seconds: 40));
     await _deliverPlayerEvent(tester);
     expect(engine.skipForwardOffered.value, isFalse);
@@ -1516,6 +1569,7 @@ void main() {
       );
       await tester.pump();
       platformPlayer.emitDuration(const Duration(minutes: 24));
+      platformPlayer.emitPlaying(true);
       platformPlayer.emitPosition(const Duration(seconds: 10));
       await _deliverPlayerEvent(tester);
 
@@ -3284,6 +3338,11 @@ class _FakePlatformPlayer extends PlatformPlayer {
     state = state.copyWith(width: width, height: height);
     widthController.add(width);
     heightController.add(height);
+  }
+
+  void emitBuffering(bool buffering) {
+    state = state.copyWith(buffering: buffering);
+    bufferingController.add(buffering);
   }
 
   void emitPlaying(bool playing) {

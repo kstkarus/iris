@@ -4,6 +4,10 @@ Notable changes to iris, newest first. The format follows [Keep a Changelog](htt
 
 ## [Unreleased]
 
+### Fixed
+
+- Skip opening, "+85 s" and Next episode appear once the video has actually started, and their few seconds on screen pass only while it plays: not before the picture moves, not while paused or loading. Resting the pointer on one fills its bar back up smoothly instead of jumping.
+
 ## [1.4.0] - 2026-10-13
 
 ### Changed

@@ -761,6 +761,7 @@ class _PlayerImmersiveControlsState extends State<PlayerImmersiveControls> {
               PlayerSkipSegmentOffer(
                 segment: engine.skipSegment,
                 controlsVisible: _visibility,
+                running: engine.advancing,
                 fallback: _SkipForwardOffer(
                   engine: engine,
                   controlsVisible: _visibility,
@@ -777,6 +778,7 @@ class _PlayerImmersiveControlsState extends State<PlayerImmersiveControls> {
                   completed: engine.completed,
                   title: next.title,
                   controlsVisible: _visibility,
+                  running: engine.advancing,
                   plate: (label, detail) => _OfferButton.filled(
                     key: const Key('player_next_file_prompt'),
                     label: label,

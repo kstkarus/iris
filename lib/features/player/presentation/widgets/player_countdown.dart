@@ -1,22 +1,31 @@
 import 'package:flutter/material.dart';
 
+import 'package:iris/shared/utils/motion_duration.dart';
+
 /// Counts down the time an offer or a message over the video has left and
 /// calls [onElapsed] when it runs out. A [PlayerCountdownBar] inside [child]
 /// draws what is left; while the pointer rests on the bar's plate or the
-/// focus is inside it, the countdown holds full and starts over on leaving.
+/// focus is inside it, the bar fills back up and holds full, and the count
+/// starts over on leaving. While not [running] (the video paused, loading
+/// or not started) it stands where it is and goes on from there.
 class PlayerCountdown extends StatefulWidget {
   const PlayerCountdown({
     required this.duration,
     required this.onElapsed,
     required this.child,
+    this.running = true,
     super.key,
   });
+
+  /// How long the bar takes to fill back up under the pointer.
+  static const refill = Duration(milliseconds: 250);
 
   /// Null while nothing counts down: the message waits for the file, or the
   /// offer is pinned or hidden.
   final Duration? duration;
   final VoidCallback onElapsed;
   final Widget child;
+  final bool running;
 
   @override
   State<PlayerCountdown> createState() => _PlayerCountdownState();
@@ -46,6 +55,8 @@ class _PlayerCountdownState extends State<PlayerCountdown>
         ..value = 1;
     } else if (oldWidget.duration == null) {
       if (_holds.isEmpty) _start(widget.duration);
+    } else if (widget.running != oldWidget.running && _holds.isEmpty) {
+      widget.running ? _resume() : _controller.stop();
     }
   }
 
@@ -58,9 +69,15 @@ class _PlayerCountdownState extends State<PlayerCountdown>
   void _start(Duration? duration) {
     if (duration == null) return;
     _elapsed = false;
-    _controller
-      ..value = 1
-      ..animateTo(0, duration: duration);
+    _controller.value = 1;
+    if (widget.running) _controller.animateTo(0, duration: duration);
+  }
+
+  /// Goes on from where the count stood, with the time that was left.
+  void _resume() {
+    final duration = widget.duration;
+    if (duration == null || _elapsed || _controller.value <= 0) return;
+    _controller.animateTo(0, duration: duration * _controller.value);
   }
 
   // On the frame the bar reaches nothing, not on the one after, when the
@@ -74,13 +91,17 @@ class _PlayerCountdownState extends State<PlayerCountdown>
   void _hold(Object reason, bool held) {
     if (!mounted) return;
     if (held) {
-      if (_holds.add(reason) && widget.duration != null) {
-        _controller
-          ..stop()
-          ..value = 1;
+      if (_holds.add(reason) && widget.duration != null && !_elapsed) {
+        _controller.animateTo(
+          1,
+          duration: motionDuration(context, PlayerCountdown.refill),
+          curve: Curves.easeOut,
+        );
       }
     } else if (_holds.remove(reason) && _holds.isEmpty) {
-      _start(widget.duration);
+      // From as full as the bar got: all of it after a rest, a little
+      // more after a brush past, and never a jump.
+      if (widget.running) _resume();
     }
   }
 

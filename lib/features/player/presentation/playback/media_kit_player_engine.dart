@@ -241,6 +241,14 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
   /// The opened file played to its end.
   final completed = ValueNotifier<bool>(false);
 
+  /// The picture moves: the file has shown its first frame, plays and is
+  /// not waiting for data. What is offered over the video counts its time
+  /// only meanwhile, and is first offered once it has.
+  final advancing = ValueNotifier<bool>(false);
+
+  /// [advancing] has been true for the opened file.
+  bool _hasAdvanced = false;
+
   /// The qualities the playing file comes in and the chosen one; null when
   /// it has no choice (a torrent, a download).
   final quality = ValueNotifier<PlayerQualityChoice?>(null);
@@ -333,6 +341,8 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
     _lastKnownPosition = null;
     _pendingSeek = null;
     _startAnnounced = false;
+    _hasAdvanced = false;
+    advancing.value = false;
     _renewsOnFailure = false;
     _renewalsLeft = _maxRenewals;
     completed.value = false;
@@ -624,6 +634,7 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
     bufferMargin.dispose();
     diagnostics.dispose();
     completed.dispose();
+    advancing.dispose();
     quality.dispose();
     finishing.dispose();
     skipSegment.dispose();
@@ -883,7 +894,22 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
       name: 'iris.player.media',
     );
     buffering.value = value;
+    _refreshAdvancing();
     unawaited(_logCacheBufferingState('buffering changed'));
+  }
+
+  void _refreshAdvancing() {
+    if (_closed) return;
+    final now =
+        _startAnnounced &&
+        (_player?.state.playing ?? false) &&
+        !buffering.value;
+    advancing.value = now;
+    if (now && !_hasAdvanced) {
+      _hasAdvanced = true;
+      // The offers held back until the picture moved.
+      _refreshPositionOffers();
+    }
   }
 
   void _onPlaying(bool playing) {
@@ -892,6 +918,7 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
       'media_kit playing changed: $playing',
       name: 'iris.player.media',
     );
+    _refreshAdvancing();
     if (!_isReady) return;
     if (!playing) _reportProgress(flush: true);
   }
@@ -947,22 +974,27 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
     final duration = player.state.duration;
     if (duration <= Duration.zero) return;
     final segments = _skipSegments;
-    skipSegment.value = segments
+    final currentSegment = segments
         .where(
           (segment) =>
               segment.kind != PlayerSkipKind.ending &&
               segment.contains(position),
         )
         .firstOrNull;
+    final finishingNow = position >= _finishingStart(segments, duration);
+    if (finishingNow && !_watchedReported) {
+      _watchedReported = true;
+      _emit(const PlayerEngineWatched());
+    }
+    // Nothing is offered over a picture that has not moved yet: a file
+    // still filling its buffer would count an offer down unseen.
+    if (!_hasAdvanced) return;
+    skipSegment.value = currentSegment;
     skipForwardOffered.value =
         position < _skipForwardWindow &&
         !_skipTimesPending &&
         !segments.any((segment) => segment.kind == PlayerSkipKind.opening);
-    finishing.value = position >= _finishingStart(segments, duration);
-    if (finishing.value && !_watchedReported) {
-      _watchedReported = true;
-      _emit(const PlayerEngineWatched());
-    }
+    finishing.value = finishingNow;
   }
 
   /// The ending's start when known (an "ending" in the first half is a
@@ -1331,6 +1363,7 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
         next.firstFrameRendered) {
       _startAnnounced = true;
       _emit(const PlayerEnginePlaybackStarted());
+      _refreshAdvancing();
     }
   }
 
