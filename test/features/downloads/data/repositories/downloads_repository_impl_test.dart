@@ -859,6 +859,40 @@ void main() {
     expect(registry.reads, 1);
   });
 
+  test('a downloads list that cannot be written holds up nothing', () async {
+    final registry = _RefusingRegistry(
+      registryFile: File(
+        '${temporaryDirectory.path}${Platform.pathSeparator}full_disk.json',
+      ),
+    );
+    final fullDiskRepository = DownloadsRepositoryImpl(
+      engine: engine,
+      registry: registry,
+      downloadsDirectory: downloadsDirectory,
+      foregroundService: foregroundService,
+      storageUsageAdapter: const _FakeStorageUsageAdapter(),
+      activityRegistry: activityRegistry,
+    );
+    addTearDown(fullDiskRepository.close);
+
+    await fullDiskRepository.restore();
+    final source = await fullDiskRepository.prepareSource(magnet: _magnet);
+    await fullDiskRepository.enqueueDownload(
+      source: source,
+      file: source.files[1],
+      animeId: '154587',
+      animeTitle: 'Sousou no Frieren',
+      sourceTitle: 'Release',
+    );
+
+    // Only the selected file is wanted, as with a list that saves.
+    await _waitFor(() => engine.priorityCalls.isNotEmpty);
+    expect(engine.priorityCalls.single.priorities, [0, 0, 7, 0]);
+    expect(registry.refused, greaterThan(0));
+    final downloads = await fullDiskRepository.currentDownloads();
+    expect(downloads.single.status, DownloadStatus.downloading);
+  });
+
   test(
     'a selection waits until a closing player releases the torrent',
     () async {
@@ -1276,6 +1310,19 @@ class _FakeStorageUsageAdapter implements AppStorageUsageAdapter {
 
   @override
   Future<int?> totalBytes() async => usage;
+}
+
+/// A registry on a full disk: every write fails.
+class _RefusingRegistry extends DownloadRegistryDataSource {
+  _RefusingRegistry({required super.registryFile});
+
+  int refused = 0;
+
+  @override
+  Future<void> writeDownloads(List<DownloadItem> downloads) async {
+    refused++;
+    throw const FileSystemException('No space left on device');
+  }
 }
 
 class _CountingRegistry extends DownloadRegistryDataSource {

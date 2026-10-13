@@ -6,6 +6,7 @@ Notable changes to iris, newest first. The format follows [Keep a Changelog](htt
 
 ### Fixed
 
+- A downloads list that cannot be saved (a full disk) no longer stalls the queue with a torrent fetching every file instead of the chosen one. The list is saved again later.
 - Android: the app no longer crashes when a download's progress updates after the system stopped the download service, and queued downloads keep the service from one to the next while the app is in the background.
 - When undoing an episode mark fails, the player says so and its Retry tries the undo again. It said the mark had failed, and Retry marked the episode once more.
 - An online release that fails to load no longer hides the other releases of the same anime from that site.

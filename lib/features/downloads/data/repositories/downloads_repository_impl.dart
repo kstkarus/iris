@@ -84,6 +84,7 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
   Future<void>? _restoration;
   final _engineUpdates = SerialQueue();
   Timer? _persistTimer;
+  bool _closing = false;
   bool _restored = false;
   bool _pumping = false;
   bool _pumpRequested = false;
@@ -504,6 +505,7 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
   }
 
   Future<void> close() async {
+    _closing = true;
     _persistTimer?.cancel();
     final activeId = _activeDownloadId;
     if (activeId != null) await _stopOnline(activeId);
@@ -512,7 +514,7 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
     await _streamingStoppedSubscription?.cancel();
     await _engineSubscription?.cancel();
     await _engineUpdates.idle;
-    await _registry.writeDownloads(_downloads);
+    await _write();
     for (final sourceToken in _preparedSources.keys.toList()) {
       await disposePreparedSource(sourceToken: sourceToken);
     }
@@ -1057,14 +1059,32 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
     _persistTimer?.cancel();
     _persistTimer = null;
     _emit();
-    await _registry.writeDownloads(_downloads);
+    await _write();
   }
 
   void _schedulePersist() {
-    if (_persistTimer?.isActive == true) return;
+    if (_closing || _persistTimer?.isActive == true) return;
     _persistTimer = Timer(const Duration(seconds: 2), () {
-      unawaited(_registry.writeDownloads(_downloads));
+      unawaited(_write());
     });
+  }
+
+  /// A list that cannot be written (a full disk, a file another program
+  /// holds) is tried again later. The list in memory is what counts, so
+  /// the step that wrote it goes on: thrown here, the error would leave a
+  /// started torrent wanting every file and the queue held up behind it.
+  Future<void> _write() async {
+    try {
+      await _registry.writeDownloads(_downloads);
+    } on Exception catch (error, stackTrace) {
+      developer.log(
+        'Unable to write the downloads list; trying again later.',
+        name: 'iris.downloads.repository',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      _schedulePersist();
+    }
   }
 
   void _emit() {
