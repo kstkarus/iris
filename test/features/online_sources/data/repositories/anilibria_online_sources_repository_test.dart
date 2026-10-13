@@ -172,6 +172,28 @@ void main() {
     expect(releases, hasLength(1));
   });
 
+  test('a release that fails to load does not hide another', () async {
+    // A second release linked to the same id, which AniLibria cannot give.
+    final search = _fixture('search_frieren')! as List<Object?>;
+    final frieren = search.cast<Map<String, Object?>>().firstWhere(
+      (item) => item['id'] == 9542,
+    );
+    final releases = await repository(
+      searchResults: {
+        'Frieren': [
+          ...search,
+          {...frieren, 'id': 9999},
+        ],
+      },
+    ).findReleases(shikimoriId: _frierenShikimoriId, titles: const ['Frieren']);
+
+    expect(
+      requests.map((request) => request.path),
+      contains('/anime/releases/9999'),
+    );
+    expect(releases.map((release) => release.id), ['9542']);
+  });
+
   test('fails rather than say "not there" when every search failed', () {
     expect(
       repository(failingQueries: {'Frieren'}).findReleases(

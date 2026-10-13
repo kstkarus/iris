@@ -45,15 +45,15 @@ class YummyAnimeOnlineSourcesRepository implements OnlineSourcesRepository {
     );
     if (found.isEmpty) return const [];
     final matching = {for (final item in found) item.animeId: item};
-    final releases = await Future.wait(
-      matching.values.map(
-        (anime) async => mapYummyReleases(
-          animeId: anime.animeId,
-          videos: await dataSource.videos(anime.animeId),
-        ),
+    // Likewise an anime whose videos fail to load does not hide the others.
+    return searchAll(
+      matching.values,
+      (anime) async => mapYummyReleases(
+        animeId: anime.animeId,
+        videos: await dataSource.videos(anime.animeId),
       ),
+      keep: (_) => true,
     );
-    return [for (final list in releases) ...list];
   }
 
   @override

@@ -28,12 +28,13 @@ void main() {
   YummyAnimeOnlineSourcesRepository repository({
     bool kodikDown = false,
     bool aksorDown = false,
+    Object? search,
   }) {
     final api = Dio(BaseOptions(baseUrl: 'https://api.yani.tv'))
       ..httpClientAdapter = FakeHttpAdapter((options) {
         requests.add(options.uri);
         final Object? data = switch (options.uri.path) {
-          '/anime' => _json('yummy_anime/search_frieren.json'),
+          '/anime' => search ?? _json('yummy_anime/search_frieren.json'),
           '/anime/10661/videos' => _json('yummy_anime/videos_10661.json'),
           _ => null,
         };
@@ -101,6 +102,27 @@ void main() {
     expect(players.last, startsWith('https://kodikplayer.com/season/'));
     final anidub = releases.firstWhere((r) => r.dub == 'AniDUB');
     expect(anidub.bestQuality, 720);
+  });
+
+  test('an anime whose videos fail to load does not hide another', () async {
+    // A second entry linked to the same id, whose videos are not there.
+    final found = _json('yummy_anime/search_frieren.json')! as Map;
+    final hits = (found['response'] as List).cast<Map<String, Object?>>();
+    final frieren = hits.firstWhere((hit) => hit['anime_id'] == 10661);
+    final releases = await repository(
+      search: {
+        'response': [
+          ...hits,
+          {...frieren, 'anime_id': 99999},
+        ],
+      },
+    ).findReleases(shikimoriId: _frierenShikimoriId, titles: const ['Frieren']);
+
+    expect(requests.map((uri) => uri.path), contains('/anime/99999/videos'));
+    expect(
+      {for (final r in releases) r.dub},
+      {'AniLibria', 'AniDUB', 'Субтитры Crunchyroll'},
+    );
   });
 
   test('finds nothing for an anime it has not linked', () async {

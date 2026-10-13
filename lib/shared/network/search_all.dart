@@ -3,9 +3,9 @@
 /// found: its failure is thrown only when nothing was kept, so it reads as
 /// an error rather than "not there". Of several failures, the first query's
 /// is thrown.
-Future<List<T>> searchAll<T>(
-  Iterable<String> queries,
-  Future<List<T>> Function(String query) search, {
+Future<List<T>> searchAll<Q, T>(
+  Iterable<Q> queries,
+  Future<List<T>> Function(Q query) search, {
   required bool Function(T item) keep,
 }) async {
   final results = await Future.wait(
