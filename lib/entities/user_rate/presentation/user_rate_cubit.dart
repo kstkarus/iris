@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:iris/entities/user_rate/domain/user_rate.dart';
@@ -9,17 +11,21 @@ import 'package:iris/entities/user_rate/presentation/user_rate_state.dart';
 /// Changes show at once and are sent one after another, the latest wish
 /// last, so quick taps on the episode count neither race nor add the
 /// anime twice. A change Shikimori does not take falls back to what it
-/// keeps.
+/// keeps. What changes the entry elsewhere (the player marking an
+/// episode) shows here too, so the next change starts from it.
 class UserRateCubit extends Cubit<UserRateState> {
   UserRateCubit({
     required UserRateRepository repository,
     required String animeId,
   }) : _repository = repository,
        _animeId = animeId,
-       super(const UserRateSignedOut());
+       super(const UserRateSignedOut()) {
+    _changes = repository.changes.listen(_onChange);
+  }
 
   final UserRateRepository _repository;
   final String _animeId;
+  late final StreamSubscription<UserRateChange> _changes;
 
   String? _userId;
 
@@ -29,6 +35,7 @@ class UserRateCubit extends Cubit<UserRateState> {
   /// What to send next, while a save is out.
   ({UserRateStatus status, int episodes, int score})? _wish;
   bool _sending = false;
+  bool _removing = false;
 
   /// Follows the session: [userId] is the signed-in account, or null.
   Future<void> accountChanged(String? userId) async {
@@ -101,13 +108,31 @@ class UserRateCubit extends Cubit<UserRateState> {
     final saved = _saved;
     if (current == null || current.saving || saved == null) return;
     emit(const UserRateLoaded(null, saving: true));
+    _removing = true;
     try {
       await _repository.remove(animeId: _animeId, rateId: saved.id);
       _saved = null;
       if (!isClosed) emit(const UserRateLoaded(null));
     } on Exception {
       if (!isClosed) emit(UserRateLoaded(saved, saveFailed: true));
+    } finally {
+      _removing = false;
     }
+  }
+
+  @override
+  Future<void> close() async {
+    await _changes.cancel();
+    return super.close();
+  }
+
+  /// Takes the entry as another screen saved or read it; this cubit's own
+  /// saves and removals settle by themselves.
+  void _onChange(UserRateChange change) {
+    if (isClosed || change.animeId != _animeId || _userId == null) return;
+    if (_sending || _removing) return;
+    _saved = change.rate;
+    emit(UserRateLoaded(change.rate));
   }
 
   UserRateLoaded? get _current => switch (state) {

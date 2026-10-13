@@ -157,6 +157,47 @@ void main() {
     expect(cubit.state, const UserRateLoaded(null));
     expect(await repository.fetch('1'), isNull);
   });
+
+  test('a save made elsewhere shows, and the next step builds on it', () async {
+    await cubit.accountChanged('42');
+
+    // The player marks episode 5 of an anime not yet in the list.
+    await repository.save(
+      userId: '42',
+      animeId: '1',
+      rateId: null,
+      status: UserRateStatus.watching,
+      episodes: 5,
+      score: 0,
+    );
+    await pumpEventQueue();
+    expect(
+      cubit.state,
+      const UserRateLoaded(
+        UserRate(id: '1', status: UserRateStatus.watching, episodes: 5),
+      ),
+    );
+
+    cubit.stepEpisodes(1, total: 12);
+    await pumpEventQueue();
+    expect(repository.saves.last, (rateId: '1', episodes: 6));
+  });
+
+  test('another anime\'s changes leave the entry alone', () async {
+    await cubit.accountChanged('42');
+
+    await repository.save(
+      userId: '42',
+      animeId: '2',
+      rateId: null,
+      status: UserRateStatus.watching,
+      episodes: 5,
+      score: 0,
+    );
+    await pumpEventQueue();
+
+    expect(cubit.state, const UserRateLoaded(null));
+  });
 }
 
 class _GatedRepository extends MockUserRateRepository {
