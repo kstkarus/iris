@@ -15,6 +15,7 @@ import 'package:iris/features/online_sources/domain/entities/online_stream.dart'
 import 'package:iris/features/online_sources/domain/online_episode_files.dart';
 import 'package:iris/features/online_sources/domain/online_stream_choice.dart';
 import 'package:iris/features/online_sources/domain/repositories/online_sources_repository.dart';
+import 'package:iris/shared/network/network_exceptions.dart';
 import 'package:iris/shared/online/online_source_link.dart';
 
 /// Why an online download stopped; [message] is stored with the download
@@ -157,6 +158,10 @@ const _attempts = 4;
 /// Fresh links asked for in a row with nothing loaded in between.
 const _renewals = 3;
 
+/// Waits between tries to reach the site while the network is gone, about
+/// two and a half minutes in all: a short drop leaves the queue alone.
+const _offlineWaits = [2, 4, 8, 16, 30, 30, 30, 30];
+
 class _Task implements OnlineDownloadTask {
   _Task({
     required this.downloader,
@@ -246,7 +251,7 @@ class _Task implements OnlineDownloadTask {
   }
 
   Future<String> _episodeId() async {
-    final release = await downloader._release(link);
+    final release = await _whileOffline(() => downloader._release(link));
     final position = onlineEpisodeFileIndices(release).indexOf(fileIndex);
     if (position < 0) {
       throw const OnlineDownloadException(downloadCouldNotStartMessage);
@@ -258,9 +263,11 @@ class _Task implements OnlineDownloadTask {
   /// still has it, otherwise the one [maxQuality] asks for.
   Future<OnlineStream> _pickStream(String episodeId, _State? state) async {
     final provider = OnlineProvider.named(link.provider)!;
-    final streams = await downloader._repository.resolveStreams(
-      provider: provider,
-      episodeId: episodeId,
+    final streams = await _whileOffline(
+      () => downloader._repository.resolveStreams(
+        provider: provider,
+        episodeId: episodeId,
+      ),
     );
     final loadable = [
       for (final stream in streams)
@@ -454,7 +461,7 @@ class _Task implements OnlineDownloadTask {
         _checkCancelled();
         await sink.writeFrom(chunk);
         bytes += chunk.length;
-        _report(bytes, total);
+        _report(bytes, total, chunk: true);
       }
     } on DioException catch (error) {
       if (CancelToken.isCancel(error) || _cancelled) throw const _Cancelled();
@@ -544,8 +551,37 @@ class _Task implements OnlineDownloadTask {
     if (_cancelled) throw const _Cancelled();
   }
 
-  void _report(int bytes, int total) {
+  /// [request] to the site, tried again while the network is down.
+  Future<T> _whileOffline<T>(Future<T> Function() request) async {
+    for (var attempt = 0; ; attempt++) {
+      _checkCancelled();
+      try {
+        return await request();
+      } on Object catch (error) {
+        if (_cancelled) throw const _Cancelled();
+        if (!_isOffline(error) || attempt >= _offlineWaits.length) rethrow;
+        developer.log(
+          'The site is out of reach ($error); trying again.',
+          name: 'iris.downloads.online',
+        );
+        await downloader._delay(Duration(seconds: _offlineWaits[attempt]));
+      }
+    }
+  }
+
+  /// When a [chunk] was last told; an mp4 body comes in chunks of a few
+  /// KB, far more often than anyone reads it.
+  DateTime? _chunkReportedAt;
+  static const _chunkReportEvery = Duration(milliseconds: 250);
+
+  void _report(int bytes, int total, {bool chunk = false}) {
     if (_progress.isClosed) return;
+    if (chunk) {
+      final now = downloader._now();
+      final last = _chunkReportedAt;
+      if (last != null && now.difference(last) < _chunkReportEvery) return;
+      _chunkReportedAt = now;
+    }
     _progress.add(
       OnlineDownloadProgress(
         downloadedBytes: bytes,
@@ -668,3 +704,15 @@ class _LinkRefused implements Exception {
 
   final String reason;
 }
+
+/// A failure of the connection rather than an answer from the site.
+bool _isOffline(Object error) => switch (error) {
+  NetworkRequestException() ||
+  SocketException() ||
+  HttpException() ||
+  TlsException() ||
+  TimeoutException() => true,
+  DioException(:final type) =>
+    type != DioExceptionType.badResponse && type != DioExceptionType.cancel,
+  _ => false,
+};

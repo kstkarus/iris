@@ -111,7 +111,10 @@ class MainActivity : FlutterActivity() {
     override fun onDestroy() {
         pictureInPicture?.dispose()
         pictureInPicture = null
+        val closing = isFinishing && !isChangingConfigurations
         super.onDestroy()
+        // The Flutter engine went with the activity; see endWithApp.
+        if (closing) DownloadForegroundService.endWithApp(this)
     }
 
     private fun readAppMemoryBytes(): Long {
@@ -160,7 +163,12 @@ class MainActivity : FlutterActivity() {
         ) {
             startForegroundService(intent)
         } else {
-            startService(intent)
+            try {
+                startService(intent)
+            } catch (_: IllegalStateException) {
+                // A stop from the background with no service running: there
+                // is nothing to stop, and Android refuses to start one.
+            }
         }
     }
 

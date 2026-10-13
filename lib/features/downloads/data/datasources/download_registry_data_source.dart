@@ -30,33 +30,48 @@ class DownloadRegistryDataSource {
   File get _temporaryFile => File('${_registryFile.path}.tmp');
   File get _backupFile => File('${_registryFile.path}.bak');
 
+  /// The downloads [file] lists, or null when it is missing or unreadable
+  /// as a list. A file that cannot be read now (the disk, not the content)
+  /// throws, so nothing is written over it and the next read tries again.
+  /// What does not parse is kept aside, as the next write replaces it.
   Future<List<DownloadItem>?> _tryRead(File file) async {
-    try {
-      if (!await file.exists()) {
-        return null;
-      }
-
-      final decoded = jsonDecode(await file.readAsString());
-      if (decoded is! List<Object?>) {
-        return null;
-      }
-
-      final downloads = <DownloadItem>[];
-      for (final entry in decoded) {
-        if (entry is! Map<Object?, Object?>) {
-          continue;
-        }
-
-        try {
-          final json = entry.cast<String, Object?>();
-          downloads.add(DownloadItemModel.fromJson(json));
-        } on Object {
-          continue;
-        }
-      }
-      return List<DownloadItem>.unmodifiable(downloads);
-    } on Object {
+    if (!await file.exists()) {
       return null;
+    }
+    // Bytes first: a read that fails throws, broken text does not.
+    final bytes = await file.readAsBytes();
+    final Object? decoded;
+    try {
+      decoded = jsonDecode(utf8.decode(bytes));
+    } on FormatException {
+      await _keepAside(file);
+      return null;
+    }
+    if (decoded is! List<Object?>) {
+      await _keepAside(file);
+      return null;
+    }
+
+    final downloads = <DownloadItem>[];
+    var skipped = false;
+    for (final entry in decoded) {
+      try {
+        final json = (entry! as Map<Object?, Object?>).cast<String, Object?>();
+        downloads.add(DownloadItemModel.fromJson(json));
+      } on Object {
+        skipped = true;
+      }
+    }
+    if (skipped) await _keepAside(file);
+    return List<DownloadItem>.unmodifiable(downloads);
+  }
+
+  /// A copy of [file] next to it, for whoever wants to look into it.
+  Future<void> _keepAside(File file) async {
+    try {
+      await file.copy('${file.path}.corrupt');
+    } on FileSystemException {
+      // Only a courtesy.
     }
   }
 

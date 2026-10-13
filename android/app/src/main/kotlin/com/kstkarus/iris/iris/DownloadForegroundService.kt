@@ -9,7 +9,10 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.Build
+import android.os.Handler
 import android.os.IBinder
+import android.os.Looper
+import android.os.Process
 
 /**
  * Keeps the process alive while a download runs. Started only for
@@ -22,13 +25,12 @@ import android.os.IBinder
 class DownloadForegroundService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == ACTION_STOP) {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                stopForeground(STOP_FOREGROUND_REMOVE)
-            } else {
-                @Suppress("DEPRECATION")
-                stopForeground(true)
-            }
-            stopSelf()
+            running = false
+            leaveForeground()
+            // Not stopSelf(): a start sent right after this stop would find
+            // its service destroyed under it. With the id, a newer start
+            // keeps it.
+            stopSelf(startId)
             return START_NOT_STICKY
         }
 
@@ -39,6 +41,7 @@ class DownloadForegroundService : Service() {
             channelName = intent?.getStringExtra(EXTRA_CHANNEL_NAME),
             channelDescription = intent?.getStringExtra(EXTRA_CHANNEL_DESCRIPTION),
         )
+        running = true
         // Every command but stop came through startForegroundService.
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             startForeground(
@@ -53,6 +56,31 @@ class DownloadForegroundService : Service() {
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
+
+    /**
+     * Swiped away from the recent apps: the activity and the Dart side that
+     * ran the downloads are gone, and nothing would ever stop this service
+     * or the native torrent session in the process. Both end here; the
+     * queue picks up again from the registry on the next launch.
+     */
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        endWithApp(this)
+        super.onTaskRemoved(rootIntent)
+    }
+
+    private fun leaveForeground() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            stopForeground(STOP_FOREGROUND_REMOVE)
+        } else {
+            @Suppress("DEPRECATION")
+            stopForeground(true)
+        }
+    }
+
+    override fun onDestroy() {
+        running = false
+        super.onDestroy()
+    }
 
     override fun onTimeout(startId: Int, fgsType: Int) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
@@ -71,6 +99,32 @@ class DownloadForegroundService : Service() {
 
         private const val CHANNEL_ID = "iris_downloads"
         private const val NOTIFICATION_ID = 7101
+
+        /**
+         * The app is closed for good (its last activity finished, or its
+         * task was swiped away) while the Dart side that ran the downloads
+         * is gone: the notification, the service and the process go, so no
+         * native torrent session goes on unowned, nor a second one starts
+         * beside it on the next launch.
+         */
+        fun endWithApp(context: Context) {
+            if (!running) return
+            running = false
+            cancelNotification(context)
+            context.stopService(Intent(context, DownloadForegroundService::class.java))
+            // A moment for writes the app queued on its way out (preferences
+            // are saved in the background) to land.
+            Handler(Looper.getMainLooper()).postDelayed(
+                { Process.killProcess(Process.myPid()) },
+                EXIT_DELAY_MS,
+            )
+        }
+
+        /** Whether a download holds the service, so the process with it. */
+        @Volatile
+        private var running = false
+
+        private const val EXIT_DELAY_MS = 500L
 
         /** Updates the download notification, whether or not the service runs. */
         fun showNotification(

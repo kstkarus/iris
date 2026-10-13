@@ -13,6 +13,7 @@ import 'package:iris/features/online_sources/domain/entities/online_provider.dar
 import 'package:iris/features/online_sources/domain/entities/online_release.dart';
 import 'package:iris/features/online_sources/domain/entities/online_stream.dart';
 import 'package:iris/features/online_sources/domain/repositories/online_sources_repository.dart';
+import 'package:iris/shared/network/network_exceptions.dart';
 import 'package:iris/shared/online/online_source_link.dart';
 
 import '../../../../helpers/fake_http_adapter.dart';
@@ -240,6 +241,39 @@ void main() {
     expect(delays, isEmpty, reason: 'a refusal is not tried again as it is');
   });
 
+  test('a network that is gone a while is waited for', () async {
+    sources
+      ..streams = [_hls('https://cdn.test/e2/720.m3u8')]
+      ..offlineReleases = 2
+      ..offlineResolves = 1;
+    final task = start(
+      downloader((options) {
+        final name = options.uri.pathSegments.last;
+        if (name == '720.m3u8') return FakeReply.text(200, _playlist(1));
+        return FakeReply.text(200, '[$name]');
+      }),
+    );
+
+    final file = await task.done;
+
+    expect(await file!.readAsString(), '[s1.ts]');
+    expect(delays, const [
+      Duration(seconds: 2),
+      Duration(seconds: 4),
+      Duration(seconds: 2),
+    ]);
+  });
+
+  test('a network gone for long fails the download, to be resumed', () async {
+    sources
+      ..streams = [_hls('https://cdn.test/e2/720.m3u8')]
+      ..offlineReleases = 100;
+    final task = start(downloader((_) => const FakeReply(200)));
+
+    await expectLater(task.done, throwsA(isA<OnlineDownloadException>()));
+    expect(delays, hasLength(8));
+  });
+
   test('an episode whose segment list changed starts over', () async {
     var resolves = 0;
     sources.onResolve = () => [_hls('https://cdn.test/${++resolves}/720.m3u8')];
@@ -439,6 +473,10 @@ class _FakeOnlineSources implements OnlineSourcesRepository {
   List<OnlineStream> streams = const [];
   bool failResolve = false;
 
+  /// Requests that fail for a network that is gone, before any answers.
+  int offlineReleases = 0;
+  int offlineResolves = 0;
+
   /// Gives each resolve its own streams, in place of [streams].
   List<OnlineStream> Function()? onResolve;
 
@@ -446,7 +484,13 @@ class _FakeOnlineSources implements OnlineSourcesRepository {
   Future<OnlineRelease> fetchRelease({
     required OnlineProvider provider,
     required String id,
-  }) async => _release;
+  }) async {
+    if (offlineReleases > 0) {
+      offlineReleases--;
+      throw const NetworkRequestException('offline');
+    }
+    return _release;
+  }
 
   @override
   Future<List<OnlineStream>> resolveStreams({
@@ -455,6 +499,13 @@ class _FakeOnlineSources implements OnlineSourcesRepository {
   }) async {
     resolved.add(episodeId);
     if (failResolve) throw StateError('offline');
+    if (offlineResolves > 0) {
+      offlineResolves--;
+      throw DioException.connectionError(
+        requestOptions: RequestOptions(),
+        reason: 'offline',
+      );
+    }
     return onResolve?.call() ?? streams;
   }
 

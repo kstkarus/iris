@@ -81,6 +81,10 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
   StreamSubscription<String>? _streamingStartedSubscription;
   StreamSubscription<String>? _streamingStoppedSubscription;
   Future<void>? _initialization;
+
+  /// The foreground service stays up between queued items; see
+  /// [_stopServiceUnlessQueued].
+  bool _serviceKeptForQueue = false;
   Future<void>? _restoration;
   final _engineUpdates = SerialQueue();
   Timer? _persistTimer;
@@ -576,20 +580,30 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
     await _downloadsController.close();
   }
 
+  /// Once; a start that failed (the engine, the folder) is tried again
+  /// by the next caller rather than handed back to everyone.
   Future<void> _ensureInitialized() {
-    return _initialization ??= () async {
-      await _downloadsDirectory.create(recursive: true);
-      await _engine.initialize();
-      _streamingStartedSubscription = _activityRegistry.streamingStarted.listen(
-        _yieldToStreaming,
-      );
-      _streamingStoppedSubscription = _activityRegistry.streamingStopped.listen(
-        (_) => unawaited(_pumpQueue()),
-      );
-      _engineSubscription = _engine.torrentUpdates.listen((torrents) {
-        unawaited(_engineUpdates.run(() => _handleEngineUpdates(torrents)));
-      });
-    }();
+    return _initialization ??= _initialize().catchError((
+      Object error,
+      StackTrace stackTrace,
+    ) {
+      _initialization = null;
+      Error.throwWithStackTrace(error, stackTrace);
+    });
+  }
+
+  Future<void> _initialize() async {
+    await _downloadsDirectory.create(recursive: true);
+    await _engine.initialize();
+    _streamingStartedSubscription = _activityRegistry.streamingStarted.listen(
+      _yieldToStreaming,
+    );
+    _streamingStoppedSubscription = _activityRegistry.streamingStopped.listen(
+      (_) => unawaited(_pumpQueue()),
+    );
+    _engineSubscription = _engine.torrentUpdates.listen((torrents) {
+      unawaited(_engineUpdates.run(() => _handleEngineUpdates(torrents)));
+    });
   }
 
   Future<void> _handleEngineUpdates(
@@ -679,7 +693,20 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
   /// start it again while the app is in the background, and the next item
   /// would then download without it.
   Future<void> _stopServiceUnlessQueued() async {
-    if (_nextStartableDownload() == null) await _foregroundService.stop();
+    if (_nextStartableDownload() == null) {
+      _serviceKeptForQueue = false;
+      await _foregroundService.stop();
+    } else {
+      _serviceKeptForQueue = true;
+    }
+  }
+
+  /// The service kept up for the next item goes when nothing starts after
+  /// all: it failed to start, or was paused, deleted or streamed meanwhile.
+  Future<void> _releaseKeptService() async {
+    if (!_serviceKeptForQueue || _activeDownloadId != null) return;
+    _serviceKeptForQueue = false;
+    await _foregroundService.stop();
   }
 
   /// Streaming has priority: an active download of the same torrent goes back
@@ -756,7 +783,10 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
     _pumping = true;
     try {
       final candidate = _nextStartableDownload();
-      if (candidate == null) return;
+      if (candidate == null) {
+        await _releaseKeptService();
+        return;
+      }
       if (candidate.isOnline) {
         await _startEpisode(candidate);
         return;

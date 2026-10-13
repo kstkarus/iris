@@ -57,6 +57,18 @@ void main() {
     await registryFile.writeAsString('{broken json');
 
     expect(await dataSource.readDownloads(), isEmpty);
+    // Kept aside, as the next write replaces it.
+    expect(
+      await File('${registryFile.path}.corrupt').readAsString(),
+      '{broken json',
+    );
+  });
+
+  test('returns an empty list for text that is not UTF-8', () async {
+    await registryFile.writeAsBytes([0xff, 0xfe, 0x5b]);
+
+    expect(await dataSource.readDownloads(), isEmpty);
+    expect(await File('${registryFile.path}.corrupt').exists(), isTrue);
   });
 
   test('skips damaged entries while preserving valid ones', () async {
@@ -67,6 +79,7 @@ void main() {
     await registryFile.writeAsString('[$damagedEntry,{"id":12}]');
 
     expect(await dataSource.readDownloads(), [validItem]);
+    expect(await File('${registryFile.path}.corrupt').exists(), isTrue);
   });
 
   test('recovers from a backup left by an interrupted replacement', () async {

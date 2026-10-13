@@ -477,6 +477,56 @@ void main() {
   });
 
   test(
+    'the service kept for the next item stops when it cannot start',
+    () async {
+      const otherMagnet = 'magnet:?xt=urn:btih:0011223344556677';
+      final first = await repository.prepareSource(magnet: _magnet);
+      final second = await repository.prepareSource(magnet: otherMagnet);
+      final firstItem = await repository.enqueueAndLeave(
+        source: first,
+        file: first.files.first,
+        animeId: '1',
+        animeTitle: 'First',
+        sourceTitle: 'Release',
+      );
+      await repository.enqueueAndLeave(
+        source: second,
+        file: second.files.first,
+        animeId: '2',
+        animeTitle: 'Second',
+        sourceTitle: 'Release',
+      );
+      await _waitFor(() => engine.priorityCalls.isNotEmpty);
+      engine.refusedMagnets.add(otherMagnet);
+
+      await File(firstItem.localPath).parent.create(recursive: true);
+      await File(
+        firstItem.localPath,
+      ).writeAsBytes(List.filled(firstItem.totalBytes, 1));
+      engine.emit({engine.addCalls.last.id: _torrent(isFinished: true)});
+
+      await _waitFor(() => foregroundService.stopCount == 1);
+      final downloads = await repository.currentDownloads();
+      expect(downloads.map((item) => item.status), [
+        DownloadStatus.completed,
+        DownloadStatus.failed,
+      ]);
+    },
+  );
+
+  test(
+    'an engine that did not start is started again when next asked',
+    () async {
+      engine.failedInitializations = 1;
+
+      await expectLater(repository.restore(), throwsA(isA<StateError>()));
+      await repository.restore();
+
+      expect(await repository.currentDownloads(), isEmpty);
+    },
+  );
+
+  test(
     'pausing during the metadata wait starts the next queued item',
     () async {
       const otherMagnet = 'magnet:?xt=urn:btih:0011223344556677';
@@ -1260,6 +1310,12 @@ class _FakeDownloadEngine implements LibtorrentDownloadEngineAdapter {
   final Set<int> liveTorrentIds = {};
   int _nextId = 0;
 
+  /// Starts that fail, as an engine that would not come up.
+  int failedInitializations = 0;
+
+  /// Magnets the engine refuses to add.
+  final refusedMagnets = <String>{};
+
   static const files = [
     DownloadEngineFile(
       index: 0,
@@ -1297,6 +1353,7 @@ class _FakeDownloadEngine implements LibtorrentDownloadEngineAdapter {
     required String savePath,
     required bool metadataOnly,
   }) {
+    if (refusedMagnets.contains(magnet)) throw StateError('refused');
     final id = ++_nextId;
     addCalls.add(
       _AddCall(
@@ -1317,7 +1374,12 @@ class _FakeDownloadEngine implements LibtorrentDownloadEngineAdapter {
       removeCalls.any((call) => call.torrentId == torrentId) ? const [] : files;
 
   @override
-  Future<void> initialize() async {}
+  Future<void> initialize() async {
+    if (failedInitializations > 0) {
+      failedInitializations--;
+      throw StateError('no engine');
+    }
+  }
 
   @override
   void pause(int torrentId) => pausedTorrentIds.add(torrentId);
