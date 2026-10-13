@@ -99,14 +99,24 @@ void main() {
     await tester.pumpAndSettle();
     expect(repository.queued, [1, 2]);
 
+    // Loading, its size not known yet: no share to tell.
+    repository.load(2, 0);
+    await tester.pumpAndSettle();
+    expect(find.text('Downloading'), findsOneWidget);
+
+    // An episode's size is a guess until it is done, and a guess outgrown
+    // is not done.
     repository.load(1, 0.42);
     await tester.pumpAndSettle();
-    expect(find.textContaining('Downloading · 42%'), findsOneWidget);
+    expect(find.text('~100.0 MB · Downloading · 42%'), findsOneWidget);
+    repository.load(1, 1.2, done: false);
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Downloading · 99%'), findsOneWidget);
 
     repository.load(1, 1);
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('download_file_done_1')), findsOneWidget);
-    expect(find.textContaining('Done'), findsOneWidget);
+    expect(find.text('100.0 MB · Done'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -188,14 +198,15 @@ class _LoadingRepository extends _EpisodesRepository {
     return item;
   }
 
-  /// Episode [index] has loaded [share] of its 100 MB; all of it is done.
-  void load(int index, double share) {
+  /// Episode [index] has loaded [share] of its 100 MB, or is loading with
+  /// no size yet at 0; all of it is done unless [done] says otherwise.
+  void load(int index, double share, {bool? done}) {
     const total = 100 * 1024 * 1024;
     _set(
       _downloads[index]!.copyWith(
-        totalBytes: total,
+        totalBytes: share == 0 ? 0 : total,
         downloadedBytes: (total * share).round(),
-        status: share >= 1
+        status: done ?? share >= 1
             ? DownloadStatus.completed
             : DownloadStatus.downloading,
       ),

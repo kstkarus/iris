@@ -15,8 +15,7 @@ abstract interface class DownloadsRepository {
 
   /// [quality] caps the picture height of an online episode (null: the
   /// best); a torrent file ignores it. The source stays prepared, so more
-  /// of its files can be queued until it is disposed; a torrent's files
-  /// start once it is.
+  /// of its files can be queued until it is disposed.
   Future<DownloadItem> enqueueDownload({
     required PreparedDownloadSource source,
     required DownloadableFile file,

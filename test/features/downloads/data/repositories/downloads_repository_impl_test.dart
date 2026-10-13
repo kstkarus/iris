@@ -107,9 +107,15 @@ void main() {
     },
   );
 
-  test('files queued from an open picker start once it is left, and show '
-      'by file', () async {
+  test('files queued from a picker that stays open start at once, one after '
+      'another, and show by file', () async {
     final source = await repository.prepareSource(magnet: _magnet);
+    final metadataTorrent = engine.addCalls.single;
+    // The files are read: the picker lets its own torrent go.
+    expect(
+      engine.removeCalls,
+      contains(_RemoveCall(metadataTorrent.id, deleteFiles: true)),
+    );
     for (final file in source.files) {
       await repository.enqueueDownload(
         source: source,
@@ -120,27 +126,26 @@ void main() {
       );
     }
 
+    await _waitFor(() => engine.priorityCalls.isNotEmpty);
+    expect(engine.addCalls.last.metadataOnly, isFalse);
+    expect(engine.priorityCalls.single.priorities, [7, 0, 0, 0]);
     final shown = await repository.watchSourceDownloads(magnet: _magnet).first;
     expect(shown.keys, unorderedEquals(source.files.map((file) => file.index)));
-    expect(
-      shown.values.map((item) => item.status),
-      everyElement(DownloadStatus.queued),
-    );
+    expect(shown.values.map((item) => item.status), [
+      DownloadStatus.downloading,
+      DownloadStatus.queued,
+    ]);
     expect(
       await repository
           .watchSourceDownloads(magnet: 'magnet:?xt=urn:btih:0011223344556677')
           .first,
       isEmpty,
     );
-    // The picker holds the torrent: nothing starts on it yet.
-    await Future<void>.delayed(const Duration(milliseconds: 20));
-    expect(engine.addCalls.where((call) => !call.metadataOnly), isEmpty);
 
+    // Leaving the picker removes nothing more.
+    final removed = engine.removeCalls.length;
     await repository.disposePreparedSource(sourceToken: source.sourceToken);
-
-    await _waitFor(() => engine.priorityCalls.isNotEmpty);
-    expect(engine.addCalls.last.metadataOnly, isFalse);
-    expect(engine.priorityCalls.single.priorities, [7, 0, 0, 0]);
+    expect(engine.removeCalls, hasLength(removed));
   });
 
   test('a file queued twice at once is one download', () async {
@@ -157,6 +162,7 @@ void main() {
 
     expect(second.id, first.id);
     expect(await repository.currentDownloads(), hasLength(1));
+    await _waitFor(() => engine.priorityCalls.isNotEmpty);
   });
 
   test('marks a finished file completed without deleting it', () async {
@@ -510,7 +516,7 @@ void main() {
   });
 
   test(
-    'a queued download waits while a selection owns the same torrent',
+    'a queued download of a torrent a picker shows starts while it is open',
     () async {
       final source = await repository.prepareSource(magnet: _magnet);
       final item = await repository.enqueueAndLeave(
@@ -526,22 +532,15 @@ void main() {
       final selection = await repository.prepareSource(magnet: _magnet);
       final selectionTorrentId = engine.addCalls.last.id;
       await repository.resume(id: item.id);
-      await Future<void>.delayed(const Duration(milliseconds: 20));
 
-      expect(engine.addCalls.last.id, selectionTorrentId);
-      expect(
-        (await repository.currentDownloads()).single.status,
-        DownloadStatus.queued,
-      );
-
-      await repository.disposePreparedSource(
-        sourceToken: selection.sourceToken,
-      );
       await _waitFor(() => engine.priorityCalls.length == 2);
       expect(engine.addCalls.last.id, isNot(selectionTorrentId));
       expect(
         (await repository.currentDownloads()).single.status,
         DownloadStatus.downloading,
+      );
+      await repository.disposePreparedSource(
+        sourceToken: selection.sourceToken,
       );
     },
   );

@@ -6,7 +6,7 @@ Notable changes to iris, newest first. The format follows [Keep a Changelog](htt
 
 ### Changed
 
-- The download picker stays open: tap each episode to queue it, and its row shows the download filling up, then a check. It no longer jumps to the Downloads tab after the first one, so a season for the road is a tap per episode. A torrent's episodes start loading once you leave its picker.
+- The download picker stays open: tap each episode to queue it, and its row shows the download filling up, then a check. It no longer jumps to the Downloads tab after the first one, so a season for the road is a tap per episode.
 - A file whose chapters are only numbered ("Chapter 01", "Chapter 02"…, as disc rips usually come) shows the opening and ending from AniSkip on the timeline when AniSkip knows them, instead of the numbered chapters.
 
 ### Fixed

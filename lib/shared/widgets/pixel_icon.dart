@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/widgets.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 
@@ -445,8 +447,14 @@ class _PixelGlyphPainter extends CustomPainter {
         for (var x = 0; x < glyph.width; x++)
           if (glyph.rows[y].codeUnitAt(x) == 0x23) (x, y),
     ];
+    // Some progress lights a pixel, and only all of it lights them all.
     final fill = this.fill;
-    final filled = fill == null ? lit.length : (fill * lit.length).round();
+    final filled = switch (fill) {
+      null => lit.length,
+      <= 0 => 0,
+      >= 1 => lit.length,
+      _ => math.max(1, math.min(lit.length - 1, (fill * lit.length).floor())),
+    };
     final path = Path();
     final track = Path();
     for (final (index, (x, y)) in lit.indexed) {

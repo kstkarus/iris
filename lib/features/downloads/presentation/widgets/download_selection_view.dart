@@ -112,15 +112,20 @@ class _FileRow extends StatelessWidget {
       _ when adding => l10n.downloadAddingToQueue,
       null when notAdded => l10n.downloadUnableToQueue,
       null => null,
-      DownloadStatus.downloading => l10n.downloadSelectionLoading(
-        (download!.progress * 100).floor(),
-      ),
+      // How far, once there is a size to measure it by.
+      DownloadStatus.downloading when download!.totalBytes > 0 =>
+        l10n.downloadSelectionLoading((_loaded(download) * 100).floor()),
       final status => downloadStatusLabel(l10n, status),
     };
     final size = download?.totalBytes ?? file.size;
+    // An online episode's size is unknown until it loads, and a guess
+    // until it is done.
+    final estimated =
+        download != null &&
+        download.isOnline &&
+        status != DownloadStatus.completed;
     final details = [
-      // An online episode's size is not known until it loads.
-      if (size > 0) formatByteSize(l10n, size),
+      if (size > 0) '${estimated ? '~' : ''}${formatByteSize(l10n, size)}',
       ?note,
     ].join(' · ');
     return TapRow(
@@ -178,7 +183,7 @@ class _FileRow extends StatelessWidget {
                     icon: PixelIcon(
                       PixelGlyph.download,
                       size: 18,
-                      fill: download!.progress,
+                      fill: _loaded(download!),
                       color: status == DownloadStatus.failed
                           ? scheme.error
                           : scheme.onSurface,
@@ -190,17 +195,15 @@ class _FileRow extends StatelessWidget {
                     key: ValueKey('download_file_done_${file.index}'),
                     size: 18,
                     color: scheme.tertiary,
-                    semanticLabel: note,
                   ),
                   DownloadStatus.queued ||
                   DownloadStatus.downloading => PixelIcon(
                     PixelGlyph.download,
                     key: ValueKey('download_file_progress_${file.index}'),
                     size: 18,
-                    fill: download!.progress,
+                    fill: _loaded(download!),
                     color: scheme.tertiary,
                     trackColor: scheme.onSurfaceVariant.withValues(alpha: 0.4),
-                    semanticLabel: note,
                   ),
                 },
               ),
@@ -211,6 +214,13 @@ class _FileRow extends StatelessWidget {
     );
   }
 }
+
+/// How much of [download] is here: all of it once done, and short of all
+/// until then, as an online episode's size is a guess it may outgrow.
+double _loaded(DownloadItem download) =>
+    download.status == DownloadStatus.completed
+    ? 1
+    : download.progress.clamp(0.0, 0.99);
 
 /// The quality the next episodes load in, over the episodes.
 class _QualityChoice extends StatelessWidget {

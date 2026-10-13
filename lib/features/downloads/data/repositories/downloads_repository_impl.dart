@@ -222,7 +222,7 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
     if (existing != null) return existing;
 
     // The source stays with its selection screen, which may queue more of
-    // its files; the queue starts them once the screen lets it go.
+    // its files; it holds no torrent by now, so they start at once.
     final directory = _downloadDirectory(id);
     await directory.create(recursive: true);
     final localPath = path.normalize(
@@ -412,11 +412,31 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
         throw const PreparationCancelledException();
       }
       final files = _downloadableFiles(runtime.torrentId);
+      await _releaseMetadataTorrent(token, runtime);
       return PreparedDownloadSource(sourceToken: token, files: files);
     } catch (_) {
       await disposePreparedSource(sourceToken: token);
       rethrow;
     }
+  }
+
+  /// With the files read, the source has no use for its metadata torrent;
+  /// held while the picker stays open, it would keep the files queued from
+  /// that picker waiting until it closed (or forever, the app left on it).
+  Future<void> _releaseMetadataTorrent(
+    String token,
+    _PreparedRuntime runtime,
+  ) async {
+    final directory = runtime.metadataDirectory;
+    if (directory == null) return;
+    _preparedSources[token] = _PreparedRuntime.released(
+      magnet: runtime.magnet,
+      torrentKey: runtime.torrentKey,
+    );
+    _engine.remove(runtime.torrentId, deleteFiles: true);
+    await _deleteMetadataFolder(directory);
+    // A queued download of the same torrent may have been waiting for it.
+    unawaited(_pumpQueue());
   }
 
   /// The episodes of an online [release], as files to choose from.
@@ -1008,8 +1028,8 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
     // An episode shares nothing with a player or a selection screen.
     if (item.isOnline) return _onlineDownloader != null;
     final torrentKey = torrentKeyFromMagnet(item.magnet);
-    // Wait until a selection screen or the player holding the same torrent
-    // is closed.
+    // Wait until a selection screen still reading the torrent's files, or
+    // a player holding it, lets it go.
     if (_ownedPreparedTorrentId(torrentKey) != null) return false;
     return !_activityRegistry.isStreaming(torrentKey);
   }
@@ -1192,12 +1212,21 @@ class _PreparedRuntime {
     required this.torrentKey,
   }) : metadataDirectory = null;
 
+  /// A source whose files are read and whose own torrent is gone: it only
+  /// names the torrent its files are queued from.
+  const _PreparedRuntime.released({
+    required this.magnet,
+    required this.torrentKey,
+  }) : torrentId = -1,
+       metadataDirectory = null;
+
+  /// Not to be used once the source is [_PreparedRuntime.released].
   final int torrentId;
   final String magnet;
   final String torrentKey;
 
   /// Null when the torrent is borrowed from the active download and must not
-  /// be removed together with this source.
+  /// be removed together with this source, or already removed.
   final Directory? metadataDirectory;
 }
 

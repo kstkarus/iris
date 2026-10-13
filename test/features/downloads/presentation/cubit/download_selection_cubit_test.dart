@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
@@ -130,6 +131,25 @@ void main() {
       await cubit.download(_files[1]);
       expect(ready().notAdded, isEmpty);
       expect(repository.queued, [1]);
+    });
+
+    test('downloads that could not be followed are followed again once the '
+        'source is ready', () async {
+      final failing = _PickingRepository()..failWatches = 1;
+      final picker = DownloadSelectionCubit(args: _args, repository: failing);
+      addTearDown(picker.close);
+      await pumpEventQueue();
+
+      await picker.load();
+      await pumpEventQueue();
+      await picker.download(_files[0]);
+      failing.setStatus(0, DownloadStatus.downloading);
+      await pumpEventQueue();
+
+      expect(
+        (picker.state as DownloadSelectionReady).downloads[0]?.status,
+        DownloadStatus.downloading,
+      );
     });
 
     test('leaving lets the source go once, after files were queued', () async {
@@ -302,10 +322,17 @@ class _PickingRepository extends MockDownloadsRepository {
     disposed.add(sourceToken);
   }
 
+  /// How many of the next follows fail, as before the downloads restore.
+  int failWatches = 0;
+
   @override
   Stream<Map<int, DownloadItem>> watchSourceDownloads({
     required String magnet,
   }) async* {
+    if (failWatches > 0) {
+      failWatches--;
+      throw const FileSystemException('registry unreadable');
+    }
     yield Map.of(_downloads);
     yield* _changes.stream;
   }

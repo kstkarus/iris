@@ -25,9 +25,7 @@ class DownloadSelectionCubit extends Cubit<DownloadSelectionState> {
   }) : _repository = repository,
        _qualityPreferences = qualityPreferences,
        super(const DownloadSelectionInitial()) {
-    _downloadsSubscription = repository
-        .watchSourceDownloads(magnet: args.magnet)
-        .listen(_onDownloads);
+    _watchDownloads();
   }
 
   final DownloadSelectionArgs args;
@@ -38,8 +36,9 @@ class DownloadSelectionCubit extends Cubit<DownloadSelectionState> {
   PreparedDownloadSource? _source;
   int _attempt = 0;
   Completer<void>? _preparationCancel;
-  late final StreamSubscription<Map<int, DownloadItem>> _downloadsSubscription;
+  StreamSubscription<Map<int, DownloadItem>>? _downloadsSubscription;
   Map<int, DownloadItem> _downloads = const {};
+  bool _downloadsFailed = false;
 
   Future<void> load() async {
     final attempt = ++_attempt;
@@ -69,6 +68,10 @@ class DownloadSelectionCubit extends Cubit<DownloadSelectionState> {
         return;
       }
       _source = source;
+      if (_downloadsFailed) {
+        _downloadsFailed = false;
+        _watchDownloads();
+      }
       emit(
         DownloadSelectionReady(
           source,
@@ -191,6 +194,27 @@ class DownloadSelectionCubit extends Cubit<DownloadSelectionState> {
     }
   }
 
+  /// Follows the source's downloads. A list that fails to load (the
+  /// downloads not restored yet) is followed again with the next
+  /// preparation, which restores them first.
+  void _watchDownloads() {
+    _downloadsSubscription?.cancel().ignore();
+    _downloadsSubscription = _repository
+        .watchSourceDownloads(magnet: args.magnet)
+        .listen(
+          _onDownloads,
+          onError: (Object error, StackTrace stackTrace) {
+            developer.log(
+              'Unable to follow the downloads of the source.',
+              name: 'iris.downloads.selection',
+              error: error,
+              stackTrace: stackTrace,
+            );
+            _downloadsFailed = true;
+          },
+        );
+  }
+
   void _onDownloads(Map<int, DownloadItem> downloads) {
     _downloads = downloads;
     final current = state;
@@ -202,11 +226,26 @@ class DownloadSelectionCubit extends Cubit<DownloadSelectionState> {
   Future<void> close() async {
     _attempt++;
     _cancelPreparation();
-    await _downloadsSubscription.cancel();
+    try {
+      await _downloadsSubscription?.cancel();
+    } catch (_) {
+      // Its failure was logged when it came.
+    }
     final source = _source;
     _source = null;
     if (source != null) {
-      await _repository.disposePreparedSource(sourceToken: source.sourceToken);
+      try {
+        await _repository.disposePreparedSource(
+          sourceToken: source.sourceToken,
+        );
+      } catch (error, stackTrace) {
+        developer.log(
+          'Unable to let the prepared source go.',
+          name: 'iris.downloads.selection',
+          error: error,
+          stackTrace: stackTrace,
+        );
+      }
     }
     return super.close();
   }
