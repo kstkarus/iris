@@ -454,6 +454,12 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
     final restored = await _registry.readDownloads();
     final reconciled = <DownloadItem>[];
     for (final item in restored) {
+      // TODO(ios): `localPath` is stored absolute. iOS may move the app's
+      // data container (its path holds a UUID) on an update or a restore,
+      // and then every completed download reads as missing here although
+      // its file is still under the new support directory. Untested on a
+      // device; a fix would rebuild the path from `_downloadDirectory(id)`
+      // and the stored file name instead of trusting the absolute one.
       final fileExists =
           item.status == DownloadStatus.completed &&
           await File(item.localPath).exists();
