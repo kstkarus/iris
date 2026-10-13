@@ -60,12 +60,20 @@ class _DitherListState<T> extends State<DitherList<T>> {
     return ListView.builder(
       padding: widget.padding,
       itemCount: _entries.length,
+      // A row keeps its state when rows come or go above it, rather than
+      // being matched by place and built anew, opening again.
+      findChildIndexCallback: (key) {
+        if (key is! ValueKey<Object>) return null;
+        final index = _entries.indexWhere((entry) => entry.key == key.value);
+        return index < 0 ? null : index;
+      },
       itemBuilder: (context, index) {
         final entry = _entries[index];
         return _Presence(
-          key: ValueKey(entry.key),
+          key: ValueKey<Object>(entry.key),
           entering: entry.entering,
           leaving: entry.leaving,
+          onEntered: () => entry.entering = false,
           onLeft: () => _left(entry.key),
           child: widget.itemBuilder(context, entry.item),
         );
@@ -79,7 +87,10 @@ class _Entry<T> {
 
   final T item;
   final Object key;
-  final bool entering;
+
+  /// Until the row has started opening: built again later (scrolled back
+  /// to), it is simply there.
+  bool entering;
   final bool leaving;
 
   _Entry<T> update(T item) => _Entry(item, key, entering: entering && !leaving);
@@ -93,6 +104,7 @@ class _Presence extends StatefulWidget {
   const _Presence({
     required this.entering,
     required this.leaving,
+    required this.onEntered,
     required this.onLeft,
     required this.child,
     super.key,
@@ -100,6 +112,7 @@ class _Presence extends StatefulWidget {
 
   final bool entering;
   final bool leaving;
+  final VoidCallback onEntered;
   final VoidCallback onLeft;
   final Widget child;
 
@@ -123,7 +136,10 @@ class _PresenceState extends State<_Presence>
   void didChangeDependencies() {
     super.didChangeDependencies();
     _animate = !MediaQuery.disableAnimationsOf(context);
-    if (!_started && widget.entering) _run(forward: true);
+    if (!_started && widget.entering) {
+      widget.onEntered();
+      _run(forward: true);
+    }
     // Built while leaving (scrolled back to after it was removed): there
     // is no dissolve to watch, so it is simply gone.
     if (!_started && widget.leaving) _leaveNextFrame();

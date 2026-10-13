@@ -332,7 +332,9 @@ class _Tabs extends StatelessWidget {
     final cubit = context.read<WatchSourcesTabCubit>();
     return Transform.translate(
       offset: const Offset(-_inset, 0),
-      child: Row(
+      // Large text on a narrow phone puts the last tab on a line of its own
+      // rather than past the edge.
+      child: Wrap(
         children: [
           for (final tab in tabs)
             MarkedTab(

@@ -120,10 +120,15 @@ class _DitheredImageState extends State<DitheredImage>
     _stream = stream..addListener(_listener);
   }
 
+  /// Bumped by every image that arrives: a slow read of an older one does
+  /// not replace a newer one read sooner.
+  int _imageRead = 0;
+
   Future<void> _onImage(ImageInfo info, bool synchronousCall) async {
+    final read = ++_imageRead;
     final image = info.image;
     final data = await image.toByteData(format: ui.ImageByteFormat.rawRgba);
-    if (!mounted || data == null) {
+    if (!mounted || data == null || read != _imageRead) {
       info.dispose();
       return;
     }

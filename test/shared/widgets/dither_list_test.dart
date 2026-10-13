@@ -45,6 +45,24 @@ void main() {
     expect(tester.getTopLeft(find.text('a')).dy, 40);
   });
 
+  testWidgets('a row that came in stays in when another comes above it', (
+    tester,
+  ) async {
+    await tester.pumpWidget(list(['a']));
+    await tester.pumpWidget(list(['x', 'a']));
+    await tester.pumpAndSettle();
+
+    await tester.pumpWidget(list(['y', 'x', 'a']));
+    await tester.pump(DitherTransition.duration ~/ 2);
+
+    expect(
+      find.ancestor(of: find.text('x'), matching: find.byType(BayerMasked)),
+      findsNothing,
+      reason: 'x does not open again',
+    );
+    expect(tester.getSize(find.text('x')).height, 40);
+  });
+
   testWidgets('a removed row dissolves, then gives its height back', (
     tester,
   ) async {

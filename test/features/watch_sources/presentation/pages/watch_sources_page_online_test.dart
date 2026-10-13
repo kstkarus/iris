@@ -150,6 +150,22 @@ void main() {
     expect(second.dy, greaterThan(first.dy));
   });
 
+  testWidgets('every tab fits a narrow phone in large text', (tester) async {
+    setTestWindowSize(tester, const Size(360, 800));
+    tester.platformDispatcher.textScaleFactorTestValue = 2;
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+    await _pumpPage(
+      tester,
+      online: _FakeOnlineSources(_dubs),
+      mine: const [
+        'magnet:?xt=urn:btih:0123456789abcdef0123456789abcdef01234567',
+      ],
+    );
+
+    expect(tester.takeException(), isNull);
+    expect(find.text('Mine'), findsOneWidget);
+  });
+
   testWidgets('opens the release episodes in the file picker', (tester) async {
     final navigation = await _pumpPage(
       tester,
