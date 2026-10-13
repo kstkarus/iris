@@ -6,6 +6,7 @@ Notable changes to iris, newest first. The format follows [Keep a Changelog](htt
 
 ### Fixed
 
+- From the second episode on, and after a quality change, the player waits for the new file's first frame again. It counted the first file's frame, so "Start over" was ignored, the 45-second startup timeout never fired and the loading label went early.
 - Closing a paused torrent video on Windows no longer hangs for five seconds before the stream is let go.
 
 ## [1.3.0] - 2026-10-12

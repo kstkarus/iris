@@ -26,6 +26,7 @@ import 'package:iris/features/player/presentation/cubit/player_subtitle_preferen
 import 'package:iris/features/player/presentation/playback/player_engine.dart';
 import 'package:iris/features/player/presentation/playback/player_audio_fallback_resolver.dart';
 import 'package:iris/features/player/presentation/playback/player_buffer_margin.dart';
+import 'package:iris/features/player/presentation/playback/player_video_sized.dart';
 import 'package:iris/features/player/presentation/playback/player_subtitle_preferences_mapper.dart';
 import 'package:iris/features/player/presentation/playback/player_track_matcher.dart';
 
@@ -1496,6 +1497,13 @@ VideoController _defaultVideoControllerBuilder(
   return VideoController(player, configuration: configuration);
 }
 
-Future<void> _defaultFirstFrameAwaiter(VideoController controller) {
-  return controller.waitUntilFirstFrameRendered;
+/// The controller's signal comes once, for the first file; every file is
+/// then known by mpv sizing its video output anew.
+Future<void> _defaultFirstFrameAwaiter(VideoController controller) async {
+  await controller.waitUntilFirstFrameRendered;
+  final player = controller.player;
+  await playerVideoSized(
+    state: () => player.state,
+    widths: player.stream.width,
+  );
 }
