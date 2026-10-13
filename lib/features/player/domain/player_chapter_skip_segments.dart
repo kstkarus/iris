@@ -37,6 +37,19 @@ List<PlayerSkipSegment> skipSegmentsFromChapters(
   return segments;
 }
 
+/// A title that says nothing of the chapter: empty, a bare number or
+/// time, or a number after "Chapter" and its kin, as mkvmerge and MakeMKV
+/// name the chapters of a disc that names none ("Chapter 01").
+final _placeholderTitle = RegExp(
+  r'^\s*(?:(?:chapter|chap\.?|ch\.?|глава|チャプター)\s*)?'
+  r'(?:\d+|\d{1,2}(?::\d{2}){1,2}(?:[.,]\d+)?)?\s*$',
+  caseSensitive: false,
+);
+
+/// Whether [title] tells nothing about its chapter (see [_placeholderTitle]).
+bool isPlaceholderChapterTitle(String title) =>
+    _placeholderTitle.hasMatch(title);
+
 /// What a chapter's title names it, if a part to skip.
 PlayerSkipKind? skipKindOfChapter(String title) {
   if (_opening.hasMatch(title)) return PlayerSkipKind.opening;

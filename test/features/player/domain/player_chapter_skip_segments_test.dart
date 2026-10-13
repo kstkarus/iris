@@ -53,4 +53,35 @@ void main() {
     expect(kindOf('Operation'), isNull);
     expect(kindOf('Chapter 01'), isNull);
   });
+
+  test('tells numbered and empty chapter titles from named ones', () {
+    for (final title in [
+      '',
+      '  ',
+      'Chapter 01',
+      'chapter 1',
+      'Chap. 3',
+      'Ch 12',
+      'Глава 2',
+      'チャプター 5',
+      '00',
+      '7',
+      '00:12:34',
+      '00:12:34.567',
+      '12:34',
+    ]) {
+      expect(isPlaceholderChapterTitle(title), isTrue, reason: title);
+    }
+    for (final title in [
+      'Opening',
+      'Part A',
+      'Part 1',
+      'Chapter One',
+      'Аватар',
+      'Chapter 1: The Boy',
+      'Preview',
+    ]) {
+      expect(isPlaceholderChapterTitle(title), isFalse, reason: title);
+    }
+  });
 }

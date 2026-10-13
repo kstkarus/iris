@@ -39,15 +39,21 @@ class PlayerTimelinePart {
 
 /// The file's timeline cut into parts: by its chapters when it has two or
 /// more, otherwise by the looked-up openings, endings and recaps with the
-/// stretches around them. Empty when there is nothing to cut by, or the
-/// length is not known yet.
+/// stretches around them. Chapters that are only numbered ("Chapter 01",
+/// as disc rips come) give way to a lookup that found something, and cut
+/// the timeline only when it found nothing. Empty when there is nothing to
+/// cut by, or the length is not known yet.
 List<PlayerTimelinePart> timelineParts({
   required List<PlayerChapter> chapters,
   required List<PlayerSkipSegment> segments,
   required Duration duration,
 }) {
   if (duration <= Duration.zero) return const [];
-  final parts = chapters.length >= 2
+  final named = chapters.any(
+    (chapter) => !isPlaceholderChapterTitle(chapter.title),
+  );
+  final byChapters = chapters.length >= 2 && (named || segments.isEmpty);
+  final parts = byChapters
       ? _chapterParts(chapters, duration)
       : _segmentParts(segments, duration);
   return parts.length >= 2 ? List.unmodifiable(parts) : const [];

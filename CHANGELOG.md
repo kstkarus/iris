@@ -4,6 +4,10 @@ Notable changes to iris, newest first. The format follows [Keep a Changelog](htt
 
 ## [Unreleased]
 
+### Changed
+
+- A file whose chapters are only numbered ("Chapter 01", "Chapter 02"…, as disc rips usually come) shows the opening and ending from AniSkip on the timeline when AniSkip knows them, instead of the numbered chapters.
+
 ### Fixed
 
 - A downloads list that cannot be saved (a full disk) no longer stalls the queue with a torrent fetching every file instead of the chosen one. The list is saved again later.

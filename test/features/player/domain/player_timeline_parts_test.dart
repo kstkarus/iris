@@ -47,6 +47,37 @@ void main() {
     ], reason: 'chapters win over a lookup; an untitled one is still a cut');
   });
 
+  test('numbered chapters give way to a lookup that found something', () {
+    final chapters = [
+      _chapter('Chapter 01', 0),
+      _chapter('Chapter 02', 90),
+      _chapter('', 700),
+      _chapter('Chapter 04', 1300),
+    ];
+    final segments = [
+      _segment(PlayerSkipKind.opening, 0, 90),
+      _segment(PlayerSkipKind.ending, 1300, 1390),
+    ];
+
+    expect(
+      timelineParts(
+        chapters: chapters,
+        segments: segments,
+        duration: _length,
+      ).map((part) => part.kind),
+      [PlayerSkipKind.opening, null, PlayerSkipKind.ending, null],
+    );
+    expect(
+      timelineParts(
+        chapters: chapters,
+        segments: const [],
+        duration: _length,
+      ).map((part) => part.title),
+      ['Chapter 01', 'Chapter 02', null, 'Chapter 04'],
+      reason: 'with nothing looked up they still cut the timeline',
+    );
+  });
+
   test('chapters past the end or on one time make no empty parts', () {
     final parts = timelineParts(
       chapters: [
