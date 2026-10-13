@@ -1241,6 +1241,9 @@ class AppLocalizationsRu extends AppLocalizations {
   String get playerMarkFailed => 'Шикимори не сохранил отметку.';
 
   @override
+  String get playerUnmarkFailed => 'Шикимори не снял отметку.';
+
+  @override
   String get profileSigningInHint =>
       'Закончите вход в браузере. Если вернуться сюда раньше, вход отменится.';
 

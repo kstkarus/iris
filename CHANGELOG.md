@@ -6,6 +6,7 @@ Notable changes to iris, newest first. The format follows [Keep a Changelog](htt
 
 ### Fixed
 
+- When undoing an episode mark fails, the player says so and its Retry tries the undo again. It said the mark had failed, and Retry marked the episode once more.
 - An online release that fails to load no longer hides the other releases of the same anime from that site.
 - Leaving a torrent within a moment of opening it no longer leaves it downloading in the background until the next launch.
 - A torrent removed from a title's Mine tab while out of sight no longer comes back as a row that still opens it.

@@ -70,6 +70,26 @@ void main() {
     expect(marks.state, isA<EpisodeMarkIdle>());
   });
 
+  test('a refused undo keeps the mark and can be tried again', () async {
+    final failing = _RefusingRemoval();
+    rates = failing;
+    final marks = cubit();
+    marks.watched(online());
+    await settle();
+
+    await marks.undo();
+    expect(
+      marks.state,
+      isA<EpisodeMarkDone>().having((s) => s.undoFailed, 'undoFailed', true),
+    );
+    expect(rates.rates['1']?.episodes, 5);
+
+    failing.refuse = false;
+    await marks.undo();
+    expect(rates.rates['1'], isNull);
+    expect(marks.state, isA<EpisodeMarkIdle>());
+  });
+
   test('a torrent episode is offered first', () async {
     final marks = cubit();
 
@@ -164,5 +184,15 @@ class _FailingOnceRepository extends MockUserRateRepository {
       episodes: episodes,
       score: score,
     );
+  }
+}
+
+class _RefusingRemoval extends MockUserRateRepository {
+  bool refuse = true;
+
+  @override
+  Future<void> remove({required String animeId, required String rateId}) {
+    if (refuse) throw Exception('offline');
+    return super.remove(animeId: animeId, rateId: rateId);
   }
 }

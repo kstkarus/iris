@@ -23,12 +23,14 @@ final class EpisodeMarkSaving extends EpisodeMarkState {
   const EpisodeMarkSaving();
 }
 
-/// Marked; [mark] is what undo puts back.
+/// Marked; [mark] is what undo puts back. [undoFailed]: an undo was
+/// refused, so the mark stands and undo can be tried again.
 final class EpisodeMarkDone extends EpisodeMarkState {
-  const EpisodeMarkDone(this.episode, this.mark);
+  const EpisodeMarkDone(this.episode, this.mark, {this.undoFailed = false});
 
   final int episode;
   final EpisodeMarked mark;
+  final bool undoFailed;
 }
 
 final class EpisodeMarkFailed extends EpisodeMarkState {
@@ -92,7 +94,9 @@ class EpisodeMarkCubit extends Cubit<EpisodeMarkState> {
         mark: current.mark,
       );
     } on Object {
-      if (!isClosed) emit(EpisodeMarkFailed(current.episode));
+      if (!isClosed) {
+        emit(EpisodeMarkDone(current.episode, current.mark, undoFailed: true));
+      }
     }
   }
 

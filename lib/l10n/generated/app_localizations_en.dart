@@ -1227,6 +1227,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get playerMarkFailed => 'Shikimori did not save the mark.';
 
   @override
+  String get playerUnmarkFailed => 'Shikimori did not take the mark back.';
+
+  @override
   String get profileSigningInHint =>
       'Finish signing in in the browser. Coming back here before that cancels it.';
 

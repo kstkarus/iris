@@ -782,6 +782,7 @@
   },
   "playerMarkAction": "Mark",
   "playerMarkFailed": "Shikimori did not save the mark.",
+  "playerUnmarkFailed": "Shikimori did not take the mark back.",
   "profileSigningInHint": "Finish signing in in the browser. Coming back here before that cancels it.",
   "profileSignInPortBusy": "Another program holds port 43821, which sign-in needs. Close it and try again.",
   "profileListTab": "List",

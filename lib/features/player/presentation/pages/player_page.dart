@@ -179,6 +179,12 @@ class _PlayerPageState extends State<PlayerPage> {
         onAction: marks.confirm,
         timeout: markOfferDuration,
       ),
+      EpisodeMarkDone(undoFailed: true) => (
+        message: l10n.playerUnmarkFailed,
+        actionLabel: l10n.commonRetry,
+        onAction: () => unawaited(marks.undo()),
+        timeout: markNoticeDuration,
+      ),
       EpisodeMarkDone(:final episode) => (
         message: l10n.playerMarked(episode),
         actionLabel: l10n.commonUndo,

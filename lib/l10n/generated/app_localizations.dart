@@ -2192,6 +2192,12 @@ abstract class AppLocalizations {
   /// **'Shikimori did not save the mark.'**
   String get playerMarkFailed;
 
+  /// No description provided for @playerUnmarkFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Shikimori did not take the mark back.'**
+  String get playerUnmarkFailed;
+
   /// No description provided for @profileSigningInHint.
   ///
   /// In en, this message translates to:
