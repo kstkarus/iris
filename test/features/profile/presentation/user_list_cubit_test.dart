@@ -155,4 +155,60 @@ void main() {
     expect(ids(), ['1', '2', '3', '4', '5']);
     expect(cubit.state.hasMore, isFalse);
   });
+
+  test('an anime that left while a further page was on its way skips '
+      'nothing either', () async {
+    repository.lists[UserRateStatus.watching] = [
+      for (final id in ['1', '2', '3', '4', '5', '6']) listEntry(id),
+    ];
+    cubit.show('42');
+    await settle();
+    repository.gate = Completer();
+    final more = cubit.loadMore();
+
+    // Gone on the server before page 2 is read there.
+    repository.lists[UserRateStatus.watching]!.removeAt(0);
+    changes.add(
+      const UserRateChange(
+        '1',
+        UserRate(id: 'r1', status: UserRateStatus.completed, episodes: 12),
+      ),
+    );
+    await settle();
+    repository.gate!.complete();
+    repository.gate = null;
+    await more;
+    expect(ids(), ['1', '2', '4', '5']);
+
+    // Pages 1 and 2 are read again, as either may have moved.
+    while (cubit.state.hasMore) {
+      await cubit.loadMore();
+    }
+    expect(ids(), ['1', '2', '4', '5', '3', '6']);
+    expect(repository.requests.map((request) => request.page), [1, 2, 1, 2, 3]);
+  });
+
+  test('no further page is added while the first is read again', () async {
+    cubit.show('42');
+    await settle();
+    repository.gate = Completer();
+    repository.lists[UserRateStatus.watching] = [
+      listEntry('9'),
+      ...repository.lists[UserRateStatus.watching]!,
+    ];
+    changes.add(
+      const UserRateChange(
+        '9',
+        UserRate(id: 'r9', status: UserRateStatus.watching, episodes: 1),
+      ),
+    );
+    await settle();
+
+    await cubit.loadMore();
+    repository.gate!.complete();
+    await settle();
+
+    expect(ids(), ['9', '1']);
+    expect(cubit.state.page, 1);
+  });
 }

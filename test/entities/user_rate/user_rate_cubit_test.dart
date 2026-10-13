@@ -191,6 +191,42 @@ void main() {
     );
   });
 
+  test('a change asked for while the entry is read again goes after it, '
+      'to the entry Shikimori keeps', () async {
+    await cubit.accountChanged('42');
+    repository
+      ..failSaveAfterSaving = true
+      ..fetchGate = Completer();
+    cubit.setStatus(UserRateStatus.watching);
+    await pumpEventQueue();
+    repository.failSaveAfterSaving = false;
+
+    cubit.setStatus(UserRateStatus.completed);
+    expect(repository.saves, hasLength(1), reason: 'held behind the read');
+    repository.fetchGate!.complete();
+    await pumpEventQueue();
+
+    expect(repository.saves.last.rateId, '1', reason: 'not added twice');
+    expect(
+      cubit.state,
+      const UserRateLoaded(
+        UserRate(id: '1', status: UserRateStatus.completed, episodes: 0),
+      ),
+    );
+  });
+
+  test('an entry read elsewhere shows after a failed load', () async {
+    repository.failFetch = true;
+    await cubit.accountChanged('42');
+    expect(cubit.state, const UserRateLoadFailure());
+    repository.failFetch = false;
+
+    await repository.fetch('1');
+    await pumpEventQueue();
+
+    expect(cubit.state, const UserRateLoaded(null));
+  });
+
   test('a save out when the account changes settles nothing for the next '
       'one', () async {
     await cubit.accountChanged('42');
@@ -257,6 +293,7 @@ void main() {
 class _GatedRepository extends MockUserRateRepository {
   Completer<void>? gate;
   Completer<void>? removeGate;
+  Completer<void>? fetchGate;
   bool failFetch = false;
   bool failSave = false;
   bool failSaveAfterSaving = false;
@@ -264,6 +301,7 @@ class _GatedRepository extends MockUserRateRepository {
 
   @override
   Future<UserRate?> fetch(String animeId) async {
+    await fetchGate?.future;
     if (failFetch) throw Exception('offline');
     return super.fetch(animeId);
   }

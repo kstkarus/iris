@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -28,9 +29,15 @@ class UserListCubit extends Cubit<UserListState> {
   /// Bumped by every new start, so the answers of an older one are dropped.
   int _request = 0;
 
-  /// A listed anime left this status elsewhere: the server's pages moved
-  /// up under the loaded ones, and the next one would skip an entry.
-  bool _shifted = false;
+  /// Pages the next read steps back: a listed anime left this status
+  /// elsewhere, so the server's pages moved up under the loaded ones and
+  /// the next one would skip an entry. 1 reads the last page again, 2 the
+  /// one before it too, for a page that was on its way as it moved.
+  int _stepBack = 0;
+
+  /// The first page is read again quietly; a further page now would be
+  /// added to what that read replaces.
+  bool _rereading = false;
 
   /// Shows [userId]'s list, or nobody's.
   void show(String? userId) {
@@ -57,14 +64,15 @@ class UserListCubit extends Cubit<UserListState> {
     if (userId == null ||
         state.load != UserListLoad.loaded ||
         !state.hasMore ||
-        state.loadingMore) {
+        state.loadingMore ||
+        _rereading) {
       return;
     }
     final request = _request;
-    // After a shift the last page read holds what moved up into it.
-    final shifted = _shifted;
-    _shifted = false;
-    final number = shifted ? state.page : state.page + 1;
+    // After a shift the pages read last hold what moved up into them.
+    final back = _stepBack;
+    _stepBack = 0;
+    final number = math.max(1, state.page + 1 - back);
     emit(state.copyWith(loadingMore: true, moreFailed: false));
     try {
       final page = await _repository.page(
@@ -86,14 +94,15 @@ class UserListCubit extends Cubit<UserListState> {
       );
     } on Object {
       if (isClosed || request != _request) return;
-      _shifted = _shifted || shifted;
+      _stepBack = math.max(_stepBack, back);
       emit(state.copyWith(loadingMore: false, moreFailed: true));
     }
   }
 
   void _start({required String? userId, required UserRateStatus status}) {
     _request++;
-    _shifted = false;
+    _stepBack = 0;
+    _rereading = false;
     if (userId == null) {
       emit(UserListState(status: status, load: UserListLoad.loaded));
       return;
@@ -107,6 +116,7 @@ class UserListCubit extends Cubit<UserListState> {
     if (userId == null) return;
     final request = _request;
     final status = state.status;
+    _rereading = quietly;
     try {
       final page = await _repository.page(
         userId: userId,
@@ -114,7 +124,7 @@ class UserListCubit extends Cubit<UserListState> {
         page: 1,
       );
       if (isClosed || request != _request) return;
-      _shifted = false;
+      _stepBack = 0;
       emit(
         UserListState(
           userId: userId,
@@ -128,6 +138,8 @@ class UserListCubit extends Cubit<UserListState> {
     } on Object {
       if (isClosed || request != _request || quietly) return;
       emit(state.copyWith(load: UserListLoad.failed));
+    } finally {
+      if (request == _request) _rereading = false;
     }
   }
 
@@ -136,7 +148,7 @@ class UserListCubit extends Cubit<UserListState> {
     if (!isClosed &&
         _lists(change.animeId) &&
         (rate == null || rate.status != state.status)) {
-      _shifted = true;
+      _stepBack = math.max(_stepBack, state.loadingMore ? 2 : 1);
       return;
     }
     if (isClosed ||
