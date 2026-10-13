@@ -182,6 +182,9 @@ class _Task implements OnlineDownloadTask {
   final _stopped = Completer<void>();
   final _cancelToken = CancelToken();
   bool _cancelled = false;
+
+  /// Ends a wait between tries at once, so a pause is not held up by it.
+  final _cancelRequested = Completer<void>();
   late final _meter = _RateMeter(downloader._now);
 
   @override
@@ -193,6 +196,7 @@ class _Task implements OnlineDownloadTask {
   @override
   Future<void> cancel() async {
     _cancelled = true;
+    if (!_cancelRequested.isCompleted) _cancelRequested.complete();
     _cancelToken.cancel();
     await _stopped.future;
   }
@@ -542,8 +546,12 @@ class _Task implements OnlineDownloadTask {
     throw _Retryable('HTTP $status');
   }
 
-  Future<void> _wait(int attempt) async {
-    await downloader._delay(Duration(seconds: 1 << (attempt - 1)));
+  Future<void> _wait(int attempt) =>
+      _sleep(Duration(seconds: 1 << (attempt - 1)));
+
+  /// Waits [delay], or less when the task is cancelled meanwhile.
+  Future<void> _sleep(Duration delay) async {
+    await Future.any([downloader._delay(delay), _cancelRequested.future]);
     _checkCancelled();
   }
 
@@ -564,7 +572,7 @@ class _Task implements OnlineDownloadTask {
           'The site is out of reach ($error); trying again.',
           name: 'iris.downloads.online',
         );
-        await downloader._delay(Duration(seconds: _offlineWaits[attempt]));
+        await _sleep(Duration(seconds: _offlineWaits[attempt]));
       }
     }
   }
@@ -579,7 +587,11 @@ class _Task implements OnlineDownloadTask {
     if (chunk) {
       final now = downloader._now();
       final last = _chunkReportedAt;
-      if (last != null && now.difference(last) < _chunkReportEvery) return;
+      // A clock set back counts as time gone by, not as none.
+      final since = last == null ? null : now.difference(last);
+      if (since != null && !since.isNegative && since < _chunkReportEvery) {
+        return;
+      }
       _chunkReportedAt = now;
     }
     _progress.add(
@@ -712,7 +724,13 @@ bool _isOffline(Object error) => switch (error) {
   HttpException() ||
   TlsException() ||
   TimeoutException() => true,
-  DioException(:final type) =>
-    type != DioExceptionType.badResponse && type != DioExceptionType.cancel,
+  DioException(:final type) => switch (type) {
+    DioExceptionType.connectionError ||
+    DioExceptionType.connectionTimeout ||
+    DioExceptionType.sendTimeout ||
+    DioExceptionType.receiveTimeout ||
+    DioExceptionType.unknown => true,
+    _ => false,
+  },
   _ => false,
 };

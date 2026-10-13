@@ -1160,6 +1160,9 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
   /// the step that wrote it goes on: thrown here, the error would leave a
   /// started torrent wanting every file and the queue held up behind it.
   Future<void> _write() async {
+    // Nothing read yet (or the read failed): an empty list would replace
+    // the one on disk.
+    if (!_restored) return;
     try {
       await _registry.writeDownloads(_downloads);
     } on Exception catch (error, stackTrace) {

@@ -274,6 +274,27 @@ void main() {
     expect(delays, hasLength(8));
   });
 
+  test('a pause during a wait for the network is not held up by it', () async {
+    sources
+      ..streams = [_hls('https://cdn.test/e2/720.m3u8')]
+      ..offlineReleases = 100;
+    final waiting = Completer<void>();
+    final task = OnlineEpisodeDownloader(
+      repository: sources,
+      dio: fakeDio((_) => const FakeReply(200)),
+      // A wait that would last until the end of the test.
+      delay: (_) {
+        if (!waiting.isCompleted) waiting.complete();
+        return Completer<void>().future;
+      },
+    ).start(link: _link, fileIndex: 2, directory: directory);
+    await waiting.future;
+
+    await task.cancel();
+
+    expect(await task.done, isNull);
+  });
+
   test('an episode whose segment list changed starts over', () async {
     var resolves = 0;
     sources.onResolve = () => [_hls('https://cdn.test/${++resolves}/720.m3u8')];

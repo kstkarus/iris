@@ -114,11 +114,16 @@ class DownloadForegroundService : Service() {
             context.stopService(Intent(context, DownloadForegroundService::class.java))
             // A moment for writes the app queued on its way out (preferences
             // are saved in the background) to land.
-            Handler(Looper.getMainLooper()).postDelayed(
-                { Process.killProcess(Process.myPid()) },
-                EXIT_DELAY_MS,
-            )
+            exitHandler.postDelayed(exit, EXIT_DELAY_MS)
         }
+
+        /** The app opened again within that moment: it stays. */
+        fun cancelEnd() {
+            exitHandler.removeCallbacks(exit)
+        }
+
+        private val exitHandler by lazy { Handler(Looper.getMainLooper()) }
+        private val exit = Runnable { Process.killProcess(Process.myPid()) }
 
         /** Whether a download holds the service, so the process with it. */
         @Volatile

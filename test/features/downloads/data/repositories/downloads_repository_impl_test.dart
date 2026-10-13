@@ -1530,8 +1530,9 @@ DownloadEngineTorrent _torrent({required bool isFinished, double? progress}) {
   );
 }
 
+/// Up to 2 s: the whole suite running at once can starve real timers.
 Future<void> _waitFor(bool Function() condition) async {
-  for (var attempt = 0; attempt < 100; attempt++) {
+  for (var attempt = 0; attempt < 400; attempt++) {
     if (condition()) return;
     await Future<void>.delayed(const Duration(milliseconds: 5));
   }

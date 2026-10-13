@@ -7,6 +7,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.os.Build
+import android.os.Bundle
 import android.os.Process
 import android.os.storage.StorageManager
 import android.app.usage.StorageStatsManager
@@ -17,6 +18,11 @@ import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterActivity() {
     private var pictureInPicture: PictureInPictureController? = null
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        DownloadForegroundService.cancelEnd()
+        super.onCreate(savedInstanceState)
+    }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
