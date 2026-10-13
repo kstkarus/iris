@@ -8,8 +8,9 @@ import 'package:iris/shared/storage/shikimori_session_store.dart';
 /// it when it runs out (it lasts a day).
 ///
 /// Requests that find the token stale together share one renewal. A token
-/// Shikimori refuses to renew ends the session; a renewal that fails for
-/// the network keeps it, and the request goes as it is.
+/// Shikimori refuses to renew ends the session, and the refused request
+/// goes again without it; a renewal that fails for the network keeps the
+/// session, and the request fails as it is.
 ///
 /// Not a QueuedInterceptor: a repeated request refused again would wait
 /// in the error queue behind its own first refusal.
@@ -71,12 +72,17 @@ class ShikimoriAuthInterceptor extends Interceptor {
       tokens = await _renew(tokens);
     }
     if (tokens == null) {
-      handler.next(err);
-      return;
+      // A token Shikimori revoked before its time ended the session with
+      // this refusal: the request goes again as a guest's.
+      if (await _store.read() != null) {
+        handler.next(err);
+        return;
+      }
+      options.headers.remove(_header);
+    } else {
+      options.headers[_header] = _bearer(tokens);
     }
-    options
-      ..extra[_retriedKey] = true
-      ..headers[_header] = _bearer(tokens);
+    options.extra[_retriedKey] = true;
     try {
       handler.resolve(await _dio.fetch<dynamic>(options));
     } on DioException catch (retryError) {

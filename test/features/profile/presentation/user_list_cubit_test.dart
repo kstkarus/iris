@@ -131,4 +131,28 @@ void main() {
 
     expect(ids(), ['9', '1']);
   });
+
+  test('an anime that left the status skips nothing further on', () async {
+    repository.lists[UserRateStatus.watching] = [
+      for (final id in ['1', '2', '3', '4', '5']) listEntry(id),
+    ];
+    cubit.show('42');
+    await settle();
+    expect(ids(), ['1', '2']);
+
+    // Finished elsewhere: the server's pages move up by one.
+    repository.lists[UserRateStatus.watching]!.removeAt(0);
+    changes.add(
+      const UserRateChange(
+        '1',
+        UserRate(id: 'r1', status: UserRateStatus.completed, episodes: 12),
+      ),
+    );
+    await settle();
+
+    await cubit.loadMore();
+    await cubit.loadMore();
+    expect(ids(), ['1', '2', '3', '4', '5']);
+    expect(cubit.state.hasMore, isFalse);
+  });
 }

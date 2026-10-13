@@ -95,11 +95,24 @@ void main() {
     );
     expect(adapter.requests.length, 2);
   });
+
+  test('a Retry-After too long to wait fails at once', () async {
+    final adapter = _answering([429, 200], retryAfter: '3600');
+    final dio = Dio()..httpClientAdapter = adapter;
+    dio.interceptors.add(limiter(dio));
+
+    await expectLater(
+      dio.get<dynamic>('https://example.org/api'),
+      throwsA(isA<DioException>()),
+    );
+    expect(adapter.requests.length, 1);
+    expect(waits, isEmpty);
+  });
 }
 
 /// Answers the requests in turn with [statuses]; a refusal asks to retry
-/// after two seconds.
-FakeHttpAdapter _answering(List<int> statuses) {
+/// after [retryAfter] seconds.
+FakeHttpAdapter _answering(List<int> statuses, {String retryAfter = '2'}) {
   late final FakeHttpAdapter adapter;
   adapter = FakeHttpAdapter((_) {
     final status = statuses[adapter.requests.length - 1];
@@ -107,7 +120,7 @@ FakeHttpAdapter _answering(List<int> statuses) {
       status,
       {'ok': status == 200},
       {
-        if (status == 429) 'retry-after': ['2'],
+        if (status == 429) 'retry-after': [retryAfter],
       },
     );
   });

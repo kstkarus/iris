@@ -158,6 +158,60 @@ void main() {
     expect(await repository.fetch('1'), isNull);
   });
 
+  test('a change while the entry is removed is not sent', () async {
+    await cubit.accountChanged('42');
+    cubit.setStatus(UserRateStatus.planned);
+    await pumpEventQueue();
+    repository
+      ..saves.clear()
+      ..removeGate = Completer();
+
+    final removal = cubit.remove();
+    cubit.setStatus(UserRateStatus.watching);
+    repository.removeGate!.complete();
+    await removal;
+
+    expect(repository.saves, isEmpty);
+    expect(cubit.state, const UserRateLoaded(null));
+  });
+
+  test('a save that failed reads the entry again', () async {
+    await cubit.accountChanged('42');
+    // Shikimori took it, but the answer was lost.
+    repository.failSaveAfterSaving = true;
+
+    cubit.setStatus(UserRateStatus.planned);
+    await pumpEventQueue();
+
+    expect(
+      cubit.state,
+      const UserRateLoaded(
+        UserRate(id: '1', status: UserRateStatus.planned, episodes: 0),
+      ),
+    );
+  });
+
+  test('a save out when the account changes settles nothing for the next '
+      'one', () async {
+    await cubit.accountChanged('42');
+    cubit.setStatus(UserRateStatus.planned);
+    await pumpEventQueue();
+    final gate = repository.gate = Completer<void>();
+
+    cubit.setStatus(UserRateStatus.watching);
+    await cubit.accountChanged(null);
+    repository.gate = null;
+    await cubit.accountChanged('7');
+    final sent = repository.saves.length;
+    cubit.setStatus(UserRateStatus.dropped);
+    await pumpEventQueue();
+
+    // Sent at once, not held behind the other account's save.
+    expect(repository.saves, hasLength(sent + 1));
+    expect((cubit.state as UserRateLoaded).saving, isFalse);
+    gate.complete();
+  });
+
   test('a save made elsewhere shows, and the next step builds on it', () async {
     await cubit.accountChanged('42');
 
@@ -202,8 +256,10 @@ void main() {
 
 class _GatedRepository extends MockUserRateRepository {
   Completer<void>? gate;
+  Completer<void>? removeGate;
   bool failFetch = false;
   bool failSave = false;
+  bool failSaveAfterSaving = false;
   final saves = <({String? rateId, int episodes})>[];
 
   @override
@@ -224,7 +280,7 @@ class _GatedRepository extends MockUserRateRepository {
     saves.add((rateId: rateId, episodes: episodes));
     await gate?.future;
     if (failSave) throw Exception('refused');
-    return super.save(
+    final saved = await super.save(
       userId: userId,
       animeId: animeId,
       rateId: rateId,
@@ -232,5 +288,13 @@ class _GatedRepository extends MockUserRateRepository {
       episodes: episodes,
       score: score,
     );
+    if (failSaveAfterSaving) throw TimeoutException('no answer');
+    return saved;
+  }
+
+  @override
+  Future<void> remove({required String animeId, required String rateId}) async {
+    await removeGate?.future;
+    return super.remove(animeId: animeId, rateId: rateId);
   }
 }

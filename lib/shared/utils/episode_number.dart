@@ -22,15 +22,20 @@ const _resolutions = {480, 540, 576, 720, 1080, 1440, 2160};
 /// recognisable one.
 int? episodeNumberFromFileName(String fileName) {
   final name = fileDisplayName(fileName);
-  for (final pattern in [
-    _seasonEpisode,
-    _episodeWord,
-    _japanese,
-    _dashNumber,
-    _bracketNumber,
-    _bareNumber,
-    _trailingNumber,
-  ]) {
+  // Named as an episode: 1080 is episode 1080 of a long series.
+  for (final pattern in [_seasonEpisode, _episodeWord, _japanese]) {
+    for (final match in pattern.allMatches(name)) {
+      final number = int.parse(match.group(1)!);
+      if (number > 0) return number;
+    }
+  }
+  // `Title - 1080 (1080p)`, but `Film - 2019` is the year.
+  for (final match in _dashNumber.allMatches(name)) {
+    final number = int.parse(match.group(1)!);
+    if (number > 0 && !_isYear(number)) return number;
+  }
+  // A bare number may as well be the resolution or the year.
+  for (final pattern in [_bracketNumber, _bareNumber, _trailingNumber]) {
     for (final match in pattern.allMatches(name)) {
       final number = int.parse(match.group(1)!);
       if (_isEpisode(number)) return number;
@@ -39,7 +44,7 @@ int? episodeNumberFromFileName(String fileName) {
   return null;
 }
 
-bool _isEpisode(int number) {
-  final isYear = number >= 1900 && number < 2100;
-  return number > 0 && !isYear && !_resolutions.contains(number);
-}
+bool _isEpisode(int number) =>
+    number > 0 && !_isYear(number) && !_resolutions.contains(number);
+
+bool _isYear(int number) => number >= 1900 && number < 2100;

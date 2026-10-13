@@ -37,12 +37,19 @@ class UserRateCubit extends Cubit<UserRateState> {
   bool _sending = false;
   bool _removing = false;
 
+  /// Bumped by every account change: a save or removal still out for the
+  /// account before settles nothing for this one.
+  int _session = 0;
+
   /// Follows the session: [userId] is the signed-in account, or null.
   Future<void> accountChanged(String? userId) async {
     if (userId == _userId) return;
     _userId = userId;
+    _session++;
     _saved = null;
     _wish = null;
+    _sending = false;
+    _removing = false;
     if (userId == null) {
       emit(const UserRateSignedOut());
       return;
@@ -107,16 +114,21 @@ class UserRateCubit extends Cubit<UserRateState> {
     final current = _current;
     final saved = _saved;
     if (current == null || current.saving || saved == null) return;
+    final session = _session;
     emit(const UserRateLoaded(null, saving: true));
     _removing = true;
     try {
       await _repository.remove(animeId: _animeId, rateId: saved.id);
+      if (session != _session) return;
       _saved = null;
       if (!isClosed) emit(const UserRateLoaded(null));
     } on Exception {
-      if (!isClosed) emit(UserRateLoaded(saved, saveFailed: true));
+      if (!isClosed && session == _session) {
+        emit(UserRateLoaded(saved, saveFailed: true));
+        _resync();
+      }
     } finally {
-      _removing = false;
+      if (session == _session) _removing = false;
     }
   }
 
@@ -131,8 +143,19 @@ class UserRateCubit extends Cubit<UserRateState> {
   void _onChange(UserRateChange change) {
     if (isClosed || change.animeId != _animeId || _userId == null) return;
     if (_sending || _removing) return;
+    // The same entry read again keeps a failure shown with it.
+    if (change.rate == _saved && _current?.rate == change.rate) return;
     _saved = change.rate;
     emit(UserRateLoaded(change.rate));
+  }
+
+  /// Reads the entry again after a change that failed: one that timed out
+  /// may still have reached Shikimori, and the next change must start from
+  /// what it keeps. The read comes back through [_onChange].
+  void _resync() {
+    unawaited(
+      _repository.fetch(_animeId).then<void>((_) {}, onError: (Object _) {}),
+    );
   }
 
   UserRateLoaded? get _current => switch (state) {
@@ -145,6 +168,9 @@ class UserRateCubit extends Cubit<UserRateState> {
     required int episodes,
     required int score,
   }) {
+    // The entry is on its way out; a change now would go to a rate that
+    // is gone, or bring it back unseen.
+    if (_removing) return;
     _wish = (status: status, episodes: episodes, score: score);
     emit(
       UserRateLoaded(
@@ -163,12 +189,13 @@ class UserRateCubit extends Cubit<UserRateState> {
   Future<void> _send() async {
     final userId = _userId;
     if (userId == null) return;
+    final session = _session;
     _sending = true;
     try {
       while (_wish != null) {
         final wish = _wish!;
         _wish = null;
-        _saved = await _repository.save(
+        final saved = await _repository.save(
           userId: userId,
           animeId: _animeId,
           rateId: _saved?.id,
@@ -176,16 +203,17 @@ class UserRateCubit extends Cubit<UserRateState> {
           episodes: wish.episodes,
           score: wish.score,
         );
-        if (isClosed || userId != _userId) return;
+        if (isClosed || session != _session) return;
+        _saved = saved;
       }
       emit(UserRateLoaded(_saved));
     } on Exception {
+      if (isClosed || session != _session) return;
       _wish = null;
-      if (!isClosed && userId == _userId) {
-        emit(UserRateLoaded(_saved, saveFailed: true));
-      }
+      emit(UserRateLoaded(_saved, saveFailed: true));
+      _resync();
     } finally {
-      _sending = false;
+      if (session == _session) _sending = false;
     }
   }
 }

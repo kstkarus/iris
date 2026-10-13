@@ -15,7 +15,8 @@ class RateLimit {
 /// Keeps requests within an API's published limits by holding each one
 /// until it fits, instead of letting the server refuse it. A refusal that
 /// happens anyway (429, e.g. another device on the same address) is
-/// retried once after the server's Retry-After.
+/// retried once after the server's Retry-After, unless that is longer
+/// than anyone would wait on a spinner.
 class RateLimitInterceptor extends Interceptor {
   RateLimitInterceptor({
     required Dio dio,
@@ -39,6 +40,9 @@ class RateLimitInterceptor extends Interceptor {
   static const _retriedKey = 'rateLimitRetried';
   static const _defaultRetryAfter = Duration(seconds: 1);
 
+  /// The longest Retry-After waited out; a longer one fails at once.
+  static const maxRetryAfter = Duration(seconds: 10);
+
   @override
   Future<void> onRequest(
     RequestOptions options,
@@ -59,7 +63,12 @@ class RateLimitInterceptor extends Interceptor {
       handler.next(err);
       return;
     }
-    await _wait(_retryAfter(err.response!) ?? _defaultRetryAfter);
+    final retryAfter = _retryAfter(err.response!) ?? _defaultRetryAfter;
+    if (retryAfter > maxRetryAfter) {
+      handler.next(err);
+      return;
+    }
+    await _wait(retryAfter);
     try {
       options.extra[_retriedKey] = true;
       handler.resolve(await _dio.fetch<dynamic>(options));

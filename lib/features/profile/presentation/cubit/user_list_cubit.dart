@@ -28,6 +28,10 @@ class UserListCubit extends Cubit<UserListState> {
   /// Bumped by every new start, so the answers of an older one are dropped.
   int _request = 0;
 
+  /// A listed anime left this status elsewhere: the server's pages moved
+  /// up under the loaded ones, and the next one would skip an entry.
+  bool _shifted = false;
+
   /// Shows [userId]'s list, or nobody's.
   void show(String? userId) {
     if (userId == state.userId && state.load != UserListLoad.failed) return;
@@ -57,30 +61,39 @@ class UserListCubit extends Cubit<UserListState> {
       return;
     }
     final request = _request;
+    // After a shift the last page read holds what moved up into it.
+    final shifted = _shifted;
+    _shifted = false;
+    final number = shifted ? state.page : state.page + 1;
     emit(state.copyWith(loadingMore: true, moreFailed: false));
     try {
       final page = await _repository.page(
         userId: userId,
         status: state.status,
-        page: state.page + 1,
+        page: number,
       );
       if (isClosed || request != _request) return;
       emit(
         state.copyWith(
-          entries: [...state.entries, ...page.entries],
-          page: state.page + 1,
+          entries: [
+            ...state.entries,
+            ...page.entries.where((entry) => !_lists(entry.anime.id)),
+          ],
+          page: number,
           hasMore: page.hasMore,
           loadingMore: false,
         ),
       );
     } on Object {
       if (isClosed || request != _request) return;
+      _shifted = _shifted || shifted;
       emit(state.copyWith(loadingMore: false, moreFailed: true));
     }
   }
 
   void _start({required String? userId, required UserRateStatus status}) {
     _request++;
+    _shifted = false;
     if (userId == null) {
       emit(UserListState(status: status, load: UserListLoad.loaded));
       return;
@@ -101,6 +114,7 @@ class UserListCubit extends Cubit<UserListState> {
         page: 1,
       );
       if (isClosed || request != _request) return;
+      _shifted = false;
       emit(
         UserListState(
           userId: userId,
@@ -119,6 +133,12 @@ class UserListCubit extends Cubit<UserListState> {
 
   void _onChange(UserRateChange change) {
     final rate = change.rate;
+    if (!isClosed &&
+        _lists(change.animeId) &&
+        (rate == null || rate.status != state.status)) {
+      _shifted = true;
+      return;
+    }
     if (isClosed ||
         state.load != UserListLoad.loaded ||
         state.loadingMore ||

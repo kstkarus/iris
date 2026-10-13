@@ -105,11 +105,33 @@ void main() {
     expect(oauth.refreshes, 1);
   });
 
-  test('a refused renewal ends the session', () async {
+  test(
+    'a refused renewal ends the session; the request goes as a guest\'s',
+    () async {
+      await store.write(tokens('revoked'));
+      oauth.failure = const InvalidGrantException('revoked');
+      final expired = <void>[];
+      store.expired.listen(expired.add);
+
+      final response = await dio.get<dynamic>('/api/animes');
+      await Future<void>.delayed(Duration.zero);
+
+      expect(response.statusCode, 200);
+      expect(sentTokens(), ['Bearer revoked', null]);
+      expect(await store.read(), isNull);
+      expect(expired, hasLength(1));
+    },
+  );
+
+  test('a guest\'s repeat refused again fails, once', () async {
     await store.write(tokens('revoked'));
     oauth.failure = const InvalidGrantException('revoked');
-    final expired = <void>[];
-    store.expired.listen(expired.add);
+    valid = 'nothing';
+    adapter = FakeHttpAdapter((options) {
+      sent.add(options.headers['Authorization']);
+      return const FakeReply(401, {'error': 'invalid_token'});
+    });
+    dio.httpClientAdapter = adapter;
 
     await expectLater(
       dio.get<dynamic>('/api/users/whoami'),
@@ -121,10 +143,7 @@ void main() {
         ),
       ),
     );
-    await Future<void>.delayed(Duration.zero);
-
-    expect(await store.read(), isNull);
-    expect(expired, hasLength(1));
+    expect(sentTokens(), ['Bearer revoked', null]);
   });
 
   test('a renewal that fails for the network keeps the session', () async {
