@@ -1,3 +1,5 @@
+import 'dart:developer' as developer;
+
 import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -18,7 +20,18 @@ import 'package:iris/shared/utils/playback_runtime_initializer.dart';
 Future<Widget> createApp({bool useMocks = false}) async {
   WidgetsFlutterBinding.ensureInitialized();
   if (!useMocks) {
-    await PlaybackRuntimeInitializer.ensureInitialized();
+    // Without a torrent engine the catalog, the lists and online sources
+    // still work; torrents fail where they are played or downloaded.
+    try {
+      await PlaybackRuntimeInitializer.ensureInitialized();
+    } on Object catch (error, stackTrace) {
+      developer.log(
+        'Playback runtime failed to start.',
+        name: 'iris.player.runtime',
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
   }
   await configureDependencies(useMocks: useMocks, reset: useMocks);
 

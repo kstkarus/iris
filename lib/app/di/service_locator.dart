@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:developer' as developer;
 import 'dart:ffi' show Abi;
 import 'dart:io';
 
@@ -500,7 +501,19 @@ Future<void> _registerDownloads(Directory supportDirectory) async {
     repository,
     dispose: (_) => repository.close(),
   );
-  await repository.restore();
+  // Downloads are not worth a launch: one that cannot read its list (an
+  // engine that did not start, a disk that refuses) tries again when the
+  // downloads are next asked for, and says so there.
+  try {
+    await repository.restore();
+  } on Object catch (error, stackTrace) {
+    developer.log(
+      'Downloads could not be restored at launch.',
+      name: 'iris.downloads',
+      error: error,
+      stackTrace: stackTrace,
+    );
+  }
 }
 
 /// Registrations that are the same with and without mocks.

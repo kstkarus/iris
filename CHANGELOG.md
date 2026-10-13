@@ -6,6 +6,7 @@ Notable changes to iris, newest first. The format follows [Keep a Changelog](htt
 
 ### Fixed
 
+- The app opens even when the torrent engine fails to start or the downloads list cannot be read. It stayed on a blank screen; now only torrents and downloads report the problem.
 - An episode downloaded as one mp4 file carries on after a dropped connection, as segmented episodes do. It failed at once and had to be retried by hand.
 - Signing out while the Shikimori session was being renewed could sign you back in once the renewal came back, then on the next launch too.
 - A title's page and its sources page show the episodes the player just marked in your Shikimori list. They kept the count from when they opened, so the next "+" on the page could lower it.
