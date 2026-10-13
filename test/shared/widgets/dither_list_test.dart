@@ -74,6 +74,28 @@ void main() {
     expect(tester.getTopLeft(find.text('b')).dy, 40);
   });
 
+  testWidgets('a row removed while out of sight does not come back', (
+    tester,
+  ) async {
+    final items = [for (var n = 0; n < 60; n++) 'row $n'];
+    await tester.pumpWidget(list(items));
+    expect(find.text('row 40'), findsNothing, reason: 'not built yet');
+
+    await tester.pumpWidget(list([...items]..remove('row 40')));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(find.text('row 41'), 200);
+    await tester.pumpAndSettle();
+    await tester.drag(find.byType(Scrollable), const Offset(0, 200));
+    await tester.pumpAndSettle();
+
+    expect(find.text('row 40', skipOffstage: false), findsNothing);
+    expect(
+      tester.getTopLeft(find.text('row 41')).dy -
+          tester.getTopLeft(find.text('row 39')).dy,
+      40,
+    );
+  });
+
   testWidgets('without motion rows come and go at once', (tester) async {
     await tester.pumpWidget(list(['a'], noMotion: true));
     await tester.pumpWidget(list(['b', 'a'], noMotion: true));

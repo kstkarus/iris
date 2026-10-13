@@ -117,12 +117,16 @@ class _PresenceState extends State<_Presence>
 
   bool _animate = true;
   bool _started = false;
+  bool _gone = false;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     _animate = !MediaQuery.disableAnimationsOf(context);
     if (!_started && widget.entering) _run(forward: true);
+    // Built while leaving (scrolled back to after it was removed): there
+    // is no dissolve to watch, so it is simply gone.
+    if (!_started && widget.leaving) _leaveNextFrame();
     _started = true;
   }
 
@@ -141,16 +145,29 @@ class _PresenceState extends State<_Presence>
     }
     if (!animate) {
       _controller.value = 0;
-      WidgetsBinding.instance.addPostFrameCallback((_) => widget.onLeft());
+      _leaveNextFrame();
       return;
     }
     _controller.reverse().whenCompleteOrCancel(() {
-      if (_controller.isDismissed) widget.onLeft();
+      if (_controller.isDismissed) _leave();
     });
+  }
+
+  void _leaveNextFrame() {
+    final onLeft = widget.onLeft;
+    WidgetsBinding.instance.addPostFrameCallback((_) => _leave(onLeft));
+  }
+
+  void _leave([VoidCallback? onLeft]) {
+    if (_gone) return;
+    _gone = true;
+    (onLeft ?? widget.onLeft)();
   }
 
   @override
   void dispose() {
+    // Scrolled away mid-dissolve: the row would come back whole later.
+    if (widget.leaving && !_gone) _leaveNextFrame();
     _controller.dispose();
     super.dispose();
   }
