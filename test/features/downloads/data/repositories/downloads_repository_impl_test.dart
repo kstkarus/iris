@@ -354,6 +354,42 @@ void main() {
     );
   });
 
+  test('the service stays up from a finished item to the next queued one, '
+      'and stops after the last', () async {
+    const otherMagnet = 'magnet:?xt=urn:btih:0011223344556677';
+    final first = await repository.prepareSource(magnet: _magnet);
+    final second = await repository.prepareSource(magnet: otherMagnet);
+    final firstItem = await repository.enqueueDownload(
+      source: first,
+      file: first.files.first,
+      animeId: '1',
+      animeTitle: 'First',
+      sourceTitle: 'Release',
+    );
+    final secondItem = await repository.enqueueDownload(
+      source: second,
+      file: second.files.first,
+      animeId: '2',
+      animeTitle: 'Second',
+      sourceTitle: 'Release',
+    );
+    await _waitFor(() => engine.priorityCalls.isNotEmpty);
+
+    Future<void> finish(DownloadItem item) async {
+      await File(item.localPath).parent.create(recursive: true);
+      await File(item.localPath).writeAsBytes(List.filled(item.totalBytes, 1));
+      engine.emit({engine.addCalls.last.id: _torrent(isFinished: true)});
+    }
+
+    await finish(firstItem);
+    await _waitFor(() => engine.priorityCalls.length == 2);
+    expect(foregroundService.stopCount, 0);
+    expect(foregroundService.startCount, 2);
+
+    await finish(secondItem);
+    await _waitFor(() => foregroundService.stopCount == 1);
+  });
+
   test(
     'pausing during the metadata wait starts the next queued item',
     () async {

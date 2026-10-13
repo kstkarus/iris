@@ -57,8 +57,9 @@ class MainActivity : FlutterActivity() {
                     result.success(null)
                 }
                 "update" -> {
-                    sendDownloadServiceAction(
-                        DownloadForegroundService.ACTION_UPDATE,
+                    // Not a service command: see DownloadForegroundService.
+                    DownloadForegroundService.showNotification(
+                        this,
                         title,
                         text,
                         channelName,
@@ -67,6 +68,9 @@ class MainActivity : FlutterActivity() {
                     result.success(null)
                 }
                 "stop" -> {
+                    // An update may have shown the notification while the
+                    // service did not run; that one goes too.
+                    DownloadForegroundService.cancelNotification(this)
                     sendDownloadServiceAction(
                         DownloadForegroundService.ACTION_STOP,
                         title,

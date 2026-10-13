@@ -5,11 +5,20 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
+import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
 
+/**
+ * Keeps the process alive while a download runs. Started only for
+ * [ACTION_START]; progress goes straight to the notification through
+ * [showNotification], never through `startForegroundService`, which would
+ * oblige a service that is not in the foreground (stopped by Android 15's
+ * dataSync limit, or never started from the background) to call
+ * `startForeground` within seconds or have the app killed.
+ */
 class DownloadForegroundService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == ACTION_STOP) {
@@ -23,19 +32,15 @@ class DownloadForegroundService : Service() {
             return START_NOT_STICKY
         }
 
-        val title = intent?.getStringExtra(EXTRA_TITLE) ?: "Iris"
-        val text = intent?.getStringExtra(EXTRA_TEXT) ?: "Загрузка контента"
-        // Created on every command: re-creating an existing channel updates
-        // its name and description to the app's current language.
-        createNotificationChannel(
-            name = intent?.getStringExtra(EXTRA_CHANNEL_NAME) ?: "Загрузки",
-            description = intent?.getStringExtra(EXTRA_CHANNEL_DESCRIPTION)
-                ?: "Ход загрузки контента для офлайн-просмотра",
+        val notification = notification(
+            this,
+            title = intent?.getStringExtra(EXTRA_TITLE),
+            text = intent?.getStringExtra(EXTRA_TEXT),
+            channelName = intent?.getStringExtra(EXTRA_CHANNEL_NAME),
+            channelDescription = intent?.getStringExtra(EXTRA_CHANNEL_DESCRIPTION),
         )
-        val notification = buildNotification(title, text)
-        if (intent?.action == ACTION_UPDATE) {
-            notificationManager.notify(NOTIFICATION_ID, notification)
-        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+        // Every command but stop came through startForegroundService.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             startForeground(
                 NOTIFICATION_ID,
                 notification,
@@ -56,53 +61,8 @@ class DownloadForegroundService : Service() {
         stopSelf(startId)
     }
 
-    private val notificationManager: NotificationManager
-        get() = getSystemService(NotificationManager::class.java)
-
-    private fun createNotificationChannel(name: String, description: String) {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
-        notificationManager.createNotificationChannel(
-            NotificationChannel(
-                CHANNEL_ID,
-                name,
-                NotificationManager.IMPORTANCE_LOW,
-            ).apply {
-                this.description = description
-                setShowBadge(false)
-            },
-        )
-    }
-
-    private fun buildNotification(title: String, text: String): Notification {
-        val openAppIntent = packageManager.getLaunchIntentForPackage(packageName)
-            ?: Intent(this, MainActivity::class.java)
-        val pendingIntent = PendingIntent.getActivity(
-            this,
-            0,
-            openAppIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-        )
-
-        val builder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            Notification.Builder(this, CHANNEL_ID)
-        } else {
-            @Suppress("DEPRECATION")
-            Notification.Builder(this)
-        }
-        return builder
-            .setSmallIcon(R.mipmap.ic_launcher)
-            .setContentTitle(title)
-            .setContentText(text)
-            .setContentIntent(pendingIntent)
-            .setOnlyAlertOnce(true)
-            .setOngoing(true)
-            .setCategory(Notification.CATEGORY_PROGRESS)
-            .build()
-    }
-
     companion object {
         const val ACTION_START = "iris.download.START"
-        const val ACTION_UPDATE = "iris.download.UPDATE"
         const val ACTION_STOP = "iris.download.STOP"
         const val EXTRA_TITLE = "title"
         const val EXTRA_TEXT = "text"
@@ -111,5 +71,99 @@ class DownloadForegroundService : Service() {
 
         private const val CHANNEL_ID = "iris_downloads"
         private const val NOTIFICATION_ID = 7101
+
+        /** Updates the download notification, whether or not the service runs. */
+        fun showNotification(
+            context: Context,
+            title: String?,
+            text: String?,
+            channelName: String?,
+            channelDescription: String?,
+        ) {
+            notificationManager(context).notify(
+                NOTIFICATION_ID,
+                notification(context, title, text, channelName, channelDescription),
+            )
+        }
+
+        /** Takes the notification away, also one shown without the service. */
+        fun cancelNotification(context: Context) {
+            notificationManager(context).cancel(NOTIFICATION_ID)
+        }
+
+        private fun notificationManager(context: Context): NotificationManager =
+            context.getSystemService(NotificationManager::class.java)
+
+        private fun notification(
+            context: Context,
+            title: String?,
+            text: String?,
+            channelName: String?,
+            channelDescription: String?,
+        ): Notification {
+            // Created every time: re-creating an existing channel updates its
+            // name and description to the app's current language.
+            createNotificationChannel(
+                context,
+                name = channelName ?: "Загрузки",
+                description = channelDescription
+                    ?: "Ход загрузки контента для офлайн-просмотра",
+            )
+            return buildNotification(
+                context,
+                title = title ?: "Iris",
+                text = text ?: "Загрузка контента",
+            )
+        }
+
+        private fun createNotificationChannel(
+            context: Context,
+            name: String,
+            description: String,
+        ) {
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
+            notificationManager(context).createNotificationChannel(
+                NotificationChannel(
+                    CHANNEL_ID,
+                    name,
+                    NotificationManager.IMPORTANCE_LOW,
+                ).apply {
+                    this.description = description
+                    setShowBadge(false)
+                },
+            )
+        }
+
+        private fun buildNotification(
+            context: Context,
+            title: String,
+            text: String,
+        ): Notification {
+            val openAppIntent =
+                context.packageManager.getLaunchIntentForPackage(context.packageName)
+                    ?: Intent(context, MainActivity::class.java)
+            val pendingIntent = PendingIntent.getActivity(
+                context,
+                0,
+                openAppIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
+
+            val builder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                Notification.Builder(context, CHANNEL_ID)
+            } else {
+                @Suppress("DEPRECATION")
+                Notification.Builder(context)
+            }
+            return builder
+                .setSmallIcon(R.mipmap.ic_launcher)
+                .setContentTitle(title)
+                .setContentText(text)
+                .setContentIntent(pendingIntent)
+                .setOnlyAlertOnce(true)
+                .setOngoing(true)
+                .setCategory(Notification.CATEGORY_PROGRESS)
+                .build()
+        }
     }
 }

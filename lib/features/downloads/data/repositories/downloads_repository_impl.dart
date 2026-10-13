@@ -603,7 +603,7 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
       // Forgets the torrent id too: deleting the file later must not remove
       // whatever torrent the engine gives that id next.
       _releaseTorrent(current.id, deleteFiles: false);
-      await _foregroundService.stop();
+      await _stopServiceUnlessQueued();
       await _commit();
       unawaited(_pumpQueue());
     }
@@ -614,9 +614,16 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
     _replace(
       item.stopped(DownloadStatus.failed).copyWith(errorMessage: message),
     );
-    await _foregroundService.stop();
+    await _stopServiceUnlessQueued();
     await _commit();
     unawaited(_pumpQueue());
+  }
+
+  /// Between queued items the service stays up: Android 12+ refuses to
+  /// start it again while the app is in the background, and the next item
+  /// would then download without it.
+  Future<void> _stopServiceUnlessQueued() async {
+    if (_nextStartableDownload() == null) await _foregroundService.stop();
   }
 
   /// Streaming has priority: an active download of the same torrent goes back
@@ -931,7 +938,7 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
           ),
     );
     _clearActiveDownload();
-    await _foregroundService.stop();
+    await _stopServiceUnlessQueued();
     await _commit();
     unawaited(_pumpQueue());
   }
