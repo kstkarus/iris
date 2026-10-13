@@ -1068,6 +1068,74 @@ void main() {
     unawaited(engine.retry());
     expect(engine.advancing.value, isFalse);
     await _deliverPlayerEvent(tester);
+    await _deliverPlayerEvent(tester);
+    expect(
+      engine.advancing.value,
+      isFalse,
+      reason: 'the first frame reported is the old file\'s',
+    );
+
+    platformPlayer.emitPosition(const Duration(seconds: 41));
+    await _deliverPlayerEvent(tester);
+    platformPlayer.emitPosition(const Duration(seconds: 42));
+    await _deliverPlayerEvent(tester);
+    expect(engine.advancing.value, isTrue);
+  });
+
+  testWidgets('a picture that moves counts without the first-frame report', (
+    tester,
+  ) async {
+    late _FakePlatformPlayer platformPlayer;
+    late MediaKitPlayerEngine engine;
+    await tester.pumpWidget(
+      _wrapViewport(
+        playerBuilder: (configuration) {
+          platformPlayer = _FakePlatformPlayer(configuration: configuration);
+          return Player(platformPlayer: platformPlayer);
+        },
+        firstFrameFuture: Completer<void>().future,
+        onEngine: (value) => engine = value,
+        next: PlayerNextFile(title: 'Episode 3', play: () {}),
+      ),
+    );
+    await tester.pump();
+    // Ready by its length and video track; the report never comes.
+    platformPlayer
+      ..emitTracks(
+        const Tracks(
+          video: [
+            VideoTrack('auto', null, null),
+            VideoTrack('no', null, null),
+            VideoTrack('1', 'Main Video', 'jpn'),
+          ],
+        ),
+      )
+      ..emitDuration(const Duration(minutes: 24))
+      ..emitPlaying(true)
+      ..emitPosition(const Duration(minutes: 23));
+    await _deliverPlayerEvent(tester);
+    platformPlayer.emitPosition(const Duration(minutes: 23, seconds: 1));
+    await _deliverPlayerEvent(tester);
+
+    expect(engine.phase.value, PlayerEnginePhase.ready);
+    expect(engine.advancing.value, isTrue);
+    expect(engine.finishing.value, isTrue);
+  });
+
+  testWidgets('a step right after the start, mpv still at 0, counts from the '
+      'resume position', (tester) async {
+    late MediaKitPlayerEngine engine;
+    await tester.pumpWidget(
+      _wrapViewport(
+        onEngine: (value) => engine = value,
+        startPosition: const Duration(minutes: 10),
+      ),
+    );
+    await tester.pump();
+    await _deliverPlayerEvent(tester);
+
+    expect(engine.phase.value, PlayerEnginePhase.ready);
+    expect(engine.position, const Duration(minutes: 10));
   });
 
   testWidgets('chapters naming only the ending keep the looked-up opening', (

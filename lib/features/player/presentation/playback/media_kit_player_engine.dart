@@ -249,6 +249,17 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
   /// [advancing] has been true for the opened file.
   bool _hasAdvanced = false;
 
+  /// The file has been opened before (Try Again, another quality, a fresh
+  /// link, new decoding settings). The controller's first frame is then
+  /// long reported, so only the position moving shows the picture does.
+  bool _reopened = false;
+  bool _opened = false;
+
+  /// The position moved since the file became ready: the picture plays,
+  /// whatever the first-frame report says.
+  bool _movedSinceReady = false;
+  Duration? _readyPosition;
+
   /// The qualities the playing file comes in and the chosen one; null when
   /// it has no choice (a torrent, a download).
   final quality = ValueNotifier<PlayerQualityChoice?>(null);
@@ -349,6 +360,7 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
     _pendingSeek = null;
     _startAnnounced = false;
     _hasAdvanced = false;
+    _opened = false;
     advancing.value = false;
     _renewsOnFailure = false;
     _renewalsLeft = _maxRenewals;
@@ -485,8 +497,12 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
   Duration get position {
     final player = _player;
     if (player == null || _closed) return Duration.zero;
-    if (_isReady) return player.state.position;
-    return _pendingSeek ?? _openPosition ?? player.state.position;
+    final reported = player.state.position;
+    // mpv may report zero before the resume seek lands (see _onPosition).
+    if (_isReady && (reported > Duration.zero || _openPosition == null)) {
+      return reported;
+    }
+    return _pendingSeek ?? _openPosition ?? reported;
   }
 
   void _applyPendingSeek() {
@@ -558,7 +574,7 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
   Future<void> skipForward() async {
     if (_player == null || _closed) return;
     final duration = player.state.duration;
-    final target = player.state.position + skipForwardStep;
+    final target = position + skipForwardStep;
     await seek(
       duration > Duration.zero && target > duration ? duration : target,
     );
@@ -772,6 +788,8 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
     final player = _player;
     if (_closed || session == null || player == null) return;
     final startupGeneration = ++_startupGeneration;
+    _reopened = _opened;
+    _opened = true;
     _startupClock
       ..reset()
       ..start();
@@ -915,6 +933,23 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
     unawaited(_logCacheBufferingState('buffering changed'));
   }
 
+  void _noteMotion(Duration position) {
+    if (_movedSinceReady) return;
+    final from = _readyPosition;
+    if (from == null) {
+      _readyPosition = position;
+    } else if (position != from) {
+      _movedSinceReady = true;
+      _refreshAdvancing();
+    }
+  }
+
+  /// The first frame is shown, as the controller reports it for a file
+  /// opened afresh, or the position has moved since the file was ready.
+  bool get _pictureMoves =>
+      _movedSinceReady ||
+      (_startAnnounced && _startupState.firstFrameRendered && !_reopened);
+
   void _refreshAdvancing() {
     if (_closed) return;
     // A reopened file (retry, quality, a fresh link) starts over: nothing
@@ -923,9 +958,8 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
     // reaches this through whichever handler runs first.
     final state = _player?.state;
     final now =
-        _startAnnounced &&
         _isReady &&
-        _startupState.firstFrameRendered &&
+        _pictureMoves &&
         state != null &&
         state.playing &&
         !state.buffering;
@@ -964,6 +998,7 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
     // mpv may report zero before the resume seek lands; do not let that
     // overwrite the saved position.
     if (position == Duration.zero && _openPosition != null) return;
+    _noteMotion(position);
     _lastKnownPosition = position;
     _updatePositionOffers(position);
     _reportProgress();
@@ -1389,6 +1424,10 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
   void _updateStartupState(PlayerEngineStartupState next) {
     if (next == _startupState) return;
     _startupState = next;
+    if (next.phase != PlayerEnginePhase.ready) {
+      _movedSinceReady = false;
+      _readyPosition = null;
+    }
     if (!_closed) phase.value = next.phase;
     notifyListeners();
     // A picture on screen is when the file has started for the viewer.

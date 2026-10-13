@@ -600,7 +600,7 @@ class _PlayerImmersiveControlsState extends State<PlayerImmersiveControls> {
               offstage: _locked,
               // The mark notice after the resume one counts afresh.
               child: _NoticeCard(
-                key: ValueKey(notice.onTimeout),
+                key: ValueKey((notice.onTimeout, notice.id)),
                 notice: notice,
                 accent: accent,
               ),

@@ -209,6 +209,8 @@ class _PlayerPageState extends State<PlayerPage> {
               onAction: notice.onAction,
               timeout: notice.timeout,
               onTimeout: marks.dismiss,
+              // Another episode's offer over this one is a new notice.
+              id: state,
             ),
     );
   }

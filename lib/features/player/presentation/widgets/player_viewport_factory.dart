@@ -29,6 +29,7 @@ class PlayerNotice {
     required this.onAction,
     required this.onTimeout,
     this.timeout,
+    this.id,
   });
 
   final String message;
@@ -39,6 +40,10 @@ class PlayerNotice {
   /// e.g. while the file starts.
   final Duration? timeout;
   final VoidCallback onTimeout;
+
+  /// Tells this notice from the next one of its kind ([onTimeout]): a new
+  /// one counts its time afresh, the same one updated goes on counting.
+  final Object? id;
 }
 
 /// What the player draws around the video: the titles, the way back and
