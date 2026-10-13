@@ -13,7 +13,7 @@ import 'package:iris/shared/widgets/adaptive/adaptive_content_width.dart';
 ///
 /// * compact: a row of text tabs along the bottom edge;
 /// * medium and wider: a top bar with the app's mark and the sections in
-///   small text, which Ctrl+1…4 also switch.
+///   small text, which Ctrl+1…3 also switch.
 ///
 /// The navigation stays small on purpose: each page brings its own large
 /// headline, and the contrast between the two carries the hierarchy.
@@ -60,7 +60,7 @@ class AppShellPage extends StatelessWidget {
 
     return CallbackShortcuts(
       bindings: {
-        for (final (index, key) in _sectionKeys.indexed)
+        for (final (index, key) in _sectionKeys.take(labels.length).indexed)
           SingleActivator(key, control: true): () => _select(index),
       },
       child: Scaffold(
@@ -93,7 +93,6 @@ const _sectionKeys = [
   LogicalKeyboardKey.digit1,
   LogicalKeyboardKey.digit2,
   LogicalKeyboardKey.digit3,
-  LogicalKeyboardKey.digit4,
 ];
 
 class _TopBar extends StatelessWidget {

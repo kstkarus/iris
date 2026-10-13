@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:iris/app/router/app_shell_page.dart';
@@ -49,6 +50,26 @@ void _useRussianAtDoubleText(WidgetTester tester) {
 }
 
 void main() {
+  testWidgets('Ctrl and a digit switch sections; one past them does nothing', (
+    tester,
+  ) async {
+    await pumpMockApp(tester, size: TestWindowSizes.desktop);
+
+    Future<void> ctrl(LogicalKeyboardKey key) async {
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyEvent(key);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await tester.pumpAndSettle();
+    }
+
+    await ctrl(LogicalKeyboardKey.digit2);
+    expect(find.text('APP STORAGE'), findsOneWidget);
+
+    await ctrl(LogicalKeyboardKey.digit4);
+    expect(tester.takeException(), isNull);
+    expect(find.text('APP STORAGE'), findsOneWidget);
+  });
+
   for (final entry in TestWindowSizes.all.entries) {
     final sizeName = entry.key;
     final size = entry.value;

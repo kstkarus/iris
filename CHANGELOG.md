@@ -6,6 +6,7 @@ Notable changes to iris, newest first. The format follows [Keep a Changelog](htt
 
 ### Fixed
 
+- Ctrl+4 on a desktop no longer raises an error: there are three sections, on Ctrl+1 to Ctrl+3.
 - The app opens even when the torrent engine fails to start or the downloads list cannot be read. It stayed on a blank screen; now only torrents and downloads report the problem.
 - An episode downloaded as one mp4 file carries on after a dropped connection, as segmented episodes do. It failed at once and had to be retried by hand.
 - Signing out while the Shikimori session was being renewed could sign you back in once the renewal came back, then on the next launch too.
