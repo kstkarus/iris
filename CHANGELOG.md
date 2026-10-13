@@ -7,6 +7,25 @@ Notable changes to iris, newest first. The format follows [Keep a Changelog](htt
 ### Fixed
 
 - Skip opening, "+85 s" and Next episode appear once the video has actually started, and their few seconds on screen pass only while it plays: not before the picture moves, not while paused or loading. Resting the pointer on one fills its bar back up smoothly instead of jumping.
+- With the system's animations turned off, the player's offers and notices stayed less than half a second, too short to tap "Mark episode on Shikimori?". They last their full time again.
+- The Shikimori mark notice shown right after the resume notice no longer stays on screen until tapped.
+- A file whose chapters name only the ending (or only the opening) still offers Skip opening from AniSkip, and an ending chapter counts even when the chapters are read before the file's length.
+- After Try Again or a change of quality, the offers wait for the picture again instead of counting down behind the loading spinner.
+- On a phone, leaving the app without picture in picture (iOS, older Android, or picture in picture turned off) pauses the video instead of playing and streaming on unseen.
+- Stepping 10 s while an episode is still starting no longer throws away the resume position.
+- On desktop, the arrow keys and other player keys no longer seek or change the volume while the episodes drawer is open.
+- Episodes 480, 720, 1080 and so on of long series (One Piece, Detective Conan) are recognised in file names, so watching them marks the Shikimori list.
+- Scrolling further down a list in the profile no longer skips an anime after another one left that list on another screen.
+- Changing a title's status or score while its removal from the list is still on its way no longer leaves the page and Shikimori disagreeing. A change that seemed to fail but reached Shikimori shows as saved after a moment, and switching accounts while a change is saved no longer leaves the next one stuck.
+- A Shikimori session revoked on the site no longer fails the first page of the catalog; it loads as for a guest.
+- A Shikimori "try again later" with a long wait fails at once rather than leaving a spinner turning for that long.
+- A short network drop no longer fails every queued online episode one after another; the download waits for the network for a couple of minutes.
+- If downloads could not start when the app opened, they start again on the next use instead of failing until the app restarts.
+- The downloads list is no longer emptied when the file that keeps it cannot be read for a moment; a damaged one is kept aside.
+- Online downloads in mp4 no longer flood the Downloads tab with progress updates.
+- Android: the download notification no longer stays behind with nothing downloading, nor after the app is closed; closing the app ends the download, which goes on at the next launch.
+- Rows added to a list no longer replay their opening animation when another row comes or goes above them.
+- The source tabs (Online, Torrents, Mine) wrap onto a second line in very large text instead of running off a narrow screen.
 
 ## [1.4.0] - 2026-10-13
 
