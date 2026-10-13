@@ -393,6 +393,45 @@ void main() {
     expect(ranges, [null, 'bytes=4-']);
     expect(stateLeft(), isFalse);
   });
+
+  test('an mp4 whose connection drops mid-body goes on with Range', () async {
+    sources.streams = const [
+      OnlineStream(
+        url: 'https://cdn.test/e2/720.mp4',
+        quality: 720,
+        format: OnlineStreamFormat.mp4,
+      ),
+    ];
+    final ranges = <Object?>[];
+    final task = start(
+      downloader((options) {
+        final range = options.headers['Range'];
+        ranges.add(range);
+        if (range == null) {
+          return const FakeReply.text(
+            200,
+            'abcd',
+            headers: {
+              'content-length': ['10'],
+            },
+            breakOff: SocketException('Connection reset by peer'),
+          );
+        }
+        return const FakeReply.text(
+          206,
+          'efghij',
+          headers: {
+            'content-range': ['bytes 4-9/10'],
+          },
+        );
+      }),
+    );
+
+    final file = await task.done;
+
+    expect(await file!.readAsString(), 'abcdefghij');
+    expect(ranges, [null, 'bytes=4-']);
+  });
 }
 
 class _FakeOnlineSources implements OnlineSourcesRepository {

@@ -11,16 +11,23 @@ class FakeReply {
     this.status, [
     this.body = const <String, dynamic>{},
     this.headers = const {},
-  ]) : raw = false;
+  ]) : raw = false,
+       breakOff = null;
 
-  /// A reply whose [body] goes out as it is, such as a page or a script.
-  const FakeReply.text(this.status, String this.body, {this.headers = const {}})
-    : raw = true;
+  /// A reply whose [body] goes out as it is, such as a page or a script;
+  /// with [breakOff], the connection then fails with it mid-body.
+  const FakeReply.text(
+    this.status,
+    String this.body, {
+    this.headers = const {},
+    this.breakOff,
+  }) : raw = true;
 
   final int status;
   final Object body;
   final Map<String, List<String>> headers;
   final bool raw;
+  final Object? breakOff;
 }
 
 /// Answers Dio requests with [respond], and keeps what was asked.
@@ -41,6 +48,16 @@ class FakeHttpAdapter implements HttpClientAdapter {
   ) async {
     requests.add(options);
     final reply = await respond(options);
+    final breakOff = reply.breakOff;
+    if (breakOff != null) {
+      return ResponseBody(
+        Stream.fromIterable([
+          Uint8List.fromList(utf8.encode(reply.body as String)),
+        ]).followedBy(breakOff),
+        reply.status,
+        headers: reply.headers,
+      );
+    }
     return ResponseBody.fromString(
       reply.raw ? reply.body as String : jsonEncode(reply.body),
       reply.status,
@@ -65,3 +82,11 @@ Dio fakeDio(FutureOr<FakeReply> Function(RequestOptions options) respond) {
 /// A file from `test/fixtures/`, as text.
 String readFixture(String path) =>
     File('test/fixtures/$path').readAsStringSync();
+
+extension on Stream<Uint8List> {
+  /// This stream, then [error].
+  Stream<Uint8List> followedBy(Object error) async* {
+    yield* this;
+    throw error;
+  }
+}

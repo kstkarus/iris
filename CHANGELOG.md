@@ -6,6 +6,7 @@ Notable changes to iris, newest first. The format follows [Keep a Changelog](htt
 
 ### Fixed
 
+- An episode downloaded as one mp4 file carries on after a dropped connection, as segmented episodes do. It failed at once and had to be retried by hand.
 - Signing out while the Shikimori session was being renewed could sign you back in once the renewal came back, then on the next launch too.
 - A title's page and its sources page show the episodes the player just marked in your Shikimori list. They kept the count from when they opened, so the next "+" on the page could lower it.
 - From the second episode on, and after a quality change, the player waits for the new file's first frame again. It counted the first file's frame, so "Start over" was ignored, the 45-second startup timeout never fired and the loading label went early.

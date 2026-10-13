@@ -459,6 +459,16 @@ class _Task implements OnlineDownloadTask {
     } on DioException catch (error) {
       if (CancelToken.isCancel(error) || _cancelled) throw const _Cancelled();
       throw _Retryable('${error.type}');
+    } on Exception catch (error) {
+      // A body that breaks off reaches here as it is, not as a
+      // DioException: the connection, not the disk.
+      if (error is! SocketException &&
+          error is! HttpException &&
+          error is! TlsException) {
+        rethrow;
+      }
+      if (_cancelled) throw const _Cancelled();
+      throw _Retryable('$error');
     } finally {
       await sink.close();
     }
