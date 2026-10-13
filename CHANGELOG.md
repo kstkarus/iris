@@ -6,6 +6,7 @@ Notable changes to iris, newest first. The format follows [Keep a Changelog](htt
 
 ### Fixed
 
+- Leaving a torrent within a moment of opening it no longer leaves it downloading in the background until the next launch.
 - A torrent removed from a title's Mine tab while out of sight no longer comes back as a row that still opens it.
 - Ctrl+4 on a desktop no longer raises an error: there are three sections, on Ctrl+1 to Ctrl+3.
 - The app opens even when the torrent engine fails to start or the downloads list cannot be read. It stayed on a blank screen; now only torrents and downloads report the problem.

@@ -222,8 +222,17 @@ class _DefaultLibtorrentEngineClient implements LibtorrentEngineClient {
   int addMagnet(String magnet, {String? savePath}) =>
       _engine.addMagnet(magnet, savePath);
 
+  /// The engine only knows a torrent after its next poll (every 600 ms) and
+  /// ignores one disposed sooner, which would go on downloading; that one
+  /// is removed directly (an id the native session lacks is a no-op).
   @override
-  bool disposeTorrent(int torrentId) => _engine.disposeTorrent(torrentId);
+  bool disposeTorrent(int torrentId) {
+    if (_engine.disposeTorrent(torrentId)) return true;
+    _engine
+      ..stopAllStreamsForTorrent(torrentId)
+      ..removeTorrent(torrentId, deleteFiles: true);
+    return true;
+  }
 
   @override
   List<FileInfo> getFiles(int torrentId) => _engine.getFiles(torrentId);
