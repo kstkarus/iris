@@ -77,6 +77,35 @@ void main() {
     return downloads.firstWhere((item) => item.id == id);
   }
 
+  test('one open picker queues several episodes, the first loading at once, '
+      'and shows them by episode', () async {
+    final source = await repository.prepareSource(magnet: _link);
+    final shown = repository
+        .watchSourceDownloads(magnet: _link)
+        .firstWhere((downloads) => downloads.length == 2);
+    for (final file in source.files) {
+      await repository.enqueueDownload(
+        source: source,
+        file: file,
+        animeId: '52991',
+        animeTitle: 'Frieren',
+        sourceTitle: 'AniLibria',
+      );
+    }
+
+    final downloads = await shown;
+    expect(downloads.keys, unorderedEquals([1, 2]));
+    await _waitFor(() => online.tasks.isNotEmpty);
+    expect(online.tasks.single.fileIndex, 1);
+    expect(
+      await repository
+          .watchSourceDownloads(magnet: 'online:anilibria/1?anime=52991')
+          .first,
+      isEmpty,
+      reason: 'another release has none of them',
+    );
+  });
+
   test('offers a release\'s episodes to choose from', () async {
     final source = await repository.prepareSource(magnet: _link);
 

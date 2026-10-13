@@ -422,10 +422,7 @@ abstract final class AppRouter {
                 repository: serviceLocator<DownloadsRepository>(),
                 qualityPreferences: serviceLocator<OnlineQualityPreferences>(),
               )..load(),
-              child: DownloadSelectionPage(
-                args: args,
-                onQueued: (_) => context.goNamed('downloads'),
-              ),
+              child: DownloadSelectionPage(args: args),
             );
           },
         ),

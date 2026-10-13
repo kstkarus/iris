@@ -1,9 +1,14 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import 'package:iris/features/downloads/domain/entities/download_item.dart';
+import 'package:iris/features/downloads/domain/entities/download_status.dart';
 import 'package:iris/features/downloads/domain/entities/downloadable_file.dart';
 import 'package:iris/features/downloads/presentation/cubit/download_selection_cubit.dart';
 import 'package:iris/features/downloads/presentation/cubit/download_selection_state.dart';
+import 'package:iris/features/downloads/presentation/widgets/download_status_label.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/utils/byte_size_formatter.dart';
 import 'package:iris/shared/utils/file_display_name.dart';
@@ -27,28 +32,12 @@ class DownloadSelectionView extends StatelessWidget {
       builder: (context, state) {
         return switch (state) {
           DownloadSelectionInitial() ||
-          DownloadSelectionLoading() ||
-          DownloadSelectionQueued() => LoadingView(
+          DownloadSelectionLoading() => LoadingView(
             label: episodes
                 ? l10n.downloadSelectionPreparingEpisodes
                 : l10n.downloadSelectionPreparing,
           ),
-          DownloadSelectionReady(:final source, :final quality) => _FileList(
-            files: source.files,
-            qualities: source.qualities,
-            quality: quality,
-          ),
-          DownloadSelectionEnqueuing(
-            :final source,
-            :final file,
-            :final quality,
-          ) =>
-            _FileList(
-              files: source.files,
-              qualities: source.qualities,
-              quality: quality,
-              enqueuingFile: file,
-            ),
+          final DownloadSelectionReady ready => _FileList(state: ready),
           DownloadSelectionFailure(:final type) => _FailureState(type: type),
         };
       },
@@ -57,116 +46,178 @@ class DownloadSelectionView extends StatelessWidget {
 }
 
 class _FileList extends StatelessWidget {
-  const _FileList({
-    required this.files,
-    required this.qualities,
-    required this.quality,
-    this.enqueuingFile,
-  });
+  const _FileList({required this.state});
 
-  final List<DownloadableFile> files;
-
-  /// The heights an online release offers; empty for a torrent.
-  final List<int> qualities;
-  final int? quality;
-  final DownloadableFile? enqueuingFile;
+  final DownloadSelectionReady state;
 
   @override
   Widget build(BuildContext context) {
-    final list = _list(context);
-    if (qualities.isEmpty) return list;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        _QualityChoice(
-          qualities: qualities,
-          quality: quality,
-          enabled: enqueuingFile == null,
-        ),
-        Expanded(child: list),
-      ],
-    );
-  }
-
-  Widget _list(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
-    final theme = Theme.of(context);
-    final cubit = context.read<DownloadSelectionCubit>();
-    final idle = enqueuingFile == null;
-    return ListView.separated(
+    final files = state.source.files;
+    final list = ListView.separated(
       itemCount: files.length,
       separatorBuilder: (_, _) => const SegmentedRule(),
       itemBuilder: (context, index) {
         final file = files[index];
-        final isEnqueuing = enqueuingFile == file;
-        final enqueue = idle ? () => cubit.enqueue(file) : null;
-        return TapRow(
-          onTap: enqueue,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(12, 8, 0, 8),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        fileDisplayName(file.name),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.bodyMedium,
-                      ),
-                      // An online episode's size is not known yet.
-                      if (isEnqueuing || file.size > 0) ...[
-                        const SizedBox(height: 2),
-                        Text(
-                          isEnqueuing
-                              ? l10n.downloadAddingToQueue
-                              : formatByteSize(l10n, file.size),
-                          style: theme.textTheme.bodySmall,
-                        ),
-                      ],
-                    ],
+        return _FileRow(
+          file: file,
+          download: state.downloads[file.index],
+          adding: state.adding.contains(file.index),
+          notAdded: state.notAdded.contains(file.index),
+        );
+      },
+    );
+    final qualities = state.source.qualities;
+    if (qualities.isEmpty) return list;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _QualityChoice(qualities: qualities, quality: state.quality),
+        Expanded(child: list),
+      ],
+    );
+  }
+}
+
+/// A file and what became of it: a download button until it is queued,
+/// then its download's state in place of the button, filling as it loads.
+class _FileRow extends StatelessWidget {
+  const _FileRow({
+    required this.file,
+    required this.download,
+    required this.adding,
+    required this.notAdded,
+  });
+
+  final DownloadableFile file;
+  final DownloadItem? download;
+  final bool adding;
+  final bool notAdded;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final cubit = context.read<DownloadSelectionCubit>();
+    final download = this.download;
+    final status = adding ? null : download?.status;
+    // A tap queues the file, or takes a stopped download up again.
+    final actionable =
+        !adding &&
+        (download == null ||
+            status == DownloadStatus.paused ||
+            status == DownloadStatus.failed);
+    final onTap = actionable ? () => unawaited(cubit.download(file)) : null;
+    final note = switch (status) {
+      _ when adding => l10n.downloadAddingToQueue,
+      null when notAdded => l10n.downloadUnableToQueue,
+      null => null,
+      DownloadStatus.downloading => l10n.downloadSelectionLoading(
+        (download!.progress * 100).floor(),
+      ),
+      final status => downloadStatusLabel(l10n, status),
+    };
+    final size = download?.totalBytes ?? file.size;
+    final details = [
+      // An online episode's size is not known until it loads.
+      if (size > 0) formatByteSize(l10n, size),
+      ?note,
+    ].join(' · ');
+    return TapRow(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 8, 0, 8),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    fileDisplayName(file.name),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodyMedium,
                   ),
-                ),
-                const SizedBox(width: 8),
-                if (isEnqueuing)
-                  const SizedBox(
-                    width: 44,
-                    child: Center(
-                      child: SizedBox(
-                        width: 28,
-                        child: BlockSpinner(height: 4),
+                  if (details.isNotEmpty) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      details,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color:
+                            notAdded && !adding ||
+                                status == DownloadStatus.failed
+                            ? scheme.error
+                            : null,
                       ),
                     ),
-                  )
-                else
-                  IconButton(
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            SizedBox(
+              width: 48,
+              child: Center(
+                child: switch (status) {
+                  _ when adding => const SizedBox(
+                    width: 28,
+                    child: BlockSpinner(height: 4),
+                  ),
+                  null => IconButton(
                     key: ValueKey('download_file_button_${file.index}'),
                     tooltip: l10n.downloadFileButton,
                     icon: const PixelIcon(PixelGlyph.download, size: 18),
-                    onPressed: enqueue,
+                    onPressed: onTap,
                   ),
-              ],
+                  DownloadStatus.paused || DownloadStatus.failed => IconButton(
+                    key: ValueKey('download_file_button_${file.index}'),
+                    tooltip: status == DownloadStatus.paused
+                        ? l10n.downloadResumeButton
+                        : l10n.commonRetry,
+                    icon: PixelIcon(
+                      PixelGlyph.download,
+                      size: 18,
+                      fill: download!.progress,
+                      color: status == DownloadStatus.failed
+                          ? scheme.error
+                          : scheme.onSurface,
+                    ),
+                    onPressed: onTap,
+                  ),
+                  DownloadStatus.completed => PixelIcon(
+                    PixelGlyph.check,
+                    key: ValueKey('download_file_done_${file.index}'),
+                    size: 18,
+                    color: scheme.tertiary,
+                    semanticLabel: note,
+                  ),
+                  DownloadStatus.queued ||
+                  DownloadStatus.downloading => PixelIcon(
+                    PixelGlyph.download,
+                    key: ValueKey('download_file_progress_${file.index}'),
+                    size: 18,
+                    fill: download!.progress,
+                    color: scheme.tertiary,
+                    trackColor: scheme.onSurfaceVariant.withValues(alpha: 0.4),
+                    semanticLabel: note,
+                  ),
+                },
+              ),
             ),
-          ),
-        );
-      },
+          ],
+        ),
+      ),
     );
   }
 }
 
 /// The quality the next episodes load in, over the episodes.
 class _QualityChoice extends StatelessWidget {
-  const _QualityChoice({
-    required this.qualities,
-    required this.quality,
-    required this.enabled,
-  });
+  const _QualityChoice({required this.qualities, required this.quality});
 
   final List<int> qualities;
   final int? quality;
-  final bool enabled;
 
   @override
   Widget build(BuildContext context) {
@@ -185,21 +236,19 @@ class _QualityChoice extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 6),
-          IgnorePointer(
-            ignoring: !enabled,
-            child: SegmentedChoice<int?>(
-              key: const Key('download_quality_choice'),
-              selected: quality,
-              onSelected: cubit.chooseQuality,
-              options: [
-                SegmentedOption(value: null, label: l10n.onlineQualityAuto),
-                for (final height in qualities)
-                  SegmentedOption(
-                    value: height,
-                    label: l10n.onlineQualityHeight(height),
-                  ),
-              ],
-            ),
+          // The episodes queued keep the quality they were queued in.
+          SegmentedChoice<int?>(
+            key: const Key('download_quality_choice'),
+            selected: quality,
+            onSelected: cubit.chooseQuality,
+            options: [
+              SegmentedOption(value: null, label: l10n.onlineQualityAuto),
+              for (final height in qualities)
+                SegmentedOption(
+                  value: height,
+                  label: l10n.onlineQualityHeight(height),
+                ),
+            ],
           ),
         ],
       ),
@@ -218,7 +267,6 @@ class _FailureState extends StatelessWidget {
     final message = switch (type) {
       DownloadSelectionFailureType.unsupported =>
         l10n.downloadSelectionUnsupported,
-      DownloadSelectionFailureType.unableToQueue => l10n.downloadUnableToQueue,
       DownloadSelectionFailureType.unableToPrepare =>
         l10n.downloadSelectionUnableToPrepare,
     };

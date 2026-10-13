@@ -344,6 +344,10 @@ class PixelGlyph {
 /// Pixels are whole logical pixels, so the glyph may be a little smaller
 /// than [size]; it stays centred. With [fineGrain] they are whole device
 /// pixels instead, for a size between multiples of seven on a dense screen.
+///
+/// With [fill], a share from 0 to 1, the glyph shows progress: that share
+/// of its pixels, from the bottom row up, is in [color], the rest in
+/// [trackColor].
 class PixelIcon extends StatelessWidget {
   const PixelIcon(
     this.glyph, {
@@ -351,6 +355,8 @@ class PixelIcon extends StatelessWidget {
     this.color,
     this.semanticLabel,
     this.fineGrain = false,
+    this.fill,
+    this.trackColor,
     super.key,
   });
 
@@ -359,6 +365,10 @@ class PixelIcon extends StatelessWidget {
   final Color? color;
   final String? semanticLabel;
   final bool fineGrain;
+  final double? fill;
+
+  /// The unfilled pixels; [color] at a third of its opacity when unset.
+  final Color? trackColor;
 
   @override
   Widget build(BuildContext context) {
@@ -379,6 +389,8 @@ class PixelIcon extends StatelessWidget {
           painter: _PixelGlyphPainter(
             glyph: glyph,
             color: color,
+            fill: fill?.clamp(0.0, 1.0),
+            trackColor: trackColor ?? color.withValues(alpha: color.a / 3),
             size: size,
             pixelRatio: fineGrain
                 ? MediaQuery.maybeDevicePixelRatioOf(context) ?? 1
@@ -399,12 +411,16 @@ class _PixelGlyphPainter extends CustomPainter {
   const _PixelGlyphPainter({
     required this.glyph,
     required this.color,
+    required this.fill,
+    required this.trackColor,
     required this.size,
     required this.pixelRatio,
   });
 
   final PixelGlyph glyph;
   final Color color;
+  final double? fill;
+  final Color trackColor;
 
   /// The icon's own size; a parent may stretch the canvas around it (an
   /// input decoration does), and the glyph keeps to this size, centred.
@@ -423,23 +439,32 @@ class _PixelGlyphPainter extends CustomPainter {
       snap((canvasSize.width - cell * glyph.width) / 2),
       snap((canvasSize.height - cell * glyph.height) / 2),
     );
+    // Bottom row first, so a fill rises through the glyph.
+    final lit = [
+      for (var y = glyph.height - 1; y >= 0; y--)
+        for (var x = 0; x < glyph.width; x++)
+          if (glyph.rows[y].codeUnitAt(x) == 0x23) (x, y),
+    ];
+    final fill = this.fill;
+    final filled = fill == null ? lit.length : (fill * lit.length).round();
     final path = Path();
-    for (var y = 0; y < glyph.height; y++) {
-      final row = glyph.rows[y];
-      for (var x = 0; x < glyph.width; x++) {
-        if (row.codeUnitAt(x) != 0x23) continue;
-        path.addRect(
-          Rect.fromLTWH(origin.dx + x * cell, origin.dy + y * cell, cell, cell),
-        );
-      }
+    final track = Path();
+    for (final (index, (x, y)) in lit.indexed) {
+      (index < filled ? path : track).addRect(
+        Rect.fromLTWH(origin.dx + x * cell, origin.dy + y * cell, cell, cell),
+      );
     }
-    canvas.drawPath(path, Paint()..color = color);
+    canvas
+      ..drawPath(track, Paint()..color = trackColor)
+      ..drawPath(path, Paint()..color = color);
   }
 
   @override
   bool shouldRepaint(_PixelGlyphPainter old) =>
       old.glyph != glyph ||
       old.color != color ||
+      old.fill != fill ||
+      old.trackColor != trackColor ||
       old.size != size ||
       old.pixelRatio != pixelRatio;
 }

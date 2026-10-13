@@ -8,6 +8,7 @@ import 'package:iris/features/downloads/domain/entities/download_status.dart';
 import 'package:iris/features/downloads/domain/entities/download_storage_usage.dart';
 import 'package:iris/features/downloads/presentation/cubit/download_manager_cubit.dart';
 import 'package:iris/features/downloads/presentation/cubit/download_manager_state.dart';
+import 'package:iris/features/downloads/presentation/widgets/download_status_label.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/utils/byte_size_formatter.dart';
 import 'package:iris/shared/utils/desktop_platform.dart';
@@ -316,7 +317,7 @@ class _DownloadRowState extends State<_DownloadRow> {
         () => cubit.retry(item.id),
       ),
     };
-    final statusLabel = _statusLabel(l10n, status);
+    final statusLabel = downloadStatusLabel(l10n, status);
     final summary = [
       name,
       statusLabel,
@@ -559,16 +560,6 @@ String _failureMessage(AppLocalizations l10n, DownloadFailure failure) {
     DownloadFailure.connectionLost => l10n.downloadFailedConnectionLost,
     DownloadFailure.notDownloadable => l10n.downloadFailedNotDownloadable,
     DownloadFailure.other => l10n.downloadFailedMessage,
-  };
-}
-
-String _statusLabel(AppLocalizations l10n, DownloadStatus status) {
-  return switch (status) {
-    DownloadStatus.queued => l10n.downloadStatusQueued,
-    DownloadStatus.downloading => l10n.downloadStatusDownloading,
-    DownloadStatus.paused => l10n.downloadStatusPaused,
-    DownloadStatus.completed => l10n.downloadStatusCompleted,
-    DownloadStatus.failed => l10n.downloadStatusFailed,
   };
 }
 

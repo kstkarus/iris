@@ -52,6 +52,11 @@ class AppLocalizationsEn extends AppLocalizations {
   String get downloadAddingToQueue => 'Adding to queue...';
 
   @override
+  String downloadSelectionLoading(int percent) {
+    return 'Downloading · $percent%';
+  }
+
+  @override
   String get downloadManagerUnableToLoad => 'Unable to load downloads.';
 
   @override

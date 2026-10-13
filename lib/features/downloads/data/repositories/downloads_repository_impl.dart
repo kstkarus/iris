@@ -219,12 +219,10 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
     // By torrent and file, not id: an item queued before the hex and base32
     // keys were unified has a base32 id.
     final existing = _findFile(runtime.torrentKey, file.index);
-    if (existing != null) {
-      await disposePreparedSource(sourceToken: source.sourceToken);
-      return existing;
-    }
+    if (existing != null) return existing;
 
-    await disposePreparedSource(sourceToken: source.sourceToken);
+    // The source stays with its selection screen, which may queue more of
+    // its files; the queue starts them once the screen lets it go.
     final directory = _downloadDirectory(id);
     await directory.create(recursive: true);
     final localPath = path.normalize(
@@ -253,6 +251,9 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
       status: DownloadStatus.queued,
       createdAt: _now(),
     );
+    // The same file queued twice at once: the first one stands.
+    final added = _findFile(runtime.torrentKey, file.index);
+    if (added != null) return added;
     _downloads = [..._downloads, item];
     await _commit();
     unawaited(_pumpQueue());
@@ -274,7 +275,6 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
     if (!source.files.contains(file)) {
       throw ArgumentError.value(file, 'file', 'File is not in the source.');
     }
-    await disposePreparedSource(sourceToken: source.sourceToken);
     final id = onlineDownloadId(release, file.index);
     final existing = _find(id);
     if (existing != null) return existing;
@@ -299,6 +299,9 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
       createdAt: _now(),
       quality: quality,
     );
+    // The same episode queued twice at once: the first one stands.
+    final added = _find(id);
+    if (added != null) return added;
     _downloads = [..._downloads, item];
     await _commit();
     unawaited(_pumpQueue());
@@ -504,6 +507,29 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
     yield* _downloadsController.stream;
   }
 
+  @override
+  Stream<Map<int, DownloadItem>> watchSourceDownloads({
+    required String magnet,
+  }) {
+    final release = OnlineSourceLink.tryParse(magnet);
+    final torrentKey = release == null ? torrentKeyFromMagnet(magnet) : null;
+    bool ofSource(DownloadItem item) {
+      if (release == null) {
+        return !item.isOnline &&
+            torrentKeyFromMagnet(item.magnet) == torrentKey;
+      }
+      // By the id it was queued under, which names the release alone.
+      return item.id == onlineDownloadId(release, item.fileIndex);
+    }
+
+    return watchDownloads().map(
+      (items) => {
+        for (final item in items)
+          if (ofSource(item)) item.fileIndex: item,
+      },
+    );
+  }
+
   Future<void> close() async {
     _closing = true;
     _persistTimer?.cancel();
@@ -691,7 +717,9 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
   }
 
   Future<void> _pumpQueue() async {
-    if (!_restored) return;
+    // Closing lets the open pickers' sources go, which would start what
+    // waited for them.
+    if (!_restored || _closing) return;
     if (_pumping) {
       _pumpRequested = true;
       return;

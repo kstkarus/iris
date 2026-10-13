@@ -104,6 +104,16 @@ class MockDownloadsRepository implements DownloadsRepository {
   Future<void> retry({required String id}) =>
       _setStatus(id, DownloadStatus.queued);
 
+  /// Every mock download is of the one mock source.
+  @override
+  Stream<Map<int, DownloadItem>> watchSourceDownloads({
+    required String magnet,
+  }) {
+    return watchDownloads().map(
+      (items) => {for (final item in items) item.fileIndex: item},
+    );
+  }
+
   @override
   Stream<List<DownloadItem>> watchDownloads() async* {
     yield List.of(_items);

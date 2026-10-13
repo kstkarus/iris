@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 
 import 'package:iris/app/router/app_shell_page.dart';
+import 'package:iris/features/downloads/presentation/pages/download_selection_page.dart';
 import 'package:iris/shared/widgets/dithered_image.dart';
 import 'package:iris/shared/widgets/adaptive/adaptive_content_width.dart';
 
@@ -139,6 +141,16 @@ void main() {
       expect(tester.takeException(), isNull);
 
       await _tapAndSettle(tester, find.byTooltip('Download').first);
+      // The picker stays, its row done, at every width.
+      await pumpUntilVisible(
+        tester,
+        find.byKey(const ValueKey('download_file_done_0')),
+      );
+      expect(tester.takeException(), isNull);
+
+      GoRouter.of(
+        tester.element(find.byType(DownloadSelectionPage)),
+      ).goNamed('downloads');
       await pumpUntilVisible(tester, find.byTooltip('Watch'));
       await tester.pumpAndSettle();
 

@@ -13,6 +13,14 @@
   "downloadUnableToQueue": "Unable to add this file to the download queue.",
   "downloadFileButton": "Download",
   "downloadAddingToQueue": "Adding to queue...",
+  "downloadSelectionLoading": "Downloading · {percent}%",
+  "@downloadSelectionLoading": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
   "downloadManagerUnableToLoad": "Unable to load downloads.",
   "downloadStorageTitle": "App storage",
   "downloadStorageTotal": "Total used by app",

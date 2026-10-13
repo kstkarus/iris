@@ -1,8 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:iris/features/downloads/data/repositories/mock_downloads_repository.dart';
+import 'package:iris/features/downloads/domain/entities/download_item.dart';
+import 'package:iris/features/downloads/domain/entities/download_status.dart';
 import 'package:iris/features/downloads/domain/entities/downloadable_file.dart';
 import 'package:iris/features/downloads/domain/entities/prepared_download_source.dart';
 import 'package:iris/features/downloads/presentation/cubit/download_selection_cubit.dart';
@@ -35,7 +39,7 @@ void main() {
             repository: _EpisodesRepository(qualities),
             qualityPreferences: preferences,
           )..load(),
-          child: DownloadSelectionPage(args: args, onQueued: (_) {}),
+          child: DownloadSelectionPage(args: args),
         ),
       ),
     );
@@ -67,6 +71,45 @@ void main() {
     expect(preferences.downloading, 480);
   });
 
+  testWidgets('episodes are queued one tap each, and the screen stays and '
+      'shows how each goes', (tester) async {
+    final repository = _LoadingRepository();
+    await tester.pumpWidget(
+      testApp(
+        BlocProvider(
+          create: (_) =>
+              DownloadSelectionCubit(args: _online, repository: repository)
+                ..load(),
+          child: const DownloadSelectionPage(args: _online),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('download_file_button_1')));
+    await tester.pumpAndSettle();
+    expect(find.text('Download an episode'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('download_file_progress_1')),
+      findsOneWidget,
+    );
+    expect(find.text('Queued'), findsOneWidget);
+
+    await tester.tap(find.text('02'));
+    await tester.pumpAndSettle();
+    expect(repository.queued, [1, 2]);
+
+    repository.load(1, 0.42);
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Downloading · 42%'), findsOneWidget);
+
+    repository.load(1, 1);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('download_file_done_1')), findsOneWidget);
+    expect(find.textContaining('Done'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('a release whose qualities are unknown offers no choice', (
     tester,
   ) async {
@@ -95,5 +138,72 @@ class _EpisodesRepository extends MockDownloadsRepository {
       ],
       qualities: qualities,
     );
+  }
+}
+
+/// Two episodes whose downloads a test moves along.
+class _LoadingRepository extends _EpisodesRepository {
+  _LoadingRepository() : super(const []);
+
+  final queued = <int>[];
+  final _downloads = <int, DownloadItem>{};
+  final _changes = StreamController<Map<int, DownloadItem>>.broadcast();
+
+  @override
+  Stream<Map<int, DownloadItem>> watchSourceDownloads({
+    required String magnet,
+  }) async* {
+    yield Map.of(_downloads);
+    yield* _changes.stream;
+  }
+
+  @override
+  Future<DownloadItem> enqueueDownload({
+    required PreparedDownloadSource source,
+    required DownloadableFile file,
+    required String animeId,
+    required String animeTitle,
+    required String sourceTitle,
+    int? quality,
+  }) async {
+    queued.add(file.index);
+    final item = DownloadItem(
+      id: 'episode-${file.index}',
+      animeId: animeId,
+      animeTitle: animeTitle,
+      sourceTitle: sourceTitle,
+      magnet: _online.magnet,
+      fileIndex: file.index,
+      fileName: file.name,
+      relativePath: '',
+      localPath: '',
+      totalBytes: 0,
+      downloadedBytes: 0,
+      downloadRateBytesPerSecond: 0,
+      peers: 0,
+      status: DownloadStatus.queued,
+      createdAt: DateTime(2026),
+    );
+    _set(item);
+    return item;
+  }
+
+  /// Episode [index] has loaded [share] of its 100 MB; all of it is done.
+  void load(int index, double share) {
+    const total = 100 * 1024 * 1024;
+    _set(
+      _downloads[index]!.copyWith(
+        totalBytes: total,
+        downloadedBytes: (total * share).round(),
+        status: share >= 1
+            ? DownloadStatus.completed
+            : DownloadStatus.downloading,
+      ),
+    );
+  }
+
+  void _set(DownloadItem item) {
+    _downloads[item.fileIndex] = item;
+    _changes.add(Map.of(_downloads));
   }
 }

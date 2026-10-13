@@ -52,6 +52,11 @@ class AppLocalizationsRu extends AppLocalizations {
   String get downloadAddingToQueue => 'Добавляем в очередь...';
 
   @override
+  String downloadSelectionLoading(int percent) {
+    return 'Загружается · $percent %';
+  }
+
+  @override
   String get downloadManagerUnableToLoad =>
       'Не удалось открыть список загрузок.';
 

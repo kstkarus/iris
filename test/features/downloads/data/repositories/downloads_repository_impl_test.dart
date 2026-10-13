@@ -11,6 +11,8 @@ import 'package:iris/features/downloads/data/datasources/download_registry_data_
 import 'package:iris/features/downloads/data/repositories/downloads_repository_impl.dart';
 import 'package:iris/features/downloads/domain/entities/download_item.dart';
 import 'package:iris/features/downloads/domain/entities/download_status.dart';
+import 'package:iris/features/downloads/domain/entities/downloadable_file.dart';
+import 'package:iris/features/downloads/domain/entities/prepared_download_source.dart';
 import 'package:iris/shared/storage/stream_cache_storage.dart';
 import 'package:iris/shared/torrent/preparation_cancelled_exception.dart';
 import 'package:iris/shared/torrent/torrent_activity_registry.dart';
@@ -85,7 +87,7 @@ void main() {
     'queues one selected file and gives all other files zero priority',
     () async {
       final source = await repository.prepareSource(magnet: _magnet);
-      final item = await repository.enqueueDownload(
+      final item = await repository.enqueueAndLeave(
         source: source,
         file: source.files[1],
         animeId: '154587',
@@ -105,9 +107,61 @@ void main() {
     },
   );
 
+  test('files queued from an open picker start once it is left, and show '
+      'by file', () async {
+    final source = await repository.prepareSource(magnet: _magnet);
+    for (final file in source.files) {
+      await repository.enqueueDownload(
+        source: source,
+        file: file,
+        animeId: '154587',
+        animeTitle: 'Sousou no Frieren',
+        sourceTitle: 'Release',
+      );
+    }
+
+    final shown = await repository.watchSourceDownloads(magnet: _magnet).first;
+    expect(shown.keys, unorderedEquals(source.files.map((file) => file.index)));
+    expect(
+      shown.values.map((item) => item.status),
+      everyElement(DownloadStatus.queued),
+    );
+    expect(
+      await repository
+          .watchSourceDownloads(magnet: 'magnet:?xt=urn:btih:0011223344556677')
+          .first,
+      isEmpty,
+    );
+    // The picker holds the torrent: nothing starts on it yet.
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+    expect(engine.addCalls.where((call) => !call.metadataOnly), isEmpty);
+
+    await repository.disposePreparedSource(sourceToken: source.sourceToken);
+
+    await _waitFor(() => engine.priorityCalls.isNotEmpty);
+    expect(engine.addCalls.last.metadataOnly, isFalse);
+    expect(engine.priorityCalls.single.priorities, [7, 0, 0, 0]);
+  });
+
+  test('a file queued twice at once is one download', () async {
+    final source = await repository.prepareSource(magnet: _magnet);
+    Future<DownloadItem> enqueue() => repository.enqueueDownload(
+      source: source,
+      file: source.files.first,
+      animeId: '154587',
+      animeTitle: 'Sousou no Frieren',
+      sourceTitle: 'Release',
+    );
+
+    final (first, second) = await (enqueue(), enqueue()).wait;
+
+    expect(second.id, first.id);
+    expect(await repository.currentDownloads(), hasLength(1));
+  });
+
   test('marks a finished file completed without deleting it', () async {
     final source = await repository.prepareSource(magnet: _magnet);
-    final item = await repository.enqueueDownload(
+    final item = await repository.enqueueAndLeave(
       source: source,
       file: source.files.first,
       animeId: '154587',
@@ -149,7 +203,7 @@ void main() {
     'pause preserves partial files and resume starts the item again',
     () async {
       final source = await repository.prepareSource(magnet: _magnet);
-      final item = await repository.enqueueDownload(
+      final item = await repository.enqueueAndLeave(
         source: source,
         file: source.files.first,
         animeId: '154587',
@@ -306,7 +360,7 @@ void main() {
   test('does not complete while wanted pieces are still missing even if raw '
       'done-bytes reach the file size', () async {
     final source = await repository.prepareSource(magnet: _magnet);
-    final item = await repository.enqueueDownload(
+    final item = await repository.enqueueAndLeave(
       source: source,
       file: source.files.first,
       animeId: '154587',
@@ -327,7 +381,7 @@ void main() {
   test('ignores engine state until the selected file is prioritized', () async {
     final source = await repository.prepareSource(magnet: _magnet);
     engine.metadataGate = Completer<void>();
-    await repository.enqueueDownload(
+    await repository.enqueueAndLeave(
       source: source,
       file: source.files.first,
       animeId: '154587',
@@ -359,14 +413,14 @@ void main() {
     const otherMagnet = 'magnet:?xt=urn:btih:0011223344556677';
     final first = await repository.prepareSource(magnet: _magnet);
     final second = await repository.prepareSource(magnet: otherMagnet);
-    final firstItem = await repository.enqueueDownload(
+    final firstItem = await repository.enqueueAndLeave(
       source: first,
       file: first.files.first,
       animeId: '1',
       animeTitle: 'First',
       sourceTitle: 'Release',
     );
-    final secondItem = await repository.enqueueDownload(
+    final secondItem = await repository.enqueueAndLeave(
       source: second,
       file: second.files.first,
       animeId: '2',
@@ -397,14 +451,14 @@ void main() {
       final first = await repository.prepareSource(magnet: _magnet);
       final second = await repository.prepareSource(magnet: otherMagnet);
       engine.metadataGate = Completer<void>();
-      final firstItem = await repository.enqueueDownload(
+      final firstItem = await repository.enqueueAndLeave(
         source: first,
         file: first.files.first,
         animeId: '1',
         animeTitle: 'First',
         sourceTitle: 'Release',
       );
-      await repository.enqueueDownload(
+      await repository.enqueueAndLeave(
         source: second,
         file: second.files.first,
         animeId: '2',
@@ -431,7 +485,7 @@ void main() {
   test('selection for a torrent that is downloading borrows it instead of '
       'adding a duplicate that would delete the download on dispose', () async {
     final source = await repository.prepareSource(magnet: _magnet);
-    await repository.enqueueDownload(
+    await repository.enqueueAndLeave(
       source: source,
       file: source.files.first,
       animeId: '154587',
@@ -459,7 +513,7 @@ void main() {
     'a queued download waits while a selection owns the same torrent',
     () async {
       final source = await repository.prepareSource(magnet: _magnet);
-      final item = await repository.enqueueDownload(
+      final item = await repository.enqueueAndLeave(
         source: source,
         file: source.files.first,
         animeId: '154587',
@@ -495,7 +549,7 @@ void main() {
   test('streaming the same torrent sends the active download back to the queue '
       'and resumes it afterwards', () async {
     final source = await repository.prepareSource(magnet: _magnet);
-    await repository.enqueueDownload(
+    await repository.enqueueAndLeave(
       source: source,
       file: source.files.first,
       animeId: '154587',
@@ -532,7 +586,7 @@ void main() {
     'streaming another torrent does not touch the active download',
     () async {
       final source = await repository.prepareSource(magnet: _magnet);
-      await repository.enqueueDownload(
+      await repository.enqueueAndLeave(
         source: source,
         file: source.files.first,
         animeId: '154587',
@@ -556,7 +610,7 @@ void main() {
   test('a completion awaiting its notification does not overwrite a pause or '
       'the next download', () async {
     final firstSource = await repository.prepareSource(magnet: _magnet);
-    final first = await repository.enqueueDownload(
+    final first = await repository.enqueueAndLeave(
       source: firstSource,
       file: firstSource.files.first,
       animeId: '1',
@@ -568,7 +622,7 @@ void main() {
 
     const otherMagnet = 'magnet:?xt=urn:btih:0011223344556677';
     final secondSource = await repository.prepareSource(magnet: otherMagnet);
-    final second = await repository.enqueueDownload(
+    final second = await repository.enqueueAndLeave(
       source: secondSource,
       file: secondSource.files.first,
       animeId: '2',
@@ -613,7 +667,7 @@ void main() {
   test('pausing while the start is creating the directory keeps the item '
       'paused', () async {
     final source = await repository.prepareSource(magnet: _magnet);
-    final item = await repository.enqueueDownload(
+    final item = await repository.enqueueAndLeave(
       source: source,
       file: source.files.first,
       animeId: '154587',
@@ -636,7 +690,7 @@ void main() {
     'deleting while the start is creating the directory adds no torrent',
     () async {
       final source = await repository.prepareSource(magnet: _magnet);
-      final item = await repository.enqueueDownload(
+      final item = await repository.enqueueAndLeave(
         source: source,
         file: source.files.first,
         animeId: '154587',
@@ -656,7 +710,7 @@ void main() {
   test('streaming the same torrent while the start is creating the directory '
       'keeps the item queued', () async {
     final source = await repository.prepareSource(magnet: _magnet);
-    await repository.enqueueDownload(
+    await repository.enqueueAndLeave(
       source: source,
       file: source.files.first,
       animeId: '154587',
@@ -686,7 +740,7 @@ void main() {
     () async {
       final source = await repository.prepareSource(magnet: _magnet);
       foregroundService.startGate = Completer<void>();
-      final item = await repository.enqueueDownload(
+      final item = await repository.enqueueAndLeave(
         source: source,
         file: source.files.first,
         animeId: '154587',
@@ -712,7 +766,7 @@ void main() {
     'a folder that cannot be deleted keeps the record, stopped, to delete again',
     () async {
       final source = await repository.prepareSource(magnet: _magnet);
-      final item = await repository.enqueueDownload(
+      final item = await repository.enqueueAndLeave(
         source: source,
         file: source.files.first,
         animeId: '154587',
@@ -764,7 +818,7 @@ void main() {
 
   test('cancelling the wait for a borrowed torrent removes nothing', () async {
     final source = await repository.prepareSource(magnet: _magnet);
-    await repository.enqueueDownload(
+    await repository.enqueueAndLeave(
       source: source,
       file: source.files.first,
       animeId: '154587',
@@ -821,7 +875,7 @@ void main() {
       ).writeDownloads([legacy]);
 
       final source = await repository.prepareSource(magnet: base32Magnet);
-      final item = await repository.enqueueDownload(
+      final item = await repository.enqueueAndLeave(
         source: source,
         file: source.files.first,
         animeId: '154587',
@@ -877,7 +931,7 @@ void main() {
 
     await fullDiskRepository.restore();
     final source = await fullDiskRepository.prepareSource(magnet: _magnet);
-    await fullDiskRepository.enqueueDownload(
+    await fullDiskRepository.enqueueAndLeave(
       source: source,
       file: source.files[1],
       animeId: '154587',
@@ -960,7 +1014,7 @@ void main() {
     () async {
       const otherMagnet = 'magnet:?xt=urn:btih:0011223344556677';
       final active = await repository.prepareSource(magnet: otherMagnet);
-      final activeItem = await repository.enqueueDownload(
+      final activeItem = await repository.enqueueAndLeave(
         source: active,
         file: active.files.first,
         animeId: '1',
@@ -969,7 +1023,7 @@ void main() {
       );
       await _waitFor(() => engine.priorityCalls.isNotEmpty);
       final queued = await repository.prepareSource(magnet: _magnet);
-      await repository.enqueueDownload(
+      await repository.enqueueAndLeave(
         source: queued,
         file: queued.files.first,
         animeId: '2',
@@ -1017,7 +1071,7 @@ void main() {
     () async {
       const otherMagnet = 'magnet:?xt=urn:btih:0011223344556677';
       final active = await repository.prepareSource(magnet: otherMagnet);
-      final activeItem = await repository.enqueueDownload(
+      final activeItem = await repository.enqueueAndLeave(
         source: active,
         file: active.files.first,
         animeId: '1',
@@ -1026,7 +1080,7 @@ void main() {
       );
       await _waitFor(() => engine.priorityCalls.isNotEmpty);
       final queued = await repository.prepareSource(magnet: _magnet);
-      await repository.enqueueDownload(
+      await repository.enqueueAndLeave(
         source: queued,
         file: queued.files.first,
         animeId: '2',
@@ -1066,7 +1120,7 @@ void main() {
     const otherMagnet = 'magnet:?xt=urn:btih:0011223344556677';
     const nextMagnet = 'magnet:?xt=urn:btih:8899AABBCCDDEEFF';
     final active = await repository.prepareSource(magnet: otherMagnet);
-    final activeItem = await repository.enqueueDownload(
+    final activeItem = await repository.enqueueAndLeave(
       source: active,
       file: active.files.first,
       animeId: '1',
@@ -1075,7 +1129,7 @@ void main() {
     );
     await _waitFor(() => engine.priorityCalls.isNotEmpty);
     final blocked = await repository.prepareSource(magnet: _magnet);
-    final blockedItem = await repository.enqueueDownload(
+    final blockedItem = await repository.enqueueAndLeave(
       source: blocked,
       file: blocked.files.first,
       animeId: '2',
@@ -1083,7 +1137,7 @@ void main() {
       sourceTitle: 'Release',
     );
     final next = await repository.prepareSource(magnet: nextMagnet);
-    await repository.enqueueDownload(
+    await repository.enqueueAndLeave(
       source: next,
       file: next.files.first,
       animeId: '3',
@@ -1116,7 +1170,7 @@ void main() {
       'borrowed, not added twice', () async {
     const otherMagnet = 'magnet:?xt=urn:btih:0011223344556677';
     final active = await repository.prepareSource(magnet: otherMagnet);
-    final activeItem = await repository.enqueueDownload(
+    final activeItem = await repository.enqueueAndLeave(
       source: active,
       file: active.files.first,
       animeId: '1',
@@ -1125,7 +1179,7 @@ void main() {
     );
     await _waitFor(() => engine.priorityCalls.isNotEmpty);
     final queued = await repository.prepareSource(magnet: _magnet);
-    await repository.enqueueDownload(
+    await repository.enqueueAndLeave(
       source: queued,
       file: queued.files.first,
       animeId: '2',
@@ -1392,4 +1446,28 @@ Future<void> _waitFor(bool Function() condition) async {
     await Future<void>.delayed(const Duration(milliseconds: 5));
   }
   throw TimeoutException('Condition was not met.');
+}
+
+extension on DownloadsRepositoryImpl {
+  /// Queues [file] and leaves its selection screen, which lets the source
+  /// go: the queue then starts what it holds.
+  Future<DownloadItem> enqueueAndLeave({
+    required PreparedDownloadSource source,
+    required DownloadableFile file,
+    required String animeId,
+    required String animeTitle,
+    required String sourceTitle,
+    int? quality,
+  }) async {
+    final item = await enqueueDownload(
+      source: source,
+      file: file,
+      animeId: animeId,
+      animeTitle: animeTitle,
+      sourceTitle: sourceTitle,
+      quality: quality,
+    );
+    await disposePreparedSource(sourceToken: source.sourceToken);
+    return item;
+  }
 }

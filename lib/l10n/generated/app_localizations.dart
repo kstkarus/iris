@@ -176,6 +176,12 @@ abstract class AppLocalizations {
   /// **'Adding to queue...'**
   String get downloadAddingToQueue;
 
+  /// No description provided for @downloadSelectionLoading.
+  ///
+  /// In en, this message translates to:
+  /// **'Downloading · {percent}%'**
+  String downloadSelectionLoading(int percent);
+
   /// No description provided for @downloadManagerUnableToLoad.
   ///
   /// In en, this message translates to:

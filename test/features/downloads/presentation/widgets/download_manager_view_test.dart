@@ -99,7 +99,7 @@ void main() {
             args: args,
             repository: MockDownloadsRepository(),
           )..load(),
-          child: DownloadSelectionPage(args: args, onQueued: (_) {}),
+          child: DownloadSelectionPage(args: args),
         ),
       );
 

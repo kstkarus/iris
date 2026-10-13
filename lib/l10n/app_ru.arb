@@ -13,6 +13,7 @@
   "downloadUnableToQueue": "Не удалось добавить файл в очередь загрузок.",
   "downloadFileButton": "Скачать",
   "downloadAddingToQueue": "Добавляем в очередь...",
+  "downloadSelectionLoading": "Загружается · {percent} %",
   "downloadManagerUnableToLoad": "Не удалось открыть список загрузок.",
   "downloadStorageTitle": "Память приложения",
   "downloadStorageTotal": "Всего занято приложением",

@@ -14,7 +14,9 @@ abstract interface class DownloadsRepository {
   Future<void> disposePreparedSource({required String sourceToken});
 
   /// [quality] caps the picture height of an online episode (null: the
-  /// best); a torrent file ignores it.
+  /// best); a torrent file ignores it. The source stays prepared, so more
+  /// of its files can be queued until it is disposed; a torrent's files
+  /// start once it is.
   Future<DownloadItem> enqueueDownload({
     required PreparedDownloadSource source,
     required DownloadableFile file,
@@ -25,6 +27,10 @@ abstract interface class DownloadsRepository {
   });
 
   Stream<List<DownloadItem>> watchDownloads();
+
+  /// The downloads of the torrent or online release [magnet], by file
+  /// index, now and on every change.
+  Stream<Map<int, DownloadItem>> watchSourceDownloads({required String magnet});
 
   Future<void> pause({required String id});
 
