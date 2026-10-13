@@ -148,6 +148,32 @@ void main() {
     expect(engine.removeCalls, hasLength(removed));
   });
 
+  test('two pickers of one torrent opened together both get its files, and '
+      'its metadata torrent goes once', () async {
+    engine.metadataGate = Completer<void>();
+    final first = repository.prepareSource(magnet: _magnet);
+    await _waitFor(() => engine.addCalls.isNotEmpty);
+    // The second borrows the torrent the first is still reading.
+    final second = repository.prepareSource(magnet: _magnet);
+    await Future<void>.delayed(Duration.zero);
+    engine.metadataGate!.complete();
+
+    final (a, b) = await (first, second).wait;
+
+    expect(a.files, hasLength(2));
+    expect(b.files, hasLength(2));
+    final metadataId = engine.addCalls.single.id;
+    expect(engine.removeCalls.where((call) => call.torrentId == metadataId), [
+      _RemoveCall(metadataId, deleteFiles: true),
+    ]);
+    await repository.disposePreparedSource(sourceToken: a.sourceToken);
+    await repository.disposePreparedSource(sourceToken: b.sourceToken);
+    expect(
+      engine.removeCalls.where((call) => call.torrentId == metadataId),
+      hasLength(1),
+    );
+  });
+
   test('a file queued twice at once is one download', () async {
     final source = await repository.prepareSource(magnet: _magnet);
     Future<DownloadItem> enqueue() => repository.enqueueDownload(
@@ -1285,7 +1311,10 @@ class _FakeDownloadEngine implements LibtorrentDownloadEngineAdapter {
   }
 
   @override
-  List<DownloadEngineFile> getFiles(int torrentId) => files;
+  /// None once the torrent is removed, as the native session has no
+  /// handle for it then.
+  List<DownloadEngineFile> getFiles(int torrentId) =>
+      removeCalls.any((call) => call.torrentId == torrentId) ? const [] : files;
 
   @override
   Future<void> initialize() async {}

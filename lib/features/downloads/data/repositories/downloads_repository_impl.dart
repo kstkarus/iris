@@ -412,7 +412,7 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
         throw const PreparationCancelledException();
       }
       final files = _downloadableFiles(runtime.torrentId);
-      await _releaseMetadataTorrent(token, runtime);
+      await _releaseMetadataTorrent(token);
       return PreparedDownloadSource(sourceToken: token, files: files);
     } catch (_) {
       await disposePreparedSource(sourceToken: token);
@@ -423,16 +423,24 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
   /// With the files read, the source has no use for its metadata torrent;
   /// held while the picker stays open, it would keep the files queued from
   /// that picker waiting until it closed (or forever, the app left on it).
-  Future<void> _releaseMetadataTorrent(
-    String token,
-    _PreparedRuntime runtime,
-  ) async {
-    final directory = runtime.metadataDirectory;
-    if (directory == null) return;
+  /// A picker of the same torrent still reading its files (one opened at
+  /// the same time) takes it over instead, and lets it go in turn.
+  Future<void> _releaseMetadataTorrent(String token) async {
+    final runtime = _preparedSources[token];
+    final directory = runtime?.metadataDirectory;
+    if (runtime == null || directory == null) return;
     _preparedSources[token] = _PreparedRuntime.released(
       magnet: runtime.magnet,
       torrentKey: runtime.torrentKey,
     );
+    for (final MapEntry(key: other, value: borrower)
+        in _preparedSources.entries.toList()) {
+      if (borrower.metadataDirectory == null &&
+          borrower.torrentId == runtime.torrentId) {
+        _preparedSources[other] = runtime;
+        return;
+      }
+    }
     _engine.remove(runtime.torrentId, deleteFiles: true);
     await _deleteMetadataFolder(directory);
     // A queued download of the same torrent may have been waiting for it.
