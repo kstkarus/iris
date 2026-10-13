@@ -4,6 +4,13 @@ Notable changes to iris, newest first. The format follows [Keep a Changelog](htt
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-10-13
+
+### Changed
+
+- The download picker stays open: tap each episode to queue it, and its row shows the download filling up, then a check. It no longer jumps to the Downloads tab after the first one, so a season for the road is a tap per episode.
+- A file whose chapters are only numbered ("Chapter 01", "Chapter 02"…, as disc rips usually come) shows the opening and ending from AniSkip on the timeline when AniSkip knows them, instead of the numbered chapters.
+
 ### Fixed
 
 - Skip opening, "+85 s" and Next episode appear once the video has actually started, and their few seconds on screen pass only while it plays: not before the picture moves, not while paused or loading. Resting the pointer on one fills its bar back up smoothly instead of jumping.
@@ -26,16 +33,6 @@ Notable changes to iris, newest first. The format follows [Keep a Changelog](htt
 - Android: the download notification no longer stays behind with nothing downloading, nor after the app is closed; closing the app ends the download, which goes on at the next launch.
 - Rows added to a list no longer replay their opening animation when another row comes or goes above them.
 - The source tabs (Online, Torrents, Mine) wrap onto a second line in very large text instead of running off a narrow screen.
-
-## [1.4.0] - 2026-10-13
-
-### Changed
-
-- The download picker stays open: tap each episode to queue it, and its row shows the download filling up, then a check. It no longer jumps to the Downloads tab after the first one, so a season for the road is a tap per episode.
-- A file whose chapters are only numbered ("Chapter 01", "Chapter 02"…, as disc rips usually come) shows the opening and ending from AniSkip on the timeline when AniSkip knows them, instead of the numbered chapters.
-
-### Fixed
-
 - A downloads list that cannot be saved (a full disk) no longer stalls the queue with a torrent fetching every file instead of the chosen one. The list is saved again later.
 - Android: the app no longer crashes when a download's progress updates after the system stopped the download service, and queued downloads keep the service from one to the next while the app is in the background.
 - When undoing an episode mark fails, the player says so and its Retry tries the undo again. It said the mark had failed, and Retry marked the episode once more.
