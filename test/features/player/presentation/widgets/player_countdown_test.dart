@@ -185,4 +185,24 @@ void main() {
     expect(barShare(tester), 1);
     await mouse.removePointer();
   });
+
+  testWidgets('counts in full time with the system\'s animations off', (
+    tester,
+  ) async {
+    tester.platformDispatcher.accessibilityFeaturesTestValue =
+        const FakeAccessibilityFeatures(disableAnimations: true);
+    addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
+    var elapsed = 0;
+    await pump(
+      tester,
+      duration: const Duration(seconds: 8),
+      onElapsed: () => elapsed++,
+      noMotion: true,
+    );
+    await tester.pump();
+
+    await tester.pump(const Duration(seconds: 2));
+    expect(barShare(tester), closeTo(0.75, 0.01));
+    expect(elapsed, 0);
+  });
 }

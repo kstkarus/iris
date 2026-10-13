@@ -180,9 +180,12 @@ class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
   /// Keeps the small window told what plays; null without one.
   _PictureInPictureLink? _pictureInPicture;
 
+  late final AppLifecycleListener _lifecycle;
+
   @override
   void initState() {
     super.initState();
+    _lifecycle = AppLifecycleListener(onHide: _onAppHidden);
     widget.engine.addListener(_onEngineChanged);
     _videoFit.addListener(_onVideoFitChanged);
     final pictureInPicture = widget.pictureInPicture;
@@ -220,6 +223,7 @@ class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
 
   @override
   void dispose() {
+    _lifecycle.dispose();
     widget.engine.removeListener(_onEngineChanged);
     _pictureInPicture?.dispose();
     if (_windowFullscreen.value) unawaited(widget.exitNativeFullscreen());
@@ -239,6 +243,16 @@ class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
     _controller = widget.engine.videoController;
     _pictureInPicture?.follow();
     setState(() {});
+  }
+
+  /// A phone that leaves the app without the small window pauses: nothing
+  /// would show the video, and a torrent would stream on unseen. A desktop
+  /// window, even minimised, plays on as other players do.
+  void _onAppHidden() {
+    if (widget.input != PlayerInputMode.touch) return;
+    if (_pictureInPicture?.active.value ?? false) return;
+    final engine = widget.engine;
+    if (engine.hasPlayer) unawaited(engine.player.pause());
   }
 
   Future<void> _enterPictureInPicture() async {

@@ -295,8 +295,15 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
   List<PlayerSkipSegment> _lookedUpSegments = const [];
   bool _skipTimesPending = false;
 
-  List<PlayerSkipSegment> get _skipSegments =>
-      _chapterSegments.isNotEmpty ? _chapterSegments : _lookedUpSegments;
+  /// The file's own chapters for each kind they name, the looked-up times
+  /// for the rest: chapters naming only the ending keep the opening found
+  /// online.
+  List<PlayerSkipSegment> get _skipSegments => [
+    ..._chapterSegments,
+    for (final segment in _lookedUpSegments)
+      if (!_chapterSegments.any((chapter) => chapter.kind == segment.kind))
+        segment,
+  ];
 
   @override
   Stream<PlayerEngineEvent> get events => _events.stream;
@@ -471,6 +478,16 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
   }
 
   bool get _canSeek => _startupState.hasDuration || _isReady;
+
+  /// Where playback is, or where it will be once the file has started:
+  /// until then mpv reports 0 while the file opens at the resume position,
+  /// and a step from there would lose it.
+  Duration get position {
+    final player = _player;
+    if (player == null || _closed) return Duration.zero;
+    if (_isReady) return player.state.position;
+    return _pendingSeek ?? _openPosition ?? player.state.position;
+  }
 
   void _applyPendingSeek() {
     final position = _pendingSeek;
@@ -900,10 +917,18 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
 
   void _refreshAdvancing() {
     if (_closed) return;
+    // A reopened file (retry, quality, a fresh link) starts over: nothing
+    // counts while it loads behind the spinner.
+    // From the player's state, not [buffering]: a batch of its events
+    // reaches this through whichever handler runs first.
+    final state = _player?.state;
     final now =
         _startAnnounced &&
-        (_player?.state.playing ?? false) &&
-        !buffering.value;
+        _isReady &&
+        _startupState.firstFrameRendered &&
+        state != null &&
+        state.playing &&
+        !state.buffering;
     advancing.value = now;
     if (now && !_hasAdvanced) {
       _hasAdvanced = true;
@@ -1042,10 +1067,7 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
     if (_closed || startupGeneration != _startupGeneration) return;
     _chapters = List.unmodifiable(chapters);
     _refreshTimeline();
-    _chapterSegments = skipSegmentsFromChapters(
-      chapters,
-      player.state.duration,
-    );
+    _refreshChapterSegments();
     developer.log(
       'Chapters read. count=${chapters.length} skip=$_chapterSegments',
       name: 'iris.player.media',
@@ -1053,9 +1075,21 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
     _refreshPositionOffers();
   }
 
+  /// Again once the duration is known: the last chapter ends with the file.
+  void _refreshChapterSegments() {
+    _chapterSegments = skipSegmentsFromChapters(
+      _chapters,
+      _player?.state.duration ?? Duration.zero,
+    );
+  }
+
   void _onDuration(Duration duration) {
     if (_closed) return;
     _refreshTimeline();
+    if (_chapters.isNotEmpty) {
+      _refreshChapterSegments();
+      _refreshPositionOffers();
+    }
     final hasDuration = duration > Duration.zero;
     if (_startupState.hasDuration == hasDuration) return;
 
@@ -1363,8 +1397,8 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
         next.firstFrameRendered) {
       _startAnnounced = true;
       _emit(const PlayerEnginePlaybackStarted());
-      _refreshAdvancing();
     }
+    _refreshAdvancing();
   }
 
   void _cancelStartupTimeout() {

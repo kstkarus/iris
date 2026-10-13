@@ -33,8 +33,13 @@ class PlayerCountdown extends StatefulWidget {
 
 class _PlayerCountdownState extends State<PlayerCountdown>
     with SingleTickerProviderStateMixin {
-  late final _controller = AnimationController(vsync: this, value: 1)
-    ..addListener(_onTick);
+  // Preserve: with animations off the OS would run the count 20 times
+  // faster, gone before it could be read. The refill follows the setting.
+  late final _controller = AnimationController(
+    vsync: this,
+    value: 1,
+    animationBehavior: AnimationBehavior.preserve,
+  )..addListener(_onTick);
   final _holds = <Object>{};
 
   /// Whether this count has run out and said so.

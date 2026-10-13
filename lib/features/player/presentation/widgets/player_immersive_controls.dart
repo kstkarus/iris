@@ -382,7 +382,7 @@ class _PlayerImmersiveControlsState extends State<PlayerImmersiveControls> {
     final player = _player;
     if (player == null) return;
     final duration = player.state.duration;
-    var target = player.state.position + delta;
+    var target = widget.engine.position + delta;
     if (target < Duration.zero) target = Duration.zero;
     if (duration > Duration.zero && target > duration) target = duration;
     unawaited(widget.engine.seek(target));
@@ -476,6 +476,13 @@ class _PlayerImmersiveControlsState extends State<PlayerImmersiveControls> {
   KeyEventResult _onKey(FocusNode node, KeyEvent event) {
     if (event is KeyUpEvent || _locked) return KeyEventResult.ignored;
     final key = event.logicalKey;
+    // The drawer is modal: its cards take the arrows, the player only the
+    // keys that close it.
+    if (_episodesOpen &&
+        key != LogicalKeyboardKey.keyE &&
+        key != LogicalKeyboardKey.escape) {
+      return KeyEventResult.ignored;
+    }
     const step = PlayerImmersiveControls.seekStep;
     const volumeStep = PlayerImmersiveControls.volumeStep;
 
@@ -549,7 +556,7 @@ class _PlayerImmersiveControlsState extends State<PlayerImmersiveControls> {
             _TouchGestures(
               enabled: !_locked,
               playing: _playing,
-              position: () => _player?.state.position ?? Duration.zero,
+              position: () => widget.engine.position,
               duration: () => _player?.state.duration ?? Duration.zero,
               onTap: _toggleControls,
               onSeek: _seekTo,
@@ -591,7 +598,12 @@ class _PlayerImmersiveControlsState extends State<PlayerImmersiveControls> {
             bottom: _barHeight > 0 ? _subtitleClearanceAbove : _offerClearance,
             child: Offstage(
               offstage: _locked,
-              child: _NoticeCard(notice: notice, accent: accent),
+              // The mark notice after the resume one counts afresh.
+              child: _NoticeCard(
+                key: ValueKey(notice.onTimeout),
+                notice: notice,
+                accent: accent,
+              ),
             ),
           ),
         if (_volumeHud case final volume?)

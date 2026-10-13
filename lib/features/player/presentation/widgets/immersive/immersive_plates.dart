@@ -85,7 +85,7 @@ ButtonStyle _overVideoButtonStyle(ThemeData theme) {
 
 /// The resume message as part of the player rather than an app snackbar.
 class _NoticeCard extends StatelessWidget {
-  const _NoticeCard({required this.notice, required this.accent});
+  const _NoticeCard({required this.notice, required this.accent, super.key});
 
   final PlayerNotice notice;
   final Color accent;

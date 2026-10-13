@@ -1042,6 +1042,117 @@ void main() {
     expect(find.byKey(_nextPrompt), findsOneWidget, reason: 'the ending began');
   });
 
+  testWidgets('nothing counts down while a reopened file loads', (
+    tester,
+  ) async {
+    late _FakePlatformPlayer platformPlayer;
+    late MediaKitPlayerEngine engine;
+    await tester.pumpWidget(
+      _wrapViewport(
+        playerBuilder: (configuration) {
+          platformPlayer = _FakePlatformPlayer(configuration: configuration);
+          return Player(platformPlayer: platformPlayer);
+        },
+        onEngine: (value) => engine = value,
+      ),
+    );
+    await tester.pump();
+    platformPlayer
+      ..emitDuration(const Duration(minutes: 24))
+      ..emitPlaying(true)
+      ..emitPosition(const Duration(seconds: 40));
+    await _deliverPlayerEvent(tester);
+    expect(engine.advancing.value, isTrue);
+
+    // Playing and not buffering by mpv's account, but loading anew.
+    unawaited(engine.retry());
+    expect(engine.advancing.value, isFalse);
+    await _deliverPlayerEvent(tester);
+  });
+
+  testWidgets('chapters naming only the ending keep the looked-up opening', (
+    tester,
+  ) async {
+    late _FakePlatformPlayer platformPlayer;
+    late MediaKitPlayerEngine engine;
+
+    await tester.pumpWidget(
+      _wrapViewport(
+        playerBuilder: (configuration) {
+          platformPlayer = _FakePlatformPlayer(configuration: configuration)
+            ..nativeProperties.addAll({
+              'chapter-list/count': '3',
+              'chapter-list/0/title': 'Part A',
+              'chapter-list/0/time': '0.000000',
+              'chapter-list/1/title': 'Part B',
+              'chapter-list/1/time': '700.000000',
+              'chapter-list/2/title': 'ED',
+              'chapter-list/2/time': '1290.000000',
+            });
+          return Player(platformPlayer: platformPlayer);
+        },
+        onEngine: (value) => engine = value,
+      ),
+    );
+    await tester.pump();
+    platformPlayer
+      ..emitDuration(const Duration(minutes: 24))
+      ..emitPlaying(true)
+      ..emitPosition(const Duration(seconds: 30));
+    await _deliverPlayerEvent(tester);
+    await _deliverPlayerEvent(tester);
+    expect(engine.timeline.value.map((part) => part.title), [
+      'Part A',
+      'Part B',
+      'ED',
+    ], reason: 'the chapters are read');
+    engine.useSkipTimes(const [
+      PlayerSkipSegment(
+        kind: PlayerSkipKind.opening,
+        start: Duration(seconds: 50),
+        end: Duration(seconds: 140),
+      ),
+    ]);
+
+    platformPlayer.emitPosition(const Duration(seconds: 100));
+    await _deliverPlayerEvent(tester);
+
+    expect(find.text('Skip opening'), findsOneWidget);
+    expect(engine.skipForwardOffered.value, isFalse);
+  });
+
+  testWidgets('a chapter ending read before the duration counts once it is '
+      'known', (tester) async {
+    late _FakePlatformPlayer platformPlayer;
+
+    await tester.pumpWidget(
+      _wrapViewport(
+        playerBuilder: (configuration) {
+          platformPlayer = _FakePlatformPlayer(configuration: configuration)
+            ..nativeProperties.addAll({
+              'chapter-list/count': '2',
+              'chapter-list/0/title': 'Episode',
+              'chapter-list/0/time': '0.000000',
+              'chapter-list/1/title': 'Ending',
+              'chapter-list/1/time': '1200.000000',
+            });
+          return Player(platformPlayer: platformPlayer);
+        },
+        next: PlayerNextFile(title: 'Episode 3', play: () {}),
+      ),
+    );
+    // The picture comes first; the chapters are read without a duration.
+    await tester.pump();
+    await _deliverPlayerEvent(tester);
+    platformPlayer
+      ..emitPlaying(true)
+      ..emitDuration(const Duration(minutes: 24))
+      ..emitPosition(const Duration(minutes: 20, seconds: 5));
+    await _deliverPlayerEvent(tester);
+
+    expect(find.byKey(_nextPrompt), findsOneWidget, reason: 'the ending began');
+  });
+
   testWidgets('holds a seek asked for before the file loads until it can '
       'take it', (tester) async {
     late _FakePlatformPlayer platformPlayer;
@@ -1397,6 +1508,73 @@ void main() {
       expect(find.byKey(const Key('player_volume_hud')), findsNothing);
     });
 
+    testWidgets('leave the keys to the open episodes, but Escape', (
+      tester,
+    ) async {
+      setTestWindowSize(tester, TestWindowSizes.landscape);
+      final platformPlayer = _FakePlatformPlayer(
+        configuration: const PlayerConfiguration(),
+      );
+      await tester.pumpWidget(
+        _wrapViewport(
+          platformPlayer: platformPlayer,
+          chrome: chrome(
+            episodes: (context, close) => const Text('Episode list'),
+          ),
+        ),
+      );
+      await tester.pump();
+      platformPlayer.emitDuration(const Duration(minutes: 24));
+      platformPlayer.emitPosition(const Duration(minutes: 5));
+      await _deliverPlayerEvent(tester);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyE);
+      await tester.pumpAndSettle();
+
+      for (final key in const [
+        LogicalKeyboardKey.arrowRight,
+        LogicalKeyboardKey.arrowLeft,
+        LogicalKeyboardKey.arrowUp,
+        LogicalKeyboardKey.arrowDown,
+        LogicalKeyboardKey.keyL,
+        LogicalKeyboardKey.keyM,
+      ]) {
+        await tester.sendKeyEvent(key);
+      }
+      expect(platformPlayer.seeks, isEmpty);
+      expect(platformPlayer.volumes, isEmpty);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      expect(find.text('Episode list'), findsNothing);
+    });
+
+    testWidgets('step from the resume position while the file starts', (
+      tester,
+    ) async {
+      late _FakePlatformPlayer platformPlayer;
+      await tester.pumpWidget(
+        _wrapViewport(
+          playerBuilder: (configuration) {
+            platformPlayer = _FakePlatformPlayer(configuration: configuration);
+            return Player(platformPlayer: platformPlayer);
+          },
+          firstFrameFuture: Completer<void>().future,
+          chrome: chrome(),
+          startPosition: const Duration(minutes: 10),
+        ),
+      );
+      await tester.pump();
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+      platformPlayer.emitDuration(const Duration(minutes: 24));
+      await _deliverPlayerEvent(tester);
+
+      expect(
+        platformPlayer.seeks.last,
+        const Duration(minutes: 10, seconds: 10),
+      );
+    });
+
     testWidgets('switch the window to full screen and back, also when the '
         'player goes away', (tester) async {
       var entered = 0;
@@ -1655,6 +1833,33 @@ void main() {
 
       await tester.tap(find.byKey(const Key('player_notice_action')));
       expect(actions, 1);
+    });
+
+    testWidgets('count a notice put in place of one that ran out afresh', (
+      tester,
+    ) async {
+      setTestWindowSize(tester, TestWindowSizes.landscape);
+      final timedOut = <String>[];
+      PlayerNotice notice(String name) => PlayerNotice(
+        message: name,
+        actionLabel: 'Undo',
+        onAction: () {},
+        timeout: const Duration(seconds: 4),
+        onTimeout: () => timedOut.add(name),
+      );
+      final resume = notice('Resumed from 2:22');
+      await tester.pumpWidget(_wrapViewport(chrome: chrome(notice: resume)));
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 5));
+      expect(timedOut, ['Resumed from 2:22']);
+
+      // The mark notice waited behind it, and takes its place.
+      final mark = notice('Episode 11 marked');
+      await tester.pumpWidget(_wrapViewport(chrome: chrome(notice: mark)));
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 5));
+
+      expect(timedOut, ['Resumed from 2:22', 'Episode 11 marked']);
     });
 
     testWidgets('keep the episodes with the buttons beside the timeline', (
@@ -2914,6 +3119,34 @@ void main() {
       expect(window.clears, 1);
     });
 
+    testWidgets('pause a phone left without the window, not one in it', (
+      tester,
+    ) async {
+      final window = _FakePictureInPicture();
+      final platformPlayer = await open(tester, window);
+      void leaveApp() {
+        tester.binding
+          ..handleAppLifecycleStateChanged(AppLifecycleState.inactive)
+          ..handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+      }
+
+      void comeBack() {
+        tester.binding
+          ..handleAppLifecycleStateChanged(AppLifecycleState.inactive)
+          ..handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      }
+
+      window.active.value = true;
+      leaveApp();
+      expect(platformPlayer.pauseCount, 0);
+      comeBack();
+
+      window.active.value = false;
+      leaveApp();
+      expect(platformPlayer.pauseCount, 1);
+      comeBack();
+    });
+
     testWidgets('play and pause from the window, and pause when it is '
         'closed', (tester) async {
       final window = _FakePictureInPicture();
@@ -3055,6 +3288,7 @@ Widget _wrapViewport({
   ScreenBrightnessControl? brightness,
   PictureInPicture? pictureInPicture,
   OnlineQualityPreferences? onlineQuality,
+  Duration? startPosition,
 }) {
   final effectivePlatformPlayer =
       platformPlayer ??
@@ -3112,6 +3346,7 @@ Widget _wrapViewport({
           next: next,
           chrome: chrome,
           input: input,
+          startPosition: startPosition,
         ),
       ),
     ),
@@ -3150,9 +3385,11 @@ class _EngineHost extends StatefulWidget {
     required this.input,
     this.onEngine,
     this.next,
+    this.startPosition,
   });
 
   final MediaKitPlayerViewportFactory factory;
+  final Duration? startPosition;
   final PlayerSession session;
   final PlayerSubtitlePreferencesCubit subtitleCubit;
   final PlayerDecodingPreferencesCubit decodingCubit;
@@ -3174,7 +3411,9 @@ class _EngineHostState extends State<_EngineHost> {
   @override
   void initState() {
     super.initState();
-    unawaited(_engine.open(widget.session));
+    unawaited(
+      _engine.open(widget.session, startPosition: widget.startPosition),
+    );
     widget.onEngine?.call(_engine);
   }
 
