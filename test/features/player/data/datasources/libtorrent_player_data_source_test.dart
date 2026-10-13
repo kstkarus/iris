@@ -632,6 +632,39 @@ void main() {
       );
     });
 
+    test('a cancel ends the stats at once while they stay the same', () async {
+      final engine = _videoEngine(
+        runtimeStats: const PlaybackRuntimeStatsModel(
+          downloadRateBytesPerSecond: 1,
+          appMemoryBytes: null,
+          activePeers: 1,
+          bufferSeconds: 1,
+          bufferPieces: 1,
+          readaheadWindow: 1,
+        ),
+      );
+      final dataSource = LibtorrentPlayerDataSource(
+        engine: engine,
+        memoryAdapter: const FixedMemoryAdapter(null),
+        probe: _FakePlaybackStreamProbe(),
+        statsPollInterval: const Duration(milliseconds: 10),
+      );
+      final sessionId = await _prepare(dataSource);
+      await dataSource.startPlayback(sessionId: sessionId, fileIndex: 8).last;
+      final first = Completer<void>();
+      final subscription = dataSource
+          .watchPlaybackStats(sessionId: sessionId)
+          .listen((_) => first.isCompleted ? null : first.complete());
+      await first.future;
+      // Several polls of the same stats, none of them sent.
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+
+      await expectLater(
+        subscription.cancel().timeout(const Duration(milliseconds: 500)),
+        completes,
+      );
+    });
+
     test('a session still preparing keeps the torrent when the older one '
         'goes', () async {
       final gate = Completer<void>();

@@ -4,6 +4,10 @@ Notable changes to iris, newest first. The format follows [Keep a Changelog](htt
 
 ## [Unreleased]
 
+### Fixed
+
+- Closing a paused torrent video on Windows no longer hangs for five seconds before the stream is let go.
+
 ## [1.3.0] - 2026-10-12
 
 ### Added

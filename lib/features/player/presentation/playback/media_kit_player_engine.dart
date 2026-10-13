@@ -608,7 +608,9 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
     _stopWatchingDiagnostics();
     await _subtitlePreferencesSubscription?.cancel();
     await _decodingPreferencesSubscription?.cancel();
-    await _playbackStatsSubscription?.cancel();
+    // Not awaited: a stats poll may end only at its next tick, and the
+    // listener already ignores what comes after close.
+    unawaited(_playbackStatsSubscription?.cancel());
     _subtitlePreferencesSubscription = null;
     _decodingPreferencesSubscription = null;
     _playbackStatsSubscription = null;

@@ -32,24 +32,21 @@ class TorrentPlayerRepository implements PlayerRepository {
   @override
   Future<PlayerSession?> renewSession(PlayerSession session) async => null;
 
+  // Not `async*`: a cancel would wait inside its `await for` until the
+  // stats next change, and closing the player waits for that cancel.
   @override
-  Stream<PlayerPlaybackStats> watchPlaybackStats({
-    required String sessionId,
-  }) async* {
-    try {
-      await for (final stats in dataSource.watchPlaybackStats(
-        sessionId: sessionId,
-      )) {
-        yield _mapPlaybackStats(stats);
-      }
-    } catch (error, stackTrace) {
-      developer.log(
-        'Repository failed to map playback runtime stats.',
-        name: 'iris.player.repository',
-        error: error,
-        stackTrace: stackTrace,
-      );
-    }
+  Stream<PlayerPlaybackStats> watchPlaybackStats({required String sessionId}) {
+    return dataSource
+        .watchPlaybackStats(sessionId: sessionId)
+        .map(_mapPlaybackStats)
+        .handleError((Object error, StackTrace stackTrace) {
+          developer.log(
+            'Repository failed to map playback runtime stats.',
+            name: 'iris.player.repository',
+            error: error,
+            stackTrace: stackTrace,
+          );
+        });
   }
 
   @override

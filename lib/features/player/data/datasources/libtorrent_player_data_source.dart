@@ -219,31 +219,52 @@ class LibtorrentPlayerDataSource {
     }
   }
 
+  /// Polls the session's stream, sending only changed stats, until a newer
+  /// stream takes the session or the listener cancels. A cancel ends the
+  /// polling at once: unchanged stats (a paused video) never reach a
+  /// `yield`, so an `async*` loop would hold the cancel until they change.
   Stream<PlaybackRuntimeStatsModel> watchPlaybackStats({
     required String sessionId,
-  }) async* {
+  }) {
     final streamId = _streamIdsBySessionId[sessionId];
-    if (streamId == null) {
-      return;
-    }
+    if (streamId == null) return const Stream.empty();
 
+    late final StreamController<PlaybackRuntimeStatsModel> controller;
+    Timer? next;
     PlaybackRuntimeStatsModel? lastStats;
-    while (_streamIdsBySessionId[sessionId] == streamId) {
+
+    Future<void> poll() async {
+      if (controller.isClosed) return;
+      if (_streamIdsBySessionId[sessionId] != streamId) {
+        await controller.close();
+        return;
+      }
       final streamStats = _engine.getPlaybackRuntimeStats(streamId);
       if (streamStats != null) {
         final appMemoryBytes = await _memoryAdapter.getAppMemoryBytes();
+        if (controller.isClosed) return;
         final stats = streamStats.copyWith(
           appMemoryBytes: appMemoryBytes,
           clearAppMemoryBytes: appMemoryBytes == null,
         );
         if (stats != lastStats) {
           lastStats = stats;
-          yield stats;
+          controller.add(stats);
         }
       }
-
-      await Future<void>.delayed(_statsPollInterval);
+      if (!controller.isClosed) {
+        next = Timer(_statsPollInterval, () => unawaited(poll()));
+      }
     }
+
+    controller = StreamController<PlaybackRuntimeStatsModel>(
+      onListen: () => unawaited(poll()),
+      onCancel: () {
+        next?.cancel();
+        unawaited(controller.close());
+      },
+    );
+    return controller.stream;
   }
 
   /// Stops the session's stream and keeps the torrent for the next file.
