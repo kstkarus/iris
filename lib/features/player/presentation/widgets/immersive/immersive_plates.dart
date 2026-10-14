@@ -259,6 +259,22 @@ class _VolumeHud extends StatelessWidget {
   }
 }
 
+/// The speed while Space is held.
+class _FastForwardHud extends StatelessWidget {
+  const _FastForwardHud({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return _HudPlate(
+      child: Text(
+        AppLocalizations.of(
+          context,
+        ).playerPlaybackRate(MediaKitPlayerEngine.fastForwardRate),
+      ),
+    );
+  }
+}
+
 /// A brief readout over the video of what a key or a gesture just did
 /// (the volume, a seek, the speed); it takes no touches.
 class _HudPlate extends StatelessWidget {

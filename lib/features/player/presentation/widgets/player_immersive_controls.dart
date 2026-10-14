@@ -58,7 +58,8 @@ typedef PlayerPanelOpener = Future<void> Function(BuildContext anchor);
 /// apps, and the subtitles move above whatever the controls
 /// cover at the bottom. Back closes the open drawer first.
 ///
-/// Keyboard: Space/K play-pause, ←/→ and J/L ∓10 s, ↑/↓ volume, M mute,
+/// Keyboard: Space/K play-pause (Space held plays at 2× until let go),
+/// ←/→ and J/L ∓10 s, ↑/↓ volume, M mute,
 /// F full screen, N next episode, S skip, E episodes, Esc closes the drawer
 /// or leaves full screen.
 ///
@@ -90,6 +91,10 @@ class PlayerImmersiveControls extends StatefulWidget {
   static const hideAfter = Duration(seconds: 3);
   static const seekStep = Duration(seconds: 10);
   static const volumeStep = 5.0;
+
+  /// Space held this long during playback plays at 2× until let go; a
+  /// shorter press plays or pauses as it is let go.
+  static const spaceHoldDelay = Duration(milliseconds: 300);
 
   final MediaKitPlayerEngine engine;
   final PlayerChrome chrome;
@@ -182,11 +187,21 @@ class _PlayerImmersiveControlsState extends State<PlayerImmersiveControls> {
   Timer? _volumeHudTimer;
   double _volumeBeforeMute = 100;
 
+  /// Space is down; let go before [PlayerImmersiveControls.spaceHoldDelay]
+  /// it plays or pauses, held past it during playback it plays at 2×.
+  bool _spaceDown = false;
+  bool _spaceFastForward = false;
+  Timer? _spaceHoldTimer;
+
+  /// A window that loses the focus never hears Space let go.
+  late final AppLifecycleListener _lifecycle;
+
   @override
   void initState() {
     super.initState();
     _attachPlayer();
     _restartHideTimer();
+    _lifecycle = AppLifecycleListener(onInactive: _releaseSpace);
   }
 
   @override
@@ -203,6 +218,9 @@ class _PlayerImmersiveControlsState extends State<PlayerImmersiveControls> {
 
   @override
   void dispose() {
+    _lifecycle.dispose();
+    _spaceHoldTimer?.cancel();
+    if (_spaceFastForward) widget.engine.holdFastForward(false);
     _playingSubscription?.cancel();
     _hideTimer?.cancel();
     _lowerSubtitlesTimer?.cancel();
@@ -473,7 +491,47 @@ class _PlayerImmersiveControlsState extends State<PlayerImmersiveControls> {
     _changeVolume(dy < 0 ? step : -step);
   }
 
+  void _onSpaceDown() {
+    _spaceDown = true;
+    _spaceHoldTimer?.cancel();
+    _spaceHoldTimer = Timer(
+      PlayerImmersiveControls.spaceHoldDelay,
+      _startSpaceFastForward,
+    );
+  }
+
+  KeyEventResult _onSpaceUp() {
+    final held = _spaceFastForward;
+    _releaseSpace();
+    if (!held) {
+      _togglePlay();
+      _showControls();
+    }
+    return KeyEventResult.handled;
+  }
+
+  /// Paused, a held Space is only slow to let go: it plays on release.
+  void _startSpaceFastForward() {
+    if (!mounted || !_spaceDown || !_playing) return;
+    setState(() => _spaceFastForward = true);
+    widget.engine.holdFastForward(true);
+  }
+
+  void _releaseSpace() {
+    _spaceHoldTimer?.cancel();
+    _spaceDown = false;
+    if (!_spaceFastForward) return;
+    widget.engine.holdFastForward(false);
+    if (mounted) setState(() => _spaceFastForward = false);
+  }
+
   KeyEventResult _onKey(FocusNode node, KeyEvent event) {
+    // Let go wherever the focus went meanwhile (the drawer opened).
+    if (event.logicalKey == LogicalKeyboardKey.space &&
+        event is KeyUpEvent &&
+        _spaceDown) {
+      return _onSpaceUp();
+    }
     if (event is KeyUpEvent || _locked) return KeyEventResult.ignored;
     final key = event.logicalKey;
     // The drawer is modal: its cards take the arrows, the player only the
@@ -498,8 +556,10 @@ class _PlayerImmersiveControlsState extends State<PlayerImmersiveControls> {
       _changeVolume(-volumeStep);
     } else if (event is KeyRepeatEvent) {
       return KeyEventResult.ignored;
-    } else if (key == LogicalKeyboardKey.space ||
-        key == LogicalKeyboardKey.keyK) {
+    } else if (key == LogicalKeyboardKey.space) {
+      if (widget.failure != null) return KeyEventResult.ignored;
+      _onSpaceDown();
+    } else if (key == LogicalKeyboardKey.keyK) {
       if (widget.failure != null) return KeyEventResult.ignored;
       _togglePlay();
       _showControls();
@@ -607,7 +667,9 @@ class _PlayerImmersiveControlsState extends State<PlayerImmersiveControls> {
             ),
           ),
         if (_volumeHud case final volume?)
-          _VolumeHud(key: const Key('player_volume_hud'), volume: volume),
+          _VolumeHud(key: const Key('player_volume_hud'), volume: volume)
+        else if (_spaceFastForward)
+          const _FastForwardHud(key: Key('player_fast_forward_plate')),
         if (_episodesOpen && widget.chrome.episodes != null)
           PlayerEpisodesDrawer(
             onClose: _closeEpisodes,
