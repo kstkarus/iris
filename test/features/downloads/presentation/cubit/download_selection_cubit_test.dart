@@ -108,6 +108,23 @@ void main() {
       },
     );
 
+    test(
+      'a row tap cannot overtake a batch waiting to queue its first file',
+      () async {
+        repository.gate = Completer<void>();
+        repository.gatedIndex = 0;
+        final batch = cubit.downloadAll();
+        try {
+          await cubit.download(_files[1]);
+          expect(repository.queued, isEmpty);
+        } finally {
+          repository.gate!.complete();
+          await batch;
+        }
+        expect(repository.queued, [0, 1]);
+      },
+    );
+
     test('a file on its way to the queue is not queued twice', () async {
       repository.gate = Completer<void>();
       final first = cubit.download(_files[0]);
@@ -331,6 +348,7 @@ class _PickingRepository extends MockDownloadsRepository {
   final retried = <String>[];
   final disposed = <String>[];
   Completer<void>? gate;
+  int? gatedIndex;
   bool refuse = false;
 
   final _downloads = <int, DownloadItem>{};
@@ -373,7 +391,7 @@ class _PickingRepository extends MockDownloadsRepository {
     required String sourceTitle,
     int? quality,
   }) async {
-    await gate?.future;
+    if (gatedIndex == null || file.index == gatedIndex) await gate?.future;
     if (refuse) throw StateError('refused');
     queued.add(file.index);
     final item = DownloadItem(

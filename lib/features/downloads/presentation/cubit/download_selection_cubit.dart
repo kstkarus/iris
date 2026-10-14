@@ -124,7 +124,15 @@ class DownloadSelectionCubit extends Cubit<DownloadSelectionState> {
 
   /// Queues [file], or takes up its paused or failed download; one already
   /// queued, loading or done is left as it is.
-  Future<void> download(DownloadableFile file) async {
+  Future<void> download(DownloadableFile file) {
+    final current = state;
+    if (current is DownloadSelectionReady && current.addingAll) {
+      return Future.value();
+    }
+    return _download(file);
+  }
+
+  Future<void> _download(DownloadableFile file) async {
     final source = _source;
     final current = state;
     if (source == null || current is! DownloadSelectionReady) return;
@@ -197,7 +205,7 @@ class DownloadSelectionCubit extends Cubit<DownloadSelectionState> {
     try {
       for (final file in current.source.files) {
         if (isClosed || !identical(_source, current.source)) return;
-        await download(file);
+        await _download(file);
       }
     } finally {
       final latest = state;

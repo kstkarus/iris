@@ -67,6 +67,7 @@ class _FileList extends StatelessWidget {
           file: file,
           download: state.downloads[file.index],
           adding: state.adding.contains(file.index),
+          addingAll: state.addingAll,
           notAdded: state.notAdded.contains(file.index),
           onWatch: onWatch,
         );
@@ -117,6 +118,7 @@ class _FileRow extends StatelessWidget {
     required this.file,
     required this.download,
     required this.adding,
+    required this.addingAll,
     required this.notAdded,
     required this.onWatch,
   });
@@ -124,6 +126,7 @@ class _FileRow extends StatelessWidget {
   final DownloadableFile file;
   final DownloadItem? download;
   final bool adding;
+  final bool addingAll;
   final bool notAdded;
   final ValueChanged<DownloadItem> onWatch;
 
@@ -138,6 +141,7 @@ class _FileRow extends StatelessWidget {
     // A tap queues the file, or takes a stopped download up again.
     final actionable =
         !adding &&
+        !addingAll &&
         (download == null ||
             status == DownloadStatus.paused ||
             status == DownloadStatus.failed);
