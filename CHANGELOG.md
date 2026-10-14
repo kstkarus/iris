@@ -4,6 +4,8 @@ Notable changes to iris, newest first. The format follows [Keep a Changelog](htt
 
 ## [Unreleased]
 
+## [1.4.1] - 2026-10-14
+
 ### Added
 
 - Downloads is an offline title library: open an anime to see its releases and episodes, watch progress and selected download quality, or delete all its downloads with confirmation. The picker can queue the remaining episodes together and play a completed one.
@@ -135,7 +137,8 @@ First published release.
 - Update notice on Android and Windows when a newer release is published.
 - App icon.
 
-[Unreleased]: https://github.com/kstkarus/iris/compare/v1.4.0...HEAD
+[Unreleased]: https://github.com/kstkarus/iris/compare/v1.4.1...HEAD
+[1.4.1]: https://github.com/kstkarus/iris/compare/v1.4.0...v1.4.1
 [1.4.0]: https://github.com/kstkarus/iris/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/kstkarus/iris/compare/v1.2.1...v1.3.0
 [1.2.1]: https://github.com/kstkarus/iris/compare/v1.2.0...v1.2.1
