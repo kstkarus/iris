@@ -134,6 +134,7 @@ Current behavior:
 - a download is marked completed only when libtorrent reports every wanted piece of the selected file
 - the download picker stays open: a tap on a file (or episode) queues it; a paused or failed one resumes, a queued or loading one shows its progress, and a completed one has a Watch action that plays its local copy. Download remaining episodes queues missing, paused and failed files in order and skips those already queued, loading or done; leaving the picker does not cancel that batch. The queue still downloads one file at a time
 - while a batch is being added, individual queue/resume/retry actions wait until it finishes; completed episodes remain available to watch
+- the download quality choice is disabled during that batch, keeping its quality consistent; it becomes available again once the episodes enter the queue
 - opening the file picker for a torrent that is already downloading reuses that torrent; otherwise the picker adds the torrent only to read its files and removes it once it has them, so files queued from it start at once, as online episodes do; a queued item of the same torrent waits only while the picker is still reading them
 - the file picker of a torrent that a player still holds (also one that is still closing) waits until the player lets go of it, since the player removes that torrent with its files; leaving the picker cancels the wait
 - a torrent that fails or is removed while its metadata is awaited ends the wait at once, in the picker and in the player

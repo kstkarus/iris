@@ -42,7 +42,7 @@ class SegmentedChoice<T> extends StatelessWidget {
 
   final List<SegmentedOption<T>> options;
   final T selected;
-  final ValueChanged<T> onSelected;
+  final ValueChanged<T>? onSelected;
 
   @override
   Widget build(BuildContext context) {
@@ -52,6 +52,7 @@ class SegmentedChoice<T> extends StatelessWidget {
         ? Duration.zero
         : _slide;
     final index = options.indexWhere((option) => option.value == selected);
+    final onSelected = this.onSelected;
     return DecoratedBox(
       decoration: BoxDecoration(border: Border.all(color: scheme.outline)),
       child: LayoutBuilder(
@@ -75,7 +76,11 @@ class SegmentedChoice<T> extends StatelessWidget {
                   top: 0,
                   bottom: 0,
                   width: cellWidth,
-                  child: ColoredBox(color: scheme.onSurface),
+                  child: ColoredBox(
+                    color: onSelected == null
+                        ? scheme.onSurface.withValues(alpha: 0.12)
+                        : scheme.onSurface,
+                  ),
                 ),
               Material(
                 type: MaterialType.transparency,
@@ -89,7 +94,9 @@ class SegmentedChoice<T> extends StatelessWidget {
                           height: _height,
                           duration: duration,
                           textStyle: textStyle,
-                          onTap: () => onSelected(option.value),
+                          onTap: onSelected == null
+                              ? null
+                              : () => onSelected(option.value),
                         ),
                       ),
                   ],
@@ -118,7 +125,7 @@ class _Cell<T> extends StatelessWidget {
   final double height;
   final Duration duration;
   final TextStyle? textStyle;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -126,6 +133,7 @@ class _Cell<T> extends StatelessWidget {
     final leading = option.leading;
     return Semantics(
       button: true,
+      enabled: onTap != null,
       selected: selected,
       inMutuallyExclusiveGroup: true,
       label: option.label,
@@ -145,7 +153,9 @@ class _Cell<T> extends StatelessWidget {
                   style: (textStyle ?? const TextStyle())
                       .merge(option.textStyle)
                       .copyWith(
-                        color: selected
+                        color: onTap == null
+                            ? scheme.onSurface.withValues(alpha: 0.38)
+                            : selected
                             ? scheme.surface
                             : scheme.onSurfaceVariant,
                       ),

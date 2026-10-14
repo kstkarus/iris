@@ -85,7 +85,11 @@ class _FileList extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         if (qualities.isNotEmpty)
-          _QualityChoice(qualities: qualities, quality: state.quality),
+          _QualityChoice(
+            qualities: qualities,
+            quality: state.quality,
+            enabled: !state.addingAll,
+          ),
         if (files.length > 1 && pending)
           Align(
             alignment: Alignment.centerLeft,
@@ -266,10 +270,15 @@ double _loaded(DownloadItem download) =>
 
 /// The quality the next episodes load in, over the episodes.
 class _QualityChoice extends StatelessWidget {
-  const _QualityChoice({required this.qualities, required this.quality});
+  const _QualityChoice({
+    required this.qualities,
+    required this.quality,
+    required this.enabled,
+  });
 
   final List<int> qualities;
   final int? quality;
+  final bool enabled;
 
   @override
   Widget build(BuildContext context) {
@@ -292,7 +301,7 @@ class _QualityChoice extends StatelessWidget {
           SegmentedChoice<int?>(
             key: const Key('download_quality_choice'),
             selected: quality,
-            onSelected: cubit.chooseQuality,
+            onSelected: enabled ? cubit.chooseQuality : null,
             options: [
               SegmentedOption(value: null, label: l10n.onlineQualityAuto),
               for (final height in qualities)

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -51,6 +52,49 @@ void main() {
       tester.widget<SegmentedChoice<int?>>(
         find.byKey(const Key('download_quality_choice')),
       );
+
+  testWidgets('quality choices expose no tap action while a batch is queued', (
+    tester,
+  ) async {
+    final repository = _GatedEpisodesRepository();
+    final cubit = DownloadSelectionCubit(args: _online, repository: repository);
+    final semantics = tester.ensureSemantics();
+    await tester.pumpWidget(
+      testApp(
+        BlocProvider(
+          create: (_) => cubit..load(),
+          child: DownloadSelectionPage(args: _online, onWatch: (_) {}),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final batch = cubit.downloadAll();
+    await tester.pump();
+    await tester.pump();
+    try {
+      expect(
+        tester
+            .getSemantics(find.bySemanticsLabel('480p'))
+            .getSemanticsData()
+            .hasAction(SemanticsAction.tap),
+        isFalse,
+      );
+    } finally {
+      repository.gate.complete();
+      await batch;
+      await tester.pump();
+      await tester.pump();
+      expect(
+        tester
+            .getSemantics(find.bySemanticsLabel('480p'))
+            .getSemanticsData()
+            .hasAction(SemanticsAction.tap),
+        isTrue,
+      );
+      await tester.pumpWidget(const SizedBox.shrink());
+      semantics.dispose();
+    }
+  });
 
   testWidgets('a completed episode can be watched from the download picker', (
     tester,
@@ -172,6 +216,36 @@ class _EpisodesRepository extends MockDownloadsRepository {
         DownloadableFile(index: 2, name: '02', relativePath: '', size: 0),
       ],
       qualities: qualities,
+    );
+  }
+}
+
+class _GatedEpisodesRepository extends _EpisodesRepository {
+  _GatedEpisodesRepository() : super(const [1080, 720, 480]);
+  final gate = Completer<void>();
+
+  @override
+  Stream<Map<int, DownloadItem>> watchSourceDownloads({
+    required String magnet,
+  }) => Stream.value(const {});
+
+  @override
+  Future<DownloadItem> enqueueDownload({
+    required PreparedDownloadSource source,
+    required DownloadableFile file,
+    required String animeId,
+    required String animeTitle,
+    required String sourceTitle,
+    int? quality,
+  }) async {
+    await gate.future;
+    return super.enqueueDownload(
+      source: source,
+      file: file,
+      animeId: animeId,
+      animeTitle: animeTitle,
+      sourceTitle: sourceTitle,
+      quality: quality,
     );
   }
 }
