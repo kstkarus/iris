@@ -36,16 +36,11 @@ class AnilibriaOnlineSourcesRepository implements OnlineSourcesRepository {
     if (found.isEmpty) return const [];
     final matching = {for (final item in found) item.id};
     // Likewise a release that fails to load does not hide the others.
-    final releases = await searchAll(
+    return searchAll(
       matching,
-      (id) async => [await dataSource.release(id)],
-      keep: (_) => true,
+      (id) async => [mapAnilibriaRelease(await dataSource.release(id))],
+      keep: (release) => release.episodes.isNotEmpty,
     );
-    return [
-      for (final release in releases.map(mapAnilibriaRelease))
-        // A release with nothing to play would hide another site's copy.
-        if (release.episodes.isNotEmpty) release,
-    ];
   }
 
   @override

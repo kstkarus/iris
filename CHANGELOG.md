@@ -14,6 +14,7 @@ Notable changes to iris, newest first. The format follows [Keep a Changelog](htt
 
 ### Fixed
 
+- AniLibria: an unavailable release no longer hides an error loading another when neither has an episode to play; the source search offers Retry.
 - Android: a downloaded episode opened soon after the app starts no longer crashes the app. The player asked mpv for its state before mpv was ready, which first showed with downloads, since a file on disk opens at once.
 
 ## [1.4.0] - 2026-10-13

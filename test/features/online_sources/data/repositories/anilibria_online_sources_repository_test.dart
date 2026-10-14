@@ -194,6 +194,36 @@ void main() {
     expect(releases.map((release) => release.id), ['9542']);
   });
 
+  test('reports a failed release after an unplayable match', () async {
+    final release = _fixture('release_9542')! as Map<String, dynamic>;
+    for (final episode in release['episodes'] as List) {
+      (episode as Map)
+        ..['hls_480'] = null
+        ..['hls_720'] = null
+        ..['hls_1080'] = null;
+    }
+    final search = _fixture('search_frieren')! as List<Object?>;
+    final frieren = search.cast<Map<String, Object?>>().firstWhere(
+      (item) => item['id'] == 9542,
+    );
+
+    await expectLater(
+      repository(
+        searchResults: {
+          'Frieren': [
+            ...search,
+            {...frieren, 'id': 9999},
+          ],
+        },
+        release: release,
+      ).findReleases(
+        shikimoriId: _frierenShikimoriId,
+        titles: const ['Frieren'],
+      ),
+      throwsA(isA<ResourceNotFoundException>()),
+    );
+  });
+
   test('fails rather than say "not there" when every search failed', () {
     expect(
       repository(failingQueries: {'Frieren'}).findReleases(
