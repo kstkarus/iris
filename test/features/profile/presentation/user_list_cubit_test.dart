@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:iris/entities/user_rate/domain/user_rate.dart';
+import 'package:iris/features/profile/domain/repositories/user_list_repository.dart';
 import 'package:iris/features/profile/presentation/cubit/user_list_cubit.dart';
 import 'package:iris/features/profile/presentation/cubit/user_list_state.dart';
 
@@ -155,6 +156,72 @@ void main() {
     expect(ids(), ['1', '2', '3', '4', '5']);
     expect(cubit.state.hasMore, isFalse);
   });
+
+  test('multiple departures do not skip a later page', () async {
+    final largeRepository = FakeUserListRepository({
+      UserRateStatus.watching: [for (var n = 1; n <= 120; n++) listEntry('$n')],
+    }, pageSize: UserListRepository.pageSize);
+    final largeChanges = StreamController<UserRateChange>.broadcast();
+    final largeCubit = UserListCubit(
+      repository: largeRepository,
+      changes: largeChanges.stream,
+    );
+    addTearDown(() async {
+      await largeCubit.close();
+      await largeChanges.close();
+    });
+
+    largeCubit.show('42');
+    await settle();
+    await largeCubit.loadMore();
+    await largeCubit.loadMore();
+
+    for (var n = 1; n <= 31; n++) {
+      largeRepository.lists[UserRateStatus.watching]!.removeWhere(
+        (entry) => entry.anime.id == '$n',
+      );
+      largeChanges.add(UserRateChange('$n', null));
+    }
+    await settle();
+
+    while (largeCubit.state.hasMore) {
+      await largeCubit.loadMore();
+    }
+    expect(
+      largeCubit.state.entries.map((entry) => entry.anime.id),
+      contains('91'),
+    );
+  });
+
+  test(
+    'a duplicate departure keeps a final in-flight page retryable',
+    () async {
+      repository.lists[UserRateStatus.watching] = [
+        for (final id in ['1', '2', '3', '4']) listEntry(id),
+      ];
+      cubit.show('42');
+      await settle();
+
+      repository.gate = Completer();
+      final more = cubit.loadMore();
+      repository.lists[UserRateStatus.watching]!.removeAt(0);
+      const change = UserRateChange('1', null);
+      changes
+        ..add(change)
+        ..add(change);
+      await settle();
+      repository.gate!.complete();
+      repository.gate = null;
+      await more;
+
+      expect(cubit.state.hasMore, isTrue);
+      while (cubit.state.hasMore) {
+        await cubit.loadMore();
+      }
+      expect(ids(), contains('3'));
+      expect(repository.requests.map((request) => request.page), [1, 2, 1, 2]);
+    },
+  );
 
   test('an anime that left while a further page was on its way skips '
       'nothing either', () async {

@@ -31,9 +31,13 @@ class UserListCubit extends Cubit<UserListState> {
 
   /// Pages the next read steps back: a listed anime left this status
   /// elsewhere, so the server's pages moved up under the loaded ones and
-  /// the next one would skip an entry. 1 reads the last page again, 2 the
-  /// one before it too, for a page that was on its way as it moved.
+  /// the next one would skip an entry. One departure reads the last page
+  /// again; a departure while a page is in flight reads one page more too.
   int _stepBack = 0;
+
+  /// A repeated change for one departure must not make the next read walk
+  /// back again. The set is cleared when the first page is replaced.
+  final Set<String> _departed = {};
 
   /// The first page is read again quietly; a further page now would be
   /// added to what that read replaces.
@@ -88,13 +92,13 @@ class UserListCubit extends Cubit<UserListState> {
             ...page.entries.where((entry) => !_lists(entry.anime.id)),
           ],
           page: number,
-          hasMore: page.hasMore,
+          hasMore: page.hasMore || _stepBack > 0,
           loadingMore: false,
         ),
       );
     } on Object {
       if (isClosed || request != _request) return;
-      _stepBack = math.max(_stepBack, back);
+      _stepBack += back;
       emit(state.copyWith(loadingMore: false, moreFailed: true));
     }
   }
@@ -102,6 +106,7 @@ class UserListCubit extends Cubit<UserListState> {
   void _start({required String? userId, required UserRateStatus status}) {
     _request++;
     _stepBack = 0;
+    _departed.clear();
     _rereading = false;
     if (userId == null) {
       emit(UserListState(status: status, load: UserListLoad.loaded));
@@ -124,7 +129,8 @@ class UserListCubit extends Cubit<UserListState> {
         page: 1,
       );
       if (isClosed || request != _request) return;
-      _stepBack = 0;
+      final stepBack = _stepBack;
+      _departed.clear();
       emit(
         UserListState(
           userId: userId,
@@ -132,7 +138,7 @@ class UserListCubit extends Cubit<UserListState> {
           entries: page.entries,
           load: UserListLoad.loaded,
           page: 1,
-          hasMore: page.hasMore,
+          hasMore: page.hasMore || stepBack > 0,
         ),
       );
     } on Object {
@@ -145,11 +151,16 @@ class UserListCubit extends Cubit<UserListState> {
 
   void _onChange(UserRateChange change) {
     final rate = change.rate;
-    if (!isClosed &&
-        _lists(change.animeId) &&
-        (rate == null || rate.status != state.status)) {
-      _stepBack = math.max(_stepBack, state.loadingMore ? 2 : 1);
-      return;
+    if (!isClosed && _lists(change.animeId)) {
+      if (rate?.status == state.status) {
+        _departed.remove(change.animeId);
+      } else if (_departed.add(change.animeId)) {
+        _stepBack += state.loadingMore ? 2 : 1;
+        if (!state.hasMore) emit(state.copyWith(hasMore: true));
+      }
+      if (rate == null || rate.status != state.status) {
+        return;
+      }
     }
     if (isClosed ||
         state.load != UserListLoad.loaded ||
