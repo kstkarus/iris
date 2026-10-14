@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -146,6 +148,19 @@ void main() {
   });
 
   group('restore', () {
+    test(
+      'a successful response from an expired session restores no account',
+      () async {
+        final auth = repository();
+        await auth.signIn();
+        server = (_) {
+          unawaited(session.expire());
+          return currentUser;
+        };
+        expect(await auth.restore(), isNull);
+      },
+    );
+
     test('without a session there is no account', () async {
       expect(await repository().restore(), isNull);
     });

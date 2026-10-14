@@ -57,13 +57,19 @@ class ShikimoriAuthRepository implements AuthRepository {
       await _forgetAccount();
       return null;
     }
+    final generation = _session.generation;
     final ShikimoriAccountDto? fresh;
     try {
       fresh = await _accounts.fetchCurrent();
     } on Exception {
       // Offline, or the session just ended (then the store is empty).
-      if (await _session.read() == null) return null;
+      if (_session.generation != generation || await _session.read() == null) {
+        return null;
+      }
       return _cachedAccount()?.toEntity();
+    }
+    if (_session.generation != generation || await _session.read() == null) {
+      return null;
     }
     if (fresh == null) {
       await signOut();

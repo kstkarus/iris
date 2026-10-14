@@ -9,6 +9,22 @@ import 'package:iris/features/auth/presentation/cubit/auth_state.dart';
 import 'auth_test_doubles.dart';
 
 void main() {
+  test(
+    'an expired session cannot be restored by a late account response',
+    () async {
+      final repository = FakeAuthRepository(restored: testAccount)
+        ..restoreGate = Completer<void>();
+      final cubit = AuthCubit(repository: repository);
+      addTearDown(cubit.close);
+      final restoring = cubit.restore();
+      repository.expire();
+      await pumpEventQueue();
+      repository.restoreGate!.complete();
+      await restoring;
+      expect(cubit.state, const AuthSignedOut(expired: true));
+    },
+  );
+
   test('restores a kept session, or settles signed out', () async {
     final kept = AuthCubit(
       repository: FakeAuthRepository(restored: testAccount),

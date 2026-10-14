@@ -15,6 +15,7 @@ class FakeAuthRepository implements AuthRepository {
   ShikimoriAccount? restored;
   AuthFailure? failure;
   Completer<void>? signInGate;
+  Completer<void>? restoreGate;
   int signOuts = 0;
 
   final _expired = StreamController<void>.broadcast();
@@ -25,7 +26,10 @@ class FakeAuthRepository implements AuthRepository {
   Stream<void> get sessionExpired => _expired.stream;
 
   @override
-  Future<ShikimoriAccount?> restore() async => restored;
+  Future<ShikimoriAccount?> restore() async {
+    await restoreGate?.future;
+    return restored;
+  }
 
   @override
   Future<ShikimoriAccount> signIn() async {

@@ -13,7 +13,9 @@ class AuthCubit extends Cubit<AuthState> {
     : _repository = repository,
       super(const AuthRestoring()) {
     _expiredSubscription = repository.sessionExpired.listen((_) {
-      if (state is AuthSignedIn) emit(const AuthSignedOut(expired: true));
+      if (state is AuthSignedIn || state is AuthRestoring) {
+        emit(const AuthSignedOut(expired: true));
+      }
     });
   }
 
