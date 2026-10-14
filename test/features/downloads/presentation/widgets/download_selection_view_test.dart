@@ -39,7 +39,7 @@ void main() {
             repository: _EpisodesRepository(qualities),
             qualityPreferences: preferences,
           )..load(),
-          child: DownloadSelectionPage(args: args),
+          child: DownloadSelectionPage(args: args, onWatch: (_) {}),
         ),
       ),
     );
@@ -52,11 +52,36 @@ void main() {
         find.byKey(const Key('download_quality_choice')),
       );
 
+  testWidgets('a completed episode can be watched from the download picker', (
+    tester,
+  ) async {
+    var watched = 0;
+    await tester.pumpWidget(
+      testApp(
+        BlocProvider(
+          create: (_) => DownloadSelectionCubit(
+            args: _online,
+            repository: MockDownloadsRepository(),
+          )..load(),
+          child: DownloadSelectionPage(
+            args: _online,
+            onWatch: (_) => watched++,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('download_file_button_0')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('download_file_watch_0')));
+    expect(watched, 1);
+  });
+
   testWidgets('an online release is downloaded by episode, in a quality '
       'chosen over the list', (tester) async {
     final preferences = await pump(tester);
 
-    expect(find.text('Download an episode'), findsOneWidget);
+    expect(find.text('Download episodes'), findsOneWidget);
     expect(find.text('Quality'), findsOneWidget);
     for (final label in ['Auto', '1080p', '720p', '480p']) {
       expect(find.text(label), findsOneWidget, reason: label);
@@ -80,7 +105,7 @@ void main() {
           create: (_) =>
               DownloadSelectionCubit(args: _online, repository: repository)
                 ..load(),
-          child: const DownloadSelectionPage(args: _online),
+          child: DownloadSelectionPage(args: _online, onWatch: (_) {}),
         ),
       ),
     );
@@ -88,7 +113,7 @@ void main() {
 
     await tester.tap(find.byKey(const ValueKey('download_file_button_1')));
     await tester.pumpAndSettle();
-    expect(find.text('Download an episode'), findsOneWidget);
+    expect(find.text('Download episodes'), findsOneWidget);
     expect(
       find.byKey(const ValueKey('download_file_progress_1')),
       findsOneWidget,
@@ -115,7 +140,7 @@ void main() {
 
     repository.load(1, 1);
     await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('download_file_done_1')), findsOneWidget);
+    expect(find.byKey(const ValueKey('download_file_watch_1')), findsOneWidget);
     expect(find.text('100.0 MB · Done'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });

@@ -68,13 +68,21 @@ void main() {
     // The picker stays, and the file shows its download there.
     await pumpUntilVisible(
       tester,
-      find.byKey(const ValueKey('download_file_done_0')),
+      find.byKey(const ValueKey('download_file_watch_0')),
     );
     expect(find.text('Download a file'), findsOneWidget);
 
     GoRouter.of(
       tester.element(find.byType(DownloadSelectionPage)),
     ).goNamed('downloads');
+    await pumpUntilVisible(
+      tester,
+      find.byKey(const ValueKey('download_title_anime:5114')),
+    );
+    await _tapVisible(
+      tester,
+      find.byKey(const ValueKey('download_title_anime:5114')),
+    );
     await pumpUntilVisible(tester, find.byTooltip('Watch'));
     // Let the route transition back to the shell finish before tapping.
     await tester.pumpAndSettle();

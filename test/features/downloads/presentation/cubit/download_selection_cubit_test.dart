@@ -81,6 +81,33 @@ void main() {
       },
     );
 
+    test(
+      'download remaining keeps order and skips the already queued file',
+      () async {
+        await cubit.download(_files[0]);
+        await pumpEventQueue();
+        await cubit.downloadAll();
+        expect(repository.queued, [for (final file in _files) file.index]);
+        expect(ready().addingAll, false);
+      },
+    );
+
+    test(
+      'leaving after download remaining lets the whole batch enter the queue',
+      () async {
+        repository.gate = Completer<void>();
+        final batch = cubit.downloadAll();
+        final closing = cubit.close();
+        await pumpEventQueue();
+        expect(repository.disposed, isEmpty);
+        repository.gate!.complete();
+        await batch;
+        await closing;
+        expect(repository.queued, [for (final file in _files) file.index]);
+        expect(repository.disposed, ['picked']);
+      },
+    );
+
     test('a file on its way to the queue is not queued twice', () async {
       repository.gate = Completer<void>();
       final first = cubit.download(_files[0]);

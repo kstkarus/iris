@@ -77,6 +77,16 @@ class PixelGlyph {
     '.......',
   ]);
 
+  static const delete = PixelGlyph._([
+    '..###..',
+    '.#####.',
+    '.#.#.#.',
+    '.#.#.#.',
+    '.#.#.#.',
+    '.#...#.',
+    '.#####.',
+  ]);
+
   static const search = PixelGlyph._([
     '.###...',
     '#...#..',

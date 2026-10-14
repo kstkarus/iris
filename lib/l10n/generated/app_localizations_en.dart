@@ -1320,7 +1320,7 @@ class AppLocalizationsEn extends AppLocalizations {
       'The download did not start. Check the connection and try again.';
 
   @override
-  String get downloadSelectionEpisodeTitle => 'Download an episode';
+  String get downloadSelectionEpisodeTitle => 'Download episodes';
 
   @override
   String get downloadSelectionPreparingEpisodes =>
@@ -1388,4 +1388,28 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get savedTorrentsClearDraft => 'Remove';
+
+  @override
+  String downloadTitleReady(int ready, int total) {
+    return '$ready of $total ready';
+  }
+
+  @override
+  String get downloadTitleEmpty => 'No episodes remain on this device.';
+
+  @override
+  String get downloadAllRemaining => 'Download remaining episodes';
+
+  @override
+  String get downloadDeleteAll => 'Delete all episodes';
+
+  @override
+  String downloadDeleteTitleMessage(String name) {
+    return 'Remove all downloads of “$name” from this device?';
+  }
+
+  @override
+  String downloadSelectedQuality(String quality) {
+    return 'Selected: $quality';
+  }
 }

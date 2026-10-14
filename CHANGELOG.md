@@ -6,6 +6,7 @@ Notable changes to iris, newest first. The format follows [Keep a Changelog](htt
 
 ### Added
 
+- Downloads is an offline title library: open an anime to see its releases and episodes, watch progress and selected download quality, or delete all its downloads with confirmation. The picker can queue the remaining episodes together and play a completed one.
 - Desktop player: hold Space to play at 2× until you let go; a tap still plays or pauses.
 
 ### Changed

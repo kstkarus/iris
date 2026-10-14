@@ -9,6 +9,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:iris/features/downloads/data/repositories/mock_downloads_repository.dart';
 import 'package:iris/features/downloads/domain/entities/download_failure.dart';
 import 'package:iris/features/downloads/domain/entities/download_item.dart';
+import 'package:iris/features/downloads/domain/entities/download_title.dart';
 import 'package:iris/features/downloads/domain/entities/download_status.dart';
 import 'package:iris/features/downloads/domain/entities/downloadable_file.dart';
 import 'package:iris/features/downloads/domain/entities/prepared_download_source.dart';
@@ -16,8 +17,8 @@ import 'package:iris/features/downloads/presentation/cubit/download_manager_cubi
 import 'package:iris/features/downloads/presentation/cubit/download_selection_cubit.dart';
 import 'package:iris/features/downloads/presentation/models/download_selection_args.dart';
 import 'package:iris/features/downloads/presentation/pages/download_manager_page.dart';
+import 'package:iris/features/downloads/presentation/pages/download_title_page.dart';
 import 'package:iris/features/downloads/presentation/pages/download_selection_page.dart';
-import 'package:iris/features/downloads/presentation/widgets/download_manager_view.dart';
 import 'package:iris/shared/widgets/adaptive/adaptive_content_width.dart';
 
 import '../../../../helpers/test_app.dart';
@@ -40,19 +41,25 @@ void main() {
         tester,
         BlocProvider(
           create: (_) => DownloadManagerCubit(repository: repository)..load(),
-          child: DownloadManagerPage(onWatch: (_) {}, onBrowseCatalog: () {}),
+          child: DownloadManagerPage(
+            onOpenTitle: (_) {},
+            onWatch: (_) {},
+            onBrowseCatalog: () {},
+          ),
         ),
       );
 
       final storage = tester.getRect(find.text('APP STORAGE'));
-      final firstFile = tester.getRect(find.text('episode-00'));
+      final firstFile = tester.getRect(
+        find.text('Fullmetal Alchemist: Brotherhood'),
+      );
       if (isWide) {
         expect(storage.left, greaterThan(firstFile.right));
       } else {
         // The files come first; storage follows them.
         expect(storage.top, greaterThan(firstFile.bottom));
       }
-      expect(find.textContaining('PAUSED', findRichText: true), findsOneWidget);
+      expect(find.textContaining('Paused: 1'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
 
@@ -67,7 +74,11 @@ void main() {
           create: (_) =>
               DownloadManagerCubit(repository: MockDownloadsRepository())
                 ..load(),
-          child: DownloadManagerPage(onWatch: (_) {}, onBrowseCatalog: () {}),
+          child: DownloadManagerPage(
+            onOpenTitle: (_) {},
+            onWatch: (_) {},
+            onBrowseCatalog: () {},
+          ),
         ),
       );
 
@@ -99,7 +110,7 @@ void main() {
             args: args,
             repository: MockDownloadsRepository(),
           )..load(),
-          child: DownloadSelectionPage(args: args),
+          child: DownloadSelectionPage(args: args, onWatch: (_) {}),
         ),
       );
 
@@ -115,6 +126,54 @@ void main() {
     });
   }
 
+  testWidgets('the library opens one title containing all its episodes', (
+    tester,
+  ) async {
+    final repository = await _repositoryWithDownloads(count: 3);
+    DownloadTitle? opened;
+    await _pumpApp(
+      tester,
+      BlocProvider(
+        create: (_) => DownloadManagerCubit(repository: repository)..load(),
+        child: DownloadManagerPage(
+          onWatch: (_) {},
+          onBrowseCatalog: () {},
+          onOpenTitle: (title) => opened = title,
+        ),
+      ),
+    );
+    expect(find.text('Fullmetal Alchemist: Brotherhood'), findsOneWidget);
+    expect(find.text('episode-00'), findsNothing);
+    await tester.tap(find.byKey(const ValueKey('download_title_anime:5114')));
+    expect(opened?.items, hasLength(3));
+  });
+
+  testWidgets('deleting a title asks once and removes all its episodes', (
+    tester,
+  ) async {
+    final repository = await _repositoryWithDownloads(count: 3);
+    final title = downloadTitles(
+      await repository.watchDownloads().first,
+    ).single;
+    await _pumpApp(
+      tester,
+      BlocProvider(
+        create: (_) => DownloadManagerCubit(repository: repository)..load(),
+        child: DownloadTitlePage(title: title, onWatch: (_) {}),
+      ),
+    );
+    await tester.tap(find.byTooltip('Delete all episodes'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+    expect(await repository.watchDownloads().first, hasLength(3));
+    await tester.tap(find.byTooltip('Delete all episodes'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'Delete'));
+    await tester.pumpAndSettle();
+    expect(await repository.watchDownloads().first, isEmpty);
+  });
+
   testWidgets('a row names the episode and its buttons name the row', (
     tester,
   ) async {
@@ -125,7 +184,12 @@ void main() {
       tester,
       BlocProvider(
         create: (_) => DownloadManagerCubit(repository: repository)..load(),
-        child: DownloadManagerPage(onWatch: (_) {}, onBrowseCatalog: () {}),
+        child: DownloadManagerPage(
+          onOpenTitle: (_) {},
+          titleKey: 'anime:5114',
+          onWatch: (_) {},
+          onBrowseCatalog: () {},
+        ),
       ),
     );
 
@@ -152,6 +216,7 @@ void main() {
         create: (_) =>
             DownloadManagerCubit(repository: MockDownloadsRepository())..load(),
         child: DownloadManagerPage(
+          onOpenTitle: (_) {},
           onWatch: (_) {},
           onBrowseCatalog: () => opened++,
         ),
@@ -199,7 +264,12 @@ void main() {
         tester,
         BlocProvider(
           create: (_) => DownloadManagerCubit(repository: repository)..load(),
-          child: DownloadManagerPage(onWatch: (_) {}, onBrowseCatalog: () {}),
+          child: DownloadManagerPage(
+            onOpenTitle: (_) {},
+            titleKey: downloadTitleKey(item),
+            onWatch: (_) {},
+            onBrowseCatalog: () {},
+          ),
         ),
       );
       return repository;
@@ -381,7 +451,12 @@ void main() {
           tester,
           BlocProvider(
             create: (_) => DownloadManagerCubit(repository: repository)..load(),
-            child: DownloadManagerPage(onWatch: (_) {}, onBrowseCatalog: () {}),
+            child: DownloadManagerPage(
+              onOpenTitle: (_) {},
+              titleKey: 'anime:5114',
+              onWatch: (_) {},
+              onBrowseCatalog: () {},
+            ),
           ),
         );
 
@@ -403,7 +478,7 @@ void main() {
     );
   }
 
-  group('orderedDownloads', () {
+  group('downloadTitles', () {
     DownloadItem item(
       String id,
       String title,
@@ -428,8 +503,33 @@ void main() {
       createdAt: DateTime(2026, 10, 10, hour),
     );
 
-    test('active first; a title stays together in episode order', () {
-      final ordered = orderedDownloads([
+    test(
+      'names do not merge titles and unlinked releases keep their identity',
+      () {
+        final first = item('a', 'Same name', '01', DownloadStatus.completed, 1);
+        final titles = downloadTitles([
+          first.copyWith(animeId: '1'),
+          first.copyWith(id: 'b', animeId: '2'),
+          first.copyWith(id: 'c', animeId: '', magnet: 'online:anilibria/42'),
+          first.copyWith(
+            id: 'd',
+            animeId: '',
+            magnet: 'online:anilibria/42?anime=1',
+          ),
+        ]);
+        expect(
+          titles.map((title) => title.key),
+          unorderedEquals(['anime:1', 'anime:2', 'online:anilibria/42']),
+        );
+        expect(
+          titles.singleWhere((title) => title.key.startsWith('online:')).items,
+          hasLength(2),
+        );
+      },
+    );
+
+    test('active titles stay together across episode statuses', () {
+      final ordered = downloadTitles([
         item(
           'k18',
           'Kusuriya',
@@ -438,17 +538,16 @@ void main() {
           3,
         ),
         item('f', 'Frieren', 'Frieren - 06.mkv', DownloadStatus.downloading, 1),
-        item(
-          'k17',
-          'Kusuriya',
-          'Kusuriya - 17.mkv',
-          DownloadStatus.completed,
-          4,
-        ),
+        item('k17', 'Kusuriya', 'Kusuriya - 17.mkv', DownloadStatus.queued, 4),
         item('a', 'AoT', 'AoT - 01.mkv', DownloadStatus.completed, 2),
       ]);
 
-      expect([for (final item in ordered) item.id], ['f', 'k17', 'k18', 'a']);
+      expect(ordered.map((title) => title.name), [
+        'Kusuriya',
+        'Frieren',
+        'AoT',
+      ]);
+      expect(ordered.first.items, hasLength(2));
     });
   });
 

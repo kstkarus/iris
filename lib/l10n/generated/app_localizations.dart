@@ -2339,7 +2339,7 @@ abstract class AppLocalizations {
   /// No description provided for @downloadSelectionEpisodeTitle.
   ///
   /// In en, this message translates to:
-  /// **'Download an episode'**
+  /// **'Download episodes'**
   String get downloadSelectionEpisodeTitle;
 
   /// No description provided for @downloadSelectionPreparingEpisodes.
@@ -2437,6 +2437,42 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Remove'**
   String get savedTorrentsClearDraft;
+
+  /// No description provided for @downloadTitleReady.
+  ///
+  /// In en, this message translates to:
+  /// **'{ready} of {total} ready'**
+  String downloadTitleReady(int ready, int total);
+
+  /// No description provided for @downloadTitleEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No episodes remain on this device.'**
+  String get downloadTitleEmpty;
+
+  /// No description provided for @downloadAllRemaining.
+  ///
+  /// In en, this message translates to:
+  /// **'Download remaining episodes'**
+  String get downloadAllRemaining;
+
+  /// No description provided for @downloadDeleteAll.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete all episodes'**
+  String get downloadDeleteAll;
+
+  /// No description provided for @downloadDeleteTitleMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove all downloads of “{name}” from this device?'**
+  String downloadDeleteTitleMessage(String name);
+
+  /// No description provided for @downloadSelectedQuality.
+  ///
+  /// In en, this message translates to:
+  /// **'Selected: {quality}'**
+  String downloadSelectedQuality(String quality);
 }
 
 class _AppLocalizationsDelegate

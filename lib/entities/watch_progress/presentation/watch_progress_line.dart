@@ -37,15 +37,16 @@ class WatchProgressLine extends StatelessWidget {
     final style = theme.textTheme.bodySmall;
 
     if (progress.isFinished) {
-      return Row(
-        mainAxisSize: MainAxisSize.min,
+      return Wrap(
+        spacing: 6,
+        runSpacing: 4,
+        crossAxisAlignment: WrapCrossAlignment.center,
         children: [
           PixelIcon(
             PixelGlyph.check,
             size: 14,
             color: theme.colorScheme.onSurfaceVariant,
           ),
-          const SizedBox(width: 6),
           Text(l10n.watchProgressWatched, style: style),
         ],
       );
@@ -75,8 +76,8 @@ class WatchProgressLine extends StatelessWidget {
                     formatPlaybackPosition(progress.position),
                     formatPlaybackPosition(progress.duration),
                   ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+            maxLines: timesOnly ? null : 1,
+            overflow: timesOnly ? TextOverflow.clip : TextOverflow.ellipsis,
             style: style?.copyWith(
               fontFeatures: const [FontFeature.tabularFigures()],
             ),

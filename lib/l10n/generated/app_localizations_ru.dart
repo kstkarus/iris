@@ -1334,7 +1334,7 @@ class AppLocalizationsRu extends AppLocalizations {
       'Загрузка не началась. Проверьте интернет и повторите.';
 
   @override
-  String get downloadSelectionEpisodeTitle => 'Скачать серию';
+  String get downloadSelectionEpisodeTitle => 'Скачать серии';
 
   @override
   String get downloadSelectionPreparingEpisodes => 'Получаем список серий...';
@@ -1403,4 +1403,29 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get savedTorrentsClearDraft => 'Убрать';
+
+  @override
+  String downloadTitleReady(int ready, int total) {
+    return 'Готово $ready из $total';
+  }
+
+  @override
+  String get downloadTitleEmpty =>
+      'На устройстве больше нет серий этого тайтла.';
+
+  @override
+  String get downloadAllRemaining => 'Скачать оставшиеся серии';
+
+  @override
+  String get downloadDeleteAll => 'Удалить все серии';
+
+  @override
+  String downloadDeleteTitleMessage(String name) {
+    return 'Удалить все загрузки «$name» с этого устройства?';
+  }
+
+  @override
+  String downloadSelectedQuality(String quality) {
+    return 'Выбрано: $quality';
+  }
 }

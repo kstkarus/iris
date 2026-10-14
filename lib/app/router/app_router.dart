@@ -34,6 +34,9 @@ import 'package:iris/features/characters/presentation/cubit/character_cubit.dart
 import 'package:iris/features/characters/presentation/pages/anime_characters_page.dart';
 import 'package:iris/features/characters/presentation/pages/character_page.dart';
 import 'package:iris/features/downloads/domain/repositories/downloads_repository.dart';
+import 'package:iris/features/downloads/domain/entities/download_item.dart';
+import 'package:iris/features/downloads/domain/entities/download_title.dart';
+import 'package:iris/features/downloads/presentation/pages/download_title_page.dart';
 import 'package:iris/features/downloads/presentation/cubit/download_manager_cubit.dart';
 import 'package:iris/features/downloads/presentation/cubit/download_selection_cubit.dart';
 import 'package:iris/features/downloads/presentation/models/download_selection_args.dart';
@@ -84,6 +87,23 @@ void _openListed(BuildContext context, UserListEntry entry) =>
     );
 
 abstract final class AppRouter {
+  static void _watchDownload(BuildContext context, DownloadItem item) {
+    context.pushNamed(
+      'player',
+      extra: AnimePlayerArgs(
+        AnimePlayerSource(
+          animeId: item.animeId,
+          animeTitle: item.animeTitle,
+          sourceTitle: item.sourceTitle,
+          sessionId: item.id,
+          fileIndex: item.fileIndex,
+          fileName: item.fileName,
+          magnet: item.magnet,
+        ),
+      ),
+    );
+  }
+
   static GoRouter createRouter() {
     return GoRouter(
       initialLocation: '/',
@@ -164,22 +184,9 @@ abstract final class AppRouter {
                       )..load(),
                       child: DownloadManagerPage(
                         onBrowseCatalog: () => context.goNamed('anime-list'),
-                        onWatch: (item) {
-                          context.pushNamed(
-                            'player',
-                            extra: AnimePlayerArgs(
-                              AnimePlayerSource(
-                                animeId: item.animeId,
-                                animeTitle: item.animeTitle,
-                                sourceTitle: item.sourceTitle,
-                                sessionId: item.id,
-                                fileIndex: item.fileIndex,
-                                fileName: item.fileName,
-                                magnet: item.magnet,
-                              ),
-                            ),
-                          );
-                        },
+                        onOpenTitle: (title) =>
+                            context.pushNamed('download-title', extra: title),
+                        onWatch: (item) => _watchDownload(context, item),
                       ),
                     );
                   },
@@ -401,6 +408,23 @@ abstract final class AppRouter {
             );
           },
         ),
+        GoRoute(
+          path: '/downloads/title',
+          name: 'download-title',
+          builder: (context, state) {
+            final title = state.extra;
+            if (title is! DownloadTitle) return const _InvalidRoutePage();
+            return BlocProvider(
+              create: (_) => DownloadManagerCubit(
+                repository: serviceLocator<DownloadsRepository>(),
+              )..load(),
+              child: DownloadTitlePage(
+                title: title,
+                onWatch: (item) => _watchDownload(context, item),
+              ),
+            );
+          },
+        ),
         // Torrent routes take a magnet, not a catalog title: they serve both
         // catalog sources and the user's saved torrents. The file picker
         // also takes an online release's link in place of a magnet.
@@ -423,7 +447,10 @@ abstract final class AppRouter {
                 repository: serviceLocator<DownloadsRepository>(),
                 qualityPreferences: serviceLocator<OnlineQualityPreferences>(),
               )..load(),
-              child: DownloadSelectionPage(args: args),
+              child: DownloadSelectionPage(
+                args: args,
+                onWatch: (item) => _watchDownload(context, item),
+              ),
             );
           },
         ),

@@ -435,7 +435,7 @@
   "downloadFailedNoAccess": "Приложению нельзя писать в папку загрузок.",
   "downloadFailedFileMissing": "Файл пропал с устройства. Повторите, чтобы скачать заново.",
   "downloadFailedCouldNotStart": "Загрузка не началась. Проверьте интернет и повторите.",
-  "downloadSelectionEpisodeTitle": "Скачать серию",
+  "downloadSelectionEpisodeTitle": "Скачать серии",
   "downloadSelectionPreparingEpisodes": "Получаем список серий...",
   "downloadFailedConnectionLost": "Сервер с видео перестал отвечать. Повторите — загрузка продолжится с того же места.",
   "downloadFailedNotDownloadable": "Эту озвучку не скачать, её можно только смотреть онлайн.",
@@ -451,5 +451,35 @@
   "savedTorrentsFromFile": "из файла",
   "savedTorrentsFromLink": "по ссылке",
   "savedTorrentsFileCount": "{count, plural, one{{count} файл} few{{count} файла} many{{count} файлов} other{{count} файла}}",
-  "savedTorrentsClearDraft": "Убрать"
+  "savedTorrentsClearDraft": "Убрать",
+  "downloadTitleReady": "Готово {ready} из {total}",
+  "@downloadTitleReady": {
+    "placeholders": {
+      "ready": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "downloadTitleEmpty": "На устройстве больше нет серий этого тайтла.",
+  "downloadAllRemaining": "Скачать оставшиеся серии",
+  "downloadDeleteAll": "Удалить все серии",
+  "downloadDeleteTitleMessage": "Удалить все загрузки «{name}» с этого устройства?",
+  "@downloadDeleteTitleMessage": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "downloadSelectedQuality": "Выбрано: {quality}",
+  "@downloadSelectedQuality": {
+    "placeholders": {
+      "quality": {
+        "type": "String"
+      }
+    }
+  }
 }

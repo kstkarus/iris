@@ -144,18 +144,23 @@ void main() {
       // The picker stays, its row done, at every width.
       await pumpUntilVisible(
         tester,
-        find.byKey(const ValueKey('download_file_done_0')),
+        find.byKey(const ValueKey('download_file_watch_0')),
       );
       expect(tester.takeException(), isNull);
 
       GoRouter.of(
         tester.element(find.byType(DownloadSelectionPage)),
       ).goNamed('downloads');
-      await pumpUntilVisible(tester, find.byTooltip('Watch'));
+      await pumpUntilVisible(
+        tester,
+        find.byKey(const ValueKey('download_title_anime:5114')),
+      );
       await tester.pumpAndSettle();
 
       final storage = tester.getRect(find.text('APP STORAGE'));
-      final watch = tester.getRect(find.byTooltip('Watch'));
+      final watch = tester.getRect(
+        find.byKey(const ValueKey('download_title_anime:5114')),
+      );
       // Content of 840 dp and up gets a side pane; narrower stacks the
       // panes, files first.
       if (size.width >= 900) {

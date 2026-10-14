@@ -868,7 +868,7 @@
   "downloadFailedNoAccess": "The app may not write to the downloads folder.",
   "downloadFailedFileMissing": "The file is gone from the device. Try again to download it anew.",
   "downloadFailedCouldNotStart": "The download did not start. Check the connection and try again.",
-  "downloadSelectionEpisodeTitle": "Download an episode",
+  "downloadSelectionEpisodeTitle": "Download episodes",
   "downloadSelectionPreparingEpisodes": "Loading the episode list...",
   "downloadFailedConnectionLost": "The video server stopped answering. Try again to pick up where it stopped.",
   "downloadFailedNotDownloadable": "This dub can't be downloaded, only watched online.",
@@ -919,5 +919,35 @@
       }
     }
   },
-  "savedTorrentsClearDraft": "Remove"
+  "savedTorrentsClearDraft": "Remove",
+  "downloadTitleReady": "{ready} of {total} ready",
+  "@downloadTitleReady": {
+    "placeholders": {
+      "ready": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "downloadTitleEmpty": "No episodes remain on this device.",
+  "downloadAllRemaining": "Download remaining episodes",
+  "downloadDeleteAll": "Delete all episodes",
+  "downloadDeleteTitleMessage": "Remove all downloads of “{name}” from this device?",
+  "@downloadDeleteTitleMessage": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "downloadSelectedQuality": "Selected: {quality}",
+  "@downloadSelectedQuality": {
+    "placeholders": {
+      "quality": {
+        "type": "String"
+      }
+    }
+  }
 }

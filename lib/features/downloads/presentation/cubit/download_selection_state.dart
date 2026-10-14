@@ -22,6 +22,7 @@ class DownloadSelectionReady extends DownloadSelectionState {
     this.downloads = const {},
     this.adding = const {},
     this.notAdded = const {},
+    this.addingAll = false,
   });
 
   final PreparedDownloadSource source;
@@ -38,12 +39,14 @@ class DownloadSelectionReady extends DownloadSelectionState {
 
   /// Files the queue did not take, by index, until they are tried again.
   final Set<int> notAdded;
+  final bool addingAll;
 
   DownloadSelectionReady copyWith({
     int? Function()? quality,
     Map<int, DownloadItem>? downloads,
     Set<int>? adding,
     Set<int>? notAdded,
+    bool? addingAll,
   }) {
     return DownloadSelectionReady(
       source,
@@ -51,6 +54,7 @@ class DownloadSelectionReady extends DownloadSelectionState {
       downloads: downloads ?? this.downloads,
       adding: adding ?? this.adding,
       notAdded: notAdded ?? this.notAdded,
+      addingAll: addingAll ?? this.addingAll,
     );
   }
 
@@ -59,6 +63,7 @@ class DownloadSelectionReady extends DownloadSelectionState {
       other is DownloadSelectionReady &&
       identical(other.source, source) &&
       other.quality == quality &&
+      other.addingAll == addingAll &&
       sameMap(other.downloads, downloads) &&
       sameSet(other.adding, adding) &&
       sameSet(other.notAdded, notAdded);
@@ -67,6 +72,7 @@ class DownloadSelectionReady extends DownloadSelectionState {
   int get hashCode => Object.hash(
     source,
     quality,
+    addingAll,
     Object.hashAllUnordered(downloads.values),
     Object.hashAllUnordered(adding),
     Object.hashAllUnordered(notAdded),

@@ -39,6 +39,7 @@ class DownloadSelectionCubit extends Cubit<DownloadSelectionState> {
   StreamSubscription<Map<int, DownloadItem>>? _downloadsSubscription;
   Map<int, DownloadItem> _downloads = const {};
   bool _downloadsFailed = false;
+  Future<void>? _batch;
 
   Future<void> load() async {
     final attempt = ++_attempt;
@@ -116,7 +117,7 @@ class DownloadSelectionCubit extends Cubit<DownloadSelectionState> {
   /// the next downloads.
   void chooseQuality(int? quality) {
     final current = state;
-    if (current is! DownloadSelectionReady) return;
+    if (current is! DownloadSelectionReady || current.addingAll) return;
     emit(current.copyWith(quality: () => quality));
     unawaited(_qualityPreferences?.setDownloading(quality));
   }
@@ -181,6 +182,31 @@ class DownloadSelectionCubit extends Cubit<DownloadSelectionState> {
     );
   }
 
+  /// Keeps episode order and skips files already loading or completed.
+  Future<void> downloadAll() =>
+      _batch ??= _downloadAll().whenComplete(() => _batch = null);
+
+  Future<void> _downloadAll() async {
+    final current = state;
+    if (current is! DownloadSelectionReady ||
+        current.addingAll ||
+        current.adding.isNotEmpty) {
+      return;
+    }
+    emit(current.copyWith(addingAll: true));
+    try {
+      for (final file in current.source.files) {
+        if (isClosed || !identical(_source, current.source)) return;
+        await download(file);
+      }
+    } finally {
+      final latest = state;
+      if (!isClosed && latest is DownloadSelectionReady) {
+        emit(latest.copyWith(addingAll: false));
+      }
+    }
+  }
+
   Future<void> _quietly(Future<void> Function() action) async {
     try {
       await action();
@@ -226,6 +252,9 @@ class DownloadSelectionCubit extends Cubit<DownloadSelectionState> {
   Future<void> close() async {
     _attempt++;
     _cancelPreparation();
+    // Leaving the picker does not cancel the season the user just queued.
+    // Keep its prepared source until every requested file has been added.
+    await _batch;
     try {
       await _downloadsSubscription?.cancel();
     } catch (_) {

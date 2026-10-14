@@ -19,7 +19,8 @@ import 'package:iris/shared/widgets/status_views.dart';
 import 'package:iris/shared/widgets/tap_row.dart';
 
 class DownloadSelectionView extends StatelessWidget {
-  const DownloadSelectionView({super.key});
+  const DownloadSelectionView({required this.onWatch, super.key});
+  final ValueChanged<DownloadItem> onWatch;
 
   @override
   Widget build(BuildContext context) {
@@ -37,7 +38,10 @@ class DownloadSelectionView extends StatelessWidget {
                 ? l10n.downloadSelectionPreparingEpisodes
                 : l10n.downloadSelectionPreparing,
           ),
-          final DownloadSelectionReady ready => _FileList(state: ready),
+          final DownloadSelectionReady ready => _FileList(
+            state: ready,
+            onWatch: onWatch,
+          ),
           DownloadSelectionFailure(:final type) => _FailureState(type: type),
         };
       },
@@ -46,9 +50,10 @@ class DownloadSelectionView extends StatelessWidget {
 }
 
 class _FileList extends StatelessWidget {
-  const _FileList({required this.state});
+  const _FileList({required this.state, required this.onWatch});
 
   final DownloadSelectionReady state;
+  final ValueChanged<DownloadItem> onWatch;
 
   @override
   Widget build(BuildContext context) {
@@ -63,15 +68,42 @@ class _FileList extends StatelessWidget {
           download: state.downloads[file.index],
           adding: state.adding.contains(file.index),
           notAdded: state.notAdded.contains(file.index),
+          onWatch: onWatch,
         );
       },
     );
     final qualities = state.source.qualities;
-    if (qualities.isEmpty) return list;
+    final pending = files.any((file) {
+      final status = state.downloads[file.index]?.status;
+      return status == null ||
+          status == DownloadStatus.paused ||
+          status == DownloadStatus.failed;
+    });
+    if (qualities.isEmpty && (files.length < 2 || !pending)) return list;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _QualityChoice(qualities: qualities, quality: state.quality),
+        if (qualities.isNotEmpty)
+          _QualityChoice(qualities: qualities, quality: state.quality),
+        if (files.length > 1 && pending)
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
+              child: OutlinedButton(
+                key: const Key('download_all'),
+                onPressed: state.addingAll || state.adding.isNotEmpty
+                    ? null
+                    : () =>
+                          context.read<DownloadSelectionCubit>().downloadAll(),
+                child: Text(
+                  state.addingAll
+                      ? AppLocalizations.of(context).downloadAddingToQueue
+                      : AppLocalizations.of(context).downloadAllRemaining,
+                ),
+              ),
+            ),
+          ),
         Expanded(child: list),
       ],
     );
@@ -86,12 +118,14 @@ class _FileRow extends StatelessWidget {
     required this.download,
     required this.adding,
     required this.notAdded,
+    required this.onWatch,
   });
 
   final DownloadableFile file;
   final DownloadItem? download;
   final bool adding;
   final bool notAdded;
+  final ValueChanged<DownloadItem> onWatch;
 
   @override
   Widget build(BuildContext context) {
@@ -107,7 +141,11 @@ class _FileRow extends StatelessWidget {
         (download == null ||
             status == DownloadStatus.paused ||
             status == DownloadStatus.failed);
-    final onTap = actionable ? () => unawaited(cubit.download(file)) : null;
+    final onTap = actionable
+        ? () => unawaited(cubit.download(file))
+        : status == DownloadStatus.completed
+        ? () => onWatch(download!)
+        : null;
     final note = switch (status) {
       _ when adding => l10n.downloadAddingToQueue,
       null when notAdded => l10n.downloadUnableToQueue,
@@ -190,11 +228,11 @@ class _FileRow extends StatelessWidget {
                     ),
                     onPressed: onTap,
                   ),
-                  DownloadStatus.completed => PixelIcon(
-                    PixelGlyph.check,
-                    key: ValueKey('download_file_done_${file.index}'),
-                    size: 18,
-                    color: scheme.tertiary,
+                  DownloadStatus.completed => IconButton(
+                    key: ValueKey('download_file_watch_${file.index}'),
+                    tooltip: l10n.downloadWatchButton,
+                    onPressed: onTap,
+                    icon: const PixelIcon(PixelGlyph.play, size: 18),
                   ),
                   DownloadStatus.queued ||
                   DownloadStatus.downloading => PixelIcon(
