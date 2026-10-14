@@ -111,6 +111,23 @@ void main() {
     expect(rates.rates['1']?.episodes, 5);
   });
 
+  test(
+    'an ended session cannot offer a torrent mark before the account listener',
+    () {
+      var generation = 0;
+      final marks = EpisodeMarkCubit(
+        markEpisode: MarkEpisodeWatched(rates),
+        userId: '42',
+        sessionGeneration: () => generation,
+      );
+      addTearDown(marks.close);
+      generation++;
+      marks.watched(torrent());
+      expect(marks.state, isA<EpisodeMarkIdle>());
+      expect(rates.rates, isEmpty);
+    },
+  );
+
   test('an offer put away marks nothing', () async {
     final marks = cubit()..watched(torrent());
 

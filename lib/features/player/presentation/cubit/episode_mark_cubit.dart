@@ -76,8 +76,10 @@ class EpisodeMarkCubit extends Cubit<EpisodeMarkState> {
 
   /// Playback reached the ending of [source]'s current file.
   void watched(AnimePlayerSource source) {
+    final userId = _userId;
+    if (userId == null || !_isCurrent(_session, userId)) return;
     final episode = source.episodeNumber;
-    if (_userId == null || source.animeId.isEmpty || episode == null) return;
+    if (source.animeId.isEmpty || episode == null) return;
     _animeId = source.animeId;
     final given = source.files.any(
       (file) => file.index == source.fileIndex && file.episodeNumber != null,
