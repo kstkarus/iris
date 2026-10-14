@@ -1036,6 +1036,28 @@ void main() {
     expect(find.byKey(_nextPrompt), findsOneWidget, reason: 'the ending began');
   });
 
+  testWidgets('reads nothing of mpv before it has started', (tester) async {
+    final platformPlayer = _FakePlatformPlayer(
+      configuration: const PlayerConfiguration(),
+      startsLater: true,
+    );
+    await tester.pumpWidget(_wrapViewport(platformPlayer: platformPlayer));
+    await tester.pump();
+    // A file on disk opens at once; its events come before mpv is there.
+    platformPlayer
+      ..emitBuffering(true)
+      ..emitDuration(const Duration(minutes: 24))
+      ..emitBuffering(false);
+    await _deliverPlayerEvent(tester);
+    await tester.pump(const Duration(seconds: 3));
+
+    platformPlayer.finishStarting();
+    await _deliverPlayerEvent(tester);
+    await tester.pump(const Duration(seconds: 3));
+
+    expect(platformPlayer.readsBeforeStart, isEmpty);
+  });
+
   testWidgets('nothing counts down while a reopened file loads', (
     tester,
   ) async {
@@ -3655,10 +3677,19 @@ class _SwitchingStatsPlayerRepository extends StubPlayerRepository {
 }
 
 class _FakePlatformPlayer extends PlatformPlayer {
-  _FakePlatformPlayer({required super.configuration}) {
-    completer.complete();
+  /// [startsLater]: mpv is not there until [finishStarting].
+  _FakePlatformPlayer({
+    required super.configuration,
+    bool startsLater = false,
+  }) {
+    if (!startsLater) completer.complete();
     videoControllerCompleter.complete();
   }
+
+  void finishStarting() => completer.complete();
+
+  /// Properties read while mpv was not there yet: a crash for the real one.
+  final readsBeforeStart = <String>[];
 
   final Map<String, String> nativeProperties = {};
 
@@ -3691,6 +3722,9 @@ class _FakePlatformPlayer extends PlatformPlayer {
     String property, {
     bool waitForInitialization = true,
   }) async {
+    if (!completer.isCompleted && !waitForInitialization) {
+      readsBeforeStart.add(property);
+    }
     return nativeProperties[property] ?? '0';
   }
 

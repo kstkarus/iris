@@ -12,6 +12,10 @@ Notable changes to iris, newest first. The format follows [Keep a Changelog](htt
 
 - On a phone, pinching to fill the screen zooms the video smoothly instead of snapping, and subtitles stay whole while it does.
 
+### Fixed
+
+- Android: a downloaded episode opened soon after the app starts no longer crashes the app. The player asked mpv for its state before mpv was ready, which first showed with downloads, since a file on disk opens at once.
+
 ## [1.4.0] - 2026-10-13
 
 ### Changed

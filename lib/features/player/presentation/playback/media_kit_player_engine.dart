@@ -1573,7 +1573,15 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
 }
 
 /// mpv's own property access, which [PlatformPlayer] does not declare.
+///
+/// Only once mpv exists: read before (a player still starting, as the
+/// first one of the app copies its fonts) it would dereference no handle
+/// and take the app down. The video controller is not waited for; a read
+/// should not hang on it.
 Future<Object?> _getMpvProperty(PlatformPlayer platform, String name) async {
+  if (!platform.completer.isCompleted) {
+    await platform.waitForPlayerInitialization;
+  }
   return await (platform as dynamic).getProperty(
     name,
     waitForInitialization: false,
