@@ -1,8 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:iris/app/router/app_shell_page.dart';
+import 'package:iris/app/di/service_locator.dart';
+import 'package:iris/entities/user_rate/domain/user_rate.dart';
+import 'package:iris/entities/user_rate/domain/user_rate_repository.dart';
+import 'package:iris/features/player/presentation/cubit/player_cubit.dart';
 import 'package:iris/features/downloads/presentation/pages/download_selection_page.dart';
 
 import 'helpers/mock_app.dart';
@@ -57,6 +62,15 @@ void main() {
 
   testWidgets('App opens player from a completed download', (tester) async {
     await pumpMockApp(tester);
+    await serviceLocator<UserRateRepository>().save(
+      userId: '42',
+      animeId: '5114',
+      rateId: null,
+      status: UserRateStatus.watching,
+      episodes: 6,
+      score: 0,
+    );
+    await tester.pump();
     await _openWatchSources(tester);
 
     await _tapVisible(tester, find.byKey(_sourceDownloadButton).last);
@@ -90,6 +104,10 @@ void main() {
     await pumpUntilVisible(tester, _playerSurface);
 
     expect(find.byKey(const Key('mock_player_surface')), findsOneWidget);
+    expect(
+      tester.element(_playerSurface).read<PlayerCubit>().source.listedEpisodes,
+      6,
+    );
   });
 
   testWidgets('App streams a torrent the user added to an anime', (

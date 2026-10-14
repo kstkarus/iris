@@ -16,6 +16,7 @@ Notable changes to iris, newest first. The format follows [Keep a Changelog](htt
 
 ### Fixed
 
+- Opening a download carries the already-known Shikimori episode count into the player without a network request.
 - The player does not offer a Shikimori mark after the session ends while its account listener is still catching up.
 - An account response arriving after session expiration cannot sign the app back in during startup restore.
 - An anime moved into the profile's shown status while another page loads appears after a quiet refresh.

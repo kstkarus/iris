@@ -12,6 +12,7 @@ import 'package:iris/entities/watch_progress/domain/watch_progress_repository.da
 import 'package:iris/entities/user_rate/domain/mark_episode_watched.dart';
 import 'package:iris/entities/user_rate/domain/user_rate_repository.dart';
 import 'package:iris/entities/user_rate/presentation/user_rate_cubit.dart';
+import 'package:iris/entities/user_rate/presentation/user_rate_book_cubit.dart';
 import 'package:iris/features/online_sources/domain/repositories/online_quality_preferences.dart';
 import 'package:iris/features/anime_details/domain/repositories/anime_details_repository.dart';
 import 'package:iris/features/anime_details/presentation/cubit/anime_details_cubit.dart';
@@ -126,6 +127,12 @@ abstract final class AppRouter {
           sourceTitle: item.sourceTitle,
           sessionId: local?.sessionId ?? item.id,
           files: local?.files ?? const [],
+          listedEpisodes:
+              context
+                  .read<UserRateBookCubit?>()
+                  ?.state[item.animeId]
+                  ?.episodes ??
+              0,
           fileIndex: item.fileIndex,
           fileName: item.fileName,
           magnet: item.magnet,
