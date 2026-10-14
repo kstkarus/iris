@@ -1,6 +1,7 @@
 // Renders the real library and episode widgets with offline fixtures.
 // PNGs are saved under .dart_tool/download-library-renders.
 import 'dart:io';
+import 'dart:async';
 import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
@@ -33,6 +34,7 @@ import 'package:iris/entities/watch_progress/presentation/watch_progress_cubit.d
 import 'package:iris/shared/online/online_source_link.dart';
 import '../../../../helpers/fake_watch_progress_repository.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
+import 'package:iris/shared/widgets/dither_transition.dart';
 
 TextScaler _textScaler = TextScaler.noScaling;
 
@@ -439,6 +441,72 @@ void main() {
       debugDefaultTargetPlatformOverride = null;
     }
   });
+
+  testWidgets(
+    'title insertion and deletion render in the existing dither style',
+    (tester) async {
+      PaintingBinding.instance.imageCache
+        ..clear()
+        ..clearLiveImages();
+      _textScaler = TextScaler.noScaling;
+      tester.view
+        ..physicalSize = _phone
+        ..devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      debugDefaultTargetPlatformOverride = TargetPlatform.android;
+      final repository = _LiveDownloads([_downloads.first]);
+      final cubit = DownloadManagerCubit(repository: repository)..load();
+      await tester.pumpWidget(
+        _shell(cubit: cubit, brightness: Brightness.dark),
+      );
+      await tester.pumpAndSettle();
+      await _capture(tester, 'library_motion_initial');
+      repository.push([_downloads.first, _downloads[4]]);
+      await tester.pump();
+      await tester.pump();
+      await tester.pump(DitherTransition.duration * 1.5);
+      expect(
+        tester
+            .widgetList<BayerMasked>(find.byType(BayerMasked))
+            .any((mask) => mask.open > 0 && mask.open < 16),
+        isTrue,
+      );
+      await _capture(tester, 'library_motion_insert');
+      await tester.pumpAndSettle();
+      repository.push([_downloads[4]]);
+      await tester.pump();
+      await tester.pump();
+      await tester.pump(DitherTransition.duration ~/ 2);
+      await _capture(tester, 'library_motion_remove');
+      await tester.pumpAndSettle();
+      repository.push([]);
+      await tester.pumpAndSettle();
+      await _capture(tester, 'library_motion_empty');
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.runAsync(cubit.close);
+      await tester.runAsync(repository.changes.close);
+      debugDefaultTargetPlatformOverride = null;
+    },
+  );
+}
+
+class _LiveDownloads extends _Downloads {
+  _LiveDownloads(super.items);
+  late final StreamController<List<DownloadItem>> changes =
+      StreamController<List<DownloadItem>>.broadcast(
+        onListen: () => changes.add(List.of(items)),
+      );
+
+  void push(List<DownloadItem> next) {
+    items
+      ..clear()
+      ..addAll(next);
+    changes.add(List.of(items));
+  }
+
+  @override
+  Stream<List<DownloadItem>> watchDownloads() => changes.stream;
 }
 
 class _SeasonDownloads extends MockDownloadsRepository {

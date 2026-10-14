@@ -5,12 +5,22 @@ import 'package:iris/shared/widgets/dither_list.dart';
 import 'package:iris/shared/widgets/dither_transition.dart';
 
 void main() {
-  Widget list(List<String> items, {bool noMotion = false}) => MaterialApp(
+  Widget list(
+    List<String> items, {
+    bool noMotion = false,
+    bool framed = false,
+  }) => MaterialApp(
     home: MediaQuery(
       data: MediaQueryData(disableAnimations: noMotion),
       child: Scaffold(
         body: DitherList<String>(
           items: items,
+          header: framed
+              ? const SizedBox(height: 20, child: Text('header'))
+              : null,
+          footer: framed
+              ? const SizedBox(height: 30, child: Text('footer'))
+              : null,
           keyOf: (item) => item,
           itemBuilder: (context, item) =>
               SizedBox(height: 40, child: Text(item)),
@@ -33,6 +43,32 @@ void main() {
     expect(find.byType(BayerMasked), findsNothing);
     expect(tester.hasRunningAnimations, isFalse);
   });
+
+  testWidgets(
+    'header and footer share the scroll and stay outside row animations',
+    (tester) async {
+      await tester.pumpWidget(list(['a'], framed: true));
+      expect(find.byType(Scrollable), findsOneWidget);
+      expect(tester.getTopLeft(find.text('a')).dy, 20);
+      await tester.pumpWidget(list(['b', 'a'], framed: true));
+      await tester.pump(DitherTransition.duration ~/ 2);
+      for (final text in ['header', 'footer', 'a']) {
+        expect(
+          find.ancestor(
+            of: find.text(text),
+            matching: find.byType(BayerMasked),
+          ),
+          findsNothing,
+        );
+      }
+      await tester.pumpAndSettle();
+      expect(tester.getTopLeft(find.text('a')).dy, 60);
+      expect(tester.getTopLeft(find.text('footer')).dy, 100);
+      await tester.pumpWidget(list(['a'], framed: true));
+      await tester.pumpAndSettle();
+      expect(tester.getTopLeft(find.text('footer')).dy, 60);
+    },
+  );
 
   testWidgets('a new row opens its space, then develops', (tester) async {
     await tester.pumpWidget(list(['a']));

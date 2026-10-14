@@ -20,6 +20,7 @@ import 'package:iris/features/downloads/presentation/pages/download_manager_page
 import 'package:iris/features/downloads/presentation/pages/download_title_page.dart';
 import 'package:iris/features/downloads/presentation/pages/download_selection_page.dart';
 import 'package:iris/shared/widgets/adaptive/adaptive_content_width.dart';
+import 'package:iris/shared/widgets/dither_transition.dart';
 
 import '../../../../helpers/test_app.dart';
 import '../../../../helpers/test_window.dart';
@@ -280,6 +281,159 @@ void main() {
       expect(find.text('Frieren - 06.mkv'), findsNothing);
       expect(find.textContaining('~5 min left'), findsOneWidget);
     });
+
+    testWidgets('title changes animate, but progress and page chrome do not', (
+      tester,
+    ) async {
+      final first = download();
+      final repository = _ScriptedDownloadsRepository([first]);
+      await _pumpApp(
+        tester,
+        BlocProvider(
+          create: (_) => DownloadManagerCubit(repository: repository)..load(),
+          child: DownloadManagerPage(
+            onOpenTitle: (_) {},
+            onWatch: (_) {},
+            onBrowseCatalog: () {},
+          ),
+        ),
+      );
+      expect(find.byType(BayerMasked), findsNothing);
+      expect(find.byType(Scrollable), findsOneWidget);
+      repository.push([first.copyWith(downloadedBytes: 400 << 20)]);
+      await tester.pump();
+      expect(find.byType(BayerMasked), findsNothing);
+      final second = first.copyWith(
+        id: 'other',
+        animeId: 'other',
+        animeTitle: 'Other',
+      );
+      repository.push([first, second]);
+      await tester.pump();
+      await tester.pump(DitherTransition.duration ~/ 2);
+      expect(
+        find.ancestor(
+          of: find.text('Other'),
+          matching: find.byType(BayerMasked),
+        ),
+        findsOneWidget,
+      );
+      for (final text in ['Frieren', 'Downloads', 'APP STORAGE']) {
+        expect(
+          find.ancestor(
+            of: find.text(text),
+            matching: find.byType(BayerMasked),
+          ),
+          findsNothing,
+        );
+      }
+      await tester.pumpAndSettle();
+      repository.push([second]);
+      await tester.pump();
+      await tester.pump(DitherTransition.duration ~/ 2);
+      expect(
+        find.text('Frieren'),
+        findsOneWidget,
+        reason: 'the removed title is still dissolving',
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Frieren'), findsNothing);
+      expect(find.byType(Scrollable), findsOneWidget);
+    });
+
+    testWidgets('episode rows animate only when added or removed', (
+      tester,
+    ) async {
+      final first = download();
+      final repository = await pump(tester, first);
+      expect(find.byType(BayerMasked), findsNothing);
+      repository.push([first.copyWith(downloadedBytes: 400 << 20)]);
+      await tester.pump();
+      expect(find.byType(BayerMasked), findsNothing);
+      await tester.tap(find.byTooltip('More actions'));
+      await tester.pumpAndSettle();
+      repository.push([first.copyWith(downloadedBytes: 410 << 20)]);
+      await tester.pump();
+      expect(find.byKey(const Key('download_delete')), findsOneWidget);
+      expect(find.byType(BayerMasked), findsNothing);
+      await tester.tapAt(Offset.zero);
+      await tester.pumpAndSettle();
+      final second = first.copyWith(
+        id: 'frieren-7',
+        fileIndex: 6,
+        fileName: 'Frieren - 07.mkv',
+      );
+      repository.push([first, second]);
+      await tester.pump();
+      await tester.pump(DitherTransition.duration ~/ 2);
+      expect(
+        find.ancestor(
+          of: find.text('Episode 7'),
+          matching: find.byType(BayerMasked),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.ancestor(
+          of: find.text('Episode 6'),
+          matching: find.byType(BayerMasked),
+        ),
+        findsNothing,
+      );
+      await tester.pumpAndSettle();
+      repository.push([second]);
+      await tester.pump();
+      await tester.pump(DitherTransition.duration ~/ 2);
+      expect(find.text('Episode 6'), findsOneWidget);
+      expect(
+        find.ancestor(
+          of: find.text('Frieren batch'),
+          matching: find.byType(BayerMasked),
+        ),
+        findsNothing,
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Episode 6'), findsNothing);
+      expect(find.text('Episode 7'), findsOneWidget);
+    });
+
+    testWidgets(
+      'without motion the last title leaves for the empty state at once',
+      (tester) async {
+        tester.platformDispatcher.accessibilityFeaturesTestValue =
+            const FakeAccessibilityFeatures(disableAnimations: true);
+        addTearDown(
+          tester.platformDispatcher.clearAccessibilityFeaturesTestValue,
+        );
+        final first = download();
+        final repository = _ScriptedDownloadsRepository([first]);
+        await _pumpApp(
+          tester,
+          BlocProvider(
+            create: (_) => DownloadManagerCubit(repository: repository)..load(),
+            child: DownloadManagerPage(
+              onOpenTitle: (_) {},
+              onWatch: (_) {},
+              onBrowseCatalog: () {},
+            ),
+          ),
+        );
+        expect(
+          MediaQuery.disableAnimationsOf(tester.element(find.text('Frieren'))),
+          isTrue,
+        );
+        repository.push([]);
+        await tester.pumpAndSettle();
+        expect(find.text('Frieren'), findsNothing);
+        expect(find.text('Browse the catalog'), findsOneWidget);
+        expect(tester.hasRunningAnimations, isFalse);
+        repository.push([first]);
+        await tester.pumpAndSettle();
+        expect(find.text('Browse the catalog'), findsNothing);
+        expect(find.text('Frieren'), findsOneWidget);
+        expect(tester.hasRunningAnimations, isFalse);
+      },
+    );
 
     testWidgets('gives the speed as the player does and the sizes in full', (
       tester,

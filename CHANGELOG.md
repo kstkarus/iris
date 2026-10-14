@@ -11,6 +11,7 @@ Notable changes to iris, newest first. The format follows [Keep a Changelog](htt
 
 ### Changed
 
+- Downloads uses the existing row animations: added titles and episodes develop in, removed ones dissolve and close their space. Reading the initial list and updating progress do not replay that animation.
 - On a phone, pinching to fill the screen zooms the video smoothly instead of snapping, and subtitles stay whole while it does.
 
 ### Fixed

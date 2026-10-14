@@ -13,6 +13,9 @@ class DitherList<T> extends StatefulWidget {
     required this.keyOf,
     required this.itemBuilder,
     this.padding,
+    this.header,
+    this.footer,
+    this.physics,
     super.key,
   });
 
@@ -20,6 +23,11 @@ class DitherList<T> extends StatefulWidget {
   final Object Function(T item) keyOf;
   final Widget Function(BuildContext context, T item) itemBuilder;
   final EdgeInsetsGeometry? padding;
+
+  /// Static content that scrolls together with the animated rows.
+  final Widget? header;
+  final Widget? footer;
+  final ScrollPhysics? physics;
 
   @override
   State<DitherList<T>> createState() => _DitherListState<T>();
@@ -57,18 +65,40 @@ class _DitherListState<T> extends State<DitherList<T>> {
 
   @override
   Widget build(BuildContext context) {
+    final headerCount = widget.header == null ? 0 : 1;
     return ListView.builder(
       padding: widget.padding,
-      itemCount: _entries.length,
+      physics: widget.physics,
+      itemCount:
+          headerCount + _entries.length + (widget.footer == null ? 0 : 1),
       // A row keeps its state when rows come or go above it, rather than
       // being matched by place and built anew, opening again.
       findChildIndexCallback: (key) {
         if (key is! ValueKey<Object>) return null;
+        if (key.value == _StaticPart.header) {
+          return widget.header == null ? null : 0;
+        }
+        if (key.value == _StaticPart.footer) {
+          return widget.footer == null ? null : headerCount + _entries.length;
+        }
         final index = _entries.indexWhere((entry) => entry.key == key.value);
-        return index < 0 ? null : index;
+        return index < 0 ? null : headerCount + index;
       },
       itemBuilder: (context, index) {
-        final entry = _entries[index];
+        if (index < headerCount) {
+          return KeyedSubtree(
+            key: const ValueKey(_StaticPart.header),
+            child: widget.header!,
+          );
+        }
+        final rowIndex = index - headerCount;
+        if (rowIndex == _entries.length) {
+          return KeyedSubtree(
+            key: const ValueKey(_StaticPart.footer),
+            child: widget.footer!,
+          );
+        }
+        final entry = _entries[rowIndex];
         return _Presence(
           key: ValueKey<Object>(entry.key),
           entering: entry.entering,
@@ -81,6 +111,8 @@ class _DitherListState<T> extends State<DitherList<T>> {
     );
   }
 }
+
+enum _StaticPart { header, footer }
 
 class _Entry<T> {
   _Entry(this.item, this.key, {required this.entering, this.leaving = false});
