@@ -732,16 +732,10 @@ void main() {
           return Player(platformPlayer: player);
         },
         onEngine: (value) => engine = value,
-        videoSurfaceBuilder:
-            ({
-              required controller,
-              required subtitleViewConfiguration,
-              required controls,
-              required fit,
-            }) {
-              controllers.add(controller);
-              return _videoSurface;
-            },
+        videoSurfaceBuilder: ({required controller}) {
+          controllers.add(controller);
+          return _videoSurface;
+        },
       ),
     );
     await tester.pump();
@@ -1444,15 +1438,9 @@ void main() {
       await tester.pumpWidget(
         _wrapViewport(
           chrome: chrome(onBack: () => backs++),
-          videoSurfaceBuilder:
-              ({
-                required controller,
-                required subtitleViewConfiguration,
-                required controls,
-                required fit,
-              }) {
-                return _videoSurface;
-              },
+          videoSurfaceBuilder: ({required controller}) {
+            return _videoSurface;
+          },
         ),
       );
       await tester.pump();
@@ -1641,6 +1629,97 @@ void main() {
         platformPlayer.seeks.last,
         const Duration(minutes: 10, seconds: 10),
       );
+    });
+
+    group('Space', () {
+      Future<_FakePlatformPlayer> playing(WidgetTester tester) async {
+        setTestWindowSize(tester, TestWindowSizes.landscape);
+        final platformPlayer = _FakePlatformPlayer(
+          configuration: const PlayerConfiguration(),
+        );
+        await tester.pumpWidget(
+          _wrapViewport(platformPlayer: platformPlayer, chrome: chrome()),
+        );
+        await tester.pump();
+        platformPlayer
+          ..emitDuration(const Duration(minutes: 24))
+          ..emitPlaying(true);
+        await _deliverPlayerEvent(tester);
+        return platformPlayer;
+      }
+
+      Finder fastForwardPlate() =>
+          find.byKey(const Key('player_fast_forward_plate'));
+
+      testWidgets('held plays at 2x until let go, without pausing', (
+        tester,
+      ) async {
+        final platformPlayer = await playing(tester);
+
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.space);
+        await tester.pump(PlayerImmersiveControls.spaceHoldDelay);
+        await tester.sendKeyRepeatEvent(LogicalKeyboardKey.space);
+        await tester.pump();
+        expect(platformPlayer.rates, [2]);
+        expect(
+          find.descendant(of: fastForwardPlate(), matching: find.text('2×')),
+          findsOneWidget,
+        );
+
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.space);
+        await tester.pump();
+        expect(platformPlayer.rates, [2, 1]);
+        expect(fastForwardPlate(), findsNothing);
+        expect(platformPlayer.playOrPauseCount, 0);
+      });
+
+      testWidgets('tapped plays or pauses as it is let go', (tester) async {
+        final platformPlayer = await playing(tester);
+
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.space);
+        expect(platformPlayer.playOrPauseCount, 0);
+        await tester.pump(const Duration(milliseconds: 100));
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.space);
+        expect(platformPlayer.playOrPauseCount, 1);
+
+        await tester.pump(PlayerImmersiveControls.spaceHoldDelay);
+        expect(platformPlayer.rates, isEmpty);
+      });
+
+      testWidgets('held while paused only plays as it is let go', (
+        tester,
+      ) async {
+        final platformPlayer = await playing(tester);
+        platformPlayer.emitPlaying(false);
+        await _deliverPlayerEvent(tester);
+
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.space);
+        await tester.pump(PlayerImmersiveControls.spaceHoldDelay * 2);
+        expect(platformPlayer.rates, isEmpty);
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.space);
+        expect(platformPlayer.playOrPauseCount, 1);
+      });
+
+      testWidgets('held as the window loses the focus goes back to speed', (
+        tester,
+      ) async {
+        final platformPlayer = await playing(tester);
+
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.space);
+        await tester.pump(PlayerImmersiveControls.spaceHoldDelay);
+        expect(platformPlayer.rates, [2]);
+
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.inactive,
+        );
+        await tester.pump();
+        expect(platformPlayer.rates, [2, 1]);
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.resumed,
+        );
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.space);
+        expect(platformPlayer.playOrPauseCount, 0);
+      });
     });
 
     testWidgets('switch the window to full screen and back, also when the '
@@ -2349,8 +2428,8 @@ void main() {
       expect(
         subtitleBottom(),
         tester
-            .widget<Video>(find.byType(Video))
-            .subtitleViewConfiguration
+            .widget<SubtitleView>(find.byType(SubtitleView))
+            .configuration
             .padding
             .bottom,
         reason: 'they come down once the controls have faded',
@@ -2717,7 +2796,6 @@ void main() {
 
     Future<_FakePlatformPlayer> playerAt(
       WidgetTester tester, {
-      List<BoxFit>? fits,
       bool playing = false,
     }) async {
       setTestWindowSize(tester, phone);
@@ -2729,16 +2807,6 @@ void main() {
           platformPlayer: platformPlayer,
           input: PlayerInputMode.touch,
           chrome: chrome(),
-          videoSurfaceBuilder:
-              ({
-                required controller,
-                required subtitleViewConfiguration,
-                required controls,
-                required fit,
-              }) {
-                fits?.add(fit);
-                return _videoSurface;
-              },
         ),
       );
       await tester.pump();
@@ -2881,19 +2949,47 @@ void main() {
 
     testWidgets('fill the screen on a pinch out and fit the video back on a '
         'pinch in', (tester) async {
-      final fits = <BoxFit>[];
-      await playerAt(tester, fits: fits);
-      expect(fits.last, BoxFit.contain);
+      double zoom() => tester
+          .widget<Transform>(
+            find
+                .descendant(
+                  of: find.byKey(const Key('player_video_zoom')),
+                  matching: find.byType(Transform),
+                )
+                .first,
+          )
+          .transform
+          .getMaxScaleOnAxis();
+      // A 16:9 video on a wider phone grows by the shapes' ratio to fill it.
+      const filled = (844 / 390) / (1920 / 1080);
+      await playerAt(tester);
+      expect(zoom(), 1);
 
       await _pinch(tester, middle, from: 40, to: 90);
-      expect(fits.last, BoxFit.cover);
       expect(find.text('Fill screen'), findsOneWidget);
+      await tester.pump(const Duration(milliseconds: 125));
+      expect(zoom(), inExclusiveRange(1, filled), reason: 'on its way');
+      await tester.pump(const Duration(milliseconds: 150));
+      expect(zoom(), moreOrLessEquals(filled));
+      expect(
+        tester.getRect(find.byType(SubtitleView)),
+        Offset.zero & phone,
+        reason: 'the subtitles stay whole on the screen',
+      );
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('player_video_zoom')),
+          matching: find.byType(SubtitleView),
+        ),
+        findsNothing,
+      );
       await tester.pump(const Duration(seconds: 1));
       expect(plate('player_fit_plate'), findsNothing);
 
       await _pinch(tester, middle, from: 100, to: 40);
-      expect(fits.last, BoxFit.contain);
       expect(find.text('Fit to screen'), findsOneWidget);
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(zoom(), moreOrLessEquals(1));
       await tester.pump(const Duration(seconds: 1));
     });
 
@@ -3257,12 +3353,7 @@ const _videoSurface = ColoredBox(
   child: SizedBox.expand(),
 );
 
-Widget _blackSurface({
-  required VideoController controller,
-  required SubtitleViewConfiguration subtitleViewConfiguration,
-  required VideoControlsBuilder controls,
-  required BoxFit fit,
-}) {
+Widget _blackSurface({required VideoController controller}) {
   return _videoSurface;
 }
 

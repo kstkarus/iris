@@ -23,6 +23,7 @@ import 'package:iris/features/player/presentation/widgets/player_subtitle_settin
 import 'package:iris/features/player/presentation/widgets/player_track_selector_sheet.dart';
 import 'package:iris/features/player/presentation/widgets/player_viewport_factory.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
+import 'package:iris/shared/utils/motion_duration.dart';
 import 'package:iris/shared/window/picture_in_picture.dart';
 import 'package:iris/shared/window/screen_brightness_control.dart';
 
@@ -33,18 +34,13 @@ export 'package:iris/features/player/presentation/playback/media_kit_player_engi
         MediaKitVideoControllerBuilder;
 
 part 'media_kit/picture_in_picture_link.dart';
-part 'media_kit/subtitle_lift.dart';
+part 'media_kit/fitted_video.dart';
 part 'media_kit/player_controls_stats_panel.dart';
 
-/// Builds the video itself, fitted into its box by [fit]; [controls] go in
-/// media_kit's controls slot.
+/// Builds the video itself, the whole of it in its box and nothing over
+/// it: the viewport zooms it to fill the screen and draws the subtitles.
 typedef MediaKitVideoSurfaceBuilder =
-    Widget Function({
-      required VideoController controller,
-      required SubtitleViewConfiguration subtitleViewConfiguration,
-      required VideoControlsBuilder controls,
-      required BoxFit fit,
-    });
+    Widget Function({required VideoController controller});
 
 /// Switches the native window in or out of full screen.
 typedef NativeFullscreenToggle = Future<void> Function();
@@ -169,6 +165,14 @@ class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
   /// Room the controls take at the bottom, for the subtitles.
   final _subtitleLift = ValueNotifier<double>(0);
 
+  /// The subtitles Flutter draws (no libass); a new controller gets a new
+  /// view, which follows its player.
+  var _subtitleKey = GlobalKey<SubtitleViewState>();
+
+  /// The subtitle padding last lifted from; another (the settings changed)
+  /// is lifted again.
+  EdgeInsets? _subtitleBase;
+
   /// The whole video in the box, or the box filled with it (a pinch).
   final _videoFit = ValueNotifier<BoxFit>(BoxFit.contain);
 
@@ -186,6 +190,7 @@ class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
   void initState() {
     super.initState();
     _lifecycle = AppLifecycleListener(onHide: _onAppHidden);
+    _subtitleLift.addListener(_applySubtitleLift);
     widget.engine.addListener(_onEngineChanged);
     _videoFit.addListener(_onVideoFitChanged);
     final pictureInPicture = widget.pictureInPicture;
@@ -216,7 +221,7 @@ class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
     if (oldWidget.engine != widget.engine) {
       oldWidget.engine.removeListener(_onEngineChanged);
       widget.engine.addListener(_onEngineChanged);
-      _controller = widget.engine.videoController;
+      _followController();
       _pictureInPicture?.engine = widget.engine;
     }
   }
@@ -231,7 +236,9 @@ class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
     final brightness = widget.brightness;
     if (brightness != null) unawaited(brightness.reset());
     _windowFullscreen.dispose();
-    _subtitleLift.dispose();
+    _subtitleLift
+      ..removeListener(_applySubtitleLift)
+      ..dispose();
     _videoFit.dispose();
     super.dispose();
   }
@@ -240,9 +247,29 @@ class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
     if (!mounted) return;
     // A new native player (changed decoding preferences) brings its own
     // controller.
-    _controller = widget.engine.videoController;
+    _followController();
     _pictureInPicture?.follow();
     setState(() {});
+  }
+
+  void _followController() {
+    final controller = widget.engine.videoController;
+    if (identical(controller, _controller)) return;
+    _controller = controller;
+    _subtitleKey = GlobalKey<SubtitleViewState>();
+    _subtitleBase = null;
+  }
+
+  /// Keeps the Flutter subtitles above the visible controls.
+  void _applySubtitleLift() {
+    final view = _subtitleKey.currentState;
+    if (!mounted || view == null) return;
+    final base = widget.engine.subtitleViewConfiguration.padding;
+    _subtitleBase = base;
+    view.setPadding(
+      base.copyWith(bottom: base.bottom + _subtitleLift.value),
+      duration: const Duration(milliseconds: 200),
+    );
   }
 
   /// A phone that leaves the app without the small window pauses: nothing
@@ -309,6 +336,40 @@ class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
     );
   }
 
+  /// The video zoomed to the fit chosen, and the subtitles Flutter draws
+  /// over it, kept whole and in the box rather than zoomed with it.
+  Widget _buildVideo(MediaKitPlayerEngine engine) {
+    final subtitles = engine.subtitleViewConfiguration;
+    final player = engine.hasPlayer ? engine.player : null;
+    final libass = player?.platform?.configuration.libass ?? false;
+    final drawsSubtitles = subtitles.visible && !libass;
+    if (drawsSubtitles && subtitles.padding != _subtitleBase) {
+      // The view mounts, or takes new settings, in this frame.
+      WidgetsBinding.instance.addPostFrameCallback((_) => _applySubtitleLift());
+    }
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        _FittedVideo(
+          fit: _videoFit.value,
+          videoSize: switch (player?.state) {
+            PlayerState(:final width?, :final height?)
+                when width > 0 && height > 0 =>
+              Size(width.toDouble(), height.toDouble()),
+            _ => null,
+          },
+          child: widget.videoSurfaceBuilder(controller: _controller),
+        ),
+        if (drawsSubtitles)
+          SubtitleView(
+            key: _subtitleKey,
+            controller: _controller,
+            configuration: subtitles,
+          ),
+      ],
+    );
+  }
+
   /// The video fills the box; the controls lie over it.
   @override
   Widget build(BuildContext context) {
@@ -320,12 +381,7 @@ class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
       video = const SizedBox.expand();
       failure = _buildFailure(l10n);
     } else {
-      video = widget.videoSurfaceBuilder(
-        controller: _controller,
-        subtitleViewConfiguration: engine.subtitleViewConfiguration,
-        controls: _subtitleLiftControls(_subtitleLift),
-        fit: _videoFit.value,
-      );
+      video = _buildVideo(engine);
       failure = null;
     }
     final pictureInPicture = _pictureInPicture;
@@ -487,17 +543,12 @@ String? _playerStartupLabel(
   };
 }
 
-Widget _defaultVideoSurfaceBuilder({
-  required VideoController controller,
-  required SubtitleViewConfiguration subtitleViewConfiguration,
-  required VideoControlsBuilder controls,
-  required BoxFit fit,
-}) {
+Widget _defaultVideoSurfaceBuilder({required VideoController controller}) {
   return Video(
     key: const Key('player_video_surface'),
     controller: controller,
-    controls: controls,
-    fit: fit,
-    subtitleViewConfiguration: subtitleViewConfiguration,
+    controls: NoVideoControls,
+    // The viewport draws them, unzoomed.
+    subtitleViewConfiguration: const SubtitleViewConfiguration(visible: false),
   );
 }

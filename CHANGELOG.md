@@ -4,6 +4,14 @@ Notable changes to iris, newest first. The format follows [Keep a Changelog](htt
 
 ## [Unreleased]
 
+### Added
+
+- Desktop player: hold Space to play at 2× until you let go; a tap still plays or pauses.
+
+### Changed
+
+- On a phone, pinching to fill the screen zooms the video smoothly instead of snapping, and subtitles stay whole while it does.
+
 ## [1.4.0] - 2026-10-13
 
 ### Changed
