@@ -225,6 +225,42 @@ void main() {
     expect(engine.removeCalls, hasLength(1));
   });
 
+  test(
+    'canceling both metadata pickers together releases their shared torrent',
+    () async {
+      engine.metadataGate = Completer<void>();
+      final ownerCancel = Completer<void>();
+      final borrowerCancel = Completer<void>();
+      final owner = repository.prepareSource(
+        magnet: _magnet,
+        cancelled: ownerCancel.future,
+      );
+      final ownerCancelled = expectLater(
+        owner,
+        throwsA(isA<PreparationCancelledException>()),
+      );
+      await _waitFor(() => engine.metadataWaits == 1);
+      final borrower = repository.prepareSource(
+        magnet: _magnet,
+        cancelled: borrowerCancel.future,
+      );
+      final borrowerCancelled = expectLater(
+        borrower,
+        throwsA(isA<PreparationCancelledException>()),
+      );
+      await _waitFor(() => engine.metadataWaits == 2);
+      borrowerCancel.complete();
+      ownerCancel.complete();
+      await Future.wait([ownerCancelled, borrowerCancelled]);
+      expect(engine.liveTorrentIds, isEmpty);
+      expect(engine.removeCalls, hasLength(1));
+      expect(
+        await Directory(engine.addCalls.single.savePath).exists(),
+        isFalse,
+      );
+    },
+  );
+
   test('marks a finished file completed without deleting it', () async {
     final source = await repository.prepareSource(magnet: _magnet);
     final item = await repository.enqueueAndLeave(

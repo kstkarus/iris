@@ -178,8 +178,11 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
   @override
   Future<void> disposePreparedSource({required String sourceToken}) async {
     if (_preparedReleases.remove(sourceToken) != null) return;
-    await _releaseMetadataTorrent(sourceToken);
+    final releasing = _releaseMetadataTorrent(sourceToken);
+    // Drop the borrower before yielding: an owner must not transfer to it
+    // while this disposal is waiting to resume.
     _preparedSources.remove(sourceToken);
+    await releasing;
   }
 
   @override

@@ -16,6 +16,7 @@ Notable changes to iris, newest first. The format follows [Keep a Changelog](htt
 
 ### Fixed
 
+- Simultaneous cancellation of metadata pickers releases their shared torrent instead of leaving it unowned.
 - Opening a download carries the already-known Shikimori episode count into the player without a network request.
 - The player does not offer a Shikimori mark after the session ends while its account listener is still catching up.
 - An account response arriving after session expiration cannot sign the app back in during startup restore.
