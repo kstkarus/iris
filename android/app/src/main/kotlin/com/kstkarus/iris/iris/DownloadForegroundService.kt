@@ -108,9 +108,10 @@ class DownloadForegroundService : Service() {
          * beside it on the next launch.
          */
         fun endWithApp(context: Context) {
+            // Progress can show a notification after Android stopped the service.
+            cancelNotification(context)
             if (!running) return
             running = false
-            cancelNotification(context)
             context.stopService(Intent(context, DownloadForegroundService::class.java))
             // A moment for writes the app queued on its way out (preferences
             // are saved in the background) to land.

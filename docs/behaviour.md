@@ -140,7 +140,7 @@ Current behavior:
 - a failed download says why in words to act on (no space left, no access to the folder, the file gone, the download not starting); a screen reader hears a row as one sentence, its buttons name the episode, and a download that finishes or fails is announced
 - with no downloads the tab says where episodes come from and opens the catalog
 - Android may impose a time limit on very long `dataSync` foreground services on recent OS versions; interrupted items resume the next time the app starts
-- the foreground service stays up from one queued item to the next, and goes when the next one cannot start after all (it failed, or was paused, deleted or streamed meanwhile). Closing the app on Android while a download runs (Back from the first screen, or a swipe out of the recent apps) ends the download with it, notification and process included, since nothing would be left to run it; the queue goes on at the next launch
+- the foreground service stays up from one queued item to the next, and goes when the next one cannot start after all (it failed, or was paused, deleted or streamed meanwhile). Closing the app on Android while a download runs (Back from the first screen, or a swipe out of the recent apps) ends the download with it, notification and process included, since nothing would be left to run it; the queue goes on at the next launch. The notification is cleared even if Android has already stopped the service
 
 On Windows, downloads are stored under `%APPDATA%\com.kstkarus\iris\offline_downloads`, and the Android-only foreground service and storage stats are no-ops.
 
