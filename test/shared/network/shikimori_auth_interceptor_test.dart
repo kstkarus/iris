@@ -74,6 +74,7 @@ void main() {
 
   test('renews a token about to run out before sending it', () async {
     await store.write(tokens('old', left: const Duration(seconds: 30)));
+    final generation = store.generation;
 
     await dio.get<dynamic>('/api/users/whoami');
 
@@ -81,6 +82,7 @@ void main() {
     expect(oauth.lastRefreshToken, 'refresh-old');
     expect(sentTokens(), ['Bearer fresh']);
     expect((await store.read())?.accessToken, 'fresh');
+    expect(store.generation, generation);
   });
 
   test('a refused token is renewed once and the request repeated', () async {

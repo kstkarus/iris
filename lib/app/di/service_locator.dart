@@ -311,6 +311,7 @@ Future<void> _registerReal() async {
       () => RemoteUserRateRepository(
         graphQl: serviceLocator<ShikimoriGraphQlClient>(),
         rest: serviceLocator<ShikimoriRestClient>(),
+        session: serviceLocator<ShikimoriSessionStore>(),
       ),
     )
     ..registerLazySingleton<FriendsRepository>(

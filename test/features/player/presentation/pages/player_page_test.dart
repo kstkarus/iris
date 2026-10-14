@@ -396,6 +396,7 @@ Widget _wrap({
             create: (_) => EpisodeMarkCubit(
               markEpisode: MarkEpisodeWatched(rates),
               userId: '42',
+              sessionGeneration: () => 0,
             ),
             child: page,
           ),

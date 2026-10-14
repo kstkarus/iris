@@ -103,7 +103,7 @@ class ShikimoriAuthInterceptor extends Interceptor {
       // Signed out (or into another account) while renewing: the renewed
       // tokens belong to a session that is gone.
       if (!await _stillSignedInAs(tokens)) return null;
-      await _store.write(renewed);
+      await _store.renew(renewed);
       return renewed;
     } on InvalidGrantException {
       if (await _stillSignedInAs(tokens)) await _store.expire();

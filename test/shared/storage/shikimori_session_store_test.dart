@@ -37,6 +37,24 @@ void main() {
     expect(expired, isEmpty);
   });
 
+  test('renewing keeps the session generation', () async {
+    final store = ShikimoriSessionStore(FakeSecureStorage());
+    await store.write(tokens);
+    final generation = store.generation;
+
+    await store.renew(
+      ShikimoriTokens(
+        accessToken: 'renewed-access',
+        refreshToken: 'renewed-refresh',
+        expiresAt: DateTime.utc(2026, 10, 12, 12),
+      ),
+    );
+
+    expect(store.generation, generation);
+    await store.clear();
+    expect(store.generation, generation + 1);
+  });
+
   test('an expired session is cleared and reported', () async {
     final store = ShikimoriSessionStore(FakeSecureStorage());
     final expired = <void>[];

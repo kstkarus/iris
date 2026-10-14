@@ -72,6 +72,7 @@ import 'package:iris/features/watch_sources/presentation/cubit/watch_sources_tab
 import 'package:iris/features/watch_sources/presentation/models/anime_watch_sources_args.dart';
 import 'package:iris/features/watch_sources/presentation/pages/watch_sources_page.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
+import 'package:iris/shared/storage/shikimori_session_store.dart';
 import 'package:iris/shared/window/player_screen_mode.dart';
 
 /// Opens a list row's anime with what the row knows of it.
@@ -506,12 +507,19 @@ abstract final class AppRouter {
                   create: (context) => EpisodeMarkCubit(
                     markEpisode: serviceLocator<MarkEpisodeWatched>(),
                     userId: accountIdOf(context.read<AuthCubit>().state),
+                    sessionGeneration: () =>
+                        serviceLocator<ShikimoriSessionStore>().generation,
                   ),
                 ),
               ],
-              child: PlayerPage(
-                viewportFactory: viewportFactory,
-                screenMode: serviceLocator<PlayerScreenMode>(),
+              child: AccountListener(
+                onChanged: (context, accountId) {
+                  context.read<EpisodeMarkCubit>().accountChanged(accountId);
+                },
+                child: PlayerPage(
+                  viewportFactory: viewportFactory,
+                  screenMode: serviceLocator<PlayerScreenMode>(),
+                ),
               ),
             );
           },

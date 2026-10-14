@@ -248,6 +248,59 @@ void main() {
     gate.complete();
   });
 
+  test(
+    'a late load from an earlier session settles nothing after re-login',
+    () async {
+      final repository = _SessionFetchRepository();
+      final sessionCubit = UserRateCubit(repository: repository, animeId: '1');
+      addTearDown(sessionCubit.close);
+
+      await sessionCubit.accountChanged('42');
+      await pumpEventQueue();
+      final oldLoad = sessionCubit.load();
+      await pumpEventQueue();
+      final accountBLoad = sessionCubit.accountChanged('7');
+      await pumpEventQueue();
+      final accountALoad = sessionCubit.accountChanged('42');
+      await pumpEventQueue();
+
+      repository.old.complete(
+        const UserRate(id: 'old', status: UserRateStatus.planned, episodes: 3),
+      );
+      await pumpEventQueue();
+      expect(sessionCubit.state, const UserRateLoading());
+
+      repository.accountB.complete(null);
+      repository.accountA.complete(null);
+      await Future.wait([oldLoad, accountBLoad, accountALoad]);
+      expect(sessionCubit.state, const UserRateLoaded(null));
+    },
+  );
+
+  test('a late load failure from an earlier session settles nothing', () async {
+    final repository = _SessionFetchRepository()..failOld = true;
+    final sessionCubit = UserRateCubit(repository: repository, animeId: '1');
+    addTearDown(sessionCubit.close);
+
+    await sessionCubit.accountChanged('42');
+    await pumpEventQueue();
+    final oldLoad = sessionCubit.load();
+    await pumpEventQueue();
+    final accountBLoad = sessionCubit.accountChanged('7');
+    await pumpEventQueue();
+    final accountALoad = sessionCubit.accountChanged('42');
+    await pumpEventQueue();
+
+    repository.oldFailure.complete();
+    await pumpEventQueue();
+    expect(sessionCubit.state, const UserRateLoading());
+
+    repository.accountB.complete(null);
+    repository.accountA.complete(null);
+    await Future.wait([oldLoad, accountBLoad, accountALoad]);
+    expect(sessionCubit.state, const UserRateLoaded(null));
+  });
+
   test('a save made elsewhere shows, and the next step builds on it', () async {
     await cubit.accountChanged('42');
 
@@ -334,5 +387,34 @@ class _GatedRepository extends MockUserRateRepository {
   Future<void> remove({required String animeId, required String rateId}) async {
     await removeGate?.future;
     return super.remove(animeId: animeId, rateId: rateId);
+  }
+}
+
+class _SessionFetchRepository extends MockUserRateRepository {
+  final old = Completer<UserRate?>();
+  final oldFailure = Completer<void>();
+  final accountB = Completer<UserRate?>();
+  final accountA = Completer<UserRate?>();
+  bool failOld = false;
+  var _fetches = 0;
+
+  @override
+  Future<UserRate?> fetch(String animeId) {
+    switch (_fetches++) {
+      case 0:
+        return super.fetch(animeId);
+      case 1:
+        if (failOld) return _failOld();
+        return old.future;
+      case 2:
+        return accountB.future;
+      default:
+        return accountA.future;
+    }
+  }
+
+  Future<UserRate?> _failOld() async {
+    await oldFailure.future;
+    throw Exception('offline');
   }
 }

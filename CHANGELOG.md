@@ -14,6 +14,7 @@ Notable changes to iris, newest first. The format follows [Keep a Changelog](htt
 
 ### Fixed
 
+- Changing accounts no longer lets a late Shikimori list response replace the current account's status or episode count, including signing back into the same account. The player clears pending mark and undo notices when the session ends.
 - Scrolling a profile list no longer skips titles after several entries leave that status, including changes made while another page loads.
 - Android: closing the app clears a download notification even after the system has stopped its foreground service.
 - AniLibria: an unavailable release no longer hides an error loading another when neither has an episode to play; the source search offers Retry.

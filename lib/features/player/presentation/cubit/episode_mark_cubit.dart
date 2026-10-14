@@ -49,13 +49,30 @@ class EpisodeMarkCubit extends Cubit<EpisodeMarkState> {
   EpisodeMarkCubit({
     required MarkEpisodeWatched markEpisode,
     required String? userId,
+    required int Function() sessionGeneration,
   }) : _markEpisode = markEpisode,
        _userId = userId,
+       _readSessionGeneration = sessionGeneration,
+       _accountGeneration = sessionGeneration(),
        super(const EpisodeMarkIdle());
 
   final MarkEpisodeWatched _markEpisode;
-  final String? _userId;
+  final int Function() _readSessionGeneration;
+  String? _userId;
+  int _session = 0;
+  int _accountGeneration;
   String _animeId = '';
+
+  /// Follows the account while the player stays open.
+  void accountChanged(String? userId) {
+    final generation = _readSessionGeneration();
+    if (userId == _userId && generation == _accountGeneration) return;
+    _userId = userId;
+    _accountGeneration = generation;
+    _session++;
+    _animeId = '';
+    if (!isClosed) emit(const EpisodeMarkIdle());
+  }
 
   /// Playback reached the ending of [source]'s current file.
   void watched(AnimePlayerSource source) {
@@ -84,17 +101,20 @@ class EpisodeMarkCubit extends Cubit<EpisodeMarkState> {
 
   Future<void> undo() async {
     final userId = _userId;
+    final session = _session;
+    final animeId = _animeId;
     final current = state;
     if (userId == null || current is! EpisodeMarkDone) return;
     emit(const EpisodeMarkIdle());
     try {
       await _markEpisode.undo(
         userId: userId,
-        animeId: _animeId,
+        animeId: animeId,
         mark: current.mark,
+        isCurrent: () => _isCurrent(session, userId),
       );
     } on Object {
-      if (!isClosed) {
+      if (_isCurrent(session, userId)) {
         emit(EpisodeMarkDone(current.episode, current.mark, undoFailed: true));
       }
     }
@@ -107,22 +127,33 @@ class EpisodeMarkCubit extends Cubit<EpisodeMarkState> {
 
   Future<void> _mark(int episode) async {
     final userId = _userId;
-    if (userId == null) return;
+    final session = _session;
+    if (userId == null || !_isCurrent(session, userId)) return;
+    final animeId = _animeId;
     emit(const EpisodeMarkSaving());
     try {
       final result = await _markEpisode(
         userId: userId,
-        animeId: _animeId,
+        animeId: animeId,
         episode: episode,
+        isCurrent: () => _isCurrent(session, userId),
       );
-      if (isClosed) return;
+      if (!_isCurrent(session, userId)) return;
       emit(switch (result) {
         // The list already counts it: nothing to say.
         EpisodeAlreadyMarked() => const EpisodeMarkIdle(),
         final EpisodeMarked mark => EpisodeMarkDone(episode, mark),
       });
     } on Object {
-      if (!isClosed) emit(EpisodeMarkFailed(episode));
+      if (_isCurrent(session, userId)) {
+        emit(EpisodeMarkFailed(episode));
+      }
     }
   }
+
+  bool _isCurrent(int session, String userId) =>
+      !isClosed &&
+      session == _session &&
+      userId == _userId &&
+      _accountGeneration == _readSessionGeneration();
 }

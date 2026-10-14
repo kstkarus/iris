@@ -39,10 +39,14 @@ class MarkEpisodeWatched {
     required String userId,
     required String animeId,
     required int episode,
+    bool Function()? isCurrent,
   }) async {
     final (rate: current, :totalEpisodes) = await _repository.fetchWithTotal(
       animeId,
     );
+    if (isCurrent != null && !isCurrent()) {
+      throw StateError('Account session changed');
+    }
     if (current != null && current.episodes >= episode) {
       return const EpisodeAlreadyMarked();
     }
@@ -70,7 +74,9 @@ class MarkEpisodeWatched {
     required String userId,
     required String animeId,
     required EpisodeMarked mark,
+    bool Function()? isCurrent,
   }) async {
+    if (isCurrent != null && !isCurrent()) return;
     final previous = mark.previous;
     if (previous == null) {
       await _repository.remove(animeId: animeId, rateId: mark.saved.id);

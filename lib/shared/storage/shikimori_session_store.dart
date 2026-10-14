@@ -41,6 +41,10 @@ class ShikimoriSessionStore {
 
   ShikimoriTokens? _tokens;
   bool _loaded = false;
+  int _generation = 0;
+
+  /// Changes when signing in or out, but not when the token is renewed.
+  int get generation => _generation;
 
   /// Fires when Shikimori no longer accepts the session (see [expire]); a
   /// sign-out the user asked for does not.
@@ -60,12 +64,19 @@ class ShikimoriSessionStore {
   }
 
   Future<void> write(ShikimoriTokens tokens) async {
+    _generation++;
+    await renew(tokens);
+  }
+
+  /// Replaces an expiring token without starting a new account session.
+  Future<void> renew(ShikimoriTokens tokens) async {
     _tokens = tokens;
     _loaded = true;
     await _storage.write(key: _storageKey, value: jsonEncode(tokens.toJson()));
   }
 
   Future<void> clear() async {
+    _generation++;
     _tokens = null;
     _loaded = true;
     await _storage.delete(key: _storageKey);

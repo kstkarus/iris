@@ -6,6 +6,7 @@ import 'package:iris/entities/user_rate/domain/user_rate_repository.dart';
 import 'package:iris/shared/network/network_exceptions.dart';
 import 'package:iris/shared/network/shikimori_graph_ql_client.dart';
 import 'package:iris/shared/network/shikimori_rest_client.dart';
+import 'package:iris/shared/storage/shikimori_session_store.dart';
 import 'package:iris/shared/utils/json_read.dart';
 
 /// Reads the entry through GraphQL (`Anime.userRate`) and writes it through
@@ -16,13 +17,16 @@ class RemoteUserRateRepository implements UserRateRepository {
   RemoteUserRateRepository({
     required ShikimoriGraphQlClient graphQl,
     required ShikimoriRestClient rest,
+    required ShikimoriSessionStore session,
   }) : _graphQl = graphQl,
-       _rest = rest;
+       _rest = rest,
+       _session = session;
 
   static const _ratesPath = '/api/v2/user_rates';
 
   final ShikimoriGraphQlClient _graphQl;
   final ShikimoriRestClient _rest;
+  final ShikimoriSessionStore _session;
   final _changes = StreamController<UserRateChange>.broadcast();
 
   @override
@@ -36,6 +40,7 @@ class RemoteUserRateRepository implements UserRateRepository {
   Future<({UserRate? rate, int totalEpisodes})> fetchWithTotal(
     String animeId,
   ) async {
+    final sessionGeneration = await _sessionGeneration();
     final data = await _graphQl.query(
       document: _userRateQuery,
       variables: {'id': animeId},
@@ -46,7 +51,7 @@ class RemoteUserRateRepository implements UserRateRepository {
     }
     final anime = jsonMap(animes.first);
     final rate = UserRateDto.tryParse(anime['userRate'])?.toEntity();
-    _changes.add(UserRateChange(animeId, rate));
+    await _publishIfCurrent(sessionGeneration, UserRateChange(animeId, rate));
     return (rate: rate, totalEpisodes: jsonInt(anime['episodes']));
   }
 
@@ -59,6 +64,7 @@ class RemoteUserRateRepository implements UserRateRepository {
     required int episodes,
     required int score,
   }) async {
+    final sessionGeneration = await _sessionGeneration();
     final fields = {
       'status': UserRateDto.statusToApi(status),
       'episodes': episodes,
@@ -82,14 +88,33 @@ class RemoteUserRateRepository implements UserRateRepository {
       throw const RemoteResponseException('User rate response is invalid.');
     }
     final rate = saved.toEntity();
-    _changes.add(UserRateChange(animeId, rate));
+    await _publishIfCurrent(sessionGeneration, UserRateChange(animeId, rate));
     return rate;
   }
 
   @override
   Future<void> remove({required String animeId, required String rateId}) async {
+    final sessionGeneration = await _sessionGeneration();
     await _rest.delete('$_ratesPath/$rateId');
-    _changes.add(UserRateChange(animeId, null));
+    await _publishIfCurrent(sessionGeneration, UserRateChange(animeId, null));
+  }
+
+  /// A request can outlive the account that authorized it. Its return value
+  /// still belongs to the caller, but it must not update shared UI state.
+  Future<int> _sessionGeneration() async {
+    if (await _session.read() == null) return -1;
+    return _session.generation;
+  }
+
+  Future<void> _publishIfCurrent(
+    int sessionGeneration,
+    UserRateChange change,
+  ) async {
+    if (sessionGeneration >= 0 &&
+        await _session.read() != null &&
+        _session.generation == sessionGeneration) {
+      _changes.add(change);
+    }
   }
 }
 

@@ -60,14 +60,17 @@ class UserRateCubit extends Cubit<UserRateState> {
   Future<void> load() async {
     final userId = _userId;
     if (userId == null) return;
+    final session = _session;
     emit(const UserRateLoading());
     try {
       final rate = await _repository.fetch(_animeId);
-      if (isClosed || userId != _userId) return;
+      if (isClosed || session != _session) return;
       _saved = rate;
       emit(UserRateLoaded(rate));
     } on Exception {
-      if (!isClosed && userId == _userId) emit(const UserRateLoadFailure());
+      if (!isClosed && session == _session) {
+        emit(const UserRateLoadFailure());
+      }
     }
   }
 

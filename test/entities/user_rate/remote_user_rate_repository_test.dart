@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:dio/dio.dart';
@@ -8,22 +9,33 @@ import 'package:iris/entities/user_rate/domain/user_rate.dart';
 import 'package:iris/shared/network/network_exceptions.dart';
 import 'package:iris/shared/network/shikimori_graph_ql_client.dart';
 import 'package:iris/shared/network/shikimori_rest_client.dart';
+import 'package:iris/shared/storage/shikimori_session_store.dart';
 
 import '../../helpers/fake_http_adapter.dart';
+import '../../helpers/fake_secure_storage.dart';
 
 void main() {
   late FakeHttpAdapter adapter;
-  late FakeReply Function(RequestOptions) server;
+  late FutureOr<FakeReply> Function(RequestOptions) server;
+  late ShikimoriSessionStore session;
 
   RemoteUserRateRepository repository() {
     adapter = FakeHttpAdapter((options) => server(options));
+    session = ShikimoriSessionStore(FakeSecureStorage());
     final dio = Dio(BaseOptions(baseUrl: 'https://shikimori.io'))
       ..httpClientAdapter = adapter;
     return RemoteUserRateRepository(
       graphQl: ShikimoriGraphQlClient(dio: dio),
       rest: ShikimoriRestClient(dio: dio),
+      session: session,
     );
   }
+
+  ShikimoriTokens tokens(String name) => ShikimoriTokens(
+    accessToken: 'access-$name',
+    refreshToken: 'refresh-$name',
+    expiresAt: DateTime.utc(2026, 10, 15),
+  );
 
   Map<String, dynamic> body(RequestOptions options) =>
       jsonDecode(jsonEncode(options.data)) as Map<String, dynamic>;
@@ -158,5 +170,124 @@ void main() {
       ),
       throwsA(isA<RemoteResponseException>()),
     );
+  });
+
+  test(
+    'an old save returns its result without publishing after sign-in',
+    () async {
+      final response = Completer<FakeReply>();
+      server = (_) => response.future;
+      final repo = repository();
+      await session.write(tokens('a'));
+      final changes = <UserRateChange>[];
+      final subscription = repo.changes.listen(changes.add);
+
+      final saving = repo.save(
+        userId: '42',
+        animeId: '1',
+        rateId: null,
+        status: UserRateStatus.watching,
+        episodes: 1,
+        score: 0,
+      );
+      await pumpEventQueue();
+      await session.write(tokens('b'));
+      // A re-login as A is a new session too; the old request still cannot
+      // publish into it.
+      await session.write(tokens('a-again'));
+      response.complete(
+        const FakeReply(201, {'id': 16, 'status': 'watching', 'episodes': 1}),
+      );
+
+      expect((await saving).id, '16');
+      await pumpEventQueue();
+      expect(changes, isEmpty);
+      await subscription.cancel();
+    },
+  );
+
+  test(
+    'a same-session token renewal does not suppress a save change',
+    () async {
+      final response = Completer<FakeReply>();
+      server = (_) => response.future;
+      final repo = repository();
+      await session.write(tokens('a'));
+      final changes = <UserRateChange>[];
+      final subscription = repo.changes.listen(changes.add);
+
+      final saving = repo.save(
+        userId: '42',
+        animeId: '1',
+        rateId: null,
+        status: UserRateStatus.watching,
+        episodes: 1,
+        score: 0,
+      );
+      await pumpEventQueue();
+      await session.renew(tokens('a-renewed'));
+      response.complete(
+        const FakeReply(201, {'id': 16, 'status': 'watching', 'episodes': 1}),
+      );
+
+      expect((await saving).id, '16');
+      await pumpEventQueue();
+      expect(changes, hasLength(1));
+      expect(changes.single.animeId, '1');
+      await subscription.cancel();
+    },
+  );
+
+  test(
+    'an old fetch returns its result without publishing after sign-in',
+    () async {
+      final response = Completer<FakeReply>();
+      server = (_) => response.future;
+      final repo = repository();
+      await session.write(tokens('a'));
+      final changes = <UserRateChange>[];
+      final subscription = repo.changes.listen(changes.add);
+
+      final fetching = repo.fetchWithTotal('1');
+      await pumpEventQueue();
+      await session.write(tokens('b'));
+      response.complete(
+        const FakeReply(200, {
+          'data': {
+            'animes': [
+              {
+                'id': '1',
+                'episodes': 12,
+                'userRate': {'id': '77', 'status': 'watching', 'episodes': 2},
+              },
+            ],
+          },
+        }),
+      );
+
+      expect((await fetching).rate?.id, '77');
+      await pumpEventQueue();
+      expect(changes, isEmpty);
+      await subscription.cancel();
+    },
+  );
+
+  test('an old removal does not publish after sign-in', () async {
+    final response = Completer<FakeReply>();
+    server = (_) => response.future;
+    final repo = repository();
+    await session.write(tokens('a'));
+    final changes = <UserRateChange>[];
+    final subscription = repo.changes.listen(changes.add);
+
+    final removing = repo.remove(animeId: '1', rateId: '16');
+    await pumpEventQueue();
+    await session.write(tokens('b'));
+    response.complete(const FakeReply(204));
+
+    await removing;
+    await pumpEventQueue();
+    expect(changes, isEmpty);
+    await subscription.cancel();
   });
 }
