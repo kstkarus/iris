@@ -133,6 +133,51 @@ void main() {
     expect(ids(), ['9', '1']);
   });
 
+  test('a title entering the status during pagination is not missed', () async {
+    cubit.show('42');
+    await settle();
+    repository.gate = Completer<void>();
+    final more = cubit.loadMore();
+    repository.lists[UserRateStatus.watching]!.insert(0, listEntry('9'));
+    changes.add(
+      const UserRateChange(
+        '9',
+        UserRate(id: 'r9', status: UserRateStatus.watching, episodes: 1),
+      ),
+    );
+    await settle();
+    repository.gate!.complete();
+    await more;
+    await settle();
+    await settle();
+    expect(ids(), contains('9'));
+  });
+
+  test(
+    'a failed quiet reread does not leave pagination loading forever',
+    () async {
+      cubit.show('42');
+      await settle();
+      repository.gate = Completer<void>();
+      final more = cubit.loadMore();
+      repository.failure = Exception('offline');
+      changes.add(
+        const UserRateChange(
+          '9',
+          UserRate(id: 'r9', status: UserRateStatus.watching, episodes: 1),
+        ),
+      );
+      await settle();
+      repository.gate!.complete();
+      await more;
+      await settle();
+      expect(cubit.state.loadingMore, isFalse);
+      repository.failure = null;
+      await cubit.loadMore();
+      expect(ids(), contains('3'));
+    },
+  );
+
   test('an anime that left the status skips nothing further on', () async {
     repository.lists[UserRateStatus.watching] = [
       for (final id in ['1', '2', '3', '4', '5']) listEntry(id),

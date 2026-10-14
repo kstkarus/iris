@@ -164,13 +164,13 @@ class UserListCubit extends Cubit<UserListState> {
     }
     if (isClosed ||
         state.load != UserListLoad.loaded ||
-        state.loadingMore ||
         rate == null ||
         rate.status != state.status ||
         _lists(change.animeId)) {
       return;
     }
     _request++;
+    emit(state.copyWith(loadingMore: false));
     unawaited(_readFirstPage(quietly: true));
   }
 
