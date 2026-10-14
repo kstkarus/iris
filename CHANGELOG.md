@@ -14,6 +14,7 @@ Notable changes to iris, newest first. The format follows [Keep a Changelog](htt
 
 ### Fixed
 
+- Bottom navigation labels keep a gap between them on narrow phones with large text.
 - Continue watching shows one entry per anime even after changing torrent or dub, keeping the latest useful progress.
 - Changing accounts no longer lets a late Shikimori list response replace the current account's status or episode count, including signing back into the same account. The player clears pending mark and undo notices when the session ends.
 - Scrolling a profile list no longer skips titles after several entries leave that status, including changes made while another page loads.

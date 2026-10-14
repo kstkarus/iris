@@ -311,8 +311,8 @@ void main() {
         find.ancestor(of: text, matching: find.byType(InkWell)),
       );
       final shown = tester.getRect(text);
-      expect(shown.left, greaterThanOrEqualTo(tab.left - 0.5), reason: label);
-      expect(shown.right, lessThanOrEqualTo(tab.right + 0.5), reason: label);
+      expect(shown.left, greaterThanOrEqualTo(tab.left + 7.5), reason: label);
+      expect(shown.right, lessThanOrEqualTo(tab.right - 7.5), reason: label);
     }
     expect(tester.takeException(), isNull);
   });
