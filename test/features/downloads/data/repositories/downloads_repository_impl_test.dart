@@ -26,6 +26,7 @@ void main() {
   late DownloadsRepositoryImpl repository;
   // Holds the create of a metadata folder while a test needs it open.
   Completer<void>? metadataFolderGate;
+  Future<void> Function(Directory folder)? metadataFolderCreated;
   var metadataFolderRequests = 0;
 
   setUp(() async {
@@ -39,6 +40,7 @@ void main() {
     foregroundService = _FakeForegroundService();
     activityRegistry = TorrentActivityRegistry();
     metadataFolderGate = null;
+    metadataFolderCreated = null;
     metadataFolderRequests = 0;
     repository = DownloadsRepositoryImpl(
       engine: engine,
@@ -56,6 +58,7 @@ void main() {
         metadataFolderRequests++;
         await metadataFolderGate?.future;
         await folder.create(recursive: true);
+        await metadataFolderCreated?.call(folder);
       },
     );
   });
@@ -1162,15 +1165,18 @@ void main() {
         animeTitle: 'Queued',
         sourceTitle: 'Release',
       );
+      late String selectionFolder;
+      late RandomAccessFile lock;
+      metadataFolderCreated = (folder) async {
+        selectionFolder = folder.path;
+        // Hold it before prepareSource releases its metadata torrent.
+        lock = await File(
+          path.join(selectionFolder, 'lock'),
+        ).open(mode: FileMode.write);
+      };
       final selection = await repository.prepareSource(magnet: _magnet);
-      final selectionFolder = engine.addCalls.last.savePath;
-      await repository.pause(id: activeItem.id);
-
-      // An open handle keeps Windows from removing the folder.
-      final lock = await File(
-        path.join(selectionFolder, 'lock'),
-      ).open(mode: FileMode.write);
       try {
+        await repository.pause(id: activeItem.id);
         await repository.disposePreparedSource(
           sourceToken: selection.sourceToken,
         );
