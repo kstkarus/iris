@@ -131,7 +131,7 @@ abstract class AppLocalizations {
   /// No description provided for @downloadsEmpty.
   ///
   /// In en, this message translates to:
-  /// **'Episodes download from a title’s sources, or from Torrents.'**
+  /// **'Download episodes from the sources on an anime’s page.'**
   String get downloadsEmpty;
 
   /// No description provided for @downloadSelectionTitle.

@@ -25,7 +25,7 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get downloadsEmpty =>
-      'Серии скачиваются из источников на странице аниме или из «Раздач».';
+      'Скачивайте серии из источников на странице аниме.';
 
   @override
   String get downloadSelectionTitle => 'Скачать файл';

@@ -25,7 +25,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get downloadsEmpty =>
-      'Episodes download from a title’s sources, or from Torrents.';
+      'Download episodes from the sources on an anime’s page.';
 
   @override
   String get downloadSelectionTitle => 'Download a file';

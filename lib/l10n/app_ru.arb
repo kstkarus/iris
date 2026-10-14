@@ -5,7 +5,7 @@
   "navigationCatalog": "Каталог",
   "navigationDownloads": "Загрузки",
   "downloadsOpenButton": "Скачать",
-  "downloadsEmpty": "Серии скачиваются из источников на странице аниме или из «Раздач».",
+  "downloadsEmpty": "Скачивайте серии из источников на странице аниме.",
   "downloadSelectionTitle": "Скачать файл",
   "downloadSelectionPreparing": "Получаем список файлов торрента...",
   "downloadSelectionUnsupported": "В этом источнике нет поддерживаемых видеофайлов.",

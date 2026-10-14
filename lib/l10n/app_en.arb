@@ -5,7 +5,7 @@
   "navigationCatalog": "Catalog",
   "navigationDownloads": "Downloads",
   "downloadsOpenButton": "Download",
-  "downloadsEmpty": "Episodes download from a title’s sources, or from Torrents.",
+  "downloadsEmpty": "Download episodes from the sources on an anime’s page.",
   "downloadSelectionTitle": "Download a file",
   "downloadSelectionPreparing": "Loading torrent file list...",
   "downloadSelectionUnsupported": "This source has no supported video files.",

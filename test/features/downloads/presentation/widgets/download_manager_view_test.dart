@@ -83,9 +83,7 @@ void main() {
       );
 
       expect(
-        find.text(
-          'Episodes download from a title’s sources, or from Torrents.',
-        ),
+        find.text('Download episodes from the sources on an anime’s page.'),
         findsOneWidget,
       );
       expect(find.text('Browse the catalog'), findsOneWidget);
