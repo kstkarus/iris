@@ -20,11 +20,16 @@ import 'package:iris/shared/widgets/tap_row.dart';
 /// The latest file of each recently watched torrent, from the catalog and
 /// from saved torrents alike. Files only looked at are left out before the
 /// latest is picked, so a glance at the next episode does not hide the one
-/// actually being watched.
+/// actually being watched. Linked sources then share one entry per anime.
 List<WatchProgress> continueWatchingItems(List<WatchProgress> history) {
-  return latestPerTorrent(
-    history.where((item) => item.isWorthContinuing),
-  ).take(ContinueWatchingRow.maxItems).toList();
+  final seen = <String>{};
+  return latestPerTorrent(history.where((item) => item.isWorthContinuing))
+      .where(
+        (item) =>
+            seen.add(item.hasAnime ? 'anime:${item.animeId}' : item.torrentKey),
+      )
+      .take(ContinueWatchingRow.maxItems)
+      .toList();
 }
 
 /// The most recent title large, with where it stopped on a position

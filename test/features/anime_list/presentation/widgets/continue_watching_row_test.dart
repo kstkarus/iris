@@ -8,6 +8,26 @@ import '../../../../helpers/test_app.dart';
 import '../../../../helpers/test_window.dart';
 
 void main() {
+  test('changing a torrent keeps one continuation for the same anime', () {
+    final items = continueWatchingItems([
+      _progress('old', seconds: 700, minute: 10),
+      WatchProgress(
+        torrentKey: 'new',
+        fileIndex: 0,
+        fileName: 'episode.mkv',
+        magnet: 'm',
+        sourceTitle: 'Release',
+        animeId: _progress('old', seconds: 700, minute: 10).animeId,
+        animeTitle: 'Anime',
+        position: const Duration(minutes: 10),
+        duration: const Duration(minutes: 24),
+        updatedAt: DateTime.utc(2026, 10, 7, 12, 20),
+      ),
+    ]);
+    expect(items, hasLength(1));
+    expect(items.single.torrentKey, 'new');
+  });
+
   test('leaves out files only looked at, keeping the one being watched', () {
     final items = continueWatchingItems([
       // A glance at the next episode after watching the previous one.
