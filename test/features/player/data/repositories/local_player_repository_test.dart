@@ -7,11 +7,47 @@ import 'package:iris/features/downloads/domain/entities/download_status.dart';
 import 'package:iris/features/downloads/domain/repositories/downloads_repository.dart';
 import 'package:iris/features/player/data/repositories/local_player_repository.dart';
 import 'package:iris/features/player/domain/downloaded_player_source.dart';
+import 'package:iris/features/player/domain/entities/anime_player_source.dart';
 import 'package:iris/features/player/domain/entities/player_launch_update.dart';
+import 'package:iris/features/player/domain/listed_episodes.dart';
+import 'package:iris/features/online_sources/domain/online_episode_files.dart';
 
 import '../../player_test_doubles.dart';
 
 void main() {
+  test('offline online episodes retain their supplied numbers and titles', () {
+    const magnet = 'online:anilibria/release?anime=1';
+    final source = downloadedPlayerSource([
+      _completedDownload.copyWith(
+        magnet: magnet,
+        fileIndex: 4,
+        fileName: onlineEpisodeFileName(4, 'Title'),
+      ),
+      _completedDownload.copyWith(
+        id: 'special',
+        magnet: magnet,
+        fileIndex: 100250,
+        fileName: onlineEpisodeFileName(2.5, 'Special'),
+      ),
+    ], magnet)!;
+    expect(source.files.map((file) => file.episodeNumber), [2.5, 4]);
+    expect(source.files.map((file) => file.title), ['Special', 'Title']);
+    expect(filesCountedInList(source.files, 4), {4});
+    expect(
+      AnimePlayerSource(
+        animeId: '1',
+        animeTitle: 'Anime',
+        sourceTitle: 'Release',
+        sessionId: source.sessionId,
+        fileIndex: 4,
+        fileName: onlineEpisodeFileName(4, 'Title'),
+        magnet: magnet,
+        files: source.files,
+      ).episodeNumber,
+      4,
+    );
+  });
+
   test('opens only a completed download as a local media file', () async {
     final repository = LocalPlayerRepository(
       downloadsRepository: _DownloadsRepositoryFake(_completedDownload),

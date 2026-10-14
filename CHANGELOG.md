@@ -16,6 +16,7 @@ Notable changes to iris, newest first. The format follows [Keep a Changelog](htt
 
 ### Fixed
 
+- Local online playback keeps episode numbers and titles, including specials, so episode order and Shikimori watch marks match streaming.
 - The delete-all icon in Downloads has a wider lid separated from the bin, so it is easier to recognise at button size.
 - Empty Downloads points to an anime's sources instead of the removed Torrents section.
 - Continue and Play next use downloaded episodes of the selected release before preparing a network source; an unfinished episode missing locally falls back to that original source.
