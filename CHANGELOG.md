@@ -15,6 +15,7 @@ Notable changes to iris, newest first. The format follows [Keep a Changelog](htt
 
 ### Fixed
 
+- Continue and Play next use downloaded episodes of the selected release before preparing a network source; an unfinished episode missing locally falls back to that original source.
 - A downloaded episode opens with the other completed episodes of the same release, so Next and the episode drawer keep playing local files.
 - Bottom navigation labels keep a gap between them on narrow phones with large text.
 - Continue watching shows one entry per anime even after changing torrent or dub, keeping the latest useful progress.

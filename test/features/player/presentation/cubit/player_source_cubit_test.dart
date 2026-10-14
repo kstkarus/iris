@@ -1,4 +1,7 @@
 import 'dart:async';
+import 'package:iris/features/downloads/data/repositories/mock_downloads_repository.dart';
+import 'package:iris/features/downloads/domain/entities/downloadable_file.dart';
+import 'package:iris/features/downloads/domain/entities/prepared_download_source.dart';
 
 import 'package:flutter_test/flutter_test.dart';
 
@@ -11,6 +14,52 @@ import 'package:iris/features/player/presentation/cubit/player_source_state.dart
 import '../../../../helpers/fake_player_repository.dart';
 
 void main() {
+  test(
+    'resume uses a downloaded episode without preparing the remote source',
+    () async {
+      final downloads = MockDownloadsRepository();
+      await downloads.enqueueDownload(
+        source: const PreparedDownloadSource(sourceToken: 's', files: []),
+        file: const DownloadableFile(
+          index: 0,
+          name: 'episode-01.mkv',
+          relativePath: 'episode-01.mkv',
+          size: 1,
+        ),
+        animeId: '1',
+        animeTitle: 'Anime',
+        sourceTitle: 'Release',
+      );
+      final remote = _PreparedSourceRepository(
+        const PreparedPlayerSource(sessionId: 'remote', files: []),
+      );
+      final cubit = PlayerSourceCubit(
+        magnet: 'mock-magnet',
+        repository: remote,
+        downloadsRepository: downloads,
+        preferDownloads: true,
+        preferredFileIndex: 0,
+      );
+      await cubit.loadSource();
+      expect(remote.preparations, 0);
+      expect(
+        (cubit.state as PlayerSourceReady).preparedSource.sessionId,
+        startsWith('download-source:'),
+      );
+      await cubit.close();
+      final missing = PlayerSourceCubit(
+        magnet: 'mock-magnet',
+        repository: remote,
+        downloadsRepository: downloads,
+        preferDownloads: true,
+        preferredFileIndex: 1,
+      );
+      await missing.loadSource();
+      expect(remote.preparations, 1);
+      await missing.close();
+    },
+  );
+
   test('emits loading then success when source files are prepared', () async {
     final cubit = PlayerSourceCubit(
       magnet: 'magnet:?xt=urn:btih:test-source',
@@ -258,12 +307,14 @@ class _PreparedSourceRepository extends StubPlayerRepository {
   _PreparedSourceRepository(this.preparedSource);
 
   final PreparedPlayerSource preparedSource;
+  int preparations = 0;
 
   @override
   Future<PreparedPlayerSource> prepareSource({
     required String magnet,
     Future<void>? cancelled,
   }) async {
+    preparations++;
     return preparedSource;
   }
 }

@@ -100,7 +100,12 @@ class PlayerSourcePage extends StatelessWidget {
 
   /// A single-file torrent, or the file a "Continue" action asked for.
   PlayerVideoFile? _fileToOpenImmediately(List<PlayerVideoFile> files) {
-    if (files.length == 1) return files.single;
+    // A finished episode's Continue action opens the available episodes,
+    // even if its downloaded copy is the only one left on the device.
+    if (files.length == 1 &&
+        !(args.preferDownloads && args.autoOpenFileIndex == null)) {
+      return files.single;
+    }
     final wanted = args.autoOpenFileIndex;
     if (wanted == null) return null;
     for (final file in files) {

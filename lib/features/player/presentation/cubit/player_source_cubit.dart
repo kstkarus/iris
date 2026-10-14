@@ -5,6 +5,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:iris/features/player/domain/entities/no_playable_video_exception.dart';
 import 'package:iris/features/player/domain/entities/prepared_player_source.dart';
+import 'package:iris/features/player/domain/downloaded_player_source.dart';
+import 'package:iris/features/downloads/domain/repositories/downloads_repository.dart';
 import 'package:iris/features/player/domain/repositories/player_repository.dart';
 import 'package:iris/features/player/presentation/cubit/player_source_state.dart';
 
@@ -12,11 +14,18 @@ class PlayerSourceCubit extends Cubit<PlayerSourceState> {
   PlayerSourceCubit({
     required this.magnet,
     required PlayerRepository repository,
+    DownloadsRepository? downloadsRepository,
+    this.preferDownloads = false,
+    this.preferredFileIndex,
   }) : _repository = repository,
+       _downloadsRepository = downloadsRepository,
        super(const PlayerSourceInitial());
 
   final String magnet;
   final PlayerRepository _repository;
+  final DownloadsRepository? _downloadsRepository;
+  final bool preferDownloads;
+  final int? preferredFileIndex;
 
   PreparedPlayerSource? _preparedSource;
   bool _sessionOwnershipTransferred = false;
@@ -51,10 +60,35 @@ class PlayerSourceCubit extends Cubit<PlayerSourceState> {
     final preparationCancel = Completer<void>();
     _preparationCancel = preparationCancel;
     try {
-      final preparedSource = await _repository.prepareSource(
-        magnet: magnet,
-        cancelled: preparationCancel.future,
-      );
+      PreparedPlayerSource? local;
+      final downloads = _downloadsRepository;
+      if (preferDownloads && downloads != null) {
+        try {
+          local = downloadedPlayerSource(
+            await downloads.watchDownloads().first,
+            magnet,
+          );
+          if (preferredFileIndex != null &&
+              !(local?.files.any((file) => file.index == preferredFileIndex) ??
+                  false)) {
+            local = null;
+          }
+        } on Object catch (error, stackTrace) {
+          developer.log(
+            'Unable to read downloaded episodes.',
+            name: 'iris.player.source_cubit',
+            error: error,
+            stackTrace: stackTrace,
+          );
+        }
+      }
+      if (!_isAttemptCurrent(attemptId)) return;
+      final preparedSource =
+          local ??
+          await _repository.prepareSource(
+            magnet: magnet,
+            cancelled: preparationCancel.future,
+          );
       if (!_isAttemptCurrent(attemptId)) {
         developer.log(
           'Prepared source arrived after source cubit became stale. Disposing sessionId=${preparedSource.sessionId}',

@@ -26,8 +26,8 @@ class AnimePlayerSource {
   /// The torrent being played; empty when unknown (no progress is kept).
   final String magnet;
 
-  /// Video files of a streamed torrent, in playback order. Empty for local
-  /// downloads, which play a single file.
+  /// Episodes of the selected source in playback order, including completed
+  /// local downloads. Empty for a legacy single-file download session.
   final List<PlayerVideoFile> files;
 
   /// Episodes of the anime the user's Shikimori list counted when playback

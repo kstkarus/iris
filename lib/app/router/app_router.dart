@@ -501,6 +501,9 @@ abstract final class AppRouter {
               create: (_) => PlayerSourceCubit(
                 magnet: args.magnet,
                 repository: serviceLocator<PlayerRepository>(),
+                downloadsRepository: serviceLocator<DownloadsRepository>(),
+                preferDownloads: args.preferDownloads,
+                preferredFileIndex: args.autoOpenFileIndex,
               )..loadSource(),
               child: PlayerSourcePage(args: args),
             );

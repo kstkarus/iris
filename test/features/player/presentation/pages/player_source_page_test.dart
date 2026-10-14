@@ -38,12 +38,35 @@ void main() {
     expect(cubit.didReclaimOwnership, isTrue);
     expect(find.byType(PlayerSourcePage), findsOneWidget);
   });
+
+  testWidgets('Play next does not replay the only downloaded episode', (
+    tester,
+  ) async {
+    final cubit = await _pumpFilesPage(
+      tester,
+      withPlayerRoute: true,
+      preferDownloads: true,
+    );
+    cubit.push(
+      PlayerSourceReady(
+        PreparedPlayerSource(
+          sessionId: 'download-source:release',
+          files: _singleFileSource.files,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Player Route'), findsNothing);
+    expect(find.byType(PlayerSourcePage), findsOneWidget);
+    expect(cubit.didTransferOwnership, isFalse);
+  });
 }
 
 /// Without the player route, opening the player throws.
 Future<FakePlayerSourceCubit> _pumpFilesPage(
   WidgetTester tester, {
   required bool withPlayerRoute,
+  bool preferDownloads = false,
 }) async {
   late FakePlayerSourceCubit cubit;
   final router = GoRouter(
@@ -55,12 +78,13 @@ Future<FakePlayerSourceCubit> _pumpFilesPage(
           cubit = FakePlayerSourceCubit();
           return BlocProvider<PlayerSourceCubit>.value(
             value: cubit,
-            child: const PlayerSourcePage(
+            child: PlayerSourcePage(
               args: AnimePlayerSourceArgs(
                 animeId: '5114',
                 animeTitle: 'Fullmetal Alchemist: Brotherhood',
                 sourceTitle: '[Mock] Fullmetal Alchemist: Brotherhood Batch',
                 magnet: 'magnet:?xt=urn:btih:test-source',
+                preferDownloads: preferDownloads,
               ),
             ),
           );

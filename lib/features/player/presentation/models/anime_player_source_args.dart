@@ -7,6 +7,7 @@ class AnimePlayerSourceArgs {
     required this.sourceTitle,
     required this.magnet,
     this.autoOpenFileIndex,
+    this.preferDownloads = false,
   });
 
   /// Back to the torrent of [progress]; a finished file opens the picker,
@@ -18,6 +19,7 @@ class AnimePlayerSourceArgs {
         sourceTitle: progress.sourceTitle,
         magnet: progress.magnet,
         autoOpenFileIndex: progress.isFinished ? null : progress.fileIndex,
+        preferDownloads: true,
       );
 
   final String animeId;
@@ -27,4 +29,7 @@ class AnimePlayerSourceArgs {
 
   /// Opens this file right after the torrent is ready ("Continue").
   final int? autoOpenFileIndex;
+
+  /// Resume this release from its completed downloads when available.
+  final bool preferDownloads;
 }

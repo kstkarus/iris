@@ -9,8 +9,8 @@ import 'package:iris/features/player/domain/repositories/player_repository.dart'
 /// servers and completed downloads from disk.
 ///
 /// Streaming sessions are numeric session counters, online sessions
-/// are the release's [OnlineSourceLink], and download ids are
-/// `<info-hash>-<file index>`, so the session id alone selects the backend.
+/// are the release's [OnlineSourceLink], and local sessions use a download
+/// id or `download-source:<source key>`. The id selects the backend.
 class StreamingOrLocalPlayerRepository implements PlayerRepository {
   const StreamingOrLocalPlayerRepository({
     required PlayerRepository streaming,
