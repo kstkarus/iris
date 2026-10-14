@@ -407,10 +407,9 @@ void main() {
         sourceTitle: 'AniLibria · Frieren',
         magnet: 'online:anilibria/9542?anime=52991',
       );
-      final cubit = DownloadSelectionCubit(
-        args: args,
-        repository: _SeasonDownloads(),
-      )..load();
+      final repository = _SeasonDownloads();
+      final cubit = DownloadSelectionCubit(args: args, repository: repository)
+        ..load();
       await tester.pumpWidget(
         RepaintBoundary(
           key: _captureKey,
@@ -435,6 +434,14 @@ void main() {
       expect(find.byKey(const Key('download_all')), findsOneWidget);
       expect(tester.takeException(), isNull);
       await _capture(tester, 'selection_${config.$1}');
+      final batch = cubit.downloadAll();
+      await tester.pump();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 220));
+      expect(tester.takeException(), isNull);
+      await _capture(tester, 'selection_batch_${config.$1}');
+      repository.queueGate.complete();
+      await batch;
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.runAsync(cubit.close);
       tester.view.reset();
@@ -510,6 +517,28 @@ class _LiveDownloads extends _Downloads {
 }
 
 class _SeasonDownloads extends MockDownloadsRepository {
+  final queueGate = Completer<void>();
+
+  @override
+  Future<DownloadItem> enqueueDownload({
+    required PreparedDownloadSource source,
+    required DownloadableFile file,
+    required String animeId,
+    required String animeTitle,
+    required String sourceTitle,
+    int? quality,
+  }) async {
+    await queueGate.future;
+    return super.enqueueDownload(
+      source: source,
+      file: file,
+      animeId: animeId,
+      animeTitle: animeTitle,
+      sourceTitle: sourceTitle,
+      quality: quality,
+    );
+  }
+
   @override
   Stream<Map<int, DownloadItem>> watchSourceDownloads({
     required String magnet,
