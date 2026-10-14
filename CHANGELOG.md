@@ -15,6 +15,7 @@ Notable changes to iris, newest first. The format follows [Keep a Changelog](htt
 
 ### Fixed
 
+- A downloaded episode opens with the other completed episodes of the same release, so Next and the episode drawer keep playing local files.
 - Bottom navigation labels keep a gap between them on narrow phones with large text.
 - Continue watching shows one entry per anime even after changing torrent or dub, keeping the latest useful progress.
 - Changing accounts no longer lets a late Shikimori list response replace the current account's status or episode count, including signing back into the same account. The player clears pending mark and undo notices when the session ends.

@@ -35,6 +35,7 @@ import 'package:iris/features/characters/presentation/pages/anime_characters_pag
 import 'package:iris/features/characters/presentation/pages/character_page.dart';
 import 'package:iris/features/downloads/domain/repositories/downloads_repository.dart';
 import 'package:iris/features/downloads/domain/entities/download_item.dart';
+import 'package:iris/features/player/domain/downloaded_player_source.dart';
 import 'package:iris/features/downloads/domain/entities/download_title.dart';
 import 'package:iris/features/downloads/presentation/pages/download_title_page.dart';
 import 'package:iris/features/downloads/presentation/cubit/download_manager_cubit.dart';
@@ -87,7 +88,35 @@ void _openListed(BuildContext context, UserListEntry entry) =>
     );
 
 abstract final class AppRouter {
-  static void _watchDownload(BuildContext context, DownloadItem item) {
+  static Future<void> _watchDownload(
+    BuildContext context,
+    DownloadItem item,
+  ) async {
+    final List<DownloadItem> items;
+    try {
+      items = await serviceLocator<DownloadsRepository>()
+          .watchDownloads()
+          .first;
+    } on Object catch (error, stackTrace) {
+      developer.log(
+        'Unable to open downloaded episodes.',
+        name: 'iris.downloads',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              AppLocalizations.of(context).downloadManagerUnableToLoad,
+            ),
+          ),
+        );
+      }
+      return;
+    }
+    if (!context.mounted) return;
+    final local = downloadedPlayerSource(items, item.magnet);
     context.pushNamed(
       'player',
       extra: AnimePlayerArgs(
@@ -95,7 +124,8 @@ abstract final class AppRouter {
           animeId: item.animeId,
           animeTitle: item.animeTitle,
           sourceTitle: item.sourceTitle,
-          sessionId: item.id,
+          sessionId: local?.sessionId ?? item.id,
+          files: local?.files ?? const [],
           fileIndex: item.fileIndex,
           fileName: item.fileName,
           magnet: item.magnet,
