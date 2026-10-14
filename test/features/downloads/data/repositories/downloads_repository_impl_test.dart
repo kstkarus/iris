@@ -194,6 +194,37 @@ void main() {
     await _waitFor(() => engine.priorityCalls.isNotEmpty);
   });
 
+  test('canceling the metadata owner keeps a waiting picker alive', () async {
+    engine.metadataGate = Completer<void>();
+    final cancel = Completer<void>();
+    final owner = repository.prepareSource(
+      magnet: _magnet,
+      cancelled: cancel.future,
+    );
+    final ownerCancelled = expectLater(
+      owner,
+      throwsA(isA<PreparationCancelledException>()),
+    );
+    await _waitFor(() => engine.metadataWaits == 1);
+    final borrower = repository.prepareSource(magnet: _magnet);
+    await _waitFor(() => engine.metadataWaits == 2);
+    cancel.complete();
+    await ownerCancelled;
+    final remaining = expectLater(
+      borrower,
+      completion(
+        isA<PreparedDownloadSource>().having(
+          (source) => source.files.length,
+          'video files',
+          2,
+        ),
+      ),
+    );
+    engine.metadataGate!.complete();
+    await remaining;
+    expect(engine.removeCalls, hasLength(1));
+  });
+
   test('marks a finished file completed without deleting it', () async {
     final source = await repository.prepareSource(magnet: _magnet);
     final item = await repository.enqueueAndLeave(
@@ -1410,12 +1441,14 @@ class _FakeDownloadEngine implements LibtorrentDownloadEngineAdapter {
 
   /// When set, metadata waits block until it completes.
   Completer<void>? metadataGate;
+  int metadataWaits = 0;
 
   @override
   Future<void> waitForMetadata(
     int torrentId, {
     Duration timeout = const Duration(seconds: 90),
   }) async {
+    metadataWaits++;
     await metadataGate?.future;
   }
 

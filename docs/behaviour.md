@@ -138,6 +138,7 @@ Current behavior:
 - opening the file picker for a torrent that is already downloading reuses that torrent; otherwise the picker adds the torrent only to read its files and removes it once it has them, so files queued from it start at once, as online episodes do; a queued item of the same torrent waits only while the picker is still reading them
 - the file picker of a torrent that a player still holds (also one that is still closing) waits until the player lets go of it, since the player removes that torrent with its files; leaving the picker cancels the wait
 - a torrent that fails or is removed while its metadata is awaited ends the wait at once, in the picker and in the player
+- canceling a metadata preparation transfers its owned torrent to another picker still awaiting it; the last owner removes it
 - pause and retry preserve already downloaded pieces
 - completed files remain in app storage until the user deletes them
 - if the files cannot be removed (for example, a file still open elsewhere), the download stays in the list, stopped, and a message asks to delete it again

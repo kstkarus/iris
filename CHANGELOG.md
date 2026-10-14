@@ -16,6 +16,7 @@ Notable changes to iris, newest first. The format follows [Keep a Changelog](htt
 
 ### Fixed
 
+- Canceling a torrent picker while another picker awaits the same metadata no longer removes their shared torrent.
 - Download quality choices visibly disable while a batch is added instead of appearing to accept ignored taps.
 - Tapping another episode while Download remaining is adding files cannot overtake the batch's episode order.
 - Local online playback keeps episode numbers and titles, including specials, so episode order and Shikimori watch marks match streaming.

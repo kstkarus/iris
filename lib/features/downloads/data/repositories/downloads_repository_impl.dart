@@ -178,15 +178,8 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
   @override
   Future<void> disposePreparedSource({required String sourceToken}) async {
     if (_preparedReleases.remove(sourceToken) != null) return;
-    final runtime = _preparedSources.remove(sourceToken);
-    if (runtime == null) return;
-    final directory = runtime.metadataDirectory;
-    // A borrowed torrent belongs to the active download; leave it running.
-    if (directory == null) return;
-    _engine.remove(runtime.torrentId, deleteFiles: true);
-    await _deleteMetadataFolder(directory);
-    // A queued download of the same torrent may have been waiting for this.
-    unawaited(_pumpQueue());
+    await _releaseMetadataTorrent(sourceToken);
+    _preparedSources.remove(sourceToken);
   }
 
   @override
