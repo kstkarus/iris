@@ -6,8 +6,10 @@ Notable changes to iris, newest first. The format follows [Keep a Changelog](htt
 
 ### Changed
 
-- Downloads now shows a compact phone gallery with aligned two-line titles, one ready/total count and a small status badge over the poster. Completed titles omit the badge; failures stay visible alongside active downloads, and large text switches to free-height horizontal rows. The selectable desktop poster rail and storage dialog remain.
-- Download episode rows keep an even height: known-size active downloads show a green percentage beside Pause, while unknown-size rows show status without a percentage. Queued, paused and failed states stay inline; live transfer details and failure guidance are in Info.
+- Downloads uses a cover gallery on Android and iOS, and a selectable poster rail beside episodes on Windows. In narrow desktop windows, covers move above the episode list.
+- Phone gallery cards align their title and episode-count areas, with small status badges and a separate large-text layout. Completed titles omit the badge; failures remain visible alongside active downloads.
+- Episode rows keep an even height. Active downloads show a percentage beside Pause when their size is known; Information holds live sizes, speed, time left, selected quality and failure guidance. Watch marks and resume positions stay visible in the list.
+- Storage and cache controls move into the library's More menu. Older downloads gain covers in the background without delaying the local list.
 
 ## [1.4.1] - 2026-10-14
 
