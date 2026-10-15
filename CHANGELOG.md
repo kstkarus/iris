@@ -11,6 +11,10 @@ Notable changes to iris, newest first. The format follows [Keep a Changelog](htt
 - Episode rows keep an even height. Active downloads show a percentage beside Pause when their size is known; Information holds live sizes, speed, time left, selected quality and failure guidance. Watch marks and resume positions stay visible in the list.
 - Storage and cache controls move into the library's More menu. Older downloads gain covers in the background without delaying the local list.
 
+### Fixed
+
+- Long resume positions stay within download rows on very narrow screens with large text; their full value remains in Information.
+
 ## [1.4.1] - 2026-10-14
 
 ### Added

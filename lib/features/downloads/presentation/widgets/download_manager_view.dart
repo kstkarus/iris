@@ -814,82 +814,108 @@ class _DownloadRowState extends State<_DownloadRow> {
                         _menu.open,
                   },
                   child: ExcludeSemantics(
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Tooltip(
-                            // Long press belongs to the row's actions menu.
-                            triggerMode: TooltipTriggerMode.manual,
-                            message: name,
-                            child: Text(
-                              downloadEpisode(l10n, item),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: titleStyle,
-                            ),
-                          ),
-                        ),
-                        if (inlineDetail != null) ...[
-                          const SizedBox(width: 8),
-                          if (numericProgress)
-                            Text(
-                              inlineDetail,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              textAlign: TextAlign.end,
-                              style: detailStyle?.copyWith(color: detailColor),
-                            )
-                          else
-                            Flexible(
-                              fit: FlexFit.tight,
-                              child: Text(
-                                inlineDetail,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                textAlign: TextAlign.end,
-                                style: detailStyle?.copyWith(
-                                  color: detailColor,
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        final progressWidth =
+                            numericProgress && watchProgress != null
+                            ? _textSize(
+                                    context,
+                                    detailStyle,
+                                    text: inlineDetail!,
+                                  ).width +
+                                  8
+                            : 0.0;
+                        final watchWidth = math.max(
+                          0.0,
+                          numericProgress
+                              ? (constraints.maxWidth - progressWidth - 8) / 2
+                              : constraints.maxWidth / 2,
+                        );
+                        return Row(
+                          children: [
+                            Expanded(
+                              child: Tooltip(
+                                // Long press belongs to the row's actions menu.
+                                triggerMode: TooltipTriggerMode.manual,
+                                message: name,
+                                child: Text(
+                                  downloadEpisode(l10n, item),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: titleStyle,
                                 ),
                               ),
                             ),
-                        ],
-                        if (watchProgress != null) ...[
-                          const SizedBox(width: 8),
-                          Tooltip(
-                            triggerMode: TooltipTriggerMode.manual,
-                            message: watchProgress.isFinished
-                                ? l10n.watchProgressWatched
-                                : l10n.watchProgressStoppedAt(
-                                    formatPlaybackPosition(
-                                      watchProgress.position,
-                                    ),
-                                    formatPlaybackPosition(
-                                      watchProgress.duration,
-                                    ),
+                            if (inlineDetail != null) ...[
+                              const SizedBox(width: 8),
+                              if (numericProgress)
+                                Text(
+                                  inlineDetail,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  textAlign: TextAlign.end,
+                                  style: detailStyle?.copyWith(
+                                    color: detailColor,
                                   ),
-                            child: watchProgress.isFinished
-                                ? PixelIcon(
-                                    PixelGlyph.check,
-                                    size: 14,
-                                    color: Theme.of(
-                                      context,
-                                    ).colorScheme.onSurfaceVariant,
-                                  )
-                                : Text(
-                                    formatPlaybackPosition(
-                                      watchProgress.position,
-                                    ),
+                                )
+                              else
+                                Flexible(
+                                  fit: FlexFit.tight,
+                                  child: Text(
+                                    inlineDetail,
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
+                                    textAlign: TextAlign.end,
                                     style: detailStyle?.copyWith(
-                                      color: Theme.of(
-                                        context,
-                                      ).colorScheme.onSurfaceVariant,
+                                      color: detailColor,
                                     ),
                                   ),
-                          ),
-                        ],
-                      ],
+                                ),
+                            ],
+                            if (watchProgress != null) ...[
+                              const SizedBox(width: 8),
+                              ConstrainedBox(
+                                constraints: BoxConstraints(
+                                  maxWidth: watchWidth,
+                                ),
+                                child: Tooltip(
+                                  triggerMode: TooltipTriggerMode.manual,
+                                  message: watchProgress.isFinished
+                                      ? l10n.watchProgressWatched
+                                      : l10n.watchProgressStoppedAt(
+                                          formatPlaybackPosition(
+                                            watchProgress.position,
+                                          ),
+                                          formatPlaybackPosition(
+                                            watchProgress.duration,
+                                          ),
+                                        ),
+                                  child: watchProgress.isFinished
+                                      ? PixelIcon(
+                                          PixelGlyph.check,
+                                          size: 14,
+                                          color: Theme.of(
+                                            context,
+                                          ).colorScheme.onSurfaceVariant,
+                                        )
+                                      : Text(
+                                          formatPlaybackPosition(
+                                            watchProgress.position,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: detailStyle?.copyWith(
+                                            color: Theme.of(
+                                              context,
+                                            ).colorScheme.onSurfaceVariant,
+                                          ),
+                                        ),
+                                ),
+                              ),
+                            ],
+                          ],
+                        );
+                      },
                     ),
                   ),
                 ),
@@ -958,21 +984,21 @@ double _downloadRowContentHeight(
 ) => math.max(
   48.0,
   math.max(
-    _textLineHeight(context, titleStyle),
-    _textLineHeight(context, detailStyle),
+    _textSize(context, titleStyle).height,
+    _textSize(context, detailStyle).height,
   ),
 );
 
-double _textLineHeight(BuildContext context, TextStyle? style) {
+Size _textSize(BuildContext context, TextStyle? style, {String text = 'Mg'}) {
   final painter = TextPainter(
-    text: TextSpan(text: 'Mg', style: style),
+    text: TextSpan(text: text, style: style),
     textDirection: Directionality.of(context),
     textScaler: MediaQuery.textScalerOf(context),
     maxLines: 1,
   );
   try {
     painter.layout();
-    return painter.height;
+    return painter.size;
   } finally {
     painter.dispose();
   }

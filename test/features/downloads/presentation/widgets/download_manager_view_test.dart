@@ -9,6 +9,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:iris/app/theme/app_theme.dart';
 import 'package:iris/features/downloads/data/repositories/mock_downloads_repository.dart';
 import 'package:iris/features/downloads/domain/entities/download_failure.dart';
 import 'package:iris/features/downloads/domain/entities/download_item.dart';
@@ -823,6 +824,124 @@ void main() {
         expect(find.byType(BayerMasked), findsNothing);
         expect(tester.getRect(row), beforeProgressUpdate);
         expect(tester.getRect(action), initialActionRect);
+      });
+    });
+
+    testWidgets('a long watch position fits a narrow row at large text', (
+      tester,
+    ) async {
+      await _withTargetPlatform(TargetPlatform.android, () async {
+        setTestWindowSize(tester, const Size(280, 844));
+        tester.platformDispatcher.textScaleFactorTestValue = 3.2;
+        addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+        await tester.runAsync(
+          () =>
+              (FontLoader('Geist Mono')..addFont(
+                    rootBundle.load('assets/fonts/GeistMono-Regular.ttf'),
+                  ))
+                  .load(),
+        );
+        final item = download(
+          status: DownloadStatus.paused,
+        ).copyWith(fileName: List.filled(8, 'Long unmatched filename ').join());
+        final repository = _ScriptedDownloadsRepository([item]);
+        final progress = WatchProgress(
+          torrentKey: sourceProgressKey(item.magnet),
+          fileIndex: item.fileIndex,
+          fileName: item.fileName,
+          magnet: item.magnet,
+          sourceTitle: item.sourceTitle,
+          position: const Duration(hours: 10),
+          duration: const Duration(hours: 24),
+          updatedAt: DateTime(2026, 10, 10),
+        );
+        await tester.pumpWidget(
+          testApp(
+            MultiBlocProvider(
+              providers: [
+                BlocProvider(
+                  create: (_) =>
+                      DownloadManagerCubit(repository: repository)..load(),
+                ),
+                BlocProvider(
+                  create: (_) => WatchProgressCubit(
+                    repository: FixedWatchProgressRepository([progress]),
+                  )..load(),
+                ),
+              ],
+              child: DownloadTitlePage(
+                title: DownloadTitle(downloadTitleKey(item), [item]),
+                onWatch: (_) {},
+              ),
+            ),
+            theme: buildAppTheme(brightness: Brightness.dark),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final action = find.byKey(const Key('download_action_frieren-6'));
+        await tester.scrollUntilVisible(action, 240);
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+        final position = find.descendant(
+          of: rowFor(tester, item.id),
+          matching: find.text('10:00:00'),
+        );
+        expect(
+          tester.getRect(position).right,
+          lessThanOrEqualTo(tester.getRect(action).left - 8),
+        );
+        expect(tester.getSize(action), const Size(48, 48));
+        repository.push([
+          item.copyWith(
+            status: DownloadStatus.downloading,
+            downloadedBytes: item.totalBytes,
+          ),
+        ]);
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+        final percent = find.descendant(
+          of: rowFor(tester, item.id),
+          matching: find.text('100%'),
+        );
+        final percentText = tester.widget<Text>(percent);
+        final percentPainter = TextPainter(
+          text: TextSpan(text: percentText.data, style: percentText.style),
+          textDirection: TextDirection.ltr,
+          textScaler: MediaQuery.textScalerOf(tester.element(percent)),
+          maxLines: 1,
+        )..layout();
+        expect(
+          tester.getSize(percent).width,
+          closeTo(percentPainter.width, .01),
+        );
+        percentPainter.dispose();
+        expect(
+          tester.getRect(position).right,
+          lessThanOrEqualTo(tester.getRect(action).left - 8),
+        );
+        tester.view.physicalSize = const Size(320, 844);
+        tester.platformDispatcher.textScaleFactorTestValue = 2;
+        repository.push([item]);
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+        final positionText = tester.widget<Text>(position);
+        final positionPainter = TextPainter(
+          text: TextSpan(text: positionText.data, style: positionText.style),
+          textDirection: TextDirection.ltr,
+          textScaler: MediaQuery.textScalerOf(tester.element(position)),
+          maxLines: 1,
+        )..layout();
+        expect(
+          tester.getSize(position).width,
+          closeTo(positionPainter.width, .01),
+        );
+        positionPainter.dispose();
+        await tester.longPress(rowFor(tester, item.id));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('download_information')));
+        await tester.pumpAndSettle();
+        expect(informationText('10:00:00 / 24:00:00'), findsOneWidget);
+        expect(tester.takeException(), isNull);
       });
     });
 
