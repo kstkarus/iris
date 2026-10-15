@@ -22,6 +22,7 @@ abstract interface class DownloadsRepository {
     required String animeId,
     required String animeTitle,
     required String sourceTitle,
+    String posterUrl = '',
     int? quality,
   });
 

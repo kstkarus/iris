@@ -54,6 +54,7 @@ import 'package:iris/features/downloads/data/adapters/app_storage_usage_adapter.
 import 'package:iris/features/downloads/data/adapters/download_foreground_service_adapter.dart';
 import 'package:iris/features/downloads/data/adapters/libtorrent_download_engine_adapter.dart';
 import 'package:iris/features/downloads/data/datasources/download_registry_data_source.dart';
+import 'package:iris/features/downloads/data/datasources/shikimori_download_poster_data_source.dart';
 import 'package:iris/features/downloads/data/repositories/downloads_repository_impl.dart';
 import 'package:iris/features/downloads/data/repositories/mock_downloads_repository.dart';
 import 'package:iris/features/downloads/domain/repositories/downloads_repository.dart';
@@ -497,6 +498,9 @@ Future<void> _registerDownloads(Directory supportDirectory) async {
       repository: serviceLocator<OnlineSourcesRepository>(),
       dio: createVideoServerDio(),
     ),
+    posterLookup: ShikimoriDownloadPosterDataSource(
+      client: serviceLocator<ShikimoriGraphQlClient>(),
+    ).fetch,
   );
   serviceLocator.registerSingleton<DownloadsRepository>(
     repository,

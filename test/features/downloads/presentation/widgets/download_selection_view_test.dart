@@ -236,6 +236,7 @@ class _GatedEpisodesRepository extends _EpisodesRepository {
     required String animeId,
     required String animeTitle,
     required String sourceTitle,
+    String posterUrl = '',
     int? quality,
   }) async {
     await gate.future;
@@ -245,6 +246,7 @@ class _GatedEpisodesRepository extends _EpisodesRepository {
       animeId: animeId,
       animeTitle: animeTitle,
       sourceTitle: sourceTitle,
+      posterUrl: posterUrl,
       quality: quality,
     );
   }
@@ -273,6 +275,7 @@ class _LoadingRepository extends _EpisodesRepository {
     required String animeId,
     required String animeTitle,
     required String sourceTitle,
+    String posterUrl = '',
     int? quality,
   }) async {
     queued.add(file.index);
@@ -280,6 +283,7 @@ class _LoadingRepository extends _EpisodesRepository {
       id: 'episode-${file.index}',
       animeId: animeId,
       animeTitle: animeTitle,
+      posterUrl: posterUrl,
       sourceTitle: sourceTitle,
       magnet: _online.magnet,
       fileIndex: file.index,

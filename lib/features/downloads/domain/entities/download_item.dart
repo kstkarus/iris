@@ -21,6 +21,7 @@ class DownloadItem {
     required this.peers,
     required this.status,
     required this.createdAt,
+    this.posterUrl = '',
     this.errorMessage,
     this.completedAt,
     this.quality,
@@ -46,6 +47,7 @@ class DownloadItem {
   final String? errorMessage;
   final DateTime createdAt;
   final DateTime? completedAt;
+  final String posterUrl;
 
   /// How tall a picture an online episode loads in at most; null for the
   /// best, and for a torrent file.
@@ -83,6 +85,7 @@ class DownloadItem {
     Object? errorMessage = _notProvided,
     DateTime? createdAt,
     Object? completedAt = _notProvided,
+    String? posterUrl,
     int? quality,
   }) {
     assert(
@@ -117,6 +120,7 @@ class DownloadItem {
       completedAt: identical(completedAt, _notProvided)
           ? this.completedAt
           : completedAt as DateTime?,
+      posterUrl: posterUrl ?? this.posterUrl,
       quality: quality ?? this.quality,
     );
   }
@@ -145,6 +149,7 @@ class DownloadItem {
         other.errorMessage == errorMessage &&
         other.createdAt == createdAt &&
         other.completedAt == completedAt &&
+        other.posterUrl == posterUrl &&
         other.quality == quality;
   }
 
@@ -167,6 +172,7 @@ class DownloadItem {
     errorMessage,
     createdAt,
     completedAt,
+    posterUrl,
     quality,
   );
 }

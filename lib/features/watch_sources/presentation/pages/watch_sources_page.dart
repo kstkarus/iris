@@ -154,6 +154,7 @@ class WatchSourcesPage extends StatelessWidget {
                               ? OnlineReleasesList(
                                   animeId: args.animeId,
                                   animeTitle: args.animeTitle,
+                                  posterUrl: args.posterUrl,
                                 )
                               : const SizedBox.shrink(),
                         ),
@@ -161,6 +162,7 @@ class WatchSourcesPage extends StatelessWidget {
                           enabled: tab == WatchSourcesTab.torrents,
                           child: WatchSourcesView(
                             onAddTorrent: () => _add(context),
+                            posterUrl: args.posterUrl,
                           ),
                         ),
                         TickerMode(
@@ -240,6 +242,7 @@ class WatchSourcesPage extends StatelessWidget {
       extra: DownloadSelectionArgs(
         animeId: args.animeId,
         animeTitle: args.animeTitle,
+        posterUrl: args.posterUrl,
         sourceTitle: torrent.title,
         magnet: torrent.magnet,
       ),

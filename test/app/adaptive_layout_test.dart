@@ -65,11 +65,13 @@ void main() {
     }
 
     await ctrl(LogicalKeyboardKey.digit2);
-    expect(find.text('APP STORAGE'), findsOneWidget);
+    expect(find.text('APP STORAGE'), findsNothing);
+    expect(find.byKey(const Key('download_library_menu')), findsOneWidget);
 
     await ctrl(LogicalKeyboardKey.digit4);
     expect(tester.takeException(), isNull);
-    expect(find.text('APP STORAGE'), findsOneWidget);
+    expect(find.text('APP STORAGE'), findsNothing);
+    expect(find.byKey(const Key('download_library_menu')), findsOneWidget);
   });
 
   for (final entry in TestWindowSizes.all.entries) {
@@ -92,7 +94,8 @@ void main() {
       await tester.tap(find.text('Downloads').first);
       await tester.pumpAndSettle();
 
-      expect(find.text('APP STORAGE'), findsOneWidget);
+      expect(find.text('APP STORAGE'), findsNothing);
+      expect(find.byKey(const Key('download_library_menu')), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
 
@@ -157,17 +160,26 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      final storage = tester.getRect(find.text('APP STORAGE'));
-      final watch = tester.getRect(
+      expect(find.text('APP STORAGE'), findsNothing);
+      await _tapAndSettle(
+        tester,
         find.byKey(const ValueKey('download_title_anime:5114')),
       );
-      // Content of 840 dp and up gets a side pane; narrower stacks the
-      // panes, files first.
-      if (size.width >= 900) {
-        expect(storage.left, greaterThan(watch.right), reason: 'side pane');
-      } else {
-        expect(storage.top, greaterThan(watch.top), reason: 'files first');
-      }
+      await pumpUntilVisible(tester, find.byType(BackButton));
+      await tester.pumpAndSettle();
+      expect(find.byType(BackButton), findsOneWidget);
+      expect(
+        find.byKey(
+          isPhone ? AppShellPage.navigationBarKey : AppShellPage.topBarKey,
+        ),
+        findsOneWidget,
+      );
+      await _tapAndSettle(tester, find.byType(BackButton));
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('download_title_anime:5114')),
+        findsOneWidget,
+      );
       expect(tester.takeException(), isNull);
     });
   }

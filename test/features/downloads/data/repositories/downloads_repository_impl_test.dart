@@ -23,7 +23,10 @@ void main() {
   late _FakeDownloadEngine engine;
   late _FakeForegroundService foregroundService;
   late TorrentActivityRegistry activityRegistry;
+  late DownloadRegistryDataSource registry;
   late DownloadsRepositoryImpl repository;
+  var repositoryClosed = false;
+  Future<Map<String, String>> Function(Set<String> animeIds)? posterLookup;
   // Holds the create of a metadata folder while a test needs it open.
   Completer<void>? metadataFolderGate;
   Future<void> Function(Directory folder)? metadataFolderCreated;
@@ -39,20 +42,25 @@ void main() {
     engine = _FakeDownloadEngine();
     foregroundService = _FakeForegroundService();
     activityRegistry = TorrentActivityRegistry();
+    repositoryClosed = false;
+    posterLookup = null;
     metadataFolderGate = null;
     metadataFolderCreated = null;
     metadataFolderRequests = 0;
+    registry = DownloadRegistryDataSource(
+      registryFile: File(
+        '${temporaryDirectory.path}${Platform.pathSeparator}registry.json',
+      ),
+    );
     repository = DownloadsRepositoryImpl(
       engine: engine,
-      registry: DownloadRegistryDataSource(
-        registryFile: File(
-          '${temporaryDirectory.path}${Platform.pathSeparator}registry.json',
-        ),
-      ),
+      registry: registry,
       downloadsDirectory: downloadsDirectory,
       foregroundService: foregroundService,
       storageUsageAdapter: const _FakeStorageUsageAdapter(),
       activityRegistry: activityRegistry,
+      posterLookup: (animeIds) =>
+          posterLookup?.call(animeIds) ?? Future.value({}),
       now: () => DateTime.utc(2026, 7, 11, 12),
       createMetadataFolder: (folder) async {
         metadataFolderRequests++;
@@ -64,7 +72,7 @@ void main() {
   });
 
   tearDown(() async {
-    await repository.close();
+    if (!repositoryClosed) await repository.close();
     await engine.close();
     if (await temporaryDirectory.exists()) {
       await temporaryDirectory.delete(recursive: true);
@@ -96,12 +104,14 @@ void main() {
         animeId: '154587',
         animeTitle: 'Sousou no Frieren',
         sourceTitle: 'Release',
+        posterUrl: 'https://shikimori.one/posters/1/main.jpg',
       );
 
       await _waitFor(() => engine.priorityCalls.isNotEmpty);
       final downloads = await repository.currentDownloads();
 
       expect(item.fileIndex, 2);
+      expect(item.posterUrl, 'https://shikimori.one/posters/1/main.jpg');
       expect(downloads.single.status, DownloadStatus.downloading);
       expect(engine.addCalls.last.metadataOnly, isFalse);
       expect(engine.priorityCalls.single.priorities, [0, 0, 7, 0]);
@@ -109,6 +119,166 @@ void main() {
       expect(foregroundService.startCount, 1);
     },
   );
+
+  test(
+    'a repeated enqueue fills a missing poster on the existing record',
+    () async {
+      final source = await repository.prepareSource(magnet: _magnet);
+      final file = source.files.first;
+      final first = await repository.enqueueDownload(
+        source: source,
+        file: file,
+        animeId: '154587',
+        animeTitle: 'Sousou no Frieren',
+        sourceTitle: 'Release',
+      );
+      final updated = await repository.enqueueDownload(
+        source: source,
+        file: file,
+        animeId: '154587',
+        animeTitle: 'Sousou no Frieren',
+        sourceTitle: 'Release',
+        posterUrl: 'https://shikimori.one/posters/1/main.jpg',
+      );
+
+      expect(updated.id, first.id);
+      expect(updated.posterUrl, 'https://shikimori.one/posters/1/main.jpg');
+      expect(
+        (await repository.currentDownloads()).single.posterUrl,
+        updated.posterUrl,
+      );
+    },
+  );
+
+  test(
+    'restored downloads get a poster asynchronously without losing state',
+    () async {
+      final lookup = Completer<Map<String, String>>();
+      final requested = <Set<String>>[];
+      posterLookup = (animeIds) {
+        requested.add(animeIds);
+        return lookup.future;
+      };
+      final saved = _savedDownload();
+      final sibling = saved.copyWith(id: 'saved:2', fileIndex: 2);
+      await registry.writeDownloads([saved, sibling]);
+
+      final restored = await repository.currentDownloads();
+      expect(restored, hasLength(2));
+      expect(restored.every((item) => item.posterUrl.isEmpty), isTrue);
+      expect(restored.every((item) => item.downloadedBytes == 42), isTrue);
+      expect(requested, [
+        {'154587'},
+      ]);
+      lookup.complete({'154587': 'https://shikimori.one/posters/1/main.jpg'});
+      await repository.watchDownloads().firstWhere(
+        (items) => items.every((item) => item.posterUrl.isNotEmpty),
+      );
+
+      final updated = await repository.currentDownloads();
+      expect(
+        updated.map((item) => item.posterUrl),
+        everyElement('https://shikimori.one/posters/1/main.jpg'),
+      );
+      expect(updated.map((item) => item.status), everyElement(saved.status));
+      expect(updated.map((item) => item.downloadedBytes), everyElement(42));
+      expect(updated.map((item) => item.totalBytes), everyElement(100));
+    },
+  );
+
+  test('a late poster lookup does not restore a deleted download', () async {
+    final lookup = Completer<Map<String, String>>();
+    posterLookup = (_) => lookup.future;
+    await registry.writeDownloads([_savedDownload()]);
+    await repository.currentDownloads();
+    await repository.delete(id: 'saved:1');
+
+    lookup.complete({'154587': 'https://shikimori.one/posters/1/main.jpg'});
+    await Future<void>.delayed(Duration.zero);
+    await Future<void>.delayed(Duration.zero);
+
+    expect(await repository.currentDownloads(), isEmpty);
+    expect(await registry.readDownloads(), isEmpty);
+  });
+
+  test('poster lookup failures leave restored downloads available', () async {
+    var lookups = 0;
+    posterLookup = (_) {
+      lookups++;
+      return Future.error(const SocketException('offline'));
+    };
+    final saved = _savedDownload();
+    await registry.writeDownloads([saved]);
+
+    final restored = await repository.currentDownloads();
+    expect(restored.single.id, saved.id);
+    expect(restored.single.posterUrl, isEmpty);
+    expect(restored.single.status, saved.status);
+    await _waitFor(() => lookups == 1);
+    await repository.watchSourceDownloads(magnet: _magnet).first;
+    await repository.watchSourceDownloads(magnet: _magnet).first;
+    expect(lookups, 1, reason: 'picker subscriptions do not retry posters');
+  });
+
+  test(
+    'successful poster batches persist before a later batch fails, then retry',
+    () async {
+      final requested = <Set<String>>[];
+      posterLookup = (animeIds) async {
+        requested.add(animeIds);
+        if (requested.length == 2) throw const SocketException('offline');
+        return {for (final id in animeIds) id: 'https://example.test/$id.jpg'};
+      };
+      await registry.writeDownloads([
+        for (var index = 1; index <= 51; index++)
+          _savedDownload(
+            id: 'saved:$index',
+            animeId: '$index',
+            fileIndex: index,
+          ),
+      ]);
+
+      expect(await repository.currentDownloads(), hasLength(51));
+      await _waitFor(() => requested.length >= 2);
+      await Future<void>.delayed(Duration.zero);
+      final afterFailure = await registry.readDownloads();
+      expect(
+        afterFailure.where((item) => item.posterUrl.isNotEmpty),
+        hasLength(50),
+      );
+      expect(requested.first, hasLength(50));
+      expect(requested[1], {'51'});
+
+      await repository.watchDownloads().firstWhere(
+        (items) => items.every((item) => item.posterUrl.isNotEmpty),
+      );
+
+      expect(requested.skip(1), [
+        {'51'},
+        {'51'},
+      ]);
+    },
+  );
+
+  test('a late poster lookup does not write after repository close', () async {
+    final lookup = Completer<Map<String, String>>();
+    final started = Completer<void>();
+    posterLookup = (_) {
+      started.complete();
+      return lookup.future;
+    };
+    await registry.writeDownloads([_savedDownload()]);
+    await repository.currentDownloads();
+    await started.future;
+
+    await repository.close();
+    repositoryClosed = true;
+    lookup.complete({'154587': 'https://shikimori.one/posters/1/main.jpg'});
+    await Future<void>.delayed(Duration.zero);
+    await Future<void>.delayed(Duration.zero);
+
+    expect((await registry.readDownloads()).single.posterUrl, isEmpty);
+  });
 
   test('files queued from a picker that stays open start at once, one after '
       'another, and show by file', () async {
@@ -1370,6 +1540,28 @@ void main() {
   });
 }
 
+DownloadItem _savedDownload({
+  String id = 'saved:1',
+  String animeId = '154587',
+  int fileIndex = 1,
+}) => DownloadItem(
+  id: id,
+  animeId: animeId,
+  animeTitle: 'Sousou no Frieren',
+  sourceTitle: 'Release',
+  magnet: _magnet,
+  fileIndex: fileIndex,
+  fileName: 'episode.mkv',
+  relativePath: 'episode.mkv',
+  localPath: '/missing/episode.mkv',
+  totalBytes: 100,
+  downloadedBytes: 42,
+  downloadRateBytesPerSecond: 0,
+  peers: 0,
+  status: DownloadStatus.paused,
+  createdAt: DateTime.utc(2026, 7, 11),
+);
+
 const _magnet = 'magnet:?xt=urn:btih:ABCDEF1234567890';
 
 class _FakeDownloadEngine implements LibtorrentDownloadEngineAdapter {
@@ -1623,6 +1815,7 @@ extension on DownloadsRepositoryImpl {
     required String animeId,
     required String animeTitle,
     required String sourceTitle,
+    String posterUrl = '',
     int? quality,
   }) async {
     final item = await enqueueDownload(
@@ -1631,6 +1824,7 @@ extension on DownloadsRepositoryImpl {
       animeId: animeId,
       animeTitle: animeTitle,
       sourceTitle: sourceTitle,
+      posterUrl: posterUrl,
       quality: quality,
     );
     await disposePreparedSource(sourceToken: source.sourceToken);

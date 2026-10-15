@@ -33,6 +33,7 @@ class OnlineReleasesList extends StatelessWidget {
   const OnlineReleasesList({
     required this.animeId,
     required this.animeTitle,
+    this.posterUrl = '',
     super.key,
   });
 
@@ -46,6 +47,7 @@ class OnlineReleasesList extends StatelessWidget {
 
   /// How history names the anime of a release played from here.
   final String animeTitle;
+  final String posterUrl;
 
   @override
   Widget build(BuildContext context) {
@@ -165,6 +167,7 @@ class OnlineReleasesList extends StatelessWidget {
         animeTitle: animeTitle,
         sourceTitle: release.dub,
         magnet: _link(release),
+        posterUrl: posterUrl,
       ),
     );
   }

@@ -6,11 +6,13 @@ class DownloadSelectionArgs {
     required this.animeTitle,
     required this.sourceTitle,
     required this.magnet,
+    this.posterUrl = '',
   });
 
   final String animeId;
   final String animeTitle;
   final String sourceTitle;
+  final String posterUrl;
 
   /// A torrent's magnet, or an online release's [OnlineSourceLink].
   final String magnet;

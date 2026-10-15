@@ -35,6 +35,8 @@ import 'package:iris/shared/online/online_source_link.dart';
 import '../../../../helpers/fake_watch_progress_repository.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/widgets/dither_transition.dart';
+import 'package:iris/shared/widgets/poster_image.dart';
+import 'package:iris/features/downloads/presentation/widgets/download_title_widgets.dart';
 
 TextScaler _textScaler = TextScaler.noScaling;
 
@@ -240,6 +242,19 @@ Widget _shell({
                         router.pushNamed('title', extra: title),
                   ),
                 ),
+                routes: [
+                  GoRoute(
+                    path: 'title',
+                    name: 'title',
+                    builder: (context, state) => BlocProvider.value(
+                      value: cubit,
+                      child: DownloadTitlePage(
+                        title: state.extra as DownloadTitle,
+                        onWatch: (_) {},
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -247,17 +262,6 @@ Widget _shell({
             routes: [GoRoute(path: '/profile', builder: placeholder)],
           ),
         ],
-      ),
-      GoRoute(
-        path: '/downloads/title',
-        name: 'title',
-        builder: (context, state) => BlocProvider.value(
-          value: cubit,
-          child: DownloadTitlePage(
-            title: state.extra as DownloadTitle,
-            onWatch: (_) {},
-          ),
-        ),
       ),
     ],
   );
@@ -336,7 +340,18 @@ void main() {
     )..load();
     await tester.pumpWidget(_shell(cubit: cubit, brightness: brightness));
     await tester.pumpAndSettle();
-    if (details) {
+    if (!details && scale == 1 && size == _desktop) {
+      final identity = tester.getRect(find.byType(DownloadTitleIdentity));
+      expect(identity.left, 160, reason: 'approved C2 detail position');
+      expect(identity.top, 122, reason: 'approved C2 detail position');
+    }
+    if (!details && scale == 1 && size == _phone && items?.isEmpty != true) {
+      final poster = tester.getRect(find.byType(PosterImage).first);
+      expect(poster.left, 16, reason: 'approved B gallery frame');
+      expect(poster.top, 87, reason: 'approved B gallery spacing');
+      expect(poster.width, 171, reason: 'approved B gallery columns');
+    }
+    if (details && size.width <= 900) {
       await tester.tap(
         find.byKey(
           const ValueKey('download_title_anime:Sousou no Frieren 2nd Season'),
@@ -526,6 +541,7 @@ class _SeasonDownloads extends MockDownloadsRepository {
     required String animeId,
     required String animeTitle,
     required String sourceTitle,
+    String posterUrl = '',
     int? quality,
   }) async {
     await queueGate.future;
@@ -535,6 +551,7 @@ class _SeasonDownloads extends MockDownloadsRepository {
       animeId: animeId,
       animeTitle: animeTitle,
       sourceTitle: sourceTitle,
+      posterUrl: posterUrl,
       quality: quality,
     );
   }

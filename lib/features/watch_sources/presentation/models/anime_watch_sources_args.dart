@@ -3,6 +3,7 @@ class AnimeWatchSourcesArgs {
     required this.animeId,
     required this.animeTitle,
     required this.searchTitles,
+    this.posterUrl = '',
   });
 
   /// The names releases may use, without repeats: the main (romaji) one
@@ -11,6 +12,7 @@ class AnimeWatchSourcesArgs {
     required String animeId,
     required String name,
     String english = '',
+    String posterUrl = '',
   }) {
     final seen = <String>{};
     return AnimeWatchSourcesArgs(
@@ -21,6 +23,7 @@ class AnimeWatchSourcesArgs {
           if (title.trim().isNotEmpty && seen.add(title.trim().toLowerCase()))
             title.trim(),
       ],
+      posterUrl: posterUrl,
     );
   }
 
@@ -28,6 +31,7 @@ class AnimeWatchSourcesArgs {
 
   /// How the page names the anime.
   final String animeTitle;
+  final String posterUrl;
 
   /// What releases are searched by.
   final List<String> searchTitles;

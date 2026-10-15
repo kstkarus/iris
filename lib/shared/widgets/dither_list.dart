@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:iris/shared/utils/bayer_mask.dart';
+import 'package:iris/shared/widgets/adaptive/adaptive_grid_row.dart';
 import 'package:iris/shared/widgets/dither_transition.dart';
 
 /// A scrolling list whose rows come and go cell by cell: a row added after
@@ -16,8 +17,11 @@ class DitherList<T> extends StatefulWidget {
     this.header,
     this.footer,
     this.physics,
+    this.crossAxisCount = 1,
+    this.columnSpacing = 16,
+    this.rowSpacing = 0,
     super.key,
-  });
+  }) : assert(crossAxisCount > 0);
 
   final List<T> items;
   final Object Function(T item) keyOf;
@@ -28,6 +32,11 @@ class DitherList<T> extends StatefulWidget {
   final Widget? header;
   final Widget? footer;
   final ScrollPhysics? physics;
+
+  /// Groups entries into rows while keeping presence transitions per entry.
+  final int crossAxisCount;
+  final double columnSpacing;
+  final double rowSpacing;
 
   @override
   State<DitherList<T>> createState() => _DitherListState<T>();
@@ -66,11 +75,11 @@ class _DitherListState<T> extends State<DitherList<T>> {
   @override
   Widget build(BuildContext context) {
     final headerCount = widget.header == null ? 0 : 1;
+    final rowCount = (_entries.length / widget.crossAxisCount).ceil();
     return ListView.builder(
       padding: widget.padding,
       physics: widget.physics,
-      itemCount:
-          headerCount + _entries.length + (widget.footer == null ? 0 : 1),
+      itemCount: headerCount + rowCount + (widget.footer == null ? 0 : 1),
       // A row keeps its state when rows come or go above it, rather than
       // being matched by place and built anew, opening again.
       findChildIndexCallback: (key) {
@@ -79,10 +88,12 @@ class _DitherListState<T> extends State<DitherList<T>> {
           return widget.header == null ? null : 0;
         }
         if (key.value == _StaticPart.footer) {
-          return widget.footer == null ? null : headerCount + _entries.length;
+          return widget.footer == null ? null : headerCount + rowCount;
         }
         final index = _entries.indexWhere((entry) => entry.key == key.value);
-        return index < 0 ? null : headerCount + index;
+        return index < 0 || index % widget.crossAxisCount != 0
+            ? null
+            : headerCount + index ~/ widget.crossAxisCount;
       },
       itemBuilder: (context, index) {
         if (index < headerCount) {
@@ -92,20 +103,37 @@ class _DitherListState<T> extends State<DitherList<T>> {
           );
         }
         final rowIndex = index - headerCount;
-        if (rowIndex == _entries.length) {
+        if (rowIndex == rowCount) {
           return KeyedSubtree(
             key: const ValueKey(_StaticPart.footer),
             child: widget.footer!,
           );
         }
-        final entry = _entries[rowIndex];
-        return _Presence(
-          key: ValueKey<Object>(entry.key),
-          entering: entry.entering,
-          leaving: entry.leaving,
-          onEntered: () => entry.entering = false,
-          onLeft: () => _left(entry.key),
-          child: widget.itemBuilder(context, entry.item),
+        final start = rowIndex * widget.crossAxisCount;
+        final end = (start + widget.crossAxisCount).clamp(0, _entries.length);
+        final rowEntries = _entries.sublist(start, end);
+        return KeyedSubtree(
+          key: ValueKey<Object>(rowEntries.first.key),
+          child: Padding(
+            padding: EdgeInsets.only(
+              bottom: rowIndex + 1 < rowCount ? widget.rowSpacing : 0,
+            ),
+            child: AdaptiveGridRow(
+              columns: widget.crossAxisCount,
+              spacing: widget.columnSpacing,
+              children: [
+                for (final entry in rowEntries)
+                  _Presence(
+                    key: ValueKey<Object>(entry.key),
+                    entering: entry.entering,
+                    leaving: entry.leaving,
+                    onEntered: () => entry.entering = false,
+                    onLeft: () => _left(entry.key),
+                    child: widget.itemBuilder(context, entry.item),
+                  ),
+              ],
+            ),
+          ),
         );
       },
     );

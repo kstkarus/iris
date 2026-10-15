@@ -1406,12 +1406,47 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String downloadTitleReady(int ready, int total) {
-    return 'Готово $ready из $total';
+    String _temp0 = intl.Intl.pluralLogic(
+      total,
+      locale: localeName,
+      other: 'серий',
+      one: 'серии',
+    );
+    return '$ready из $total $_temp0 готово';
   }
 
   @override
   String get downloadTitleEmpty =>
       'На устройстве больше нет серий этого тайтла.';
+
+  @override
+  String downloadLibraryCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count тайтла',
+      many: '$count тайтлов',
+      few: '$count тайтла',
+      one: '$count тайтл',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get downloadLibraryTitle => 'В библиотеке';
+
+  @override
+  String downloadEpisodeLabel(String number) {
+    return 'Серия $number';
+  }
+
+  @override
+  String get downloadTitlesTitle => 'Тайтлы';
+
+  @override
+  String downloadTitleEpisodeCount(int ready, int total) {
+    return '$ready/$total сер.';
+  }
 
   @override
   String get downloadAllRemaining => 'Скачать оставшиеся серии';

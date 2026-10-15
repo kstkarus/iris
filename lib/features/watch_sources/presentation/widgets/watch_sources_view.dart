@@ -30,11 +30,16 @@ import 'package:iris/shared/widgets/tap_row.dart';
 /// shape of the table; the releases develop out of it when they arrive.
 /// When none are found it offers to add a torrent of the user's own.
 class WatchSourcesView extends StatelessWidget {
-  const WatchSourcesView({required this.onAddTorrent, super.key});
+  const WatchSourcesView({
+    required this.onAddTorrent,
+    this.posterUrl = '',
+    super.key,
+  });
 
   static const addTorrentKey = Key('watch_sources_add_own_torrent');
 
   final VoidCallback onAddTorrent;
+  final String posterUrl;
 
   @override
   Widget build(BuildContext context) {
@@ -46,11 +51,11 @@ class WatchSourcesView extends StatelessWidget {
           WatchSourcesInitial() || WatchSourcesLoading() => AppSkeleton(
             enabled: true,
             semanticLabel: l10n.watchSourcesLoading,
-            child: _LoadedState(state: _standInState),
+            child: _LoadedState(state: _standInState, posterUrl: posterUrl),
           ),
           WatchSourcesLoaded() => AppSkeleton(
             enabled: false,
-            child: _LoadedState(state: state),
+            child: _LoadedState(state: state, posterUrl: posterUrl),
           ),
           WatchSourcesEmpty() => MessageView(
             message: l10n.watchSourcesEmpty,
@@ -71,9 +76,10 @@ class WatchSourcesView extends StatelessWidget {
 }
 
 class _LoadedState extends StatelessWidget {
-  const _LoadedState({required this.state});
+  const _LoadedState({required this.state, required this.posterUrl});
 
   final WatchSourcesLoaded state;
+  final String posterUrl;
 
   @override
   Widget build(BuildContext context) {
@@ -114,6 +120,7 @@ class _LoadedState extends StatelessWidget {
                       : _SourcesTable(
                           items: items,
                           watchedKeys: watchedKeys,
+                          posterUrl: posterUrl,
                           tabular:
                               constraints.maxWidth >=
                               WindowSizeClass.expandedMinWidth,
@@ -286,11 +293,13 @@ class _SourcesTable extends StatelessWidget {
   const _SourcesTable({
     required this.items,
     required this.watchedKeys,
+    required this.posterUrl,
     required this.tabular,
   });
 
   final List<WatchSourceItem> items;
   final Set<String> watchedKeys;
+  final String posterUrl;
   final bool tabular;
 
   @override
@@ -312,6 +321,7 @@ class _SourcesTable extends StatelessWidget {
               watched: watchedKeys.contains(torrentKeyFromMagnet(item.magnet)),
               animeId: cubit.animeId,
               animeTitle: cubit.animeTitle,
+              posterUrl: posterUrl,
             ),
           ],
         );
@@ -364,6 +374,7 @@ class _WatchSourceRow extends StatelessWidget {
     required this.watched,
     required this.animeId,
     required this.animeTitle,
+    required this.posterUrl,
   });
 
   final WatchSourceItem item;
@@ -373,6 +384,7 @@ class _WatchSourceRow extends StatelessWidget {
   final bool watched;
   final String animeId;
   final String animeTitle;
+  final String posterUrl;
 
   @override
   Widget build(BuildContext context) {
@@ -475,6 +487,7 @@ class _WatchSourceRow extends StatelessWidget {
         animeTitle: animeTitle,
         sourceTitle: item.title,
         magnet: item.magnet,
+        posterUrl: posterUrl,
       ),
     );
   }

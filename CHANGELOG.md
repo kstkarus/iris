@@ -4,6 +4,10 @@ Notable changes to iris, newest first. The format follows [Keep a Changelog](htt
 
 ## [Unreleased]
 
+### Changed
+
+- Downloads now shows a poster gallery on phones and a selectable poster rail on desktop, above episodes in narrow windows; its More menu opens a storage dialog with the cache action.
+
 ## [1.4.1] - 2026-10-14
 
 ### Added

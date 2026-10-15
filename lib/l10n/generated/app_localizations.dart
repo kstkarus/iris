@@ -2450,6 +2450,36 @@ abstract class AppLocalizations {
   /// **'No episodes remain on this device.'**
   String get downloadTitleEmpty;
 
+  /// No description provided for @downloadLibraryCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, one{{count} title} other{{count} titles}}'**
+  String downloadLibraryCount(int count);
+
+  /// No description provided for @downloadLibraryTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'In library'**
+  String get downloadLibraryTitle;
+
+  /// No description provided for @downloadEpisodeLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Episode {number}'**
+  String downloadEpisodeLabel(String number);
+
+  /// No description provided for @downloadTitlesTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Titles'**
+  String get downloadTitlesTitle;
+
+  /// No description provided for @downloadTitleEpisodeCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{ready}/{total} eps.'**
+  String downloadTitleEpisodeCount(int ready, int total);
+
   /// No description provided for @downloadAllRemaining.
   ///
   /// In en, this message translates to:

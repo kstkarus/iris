@@ -452,7 +452,7 @@
   "savedTorrentsFromLink": "по ссылке",
   "savedTorrentsFileCount": "{count, plural, one{{count} файл} few{{count} файла} many{{count} файлов} other{{count} файла}}",
   "savedTorrentsClearDraft": "Убрать",
-  "downloadTitleReady": "Готово {ready} из {total}",
+  "downloadTitleReady": "{ready} из {total} {total, plural, one{серии} other{серий}} готово",
   "@downloadTitleReady": {
     "placeholders": {
       "ready": {
@@ -464,6 +464,14 @@
     }
   },
   "downloadTitleEmpty": "На устройстве больше нет серий этого тайтла.",
+  "downloadLibraryCount": "{count, plural, one{{count} тайтл} few{{count} тайтла} many{{count} тайтлов} other{{count} тайтла}}",
+  "@downloadLibraryCount": {"placeholders": {"count": {"type": "int"}}},
+  "downloadLibraryTitle": "В библиотеке",
+  "downloadEpisodeLabel": "Серия {number}",
+  "@downloadEpisodeLabel": {"placeholders": {"number": {"type": "String"}}},
+  "downloadTitlesTitle": "Тайтлы",
+  "downloadTitleEpisodeCount": "{ready}/{total} сер.",
+  "@downloadTitleEpisodeCount": {"placeholders": {"ready": {"type": "int"}, "total": {"type": "int"}}},
   "downloadAllRemaining": "Скачать оставшиеся серии",
   "downloadDeleteAll": "Удалить все серии",
   "downloadDeleteTitleMessage": "Удалить все загрузки «{name}» с этого устройства?",

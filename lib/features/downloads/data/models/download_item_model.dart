@@ -9,6 +9,7 @@ abstract final class DownloadItemModel {
       'id': item.id,
       'animeId': item.animeId,
       'animeTitle': item.animeTitle,
+      'posterUrl': item.posterUrl,
       'sourceTitle': item.sourceTitle,
       'magnet': item.magnet,
       'fileIndex': item.fileIndex,
@@ -46,9 +47,16 @@ abstract final class DownloadItemModel {
       errorMessage: _readNullableString(json, 'errorMessage'),
       createdAt: _readDateTime(json, 'createdAt'),
       completedAt: _readNullableDateTime(json, 'completedAt'),
+      posterUrl: _readOptionalString(json, 'posterUrl'),
       quality: _readNullableInt(json, 'quality'),
     );
   }
+}
+
+String _readOptionalString(Map<String, Object?> json, String key) {
+  final value = json[key];
+  if (value == null || value is String) return value as String? ?? '';
+  throw FormatException('Expected "$key" to be a string or null.');
 }
 
 String _readString(Map<String, Object?> json, String key) {

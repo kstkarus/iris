@@ -25,6 +25,8 @@ import 'package:iris/shared/torrent/torrent_key.dart';
 import 'package:iris/shared/torrent/video_file_extensions.dart';
 import 'package:iris/shared/utils/serial_queue.dart';
 
+const _posterBatchSize = 50;
+
 /// Downloads torrent files through libtorrent and online episodes through
 /// [OnlineEpisodeDownloader], one at a time from one queue.
 class DownloadsRepositoryImpl implements DownloadsRepository {
@@ -37,10 +39,12 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
     StreamCacheStorage? streamCache,
     TorrentActivityRegistry? activityRegistry,
     OnlineEpisodeDownloader? onlineDownloader,
+    Future<Map<String, String>> Function(Set<String> animeIds)? posterLookup,
     DateTime Function() now = DateTime.now,
     Future<void> Function(Directory folder)? createMetadataFolder,
   }) : _engine = engine,
        _onlineDownloader = onlineDownloader,
+       _posterLookup = posterLookup,
        _streamCache = streamCache,
        _activityRegistry = activityRegistry ?? TorrentActivityRegistry(),
        _registry = registry,
@@ -54,6 +58,8 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
 
   /// Null where online episodes cannot be downloaded (mock setups).
   final OnlineEpisodeDownloader? _onlineDownloader;
+  final Future<Map<String, String>> Function(Set<String> animeIds)?
+  _posterLookup;
   final DownloadRegistryDataSource _registry;
   final Directory _downloadsDirectory;
   final DownloadForegroundServiceAdapter _foregroundService;
@@ -75,6 +81,10 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
   final Map<String, int> _torrentIdByDownloadId = {};
   // Downloads whose files are being removed; a queued start must skip them.
   final Set<String> _deletingIds = {};
+  final Set<String> _posterLookupAttemptedIds = {};
+  Future<void>? _posterBackfill;
+  bool _posterLookupFailed = false;
+  bool _posterRetryRequested = false;
 
   List<DownloadItem> _downloads = const [];
   StreamSubscription<Map<int, DownloadEngineTorrent>>? _engineSubscription;
@@ -192,6 +202,7 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
     required String animeId,
     required String animeTitle,
     required String sourceTitle,
+    String posterUrl = '',
     int? quality,
   }) async {
     await restore();
@@ -204,6 +215,7 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
         animeId: animeId,
         animeTitle: animeTitle,
         sourceTitle: sourceTitle,
+        posterUrl: posterUrl,
         quality: quality,
       );
     }
@@ -219,7 +231,9 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
     // By torrent and file, not id: an item queued before the hex and base32
     // keys were unified has a base32 id.
     final existing = _findFile(runtime.torrentKey, file.index);
-    if (existing != null) return existing;
+    if (existing != null) {
+      return _updatePoster(existing, posterUrl);
+    }
 
     // The source stays with its selection screen, which may queue more of
     // its files; it holds no torrent by now, so they start at once.
@@ -238,6 +252,7 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
       id: id,
       animeId: animeId,
       animeTitle: animeTitle,
+      posterUrl: posterUrl,
       sourceTitle: sourceTitle,
       magnet: runtime.magnet,
       fileIndex: file.index,
@@ -253,7 +268,7 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
     );
     // The same file queued twice at once: the first one stands.
     final added = _findFile(runtime.torrentKey, file.index);
-    if (added != null) return added;
+    if (added != null) return _updatePoster(added, posterUrl);
     _downloads = [..._downloads, item];
     await _commit();
     unawaited(_pumpQueue());
@@ -270,6 +285,7 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
     required String animeId,
     required String animeTitle,
     required String sourceTitle,
+    required String posterUrl,
     required int? quality,
   }) async {
     if (!source.files.contains(file)) {
@@ -277,7 +293,9 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
     }
     final id = onlineDownloadId(release, file.index);
     final existing = _find(id);
-    if (existing != null) return existing;
+    if (existing != null) {
+      return _updatePoster(existing, posterUrl);
+    }
 
     final directory = _downloadDirectory(id);
     await directory.create(recursive: true);
@@ -285,6 +303,7 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
       id: id,
       animeId: animeId,
       animeTitle: animeTitle,
+      posterUrl: posterUrl,
       sourceTitle: sourceTitle,
       magnet: release.toString(),
       fileIndex: file.index,
@@ -301,7 +320,7 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
     );
     // The same episode queued twice at once: the first one stands.
     final added = _find(id);
-    if (added != null) return added;
+    if (added != null) return _updatePoster(added, posterUrl);
     _downloads = [..._downloads, item];
     await _commit();
     unawaited(_pumpQueue());
@@ -501,6 +520,89 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
     _restored = true;
     await _commit();
     unawaited(_pumpQueue());
+    unawaited(_backfillPosters());
+  }
+
+  Future<void> _backfillPosters() async {
+    final current = _posterBackfill;
+    if (current != null) {
+      if (_posterLookupFailed) _posterRetryRequested = true;
+      return current;
+    }
+    final work = _runPosterBackfill();
+    _posterBackfill = work;
+    try {
+      await work;
+    } finally {
+      if (identical(_posterBackfill, work)) _posterBackfill = null;
+      final retry = _posterRetryRequested && _posterLookupFailed && !_closing;
+      _posterRetryRequested = false;
+      if (retry) unawaited(_backfillPosters());
+    }
+  }
+
+  Future<void> _runPosterBackfill() async {
+    final lookup = _posterLookup;
+    if (lookup == null) return;
+    _posterLookupFailed = false;
+    while (!_closing) {
+      final animeIds = _downloads
+          .where((item) => item.animeId.isNotEmpty && item.posterUrl.isEmpty)
+          .map((item) => item.animeId)
+          .where((id) => !_posterLookupAttemptedIds.contains(id))
+          .toSet();
+      if (animeIds.isEmpty) return;
+
+      final ids = animeIds.toList(growable: false);
+      for (var start = 0; start < ids.length; start += _posterBatchSize) {
+        final batch = ids.skip(start).take(_posterBatchSize).toSet();
+        _posterLookupAttemptedIds.addAll(batch);
+        final posters = await _lookupPosters(lookup, batch);
+        if (posters == null || _closing) return;
+
+        var changed = false;
+        for (final item in _downloads) {
+          final posterUrl = posters[item.animeId];
+          if (item.posterUrl.isEmpty &&
+              posterUrl != null &&
+              posterUrl.isNotEmpty) {
+            _replace(item.copyWith(posterUrl: posterUrl));
+            changed = true;
+          }
+        }
+        if (changed && !_closing) await _commit();
+      }
+    }
+  }
+
+  Future<Map<String, String>?> _lookupPosters(
+    Future<Map<String, String>> Function(Set<String> animeIds) lookup,
+    Set<String> animeIds,
+  ) async {
+    try {
+      return await lookup(animeIds);
+    } on Object catch (error, stackTrace) {
+      developer.log(
+        'Unable to refresh download posters.',
+        name: 'iris.downloads.repository',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      _posterLookupAttemptedIds.removeAll(animeIds);
+      _posterLookupFailed = true;
+      return null;
+    }
+  }
+
+  Future<DownloadItem> _updatePoster(
+    DownloadItem item,
+    String posterUrl,
+  ) async {
+    if (posterUrl.isEmpty || item.posterUrl.isNotEmpty) return item;
+    final updated = item.copyWith(posterUrl: posterUrl);
+    _replace(updated);
+    await _commit();
+    return updated;
   }
 
   @override
@@ -530,7 +632,12 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
   }
 
   @override
-  Stream<List<DownloadItem>> watchDownloads() async* {
+  Stream<List<DownloadItem>> watchDownloads() {
+    if (_posterLookupFailed) unawaited(_backfillPosters());
+    return _watchDownloads();
+  }
+
+  Stream<List<DownloadItem>> _watchDownloads() async* {
     yield await currentDownloads();
     yield* _downloadsController.stream;
   }
@@ -550,7 +657,7 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
       return item.id == onlineDownloadId(release, item.fileIndex);
     }
 
-    return watchDownloads().map(
+    return _watchDownloads().map(
       (items) => {
         for (final item in items)
           if (ofSource(item)) item.fileIndex: item,

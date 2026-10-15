@@ -60,7 +60,11 @@ void main() {
     }
   });
 
-  Future<DownloadItem> enqueueEpisode(int index, {int? quality}) async {
+  Future<DownloadItem> enqueueEpisode(
+    int index, {
+    int? quality,
+    String posterUrl = '',
+  }) async {
     final source = await repository.prepareSource(magnet: _link);
     return repository.enqueueDownload(
       source: source,
@@ -68,6 +72,7 @@ void main() {
       animeId: '52991',
       animeTitle: 'Frieren',
       sourceTitle: 'AniLibria',
+      posterUrl: posterUrl,
       quality: quality,
     );
   }
@@ -113,6 +118,19 @@ void main() {
     expect(source.qualities, [720, 480]);
     expect(online.listed, [OnlineSourceLink.tryParse(_link)]);
   });
+
+  test(
+    'persists the anime poster with a newly queued online episode',
+    () async {
+      final item = await enqueueEpisode(
+        1,
+        posterUrl: 'https://shikimori.one/posters/1/main.jpg',
+      );
+
+      expect(item.posterUrl, 'https://shikimori.one/posters/1/main.jpg');
+      expect((await latest(item.id)).posterUrl, item.posterUrl);
+    },
+  );
 
   test('loads an episode in the quality it was queued in, also after a '
       'restart', () async {

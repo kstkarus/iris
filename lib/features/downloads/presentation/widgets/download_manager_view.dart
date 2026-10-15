@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -20,7 +22,8 @@ import 'package:iris/shared/utils/byte_size_formatter.dart';
 import 'package:iris/shared/utils/desktop_platform.dart';
 import 'package:iris/shared/utils/episode_number.dart';
 import 'package:iris/shared/utils/file_display_name.dart';
-import 'package:iris/shared/widgets/adaptive/window_size_class.dart';
+import 'package:iris/shared/widgets/dither_switcher.dart';
+import 'package:iris/features/downloads/presentation/widgets/download_title_widgets.dart';
 import 'package:iris/shared/widgets/focusable_list_row.dart';
 import 'package:iris/shared/widgets/pixel_icon.dart';
 import 'package:iris/shared/widgets/row_menu_button.dart';
@@ -28,8 +31,6 @@ import 'package:iris/shared/widgets/section_label.dart';
 import 'package:iris/shared/widgets/segmented_bar.dart';
 import 'package:iris/shared/widgets/spec_table.dart';
 import 'package:iris/shared/widgets/status_views.dart';
-import 'package:iris/shared/widgets/display_title.dart';
-import 'package:iris/shared/widgets/tap_row.dart';
 import 'package:iris/shared/widgets/dither_list.dart';
 
 class DownloadManagerView extends StatefulWidget {
@@ -38,15 +39,14 @@ class DownloadManagerView extends StatefulWidget {
     required this.onBrowseCatalog,
     required this.onOpenTitle,
     this.titleKey,
+    this.onTitleDeleted,
     super.key,
   });
-
-  static const _storagePaneWidth = 360.0;
-  static const _paneGap = 40.0;
 
   final ValueChanged<DownloadItem> onWatch;
   final ValueChanged<DownloadTitle> onOpenTitle;
   final String? titleKey;
+  final VoidCallback? onTitleDeleted;
 
   /// Where an empty list leads: episodes are downloaded from a title's
   /// sources.
@@ -79,54 +79,26 @@ class _DownloadManagerViewState extends State<DownloadManagerView> {
             onRetry: context.read<DownloadManagerCubit>().load,
           );
         }
-        final refresh = context.read<DownloadManagerCubit>().refreshStorage;
-        return LayoutBuilder(
-          builder: (context, constraints) {
-            final storage = _Storage(usage: state.storageUsage);
-            if (widget.titleKey != null) {
-              return _Episodes(
-                downloads: state.downloads
-                    .where((item) => downloadTitleKey(item) == widget.titleKey)
-                    .toList(),
-                onWatch: widget.onWatch,
-              );
-            }
-            final titles = downloadTitles(state.downloads);
-            if (constraints.maxWidth < WindowSizeClass.expandedMinWidth) {
-              return RefreshIndicator(
-                onRefresh: refresh,
-                child: _Library(
-                  titles: titles,
-                  onOpenTitle: widget.onOpenTitle,
-                  onBrowseCatalog: widget.onBrowseCatalog,
-                  footer: Padding(
-                    padding: const EdgeInsets.only(top: 40),
-                    child: storage,
-                  ),
-                ),
-              );
-            }
-            return Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: RefreshIndicator(
-                    onRefresh: refresh,
-                    child: _Library(
-                      titles: titles,
-                      onOpenTitle: widget.onOpenTitle,
-                      onBrowseCatalog: widget.onBrowseCatalog,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: DownloadManagerView._paneGap),
-                SizedBox(
-                  width: DownloadManagerView._storagePaneWidth,
-                  child: SingleChildScrollView(primary: false, child: storage),
-                ),
-              ],
-            );
-          },
+        final titles = downloadTitles(state.downloads);
+        if (widget.titleKey case final key?) {
+          final title = titles.where((title) => title.key == key).firstOrNull;
+          return _Episodes(
+            downloads: title?.items ?? const [],
+            onWatch: widget.onWatch,
+            title: title,
+            onTitleDeleted: widget.onTitleDeleted,
+          );
+        }
+        if (titles.isEmpty) {
+          return _EmptyLibrary(onBrowseCatalog: widget.onBrowseCatalog);
+        }
+        if (isDesktopPlatform) {
+          return _DesktopLibrary(titles: titles, onWatch: widget.onWatch);
+        }
+        return DownloadLibraryGallery(
+          titles: titles,
+          onOpenTitle: widget.onOpenTitle,
+          menu: const _DownloadsMenu(showStorage: true),
         );
       },
     );
@@ -168,7 +140,7 @@ String downloadEpisode(AppLocalizations l10n, DownloadItem item) {
   final number = episodeNumberFromFileName(item.fileName);
   return number == null
       ? fileDisplayName(item.fileName)
-      : l10n.playerEpisodeNumber(number);
+      : l10n.downloadEpisodeLabel(number.toString().padLeft(2, '0'));
 }
 
 class _Storage extends StatelessWidget {
@@ -182,31 +154,48 @@ class _Storage extends StatelessWidget {
     final theme = Theme.of(context);
     String size(int? bytes) =>
         bytes == null ? '—' : formatByteSize(l10n, bytes);
+    final rows = [
+      SpecRow(l10n.downloadStorageTotal, size(usage?.totalBytes)),
+      SpecRow(l10n.downloadStorageContent, size(usage?.downloadsBytes)),
+      SpecRow(
+        l10n.downloadStorageCache,
+        size(usage?.cacheBytes),
+        trailing: (usage?.cacheBytes ?? 0) > 0
+            ? TextButton(
+                key: const Key('download_storage_clear_cache_button'),
+                onPressed: () => _clearCache(context),
+                child: Text(l10n.downloadStorageClearCache),
+              )
+            : null,
+      ),
+    ];
+    final compact =
+        MediaQuery.sizeOf(context).width < 680 ||
+        MediaQuery.textScalerOf(context).scale(16) > 22;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         SectionLabel(l10n.downloadStorageTitle),
         const SizedBox(height: 12),
-        SpecTable(
-          labelWidth: 196,
-          rows: [
-            SpecRow(l10n.downloadStorageTotal, size(usage?.totalBytes)),
-            SpecRow(l10n.downloadStorageContent, size(usage?.downloadsBytes)),
-            SpecRow(
-              l10n.downloadStorageCache,
-              size(usage?.cacheBytes),
-              trailing: (usage?.cacheBytes ?? 0) > 0
-                  ? TextButton(
-                      key: const Key('download_storage_clear_cache_button'),
-                      onPressed: () => _clearCache(context),
-                      child: Text(l10n.downloadStorageClearCache),
-                    )
-                  : null,
+        if (!compact)
+          SpecTable(labelWidth: 196, rows: rows)
+        else
+          for (final row in rows) ...[
+            const SegmentedRule(),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(row.label, style: theme.textTheme.bodySmall),
+                  const SizedBox(height: 4),
+                  Text(row.value, style: theme.textTheme.bodyMedium),
+                  ?row.trailing,
+                ],
+              ),
             ),
           ],
-        ),
         const SizedBox(height: 8),
-        // What the cache is and what clearing it costs.
         Text(l10n.downloadStorageCacheHint, style: theme.textTheme.bodySmall),
       ],
     );
@@ -228,153 +217,291 @@ Future<void> _clearCache(BuildContext context) async {
   );
 }
 
-class _Library extends StatelessWidget {
-  const _Library({
-    required this.titles,
-    required this.onOpenTitle,
-    required this.onBrowseCatalog,
-    this.footer,
-  });
-
-  final List<DownloadTitle> titles;
-  final ValueChanged<DownloadTitle> onOpenTitle;
+class _EmptyLibrary extends StatelessWidget {
+  const _EmptyLibrary({required this.onBrowseCatalog});
   final VoidCallback onBrowseCatalog;
-  final Widget? footer;
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final theme = Theme.of(context);
-    return DitherList<(String, Widget)>(
-      padding: const EdgeInsets.only(bottom: 24),
-      physics: const AlwaysScrollableScrollPhysics(),
-      header: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          DisplayTitle(l10n.navigationDownloads, maxSize: 64),
-          const SizedBox(height: 24),
-        ],
-      ),
-      footer: footer,
-      keyOf: (row) => row.$1,
-      itemBuilder: (context, row) => row.$2,
-      items: [
-        if (titles.isEmpty)
-          (
-            'empty',
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(l10n.downloadsEmpty),
-                const SizedBox(height: 20),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: OutlinedButton(
-                    key: const Key('downloads_browse_catalog'),
-                    onPressed: onBrowseCatalog,
-                    child: Text(l10n.commonBrowseCatalog),
-                  ),
-                ),
-              ],
+    return ListView(
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                l10n.downloadLibraryCount(0),
+                style: Theme.of(context).textTheme.labelLarge,
+              ),
             ),
+            const _DownloadsMenu(showStorage: true),
+          ],
+        ),
+        const SizedBox(height: 8),
+        const SegmentedRule(),
+        const SizedBox(height: 24),
+        Text(l10n.downloadsEmpty),
+        const SizedBox(height: 20),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: OutlinedButton(
+            key: const Key('downloads_browse_catalog'),
+            onPressed: onBrowseCatalog,
+            child: Text(l10n.commonBrowseCatalog),
           ),
-        for (final title in titles)
-          (
-            title.key,
-            Column(
-              children: [
-                const SegmentedRule(),
-                TapRow(
-                  inkKey: ValueKey('download_title_${title.key}'),
-                  onTap: () => onOpenTitle(title),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 20,
-                    ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                title.name,
-                                style: theme.textTheme.titleMedium,
-                              ),
-                              const SizedBox(height: 8),
-                              Text.rich(
-                                TextSpan(
-                                  children: [
-                                    TextSpan(
-                                      text: l10n.downloadTitleReady(
-                                        title.count(DownloadStatus.completed),
-                                        title.items.length,
-                                      ),
-                                    ),
-                                    TextSpan(
-                                      text:
-                                          ' · ${formatByteSize(l10n, title.items.fold<int>(0, (sum, item) => sum + item.downloadedBytes))}',
-                                    ),
-                                    for (final status in DownloadStatus.values)
-                                      if (status != DownloadStatus.completed &&
-                                          title.count(status) > 0)
-                                        TextSpan(
-                                          text:
-                                              ' · ${downloadStatusLabel(l10n, status)}: ${title.count(status)}',
-                                          style: TextStyle(
-                                            color: switch (status) {
-                                              DownloadStatus.downloading =>
-                                                theme.colorScheme.tertiary,
-                                              DownloadStatus.failed =>
-                                                theme.colorScheme.error,
-                                              _ =>
-                                                theme
-                                                    .colorScheme
-                                                    .onSurfaceVariant,
-                                            },
-                                          ),
-                                        ),
-                                  ],
-                                ),
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                  color: theme.colorScheme.onSurfaceVariant,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        const PixelIcon(PixelGlyph.arrowRight, size: 18),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
+        ),
+      ],
+    );
+  }
+}
+
+class _DesktopLibrary extends StatefulWidget {
+  const _DesktopLibrary({required this.titles, required this.onWatch});
+  final List<DownloadTitle> titles;
+  final ValueChanged<DownloadItem> onWatch;
+
+  @override
+  State<_DesktopLibrary> createState() => _DesktopLibraryState();
+}
+
+class _DesktopLibraryState extends State<_DesktopLibrary> {
+  late String _selectedKey = widget.titles.first.key;
+
+  @override
+  void didUpdateWidget(covariant _DesktopLibrary oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!widget.titles.any((title) => title.key == _selectedKey)) {
+      _selectedKey = widget.titles.first.key;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final selected = widget.titles.firstWhere(
+      (title) => title.key == _selectedKey,
+    );
+    final l10n = AppLocalizations.of(context);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final narrow = constraints.maxWidth < 800;
+        Widget option(DownloadTitle title) => DownloadPosterOption(
+          title: title,
+          selected: title.key == selected.key,
+          onTap: () => setState(() => _selectedKey = title.key),
+        );
+        final details = DitherSwitcher(
+          expand: true,
+          child: _Episodes(
+            key: ValueKey('download_episodes_${selected.key}'),
+            title: selected,
+            downloads: selected.items,
+            onWatch: widget.onWatch,
+            desktop: true,
+          ),
+        );
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SectionLabel(
+              l10n.downloadLibraryTitle,
+              trailing: Text(
+                widget.titles.length.toString().padLeft(2, '0'),
+                style: Theme.of(context).textTheme.labelSmall,
+              ),
             ),
+            const SizedBox(height: 16),
+            if (narrow) ...[
+              SizedBox(
+                height: 124,
+                child: ListView.separated(
+                  key: const Key('download_poster_list'),
+                  scrollDirection: Axis.horizontal,
+                  itemCount: widget.titles.length,
+                  separatorBuilder: (_, _) => const SizedBox(width: 12),
+                  itemBuilder: (context, index) => option(widget.titles[index]),
+                ),
+              ),
+              const SizedBox(height: 20),
+              Expanded(child: details),
+            ] else
+              Expanded(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SizedBox(
+                      width: 100,
+                      child: DitherList<DownloadTitle>(
+                        key: const Key('download_poster_list'),
+                        padding: const EdgeInsets.only(bottom: 32),
+                        items: widget.titles,
+                        keyOf: (title) => title.key,
+                        itemBuilder: (context, title) => Align(
+                          alignment: Alignment.topCenter,
+                          child: option(title),
+                        ),
+                        rowSpacing: 12,
+                      ),
+                    ),
+                    const SizedBox(width: 28),
+                    Expanded(child: details),
+                  ],
+                ),
+              ),
+            const SizedBox(height: 32),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _DownloadsMenu extends StatefulWidget {
+  const _DownloadsMenu({
+    this.title,
+    this.onTitleDeleted,
+    this.showStorage = false,
+  });
+  final DownloadTitle? title;
+  final VoidCallback? onTitleDeleted;
+  final bool showStorage;
+
+  @override
+  State<_DownloadsMenu> createState() => _DownloadsMenuState();
+}
+
+class _DownloadsMenuState extends State<_DownloadsMenu> {
+  final _controller = MenuController();
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final title = widget.title;
+    return RowMenuButton(
+      key: Key(title == null ? 'download_library_menu' : 'download_title_menu'),
+      controller: _controller,
+      tooltip: l10n.commonMoreActions,
+      menuChildren: [
+        if (title != null && title.items.length > 1)
+          MenuItemButton(
+            key: const Key('download_title_delete_all'),
+            onPressed: () async {
+              final onDeleted = widget.onTitleDeleted;
+              final items = context
+                  .read<DownloadManagerCubit>()
+                  .state
+                  .downloads
+                  .where((item) => downloadTitleKey(item) == title.key)
+                  .toList();
+              final removed = await confirmDownloadDeletion(
+                context,
+                items,
+                title.name,
+                all: true,
+              );
+              if (removed) onDeleted?.call();
+            },
+            child: Text(asksForMore(l10n.downloadDeleteAll)),
+          ),
+        if (widget.showStorage)
+          MenuItemButton(
+            key: const Key('download_storage_open'),
+            onPressed: () => _showStorage(context),
+            child: Text(asksForMore(l10n.downloadStorageTitle)),
           ),
       ],
     );
   }
 }
 
-class _Episodes extends StatelessWidget {
-  const _Episodes({required this.downloads, required this.onWatch});
+Future<void> _showStorage(BuildContext context) async {
+  final cubit = context.read<DownloadManagerCubit>();
+  unawaited(cubit.refreshStorage());
+  await showDialog<void>(
+    context: context,
+    builder: (context) => BlocProvider.value(
+      value: cubit,
+      child: AlertDialog(
+        key: const Key('download_storage_dialog'),
+        scrollable: true,
+        content: SizedBox(
+          width: 560,
+          child: BlocBuilder<DownloadManagerCubit, DownloadManagerState>(
+            builder: (context, state) => _Storage(usage: state.storageUsage),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text(MaterialLocalizations.of(context).closeButtonTooltip),
+          ),
+        ],
+      ),
+    ),
+  );
+}
 
+class _Episodes extends StatelessWidget {
+  const _Episodes({
+    required this.downloads,
+    required this.onWatch,
+    this.title,
+    this.desktop = false,
+    this.onTitleDeleted,
+    super.key,
+  });
   final List<DownloadItem> downloads;
+  final DownloadTitle? title;
   final ValueChanged<DownloadItem> onWatch;
+  final bool desktop;
+  final VoidCallback? onTitleDeleted;
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final theme = Theme.of(context);
+    final title = this.title;
+    final releases = _releases(downloads);
+    final menu = title != null && (desktop || title.items.length > 1)
+        ? _DownloadsMenu(
+            title: title,
+            onTitleDeleted: onTitleDeleted,
+            showStorage: desktop,
+          )
+        : null;
+    final numbers =
+        downloads
+            .map((item) => episodeNumberFromFileName(item.fileName))
+            .whereType<int>()
+            .toList()
+          ..sort();
+    final range = numbers.isEmpty
+        ? null
+        : numbers.length == 1
+        ? numbers.first.toString().padLeft(2, '0')
+        : '${numbers.first.toString().padLeft(2, '0')}–${numbers.last.toString().padLeft(2, '0')}';
     return DitherList<(String, Widget)>(
-      padding: const EdgeInsets.only(bottom: 24),
+      key: ValueKey('download_episodes_list_${title?.key ?? ''}'),
+      padding: const EdgeInsets.only(bottom: 32),
       header: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          SectionLabel(l10n.playerEpisodesTitle),
-          const SizedBox(height: 8),
+          if (title != null) ...[
+            DownloadTitleIdentity(
+              title: title,
+              showPoster: !desktop,
+              trailing: desktop ? null : menu,
+            ),
+            SizedBox(height: desktop ? 24 : 28),
+          ],
+          SectionLabel(
+            l10n.playerEpisodesTitle,
+            trailing: desktop
+                ? menu
+                : range == null
+                ? null
+                : Text(range, style: theme.textTheme.labelSmall),
+          ),
+          SizedBox(height: desktop ? 8 : 12),
         ],
       ),
       keyOf: (row) => row.$1,
@@ -385,31 +512,28 @@ class _Episodes extends StatelessWidget {
             'empty',
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 48),
-              child: Column(
-                children: [
-                  Text(
-                    l10n.downloadTitleEmpty,
-                    textAlign: TextAlign.center,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ],
+              child: Text(
+                l10n.downloadTitleEmpty,
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
               ),
             ),
           )
         else
-          for (final release in _releases(downloads)) ...[
-            (
-              'release:${downloadSourceKey(release.first.magnet)}',
-              Padding(
-                padding: const EdgeInsets.only(top: 16, bottom: 8),
-                child: Text(
-                  release.first.sourceTitle,
-                  style: theme.textTheme.labelLarge,
+          for (final release in releases) ...[
+            if (desktop || releases.length > 1)
+              (
+                'release:${downloadSourceKey(release.first.magnet)}',
+                Padding(
+                  padding: EdgeInsets.only(
+                    top: releases.length > 1 ? 16 : 0,
+                    bottom: 16,
+                  ),
+                  child: _ReleaseFacts(item: release.first),
                 ),
               ),
-            ),
             for (final item in release)
               (
                 'file:${item.id}',
@@ -424,8 +548,52 @@ class _Episodes extends StatelessWidget {
                   ],
                 ),
               ),
+            if (!desktop && releases.length == 1)
+              (
+                'release:${downloadSourceKey(release.first.magnet)}',
+                Padding(
+                  padding: const EdgeInsets.only(top: 28),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      SectionLabel(l10n.watchSourcesColumnRelease),
+                      const SizedBox(height: 12),
+                      _ReleaseFacts(item: release.first),
+                    ],
+                  ),
+                ),
+              ),
           ],
       ],
+    );
+  }
+}
+
+class _ReleaseFacts extends StatelessWidget {
+  const _ReleaseFacts({required this.item});
+  final DownloadItem item;
+
+  @override
+  Widget build(BuildContext context) {
+    final name = item.animeTitle;
+    var label = name.isEmpty
+        ? item.sourceTitle
+        : item.sourceTitle
+              .replaceAll(RegExp(RegExp.escape(name), caseSensitive: false), '')
+              .trim();
+    label = label
+        .replaceAll(RegExp(r'[\[\]()]'), '')
+        .replaceAll(RegExp(r'^\s*[·|—-]+|[·|—-]+\s*$'), '')
+        .trim();
+    if (label.isEmpty) label = item.sourceTitle;
+    final dot = item.fileName.lastIndexOf('.');
+    final extension = dot < 0 ? '' : item.fileName.substring(dot + 1);
+    return Tooltip(
+      message: item.sourceTitle,
+      child: Text(
+        [label, if (extension.isNotEmpty) extension].join(' · ').toUpperCase(),
+        style: Theme.of(context).textTheme.bodySmall,
+      ),
     );
   }
 }
@@ -523,13 +691,18 @@ class _DownloadRowState extends State<_DownloadRow> {
       onLongPress: _menu.open,
       onSecondaryTap: _menu.open,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 14, 0, 14),
+        padding: const EdgeInsets.symmetric(vertical: 12),
         child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Expanded(
               child: Semantics(
                 container: true,
                 label: summary,
+                customSemanticsActions: {
+                  CustomSemanticsAction(label: l10n.commonMoreActions):
+                      _menu.open,
+                },
                 child: ExcludeSemantics(
                   child: _Details(
                     item: item,
@@ -542,22 +715,11 @@ class _DownloadRowState extends State<_DownloadRow> {
               ),
             ),
             const SizedBox(width: 8),
-            Semantics(
-              label: '$actionLabel: $name',
-              button: true,
-              excludeSemantics: true,
-              onTap: onAction,
-              child: IconButton(
-                tooltip: actionLabel,
-                icon: PixelIcon(actionIcon, size: 18),
-                onPressed: onAction,
-              ),
-            ),
-            RowMenuButton(
+            MenuAnchor(
               controller: _menu,
-              tooltip: l10n.commonMoreActions,
-              semanticLabel: '${l10n.commonMoreActions}: $name',
-              onOpenChanged: _setMenuOpen,
+              onOpen: () => _setMenuOpen(true),
+              onClose: () => _setMenuOpen(false),
+              alignmentOffset: const Offset(-176, 0),
               menuChildren: [
                 MenuItemButton(
                   key: const Key('download_delete'),
@@ -565,6 +727,32 @@ class _DownloadRowState extends State<_DownloadRow> {
                   child: Text(asksForMore(l10n.downloadDeleteButton)),
                 ),
               ],
+              child: Semantics(
+                label: '$actionLabel: $name',
+                button: true,
+                excludeSemantics: true,
+                onTap: onAction,
+                child: IconButton(
+                  key: ValueKey('download_action_${item.id}'),
+                  tooltip: actionLabel,
+                  icon: PixelIcon(
+                    status == DownloadStatus.downloading ||
+                            status == DownloadStatus.queued
+                        ? PixelGlyph.download
+                        : actionIcon,
+                    size: 16,
+                    color: status == DownloadStatus.downloading
+                        ? Theme.of(context).colorScheme.tertiary
+                        : completed
+                        ? null
+                        : Theme.of(context).colorScheme.onSurfaceVariant,
+                    fill: status == DownloadStatus.downloading
+                        ? progress
+                        : null,
+                  ),
+                  onPressed: onAction,
+                ),
+              ),
             ),
           ],
         ),
@@ -662,21 +850,7 @@ class _Details extends StatelessWidget {
           overflow: TextOverflow.ellipsis,
           style: theme.textTheme.titleSmall,
         ),
-        if (status != DownloadStatus.completed) ...[
-          const SizedBox(height: 10),
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 480),
-            child: SegmentedBar(
-              value: progress,
-              color: switch (status) {
-                DownloadStatus.downloading => scheme.tertiary,
-                DownloadStatus.failed => scheme.error,
-                _ => scheme.onSurfaceVariant,
-              },
-            ),
-          ),
-        ],
-        const SizedBox(height: 8),
+        const SizedBox(height: 4),
         Text.rich(
           TextSpan(
             children: [
@@ -686,17 +860,35 @@ class _Details extends StatelessWidget {
                   color: switch (status) {
                     DownloadStatus.downloading => scheme.tertiary,
                     DownloadStatus.failed => scheme.error,
-                    _ => scheme.onSurface,
+                    _ => scheme.onSurfaceVariant,
                   },
                 ),
               ),
-              TextSpan(text: '   ${_facts(l10n, item)}'),
+              TextSpan(text: '   ·   ${_facts(l10n, item)}'),
             ],
           ),
           style: theme.textTheme.bodySmall?.copyWith(
+            color: status == DownloadStatus.downloading
+                ? scheme.tertiary
+                : scheme.onSurfaceVariant,
             fontFeatures: const [FontFeature.tabularFigures()],
           ),
         ),
+        if (status != DownloadStatus.completed &&
+            status != DownloadStatus.queued) ...[
+          const SizedBox(height: 8),
+          SegmentedBar(
+            value: progress,
+            color: switch (status) {
+              DownloadStatus.downloading => scheme.tertiary,
+              DownloadStatus.failed => scheme.error,
+              _ => scheme.onSurfaceVariant,
+            },
+            height: 5,
+            segment: 7,
+            gap: 2,
+          ),
+        ],
         if (failure != null) ...[
           const SizedBox(height: 4),
           Text(
@@ -731,6 +923,7 @@ String _facts(AppLocalizations l10n, DownloadItem item) {
     // Nothing of it is here yet: only how big it will be.
     DownloadStatus.queued when item.downloadedBytes == 0 => total ?? '',
     DownloadStatus.downloading => [
+      '${(item.progress * 100).round()}%',
       loaded.join(' / '),
       if (item.peers == 0 && !item.isOnline)
         l10n.downloadNoPeers

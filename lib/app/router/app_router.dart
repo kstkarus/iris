@@ -227,6 +227,27 @@ abstract final class AppRouter {
                       ),
                     );
                   },
+                  routes: [
+                    GoRoute(
+                      path: 'title',
+                      name: 'download-title',
+                      builder: (context, state) {
+                        final title = state.extra;
+                        if (title is! DownloadTitle) {
+                          return const _InvalidRoutePage();
+                        }
+                        return BlocProvider(
+                          create: (_) => DownloadManagerCubit(
+                            repository: serviceLocator<DownloadsRepository>(),
+                          )..load(),
+                          child: DownloadTitlePage(
+                            title: title,
+                            onWatch: (item) => _watchDownload(context, item),
+                          ),
+                        );
+                      },
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -441,23 +462,6 @@ abstract final class AppRouter {
                   pathParameters: {'id': anime.id},
                   extra: AnimeDetailsPreview.fromSummary(anime),
                 ),
-              ),
-            );
-          },
-        ),
-        GoRoute(
-          path: '/downloads/title',
-          name: 'download-title',
-          builder: (context, state) {
-            final title = state.extra;
-            if (title is! DownloadTitle) return const _InvalidRoutePage();
-            return BlocProvider(
-              create: (_) => DownloadManagerCubit(
-                repository: serviceLocator<DownloadsRepository>(),
-              )..load(),
-              child: DownloadTitlePage(
-                title: title,
-                onWatch: (item) => _watchDownload(context, item),
               ),
             );
           },

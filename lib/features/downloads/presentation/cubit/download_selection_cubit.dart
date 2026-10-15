@@ -165,6 +165,7 @@ class DownloadSelectionCubit extends Cubit<DownloadSelectionState> {
         animeId: args.animeId,
         animeTitle: args.animeTitle,
         sourceTitle: args.sourceTitle,
+        posterUrl: args.posterUrl,
         quality: quality,
       );
       // The list of downloads may come a moment later; the row should not

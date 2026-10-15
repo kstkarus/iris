@@ -23,6 +23,9 @@ class DownloadTitle {
   String get name => items.first.animeTitle.isNotEmpty
       ? items.first.animeTitle
       : items.first.sourceTitle;
+  String get posterUrl => items
+      .map((item) => item.posterUrl)
+      .firstWhere((url) => url.isNotEmpty, orElse: () => '');
   int count(DownloadStatus status) =>
       items.where((item) => item.status == status).length;
   bool get active => items.any(

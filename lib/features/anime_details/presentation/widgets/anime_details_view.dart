@@ -586,6 +586,7 @@ class _WatchSourcesButton extends StatelessWidget {
             animeId: head.anime.id,
             name: head.anime.name,
             english: head.anime.english,
+            posterUrl: head.anime.posterUrl,
           ),
         ),
         child: Text(

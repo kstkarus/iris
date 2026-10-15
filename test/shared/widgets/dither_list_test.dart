@@ -9,6 +9,7 @@ void main() {
     List<String> items, {
     bool noMotion = false,
     bool framed = false,
+    int columns = 1,
   }) => MaterialApp(
     home: MediaQuery(
       data: MediaQueryData(disableAnimations: noMotion),
@@ -22,6 +23,9 @@ void main() {
               ? const SizedBox(height: 30, child: Text('footer'))
               : null,
           keyOf: (item) => item,
+          crossAxisCount: columns,
+          columnSpacing: 16,
+          rowSpacing: columns == 1 ? 0 : 24,
           itemBuilder: (context, item) =>
               SizedBox(height: 40, child: Text(item)),
         ),
@@ -160,5 +164,78 @@ void main() {
     await tester.pumpWidget(list(['a'], noMotion: true));
     await tester.pump();
     expect(find.text('b'), findsNothing);
+  });
+
+  testWidgets('grid animates only inserted and removed entries', (
+    tester,
+  ) async {
+    await tester.pumpWidget(list(['a', 'b'], columns: 2));
+    expect(find.byType(BayerMasked), findsNothing);
+
+    await tester.pumpWidget(list(['a', 'b', 'c'], columns: 2));
+    await tester.pump(DitherTransition.duration ~/ 2);
+    expect(
+      find.ancestor(of: find.text('c'), matching: find.byType(BayerMasked)),
+      findsOneWidget,
+    );
+    expect(
+      find.ancestor(of: find.text('a'), matching: find.byType(BayerMasked)),
+      findsNothing,
+    );
+    await tester.pumpAndSettle();
+
+    await tester.pumpWidget(list(['b', 'c'], columns: 2));
+    await tester.pump(DitherTransition.duration ~/ 2);
+    expect(
+      find.ancestor(of: find.text('a'), matching: find.byType(BayerMasked)),
+      findsOneWidget,
+    );
+    expect(
+      find.ancestor(of: find.text('b'), matching: find.byType(BayerMasked)),
+      findsNothing,
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('a'), findsNothing);
+  });
+
+  testWidgets('grid content updates do not replay entry animation', (
+    tester,
+  ) async {
+    Widget progressList(int progress, {int columns = 2}) => MaterialApp(
+      home: Scaffold(
+        body: DitherList<({String id, int progress})>(
+          items: [(id: 'a', progress: progress), (id: 'b', progress: progress)],
+          keyOf: (item) => item.id,
+          crossAxisCount: columns,
+          itemBuilder: (context, item) => Text('${item.id}:${item.progress}'),
+        ),
+      ),
+    );
+
+    await tester.pumpWidget(progressList(10));
+    await tester.pumpWidget(progressList(20));
+    expect(find.text('a:20'), findsOneWidget);
+    expect(find.byType(BayerMasked), findsNothing);
+    expect(tester.hasRunningAnimations, isFalse);
+
+    await tester.pumpWidget(progressList(20, columns: 1));
+    expect(find.text('a:20'), findsOneWidget);
+    expect(find.byType(BayerMasked), findsNothing);
+    expect(tester.hasRunningAnimations, isFalse);
+  });
+
+  testWidgets('grid respects reduced motion for add and remove', (
+    tester,
+  ) async {
+    await tester.pumpWidget(list(['a', 'b'], columns: 2, noMotion: true));
+    await tester.pumpWidget(list(['a', 'b', 'c'], columns: 2, noMotion: true));
+    await tester.pump();
+    expect(find.byType(BayerMasked), findsNothing);
+    expect(tester.hasRunningAnimations, isFalse);
+
+    await tester.pumpWidget(list(['b', 'c'], columns: 2, noMotion: true));
+    await tester.pump();
+    expect(find.text('a'), findsNothing);
+    expect(tester.hasRunningAnimations, isFalse);
   });
 }

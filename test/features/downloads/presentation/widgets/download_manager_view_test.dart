@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'dart:ui' show Tristate;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -19,49 +21,68 @@ import 'package:iris/features/downloads/presentation/models/download_selection_a
 import 'package:iris/features/downloads/presentation/pages/download_manager_page.dart';
 import 'package:iris/features/downloads/presentation/pages/download_title_page.dart';
 import 'package:iris/features/downloads/presentation/pages/download_selection_page.dart';
+import 'package:iris/features/downloads/presentation/widgets/download_title_widgets.dart';
 import 'package:iris/shared/widgets/adaptive/adaptive_content_width.dart';
 import 'package:iris/shared/widgets/dither_transition.dart';
+import 'package:iris/shared/widgets/focusable_list_row.dart';
 
 import '../../../../helpers/test_app.dart';
 import '../../../../helpers/test_window.dart';
 
 void main() {
   for (final entry in TestWindowSizes.all.entries) {
-    // The sidebar takes its share, so only desktop windows fit both panes.
-    // Content of 840 dp and up puts storage in a side pane.
-    final isWide = entry.value.width >= 900;
-
-    testWidgets('download manager adapts panes on ${entry.key}', (
+    testWidgets('library keeps storage in its menu on ${entry.key}', (
       tester,
     ) async {
-      setTestWindowSize(tester, entry.value);
-      final repository = await _repositoryWithDownloads(count: 3);
-      await repository.pause(id: 'mock-1');
+      await _withTargetPlatform(
+        entry.value.width >= 900
+            ? TargetPlatform.windows
+            : TargetPlatform.android,
+        () async {
+          setTestWindowSize(tester, entry.value);
+          final repository = await _repositoryWithDownloads(count: 3);
+          await repository.pause(id: 'mock-1');
 
-      await _pumpApp(
-        tester,
-        BlocProvider(
-          create: (_) => DownloadManagerCubit(repository: repository)..load(),
-          child: DownloadManagerPage(
-            onOpenTitle: (_) {},
-            onWatch: (_) {},
-            onBrowseCatalog: () {},
-          ),
-        ),
-      );
+          await _pumpApp(
+            tester,
+            BlocProvider(
+              create: (_) =>
+                  DownloadManagerCubit(repository: repository)..load(),
+              child: DownloadManagerPage(
+                onOpenTitle: (_) {},
+                onWatch: (_) {},
+                onBrowseCatalog: () {},
+              ),
+            ),
+          );
 
-      final storage = tester.getRect(find.text('APP STORAGE'));
-      final firstFile = tester.getRect(
-        find.text('Fullmetal Alchemist: Brotherhood'),
+          expect(find.text('APP STORAGE'), findsNothing);
+          if (entry.value.width >= 900) {
+            await tester.tap(
+              find.byKey(const ValueKey('download_title_anime:5114')),
+            );
+          }
+          await tester.tap(
+            find.byKey(
+              Key(
+                entry.value.width >= 900
+                    ? 'download_title_menu'
+                    : 'download_library_menu',
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+          await tester.tap(find.byKey(const Key('download_storage_open')));
+          await tester.pumpAndSettle();
+          expect(
+            find.byKey(const Key('download_storage_dialog')),
+            findsOneWidget,
+          );
+          expect(find.text('APP STORAGE'), findsOneWidget);
+          expect(find.textContaining('Paused: 1'), findsOneWidget);
+          expect(tester.takeException(), isNull);
+        },
       );
-      if (isWide) {
-        expect(storage.left, greaterThan(firstFile.right));
-      } else {
-        // The files come first; storage follows them.
-        expect(storage.top, greaterThan(firstFile.bottom));
-      }
-      expect(find.textContaining('Paused: 1'), findsOneWidget);
-      expect(tester.takeException(), isNull);
     });
 
     testWidgets('download manager empty state fits on ${entry.key}', (
@@ -128,32 +149,282 @@ void main() {
   testWidgets('the library opens one title containing all its episodes', (
     tester,
   ) async {
-    final repository = await _repositoryWithDownloads(count: 3);
-    DownloadTitle? opened;
-    await _pumpApp(
-      tester,
-      BlocProvider(
-        create: (_) => DownloadManagerCubit(repository: repository)..load(),
-        child: DownloadManagerPage(
-          onWatch: (_) {},
-          onBrowseCatalog: () {},
-          onOpenTitle: (title) => opened = title,
+    await _withTargetPlatform(TargetPlatform.android, () async {
+      final repository = await _repositoryWithDownloads(count: 3);
+      DownloadTitle? opened;
+      await _pumpApp(
+        tester,
+        BlocProvider(
+          create: (_) => DownloadManagerCubit(repository: repository)..load(),
+          child: DownloadManagerPage(
+            onWatch: (_) {},
+            onBrowseCatalog: () {},
+            onOpenTitle: (title) => opened = title,
+          ),
         ),
-      ),
-    );
-    expect(find.text('Fullmetal Alchemist: Brotherhood'), findsOneWidget);
-    expect(find.text('episode-00'), findsNothing);
-    await tester.tap(find.byKey(const ValueKey('download_title_anime:5114')));
-    expect(opened?.items, hasLength(3));
+      );
+      expect(
+        find.text('Fullmetal Alchemist: Brotherhood'),
+        findsAtLeastNWidgets(1),
+      );
+      expect(find.text('episode-00'), findsNothing);
+      await tester.tap(find.byKey(const ValueKey('download_title_anime:5114')));
+      expect(opened?.items, hasLength(3));
+    });
+  });
+
+  testWidgets('gallery title appears once when its poster is missing', (
+    tester,
+  ) async {
+    await _withTargetPlatform(TargetPlatform.android, () async {
+      final item = _libraryDownload(
+        id: 'missing-poster-1',
+        animeId: 'missing-poster',
+        animeTitle: 'Missing poster title',
+        fileName: 'Missing poster title - 01.mkv',
+        status: DownloadStatus.completed,
+        createdAt: DateTime(2026, 10, 10),
+      ).copyWith(posterUrl: '');
+      await _pumpApp(
+        tester,
+        BlocProvider(
+          create: (_) => DownloadManagerCubit(
+            repository: _ScriptedDownloadsRepository([item]),
+          )..load(),
+          child: DownloadManagerPage(
+            onOpenTitle: (_) {},
+            onWatch: (_) {},
+            onBrowseCatalog: () {},
+          ),
+        ),
+      );
+
+      expect(find.text('Missing poster title'), findsOneWidget);
+    });
+  });
+
+  testWidgets('Windows keeps its selected title by key across list changes', (
+    tester,
+  ) async {
+    await _withTargetPlatform(TargetPlatform.windows, () async {
+      setTestWindowSize(tester, const Size(1440, 1000));
+      final alpha = _libraryDownload(
+        id: 'alpha-1',
+        animeId: 'alpha',
+        animeTitle: 'Alpha',
+        fileName: 'Alpha - 01.mkv',
+        status: DownloadStatus.completed,
+        createdAt: DateTime(2026, 10, 10),
+      ).copyWith(posterUrl: '');
+      final beta = _libraryDownload(
+        id: 'beta-1',
+        animeId: 'beta',
+        animeTitle: 'Beta',
+        fileName: 'Beta - 01.mkv',
+        status: DownloadStatus.paused,
+        createdAt: DateTime(2026, 10, 9),
+      );
+      final repository = _ScriptedDownloadsRepository([alpha, beta]);
+      await _pumpApp(
+        tester,
+        BlocProvider(
+          create: (_) => DownloadManagerCubit(repository: repository)..load(),
+          child: DownloadManagerPage(
+            onOpenTitle: (_) {},
+            onWatch: (_) {},
+            onBrowseCatalog: () {},
+          ),
+        ),
+      );
+
+      final alphaKey = const ValueKey('download_title_anime:alpha');
+      final betaKey = const ValueKey('download_title_anime:beta');
+      await tester.tap(find.byKey(alphaKey));
+      await tester.pumpAndSettle();
+      expect(find.byType(DownloadTitleIdentity), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byType(DownloadTitleIdentity),
+          matching: find.text('Alpha'),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: find.byType(DownloadPosterOption),
+          matching: find.text('Alpha'),
+        ),
+        findsOneWidget,
+      );
+      expect(find.byType(DownloadPosterOption), findsNWidgets(2));
+      expect(
+        find.byKey(const ValueKey('download_episodes_list_anime:alpha')),
+        findsOneWidget,
+      );
+      expect(
+        tester
+            .getSemantics(find.byKey(alphaKey))
+            .getSemanticsData()
+            .flagsCollection
+            .isSelected,
+        Tristate.isTrue,
+      );
+
+      // Beta becomes active and moves ahead of Alpha in the library ordering.
+      repository.push([
+        alpha,
+        beta.copyWith(status: DownloadStatus.downloading),
+      ]);
+      await tester.pumpAndSettle();
+      expect(
+        find.descendant(
+          of: find.byType(DownloadTitleIdentity),
+          matching: find.text('Alpha'),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        tester
+            .getSemantics(find.byKey(alphaKey))
+            .getSemanticsData()
+            .flagsCollection
+            .isSelected,
+        Tristate.isTrue,
+      );
+      expect(
+        tester
+            .getSemantics(find.byKey(betaKey))
+            .getSemanticsData()
+            .flagsCollection
+            .isSelected,
+        Tristate.isFalse,
+      );
+
+      repository.push([
+        alpha.copyWith(downloadedBytes: 1),
+        beta.copyWith(status: DownloadStatus.downloading),
+      ]);
+      await tester.pumpAndSettle();
+      repository.push([alpha.copyWith(downloadedBytes: 1)]);
+      await tester.pumpAndSettle();
+      expect(
+        find.descendant(
+          of: find.byType(DownloadTitleIdentity),
+          matching: find.text('Alpha'),
+        ),
+        findsOneWidget,
+      );
+      expect(find.byType(DownloadTitleIdentity), findsOneWidget);
+    });
+  });
+
+  testWidgets('Windows poster and episode lists scroll independently', (
+    tester,
+  ) async {
+    await _withTargetPlatform(TargetPlatform.windows, () async {
+      setTestWindowSize(tester, const Size(1440, 700));
+      final items = <DownloadItem>[];
+      for (var title = 0; title < 12; title++) {
+        final animeId = 'show-$title';
+        final titleName = 'Show $title';
+        final date = DateTime(2026, 10, 1, title);
+        if (title == 11) {
+          for (var episode = 1; episode <= 12; episode++) {
+            final fileName =
+                '$titleName - ${episode.toString().padLeft(2, '0')}.mkv';
+            items.add(
+              _libraryDownload(
+                id: '$animeId-$episode',
+                animeId: animeId,
+                animeTitle: titleName,
+                fileName: fileName,
+                status: DownloadStatus.completed,
+                createdAt: date,
+              ).copyWith(fileIndex: episode - 1),
+            );
+          }
+        } else {
+          items.add(
+            _libraryDownload(
+              id: '$animeId-1',
+              animeId: animeId,
+              animeTitle: titleName,
+              fileName: '$titleName - 01.mkv',
+              status: DownloadStatus.completed,
+              createdAt: date,
+            ),
+          );
+        }
+      }
+      await _pumpApp(
+        tester,
+        BlocProvider(
+          create: (_) => DownloadManagerCubit(
+            repository: _ScriptedDownloadsRepository(items),
+          )..load(),
+          child: DownloadManagerPage(
+            onOpenTitle: (_) {},
+            onWatch: (_) {},
+            onBrowseCatalog: () {},
+          ),
+        ),
+      );
+      await tester.tap(
+        find.byKey(const ValueKey('download_title_anime:show-11')),
+      );
+      await tester.pumpAndSettle();
+
+      final posterScroll = find.descendant(
+        of: find.byKey(const Key('download_poster_list')),
+        matching: find.byType(Scrollable),
+      );
+      final episodeScroll = find.descendant(
+        of: find.byKey(const ValueKey('download_episodes_list_anime:show-11')),
+        matching: find.byType(Scrollable),
+      );
+      expect(posterScroll, findsOneWidget);
+      expect(episodeScroll, findsOneWidget);
+      final posterPosition = tester
+          .state<ScrollableState>(posterScroll)
+          .position;
+      final episodePosition = tester
+          .state<ScrollableState>(episodeScroll)
+          .position;
+
+      await tester.drag(episodeScroll, const Offset(0, -420));
+      await tester.pumpAndSettle();
+      final episodeOffset = episodePosition.pixels;
+      expect(episodeOffset, greaterThan(0));
+      await tester.drag(posterScroll, const Offset(0, -420));
+      await tester.pumpAndSettle();
+      expect(posterPosition.pixels, greaterThan(0));
+      expect(episodePosition.pixels, episodeOffset);
+    });
   });
 
   testWidgets('deleting a title asks once and removes all its episodes', (
     tester,
   ) async {
     final repository = await _repositoryWithDownloads(count: 3);
+    const source = PreparedDownloadSource(
+      sourceToken: 'other-source',
+      files: [],
+    );
+    await repository.enqueueDownload(
+      source: source,
+      file: const DownloadableFile(
+        index: 100,
+        name: 'other.mkv',
+        relativePath: 'other.mkv',
+        size: 10,
+      ),
+      animeId: 'other-anime',
+      animeTitle: 'Other title',
+      sourceTitle: 'Other release',
+    );
     final title = downloadTitles(
       await repository.watchDownloads().first,
-    ).single;
+    ).singleWhere((title) => title.key == 'anime:5114');
     await _pumpApp(
       tester,
       BlocProvider(
@@ -161,16 +432,23 @@ void main() {
         child: DownloadTitlePage(title: title, onWatch: (_) {}),
       ),
     );
-    await tester.tap(find.byTooltip('Delete all episodes'));
+    expect(find.text('TITLES'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('download_title_menu')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('download_title_delete_all')));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Cancel'));
     await tester.pumpAndSettle();
-    expect(await repository.watchDownloads().first, hasLength(3));
-    await tester.tap(find.byTooltip('Delete all episodes'));
+    expect(await repository.watchDownloads().first, hasLength(4));
+    await tester.tap(find.byKey(const Key('download_title_menu')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('download_title_delete_all')));
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(FilledButton, 'Delete'));
     await tester.pumpAndSettle();
-    expect(await repository.watchDownloads().first, isEmpty);
+    final remaining = await repository.watchDownloads().first;
+    expect(remaining, hasLength(1));
+    expect(remaining.single.animeId, 'other-anime');
   });
 
   testWidgets('a row names the episode and its buttons name the row', (
@@ -198,9 +476,16 @@ void main() {
       ),
       findsOneWidget,
     );
+    expect(find.byKey(const Key('download_action_mock-0')), findsOneWidget);
+    expect(find.byKey(const Key('download_delete')), findsNothing);
     expect(
-      find.bySemanticsLabel(
-        RegExp('^More actions: Fullmetal Alchemist: Brotherhood, '),
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is Semantics &&
+            widget.properties.customSemanticsActions?.keys.any(
+                  (action) => action.label == 'More actions',
+                ) ==
+                true,
       ),
       findsOneWidget,
     );
@@ -277,7 +562,7 @@ void main() {
     testWidgets('says the episode and how long is left', (tester) async {
       await pump(tester, download());
 
-      expect(find.text('Episode 6'), findsOneWidget);
+      expect(find.text('Episode 06'), findsOneWidget);
       expect(find.text('Frieren - 06.mkv'), findsNothing);
       expect(find.textContaining('~5 min left'), findsOneWidget);
     });
@@ -313,12 +598,12 @@ void main() {
       await tester.pump(DitherTransition.duration ~/ 2);
       expect(
         find.ancestor(
-          of: find.text('Other'),
+          of: find.byKey(const ValueKey('download_title_anime:other')),
           matching: find.byType(BayerMasked),
         ),
         findsOneWidget,
       );
-      for (final text in ['Frieren', 'Downloads', 'APP STORAGE']) {
+      for (final text in ['Frieren', 'Downloads']) {
         expect(
           find.ancestor(
             of: find.text(text),
@@ -332,12 +617,15 @@ void main() {
       await tester.pump();
       await tester.pump(DitherTransition.duration ~/ 2);
       expect(
-        find.text('Frieren'),
+        find.byKey(const ValueKey('download_title_anime:52991')),
         findsOneWidget,
         reason: 'the removed title is still dissolving',
       );
       await tester.pumpAndSettle();
-      expect(find.text('Frieren'), findsNothing);
+      expect(
+        find.byKey(const ValueKey('download_title_anime:52991')),
+        findsNothing,
+      );
       expect(find.byType(Scrollable), findsOneWidget);
     });
 
@@ -350,7 +638,7 @@ void main() {
       repository.push([first.copyWith(downloadedBytes: 400 << 20)]);
       await tester.pump();
       expect(find.byType(BayerMasked), findsNothing);
-      await tester.tap(find.byTooltip('More actions'));
+      await tester.longPress(find.text('Episode 06'));
       await tester.pumpAndSettle();
       repository.push([first.copyWith(downloadedBytes: 410 << 20)]);
       await tester.pump();
@@ -368,14 +656,14 @@ void main() {
       await tester.pump(DitherTransition.duration ~/ 2);
       expect(
         find.ancestor(
-          of: find.text('Episode 7'),
+          of: find.text('Episode 07'),
           matching: find.byType(BayerMasked),
         ),
         findsOneWidget,
       );
       expect(
         find.ancestor(
-          of: find.text('Episode 6'),
+          of: find.text('Episode 06'),
           matching: find.byType(BayerMasked),
         ),
         findsNothing,
@@ -384,7 +672,7 @@ void main() {
       repository.push([second]);
       await tester.pump();
       await tester.pump(DitherTransition.duration ~/ 2);
-      expect(find.text('Episode 6'), findsOneWidget);
+      expect(find.text('Episode 06'), findsOneWidget);
       expect(
         find.ancestor(
           of: find.text('Frieren batch'),
@@ -393,8 +681,8 @@ void main() {
         findsNothing,
       );
       await tester.pumpAndSettle();
-      expect(find.text('Episode 6'), findsNothing);
-      expect(find.text('Episode 7'), findsOneWidget);
+      expect(find.text('Episode 06'), findsNothing);
+      expect(find.text('Episode 07'), findsOneWidget);
     });
 
     testWidgets(
@@ -419,18 +707,28 @@ void main() {
           ),
         );
         expect(
-          MediaQuery.disableAnimationsOf(tester.element(find.text('Frieren'))),
+          MediaQuery.disableAnimationsOf(
+            tester.element(
+              find.byKey(const ValueKey('download_title_anime:52991')),
+            ),
+          ),
           isTrue,
         );
         repository.push([]);
         await tester.pumpAndSettle();
-        expect(find.text('Frieren'), findsNothing);
+        expect(
+          find.byKey(const ValueKey('download_title_anime:52991')),
+          findsNothing,
+        );
         expect(find.text('Browse the catalog'), findsOneWidget);
         expect(tester.hasRunningAnimations, isFalse);
         repository.push([first]);
         await tester.pumpAndSettle();
         expect(find.text('Browse the catalog'), findsNothing);
-        expect(find.text('Frieren'), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('download_title_anime:52991')),
+          findsOneWidget,
+        );
         expect(tester.hasRunningAnimations, isFalse);
       },
     );
@@ -483,7 +781,7 @@ void main() {
       );
 
       // The status stands alone: no "0 B" for a size nobody knows yet.
-      expect(find.text('QUEUED   '), findsOneWidget);
+      expect(find.textContaining('QUEUED', findRichText: true), findsOneWidget);
     });
 
     testWidgets('a queued file shows only its size', (tester) async {
@@ -535,7 +833,7 @@ void main() {
     ) async {
       await pump(tester, download());
 
-      await tester.longPress(find.text('Episode 6'));
+      await tester.longPress(find.text('Episode 06'));
       await tester.pumpAndSettle();
       expect(find.byKey(const Key('download_delete')), findsOneWidget);
 
@@ -543,7 +841,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byKey(const Key('download_delete')), findsNothing);
 
-      await tester.tap(find.text('Episode 6'), buttons: kSecondaryButton);
+      await tester.tap(find.text('Episode 06'), buttons: kSecondaryButton);
       await tester.pumpAndSettle();
       expect(find.byKey(const Key('download_delete')), findsOneWidget);
     });
@@ -551,7 +849,7 @@ void main() {
     testWidgets('asks to delete on the Delete key', (tester) async {
       await pump(tester, download());
 
-      Focus.of(tester.element(find.text('Episode 6'))).requestFocus();
+      Focus.of(tester.element(find.text('Episode 06'))).requestFocus();
       await tester.pump();
       await tester.sendKeyEvent(LogicalKeyboardKey.delete);
       await tester.pumpAndSettle();
@@ -585,7 +883,7 @@ void main() {
       ]);
       await tester.pumpAndSettle();
 
-      expect(announced, ['Downloaded: Frieren, Episode 6']);
+      expect(announced, ['Downloaded: Frieren, Episode 06']);
     });
   });
 
@@ -612,7 +910,7 @@ void main() {
           ),
         );
 
-        await tester.tap(find.byTooltip('More actions'));
+        await tester.longPress(find.byType(FocusableListRow));
         await tester.pumpAndSettle();
         await tester.tap(find.byKey(const Key('download_delete')));
         await tester.pumpAndSettle();
@@ -734,6 +1032,44 @@ Future<void> _pumpApp(WidgetTester tester, Widget home) async {
   await tester.pumpWidget(testApp(home));
   await tester.pumpAndSettle();
 }
+
+Future<void> _withTargetPlatform(
+  TargetPlatform platform,
+  Future<void> Function() run,
+) async {
+  debugDefaultTargetPlatformOverride = platform;
+  try {
+    await run();
+  } finally {
+    debugDefaultTargetPlatformOverride = null;
+  }
+}
+
+DownloadItem _libraryDownload({
+  required String id,
+  required String animeId,
+  required String animeTitle,
+  required String fileName,
+  required DownloadStatus status,
+  required DateTime createdAt,
+}) => DownloadItem(
+  id: id,
+  animeId: animeId,
+  animeTitle: animeTitle,
+  sourceTitle: '$animeTitle release',
+  magnet: 'magnet:?xt=urn:btih:$animeId',
+  fileIndex: 0,
+  fileName: fileName,
+  relativePath: fileName,
+  localPath: fileName,
+  totalBytes: 100,
+  downloadedBytes: status == DownloadStatus.completed ? 100 : 50,
+  downloadRateBytesPerSecond: 10,
+  peers: 2,
+  status: status,
+  createdAt: createdAt,
+  posterUrl: 'https://example.test/$animeId.jpg',
+);
 
 Future<MockDownloadsRepository> _repositoryWithDownloads({
   required int count,

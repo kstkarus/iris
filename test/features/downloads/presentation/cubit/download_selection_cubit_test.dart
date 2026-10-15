@@ -19,6 +19,7 @@ const _args = DownloadSelectionArgs(
   animeTitle: 'Sousou no Frieren',
   sourceTitle: 'Release',
   magnet: 'magnet:?xt=urn:btih:test-selection',
+  posterUrl: 'https://shikimori.one/posters/1/main.jpg',
 );
 
 void main() {
@@ -77,6 +78,10 @@ void main() {
 
         expect(repository.queued, [0, 1]);
         expect(ready().downloads.keys, unorderedEquals([0, 1]));
+        expect(
+          ready().downloads.values.map((item) => item.posterUrl),
+          everyElement('https://shikimori.one/posters/1/main.jpg'),
+        );
         expect(ready().adding, isEmpty);
       },
     );
@@ -299,6 +304,7 @@ class _QualityRepository extends MockDownloadsRepository {
     required String animeId,
     required String animeTitle,
     required String sourceTitle,
+    String posterUrl = '',
     int? quality,
   }) {
     queuedQualities.add(quality);
@@ -308,6 +314,7 @@ class _QualityRepository extends MockDownloadsRepository {
       animeId: animeId,
       animeTitle: animeTitle,
       sourceTitle: sourceTitle,
+      posterUrl: posterUrl,
       quality: quality,
     );
   }
@@ -389,6 +396,7 @@ class _PickingRepository extends MockDownloadsRepository {
     required String animeId,
     required String animeTitle,
     required String sourceTitle,
+    String posterUrl = '',
     int? quality,
   }) async {
     if (gatedIndex == null || file.index == gatedIndex) await gate?.future;
@@ -398,6 +406,7 @@ class _PickingRepository extends MockDownloadsRepository {
       id: 'mock-${file.index}',
       animeId: animeId,
       animeTitle: animeTitle,
+      posterUrl: posterUrl,
       sourceTitle: sourceTitle,
       magnet: 'mock-magnet',
       fileIndex: file.index,

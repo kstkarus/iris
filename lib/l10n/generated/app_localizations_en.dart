@@ -1398,6 +1398,33 @@ class AppLocalizationsEn extends AppLocalizations {
   String get downloadTitleEmpty => 'No episodes remain on this device.';
 
   @override
+  String downloadLibraryCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count titles',
+      one: '$count title',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get downloadLibraryTitle => 'In library';
+
+  @override
+  String downloadEpisodeLabel(String number) {
+    return 'Episode $number';
+  }
+
+  @override
+  String get downloadTitlesTitle => 'Titles';
+
+  @override
+  String downloadTitleEpisodeCount(int ready, int total) {
+    return '$ready/$total eps.';
+  }
+
+  @override
   String get downloadAllRemaining => 'Download remaining episodes';
 
   @override
