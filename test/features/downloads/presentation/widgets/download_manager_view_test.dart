@@ -4,6 +4,7 @@ import 'dart:ui' show Tristate;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -25,6 +26,7 @@ import 'package:iris/features/downloads/presentation/widgets/download_title_widg
 import 'package:iris/shared/widgets/adaptive/adaptive_content_width.dart';
 import 'package:iris/shared/widgets/dither_transition.dart';
 import 'package:iris/shared/widgets/focusable_list_row.dart';
+import 'package:iris/shared/widgets/pixel_icon.dart';
 
 import '../../../../helpers/test_app.dart';
 import '../../../../helpers/test_window.dart';
@@ -41,7 +43,6 @@ void main() {
         () async {
           setTestWindowSize(tester, entry.value);
           final repository = await _repositoryWithDownloads(count: 3);
-          await repository.pause(id: 'mock-1');
 
           await _pumpApp(
             tester,
@@ -79,7 +80,6 @@ void main() {
             findsOneWidget,
           );
           expect(find.text('APP STORAGE'), findsOneWidget);
-          expect(find.textContaining('Paused: 1'), findsOneWidget);
           expect(tester.takeException(), isNull);
         },
       );
@@ -200,6 +200,117 @@ void main() {
       );
 
       expect(find.text('Missing poster title'), findsOneWidget);
+    });
+  });
+
+  testWidgets('gallery captions keep their geometry and expose full activity', (
+    tester,
+  ) async {
+    await _withTargetPlatform(TargetPlatform.android, () async {
+      setTestWindowSize(tester, const Size(390, 844));
+      final short = _libraryDownload(
+        id: 'short-1',
+        animeId: 'short',
+        animeTitle: 'Short',
+        fileName: 'Short - 01.mkv',
+        status: DownloadStatus.completed,
+        createdAt: DateTime(2026, 10, 10),
+      );
+      final long = _libraryDownload(
+        id: 'long-1',
+        animeId: 'long',
+        animeTitle: 'A Very Long Anime Title That Wraps Across Two Lines',
+        fileName: 'Long - 01.mkv',
+        status: DownloadStatus.queued,
+        createdAt: DateTime(2026, 10, 9),
+      );
+      final repository = _ScriptedDownloadsRepository([short, long]);
+      await _pumpApp(
+        tester,
+        BlocProvider(
+          create: (_) => DownloadManagerCubit(repository: repository)..load(),
+          child: DownloadManagerPage(
+            onOpenTitle: (_) {},
+            onWatch: (_) {},
+            onBrowseCatalog: () {},
+          ),
+        ),
+      );
+
+      const shortCard = ValueKey('download_title_anime:short');
+      const longCard = ValueKey('download_title_anime:long');
+      const shortCount = ValueKey('download_title_count_anime:short');
+      const longCount = ValueKey('download_title_count_anime:long');
+
+      double countTop(Key card, Key count) {
+        final countRect = tester.getRect(find.byKey(count));
+        final posterRect = tester.getRect(
+          find.descendant(
+            of: find.byKey(card),
+            matching: find.byType(DownloadTitlePoster),
+          ),
+        );
+        return countRect.top - posterRect.bottom;
+      }
+
+      final initialShortOffset = countTop(shortCard, shortCount);
+      final initialLongOffset = countTop(longCard, longCount);
+      expect(initialShortOffset, closeTo(initialLongOffset, 0.1));
+      expect(
+        find.descendant(
+          of: find.byKey(shortCard),
+          matching: find.byType(PixelIcon),
+        ),
+        findsNothing,
+        reason: 'completed titles already show readiness in the count',
+      );
+
+      repository.push([
+        short,
+        long.copyWith(status: DownloadStatus.downloading),
+      ]);
+      await tester.pumpAndSettle();
+      expect(countTop(shortCard, shortCount), closeTo(initialShortOffset, 0.1));
+      expect(countTop(longCard, longCount), closeTo(initialLongOffset, 0.1));
+
+      final failedEpisode = _libraryDownload(
+        id: 'long-2',
+        animeId: 'long',
+        animeTitle: long.animeTitle,
+        fileName: 'Long - 02.mkv',
+        status: DownloadStatus.failed,
+        createdAt: DateTime(2026, 10, 8),
+      );
+      repository.push([
+        short,
+        long.copyWith(status: DownloadStatus.downloading),
+        failedEpisode,
+      ]);
+      await tester.pumpAndSettle();
+
+      final longBadge = find.descendant(
+        of: find.byKey(longCard),
+        matching: find.byType(PixelIcon),
+      );
+      expect(tester.widget<PixelIcon>(longBadge).glyph, PixelGlyph.close);
+      expect(countTop(shortCard, shortCount), closeTo(initialShortOffset, 0.1));
+      expect(countTop(longCard, longCount), closeTo(initialLongOffset, 0.1));
+      final semanticsData = tester
+          .getSemantics(find.byKey(longCard))
+          .getSemanticsData();
+      final semanticsLabel = semanticsData.label;
+      expect(
+        RegExp(RegExp.escape(long.animeTitle)).allMatches(semanticsLabel),
+        hasLength(1),
+      );
+      expect(
+        RegExp('0 of 2 episodes').allMatches(semanticsLabel),
+        hasLength(1),
+      );
+      expect(semanticsLabel, contains('Downloading: 1 · Failed: 1'));
+      expect(semanticsData.flagsCollection.isButton, isTrue);
+      expect(semanticsData.hasAction(SemanticsAction.tap), isTrue);
+      expect(tester.takeException(), isNull);
     });
   });
 

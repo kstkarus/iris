@@ -2477,7 +2477,7 @@ abstract class AppLocalizations {
   /// No description provided for @downloadTitleEpisodeCount.
   ///
   /// In en, this message translates to:
-  /// **'{ready}/{total} eps.'**
+  /// **'{ready} of {total} {total, plural, one{episode} other{episodes}}'**
   String downloadTitleEpisodeCount(int ready, int total);
 
   /// No description provided for @downloadAllRemaining.

@@ -141,22 +141,13 @@ class DownloadPosterOption extends StatelessWidget {
                 Positioned(
                   right: 5,
                   bottom: 5,
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.surface,
-                      border: Border.all(color: statusColor),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(3),
-                      child: PixelIcon(
-                        _statusGlyph(status),
-                        size: 14,
-                        color: statusColor,
-                        fill: status == DownloadStatus.downloading
-                            ? _titleProgress(title)
-                            : null,
-                      ),
-                    ),
+                  child: _downloadStatusBadge(
+                    context,
+                    status,
+                    statusColor,
+                    fill: status == DownloadStatus.downloading
+                        ? _titleProgress(title)
+                        : null,
                   ),
                 ),
               ],
@@ -242,102 +233,118 @@ class _GalleryTitle extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final l10n = AppLocalizations.of(context);
-    final status = downloadTitleStatus(title);
-    final color = downloadTitleStatusColor(context, title);
+    final activity = downloadTitleActivity(l10n, title);
+    final badgeStatus = _galleryBadgeStatus(title);
+    final badgeColor = badgeStatus == DownloadStatus.failed
+        ? theme.colorScheme.error
+        : downloadTitleStatusColor(context, title);
     final posterWidth = horizontal ? 80.0 : double.infinity;
-    return TapRow(
-      inkKey: ValueKey('download_title_${title.key}'),
+    final titleStyle = theme.textTheme.titleSmall?.copyWith(
+      color: theme.colorScheme.onSurface,
+      fontWeight: FontWeight.w600,
+      height: 1.2,
+    );
+    final countStyle = theme.textTheme.labelMedium?.copyWith(
+      color: theme.colorScheme.onSurfaceVariant,
+    );
+    final titleCount = l10n.downloadTitleEpisodeCount(
+      title.count(DownloadStatus.completed),
+      title.items.length,
+    );
+    return Semantics(
+      container: true,
+      button: true,
+      excludeSemantics: true,
       onTap: onTap,
-      child: horizontal
-          ? Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                DownloadTitlePoster(title: title, width: posterWidth),
-                const SizedBox(width: 16),
-                Expanded(child: _caption(theme, l10n, status, color)),
-              ],
-            )
-          : Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                DownloadTitlePoster(title: title, width: posterWidth),
-                const SizedBox(height: 8),
-                _caption(theme, l10n, status, color),
-              ],
-            ),
+      label: '${title.name}, $titleCount, $activity',
+      child: Tooltip(
+        message: '${title.name}\n$titleCount\n$activity',
+        child: TapRow(
+          inkKey: ValueKey('download_title_${title.key}'),
+          onTap: onTap,
+          child: horizontal
+              ? Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _galleryPoster(
+                      context,
+                      posterWidth,
+                      badgeStatus,
+                      badgeColor,
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(title.name, style: titleStyle),
+                          const SizedBox(height: 5),
+                          Text(
+                            titleCount,
+                            key: ValueKey('download_title_count_${title.key}'),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: countStyle,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                )
+              : Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _galleryPoster(
+                      context,
+                      posterWidth,
+                      badgeStatus,
+                      badgeColor,
+                    ),
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      height: _lineHeight(context, titleStyle, lines: 2),
+                      child: Text(
+                        title.name,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: titleStyle,
+                      ),
+                    ),
+                    const SizedBox(height: 5),
+                    Text(
+                      titleCount,
+                      key: ValueKey('download_title_count_${title.key}'),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: countStyle,
+                    ),
+                  ],
+                ),
+        ),
+      ),
     );
   }
 
-  Widget _caption(
-    ThemeData theme,
-    AppLocalizations l10n,
-    DownloadStatus status,
+  Widget _galleryPoster(
+    BuildContext context,
+    double width,
+    DownloadStatus? status,
     Color color,
-  ) => Column(
-    mainAxisSize: MainAxisSize.min,
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      Tooltip(
-        message: title.name,
-        child: Text(
-          title.name,
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-          style: theme.textTheme.titleSmall?.copyWith(
-            color: theme.colorScheme.onSurface,
-            fontWeight: FontWeight.w600,
-            height: 1.2,
-          ),
-        ),
-      ),
-      const SizedBox(height: 5),
-      Wrap(
-        spacing: 8,
-        runSpacing: 2,
-        children: [
-          Text(
-            l10n.downloadTitleEpisodeCount(
-              title.count(DownloadStatus.completed),
-              title.items.length,
-            ),
-            style: theme.textTheme.labelMedium?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
+  ) => SizedBox(
+    width: width,
+    child: Stack(
+      children: [
+        DownloadTitlePoster(title: title, width: width),
+        if (status != null)
+          Positioned(
+            right: 5,
+            bottom: 5,
+            child: ExcludeSemantics(
+              child: _downloadStatusBadge(context, status, color),
             ),
           ),
-          Text(
-            _titleBytes(l10n, title),
-            style: theme.textTheme.labelMedium?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-          ),
-        ],
-      ),
-      const SizedBox(height: 4),
-      Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          ExcludeSemantics(
-            child: PixelIcon(
-              _statusGlyph(status),
-              size: 15,
-              color: color,
-              fill: status == DownloadStatus.downloading
-                  ? _titleProgress(title)
-                  : null,
-            ),
-          ),
-          const SizedBox(width: 5),
-          Expanded(
-            child: Text(
-              downloadTitleActivity(l10n, title),
-              style: theme.textTheme.labelMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-          ),
-        ],
-      ),
-    ],
+      ],
+    ),
   );
 }
 
@@ -407,6 +414,40 @@ String _titleBytes(AppLocalizations l10n, DownloadTitle title) =>
       l10n,
       title.items.fold<int>(0, (sum, item) => sum + item.downloadedBytes),
     );
+
+double _lineHeight(BuildContext context, TextStyle? style, {int lines = 2}) {
+  final painter = TextPainter(
+    text: TextSpan(text: List.filled(lines, 'Mg').join('\n'), style: style),
+    textDirection: Directionality.of(context),
+    textScaler: MediaQuery.textScalerOf(context),
+    maxLines: lines,
+  )..layout();
+  final height = painter.height;
+  painter.dispose();
+  return height;
+}
+
+DownloadStatus? _galleryBadgeStatus(DownloadTitle title) {
+  if (title.count(DownloadStatus.failed) > 0) return DownloadStatus.failed;
+  final status = downloadTitleStatus(title);
+  return status == DownloadStatus.completed ? null : status;
+}
+
+Widget _downloadStatusBadge(
+  BuildContext context,
+  DownloadStatus status,
+  Color color, {
+  double? fill,
+}) => DecoratedBox(
+  decoration: BoxDecoration(
+    color: Theme.of(context).colorScheme.surface,
+    border: Border.all(color: color),
+  ),
+  child: Padding(
+    padding: const EdgeInsets.all(3),
+    child: PixelIcon(_statusGlyph(status), size: 14, color: color, fill: fill),
+  ),
+);
 
 double _titleProgress(DownloadTitle title) {
   final downloading = title.items.where(

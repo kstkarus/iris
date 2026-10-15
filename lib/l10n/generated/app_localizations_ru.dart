@@ -1445,7 +1445,13 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String downloadTitleEpisodeCount(int ready, int total) {
-    return '$ready/$total сер.';
+    String _temp0 = intl.Intl.pluralLogic(
+      total,
+      locale: localeName,
+      other: 'серий',
+      one: 'серии',
+    );
+    return '$ready из $total $_temp0';
   }
 
   @override

@@ -6,7 +6,7 @@ Notable changes to iris, newest first. The format follows [Keep a Changelog](htt
 
 ### Changed
 
-- Downloads now shows a poster gallery on phones and a selectable poster rail on desktop, above episodes in narrow windows; its More menu opens a storage dialog with the cache action.
+- Downloads now shows a compact phone gallery with aligned two-line titles, one ready/total count and a small status badge over the poster. Completed titles omit the badge; failures stay visible alongside active downloads, and large text switches to free-height horizontal rows. The selectable desktop poster rail and storage dialog remain.
 
 ## [1.4.1] - 2026-10-14
 

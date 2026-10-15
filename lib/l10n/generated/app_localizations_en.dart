@@ -1421,7 +1421,13 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String downloadTitleEpisodeCount(int ready, int total) {
-    return '$ready/$total eps.';
+    String _temp0 = intl.Intl.pluralLogic(
+      total,
+      locale: localeName,
+      other: 'episodes',
+      one: 'episode',
+    );
+    return '$ready of $total $_temp0';
   }
 
   @override

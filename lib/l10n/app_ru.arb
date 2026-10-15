@@ -470,7 +470,7 @@
   "downloadEpisodeLabel": "Серия {number}",
   "@downloadEpisodeLabel": {"placeholders": {"number": {"type": "String"}}},
   "downloadTitlesTitle": "Тайтлы",
-  "downloadTitleEpisodeCount": "{ready}/{total} сер.",
+  "downloadTitleEpisodeCount": "{ready} из {total} {total, plural, one{серии} other{серий}}",
   "@downloadTitleEpisodeCount": {"placeholders": {"ready": {"type": "int"}, "total": {"type": "int"}}},
   "downloadAllRemaining": "Скачать оставшиеся серии",
   "downloadDeleteAll": "Удалить все серии",
