@@ -2474,6 +2474,18 @@ abstract class AppLocalizations {
   /// **'Titles'**
   String get downloadTitlesTitle;
 
+  /// No description provided for @downloadInformation.
+  ///
+  /// In en, this message translates to:
+  /// **'Download information'**
+  String get downloadInformation;
+
+  /// No description provided for @downloadInformationAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Information'**
+  String get downloadInformationAction;
+
   /// No description provided for @downloadTitleEpisodeCount.
   ///
   /// In en, this message translates to:

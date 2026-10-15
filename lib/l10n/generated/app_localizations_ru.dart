@@ -1444,6 +1444,12 @@ class AppLocalizationsRu extends AppLocalizations {
   String get downloadTitlesTitle => 'Тайтлы';
 
   @override
+  String get downloadInformation => 'Информация о загрузке';
+
+  @override
+  String get downloadInformationAction => 'Информация';
+
+  @override
   String downloadTitleEpisodeCount(int ready, int total) {
     String _temp0 = intl.Intl.pluralLogic(
       total,

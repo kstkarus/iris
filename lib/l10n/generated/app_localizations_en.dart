@@ -1420,6 +1420,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get downloadTitlesTitle => 'Titles';
 
   @override
+  String get downloadInformation => 'Download information';
+
+  @override
+  String get downloadInformationAction => 'Information';
+
+  @override
   String downloadTitleEpisodeCount(int ready, int total) {
     String _temp0 = intl.Intl.pluralLogic(
       total,

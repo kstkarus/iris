@@ -17,7 +17,7 @@ The interface is in English and Russian. Online sources offer Russian dubs and s
   - on phones, swipe seeking, brightness control and a screen lock.
 
   Torrents stream piece by piece, without downloading the whole file first.
-- **Downloads.** A compact poster gallery on phones and a selectable poster rail beside episodes on desktop (above them in narrow windows). Open a title to see its releases and episodes, queue the rest, watch completed files or remove a title's downloads. Torrent files and online episodes resume after a pause, an error or an app restart. Open Storage from the library's More menu to inspect or clear the stream cache.
+- **Downloads.** A compact poster gallery on phones and a selectable poster rail beside episodes on desktop (above them in narrow windows). Episode rows keep progress compact; Info shows live transfer details, quality, full release filenames and failure guidance. Queue remaining episodes, watch completed files or remove a title's downloads. Torrent and online downloads resume after a pause, an error or an app restart. Open Storage from the library's More menu to inspect or clear the stream cache.
 - **Shikimori account.** Status, score and episode count for any title. Finishing an episode updates the count in your list, and episodes counted there show as watched on every device.
 - **Updates.** On Android and Windows the app checks this repository's latest release and offers it when it is newer.
 

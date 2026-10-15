@@ -7,6 +7,7 @@ Notable changes to iris, newest first. The format follows [Keep a Changelog](htt
 ### Changed
 
 - Downloads now shows a compact phone gallery with aligned two-line titles, one ready/total count and a small status badge over the poster. Completed titles omit the badge; failures stay visible alongside active downloads, and large text switches to free-height horizontal rows. The selectable desktop poster rail and storage dialog remain.
+- Download episode rows keep an even height: known-size active downloads show a green percentage beside Pause, while unknown-size rows show status without a percentage. Queued, paused and failed states stay inline; live transfer details and failure guidance are in Info.
 
 ## [1.4.1] - 2026-10-14
 

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
@@ -10,7 +11,6 @@ import 'package:iris/features/downloads/domain/entities/download_status.dart';
 import 'package:iris/features/downloads/domain/entities/download_title.dart';
 import 'package:iris/entities/watch_progress/presentation/watch_progress_cubit.dart';
 import 'package:iris/entities/watch_progress/presentation/watch_progress_line.dart';
-import 'package:iris/entities/watch_progress/domain/watch_progress.dart';
 import 'package:iris/shared/utils/duration_formatter.dart';
 import 'package:iris/shared/online/online_source_link.dart';
 import 'package:iris/features/downloads/domain/entities/download_storage_usage.dart';
@@ -381,6 +381,13 @@ class _DownloadsMenuState extends State<_DownloadsMenu> {
       controller: _controller,
       tooltip: l10n.commonMoreActions,
       menuChildren: [
+        if (title != null)
+          MenuItemButton(
+            key: const Key('download_title_information'),
+            onPressed: () =>
+                _showDownloadInformation(context, titleKey: title.key),
+            child: Text(l10n.downloadInformationAction),
+          ),
         if (title != null && title.items.length > 1)
           MenuItemButton(
             key: const Key('download_title_delete_all'),
@@ -440,6 +447,122 @@ Future<void> _showStorage(BuildContext context) async {
   );
 }
 
+Future<void> _showDownloadInformation(
+  BuildContext context, {
+  String? itemId,
+  String? titleKey,
+}) async {
+  assert((itemId == null) != (titleKey == null));
+  final cubit = context.read<DownloadManagerCubit>();
+  final watchCubit = context.read<WatchProgressCubit?>();
+  await showDialog<void>(
+    context: context,
+    builder: (context) {
+      Widget dialog = _DownloadInformationDialog(
+        itemId: itemId,
+        titleKey: titleKey,
+      );
+      if (watchCubit != null) {
+        dialog = BlocProvider<WatchProgressCubit>.value(
+          value: watchCubit,
+          child: dialog,
+        );
+      }
+      return BlocProvider<DownloadManagerCubit>.value(
+        value: cubit,
+        child: dialog,
+      );
+    },
+  );
+}
+
+class _DownloadInformationDialog extends StatelessWidget {
+  const _DownloadInformationDialog({this.itemId, this.titleKey});
+
+  final String? itemId;
+  final String? titleKey;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return AlertDialog(
+      key: const Key('download_information_dialog'),
+      scrollable: true,
+      title: Text(l10n.downloadInformation),
+      content: SizedBox(
+        width: 560,
+        child: BlocBuilder<DownloadManagerCubit, DownloadManagerState>(
+          builder: (context, state) {
+            final items = itemId != null
+                ? state.downloads.where((item) => item.id == itemId).toList()
+                : state.downloads
+                      .where((item) => downloadTitleKey(item) == titleKey)
+                      .toList();
+            final watched = context.watchWatchProgress();
+            if (items.isEmpty) return Text(l10n.downloadTitleEmpty);
+            final releases = _releases(items);
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                for (final release in releases) ...[
+                  Text(
+                    release.first.sourceTitle,
+                    style: Theme.of(context).textTheme.labelLarge,
+                  ),
+                  for (final item in release) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      item.fileName,
+                      style: Theme.of(context).textTheme.titleSmall,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      _facts(l10n, item),
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                    if (item.failure case final failure?) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        _failureMessage(l10n, failure),
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Theme.of(context).colorScheme.error,
+                        ),
+                      ),
+                    ],
+                    if (watched
+                            .where(
+                              (progress) =>
+                                  progress.torrentKey ==
+                                      sourceProgressKey(item.magnet) &&
+                                  progress.fileIndex == item.fileIndex,
+                            )
+                            .firstOrNull
+                        case final progress?) ...[
+                      const SizedBox(height: 8),
+                      WatchProgressLine(
+                        progress: progress,
+                        showBar: false,
+                        timesOnly: true,
+                      ),
+                    ],
+                  ],
+                  if (release != releases.last) const SizedBox(height: 20),
+                ],
+              ],
+            );
+          },
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(MaterialLocalizations.of(context).closeButtonTooltip),
+        ),
+      ],
+    );
+  }
+}
+
 class _Episodes extends StatelessWidget {
   const _Episodes({
     required this.downloads,
@@ -461,24 +584,13 @@ class _Episodes extends StatelessWidget {
     final theme = Theme.of(context);
     final title = this.title;
     final releases = _releases(downloads);
-    final menu = title != null && (desktop || title.items.length > 1)
+    final menu = title != null
         ? _DownloadsMenu(
             title: title,
             onTitleDeleted: onTitleDeleted,
             showStorage: desktop,
           )
         : null;
-    final numbers =
-        downloads
-            .map((item) => episodeNumberFromFileName(item.fileName))
-            .whereType<int>()
-            .toList()
-          ..sort();
-    final range = numbers.isEmpty
-        ? null
-        : numbers.length == 1
-        ? numbers.first.toString().padLeft(2, '0')
-        : '${numbers.first.toString().padLeft(2, '0')}–${numbers.last.toString().padLeft(2, '0')}';
     return DitherList<(String, Widget)>(
       key: ValueKey('download_episodes_list_${title?.key ?? ''}'),
       padding: const EdgeInsets.only(bottom: 32),
@@ -495,11 +607,7 @@ class _Episodes extends StatelessWidget {
           ],
           SectionLabel(
             l10n.playerEpisodesTitle,
-            trailing: desktop
-                ? menu
-                : range == null
-                ? null
-                : Text(range, style: theme.textTheme.labelSmall),
+            trailing: desktop ? menu : null,
           ),
           SizedBox(height: desktop ? 8 : 12),
         ],
@@ -523,14 +631,11 @@ class _Episodes extends StatelessWidget {
           )
         else
           for (final release in releases) ...[
-            if (desktop || releases.length > 1)
+            if (releases.length > 1)
               (
                 'release:${downloadSourceKey(release.first.magnet)}',
                 Padding(
-                  padding: EdgeInsets.only(
-                    top: releases.length > 1 ? 16 : 0,
-                    bottom: 16,
-                  ),
+                  padding: const EdgeInsets.only(top: 16, bottom: 16),
                   child: _ReleaseFacts(item: release.first),
                 ),
               ),
@@ -546,21 +651,6 @@ class _Episodes extends StatelessWidget {
                       onWatch: onWatch,
                     ),
                   ],
-                ),
-              ),
-            if (!desktop && releases.length == 1)
-              (
-                'release:${downloadSourceKey(release.first.magnet)}',
-                Padding(
-                  padding: const EdgeInsets.only(top: 28),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      SectionLabel(l10n.watchSourcesColumnRelease),
-                      const SizedBox(height: 12),
-                      _ReleaseFacts(item: release.first),
-                    ],
-                  ),
                 ),
               ),
           ],
@@ -670,6 +760,24 @@ class _DownloadRowState extends State<_DownloadRow> {
       ),
     };
     final statusLabel = downloadStatusLabel(l10n, status);
+    final inlineDetail = status == DownloadStatus.downloading
+        ? item.totalBytes > 0
+              ? '${(progress * 100).round()}%'
+              : statusLabel
+        : status == DownloadStatus.completed
+        ? null
+        : statusLabel;
+    final numericProgress =
+        status == DownloadStatus.downloading && item.totalBytes > 0;
+    final detailColor = switch ((status, numericProgress)) {
+      (DownloadStatus.downloading, true) => Theme.of(
+        context,
+      ).colorScheme.tertiary,
+      (DownloadStatus.failed, _) => Theme.of(context).colorScheme.error,
+      _ => Theme.of(context).colorScheme.onSurfaceVariant,
+    };
+    final titleStyle = Theme.of(context).textTheme.titleSmall;
+    final detailStyle = Theme.of(context).textTheme.labelMedium;
     final summary = [
       name,
       statusLabel,
@@ -691,70 +799,146 @@ class _DownloadRowState extends State<_DownloadRow> {
       onLongPress: _menu.open,
       onSecondaryTap: _menu.open,
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: Semantics(
-                container: true,
-                label: summary,
-                customSemanticsActions: {
-                  CustomSemanticsAction(label: l10n.commonMoreActions):
-                      _menu.open,
-                },
-                child: ExcludeSemantics(
-                  child: _Details(
-                    item: item,
-                    progress: progress,
-                    statusLabel: statusLabel,
-                    failure: failure,
-                    watchProgress: watchProgress,
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: SizedBox(
+          height: _downloadRowContentHeight(context, titleStyle, detailStyle),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(
+                child: Semantics(
+                  container: true,
+                  label: summary,
+                  customSemanticsActions: {
+                    CustomSemanticsAction(label: l10n.commonMoreActions):
+                        _menu.open,
+                  },
+                  child: ExcludeSemantics(
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Tooltip(
+                            // Long press belongs to the row's actions menu.
+                            triggerMode: TooltipTriggerMode.manual,
+                            message: name,
+                            child: Text(
+                              downloadEpisode(l10n, item),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: titleStyle,
+                            ),
+                          ),
+                        ),
+                        if (inlineDetail != null) ...[
+                          const SizedBox(width: 8),
+                          if (numericProgress)
+                            Text(
+                              inlineDetail,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              textAlign: TextAlign.end,
+                              style: detailStyle?.copyWith(color: detailColor),
+                            )
+                          else
+                            Flexible(
+                              fit: FlexFit.tight,
+                              child: Text(
+                                inlineDetail,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                textAlign: TextAlign.end,
+                                style: detailStyle?.copyWith(
+                                  color: detailColor,
+                                ),
+                              ),
+                            ),
+                        ],
+                        if (watchProgress != null) ...[
+                          const SizedBox(width: 8),
+                          Tooltip(
+                            triggerMode: TooltipTriggerMode.manual,
+                            message: watchProgress.isFinished
+                                ? l10n.watchProgressWatched
+                                : l10n.watchProgressStoppedAt(
+                                    formatPlaybackPosition(
+                                      watchProgress.position,
+                                    ),
+                                    formatPlaybackPosition(
+                                      watchProgress.duration,
+                                    ),
+                                  ),
+                            child: watchProgress.isFinished
+                                ? PixelIcon(
+                                    PixelGlyph.check,
+                                    size: 14,
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.onSurfaceVariant,
+                                  )
+                                : Text(
+                                    formatPlaybackPosition(
+                                      watchProgress.position,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: detailStyle?.copyWith(
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.onSurfaceVariant,
+                                    ),
+                                  ),
+                          ),
+                        ],
+                      ],
+                    ),
                   ),
                 ),
               ),
-            ),
-            const SizedBox(width: 8),
-            MenuAnchor(
-              controller: _menu,
-              onOpen: () => _setMenuOpen(true),
-              onClose: () => _setMenuOpen(false),
-              alignmentOffset: const Offset(-176, 0),
-              menuChildren: [
-                MenuItemButton(
-                  key: const Key('download_delete'),
-                  onPressed: () => _confirmDelete(context),
-                  child: Text(asksForMore(l10n.downloadDeleteButton)),
-                ),
-              ],
-              child: Semantics(
-                label: '$actionLabel: $name',
-                button: true,
-                excludeSemantics: true,
-                onTap: onAction,
-                child: IconButton(
-                  key: ValueKey('download_action_${item.id}'),
-                  tooltip: actionLabel,
-                  icon: PixelIcon(
-                    status == DownloadStatus.downloading ||
-                            status == DownloadStatus.queued
-                        ? PixelGlyph.download
-                        : actionIcon,
-                    size: 16,
-                    color: status == DownloadStatus.downloading
-                        ? Theme.of(context).colorScheme.tertiary
-                        : completed
-                        ? null
-                        : Theme.of(context).colorScheme.onSurfaceVariant,
-                    fill: status == DownloadStatus.downloading
-                        ? progress
-                        : null,
+              const SizedBox(width: 8),
+              MenuAnchor(
+                controller: _menu,
+                onOpen: () => _setMenuOpen(true),
+                onClose: () => _setMenuOpen(false),
+                alignmentOffset: const Offset(-176, 0),
+                menuChildren: [
+                  MenuItemButton(
+                    key: const Key('download_information'),
+                    onPressed: () =>
+                        _showDownloadInformation(context, itemId: item.id),
+                    child: Text(l10n.downloadInformationAction),
                   ),
-                  onPressed: onAction,
+                  MenuItemButton(
+                    key: const Key('download_delete'),
+                    onPressed: () => _confirmDelete(context),
+                    child: Text(asksForMore(l10n.downloadDeleteButton)),
+                  ),
+                ],
+                child: Semantics(
+                  label: '$actionLabel: $name',
+                  button: true,
+                  excludeSemantics: true,
+                  onTap: onAction,
+                  child: IconButton(
+                    key: ValueKey('download_action_${item.id}'),
+                    constraints: const BoxConstraints.tightFor(
+                      width: 48,
+                      height: 48,
+                    ),
+                    padding: EdgeInsets.zero,
+                    tooltip: actionLabel,
+                    icon: PixelIcon(
+                      actionIcon,
+                      size: 16,
+                      color: completed
+                          ? null
+                          : Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                    onPressed: onAction,
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -764,6 +948,33 @@ class _DownloadRowState extends State<_DownloadRow> {
     await confirmDownloadDeletion(context, [
       widget.item,
     ], downloadName(AppLocalizations.of(context), widget.item));
+  }
+}
+
+double _downloadRowContentHeight(
+  BuildContext context,
+  TextStyle? titleStyle,
+  TextStyle? detailStyle,
+) => math.max(
+  48.0,
+  math.max(
+    _textLineHeight(context, titleStyle),
+    _textLineHeight(context, detailStyle),
+  ),
+);
+
+double _textLineHeight(BuildContext context, TextStyle? style) {
+  final painter = TextPainter(
+    text: TextSpan(text: 'Mg', style: style),
+    textDirection: Directionality.of(context),
+    textScaler: MediaQuery.textScalerOf(context),
+    maxLines: 1,
+  );
+  try {
+    painter.layout();
+    return painter.height;
+  } finally {
+    painter.dispose();
   }
 }
 
@@ -818,93 +1029,6 @@ Future<bool> confirmDownloadDeletion(
   return deleted;
 }
 
-/// The title, the episode, the bar of an unfinished file and how it goes.
-class _Details extends StatelessWidget {
-  const _Details({
-    required this.item,
-    required this.progress,
-    required this.statusLabel,
-    required this.failure,
-    required this.watchProgress,
-  });
-
-  final DownloadItem item;
-  final double progress;
-  final String statusLabel;
-  final DownloadFailure? failure;
-  final WatchProgress? watchProgress;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    final l10n = AppLocalizations.of(context);
-    final status = item.status;
-    final failure = this.failure;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          downloadEpisode(l10n, item),
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-          style: theme.textTheme.titleSmall,
-        ),
-        const SizedBox(height: 4),
-        Text.rich(
-          TextSpan(
-            children: [
-              TextSpan(
-                text: statusLabel.toUpperCase(),
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: switch (status) {
-                    DownloadStatus.downloading => scheme.tertiary,
-                    DownloadStatus.failed => scheme.error,
-                    _ => scheme.onSurfaceVariant,
-                  },
-                ),
-              ),
-              TextSpan(text: '   ·   ${_facts(l10n, item)}'),
-            ],
-          ),
-          style: theme.textTheme.bodySmall?.copyWith(
-            color: status == DownloadStatus.downloading
-                ? scheme.tertiary
-                : scheme.onSurfaceVariant,
-            fontFeatures: const [FontFeature.tabularFigures()],
-          ),
-        ),
-        if (status != DownloadStatus.completed &&
-            status != DownloadStatus.queued) ...[
-          const SizedBox(height: 8),
-          SegmentedBar(
-            value: progress,
-            color: switch (status) {
-              DownloadStatus.downloading => scheme.tertiary,
-              DownloadStatus.failed => scheme.error,
-              _ => scheme.onSurfaceVariant,
-            },
-            height: 5,
-            segment: 7,
-            gap: 2,
-          ),
-        ],
-        if (failure != null) ...[
-          const SizedBox(height: 4),
-          Text(
-            _failureMessage(l10n, failure),
-            style: theme.textTheme.bodySmall?.copyWith(color: scheme.error),
-          ),
-        ],
-        if (watchProgress case final progress?) ...[
-          const SizedBox(height: 8),
-          WatchProgressLine(progress: progress, timesOnly: true),
-        ],
-      ],
-    );
-  }
-}
-
 /// Sizes, and while downloading how long is left at what speed; peers
 /// only when there are none, which is why it stands. An online episode has
 /// no peers, and its size is a guess (`~`) until it is done, or unknown
@@ -923,8 +1047,11 @@ String _facts(AppLocalizations l10n, DownloadItem item) {
     // Nothing of it is here yet: only how big it will be.
     DownloadStatus.queued when item.downloadedBytes == 0 => total ?? '',
     DownloadStatus.downloading => [
-      '${(item.progress * 100).round()}%',
-      loaded.join(' / '),
+      if (item.totalBytes > 0) '${(item.progress * 100).round()}%',
+      if (item.totalBytes > 0)
+        loaded.join(' / ')
+      else if (item.downloadedBytes > 0)
+        formatByteSize(l10n, item.downloadedBytes),
       if (item.peers == 0 && !item.isOnline)
         l10n.downloadNoPeers
       else ...[

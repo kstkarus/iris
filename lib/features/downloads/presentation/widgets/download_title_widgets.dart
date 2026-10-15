@@ -44,16 +44,6 @@ class DownloadTitleIdentity extends StatelessWidget {
                 '${l10n.downloadTitleReady(title.count(DownloadStatus.completed), title.items.length)} · ${_titleBytes(l10n, title)}',
                 style: theme.textTheme.bodySmall,
               ),
-              if (title.count(DownloadStatus.completed) !=
-                  title.items.length) ...[
-                const SizedBox(height: 4),
-                Text(
-                  downloadTitleActivity(l10n, title),
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: downloadTitleStatusColor(context, title),
-                  ),
-                ),
-              ],
             ],
           ),
         ),
