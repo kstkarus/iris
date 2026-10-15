@@ -4,6 +4,8 @@ Notable changes to iris, newest first. The format follows [Keep a Changelog](htt
 
 ## [Unreleased]
 
+## [1.4.2] - 2026-10-15
+
 ### Changed
 
 - Downloads uses a cover gallery on Android and iOS, and a selectable poster rail beside episodes on Windows. In narrow desktop windows, covers move above the episode list.
@@ -148,7 +150,8 @@ First published release.
 - Update notice on Android and Windows when a newer release is published.
 - App icon.
 
-[Unreleased]: https://github.com/kstkarus/iris/compare/v1.4.1...HEAD
+[Unreleased]: https://github.com/kstkarus/iris/compare/v1.4.2...HEAD
+[1.4.2]: https://github.com/kstkarus/iris/compare/v1.4.1...v1.4.2
 [1.4.1]: https://github.com/kstkarus/iris/compare/v1.4.0...v1.4.1
 [1.4.0]: https://github.com/kstkarus/iris/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/kstkarus/iris/compare/v1.2.1...v1.3.0
