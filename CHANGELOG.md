@@ -4,6 +4,10 @@ Notable changes to iris, newest first. The format follows [Keep a Changelog](htt
 
 ## [Unreleased]
 
+### Added
+
+- Releases include an unsigned iOS IPA, built on macOS without Apple signing credentials. Sign the IPA before installing it on an iPhone or iPad.
+
 ### Fixed
 
 - Downloads keep their files available when an iOS update or restore changes the app's data-container path. Existing records resolve their relative paths against the current app directory, preserving completed files and resumable progress.

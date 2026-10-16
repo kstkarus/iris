@@ -57,7 +57,7 @@ Builds are published on the [Releases](https://github.com/kstkarus/iris/releases
 
   Any of these installs over another. The app then offers updates for its own processor.
 - **Windows.** `iris-X.Y.Z-windows-x64.zip`. Unpack it and run `iris.exe`. To update, unpack the new archive over the old folder.
-- **iOS.** No published build; build it from source (see Development). Tested less than Android and Windows.
+- **iOS 15+.** `iris-X.Y.Z-ios-unsigned.ipa`. Sign it with your certificate and provisioning profile before installing on an iPhone or iPad. Tested less than Android and Windows.
 
 ## Disclaimer
 

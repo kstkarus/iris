@@ -169,8 +169,49 @@ jobs:
           name: windows
           path: dist/*
 
+  ios:
+    needs: notes
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+      - name: Shikimori config
+        env:
+          CONFIG: ${{ secrets.SHIKIMORI_CONFIG }}
+        run: |
+          if [ -n "$CONFIG" ]; then
+            printf '%s' "$CONFIG" > config/shikimori.json
+          else
+            cp config/shikimori.example.json config/shikimori.json
+          fi
+      - run: flutter pub get
+      - name: Build unsigned iOS app
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          flutter build ios --release --no-codesign \
+            --build-name="$VERSION" \
+            --build-number="${{ github.run_number }}" \
+            --dart-define-from-file=config/shikimori.json
+      - name: Pack unsigned IPA
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          mkdir -p build/ios/unsigned/Payload dist
+          ditto build/ios/iphoneos/Runner.app build/ios/unsigned/Payload/Runner.app
+          ditto -c -k --keepParent build/ios/unsigned/Payload \
+            "dist/iris-$VERSION-ios-unsigned.ipa"
+          unzip -tq "dist/iris-$VERSION-ios-unsigned.ipa"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ios-unsigned
+          path: dist/*.ipa
+          if-no-files-found: error
+
   publish:
-    needs: [android, windows]
+    needs: [android, windows, ios]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
@@ -180,6 +221,10 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: windows
+          path: dist
+      - uses: actions/download-artifact@v4
+        with:
+          name: ios-unsigned
           path: dist
       - uses: actions/download-artifact@v4
         with:
