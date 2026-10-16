@@ -4,6 +4,8 @@ Notable changes to iris, newest first. The format follows [Keep a Changelog](htt
 
 ## [Unreleased]
 
+## [1.4.3] - 2026-10-16
+
 ### Changed
 
 - A downloaded title keeps its name available while scrolling: phones show a compact cover and title after the full header scrolls away; Windows keeps the selected title above its episodes.
@@ -156,7 +158,8 @@ First published release.
 - Update notice on Android and Windows when a newer release is published.
 - App icon.
 
-[Unreleased]: https://github.com/kstkarus/iris/compare/v1.4.2...HEAD
+[Unreleased]: https://github.com/kstkarus/iris/compare/v1.4.3...HEAD
+[1.4.3]: https://github.com/kstkarus/iris/compare/v1.4.2...v1.4.3
 [1.4.2]: https://github.com/kstkarus/iris/compare/v1.4.1...v1.4.2
 [1.4.1]: https://github.com/kstkarus/iris/compare/v1.4.0...v1.4.1
 [1.4.0]: https://github.com/kstkarus/iris/compare/v1.3.0...v1.4.0
