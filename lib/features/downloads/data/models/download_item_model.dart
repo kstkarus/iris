@@ -25,6 +25,7 @@ abstract final class DownloadItemModel {
       'createdAt': item.createdAt.toIso8601String(),
       'completedAt': item.completedAt?.toIso8601String(),
       if (item.quality != null) 'quality': item.quality,
+      if (item.videoHeight != null) 'videoHeight': item.videoHeight,
     };
   }
 
@@ -49,6 +50,7 @@ abstract final class DownloadItemModel {
       completedAt: _readNullableDateTime(json, 'completedAt'),
       posterUrl: _readOptionalString(json, 'posterUrl'),
       quality: _readNullableInt(json, 'quality'),
+      videoHeight: _readPositiveNullableInt(json, 'videoHeight'),
     );
   }
 }
@@ -88,6 +90,11 @@ int? _readNullableInt(Map<String, Object?> json, String key) {
   final value = json[key];
   if (value == null || value is int) return value as int?;
   throw FormatException('Expected "$key" to be an integer or null.');
+}
+
+int? _readPositiveNullableInt(Map<String, Object?> json, String key) {
+  final value = _readNullableInt(json, key);
+  return value != null && value > 0 ? value : null;
 }
 
 DownloadStatus _readStatus(Map<String, Object?> json, String key) {

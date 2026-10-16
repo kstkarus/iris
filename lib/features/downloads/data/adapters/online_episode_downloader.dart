@@ -36,11 +36,13 @@ class OnlineDownloadProgress {
     required this.downloadedBytes,
     required this.totalBytes,
     required this.rateBytesPerSecond,
+    this.videoHeight,
   });
 
   final int downloadedBytes;
   final int totalBytes;
   final int rateBytesPerSecond;
+  final int? videoHeight;
 }
 
 /// One episode loading; [cancel] stops it.
@@ -300,7 +302,9 @@ class _Task implements OnlineDownloadTask {
     _State? state,
     void Function() onLoaded,
   ) async {
-    final plan = await _playlist(Uri.parse(stream.url), stream.quality);
+    final playlist = await _playlist(Uri.parse(stream.url), stream.quality);
+    final plan = playlist.plan;
+    final videoHeight = playlist.height;
     final pieces = [?plan.init, ...plan.segments];
     final output = File(
       path.join(
@@ -331,7 +335,11 @@ class _Task implements OnlineDownloadTask {
     try {
       await sink.truncate(bytes);
       await sink.setPosition(bytes);
-      _report(bytes, _estimate(plan, done, bytes, totalSeconds));
+      _report(
+        bytes,
+        _estimate(plan, done, bytes, totalSeconds),
+        videoHeight: videoHeight,
+      );
       while (done < pieces.length) {
         _checkCancelled();
         final data = await _fetchBytes(pieces[done].uri);
@@ -348,13 +356,17 @@ class _Task implements OnlineDownloadTask {
             bytes: bytes,
           ),
         );
-        _report(bytes, _estimate(plan, done, bytes, totalSeconds));
+        _report(
+          bytes,
+          _estimate(plan, done, bytes, totalSeconds),
+          videoHeight: videoHeight,
+        );
       }
     } finally {
       await sink.close();
     }
     await _deleteState();
-    _report(bytes, bytes);
+    _report(bytes, bytes, videoHeight: videoHeight);
     return output;
   }
 
@@ -374,17 +386,17 @@ class _Task implements OnlineDownloadTask {
 
   /// The media playlist of [url]; a master playlist gives the variant of
   /// [quality], or its best.
-  Future<HlsPlan> _playlist(Uri url, int quality) async {
+  Future<({HlsPlan plan, int? height})> _playlist(Uri url, int quality) async {
     final text = await _fetchText(url);
     final variant = HlsPlaylist.pickVariant(text, url, quality: quality);
     final plan = HlsPlaylist.parseMedia(
-      variant == null ? text : await _fetchText(variant),
-      variant ?? url,
+      variant == null ? text : await _fetchText(variant.uri),
+      variant?.uri ?? url,
     );
     if (plan == null) {
       throw const OnlineDownloadException(downloadNotDownloadableMessage);
     }
-    return plan;
+    return (plan: plan, height: _positiveHeight(variant?.height ?? quality));
   }
 
   Future<File> _loadMp4(
@@ -414,7 +426,12 @@ class _Task implements OnlineDownloadTask {
       _checkCancelled();
       final have = await output.exists() ? await output.length() : 0;
       try {
-        final total = await _fetchToFile(Uri.parse(stream.url), output, have);
+        final total = await _fetchToFile(
+          Uri.parse(stream.url),
+          output,
+          have,
+          videoHeight: _positiveHeight(stream.quality),
+        );
         if (total > 0 && await output.length() < total) {
           throw const _Retryable('the body ended early');
         }
@@ -431,13 +448,18 @@ class _Task implements OnlineDownloadTask {
     }
     await _deleteState();
     final bytes = await output.length();
-    _report(bytes, bytes);
+    _report(bytes, bytes, videoHeight: _positiveHeight(stream.quality));
     return output;
   }
 
   /// Appends [url] from byte [have] on to [output]; the whole size, or 0
   /// when the server does not say.
-  Future<int> _fetchToFile(Uri url, File output, int have) async {
+  Future<int> _fetchToFile(
+    Uri url,
+    File output,
+    int have, {
+    int? videoHeight,
+  }) async {
     final response = await _send<ResponseBody>(
       url,
       ResponseType.stream,
@@ -465,7 +487,7 @@ class _Task implements OnlineDownloadTask {
         _checkCancelled();
         await sink.writeFrom(chunk);
         bytes += chunk.length;
-        _report(bytes, total, chunk: true);
+        _report(bytes, total, chunk: true, videoHeight: videoHeight);
       }
     } on DioException catch (error) {
       if (CancelToken.isCancel(error) || _cancelled) throw const _Cancelled();
@@ -582,7 +604,7 @@ class _Task implements OnlineDownloadTask {
   DateTime? _chunkReportedAt;
   static const _chunkReportEvery = Duration(milliseconds: 250);
 
-  void _report(int bytes, int total, {bool chunk = false}) {
+  void _report(int bytes, int total, {bool chunk = false, int? videoHeight}) {
     if (_progress.isClosed) return;
     if (chunk) {
       final now = downloader._now();
@@ -599,6 +621,7 @@ class _Task implements OnlineDownloadTask {
         downloadedBytes: bytes,
         totalBytes: total,
         rateBytesPerSecond: _meter.add(bytes),
+        videoHeight: videoHeight,
       ),
     );
   }
@@ -621,6 +644,8 @@ class _Task implements OnlineDownloadTask {
     if (await _stateFile.exists()) await _stateFile.delete();
   }
 }
+
+int? _positiveHeight(int height) => height > 0 ? height : null;
 
 /// `bytes 100-999/1000` gives 1000; 0 when it says nothing usable.
 int _totalFromRange(String? header) {

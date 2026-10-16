@@ -25,15 +25,18 @@ https://other.example.test/1080/index.m3u8
           Uri.parse('https://cdn.example.test/master.m3u8'),
           quality: 720,
         ),
-        Uri.parse('https://cdn.example.test/720/index.m3u8'),
+        (
+          uri: Uri.parse('https://cdn.example.test/720/index.m3u8'),
+          height: 720,
+        ),
       );
     });
 
     test('takes the best variant when none is that high', () {
-      expect(
-        HlsPlaylist.pickVariant(master, base, quality: 2160),
-        Uri.parse('https://other.example.test/1080/index.m3u8'),
-      );
+      expect(HlsPlaylist.pickVariant(master, base, quality: 2160), (
+        uri: Uri.parse('https://other.example.test/1080/index.m3u8'),
+        height: 1080,
+      ));
     });
 
     test('gives nothing for a media playlist', () {

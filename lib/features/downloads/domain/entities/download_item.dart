@@ -25,6 +25,7 @@ class DownloadItem {
     this.errorMessage,
     this.completedAt,
     this.quality,
+    this.videoHeight,
   });
 
   final String id;
@@ -52,6 +53,9 @@ class DownloadItem {
   /// How tall a picture an online episode loads in at most; null for the
   /// best, and for a torrent file.
   final int? quality;
+
+  /// The selected stream or playlist's reported height; null when unknown.
+  final int? videoHeight;
 
   /// The loaded share of the file, from 0 to 1; 0 while its size is unknown.
   double get progress => totalBytes <= 0
@@ -87,6 +91,7 @@ class DownloadItem {
     Object? completedAt = _notProvided,
     String? posterUrl,
     int? quality,
+    Object? videoHeight = _notProvided,
   }) {
     assert(
       identical(errorMessage, _notProvided) || errorMessage is String?,
@@ -95,6 +100,10 @@ class DownloadItem {
     assert(
       identical(completedAt, _notProvided) || completedAt is DateTime?,
       'completedAt must be a DateTime or null',
+    );
+    assert(
+      identical(videoHeight, _notProvided) || videoHeight is int?,
+      'videoHeight must be an int or null',
     );
 
     return DownloadItem(
@@ -122,6 +131,9 @@ class DownloadItem {
           : completedAt as DateTime?,
       posterUrl: posterUrl ?? this.posterUrl,
       quality: quality ?? this.quality,
+      videoHeight: identical(videoHeight, _notProvided)
+          ? this.videoHeight
+          : videoHeight as int?,
     );
   }
 
@@ -150,7 +162,8 @@ class DownloadItem {
         other.createdAt == createdAt &&
         other.completedAt == completedAt &&
         other.posterUrl == posterUrl &&
-        other.quality == quality;
+        other.quality == quality &&
+        other.videoHeight == videoHeight;
   }
 
   @override
@@ -174,5 +187,6 @@ class DownloadItem {
     completedAt,
     posterUrl,
     quality,
+    videoHeight,
   );
 }

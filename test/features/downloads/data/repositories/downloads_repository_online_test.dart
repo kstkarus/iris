@@ -156,6 +156,45 @@ void main() {
     expect(online.tasks.last.maxQuality, 480);
   });
 
+  test(
+    'persists resolved video height separately from requested quality',
+    () async {
+      final item = await enqueueEpisode(2, quality: 1080);
+      await _waitFor(() => online.tasks.isNotEmpty);
+
+      online.tasks.single.report(
+        const OnlineDownloadProgress(
+          downloadedBytes: 40,
+          totalBytes: 160,
+          rateBytesPerSecond: 20,
+          videoHeight: 720,
+        ),
+      );
+      await _eventually(
+        () async => (await latest(item.id)).videoHeight != null,
+      );
+
+      await repository.close();
+      repository = DownloadsRepositoryImpl(
+        engine: _UnusedEngine(),
+        registry: DownloadRegistryDataSource(
+          registryFile: File(
+            path.join(temporaryDirectory.path, 'registry.json'),
+          ),
+        ),
+        downloadsDirectory: downloadsDirectory,
+        foregroundService: foregroundService,
+        storageUsageAdapter: const _FakeStorageUsageAdapter(),
+        onlineDownloader: online,
+      );
+      await repository.restore();
+
+      final restored = await latest(item.id);
+      expect(restored.quality, 1080);
+      expect(restored.videoHeight, 720);
+    },
+  );
+
   test('stops waiting for the episode list when the picker goes', () async {
     online.episodeList = Completer<List<DownloadableFile>>();
     final cancelled = Completer<void>();
@@ -193,6 +232,7 @@ void main() {
     expect(loading.totalBytes, 160);
     expect(loading.downloadRateBytesPerSecond, 20);
     expect(loading.peers, 0);
+    expect(loading.videoHeight, isNull);
 
     final video = File(path.join(task.directory.path, 'episode.ts'));
     await video.writeAsString('0123456789');

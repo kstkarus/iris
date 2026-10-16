@@ -60,6 +60,15 @@ void main() {
     expect(updated.id, createItem().id);
   });
 
+  test('actual video height participates in equality and can be cleared', () {
+    final item = createItem().copyWith(videoHeight: 720);
+
+    expect(item, isNot(createItem()));
+    expect(item.hashCode, isNot(createItem().hashCode));
+    expect(item.copyWith().videoHeight, 720);
+    expect(item.copyWith(videoHeight: null).videoHeight, isNull);
+  });
+
   test('an online release link makes an online episode', () {
     expect(createItem().isOnline, isFalse);
     expect(

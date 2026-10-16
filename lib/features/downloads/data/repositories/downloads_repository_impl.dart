@@ -1093,6 +1093,7 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
       downloadedBytes: update.downloadedBytes,
       totalBytes: update.totalBytes,
       downloadRateBytesPerSecond: update.rateBytesPerSecond,
+      videoHeight: update.videoHeight,
     );
     _replace(updated);
     _emit();

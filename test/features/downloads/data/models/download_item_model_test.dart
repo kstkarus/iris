@@ -24,6 +24,8 @@ void main() {
       createdAt: DateTime.utc(2026, 7, 11, 9),
       completedAt: DateTime.utc(2026, 7, 11, 10),
       posterUrl: 'https://shikimori.one/posters/1/main.jpg',
+      quality: 1080,
+      videoHeight: 720,
     );
 
     final json = DownloadItemModel.toJson(item);
@@ -56,6 +58,41 @@ void main() {
 
     expect(DownloadItemModel.fromJson(json).posterUrl, isEmpty);
   });
+
+  test(
+    'reads old or invalid heights as unknown and rejects malformed types',
+    () {
+      final json = DownloadItemModel.toJson(
+        DownloadItem(
+          id: 'id',
+          animeId: '1',
+          animeTitle: 'Anime',
+          sourceTitle: 'Release',
+          magnet: 'magnet',
+          fileIndex: 0,
+          fileName: 'episode.mkv',
+          relativePath: 'episode.mkv',
+          localPath: '/episode.mkv',
+          totalBytes: 1,
+          downloadedBytes: 0,
+          downloadRateBytesPerSecond: 0,
+          peers: 0,
+          status: DownloadStatus.queued,
+          createdAt: DateTime.utc(2026),
+        ),
+      )..remove('videoHeight');
+      expect(DownloadItemModel.fromJson(json).videoHeight, isNull);
+      for (final invalid in [0, -1]) {
+        json['videoHeight'] = invalid;
+        expect(DownloadItemModel.fromJson(json).videoHeight, isNull);
+      }
+      json['videoHeight'] = '720';
+      expect(
+        () => DownloadItemModel.fromJson(json),
+        throwsA(isA<FormatException>()),
+      );
+    },
+  );
 
   test('rejects an unknown download status', () {
     final json = DownloadItemModel.toJson(

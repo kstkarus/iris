@@ -140,6 +140,40 @@ void main() {
   });
 
   test(
+    'reports the HLS master variant height selected below the provider height',
+    () async {
+      sources.streams = [
+        _hls('https://cdn.test/e2/master.m3u8', quality: 1080),
+      ];
+      final task =
+          downloader((options) {
+            if (options.uri.path.endsWith('master.m3u8')) {
+              return FakeReply.text(200, '''
+#EXTM3U
+#EXT-X-STREAM-INF:BANDWIDTH=2500000,RESOLUTION=1280x720
+720/index.m3u8
+''');
+            }
+            return options.uri.path.endsWith('.m3u8')
+                ? FakeReply.text(200, _playlist(1))
+                : FakeReply.text(200, '[$options.uri]');
+          }).start(
+            link: _link,
+            fileIndex: 2,
+            directory: directory,
+            maxQuality: 1080,
+          );
+      final updates = <OnlineDownloadProgress>[];
+      task.progress.listen(updates.add);
+
+      await task.done;
+
+      expect(updates, isNotEmpty);
+      expect(updates.map((update) => update.videoHeight), everyElement(720));
+    },
+  );
+
+  test(
     'glues an HLS episode into one file and reports how far it is',
     () async {
       sources.streams = [
@@ -168,6 +202,7 @@ void main() {
       // After one of three equal segments, the whole is three times as big.
       expect(updates[1].downloadedBytes, 7);
       expect(updates[1].totalBytes, 21);
+      expect(updates.map((update) => update.videoHeight), everyElement(1080));
     },
   );
 
@@ -418,6 +453,7 @@ void main() {
       ),
     ];
     final ranges = <Object?>[];
+    final updates = <OnlineDownloadProgress>[];
     final task = start(
       downloader((options) {
         final range = options.headers['Range'];
@@ -440,12 +476,14 @@ void main() {
         );
       }),
     );
+    task.progress.listen(updates.add);
 
     final file = await task.done;
 
     expect(path.basename(file!.path), 'episode.mp4');
     expect(await file.readAsString(), 'abcdefghij');
     expect(ranges, [null, 'bytes=4-']);
+    expect(updates.map((update) => update.videoHeight), everyElement(720));
     expect(stateLeft(), isFalse);
   });
 

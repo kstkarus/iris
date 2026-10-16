@@ -28,7 +28,11 @@ abstract final class HlsPlaylist {
 
   /// The variant of a master playlist to load: the one [quality] high, or
   /// the best. Null for a media playlist.
-  static Uri? pickVariant(String text, Uri base, {required int quality}) {
+  static ({Uri uri, int height})? pickVariant(
+    String text,
+    Uri base, {
+    required int quality,
+  }) {
     final lines = _lines(text);
     final variants = <({Uri uri, int height, int bandwidth})>[];
     for (var index = 0; index < lines.length; index++) {
@@ -53,13 +57,16 @@ abstract final class HlsPlaylist {
     }
     if (variants.isEmpty) return null;
     for (final variant in variants) {
-      if (variant.height == quality) return variant.uri;
+      if (variant.height == quality) {
+        return (uri: variant.uri, height: variant.height);
+      }
     }
     variants.sort((left, right) {
       final height = right.height.compareTo(left.height);
       return height != 0 ? height : right.bandwidth.compareTo(left.bandwidth);
     });
-    return variants.first.uri;
+    final variant = variants.first;
+    return (uri: variant.uri, height: variant.height);
   }
 
   /// The pieces of a media playlist; null when it cannot be loaded as
