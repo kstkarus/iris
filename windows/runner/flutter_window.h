@@ -27,6 +27,15 @@ class FlutterWindow : public Win32Window {
  private:
   // Covers the monitor without a frame, or restores the window as it was.
   void SetFullscreen(bool fullscreen);
+  bool EnterPictureInPicture();
+  void RestorePictureInPicture();
+  void SetPictureInPicturePlayer(bool valid, double aspect_ratio);
+  void NotifyPictureInPicture(bool active, bool dismissed);
+  static LRESULT CALLBACK PictureInPictureChildProc(HWND window, UINT message,
+                                                    WPARAM wparam,
+                                                    LPARAM lparam,
+                                                    UINT_PTR subclass_id,
+                                                    DWORD_PTR reference);
 
   // The project to run.
   flutter::DartProject project_;
@@ -37,13 +46,20 @@ class FlutterWindow : public Win32Window {
   // "iris/window": enterFullscreen, exitFullscreen.
   std::unique_ptr<flutter::MethodChannel<flutter::EncodableValue>>
       window_channel_;
+  std::unique_ptr<flutter::MethodChannel<flutter::EncodableValue>>
+      picture_in_picture_channel_;
 
   bool fullscreen_ = false;
   WINDOWPLACEMENT placement_before_fullscreen_{sizeof(WINDOWPLACEMENT)};
 
-  // While the frame style changes, Windows would paint the old frame
-  // unthemed (a classic title bar) until the window gets its new bounds.
-  bool suppress_frame_paint_ = false;
+  bool picture_in_picture_ = false;
+  bool picture_in_picture_resizing_ = false;
+  bool picture_in_picture_player_ = false;
+  double picture_in_picture_aspect_ratio_ = 16.0 / 9.0;
+  WINDOWPLACEMENT placement_before_picture_in_picture_{sizeof(WINDOWPLACEMENT)};
+  LONG_PTR style_before_picture_in_picture_ = 0;
+  LONG_PTR ex_style_before_picture_in_picture_ = 0;
+  bool topmost_before_picture_in_picture_ = false;
 };
 
 #endif  // RUNNER_FLUTTER_WINDOW_H_

@@ -85,6 +85,10 @@ class PlayerImmersiveControls extends StatefulWidget {
     this.next,
     this.pictureInPicture = false,
     this.onPictureInPicture,
+    this.windowsPictureInPicture = false,
+    this.onRestorePictureInPicture,
+    this.onDismissPictureInPicture,
+    this.onDragPictureInPicture,
     super.key,
   });
 
@@ -136,6 +140,12 @@ class PlayerImmersiveControls extends StatefulWidget {
 
   /// Goes into picture in picture; null where there is none.
   final VoidCallback? onPictureInPicture;
+
+  /// Windows keeps this player page open in a compact native window.
+  final bool windowsPictureInPicture;
+  final VoidCallback? onRestorePictureInPicture;
+  final VoidCallback? onDismissPictureInPicture;
+  final VoidCallback? onDragPictureInPicture;
 
   @override
   State<PlayerImmersiveControls> createState() =>
@@ -260,7 +270,8 @@ class _PlayerImmersiveControlsState extends State<PlayerImmersiveControls> {
     _hideTimer?.cancel();
     _volumeHudTimer?.cancel();
     if (_openPanel != null) Navigator.of(context).maybePop();
-    _controlsVisible = false;
+    _controlsVisible = widget.windowsPictureInPicture;
+    if (widget.windowsPictureInPicture) _restartHideTimer();
     _episodesOpen = false;
     _volumeHud = null;
   }
@@ -534,6 +545,26 @@ class _PlayerImmersiveControlsState extends State<PlayerImmersiveControls> {
     }
     if (event is KeyUpEvent || _locked) return KeyEventResult.ignored;
     final key = event.logicalKey;
+    if (widget.windowsPictureInPicture) {
+      if (key == LogicalKeyboardKey.escape) {
+        widget.onRestorePictureInPicture?.call();
+        return KeyEventResult.handled;
+      }
+      if (key == LogicalKeyboardKey.keyF ||
+          key == LogicalKeyboardKey.keyE ||
+          key == LogicalKeyboardKey.keyN ||
+          key == LogicalKeyboardKey.keyS) {
+        return KeyEventResult.handled;
+      }
+      if (key != LogicalKeyboardKey.space &&
+          key != LogicalKeyboardKey.keyK &&
+          key != LogicalKeyboardKey.arrowLeft &&
+          key != LogicalKeyboardKey.arrowRight &&
+          key != LogicalKeyboardKey.keyJ &&
+          key != LogicalKeyboardKey.keyL) {
+        return KeyEventResult.ignored;
+      }
+    }
     // The drawer is modal: its cards take the arrows, the player only the
     // keys that close it.
     if (_episodesOpen &&
@@ -637,6 +668,13 @@ class _PlayerImmersiveControlsState extends State<PlayerImmersiveControls> {
             playBox: metrics.playBox,
           ),
         ],
+        if (widget.windowsPictureInPicture)
+          GestureDetector(
+            key: const Key('player_picture_in_picture_drag_surface'),
+            behavior: HitTestBehavior.opaque,
+            onPanStart: (_) => widget.onDragPictureInPicture?.call(),
+            onDoubleTap: widget.onRestorePictureInPicture,
+          ),
         IgnorePointer(
           ignoring: !visible,
           child: AnimatedOpacity(
@@ -666,11 +704,15 @@ class _PlayerImmersiveControlsState extends State<PlayerImmersiveControls> {
               ),
             ),
           ),
-        if (_volumeHud case final volume?)
-          _VolumeHud(key: const Key('player_volume_hud'), volume: volume)
-        else if (_spaceFastForward)
-          const _FastForwardHud(key: Key('player_fast_forward_plate')),
-        if (_episodesOpen && widget.chrome.episodes != null)
+        if (!widget.windowsPictureInPicture) ...[
+          if (_volumeHud case final volume?)
+            _VolumeHud(key: const Key('player_volume_hud'), volume: volume)
+          else if (_spaceFastForward)
+            const _FastForwardHud(key: Key('player_fast_forward_plate')),
+        ],
+        if (!widget.windowsPictureInPicture &&
+            _episodesOpen &&
+            widget.chrome.episodes != null)
           PlayerEpisodesDrawer(
             onClose: _closeEpisodes,
             builder: widget.chrome.episodes!,
@@ -682,7 +724,10 @@ class _PlayerImmersiveControlsState extends State<PlayerImmersiveControls> {
       fit: StackFit.expand,
       children: [
         ColoredBox(color: Colors.black, child: widget.video),
-        Offstage(offstage: pictureInPicture, child: overlays),
+        Offstage(
+          offstage: pictureInPicture && !widget.windowsPictureInPicture,
+          child: overlays,
+        ),
       ],
     );
     final controls = Focus(
@@ -734,6 +779,9 @@ class _PlayerImmersiveControlsState extends State<PlayerImmersiveControls> {
     Color accent,
     _ControlsMetrics metrics,
   ) {
+    if (widget.windowsPictureInPicture) {
+      return _buildWindowsPictureInPictureControls(context, player);
+    }
     return Stack(
       fit: StackFit.expand,
       children: [
@@ -814,6 +862,78 @@ class _PlayerImmersiveControlsState extends State<PlayerImmersiveControls> {
     );
   }
 
+  Widget _buildWindowsPictureInPictureControls(
+    BuildContext context,
+    Player player,
+  ) {
+    final l10n = AppLocalizations.of(context);
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        Positioned(
+          top: 4,
+          right: 4,
+          child: MouseRegion(
+            onEnter: (_) => _setHold(#compactControls, true),
+            onExit: (_) => _setHold(#compactControls, false),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _GlyphButton(
+                  key: const Key('player_picture_in_picture_restore'),
+                  glyph: const PixelIcon(PixelGlyph.fullscreenExit, size: 20),
+                  iconSize: 20,
+                  size: const Size.square(44),
+                  label: l10n.playerRestoreFromPictureInPicture,
+                  onPressed: () => widget.onRestorePictureInPicture?.call(),
+                  onFocusChange: _onCompactControlFocus,
+                ),
+                const SizedBox(width: 8),
+                _GlyphButton(
+                  key: const Key('player_picture_in_picture_dismiss'),
+                  glyph: const PixelIcon(PixelGlyph.close, size: 20),
+                  iconSize: 20,
+                  size: const Size.square(44),
+                  label: l10n.playerClosePictureInPicture,
+                  onPressed: () => widget.onDismissPictureInPicture?.call(),
+                  onFocusChange: _onCompactControlFocus,
+                ),
+              ],
+            ),
+          ),
+        ),
+        if (widget.failure == null &&
+            widget.startupLabel == null &&
+            widget.engine.phase.value == PlayerEnginePhase.ready)
+          Center(
+            child: MouseRegion(
+              onEnter: (_) => _setHold(#compactControls, true),
+              onExit: (_) => _setHold(#compactControls, false),
+              child: _PlayPauseButton(
+                playing: _playing,
+                size: 48,
+                glyphSize: 24,
+                label: _playing
+                    ? l10n.playerPauseButton
+                    : l10n.playerPlayButton,
+                onPressed: _togglePlay,
+                onFocusChange: _onCompactControlFocus,
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  void _onCompactControlFocus(bool focused) {
+    if (focused) {
+      _holds.add(#compactControlFocus);
+      _showControls();
+    } else {
+      _setHold(#compactControlFocus, false);
+    }
+  }
+
   /// Skip and next-episode offers sit above the timeline on the right. A
   /// pointer resting on them keeps the controls, and so the offers, up.
   Widget _buildOffers(BuildContext context) {
@@ -824,7 +944,7 @@ class _PlayerImmersiveControlsState extends State<PlayerImmersiveControls> {
       right: _insets.right,
       bottom: _offerClearance,
       child: Offstage(
-        offstage: _locked,
+        offstage: _locked || widget.windowsPictureInPicture,
         child: MouseRegion(
           onEnter: (_) => _setHold(#offers, true),
           onExit: (_) => _setHold(#offers, false),

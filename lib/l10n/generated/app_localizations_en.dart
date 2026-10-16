@@ -769,6 +769,15 @@ class AppLocalizationsEn extends AppLocalizations {
       'Picture in picture is turned off for iris in the system settings.';
 
   @override
+  String get playerPictureInPictureFailed => 'Couldn\'t open the mini player.';
+
+  @override
+  String get playerRestoreFromPictureInPicture => 'Restore player';
+
+  @override
+  String get playerClosePictureInPicture => 'Close mini player';
+
+  @override
   String get playerEnterFullscreen => 'Full screen';
 
   @override

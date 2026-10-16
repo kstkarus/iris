@@ -1424,6 +1424,24 @@ abstract class AppLocalizations {
   /// **'Picture in picture is turned off for iris in the system settings.'**
   String get playerPictureInPictureOff;
 
+  /// No description provided for @playerPictureInPictureFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t open the mini player.'**
+  String get playerPictureInPictureFailed;
+
+  /// No description provided for @playerRestoreFromPictureInPicture.
+  ///
+  /// In en, this message translates to:
+  /// **'Restore player'**
+  String get playerRestoreFromPictureInPicture;
+
+  /// No description provided for @playerClosePictureInPicture.
+  ///
+  /// In en, this message translates to:
+  /// **'Close mini player'**
+  String get playerClosePictureInPicture;
+
   /// No description provided for @playerEnterFullscreen.
   ///
   /// In en, this message translates to:

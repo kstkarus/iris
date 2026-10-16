@@ -448,6 +448,7 @@ void main() {
           bufferSeconds: 12,
           bufferPieces: 16,
           readaheadWindow: 30,
+          isTorrent: true,
         ),
       );
       await tester.pump();
@@ -528,6 +529,7 @@ void main() {
         bufferSeconds: 12,
         bufferPieces: 18,
         readaheadWindow: 30,
+        isTorrent: true,
       ),
     );
     await tester.pump();
@@ -2269,6 +2271,7 @@ void main() {
           bufferSeconds: 30,
           bufferPieces: 30,
           readaheadWindow: 30,
+          isTorrent: true,
         ),
       );
       await tester.pump();
@@ -3229,7 +3232,7 @@ void main() {
 
     Future<_FakePlatformPlayer> open(
       WidgetTester tester,
-      _FakePictureInPicture window,
+      PictureInPicture window,
     ) async {
       setTestWindowSize(tester, TestWindowSizes.landscape);
       final platformPlayer = _FakePlatformPlayer(
@@ -3280,6 +3283,40 @@ void main() {
         ),
         findsOneWidget,
       );
+    });
+
+    testWidgets('show a Windows-specific error when compact mode is refused', (
+      tester,
+    ) async {
+      final window = _FakeWindowsPictureInPicture(refuses: true);
+      await open(tester, window);
+
+      await tester.tap(find.byKey(button));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(find.text("Couldn't open the mini player."), findsOneWidget);
+      expect(
+        find.text(
+          'Picture in picture is turned off for iris in the system settings.',
+        ),
+        findsNothing,
+      );
+    });
+
+    testWidgets('show a Windows-specific error when compact mode throws', (
+      tester,
+    ) async {
+      final window = _FakeWindowsPictureInPicture(
+        enterError: PlatformException(code: 'native-failure'),
+      );
+      await open(tester, window);
+
+      await tester.tap(find.byKey(button));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(find.text("Couldn't open the mini player."), findsOneWidget);
     });
 
     testWidgets('tell the window what plays and in what shape, and let go '
@@ -3365,6 +3402,314 @@ void main() {
       await tester.pump(const Duration(milliseconds: 300));
       expect(find.byKey(const Key('player_seek_bar')), findsOneWidget);
       expect(_controlsOpacity(tester), 1);
+    });
+
+    testWidgets('Windows keeps the player alive and shows compact controls', (
+      tester,
+    ) async {
+      setTestWindowSize(tester, TestWindowSizes.landscape);
+      final window = _FakeWindowsPictureInPicture();
+      final platformPlayer = _FakePlatformPlayer(
+        configuration: const PlayerConfiguration(),
+      );
+      late MediaKitPlayerEngine engine;
+
+      await tester.pumpWidget(
+        _wrapViewport(
+          platformPlayer: platformPlayer,
+          pictureInPicture: window,
+          onEngine: (value) => engine = value,
+          chrome: PlayerChrome(
+            title: 'Episode 11',
+            onBack: _stayOnPage,
+            episodes: (context, close) => const Text('Episode list'),
+          ),
+          next: PlayerNextFile(title: 'Episode 12', play: () {}),
+        ),
+      );
+      await tester.pump();
+      platformPlayer
+        ..emitDuration(const Duration(minutes: 24))
+        ..emitTracks(
+          const Tracks(
+            video: [
+              VideoTrack('auto', null, null),
+              VideoTrack('no', null, null),
+              VideoTrack('1', 'Main Video', 'jpn'),
+            ],
+          ),
+        );
+      await _deliverPlayerEvent(tester);
+
+      final player = engine.player;
+      final controller = engine.videoController;
+      window.enterCompact();
+      await tester.pump();
+
+      expect(
+        find.byKey(const Key('player_picture_in_picture_restore')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('player_picture_in_picture_dismiss')),
+        findsOneWidget,
+      );
+      expect(find.byKey(const Key('player_play_pause_button')), findsOneWidget);
+      expect(find.byKey(const Key('player_seek_bar')), findsNothing);
+      expect(find.byKey(const Key('player_title_block')), findsNothing);
+      expect(find.byKey(const Key('player_tracks_button')), findsNothing);
+      expect(find.byKey(const Key('player_settings_button')), findsNothing);
+      expect(find.byKey(const Key('player_episodes_button')), findsNothing);
+      expect(platformPlayer.pauseCount, 0);
+
+      setTestWindowSize(tester, const Size(420, 236));
+      tester.platformDispatcher.textScaleFactorTestValue = 2;
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      await tester.pump();
+      platformPlayer.emitPlaying(true);
+      await _deliverPlayerEvent(tester);
+      await tester.pump(PlayerImmersiveControls.hideAfter);
+      expect(_controlsOpacity(tester), 0);
+
+      expect(
+        tester.getSize(
+          find.byKey(const Key('player_picture_in_picture_restore')),
+        ),
+        const Size.square(44),
+      );
+      expect(
+        tester.getSize(
+          find.byKey(const Key('player_picture_in_picture_dismiss')),
+        ),
+        const Size.square(44),
+      );
+      expect(tester.takeException(), isNull);
+
+      await tester.dragFrom(const Offset(100, 180), const Offset(48, 0));
+      await tester.pump(const Duration(milliseconds: 50));
+      expect(window.dragStarts, 1);
+      expect(platformPlayer.playOrPauseCount, 0);
+
+      setTestWindowSize(tester, TestWindowSizes.landscape);
+      await tester.pump();
+      await tester.tap(
+        find.byKey(const Key('player_picture_in_picture_restore')),
+      );
+      await tester.pump();
+      expect(window.restores, 1);
+      expect(engine.player, same(player));
+      expect(engine.videoController, same(controller));
+      expect(platformPlayer.pauseCount, 0);
+      expect(find.byKey(const Key('player_seek_bar')), findsOneWidget);
+
+      window.enterCompact();
+      await tester.pump();
+      await tester.tap(
+        find.byKey(const Key('player_picture_in_picture_dismiss')),
+      );
+      await _deliverPlayerEvent(tester);
+      expect(window.dismissals, 1);
+      expect(platformPlayer.pauseCount, 1);
+      expect(find.byKey(const Key('player_video_surface')), findsOneWidget);
+      expect(
+        find.byKey(const Key('player_picture_in_picture_restore')),
+        findsNothing,
+      );
+    });
+
+    testWidgets(
+      'Windows compact keyboard skips large actions and Escape restores',
+      (tester) async {
+        setTestWindowSize(tester, TestWindowSizes.landscape);
+        final window = _FakeWindowsPictureInPicture();
+        final platformPlayer = _FakePlatformPlayer(
+          configuration: const PlayerConfiguration(),
+        );
+        var fullscreenChanges = 0;
+        var nextPlays = 0;
+
+        await tester.pumpWidget(
+          _wrapViewport(
+            platformPlayer: platformPlayer,
+            pictureInPicture: window,
+            next: PlayerNextFile(title: 'Episode 12', play: () => nextPlays++),
+            chrome: PlayerChrome(
+              title: 'Episode 11',
+              onBack: _stayOnPage,
+              episodes: (context, close) => const Text('Episode list'),
+            ),
+            enterNativeFullscreen: () async {
+              fullscreenChanges++;
+            },
+            exitNativeFullscreen: () async {
+              fullscreenChanges++;
+            },
+          ),
+        );
+        await tester.pump();
+        platformPlayer
+          ..emitDuration(const Duration(minutes: 24))
+          ..emitPosition(const Duration(minutes: 5))
+          ..emitTracks(
+            const Tracks(
+              video: [
+                VideoTrack('auto', null, null),
+                VideoTrack('no', null, null),
+                VideoTrack('1', 'Main Video', 'jpn'),
+              ],
+            ),
+          );
+        await _deliverPlayerEvent(tester);
+        window.enterCompact();
+        await tester.pump();
+
+        for (final key in const [
+          LogicalKeyboardKey.keyF,
+          LogicalKeyboardKey.keyE,
+          LogicalKeyboardKey.keyN,
+          LogicalKeyboardKey.keyS,
+        ]) {
+          await tester.sendKeyEvent(key);
+        }
+        expect(fullscreenChanges, 0);
+        expect(nextPlays, 0);
+        expect(find.text('Episode list'), findsNothing);
+        expect(window.restores, 0);
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+        expect(
+          platformPlayer.seeks.last,
+          const Duration(minutes: 5, seconds: 10),
+        );
+        await tester.sendKeyEvent(LogicalKeyboardKey.keyK);
+        expect(platformPlayer.playOrPauseCount, 1);
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        await tester.pump();
+        expect(window.restores, 1);
+        expect(platformPlayer.pauseCount, 0);
+        expect(find.byKey(const Key('player_seek_bar')), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'Windows compact controls hide, show on hover/focus, and stay while paused',
+      (tester) async {
+        setTestWindowSize(tester, TestWindowSizes.landscape);
+        final window = _FakeWindowsPictureInPicture();
+        final platformPlayer = _FakePlatformPlayer(
+          configuration: const PlayerConfiguration(),
+        );
+
+        await tester.pumpWidget(
+          _wrapViewport(
+            platformPlayer: platformPlayer,
+            pictureInPicture: window,
+          ),
+        );
+        await tester.pump();
+        window.enterCompact();
+        await tester.pump();
+        platformPlayer.emitPlaying(true);
+        await _deliverPlayerEvent(tester);
+        await tester.pump(PlayerImmersiveControls.hideAfter);
+        expect(_controlsOpacity(tester), 0);
+
+        final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+        addTearDown(mouse.removePointer);
+        await mouse.addPointer(location: const Offset(300, 300));
+        await mouse.moveTo(const Offset(310, 300));
+        await tester.pump();
+        expect(_controlsOpacity(tester), 1);
+        await tester.pump(PlayerImmersiveControls.hideAfter);
+        expect(_controlsOpacity(tester), 0);
+
+        await mouse.moveTo(
+          tester.getCenter(find.byKey(const Key('player_play_pause_button'))),
+        );
+        await tester.pump();
+        await tester.pump(const Duration(seconds: 5));
+        expect(_controlsOpacity(tester), 1);
+
+        await mouse.moveTo(const Offset(300, 300));
+        await tester.pump(PlayerImmersiveControls.hideAfter);
+        expect(_controlsOpacity(tester), 0);
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pump();
+        await tester.pump(const Duration(seconds: 5));
+        expect(_controlsOpacity(tester), 1);
+
+        platformPlayer.emitPlaying(false);
+        await _deliverPlayerEvent(tester);
+        await tester.pump(const Duration(seconds: 5));
+        expect(_controlsOpacity(tester), 1);
+      },
+    );
+
+    testWidgets('Windows PiP failure fits its minimum window at large text', (
+      tester,
+    ) async {
+      setTestWindowSize(tester, TestWindowSizes.landscape);
+      final firstFrame = Completer<void>();
+      final window = _FakeWindowsPictureInPicture();
+      final platformPlayer = _FakePlatformPlayer(
+        configuration: const PlayerConfiguration(),
+      );
+
+      await tester.pumpWidget(
+        _wrapViewport(
+          platformPlayer: platformPlayer,
+          firstFrameFuture: firstFrame.future,
+          pictureInPicture: window,
+        ),
+      );
+      await tester.pump();
+      window.enterCompact();
+      await tester.pump();
+      setTestWindowSize(tester, const Size(240, 135));
+      tester.platformDispatcher.textScaleFactorTestValue = 2;
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+
+      platformPlayer
+        ..emitError('Failed to recognize file format.')
+        ..nativeProperties['idle-active'] = 'yes';
+      await tester.pump(const Duration(seconds: 3));
+
+      expect(find.text('Unable to start playback.'), findsOneWidget);
+      final compactError = tester.widget<Text>(
+        find.byKey(const Key('player_picture_in_picture_failure')),
+      );
+      expect(compactError.maxLines, 2);
+      expect(compactError.overflow, TextOverflow.ellipsis);
+      expect(
+        find.byKey(const Key('player_picture_in_picture_restore')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('player_picture_in_picture_dismiss')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('player_picture_in_picture_drag_surface')),
+        findsOneWidget,
+      );
+      expect(find.byKey(const Key('player_play_pause_button')), findsNothing);
+      expect(tester.takeException(), isNull);
+
+      await tester.dragFrom(const Offset(100, 122), const Offset(48, 0));
+      await tester.pump(const Duration(milliseconds: 50));
+      expect(window.dragStarts, 1);
+      expect(platformPlayer.playOrPauseCount, 0);
+
+      setTestWindowSize(tester, TestWindowSizes.landscape);
+      await tester.pump();
+      await tester.tap(
+        find.byKey(const Key('player_picture_in_picture_restore')),
+      );
+      await tester.pump();
+      expect(window.restores, 1);
+      expect(find.text('Unable to start playback.'), findsOneWidget);
+      expect(tester.takeException(), isNull);
     });
   });
 }
@@ -3648,6 +3993,7 @@ PlayerPlaybackStats _playbackStats({required int downloadRate}) {
     bufferSeconds: 10,
     bufferPieces: 12,
     readaheadWindow: 30,
+    isTorrent: true,
   );
 }
 
@@ -3881,6 +4227,80 @@ class _FakePictureInPicture implements PictureInPicture {
     enters++;
     return !refuses;
   }
+}
+
+class _FakeWindowsPictureInPicture extends WindowsPictureInPicture {
+  _FakeWindowsPictureInPicture({this.refuses = false, this.enterError})
+    : super(
+        channel: const MethodChannel('iris/test/windows_picture_in_picture'),
+      );
+
+  final bool refuses;
+  final Object? enterError;
+  final _active = ValueNotifier<bool>(false);
+  final _playPause = StreamController<void>.broadcast();
+  final _dismissed = StreamController<void>.broadcast();
+  final reports = <_PictureInPictureReport>[];
+  int enters = 0;
+  int clears = 0;
+  int restores = 0;
+  int dismissals = 0;
+  int dragStarts = 0;
+
+  void enterCompact() => _active.value = true;
+
+  @override
+  ValueNotifier<bool> get active => _active;
+
+  @override
+  Stream<void> get playPausePressed => _playPause.stream;
+
+  @override
+  Stream<void> get dismissed => _dismissed.stream;
+
+  @override
+  Future<bool> isSupported() async => true;
+
+  @override
+  Future<void> setPlayer({
+    required bool playing,
+    required double? aspectRatio,
+    required String playLabel,
+    required String pauseLabel,
+  }) async => reports.add((
+    playing: playing,
+    aspectRatio: aspectRatio,
+    playLabel: playLabel,
+    pauseLabel: pauseLabel,
+  ));
+
+  @override
+  Future<void> clearPlayer() async => clears++;
+
+  @override
+  Future<bool> enter() async {
+    enters++;
+    if (enterError case final error?) throw error;
+    if (refuses) return false;
+    enterCompact();
+    return true;
+  }
+
+  @override
+  Future<void> restore() async {
+    restores++;
+    _active.value = false;
+  }
+
+  @override
+  Future<void> dismiss() async {
+    dismissals++;
+    _active.value = false;
+    _dismissed.add(null);
+  }
+
+  @override
+  Future<void> startDragging() async => dragStarts++;
 }
 
 class _ControllablePlatformPlayer extends _FakePlatformPlayer {

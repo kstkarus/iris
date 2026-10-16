@@ -775,6 +775,15 @@ class AppLocalizationsRu extends AppLocalizations {
       'Картинка в картинке выключена для iris в настройках системы.';
 
   @override
+  String get playerPictureInPictureFailed => 'Не удалось открыть мини-плеер.';
+
+  @override
+  String get playerRestoreFromPictureInPicture => 'Вернуть плеер';
+
+  @override
+  String get playerClosePictureInPicture => 'Закрыть мини-плеер';
+
+  @override
   String get playerEnterFullscreen => 'Во весь экран';
 
   @override

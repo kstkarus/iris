@@ -14,11 +14,16 @@ class _PictureInPictureLink {
       _window.dismissed.listen((_) => _pause()),
     ];
     unawaited(
-      _window.isSupported().then((supported) {
-        if (_disposed || !supported) return;
-        this.supported = true;
-        onSupported();
-      }),
+      _window
+          .isSupported()
+          .then((supported) {
+            if (_disposed || !supported) return;
+            this.supported = true;
+            onSupported();
+          })
+          .catchError((Object error) {
+            debugPrint('Picture-in-picture support check failed: $error');
+          }),
     );
     follow();
   }
@@ -53,6 +58,7 @@ class _PictureInPictureLink {
 
   /// Follows the engine's current player, if it changed.
   void follow() {
+    if (_disposed) return;
     final player = _engine.hasPlayer ? _engine.player : null;
     if (identical(player, _player)) return;
     _player = player;
@@ -76,23 +82,30 @@ class _PictureInPictureLink {
     final width = state.width;
     final height = state.height;
     unawaited(
-      _window.setPlayer(
-        playing: state.playing,
-        aspectRatio: width != null && height != null && width > 0 && height > 0
-            ? width / height
-            : null,
-        playLabel: _labels.play,
-        pauseLabel: _labels.pause,
-      ),
+      _window
+          .setPlayer(
+            playing: state.playing,
+            aspectRatio:
+                width != null && height != null && width > 0 && height > 0
+                ? width / height
+                : null,
+            playLabel: _labels.play,
+            pauseLabel: _labels.pause,
+          )
+          .catchError((Object error) {
+            debugPrint('Picture-in-picture player update failed: $error');
+          }),
     );
   }
 
   void _playOrPause() {
-    if (_engine.hasPlayer) unawaited(_engine.player.playOrPause());
+    if (!_disposed && _engine.hasPlayer) {
+      unawaited(_engine.player.playOrPause());
+    }
   }
 
   void _pause() {
-    if (_engine.hasPlayer) unawaited(_engine.player.pause());
+    if (!_disposed && _engine.hasPlayer) unawaited(_engine.player.pause());
   }
 
   void dispose() {
@@ -100,6 +113,10 @@ class _PictureInPictureLink {
     for (final subscription in [..._subscriptions, ..._playerSubscriptions]) {
       unawaited(subscription.cancel());
     }
-    unawaited(_window.clearPlayer());
+    unawaited(
+      _window.clearPlayer().catchError((Object error) {
+        debugPrint('Picture-in-picture cleanup failed: $error');
+      }),
+    );
   }
 }

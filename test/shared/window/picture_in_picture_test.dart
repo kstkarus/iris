@@ -59,6 +59,52 @@ void main() {
     });
   });
 
+  test(
+    'Windows uses the shared player protocol and its window commands',
+    () async {
+      final window = WindowsPictureInPicture();
+
+      expect(await window.isSupported(), isTrue);
+      await window.setPlayer(
+        playing: false,
+        aspectRatio: 4 / 3,
+        playLabel: 'Play',
+        pauseLabel: 'Pause',
+      );
+      expect(await window.enter(), isTrue);
+      await window.restore();
+      await window.dismiss();
+      await window.startDragging();
+      await window.clearPlayer();
+
+      expect(calls.map((call) => call.method), [
+        'isSupported',
+        'setPlayer',
+        'enter',
+        'restore',
+        'dismiss',
+        'startDragging',
+        'clearPlayer',
+      ]);
+      expect(calls[1].arguments, {
+        'playing': false,
+        'aspectRatio': 4 / 3,
+        'playLabel': 'Play',
+        'pauseLabel': 'Pause',
+      });
+
+      var dismissals = 0;
+      final subscription = window.dismissed.listen((_) => dismissals++);
+      await fromActivity('modeChanged', {'active': true, 'dismissed': false});
+      expect(window.active.value, isTrue);
+      await fromActivity('modeChanged', {'active': false, 'dismissed': true});
+      await Future<void>.delayed(Duration.zero);
+      expect(window.active.value, isFalse);
+      expect(dismissals, 1);
+      await subscription.cancel();
+    },
+  );
+
   test('follows the mode, and tells a closed window from an expanded '
       'one', () async {
     final window = AndroidPictureInPicture();

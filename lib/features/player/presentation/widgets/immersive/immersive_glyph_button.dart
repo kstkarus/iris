@@ -126,6 +126,7 @@ class _PlayPauseButton extends StatefulWidget {
     required this.glyphSize,
     required this.label,
     required this.onPressed,
+    this.onFocusChange,
   });
 
   final bool playing;
@@ -133,6 +134,7 @@ class _PlayPauseButton extends StatefulWidget {
   final double glyphSize;
   final String label;
   final VoidCallback onPressed;
+  final ValueChanged<bool>? onFocusChange;
 
   @override
   State<_PlayPauseButton> createState() => _PlayPauseButtonState();
@@ -140,36 +142,55 @@ class _PlayPauseButton extends StatefulWidget {
 
 class _PlayPauseButtonState extends State<_PlayPauseButton> {
   bool _hovered = false;
+  bool _focused = false;
 
   @override
   Widget build(BuildContext context) {
-    return Semantics(
-      button: true,
-      label: widget.label,
-      child: MouseRegion(
-        cursor: SystemMouseCursors.click,
-        onEnter: (_) => setState(() => _hovered = true),
-        onExit: (_) => setState(() => _hovered = false),
-        child: GestureDetector(
-          key: const Key('player_play_pause_button'),
-          onTap: widget.onPressed,
-          child: AnimatedScale(
-            scale: _hovered ? 1.08 : 1,
-            duration: const Duration(milliseconds: 150),
-            child: Container(
-              width: widget.size,
-              height: widget.size,
-              decoration: BoxDecoration(
-                color: _hovered ? Colors.white12 : Colors.black38,
-                border: Border.all(color: Colors.white, width: 3),
-              ),
-              child: Center(
-                child: PlayerGlyphSwitcher(
-                  child: PixelIcon(
-                    widget.playing ? PixelGlyph.pause : PixelGlyph.play,
-                    key: ValueKey(widget.playing),
-                    size: widget.glyphSize,
+    return FocusableActionDetector(
+      mouseCursor: SystemMouseCursors.click,
+      onFocusChange: (focused) {
+        setState(() => _focused = focused);
+        widget.onFocusChange?.call(focused);
+      },
+      actions: {
+        ActivateIntent: CallbackAction<ActivateIntent>(
+          onInvoke: (_) {
+            widget.onPressed();
+            return null;
+          },
+        ),
+      },
+      child: Semantics(
+        button: true,
+        label: widget.label,
+        child: MouseRegion(
+          cursor: SystemMouseCursors.click,
+          onEnter: (_) => setState(() => _hovered = true),
+          onExit: (_) => setState(() => _hovered = false),
+          child: GestureDetector(
+            key: const Key('player_play_pause_button'),
+            onTap: widget.onPressed,
+            child: AnimatedScale(
+              scale: _hovered ? 1.08 : 1,
+              duration: const Duration(milliseconds: 150),
+              child: Container(
+                width: widget.size,
+                height: widget.size,
+                decoration: BoxDecoration(
+                  color: _hovered ? Colors.white12 : Colors.black38,
+                  border: Border.all(
                     color: Colors.white,
+                    width: _focused ? 4 : 3,
+                  ),
+                ),
+                child: Center(
+                  child: PlayerGlyphSwitcher(
+                    child: PixelIcon(
+                      widget.playing ? PixelGlyph.pause : PixelGlyph.play,
+                      key: ValueKey(widget.playing),
+                      size: widget.glyphSize,
+                      color: Colors.white,
+                    ),
                   ),
                 ),
               ),
@@ -192,6 +213,7 @@ class _GlyphButton extends StatefulWidget {
     required this.size,
     required this.label,
     required this.onPressed,
+    this.onFocusChange,
     this.selected = false,
     super.key,
   });
@@ -211,6 +233,7 @@ class _GlyphButton extends StatefulWidget {
   /// For screen readers; hover tooltips get in the way over video.
   final String label;
   final VoidCallback onPressed;
+  final ValueChanged<bool>? onFocusChange;
 
   @override
   State<_GlyphButton> createState() => _GlyphButtonState();
@@ -228,7 +251,10 @@ class _GlyphButtonState extends State<_GlyphButton> {
     final active = _hovered || _focused || selected;
     return FocusableActionDetector(
       mouseCursor: SystemMouseCursors.click,
-      onFocusChange: (focused) => setState(() => _focused = focused),
+      onFocusChange: (focused) {
+        setState(() => _focused = focused);
+        widget.onFocusChange?.call(focused);
+      },
       actions: {
         ActivateIntent: CallbackAction<ActivateIntent>(
           onInvoke: (_) {

@@ -283,15 +283,36 @@ class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
   }
 
   Future<void> _enterPictureInPicture() async {
-    final entered = await _pictureInPicture?.enter() ?? false;
-    if (entered || !mounted) return;
-    ScaffoldMessenger.maybeOf(context)
-      ?..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Text(AppLocalizations.of(context).playerPictureInPictureOff),
-        ),
-      );
+    final windowsPictureInPicture =
+        widget.pictureInPicture is WindowsPictureInPicture;
+    try {
+      final entered = await _pictureInPicture?.enter() ?? false;
+      if (entered || !mounted) return;
+      ScaffoldMessenger.maybeOf(context)
+        ?..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            content: Text(
+              windowsPictureInPicture
+                  ? AppLocalizations.of(context).playerPictureInPictureFailed
+                  : AppLocalizations.of(context).playerPictureInPictureOff,
+            ),
+          ),
+        );
+    } catch (error) {
+      debugPrint('Picture-in-picture enter failed: $error');
+      if (mounted && windowsPictureInPicture) {
+        ScaffoldMessenger.maybeOf(context)
+          ?..hideCurrentSnackBar()
+          ..showSnackBar(
+            SnackBar(
+              content: Text(
+                AppLocalizations.of(context).playerPictureInPictureFailed,
+              ),
+            ),
+          );
+      }
+    }
   }
 
   void _onVideoFitChanged() {
@@ -379,16 +400,23 @@ class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
     final Widget? failure;
     if (engine.startupState.phase == PlayerEnginePhase.failed) {
       video = const SizedBox.expand();
-      failure = _buildFailure(l10n);
+      failure = _buildFailure(context, l10n);
     } else {
       video = _buildVideo(engine);
       failure = null;
     }
     final pictureInPicture = _pictureInPicture;
-    if (pictureInPicture == null) return _buildControls(video, failure, l10n);
+    if (pictureInPicture == null) {
+      return _buildControls(context, video, failure, l10n);
+    }
+    final windowsPictureInPicture = switch (widget.pictureInPicture) {
+      WindowsPictureInPicture window => window,
+      _ => null,
+    };
     return ValueListenableBuilder<bool>(
       valueListenable: pictureInPicture.active,
       builder: (context, active, _) => _buildControls(
+        context,
         video,
         failure,
         l10n,
@@ -396,16 +424,19 @@ class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
         onPictureInPicture: pictureInPicture.supported
             ? () => unawaited(_enterPictureInPicture())
             : null,
+        windowsPictureInPicture: active ? windowsPictureInPicture : null,
       ),
     );
   }
 
   Widget _buildControls(
+    BuildContext context,
     Widget video,
     Widget? failure,
     AppLocalizations l10n, {
     bool pictureInPicture = false,
     VoidCallback? onPictureInPicture,
+    WindowsPictureInPicture? windowsPictureInPicture,
   }) {
     final engine = widget.engine;
     return PlayerImmersiveControls(
@@ -414,7 +445,11 @@ class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
       input: widget.input,
       next: widget.next,
       video: video,
-      failure: failure,
+      // The retry panel can overflow the Windows minimum window. Keep its
+      // error message visible and leave retry on the restored player screen.
+      failure: windowsPictureInPicture != null && failure != null
+          ? _buildFailure(context, l10n, compact: true)
+          : failure,
       startupLabel: _playerStartupLabel(l10n, engine),
       statsPanel: _buildStatsPanel(),
       fullscreen: _windowFullscreen,
@@ -424,17 +459,73 @@ class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
       brightness: widget.brightness,
       pictureInPicture: pictureInPicture,
       onPictureInPicture: onPictureInPicture,
+      windowsPictureInPicture: windowsPictureInPicture != null,
+      onRestorePictureInPicture: windowsPictureInPicture == null
+          ? null
+          : () => _runWindowsPictureInPictureCommand(
+              'restore',
+              windowsPictureInPicture.restore,
+            ),
+      onDismissPictureInPicture: windowsPictureInPicture == null
+          ? null
+          : () => _runWindowsPictureInPictureCommand(
+              'dismiss',
+              windowsPictureInPicture.dismiss,
+            ),
+      onDragPictureInPicture: windowsPictureInPicture == null
+          ? null
+          : () => _runWindowsPictureInPictureCommand(
+              'drag',
+              windowsPictureInPicture.startDragging,
+            ),
       onShowTracks: (anchor) => _showTrackSelectorSheet(anchor: anchor),
       onShowSettings: (anchor) => _showSettingsSheet(anchor: anchor),
     );
   }
 
-  Widget _buildFailure(AppLocalizations l10n) {
+  void _runWindowsPictureInPictureCommand(
+    String command,
+    Future<void> Function() run,
+  ) {
+    unawaited(() async {
+      try {
+        await run();
+      } catch (error) {
+        debugPrint('Windows picture-in-picture $command failed: $error');
+      }
+    }());
+  }
+
+  Widget _buildFailure(
+    BuildContext context,
+    AppLocalizations l10n, {
+    bool compact = false,
+  }) {
     final engine = widget.engine;
     final errorMessage =
         engine.startupState.failure == PlayerEngineFailure.firstFrameTimeout
         ? l10n.playerUnableToPrepareFirstFrame
         : l10n.playerUnableToStart;
+    if (compact) {
+      return Positioned(
+        top: 52,
+        left: 12,
+        right: 12,
+        bottom: 8,
+        child: Center(
+          child: Text(
+            errorMessage,
+            key: const Key('player_picture_in_picture_failure'),
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: Colors.white),
+          ),
+        ),
+      );
+    }
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),

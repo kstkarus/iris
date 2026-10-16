@@ -3,8 +3,8 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
-/// The player in a small window over everything else: the system's picture
-/// in picture on Android.
+/// The player's platform window: system picture in picture on Android or a
+/// compact native window on Windows.
 abstract interface class PictureInPicture {
   /// Whether this device can show it.
   Future<bool> isSupported();
@@ -19,9 +19,9 @@ abstract interface class PictureInPicture {
   Stream<void> get dismissed;
 
   /// The player page tells what plays: the window takes the video's
-  /// [aspectRatio] (width over height), its button shows play or pause, and
-  /// while [playing] the system opens the window on its own when the user
-  /// leaves the app.
+  /// [aspectRatio] (width over height), and its button shows play or pause.
+  /// Android may enter automatically while [playing] when the app is hidden;
+  /// Windows uses this state for its compact window controls.
   Future<void> setPlayer({
     required bool playing,
     required double? aspectRatio,
@@ -37,15 +37,13 @@ abstract interface class PictureInPicture {
   Future<bool> enter();
 }
 
-/// Android's picture in picture, run by `MainActivity` (Android 8 and
-/// later) over the `iris/picture_in_picture` channel.
-class AndroidPictureInPicture implements PictureInPicture {
-  AndroidPictureInPicture({MethodChannel? channel})
-    : _channel = channel ?? const MethodChannel(channelName) {
+/// Shared transport and event state for the Android and Windows drivers.
+class _MethodChannelPictureInPicture implements PictureInPicture {
+  _MethodChannelPictureInPicture({MethodChannel? channel})
+    : _channel =
+          channel ?? const MethodChannel(AndroidPictureInPicture.channelName) {
     _channel.setMethodCallHandler(_onCall);
   }
-
-  static const channelName = 'iris/picture_in_picture';
 
   final MethodChannel _channel;
   final _active = ValueNotifier<bool>(false);
@@ -57,7 +55,8 @@ class AndroidPictureInPicture implements PictureInPicture {
       case 'playPause':
         _playPause.add(null);
       case 'modeChanged':
-        final arguments = call.arguments as Map<Object?, Object?>;
+        final arguments = call.arguments;
+        if (arguments is! Map<Object?, Object?>) return;
         _active.value = arguments['active'] == true;
         if (arguments['dismissed'] == true) _dismissed.add(null);
     }
@@ -95,4 +94,23 @@ class AndroidPictureInPicture implements PictureInPicture {
   @override
   Future<bool> enter() async =>
       await _channel.invokeMethod<bool>('enter') ?? false;
+}
+
+/// Android's picture in picture, run by `MainActivity` (Android 8 and
+/// later) over the `iris/picture_in_picture` channel.
+class AndroidPictureInPicture extends _MethodChannelPictureInPicture {
+  AndroidPictureInPicture({super.channel});
+
+  static const channelName = 'iris/picture_in_picture';
+}
+
+/// A compact player window managed by the Windows runner.
+class WindowsPictureInPicture extends _MethodChannelPictureInPicture {
+  WindowsPictureInPicture({super.channel});
+
+  Future<void> restore() => _channel.invokeMethod<void>('restore');
+
+  Future<void> dismiss() => _channel.invokeMethod<void>('dismiss');
+
+  Future<void> startDragging() => _channel.invokeMethod<void>('startDragging');
 }
