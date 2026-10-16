@@ -1,9 +1,7 @@
-import 'package:iris/features/online_sources/data/models/video_link_dto.dart';
 import 'package:iris/features/online_sources/data/models/yummy_anime_dto.dart';
 import 'package:iris/features/online_sources/domain/entities/online_episode.dart';
 import 'package:iris/features/online_sources/domain/entities/online_provider.dart';
 import 'package:iris/features/online_sources/domain/entities/online_release.dart';
-import 'package:iris/features/online_sources/domain/entities/online_stream.dart';
 
 /// The players this app can read; yummy_anime also embeds CVH and Alloha,
 /// which anicli-api cannot read reliably either.
@@ -138,13 +136,3 @@ String yummyDubLabel(String dubbing) {
       ? dubbing.substring(voice.length).trim()
       : dubbing;
 }
-
-OnlineStream mapVideoLink(VideoLinkDto link) => OnlineStream(
-  url: link.url,
-  quality: link.quality,
-  format: switch (link.kind) {
-    VideoLinkKind.hls => OnlineStreamFormat.hls,
-    VideoLinkKind.dash => OnlineStreamFormat.dash,
-    VideoLinkKind.mp4 => OnlineStreamFormat.mp4,
-  },
-);

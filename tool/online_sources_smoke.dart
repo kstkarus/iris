@@ -8,9 +8,11 @@ import 'dart:io';
 
 import 'package:iris/features/online_sources/data/datasources/aksor_data_source.dart';
 import 'package:iris/features/online_sources/data/datasources/anilibria_data_source.dart';
+import 'package:iris/features/online_sources/data/datasources/animejoy_data_source.dart';
 import 'package:iris/features/online_sources/data/datasources/kodik_data_source.dart';
 import 'package:iris/features/online_sources/data/datasources/yummy_anime_data_source.dart';
 import 'package:iris/features/online_sources/data/repositories/anilibria_online_sources_repository.dart';
+import 'package:iris/features/online_sources/data/repositories/animejoy_online_sources_repository.dart';
 import 'package:iris/features/online_sources/data/repositories/yummy_anime_online_sources_repository.dart';
 import 'package:iris/features/online_sources/domain/entities/online_provider.dart';
 import 'package:iris/features/online_sources/domain/repositories/online_sources_repository.dart';
@@ -48,6 +50,9 @@ Future<void> main(List<String> args) async {
       kodik: KodikDataSource(dio: videoServers),
       aksor: AksorDataSource(dio: videoServers),
     ),
+    OnlineProvider.animejoy: AnimejoyOnlineSourcesRepository(
+      dataSource: AnimejoyDataSource(dio: videoServers),
+    ),
   };
 
   var failed = false;
@@ -61,8 +66,8 @@ Future<void> main(List<String> args) async {
       if (releases.isEmpty) failed = true;
       for (final (index, release) in releases.indexed) {
         final line =
-            '  "${release.dub}", ${release.episodes.length} episodes, '
-            'up to ${release.bestQuality}p';
+            '  "${release.dub}", ${release.episodes.length} episodes'
+            '${release.bestQuality == null ? '' : ', up to ${release.bestQuality}p'}';
         if (index >= _resolvedPerProvider || release.episodes.isEmpty) {
           print(line);
           continue;

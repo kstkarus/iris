@@ -86,9 +86,11 @@ import 'package:iris/features/online_sources/data/repositories/shared_preference
 import 'package:iris/features/online_sources/domain/repositories/online_quality_preferences.dart';
 import 'package:iris/features/online_sources/data/datasources/aksor_data_source.dart';
 import 'package:iris/features/online_sources/data/datasources/anilibria_data_source.dart';
+import 'package:iris/features/online_sources/data/datasources/animejoy_data_source.dart';
 import 'package:iris/features/online_sources/data/datasources/kodik_data_source.dart';
 import 'package:iris/features/online_sources/data/datasources/yummy_anime_data_source.dart';
 import 'package:iris/features/online_sources/data/repositories/anilibria_online_sources_repository.dart';
+import 'package:iris/features/online_sources/data/repositories/animejoy_online_sources_repository.dart';
 import 'package:iris/features/online_sources/data/repositories/combined_online_sources_repository.dart';
 import 'package:iris/features/online_sources/data/repositories/yummy_anime_online_sources_repository.dart';
 import 'package:iris/features/online_sources/domain/entities/online_provider.dart';
@@ -406,6 +408,9 @@ Future<void> _registerReal() async {
             kodik: KodikDataSource(dio: videoServers),
             aksor: AksorDataSource(dio: videoServers),
           ),
+          OnlineProvider.animejoy: AnimejoyOnlineSourcesRepository(
+            dataSource: AnimejoyDataSource(dio: videoServers),
+          ),
         },
       );
     })
@@ -444,6 +449,7 @@ Future<void> _registerReal() async {
               onlineQuality: serviceLocator<OnlineQualityPreferences>(),
               enterNativeFullscreen: WindowsFullscreen.enter,
               exitNativeFullscreen: WindowsFullscreen.exit,
+              pictureInPicture: WindowsPictureInPicture(),
             )
           : MediaKitPlayerViewportFactory(
               repository: serviceLocator<PlayerRepository>(),

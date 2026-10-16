@@ -4,7 +4,10 @@ enum OnlineProvider {
   anilibria,
 
   /// yummy_anime's catalogue: many dubs, played through Kodik and Aksor.
-  yummyAnime;
+  yummyAnime,
+
+  /// AnimeJoy's subtitled releases, through its own player and AllVideo.
+  animejoy;
 
   /// The provider an online source link names, or null for an unknown one.
   static OnlineProvider? named(String name) {
