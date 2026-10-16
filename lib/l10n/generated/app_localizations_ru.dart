@@ -24,8 +24,11 @@ class AppLocalizationsRu extends AppLocalizations {
   String get downloadsOpenButton => 'Скачать';
 
   @override
+  String get downloadsEmptyTitle => 'Пока нет загрузок';
+
+  @override
   String get downloadsEmpty =>
-      'Скачивайте серии из источников на странице аниме.';
+      'Скачивайте серии со страницы аниме, чтобы смотреть без интернета.';
 
   @override
   String get downloadSelectionTitle => 'Скачать файл';

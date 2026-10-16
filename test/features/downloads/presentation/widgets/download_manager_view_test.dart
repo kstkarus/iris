@@ -111,10 +111,18 @@ void main() {
       );
 
       expect(
-        find.text('Download episodes from the sources on an anime’s page.'),
+        find.text('Download episodes from an anime’s page to watch offline.'),
         findsOneWidget,
       );
+      expect(find.text('No downloads yet'), findsOneWidget);
+      expect(find.text('0 titles'), findsNothing);
+      expect(find.byType(SegmentedRule), findsNothing);
       expect(find.text('Browse the catalog'), findsOneWidget);
+      await tester.tap(find.byKey(const Key('download_library_menu')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('download_storage_open')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('download_storage_dialog')), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
 

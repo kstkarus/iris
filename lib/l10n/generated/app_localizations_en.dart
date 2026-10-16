@@ -24,8 +24,11 @@ class AppLocalizationsEn extends AppLocalizations {
   String get downloadsOpenButton => 'Download';
 
   @override
+  String get downloadsEmptyTitle => 'No downloads yet';
+
+  @override
   String get downloadsEmpty =>
-      'Download episodes from the sources on an anime’s page.';
+      'Download episodes from an anime’s page to watch offline.';
 
   @override
   String get downloadSelectionTitle => 'Download a file';

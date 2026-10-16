@@ -128,10 +128,16 @@ abstract class AppLocalizations {
   /// **'Download'**
   String get downloadsOpenButton;
 
+  /// No description provided for @downloadsEmptyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'No downloads yet'**
+  String get downloadsEmptyTitle;
+
   /// No description provided for @downloadsEmpty.
   ///
   /// In en, this message translates to:
-  /// **'Download episodes from the sources on an anime’s page.'**
+  /// **'Download episodes from an anime’s page to watch offline.'**
   String get downloadsEmpty;
 
   /// No description provided for @downloadSelectionTitle.

@@ -230,30 +230,60 @@ class _EmptyLibrary extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    return ListView(
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                l10n.downloadLibraryCount(0),
-                style: Theme.of(context).textTheme.labelLarge,
-              ),
-            ),
-            const _DownloadsMenu(showStorage: true),
-          ],
+        const Align(
+          alignment: AlignmentDirectional.centerEnd,
+          child: _DownloadsMenu(showStorage: true),
         ),
-        const SizedBox(height: 8),
-        const SegmentedRule(),
-        const SizedBox(height: 24),
-        Text(l10n.downloadsEmpty),
-        const SizedBox(height: 20),
-        Align(
-          alignment: Alignment.centerLeft,
-          child: OutlinedButton(
-            key: const Key('downloads_browse_catalog'),
-            onPressed: onBrowseCatalog,
-            child: Text(l10n.commonBrowseCatalog),
+        Expanded(
+          child: CustomScrollView(
+            slivers: [
+              SliverFillRemaining(
+                hasScrollBody: false,
+                child: Align(
+                  alignment: const Alignment(0, -0.2),
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 392),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          PixelIcon(
+                            PixelGlyph.download,
+                            size: 42,
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                          const SizedBox(height: 24),
+                          Text(
+                            l10n.downloadsEmptyTitle,
+                            textAlign: TextAlign.center,
+                            style: theme.textTheme.headlineSmall,
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            l10n.downloadsEmpty,
+                            textAlign: TextAlign.center,
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+                          OutlinedButton(
+                            key: const Key('downloads_browse_catalog'),
+                            onPressed: onBrowseCatalog,
+                            child: Text(l10n.commonBrowseCatalog),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ],
