@@ -8,16 +8,17 @@ The interface is in English and Russian. Online sources offer Russian dubs and s
 
 - **Catalog.** Popular titles, search, and filters by type, status, genre, season, rating and episode length. When signed in, covers show the title's status in your list.
 - **Title pages.** Details, description, dubs, related titles, characters with their own pages, and the Shikimori friends who have the title in their lists.
-- **Sources.** Online releases from AniLibria and yummy_anime, which serve them through several video hosts, and torrents from Nyaa through a public API mirror. You can add your own torrent to an anime, as a magnet link or a `.torrent` file.
+- **Sources.** Online releases from AniLibria, yummy_anime and AnimeJoy, and torrents from Nyaa through a public API mirror. AnimeJoy uses its own player and AllVideo; access to animejoy.ru may require a VPN. You can add your own torrent to an anime, as a magnet link or a `.torrent` file.
 - **Player.** mpv through `media_kit`, with the same full-screen controls on every platform:
   - audio and subtitle tracks, subtitle styling, playback speed and decoder choice;
   - a timeline divided by the file's chapters or by the opening and ending;
   - opening skip, based on chapters or [AniSkip](https://api.aniskip.com);
   - next-episode prompt and resume from the last position;
-  - on phones, swipe seeking, brightness control and a screen lock.
+  - on phones, swipe seeking, brightness control and a screen lock;
+  - on Windows, a resizable picture-in-picture window above other apps, without restarting playback.
 
   Torrents stream piece by piece, without downloading the whole file first.
-- **Downloads.** A compact poster gallery on phones and a selectable poster rail beside episodes on desktop (above them in narrow windows). A title keeps its name available while scrolling, and episode rows show playback position and total duration. Release headings carry the source and known video quality; Download status shows live transfer details and failure guidance. Open the anime page from the title menu, queue remaining episodes, watch completed files or remove downloads. Torrent and online downloads resume after a pause, an error or an app restart. Open Storage from the library's More menu to inspect or clear the stream cache.
+- **Downloads.** A compact poster gallery on phones and a selectable poster rail beside episodes on desktop (above them in narrow windows). An empty library explains offline viewing and opens the catalog. A title keeps its name available while scrolling, and episode rows show playback position and total duration. Release headings carry the source and known video quality; Download status shows live transfer details and failure guidance. Open the anime page from the title menu, queue remaining episodes, watch completed files or remove downloads. Torrent and online downloads resume after a pause, an error or an app restart. Open Storage from the library's More menu to inspect or clear the stream cache.
 - **Shikimori account.** Status, score and episode count for any title. Finishing an episode updates the count in your list, and episodes counted there show as watched on every device.
 - **Updates.** On Android and Windows the app checks this repository's latest release and offers it when it is newer.
 

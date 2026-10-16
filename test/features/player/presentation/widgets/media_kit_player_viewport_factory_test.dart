@@ -1187,11 +1187,11 @@ void main() {
       ..emitPosition(const Duration(seconds: 30));
     await _deliverPlayerEvent(tester);
     await _deliverPlayerEvent(tester);
-    expect(engine.timeline.value.map((part) => part.title), [
-      'Part A',
-      'Part B',
-      'ED',
-    ], reason: 'the chapters are read');
+    expect(
+      engine.timeline.value.map((part) => part.title),
+      ['Part A', 'Part B', 'ED'],
+      reason: 'the chapters are read',
+    );
     engine.useSkipTimes(const [
       PlayerSkipSegment(
         kind: PlayerSkipKind.opening,

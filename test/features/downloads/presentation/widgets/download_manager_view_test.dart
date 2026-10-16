@@ -94,6 +94,7 @@ void main() {
     testWidgets('download manager empty state fits on ${entry.key}', (
       tester,
     ) async {
+      final semantics = tester.ensureSemantics();
       setTestWindowSize(tester, entry.value);
 
       await _pumpApp(
@@ -115,6 +116,13 @@ void main() {
         findsOneWidget,
       );
       expect(find.text('No downloads yet'), findsOneWidget);
+      expect(
+        tester
+            .getSemantics(find.text('No downloads yet'))
+            .flagsCollection
+            .isHeader,
+        isTrue,
+      );
       expect(find.text('0 titles'), findsNothing);
       expect(find.byType(SegmentedRule), findsNothing);
       expect(find.text('Browse the catalog'), findsOneWidget);
@@ -124,6 +132,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byKey(const Key('download_storage_dialog')), findsOneWidget);
       expect(tester.takeException(), isNull);
+      semantics.dispose();
     });
 
     testWidgets('download selection keeps to the page frame on ${entry.key}', (

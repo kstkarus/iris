@@ -4,6 +4,21 @@ Notable changes to iris, newest first. The format follows [Keep a Changelog](htt
 
 ## [Unreleased]
 
+## [1.4.4] - 2026-10-16
+
+### Added
+
+- AnimeJoy online sources, matched by Shikimori ID, with its own player and AllVideo in the existing player and offline downloads. The two mirrors share one episode list; embedded ads and other players are ignored.
+- Picture in picture on Windows: the player becomes a small, borderless, resizable window above other apps, with play/pause and a way back to the previous window. It stays inside the monitor's work area when moved. Closing picture in picture returns to the previous window and pauses playback.
+
+### Changed
+
+- Empty Downloads shows a centred explanation of offline viewing and an Open catalog button on phones and desktop. The redundant zero-title counter and divider are removed; storage remains available in More.
+
+### Fixed
+
+- Local playback no longer shows a constant zero download speed or torrent peer count. Decoder and memory details remain available in Technical details.
+
 ## [1.4.3] - 2026-10-16
 
 ### Changed
@@ -158,7 +173,8 @@ First published release.
 - Update notice on Android and Windows when a newer release is published.
 - App icon.
 
-[Unreleased]: https://github.com/kstkarus/iris/compare/v1.4.3...HEAD
+[Unreleased]: https://github.com/kstkarus/iris/compare/v1.4.4...HEAD
+[1.4.4]: https://github.com/kstkarus/iris/compare/v1.4.3...v1.4.4
 [1.4.3]: https://github.com/kstkarus/iris/compare/v1.4.2...v1.4.3
 [1.4.2]: https://github.com/kstkarus/iris/compare/v1.4.1...v1.4.2
 [1.4.1]: https://github.com/kstkarus/iris/compare/v1.4.0...v1.4.1

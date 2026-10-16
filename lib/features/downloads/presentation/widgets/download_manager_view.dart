@@ -258,10 +258,13 @@ class _EmptyLibrary extends StatelessWidget {
                             color: theme.colorScheme.onSurfaceVariant,
                           ),
                           const SizedBox(height: 24),
-                          Text(
-                            l10n.downloadsEmptyTitle,
-                            textAlign: TextAlign.center,
-                            style: theme.textTheme.headlineSmall,
+                          Semantics(
+                            header: true,
+                            child: Text(
+                              l10n.downloadsEmptyTitle,
+                              textAlign: TextAlign.center,
+                              style: theme.textTheme.headlineSmall,
+                            ),
                           ),
                           const SizedBox(height: 12),
                           Text(
