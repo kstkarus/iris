@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -9,6 +10,7 @@ import 'package:iris/features/downloads/data/adapters/download_foreground_servic
 import 'package:iris/features/downloads/data/adapters/libtorrent_download_engine_adapter.dart';
 import 'package:iris/features/downloads/data/adapters/online_episode_downloader.dart';
 import 'package:iris/features/downloads/data/datasources/download_registry_data_source.dart';
+import 'package:iris/features/downloads/data/models/download_item_model.dart';
 import 'package:iris/features/downloads/data/repositories/downloads_repository_impl.dart';
 import 'package:iris/features/downloads/domain/entities/download_failure.dart';
 import 'package:iris/features/downloads/domain/entities/download_item.dart';
@@ -192,6 +194,117 @@ void main() {
       final restored = await latest(item.id);
       expect(restored.quality, 1080);
       expect(restored.videoHeight, 720);
+    },
+  );
+
+  test(
+    'restores a completed online episode after the support root moves',
+    () async {
+      const id = 'restored-online';
+      final oldDownloadsDirectory = path.join(
+        temporaryDirectory.path,
+        'old-support',
+        'downloads',
+      );
+      final item = DownloadItem(
+        id: id,
+        animeId: '52991',
+        animeTitle: 'Frieren',
+        sourceTitle: 'AniLibria',
+        magnet: _link,
+        fileIndex: 2,
+        fileName: '02 «Title»',
+        relativePath: 'episode.ts',
+        localPath: path.join(
+          oldDownloadsDirectory,
+          'content',
+          id,
+          'episode.ts',
+        ),
+        totalBytes: 5,
+        downloadedBytes: 5,
+        downloadRateBytesPerSecond: 0,
+        peers: 0,
+        status: DownloadStatus.completed,
+        createdAt: DateTime.utc(2026, 10, 12),
+        completedAt: DateTime.utc(2026, 10, 12, 12),
+      );
+      await repository.close();
+
+      downloadsDirectory = Directory(
+        path.join(temporaryDirectory.path, 'new-support', 'downloads'),
+      );
+      final file = File(
+        path.join(downloadsDirectory.path, 'content', id, 'episode.ts'),
+      );
+      await file.parent.create(recursive: true);
+      await file.writeAsString('video');
+
+      final registryFile = File(
+        path.join(temporaryDirectory.path, 'registry.json'),
+      );
+      final legacyJson = DownloadItemModel.toJson(item)
+        ..['localPath'] = item.localPath;
+      await registryFile.writeAsString(jsonEncode([legacyJson]));
+      repository = DownloadsRepositoryImpl(
+        engine: _UnusedEngine(),
+        registry: DownloadRegistryDataSource(registryFile: registryFile),
+        downloadsDirectory: downloadsDirectory,
+        foregroundService: foregroundService,
+        storageUsageAdapter: const _FakeStorageUsageAdapter(),
+        onlineDownloader: online,
+      );
+
+      final restored = await latest(id);
+      expect(restored.status, DownloadStatus.completed);
+      expect(restored.localPath, file.path);
+      expect(await repository.findCompletedById(id: id), restored);
+    },
+  );
+
+  test(
+    'a pending online episode with no relative path uses its item directory',
+    () async {
+      const id = 'pending-online';
+      final item = DownloadItem(
+        id: id,
+        animeId: '52991',
+        animeTitle: 'Frieren',
+        sourceTitle: 'AniLibria',
+        magnet: _link,
+        fileIndex: 2,
+        fileName: '02 «Title»',
+        relativePath: '',
+        localPath: '',
+        totalBytes: 0,
+        downloadedBytes: 0,
+        downloadRateBytesPerSecond: 0,
+        peers: 0,
+        status: DownloadStatus.queued,
+        createdAt: DateTime.utc(2026, 10, 12),
+      );
+      final registryFile = File(
+        path.join(temporaryDirectory.path, 'registry.json'),
+      );
+      await DownloadRegistryDataSource(
+        registryFile: registryFile,
+      ).writeDownloads([item]);
+
+      await repository.restore();
+      await _waitFor(() => online.tasks.isNotEmpty);
+
+      final itemDirectory = Directory(
+        path.join(downloadsDirectory.path, 'content', id),
+      );
+      final restored = await latest(id);
+      expect(restored.relativePath, isEmpty);
+      expect(restored.localPath, itemDirectory.path);
+      expect(online.tasks.single.directory.path, itemDirectory.path);
+      final persisted =
+          (jsonDecode(await registryFile.readAsString()) as List<Object?>)
+                  .single!
+              as Map<String, Object?>;
+      expect(persisted.containsKey('localPath'), isFalse);
     },
   );
 

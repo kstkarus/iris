@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -8,6 +9,7 @@ import 'package:iris/features/downloads/data/adapters/app_storage_usage_adapter.
 import 'package:iris/features/downloads/data/adapters/download_foreground_service_adapter.dart';
 import 'package:iris/features/downloads/data/adapters/libtorrent_download_engine_adapter.dart';
 import 'package:iris/features/downloads/data/datasources/download_registry_data_source.dart';
+import 'package:iris/features/downloads/data/models/download_item_model.dart';
 import 'package:iris/features/downloads/data/repositories/downloads_repository_impl.dart';
 import 'package:iris/features/downloads/domain/entities/download_item.dart';
 import 'package:iris/features/downloads/domain/entities/download_status.dart';
@@ -472,6 +474,69 @@ void main() {
   });
 
   test(
+    'restores a nested completed torrent after the support root moves',
+    () async {
+      const id = 'restored-torrent';
+      final relativePath = path.join('release', 'episode.mkv');
+      final oldDownloadsDirectory = path.join(
+        temporaryDirectory.path,
+        'old-support',
+        'downloads',
+      );
+      final item = _savedDownload(id: id).copyWith(
+        relativePath: relativePath,
+        localPath: path.join(
+          oldDownloadsDirectory,
+          'content',
+          id,
+          relativePath,
+        ),
+        downloadedBytes: 100,
+        status: DownloadStatus.completed,
+        completedAt: DateTime.utc(2026, 7, 11, 12),
+      );
+      await repository.close();
+      repositoryClosed = true;
+
+      downloadsDirectory = Directory(
+        path.join(temporaryDirectory.path, 'new-support', 'downloads'),
+      );
+      final file = File(
+        path.join(downloadsDirectory.path, 'content', id, relativePath),
+      );
+      await file.parent.create(recursive: true);
+      await file.writeAsBytes(List.filled(item.totalBytes, 1));
+
+      final registryFile = File(
+        path.join(temporaryDirectory.path, 'registry.json'),
+      );
+      final legacyJson = DownloadItemModel.toJson(item)
+        ..['localPath'] = item.localPath;
+      await registryFile.writeAsString(jsonEncode([legacyJson]));
+      registry = DownloadRegistryDataSource(registryFile: registryFile);
+      repository = DownloadsRepositoryImpl(
+        engine: engine,
+        registry: registry,
+        downloadsDirectory: downloadsDirectory,
+        foregroundService: foregroundService,
+        storageUsageAdapter: const _FakeStorageUsageAdapter(),
+        activityRegistry: activityRegistry,
+      );
+      repositoryClosed = false;
+
+      final restored = await repository.currentDownloads();
+      expect(restored.single.status, DownloadStatus.completed);
+      expect(restored.single.localPath, file.path);
+      expect(await repository.findCompletedById(id: id), restored.single);
+      final persisted =
+          (jsonDecode(await registryFile.readAsString()) as List<Object?>)
+                  .single!
+              as Map<String, Object?>;
+      expect(persisted.containsKey('localPath'), isFalse);
+    },
+  );
+
+  test(
     'pause preserves partial files and resume starts the item again',
     () async {
       final source = await repository.prepareSource(magnet: _magnet);
@@ -503,6 +568,158 @@ void main() {
         DownloadStatus.downloading,
       );
       expect(engine.addCalls.last.id, isNot(firstTorrentId));
+    },
+  );
+
+  test(
+    'restored paused and failed torrents keep progress and resume under the current root',
+    () async {
+      const pausedId = 'paused-torrent';
+      const failedId = 'failed-torrent';
+      final oldDownloadsDirectory = path.join(
+        temporaryDirectory.path,
+        'old-support',
+        'downloads',
+      );
+      final paused = _savedDownload(id: pausedId).copyWith(
+        relativePath: path.join('release', 'episode-01.mkv'),
+        localPath: path.join(
+          oldDownloadsDirectory,
+          'content',
+          pausedId,
+          'release',
+          'episode-01.mkv',
+        ),
+        downloadedBytes: 40,
+      );
+      final failed = _savedDownload(id: failedId, fileIndex: 2).copyWith(
+        relativePath: path.join('release', 'episode-02.mp4'),
+        localPath: path.join(
+          oldDownloadsDirectory,
+          'content',
+          failedId,
+          'release',
+          'episode-02.mp4',
+        ),
+        downloadedBytes: 60,
+        status: DownloadStatus.failed,
+        errorMessage: 'Torrent download failed.',
+      );
+      await repository.close();
+      repositoryClosed = true;
+
+      downloadsDirectory = Directory(
+        path.join(temporaryDirectory.path, 'new-support', 'downloads'),
+      );
+      for (final item in [paused, failed]) {
+        final file = File(
+          path.join(
+            downloadsDirectory.path,
+            'content',
+            item.id,
+            item.relativePath,
+          ),
+        );
+        await file.parent.create(recursive: true);
+        await file.writeAsBytes([1, 2]);
+      }
+
+      final registryFile = File(
+        path.join(temporaryDirectory.path, 'registry.json'),
+      );
+      await registryFile.writeAsString(
+        jsonEncode([
+          for (final item in [paused, failed])
+            DownloadItemModel.toJson(item)..['localPath'] = item.localPath,
+        ]),
+      );
+      registry = DownloadRegistryDataSource(registryFile: registryFile);
+      repository = DownloadsRepositoryImpl(
+        engine: engine,
+        registry: registry,
+        downloadsDirectory: downloadsDirectory,
+        foregroundService: foregroundService,
+        storageUsageAdapter: const _FakeStorageUsageAdapter(),
+        activityRegistry: activityRegistry,
+      );
+      repositoryClosed = false;
+
+      final restored = await repository.currentDownloads();
+      final restoredPaused = restored.firstWhere((item) => item.id == pausedId);
+      final restoredFailed = restored.firstWhere((item) => item.id == failedId);
+      final pausedPath = path.join(
+        downloadsDirectory.path,
+        'content',
+        pausedId,
+        paused.relativePath,
+      );
+      final failedPath = path.join(
+        downloadsDirectory.path,
+        'content',
+        failedId,
+        failed.relativePath,
+      );
+      expect(restoredPaused.status, DownloadStatus.paused);
+      expect(restoredPaused.downloadedBytes, 40);
+      expect(restoredPaused.localPath, pausedPath);
+      expect(await File(pausedPath).exists(), isTrue);
+      expect(restoredFailed.status, DownloadStatus.failed);
+      expect(restoredFailed.downloadedBytes, 60);
+      expect(restoredFailed.localPath, failedPath);
+      expect(await File(failedPath).exists(), isTrue);
+
+      await repository.resume(id: pausedId);
+      await _waitFor(() => engine.priorityCalls.length == 1);
+      expect(
+        engine.addCalls.last.savePath,
+        path.join(downloadsDirectory.path, 'content', pausedId),
+      );
+      engine.emit({engine.addCalls.last.id: _torrent(isFinished: true)});
+      await repository
+          .watchDownloads()
+          .firstWhere(
+            (items) => items.any(
+              (item) =>
+                  item.id == pausedId &&
+                  item.status == DownloadStatus.completed,
+            ),
+          )
+          .timeout(const Duration(seconds: 2));
+      expect(
+        (await repository.currentDownloads())
+            .firstWhere((item) => item.id == pausedId)
+            .localPath,
+        pausedPath,
+      );
+
+      await repository.retry(id: failedId);
+      await _waitFor(() => engine.priorityCalls.length == 2);
+      expect(
+        engine.addCalls.last.savePath,
+        path.join(downloadsDirectory.path, 'content', failedId),
+      );
+      expect(
+        (await repository.currentDownloads())
+            .firstWhere((item) => item.id == failedId)
+            .downloadedBytes,
+        60,
+      );
+      engine.emit({engine.addCalls.last.id: _torrent(isFinished: true)});
+      await repository
+          .watchDownloads()
+          .firstWhere(
+            (items) => items.any(
+              (item) =>
+                  item.id == failedId &&
+                  item.status == DownloadStatus.completed,
+            ),
+          )
+          .timeout(const Duration(seconds: 2));
+      final completedFailed = (await repository.currentDownloads()).firstWhere(
+        (item) => item.id == failedId,
+      );
+      expect(completedFailed.localPath, failedPath);
+      expect(completedFailed.downloadedBytes, completedFailed.totalBytes);
     },
   );
 

@@ -4,6 +4,10 @@ Notable changes to iris, newest first. The format follows [Keep a Changelog](htt
 
 ## [Unreleased]
 
+### Fixed
+
+- Downloads keep their files available when an iOS update or restore changes the app's data-container path. Existing records resolve their relative paths against the current app directory, preserving completed files and resumable progress.
+
 ## [1.4.4] - 2026-10-16
 
 ### Added

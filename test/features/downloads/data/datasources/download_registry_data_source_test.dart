@@ -1,8 +1,10 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:iris/features/downloads/data/datasources/download_registry_data_source.dart';
+import 'package:iris/features/downloads/data/models/download_item_model.dart';
 import 'package:iris/features/downloads/domain/entities/download_item.dart';
 import 'package:iris/features/downloads/domain/entities/download_status.dart';
 
@@ -34,9 +36,15 @@ void main() {
   test('writes and restores domain items', () async {
     final item = _createItem();
 
-    await dataSource.writeDownloads([item]);
+    await dataSource.writeDownloads([
+      item.copyWith(localPath: '/old-container/episode.mkv'),
+    ]);
 
     expect(await dataSource.readDownloads(), [item]);
+    expect(
+      (jsonDecode(await registryFile.readAsString()) as List).single,
+      isNot(contains('localPath')),
+    );
     expect(await File('${registryFile.path}.tmp').exists(), isFalse);
     expect(await File('${registryFile.path}.bak').exists(), isFalse);
   });
@@ -93,6 +101,27 @@ void main() {
     await dataSource.writeDownloads([replacement]);
     expect(await dataSource.readDownloads(), [replacement]);
   });
+
+  test(
+    'keeps valid siblings and preserves records with unsafe paths',
+    () async {
+      final item = _createItem();
+      final valid = DownloadItemModel.toJson(item);
+      final contents = jsonEncode([
+        valid,
+        {...valid, 'id': '../outside'},
+        {...valid, 'relativePath': '../outside.mkv'},
+        {...valid, 'relativePath': r'C:\outside.mkv'},
+      ]);
+      await registryFile.writeAsString(contents);
+
+      expect(await dataSource.readDownloads(), [item]);
+      expect(
+        await File('${registryFile.path}.corrupt').readAsString(),
+        contents,
+      );
+    },
+  );
 }
 
 DownloadItem _createItem() {
@@ -105,7 +134,7 @@ DownloadItem _createItem() {
     fileIndex: 1,
     fileName: 'episode-01.mkv',
     relativePath: 'release/episode-01.mkv',
-    localPath: '/downloads/hash/episode-01.mkv',
+    localPath: '',
     totalBytes: 1024,
     downloadedBytes: 512,
     downloadRateBytesPerSecond: 128,

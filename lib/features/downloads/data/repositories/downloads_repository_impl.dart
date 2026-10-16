@@ -505,16 +505,20 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
     final restored = await _registry.readDownloads();
     final reconciled = <DownloadItem>[];
     for (final item in restored) {
-      // TODO(ios): `localPath` is stored absolute. iOS may move the app's
-      // data container (its path holds a UUID) on an update or a restore,
-      // and then every completed download reads as missing here although
-      // its file is still under the new support directory. Untested on a
-      // device; a fix would rebuild the path from `_downloadDirectory(id)`
-      // and the stored file name instead of trusting the absolute one.
+      // iOS may relocate the data container on update. The relative path
+      // survives, including torrent subfolders and an online item's empty
+      // path while its output file is not known yet.
+      final directory = _downloadDirectory(item.id).path;
+      final localPath = path.normalize(path.join(directory, item.relativePath));
+      if (!_isInsideDownloadsRoot(directory) ||
+          !_isWithin(directory, localPath)) {
+        throw const FormatException('Download path leaves its directory.');
+      }
+      final current = item.copyWith(localPath: localPath);
       final fileExists =
-          item.status == DownloadStatus.completed &&
-          await File(item.localPath).exists();
-      reconciled.add(_reconcileOnRestore(item, fileExists: fileExists));
+          current.status == DownloadStatus.completed &&
+          await File(current.localPath).exists();
+      reconciled.add(_reconcileOnRestore(current, fileExists: fileExists));
     }
     _downloads = reconciled;
     _restored = true;

@@ -1,3 +1,5 @@
+import 'package:path/path.dart' as path;
+
 import 'package:iris/features/downloads/domain/entities/download_item.dart';
 import 'package:iris/features/downloads/domain/entities/download_status.dart';
 
@@ -15,7 +17,6 @@ abstract final class DownloadItemModel {
       'fileIndex': item.fileIndex,
       'fileName': item.fileName,
       'relativePath': item.relativePath,
-      'localPath': item.localPath,
       'totalBytes': item.totalBytes,
       'downloadedBytes': item.downloadedBytes,
       'downloadRateBytesPerSecond': item.downloadRateBytesPerSecond,
@@ -30,16 +31,42 @@ abstract final class DownloadItemModel {
   }
 
   static DownloadItem fromJson(Map<String, Object?> json) {
+    final id = _readString(json, 'id');
+    final relativePath = _readString(json, 'relativePath');
+    final drivePrefix = RegExp(r'^[a-zA-Z]:');
+    final invalidId =
+        id.isEmpty ||
+        id == '.' ||
+        id == '..' ||
+        id.contains('/') ||
+        id.contains('\\') ||
+        id.contains('\u0000') ||
+        drivePrefix.hasMatch(id) ||
+        path.windows.rootPrefix(id).isNotEmpty;
+    final invalidRelativePath =
+        relativePath.contains('\u0000') ||
+        drivePrefix.hasMatch(relativePath) ||
+        [path.posix, path.windows].any(
+          (context) =>
+              context.rootPrefix(relativePath).isNotEmpty ||
+              context.split(context.normalize(relativePath)).firstOrNull ==
+                  '..',
+        );
+    if (invalidId || invalidRelativePath) {
+      throw const FormatException('Download path leaves its directory.');
+    }
     return DownloadItem(
-      id: _readString(json, 'id'),
+      id: id,
       animeId: _readString(json, 'animeId'),
       animeTitle: _readString(json, 'animeTitle'),
       sourceTitle: _readString(json, 'sourceTitle'),
       magnet: _readString(json, 'magnet'),
       fileIndex: _readInt(json, 'fileIndex'),
       fileName: _readString(json, 'fileName'),
-      relativePath: _readString(json, 'relativePath'),
-      localPath: _readString(json, 'localPath'),
+      relativePath: relativePath,
+      // Older registries contain this field. Restore rebuilds it from the
+      // current support directory before exposing the download.
+      localPath: _readOptionalString(json, 'localPath'),
       totalBytes: _readInt(json, 'totalBytes'),
       downloadedBytes: _readInt(json, 'downloadedBytes'),
       downloadRateBytesPerSecond: _readInt(json, 'downloadRateBytesPerSecond'),

@@ -38,7 +38,11 @@ class DownloadItem {
   final String magnet;
   final int fileIndex;
   final String fileName;
+
+  /// Within this item's download directory; empty until online output is known.
   final String relativePath;
+
+  /// Current absolute path, rebuilt on restore rather than persisted.
   final String localPath;
   final int totalBytes;
   final int downloadedBytes;
