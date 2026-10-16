@@ -1,0 +1,27 @@
+name: iOS Build Check
+
+on:
+  push:
+    branches: [codex/ios-build-check]
+
+permissions:
+  contents: read
+
+jobs:
+  ios:
+    runs-on: macos-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: '3.47.4'
+          cache: true
+      - name: Toolchain versions
+        run: |
+          xcodebuild -version
+          pod --version
+      - run: flutter pub get
+      - name: Build unsigned iOS device release
+        run: flutter build ios --release --no-codesign --dart-define-from-file=config/shikimori.example.json
