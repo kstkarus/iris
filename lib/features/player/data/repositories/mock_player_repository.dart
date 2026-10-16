@@ -64,6 +64,7 @@ class MockPlayerRepository implements PlayerRepository {
         bufferSeconds: 16,
         bufferPieces: 22,
         readaheadWindow: 30,
+        isTorrent: true,
       ),
     );
   }

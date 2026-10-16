@@ -152,7 +152,7 @@ class PlayerPlaybackStatsIndicator extends StatelessWidget {
   List<_PlayerOverlayMetricItem> _buildMetrics(AppLocalizations l10n) {
     final stats = this.stats;
     final items = <_PlayerOverlayMetricItem>[
-      if (stats != null) ...[
+      if (stats != null && stats.isTorrent) ...[
         _PlayerOverlayMetricItem(
           value: formatTransferRate(l10n, stats.downloadRateBytesPerSecond),
           kind: _Metric.speed,
@@ -169,7 +169,7 @@ class PlayerPlaybackStatsIndicator extends StatelessWidget {
       ],
     ];
 
-    final bufferedWindowProgress = stats == null
+    final bufferedWindowProgress = stats == null || !stats.isTorrent
         ? 0.0
         : _resolveBufferedWindowProgress(stats);
     if (stats != null && bufferedWindowProgress > 0) {

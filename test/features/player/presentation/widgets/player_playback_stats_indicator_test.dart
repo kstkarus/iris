@@ -10,6 +10,47 @@ import 'package:iris/shared/widgets/segmented_bar.dart';
 import '../../../../helpers/test_app.dart';
 
 void main() {
+  testWidgets(
+    'local files show no transport metrics and retain technical details',
+    (tester) async {
+      for (final detailed in [false, true]) {
+        await tester.pumpWidget(
+          _wrap(
+            child: PlayerPlaybackStatsIndicator(
+              stats: const PlayerPlaybackStats(
+                downloadRateBytesPerSecond: 0,
+                appMemoryBytes: 268435456,
+                activePeers: 0,
+                bufferSeconds: 0,
+                bufferPieces: 0,
+                readaheadWindow: 0,
+              ),
+              diagnostics: const PlayerPlaybackDiagnostics(
+                hwdecCurrent: 'd3d11va',
+              ),
+              detailed: detailed,
+              immersive: true,
+            ),
+          ),
+        );
+
+        expect(find.textContaining('/s'), findsNothing);
+        expect(
+          find.text('0'),
+          findsNothing,
+          reason: 'a local file has no peers',
+        );
+        expect(find.byKey(const Key('player_stats_buffer_bar')), findsNothing);
+        expect(find.text('256 MB'), detailed ? findsOneWidget : findsNothing);
+        expect(find.text('d3d11va'), detailed ? findsOneWidget : findsNothing);
+        expect(
+          find.byKey(const Key('player_stats_readout')),
+          detailed ? findsOneWidget : findsNothing,
+        );
+      }
+    },
+  );
+
   testWidgets('renders speed and memory when both are available', (
     tester,
   ) async {
@@ -23,6 +64,7 @@ void main() {
             bufferSeconds: 18,
             bufferPieces: 24,
             readaheadWindow: 32,
+            isTorrent: true,
           ),
         ),
       ),
@@ -43,6 +85,7 @@ void main() {
       bufferSeconds: 4,
       bufferPieces: 6,
       readaheadWindow: 20,
+      isTorrent: true,
     );
     await tester.pumpWidget(
       _wrap(
@@ -81,6 +124,7 @@ void main() {
             bufferSeconds: 4,
             bufferPieces: 6,
             readaheadWindow: 20,
+            isTorrent: true,
           ),
         ),
       ),
@@ -111,6 +155,7 @@ void main() {
       bufferSeconds: 12,
       bufferPieces: 18,
       readaheadWindow: 30,
+      isTorrent: true,
     );
     await tester.pump();
 
@@ -135,6 +180,7 @@ void main() {
               bufferSeconds: 12,
               bufferPieces: 18,
               readaheadWindow: 30,
+              isTorrent: true,
             ),
             videoCodec: 'AV1',
             audioCodec: 'Opus',
@@ -177,6 +223,7 @@ void main() {
               bufferSeconds: 18,
               bufferPieces: 24,
               readaheadWindow: 32,
+              isTorrent: true,
             ),
             videoCodec: 'H.265 / HEVC Main 10',
             audioCodec: 'Opus 5.1 Surround',
@@ -233,6 +280,7 @@ void main() {
             bufferSeconds: 0,
             bufferPieces: 0,
             readaheadWindow: 32,
+            isTorrent: true,
           ),
         ),
       ),
