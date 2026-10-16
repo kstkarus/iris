@@ -10,7 +10,6 @@ import 'package:iris/features/downloads/domain/entities/download_item.dart';
 import 'package:iris/features/downloads/domain/entities/download_status.dart';
 import 'package:iris/features/downloads/domain/entities/download_title.dart';
 import 'package:iris/entities/watch_progress/presentation/watch_progress_cubit.dart';
-import 'package:iris/entities/watch_progress/presentation/watch_progress_line.dart';
 import 'package:iris/shared/utils/duration_formatter.dart';
 import 'package:iris/shared/online/online_source_link.dart';
 import 'package:iris/features/downloads/domain/entities/download_storage_usage.dart';
@@ -38,6 +37,7 @@ class DownloadManagerView extends StatefulWidget {
     required this.onWatch,
     required this.onBrowseCatalog,
     required this.onOpenTitle,
+    this.onOpenAnime,
     this.titleKey,
     this.onTitleDeleted,
     super.key,
@@ -45,6 +45,7 @@ class DownloadManagerView extends StatefulWidget {
 
   final ValueChanged<DownloadItem> onWatch;
   final ValueChanged<DownloadTitle> onOpenTitle;
+  final ValueChanged<DownloadTitle>? onOpenAnime;
   final String? titleKey;
   final VoidCallback? onTitleDeleted;
 
@@ -86,6 +87,7 @@ class _DownloadManagerViewState extends State<DownloadManagerView> {
             downloads: title?.items ?? const [],
             onWatch: widget.onWatch,
             title: title,
+            onOpenAnime: widget.onOpenAnime,
             onTitleDeleted: widget.onTitleDeleted,
           );
         }
@@ -93,7 +95,11 @@ class _DownloadManagerViewState extends State<DownloadManagerView> {
           return _EmptyLibrary(onBrowseCatalog: widget.onBrowseCatalog);
         }
         if (isDesktopPlatform) {
-          return _DesktopLibrary(titles: titles, onWatch: widget.onWatch);
+          return _DesktopLibrary(
+            titles: titles,
+            onWatch: widget.onWatch,
+            onOpenAnime: widget.onOpenAnime,
+          );
         }
         return DownloadLibraryGallery(
           titles: titles,
@@ -256,9 +262,14 @@ class _EmptyLibrary extends StatelessWidget {
 }
 
 class _DesktopLibrary extends StatefulWidget {
-  const _DesktopLibrary({required this.titles, required this.onWatch});
+  const _DesktopLibrary({
+    required this.titles,
+    required this.onWatch,
+    this.onOpenAnime,
+  });
   final List<DownloadTitle> titles;
   final ValueChanged<DownloadItem> onWatch;
+  final ValueChanged<DownloadTitle>? onOpenAnime;
 
   @override
   State<_DesktopLibrary> createState() => _DesktopLibraryState();
@@ -296,6 +307,7 @@ class _DesktopLibraryState extends State<_DesktopLibrary> {
             title: selected,
             downloads: selected.items,
             onWatch: widget.onWatch,
+            onOpenAnime: widget.onOpenAnime,
             desktop: true,
           ),
         );
@@ -359,10 +371,12 @@ class _DownloadsMenu extends StatefulWidget {
   const _DownloadsMenu({
     this.title,
     this.onTitleDeleted,
+    this.onOpenAnime,
     this.showStorage = false,
   });
   final DownloadTitle? title;
   final VoidCallback? onTitleDeleted;
+  final ValueChanged<DownloadTitle>? onOpenAnime;
   final bool showStorage;
 
   @override
@@ -376,17 +390,26 @@ class _DownloadsMenuState extends State<_DownloadsMenu> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final title = widget.title;
+    final canOpenAnime =
+        title != null &&
+        widget.onOpenAnime != null &&
+        title.items.any((item) => item.animeId.isNotEmpty);
+    if (title != null &&
+        !canOpenAnime &&
+        title.items.length == 1 &&
+        !widget.showStorage) {
+      return const SizedBox.shrink();
+    }
     return RowMenuButton(
       key: Key(title == null ? 'download_library_menu' : 'download_title_menu'),
       controller: _controller,
       tooltip: l10n.commonMoreActions,
       menuChildren: [
-        if (title != null)
+        if (canOpenAnime)
           MenuItemButton(
-            key: const Key('download_title_information'),
-            onPressed: () =>
-                _showDownloadInformation(context, titleKey: title.key),
-            child: Text(l10n.downloadInformationAction),
+            key: const Key('download_title_open_anime'),
+            onPressed: () => widget.onOpenAnime?.call(title),
+            child: Text(l10n.downloadOpenAnime),
           ),
         if (title != null && title.items.length > 1)
           MenuItemButton(
@@ -447,106 +470,70 @@ Future<void> _showStorage(BuildContext context) async {
   );
 }
 
-Future<void> _showDownloadInformation(
+Future<void> _showDownloadStatus(
   BuildContext context, {
-  String? itemId,
-  String? titleKey,
+  required String itemId,
 }) async {
-  assert((itemId == null) != (titleKey == null));
   final cubit = context.read<DownloadManagerCubit>();
-  final watchCubit = context.read<WatchProgressCubit?>();
   await showDialog<void>(
     context: context,
-    builder: (context) {
-      Widget dialog = _DownloadInformationDialog(
-        itemId: itemId,
-        titleKey: titleKey,
-      );
-      if (watchCubit != null) {
-        dialog = BlocProvider<WatchProgressCubit>.value(
-          value: watchCubit,
-          child: dialog,
-        );
-      }
-      return BlocProvider<DownloadManagerCubit>.value(
-        value: cubit,
-        child: dialog,
-      );
-    },
+    builder: (context) => BlocProvider<DownloadManagerCubit>.value(
+      value: cubit,
+      child: _DownloadStatusDialog(itemId: itemId),
+    ),
   );
 }
 
-class _DownloadInformationDialog extends StatelessWidget {
-  const _DownloadInformationDialog({this.itemId, this.titleKey});
+class _DownloadStatusDialog extends StatelessWidget {
+  const _DownloadStatusDialog({required this.itemId});
 
-  final String? itemId;
-  final String? titleKey;
+  final String itemId;
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     return AlertDialog(
-      key: const Key('download_information_dialog'),
+      key: const Key('download_status_dialog'),
       scrollable: true,
-      title: Text(l10n.downloadInformation),
+      title: Text(l10n.downloadStatusDetails),
       content: SizedBox(
         width: 560,
         child: BlocBuilder<DownloadManagerCubit, DownloadManagerState>(
           builder: (context, state) {
-            final items = itemId != null
-                ? state.downloads.where((item) => item.id == itemId).toList()
-                : state.downloads
-                      .where((item) => downloadTitleKey(item) == titleKey)
-                      .toList();
-            final watched = context.watchWatchProgress();
-            if (items.isEmpty) return Text(l10n.downloadTitleEmpty);
-            final releases = _releases(items);
+            final item = state.downloads
+                .where((item) => item.id == itemId)
+                .firstOrNull;
+            if (item == null) return Text(l10n.downloadTitleEmpty);
+            final number = episodeNumberFromFileName(item.fileName);
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                for (final release in releases) ...[
+                if (number != null) ...[
                   Text(
-                    release.first.sourceTitle,
-                    style: Theme.of(context).textTheme.labelLarge,
+                    l10n.downloadEpisodeLabel(
+                      number.toString().padLeft(2, '0'),
+                    ),
+                    style: Theme.of(context).textTheme.titleSmall,
                   ),
-                  for (final item in release) ...[
-                    const SizedBox(height: 8),
-                    Text(
-                      item.fileName,
-                      style: Theme.of(context).textTheme.titleSmall,
+                  const SizedBox(height: 8),
+                ],
+                Text(
+                  downloadStatusLabel(l10n, item.status),
+                  style: Theme.of(context).textTheme.labelLarge,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  _facts(l10n, item),
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+                if (item.failure case final failure?) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    _failureMessage(l10n, failure),
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.error,
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      _facts(l10n, item),
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                    if (item.failure case final failure?) ...[
-                      const SizedBox(height: 4),
-                      Text(
-                        _failureMessage(l10n, failure),
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(context).colorScheme.error,
-                        ),
-                      ),
-                    ],
-                    if (watched
-                            .where(
-                              (progress) =>
-                                  progress.torrentKey ==
-                                      sourceProgressKey(item.magnet) &&
-                                  progress.fileIndex == item.fileIndex,
-                            )
-                            .firstOrNull
-                        case final progress?) ...[
-                      const SizedBox(height: 8),
-                      WatchProgressLine(
-                        progress: progress,
-                        showBar: false,
-                        timesOnly: true,
-                      ),
-                    ],
-                  ],
-                  if (release != releases.last) const SizedBox(height: 20),
+                  ),
                 ],
               ],
             );
@@ -569,13 +556,16 @@ class _Episodes extends StatelessWidget {
     required this.onWatch,
     this.title,
     this.desktop = false,
+    this.onOpenAnime,
     this.onTitleDeleted,
     super.key,
   });
+
   final List<DownloadItem> downloads;
   final DownloadTitle? title;
   final ValueChanged<DownloadItem> onWatch;
   final bool desktop;
+  final ValueChanged<DownloadTitle>? onOpenAnime;
   final VoidCallback? onTitleDeleted;
 
   @override
@@ -584,34 +574,28 @@ class _Episodes extends StatelessWidget {
     final theme = Theme.of(context);
     final title = this.title;
     final releases = _releases(downloads);
-    final menu = title != null
+    final sharedHeights = {
+      for (final release in releases)
+        downloadSourceKey(release.first.magnet): _sharedReleaseHeight(release),
+    };
+    final canOpenAnime =
+        onOpenAnime != null &&
+        (title?.items.any((item) => item.animeId.isNotEmpty) ?? false);
+    final hasMenu =
+        title != null && (canOpenAnime || title.items.length > 1 || desktop);
+    final menu = hasMenu
         ? _DownloadsMenu(
             title: title,
             onTitleDeleted: onTitleDeleted,
+            onOpenAnime: onOpenAnime,
             showStorage: desktop,
           )
         : null;
-    return DitherList<(String, Widget)>(
+
+    Widget episodesList({Widget? header}) => DitherList<(String, Widget)>(
       key: ValueKey('download_episodes_list_${title?.key ?? ''}'),
       padding: const EdgeInsets.only(bottom: 32),
-      header: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          if (title != null) ...[
-            DownloadTitleIdentity(
-              title: title,
-              showPoster: !desktop,
-              trailing: desktop ? null : menu,
-            ),
-            SizedBox(height: desktop ? 24 : 28),
-          ],
-          SectionLabel(
-            l10n.playerEpisodesTitle,
-            trailing: desktop ? menu : null,
-          ),
-          SizedBox(height: desktop ? 8 : 12),
-        ],
-      ),
+      header: header,
       keyOf: (row) => row.$1,
       itemBuilder: (context, row) => row.$2,
       items: [
@@ -631,14 +615,17 @@ class _Episodes extends StatelessWidget {
           )
         else
           for (final release in releases) ...[
-            if (releases.length > 1)
-              (
-                'release:${downloadSourceKey(release.first.magnet)}',
-                Padding(
-                  padding: const EdgeInsets.only(top: 16, bottom: 16),
-                  child: _ReleaseFacts(item: release.first),
+            (
+              'release:${downloadSourceKey(release.first.magnet)}',
+              Padding(
+                padding: const EdgeInsets.only(top: 16, bottom: 16),
+                child: _ReleaseFacts(
+                  item: release.first,
+                  videoHeight:
+                      sharedHeights[downloadSourceKey(release.first.magnet)],
                 ),
               ),
+            ),
             for (final item in release)
               (
                 'file:${item.id}',
@@ -648,6 +635,13 @@ class _Episodes extends StatelessWidget {
                     _DownloadRow(
                       key: ValueKey(item.id),
                       item: item,
+                      videoHeight:
+                          sharedHeights[downloadSourceKey(
+                                release.first.magnet,
+                              )] ==
+                              null
+                          ? item.videoHeight
+                          : null,
                       onWatch: onWatch,
                     ),
                   ],
@@ -656,12 +650,20 @@ class _Episodes extends StatelessWidget {
           ],
       ],
     );
+
+    return DownloadAdaptiveTitleHeader(
+      title: title,
+      desktop: desktop,
+      menu: menu,
+      buildList: (header) => episodesList(header: header),
+    );
   }
 }
 
 class _ReleaseFacts extends StatelessWidget {
-  const _ReleaseFacts({required this.item});
+  const _ReleaseFacts({required this.item, this.videoHeight});
   final DownloadItem item;
+  final int? videoHeight;
 
   @override
   Widget build(BuildContext context) {
@@ -676,16 +678,38 @@ class _ReleaseFacts extends StatelessWidget {
         .replaceAll(RegExp(r'^\s*[·|—-]+|[·|—-]+\s*$'), '')
         .trim();
     if (label.isEmpty) label = item.sourceTitle;
-    final dot = item.fileName.lastIndexOf('.');
-    final extension = dot < 0 ? '' : item.fileName.substring(dot + 1);
+    label = label
+        .replaceAll(
+          RegExp(
+            r'\.(?:mp4|mkv|avi|mov|m4v|webm|ts|flv|wmv)$',
+            caseSensitive: false,
+          ),
+          '',
+        )
+        .trim();
+    final l10n = AppLocalizations.of(context);
     return Tooltip(
       message: item.sourceTitle,
-      child: Text(
-        [label, if (extension.isNotEmpty) extension].join(' · ').toUpperCase(),
-        style: Theme.of(context).textTheme.bodySmall,
+      child: Semantics(
+        header: true,
+        child: Text(
+          [
+            label.toUpperCase(),
+            if (videoHeight != null) l10n.onlineQualityHeight(videoHeight!),
+          ].join(' · '),
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
       ),
     );
   }
+}
+
+int? _sharedReleaseHeight(List<DownloadItem> release) {
+  if (release.isEmpty) return null;
+  final height = release.first.videoHeight;
+  return height != null && release.every((item) => item.videoHeight == height)
+      ? height
+      : null;
 }
 
 List<List<DownloadItem>> _releases(List<DownloadItem> downloads) {
@@ -700,10 +724,16 @@ List<List<DownloadItem>> _releases(List<DownloadItem> downloads) {
 /// status calls for, and the rest (delete) is in its menu, which a long
 /// press, a right click and the Delete key also reach.
 class _DownloadRow extends StatefulWidget {
-  const _DownloadRow({required this.item, required this.onWatch, super.key});
+  const _DownloadRow({
+    required this.item,
+    required this.onWatch,
+    this.videoHeight,
+    super.key,
+  });
 
   final DownloadItem item;
   final ValueChanged<DownloadItem> onWatch;
+  final int? videoHeight;
 
   @override
   State<_DownloadRow> createState() => _DownloadRowState();
@@ -725,6 +755,9 @@ class _DownloadRowState extends State<_DownloadRow> {
     final status = item.status;
     final completed = status == DownloadStatus.completed;
     final name = downloadName(l10n, item);
+    final episodeVideoHeight = widget.videoHeight == null
+        ? null
+        : l10n.onlineQualityHeight(widget.videoHeight!);
     final progress = item.progress;
     final failure = item.failure;
     final watchProgress = context
@@ -781,6 +814,8 @@ class _DownloadRowState extends State<_DownloadRow> {
     final summary = [
       name,
       statusLabel,
+      if (widget.videoHeight case final height?)
+        l10n.onlineQualityHeight(height),
       if (!completed && item.totalBytes > 0) '${(progress * 100).round()} %',
       if (failure != null) _failureMessage(l10n, failure),
       if (watchProgress != null)
@@ -834,16 +869,36 @@ class _DownloadRowState extends State<_DownloadRow> {
                         return Row(
                           children: [
                             Expanded(
-                              child: Tooltip(
-                                // Long press belongs to the row's actions menu.
-                                triggerMode: TooltipTriggerMode.manual,
-                                message: name,
-                                child: Text(
-                                  downloadEpisode(l10n, item),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: titleStyle,
-                                ),
+                              child: Row(
+                                children: [
+                                  Flexible(
+                                    fit: FlexFit.loose,
+                                    child: Tooltip(
+                                      // Long press belongs to the row's actions menu.
+                                      triggerMode: TooltipTriggerMode.manual,
+                                      message: name,
+                                      child: Text(
+                                        downloadEpisode(l10n, item),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: titleStyle,
+                                      ),
+                                    ),
+                                  ),
+                                  if (episodeVideoHeight != null) ...[
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      episodeVideoHeight,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: detailStyle?.copyWith(
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.onSurfaceVariant,
+                                      ),
+                                    ),
+                                  ],
+                                ],
                               ),
                             ),
                             if (inlineDetail != null) ...[
@@ -899,11 +954,19 @@ class _DownloadRowState extends State<_DownloadRow> {
                                           ).colorScheme.onSurfaceVariant,
                                         )
                                       : Text(
-                                          formatPlaybackPosition(
-                                            watchProgress.position,
-                                          ),
+                                          [
+                                            formatPlaybackPosition(
+                                              watchProgress.position,
+                                            ),
+                                            if (watchProgress.duration !=
+                                                Duration.zero)
+                                              formatPlaybackPosition(
+                                                watchProgress.duration,
+                                              ),
+                                          ].join(' / '),
                                           maxLines: 1,
                                           overflow: TextOverflow.ellipsis,
+                                          textAlign: TextAlign.end,
                                           style: detailStyle?.copyWith(
                                             color: Theme.of(
                                               context,
@@ -927,12 +990,13 @@ class _DownloadRowState extends State<_DownloadRow> {
                 onClose: () => _setMenuOpen(false),
                 alignmentOffset: const Offset(-176, 0),
                 menuChildren: [
-                  MenuItemButton(
-                    key: const Key('download_information'),
-                    onPressed: () =>
-                        _showDownloadInformation(context, itemId: item.id),
-                    child: Text(l10n.downloadInformationAction),
-                  ),
+                  if (!completed)
+                    MenuItemButton(
+                      key: const Key('download_status'),
+                      onPressed: () =>
+                          _showDownloadStatus(context, itemId: item.id),
+                      child: Text(l10n.downloadStatusDetails),
+                    ),
                   MenuItemButton(
                     key: const Key('download_delete'),
                     onPressed: () => _confirmDelete(context),
@@ -1087,11 +1151,7 @@ String _facts(AppLocalizations l10n, DownloadItem item) {
     ].join(' · '),
     _ => loaded.join(' / '),
   };
-  return [
-    facts,
-    if (item.quality case final quality?)
-      l10n.downloadSelectedQuality(l10n.onlineQualityHeight(quality)),
-  ].join(' · ');
+  return facts;
 }
 
 /// "~3 min" at the current speed; null while there is no speed to go by.

@@ -9,6 +9,10 @@ import 'package:iris/app/router/app_router.dart';
 import 'package:iris/entities/friend/domain/friend.dart';
 import 'package:iris/features/auth/domain/repositories/auth_repository.dart';
 import 'package:iris/features/auth/presentation/cubit/auth_cubit.dart';
+import 'package:iris/features/downloads/data/repositories/mock_downloads_repository.dart';
+import 'package:iris/features/downloads/domain/entities/downloadable_file.dart';
+import 'package:iris/features/downloads/domain/entities/prepared_download_source.dart';
+import 'package:iris/features/downloads/domain/repositories/downloads_repository.dart';
 
 import '../helpers/test_app.dart';
 
@@ -76,6 +80,53 @@ void main() {
     expect(find.text('mock_friend'), findsOneWidget);
     expect(find.text('Nothing in “Watching”'), findsOneWidget);
   });
+
+  testWidgets(
+    'a downloaded title opens anime details and returns to Downloads',
+    (tester) async {
+      final repository =
+          serviceLocator<DownloadsRepository>() as MockDownloadsRepository;
+      await repository.enqueueDownload(
+        source: const PreparedDownloadSource(sourceToken: 'mock', files: []),
+        file: const DownloadableFile(
+          index: 0,
+          name: 'Episode 01.mkv',
+          relativePath: 'Episode 01.mkv',
+          size: 1,
+        ),
+        animeId: '5114',
+        animeTitle: 'Fullmetal Alchemist: Brotherhood',
+        sourceTitle: 'Downloaded batch',
+      );
+      final router = AppRouter.createRouter();
+      addTearDown(router.dispose);
+
+      await tester.pumpWidget(_app(router));
+      await tester.pumpAndSettle();
+      router.goNamed('downloads');
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('download_title_anime:5114')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('download_title_menu')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('download_title_open_anime')));
+      await tester.pumpAndSettle();
+
+      expect(router.state.uri.path, '/anime/5114');
+      expect(find.text('Fullmetal Alchemist: Brotherhood'), findsOneWidget);
+
+      router.pop();
+      await tester.pumpAndSettle();
+
+      expect(router.state.uri.path, startsWith('/downloads'));
+      expect(
+        find.byKey(const Key('download_header_expanded_identity')),
+        findsOneWidget,
+      );
+      expect(find.text('Episode 01'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   test('torrent and player routes do not depend on a catalog title', () {
     final router = AppRouter.createRouter();

@@ -940,6 +940,8 @@
   "downloadTitlesTitle": "Titles",
   "downloadInformation": "Download information",
   "downloadInformationAction": "Information",
+  "downloadOpenAnime": "Open anime",
+  "downloadStatusDetails": "Download status",
   "downloadTitleEpisodeCount": "{ready} of {total} {total, plural, one{episode} other{episodes}}",
   "@downloadTitleEpisodeCount": {"placeholders": {"ready": {"type": "int"}, "total": {"type": "int"}}},
   "downloadAllRemaining": "Download remaining episodes",

@@ -4,6 +4,12 @@ Notable changes to iris, newest first. The format follows [Keep a Changelog](htt
 
 ## [Unreleased]
 
+### Changed
+
+- A downloaded title keeps its name available while scrolling: phones show a compact cover and title after the full header scrolls away; Windows keeps the selected title above its episodes.
+- Episode rows show the saved playback position and total duration. Release headings show the source and known video quality, with differing qualities beside the corresponding episodes.
+- The title menu opens the anime page. Download status keeps live transfer details and failure guidance; completed episodes keep their playback and delete actions.
+
 ## [1.4.2] - 2026-10-15
 
 ### Changed

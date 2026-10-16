@@ -1450,6 +1450,12 @@ class AppLocalizationsRu extends AppLocalizations {
   String get downloadInformationAction => 'Информация';
 
   @override
+  String get downloadOpenAnime => 'Перейти к аниме';
+
+  @override
+  String get downloadStatusDetails => 'Состояние загрузки';
+
+  @override
   String downloadTitleEpisodeCount(int ready, int total) {
     String _temp0 = intl.Intl.pluralLogic(
       total,

@@ -472,6 +472,8 @@
   "downloadTitlesTitle": "Тайтлы",
   "downloadInformation": "Информация о загрузке",
   "downloadInformationAction": "Информация",
+  "downloadOpenAnime": "Перейти к аниме",
+  "downloadStatusDetails": "Состояние загрузки",
   "downloadTitleEpisodeCount": "{ready} из {total} {total, plural, one{серии} other{серий}}",
   "@downloadTitleEpisodeCount": {"placeholders": {"ready": {"type": "int"}, "total": {"type": "int"}}},
   "downloadAllRemaining": "Скачать оставшиеся серии",

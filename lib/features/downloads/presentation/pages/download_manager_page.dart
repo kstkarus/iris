@@ -10,6 +10,7 @@ class DownloadManagerPage extends StatelessWidget {
     required this.onWatch,
     required this.onBrowseCatalog,
     required this.onOpenTitle,
+    this.onOpenAnime,
     this.titleKey,
     super.key,
   });
@@ -17,6 +18,7 @@ class DownloadManagerPage extends StatelessWidget {
   final ValueChanged<DownloadItem> onWatch;
   final VoidCallback onBrowseCatalog;
   final ValueChanged<DownloadTitle> onOpenTitle;
+  final ValueChanged<DownloadTitle>? onOpenAnime;
   final String? titleKey;
 
   @override
@@ -28,6 +30,7 @@ class DownloadManagerPage extends StatelessWidget {
             onWatch: onWatch,
             onBrowseCatalog: onBrowseCatalog,
             onOpenTitle: onOpenTitle,
+            onOpenAnime: onOpenAnime,
             titleKey: titleKey,
           ),
         ),

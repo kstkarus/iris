@@ -2486,6 +2486,18 @@ abstract class AppLocalizations {
   /// **'Information'**
   String get downloadInformationAction;
 
+  /// No description provided for @downloadOpenAnime.
+  ///
+  /// In en, this message translates to:
+  /// **'Open anime'**
+  String get downloadOpenAnime;
+
+  /// No description provided for @downloadStatusDetails.
+  ///
+  /// In en, this message translates to:
+  /// **'Download status'**
+  String get downloadStatusDetails;
+
   /// No description provided for @downloadTitleEpisodeCount.
   ///
   /// In en, this message translates to:

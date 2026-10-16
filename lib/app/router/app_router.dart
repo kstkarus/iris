@@ -88,6 +88,12 @@ void _openListed(BuildContext context, UserListEntry entry) =>
       extra: AnimeDetailsPreview.fromSummary(entry.anime),
     );
 
+void _openDownloaded(BuildContext context, DownloadTitle title) {
+  final item = title.items.where((item) => item.animeId.isNotEmpty).firstOrNull;
+  if (item == null) return;
+  context.pushNamed('anime-details', pathParameters: {'id': item.animeId});
+}
+
 abstract final class AppRouter {
   static Future<void> _watchDownload(
     BuildContext context,
@@ -220,6 +226,7 @@ abstract final class AppRouter {
                         repository: serviceLocator<DownloadsRepository>(),
                       )..load(),
                       child: DownloadManagerPage(
+                        onOpenAnime: (title) => _openDownloaded(context, title),
                         onBrowseCatalog: () => context.goNamed('anime-list'),
                         onOpenTitle: (title) =>
                             context.pushNamed('download-title', extra: title),
@@ -242,6 +249,8 @@ abstract final class AppRouter {
                           )..load(),
                           child: DownloadTitlePage(
                             title: title,
+                            onOpenAnime: (title) =>
+                                _openDownloaded(context, title),
                             onWatch: (item) => _watchDownload(context, item),
                           ),
                         );

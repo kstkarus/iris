@@ -5,7 +5,10 @@ import 'package:iris/features/downloads/domain/entities/download_title.dart';
 import 'package:iris/features/downloads/presentation/widgets/download_status_label.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/utils/byte_size_formatter.dart';
+import 'package:iris/shared/widgets/dither_switcher.dart';
 import 'package:iris/shared/widgets/dither_list.dart';
+import 'package:iris/shared/widgets/headline_anchor.dart';
+import 'package:iris/shared/widgets/page_title.dart';
 import 'package:iris/shared/widgets/pixel_icon.dart';
 import 'package:iris/shared/widgets/poster_image.dart';
 import 'package:iris/shared/widgets/segmented_bar.dart';
@@ -48,6 +51,248 @@ class DownloadTitleIdentity extends StatelessWidget {
           ),
         ),
         if (trailing != null) ...[const SizedBox(width: 8), trailing!],
+      ],
+    );
+  }
+}
+
+class DownloadAdaptiveTitleHeader extends StatefulWidget {
+  const DownloadAdaptiveTitleHeader({
+    required this.title,
+    required this.desktop,
+    required this.menu,
+    required this.buildList,
+    super.key,
+  });
+
+  final DownloadTitle? title;
+  final bool desktop;
+  final Widget? menu;
+  final Widget Function(Widget? header) buildList;
+
+  @override
+  State<DownloadAdaptiveTitleHeader> createState() =>
+      _DownloadAdaptiveTitleHeaderState();
+}
+
+class _DownloadAdaptiveTitleHeaderState
+    extends State<DownloadAdaptiveTitleHeader> {
+  final _headline = HeadlineTracker();
+  final _headlineGone = ValueNotifier(false);
+  final _toolbarKey = GlobalKey();
+  final _expandedIdentityKey = GlobalKey();
+  double _scrollPixels = 0;
+  double? _collapseOffset;
+  bool _headlineCheckQueued = false;
+
+  @override
+  void dispose() {
+    _headlineGone.dispose();
+    super.dispose();
+  }
+
+  @override
+  void didUpdateWidget(covariant DownloadAdaptiveTitleHeader oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.title?.key != widget.title?.key ||
+        oldWidget.desktop != widget.desktop) {
+      _headlineGone.value = false;
+      _scrollPixels = 0;
+      _collapseOffset = null;
+      _queueHeadlineCheck();
+    }
+  }
+
+  bool _checkHeadline(Notification notification) {
+    if (notification is ScrollMetricsNotification) {
+      _scrollPixels = notification.metrics.pixels;
+    } else if (notification is ScrollNotification) {
+      _scrollPixels = notification.metrics.pixels;
+    }
+    _queueHeadlineCheck();
+    return false;
+  }
+
+  void _queueHeadlineCheck() {
+    if (_headlineCheckQueued) return;
+    _headlineCheckQueued = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _headlineCheckQueued = false;
+      if (!mounted) return;
+      if (widget.desktop) {
+        _headlineGone.value = _scrollPixels > 0;
+        return;
+      }
+
+      final expandedContext = _expandedIdentityKey.currentContext;
+      final toolbarContext = _toolbarKey.currentContext;
+      final expanded = expandedContext != null && expandedContext.mounted
+          ? expandedContext.findRenderObject()
+          : null;
+      final toolbar = toolbarContext != null && toolbarContext.mounted
+          ? toolbarContext.findRenderObject()
+          : null;
+      if (expanded is RenderBox &&
+          expanded.attached &&
+          expanded.hasSize &&
+          toolbar is RenderBox &&
+          toolbar.attached &&
+          toolbar.hasSize) {
+        final expandedBottom = expanded
+            .localToGlobal(Offset(0, expanded.size.height))
+            .dy;
+        final toolbarBottom = toolbar
+            .localToGlobal(Offset(0, toolbar.size.height))
+            .dy;
+        _collapseOffset = expandedBottom - toolbarBottom + _scrollPixels;
+        _headlineGone.value = _headline.isAbove(toolbarBottom);
+      } else if (_collapseOffset case final offset?) {
+        _headlineGone.value = _scrollPixels >= offset;
+      }
+    });
+  }
+
+  Widget? _listHeader() {
+    final title = widget.title;
+    if (title == null) return null;
+    if (widget.desktop) return const SizedBox(height: 24);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        KeyedSubtree(
+          key: const Key('download_header_expanded_identity'),
+          child: HeadlineAnchor(
+            key: _expandedIdentityKey,
+            child: Semantics(
+              header: true,
+              child: DownloadTitleIdentity(title: title),
+            ),
+          ),
+        ),
+        const SizedBox(height: 28),
+      ],
+    );
+  }
+
+  Widget _toolbar() {
+    final title = widget.title;
+    return Container(
+      key: _toolbarKey,
+      child: Row(
+        children: [
+          if (!widget.desktop) const BackButton(),
+          Expanded(
+            child: ValueListenableBuilder<bool>(
+              valueListenable: _headlineGone,
+              builder: (context, shown, _) {
+                final Widget titleWidget;
+                if (shown && title != null) {
+                  titleWidget = KeyedSubtree(
+                    key: const Key('download_header_compact_identity'),
+                    child: widget.desktop
+                        ? Semantics(
+                            header: true,
+                            label: title.name,
+                            child: _CollapsedDownloadTitle(
+                              title: title,
+                              showPoster: false,
+                            ),
+                          )
+                        : _CollapsedDownloadTitle(
+                            title: title,
+                            showPoster: true,
+                          ),
+                  );
+                } else if (widget.desktop && title != null) {
+                  titleWidget = KeyedSubtree(
+                    key: const Key('download_header_expanded_identity'),
+                    child: Semantics(
+                      header: true,
+                      child: DownloadTitleIdentity(
+                        title: title,
+                        showPoster: false,
+                      ),
+                    ),
+                  );
+                } else {
+                  titleWidget = const SizedBox.shrink(
+                    key: ValueKey('download_header_empty'),
+                  );
+                }
+                final switcher = DitherSwitcher(
+                  duration: const Duration(milliseconds: 300),
+                  child: titleWidget,
+                );
+                return widget.desktop
+                    ? switcher
+                    : ExcludeSemantics(child: switcher);
+              },
+            ),
+          ),
+          if (widget.menu != null) ...[const SizedBox(width: 8), widget.menu!],
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    _queueHeadlineCheck();
+    final list = widget.buildList(_listHeader());
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        KeyedSubtree(key: const Key('download_header_bar'), child: _toolbar()),
+        if (!widget.desktop) const SizedBox(height: 8),
+        Expanded(
+          child: NotificationListener<ScrollMetricsNotification>(
+            onNotification: _checkHeadline,
+            child: NotificationListener<ScrollNotification>(
+              onNotification: _checkHeadline,
+              child: HeadlineScope(tracker: _headline, child: list),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _CollapsedDownloadTitle extends StatelessWidget {
+  const _CollapsedDownloadTitle({
+    required this.title,
+    required this.showPoster,
+  });
+
+  final DownloadTitle title;
+  final bool showPoster;
+
+  @override
+  Widget build(BuildContext context) {
+    final style = Theme.of(context).textTheme.titleMedium;
+    return Row(
+      children: [
+        if (showPoster) ...[
+          SizedBox(
+            width: 24,
+            height: 36,
+            child: DownloadTitlePoster(title: title, width: 24),
+          ),
+          const SizedBox(width: 8),
+        ],
+        Expanded(
+          child: Tooltip(
+            message: title.name,
+            child: ExcludeSemantics(
+              child: DefaultTextStyle(
+                style: style ?? const TextStyle(),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                child: PageTitle(title: title.name),
+              ),
+            ),
+          ),
+        ),
       ],
     );
   }

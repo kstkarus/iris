@@ -1426,6 +1426,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get downloadInformationAction => 'Information';
 
   @override
+  String get downloadOpenAnime => 'Open anime';
+
+  @override
+  String get downloadStatusDetails => 'Download status';
+
+  @override
   String downloadTitleEpisodeCount(int ready, int total) {
     String _temp0 = intl.Intl.pluralLogic(
       total,
