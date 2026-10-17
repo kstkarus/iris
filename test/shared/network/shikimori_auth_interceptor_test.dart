@@ -72,6 +72,73 @@ void main() {
     expect(sentTokens(), ['Bearer fresh']);
   });
 
+  test('a session-bound mutation never starts under another account', () async {
+    await store.write(tokens('old'));
+    final generation = store.generation;
+    await store.write(tokens('fresh'));
+    await expectLater(
+      dio.patch<dynamic>(
+        '/api/v2/user_rates/1',
+        options: Options(
+          extra: {ShikimoriAuthInterceptor.sessionGenerationKey: generation},
+        ),
+      ),
+      throwsA(
+        isA<DioException>().having(
+          (e) => e.type,
+          'cancelled',
+          DioExceptionType.cancel,
+        ),
+      ),
+    );
+    expect(sent, isEmpty);
+  });
+
+  test(
+    'a delayed 401 never retries an old write with the new account token',
+    () async {
+      await store.write(tokens('old'));
+      final generation = store.generation;
+      dio.httpClientAdapter = FakeHttpAdapter((options) async {
+        sent.add(options.headers['Authorization']);
+        await store.write(tokens('fresh'));
+        return const FakeReply(401);
+      });
+      await expectLater(
+        dio.patch<dynamic>(
+          '/api/v2/user_rates/1',
+          options: Options(
+            extra: {ShikimoriAuthInterceptor.sessionGenerationKey: generation},
+          ),
+        ),
+        throwsA(isA<DioException>()),
+      );
+      expect(sent, ['Bearer old']);
+      expect(oauth.refreshes, 0);
+      expect((await store.read())?.accessToken, 'fresh');
+    },
+  );
+
+  test(
+    'a bound write is cancelled if sign-in changes during renewal',
+    () async {
+      await store.write(tokens('old', left: const Duration(seconds: 30)));
+      final generation = store.generation;
+      oauth.meanwhile = () => store.write(tokens('fresh'));
+      await expectLater(
+        dio.patch<dynamic>(
+          '/api/v2/user_rates/1',
+          options: Options(
+            extra: {ShikimoriAuthInterceptor.sessionGenerationKey: generation},
+          ),
+        ),
+        throwsA(isA<DioException>()),
+      );
+      expect(sent, isEmpty);
+      expect((await store.read())?.accessToken, 'fresh');
+    },
+  );
+
   test('renews a token about to run out before sending it', () async {
     await store.write(tokens('old', left: const Duration(seconds: 30)));
     final generation = store.generation;

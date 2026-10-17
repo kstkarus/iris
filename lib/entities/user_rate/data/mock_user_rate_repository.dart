@@ -36,15 +36,17 @@ class MockUserRateRepository implements UserRateRepository {
     required String userId,
     required String animeId,
     required String? rateId,
-    required UserRateStatus status,
+    UserRateStatus? status,
     required int episodes,
-    required int score,
+    int? score,
+    int? rewatches,
   }) async {
     final rate = UserRate(
       id: rateId ?? '${_nextId++}',
-      status: status,
+      status: status ?? _rates[animeId]?.status ?? UserRateStatus.watching,
       episodes: episodes,
-      score: score,
+      score: score ?? _rates[animeId]?.score ?? 0,
+      rewatches: rewatches ?? _rates[animeId]?.rewatches,
     );
     _rates[animeId] = rate;
     _changes.add(UserRateChange(animeId, rate));

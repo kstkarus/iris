@@ -3,9 +3,12 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:iris/entities/friend/domain/friend.dart';
 import 'package:iris/entities/user_rate/data/mock_user_rate_repository.dart';
+import 'package:iris/entities/user_rate/data/shared_preferences_episode_sync_repository.dart';
+import 'package:iris/entities/user_rate/domain/episode_watch_sync.dart';
 import 'package:iris/entities/user_rate/domain/user_rate.dart';
 import 'package:iris/entities/user_rate/presentation/user_rate_book_cubit.dart';
 import 'package:iris/features/auth/domain/entities/auth_failure.dart';
@@ -16,6 +19,8 @@ import 'package:iris/features/profile/presentation/cubit/friends_cubit.dart';
 import 'package:iris/features/profile/presentation/cubit/user_list_cubit.dart';
 import 'package:iris/features/profile/presentation/pages/profile_page.dart';
 import 'package:iris/features/profile/presentation/widgets/user_list_view.dart';
+import 'package:iris/shared/network/network_exceptions.dart';
+import 'package:iris/shared/widgets/status_views.dart';
 
 import '../../../entities/friend/friend_test_doubles.dart';
 import '../../../helpers/test_app.dart';
@@ -142,6 +147,45 @@ void main() {
     expect(find.byKey(ProfilePage.signInButtonKey), findsOneWidget);
   });
 
+  testWidgets(
+    'pending marks sync in the background without profile status or actions',
+    (tester) async {
+      final offlineRates = _OfflineRates();
+      late EpisodeWatchSync sync;
+      await tester.runAsync(() async {
+        SharedPreferences.setMockInitialValues({});
+        sync = EpisodeWatchSync(
+          storage: SharedPreferencesEpisodeSyncRepository(
+            await SharedPreferences.getInstance(),
+          ),
+          rates: offlineRates,
+          sessionGeneration: () => 0,
+        );
+        sync.accountChanged(testAccount.id);
+        await sync.sync();
+        await sync(userId: testAccount.id, animeId: '1', episode: 2);
+      });
+      await pumpPage(tester, FakeAuthRepository(restored: testAccount));
+      await tester.pumpAndSettle();
+      expect(sync.state.pending, 1);
+      expect(find.byType(InlineRetry), findsNothing);
+      expect(find.textContaining('Marks waiting'), findsNothing);
+      expect(find.text('Try Again'), findsNothing);
+      offlineRates.offline = false;
+      await tester.runAsync(() async {
+        sync.setForeground(true);
+        await sync.sync();
+      });
+      await tester.pumpAndSettle();
+      expect(sync.state.pending, 0);
+      expect(find.byType(InlineRetry), findsNothing);
+      expect(offlineRates.rates['1']?.episodes, 2);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.runAsync(sync.close);
+    },
+  );
+
   testWidgets('a session Shikimori ended asks to sign in again', (
     tester,
   ) async {
@@ -266,6 +310,16 @@ void main() {
 
     expect(find.text('friend_7'), findsOneWidget);
   });
+}
+
+class _OfflineRates extends MockUserRateRepository {
+  bool offline = true;
+
+  @override
+  Future<UserRate?> fetch(String animeId) {
+    if (offline) throw const NetworkRequestException('offline');
+    return super.fetch(animeId);
+  }
 }
 
 Future<void> chooseStatus(WidgetTester tester, String status) async {

@@ -156,6 +156,48 @@ void main() {
     expect(request.path, '/api/v2/user_rates/16');
   });
 
+  test('episode-only updates omit score and unchanged status', () async {
+    server = (_) => const FakeReply(200, {
+      'id': 16,
+      'status': 'rewatching',
+      'episodes': 4,
+      'score': 9,
+      'rewatches': 2,
+    });
+    final saved = await repository().save(
+      userId: '42',
+      animeId: '1',
+      rateId: '16',
+      episodes: 4,
+    );
+    expect(body(adapter.requests.single), {
+      'user_rate': {'episodes': 4},
+    });
+    expect(saved.score, 9);
+    expect(saved.rewatches, 2);
+  });
+
+  test('queries viewing cycle metadata for reset detection', () async {
+    server = (_) => const FakeReply(200, {
+      'data': {
+        'animes': [
+          {
+            'id': '1',
+            'userRate': {
+              'id': '16',
+              'status': 'watching',
+              'episodes': 2,
+              'rewatches': 3,
+            },
+          },
+        ],
+      },
+    });
+    final saved = await repository().fetch('1');
+    expect(saved?.rewatches, 3);
+    expect(body(adapter.requests.single)['query'], contains('rewatches'));
+  });
+
   test('a refused change is a response error', () async {
     server = (_) => const FakeReply(422, {'errors': []});
 

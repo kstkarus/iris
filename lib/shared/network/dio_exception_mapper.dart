@@ -16,6 +16,7 @@ Exception mapDioException(DioException error) {
     case DioExceptionType.badResponse:
       return RemoteResponseException(
         'Remote service responded with ${error.response?.statusCode ?? 'an invalid status'}.',
+        statusCode: error.response?.statusCode,
       );
     case DioExceptionType.cancel:
       return const NetworkRequestException('The request was cancelled.');

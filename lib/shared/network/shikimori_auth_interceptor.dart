@@ -27,6 +27,7 @@ class ShikimoriAuthInterceptor extends Interceptor {
 
   /// Renewed this long before it runs out, so it does not lapse in flight.
   static const refreshMargin = Duration(minutes: 1);
+  static const sessionGenerationKey = 'shikimoriSessionGeneration';
 
   static const _retriedKey = 'authRetried';
   static const _header = 'Authorization';
@@ -43,9 +44,27 @@ class ShikimoriAuthInterceptor extends Interceptor {
     RequestOptions options,
     RequestInterceptorHandler handler,
   ) async {
+    if (!_sameSession(options)) {
+      handler.reject(
+        DioException.requestCancelled(
+          requestOptions: options,
+          reason: 'Account session changed',
+        ),
+      );
+      return;
+    }
     var tokens = await _store.read();
     if (tokens != null && _isStale(tokens)) {
       tokens = await _renew(tokens) ?? await _store.read();
+    }
+    if (!_sameSession(options)) {
+      handler.reject(
+        DioException.requestCancelled(
+          requestOptions: options,
+          reason: 'Account session changed',
+        ),
+      );
+      return;
     }
     if (tokens != null) {
       options.headers[_header] = _bearer(tokens);
@@ -59,6 +78,10 @@ class ShikimoriAuthInterceptor extends Interceptor {
     ErrorInterceptorHandler handler,
   ) async {
     final options = err.requestOptions;
+    if (!_sameSession(options)) {
+      handler.next(err);
+      return;
+    }
     final sent = options.headers[_header];
     if (err.response?.statusCode != 401 ||
         sent == null ||
@@ -70,6 +93,10 @@ class ShikimoriAuthInterceptor extends Interceptor {
     // Another request may have renewed it while this one was out.
     if (tokens != null && _bearer(tokens) == sent) {
       tokens = await _renew(tokens);
+    }
+    if (!_sameSession(options)) {
+      handler.next(err);
+      return;
     }
     if (tokens == null) {
       // A token Shikimori revoked before its time ended the session with
@@ -88,6 +115,11 @@ class ShikimoriAuthInterceptor extends Interceptor {
     } on DioException catch (retryError) {
       handler.next(retryError);
     }
+  }
+
+  bool _sameSession(RequestOptions options) {
+    final generation = options.extra[sessionGenerationKey];
+    return generation == null || generation == _store.generation;
   }
 
   bool _isStale(ShikimoriTokens tokens) =>

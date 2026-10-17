@@ -364,9 +364,10 @@ class _GatedRepository extends MockUserRateRepository {
     required String userId,
     required String animeId,
     required String? rateId,
-    required UserRateStatus status,
+    UserRateStatus? status,
     required int episodes,
-    required int score,
+    int? score,
+    int? rewatches,
   }) async {
     saves.add((rateId: rateId, episodes: episodes));
     await gate?.future;
@@ -378,6 +379,7 @@ class _GatedRepository extends MockUserRateRepository {
       status: status,
       episodes: episodes,
       score: score,
+      rewatches: rewatches,
     );
     if (failSaveAfterSaving) throw TimeoutException('no answer');
     return saved;

@@ -41,4 +41,24 @@ void main() {
     expect(preferences.getString('numbers'), '[{"n":4},{"n":5}]');
     expect(numbers.read(), [4, 5]);
   });
+
+  test('a refused platform write is reported as a failure', () async {
+    final numbers = JsonListPreference<int>(
+      _RefusingPreferences(),
+      'numbers',
+      decode: (_) => null,
+      encode: (n) => {'n': n},
+      logName: 'test',
+      corruptedMessage: 'corrupted',
+    );
+    await expectLater(numbers.write([1]), throwsStateError);
+  });
+}
+
+class _RefusingPreferences implements SharedPreferences {
+  @override
+  Future<bool> setString(String key, String value) async => false;
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }

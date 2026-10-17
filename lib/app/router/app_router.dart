@@ -585,7 +585,7 @@ abstract final class AppRouter {
                 // Marks what is watched in the account's list, if any.
                 BlocProvider(
                   create: (context) => EpisodeMarkCubit(
-                    markEpisode: serviceLocator<MarkEpisodeWatched>(),
+                    markEpisode: serviceLocator<EpisodeMarker>(),
                     userId: accountIdOf(context.read<AuthCubit>().state),
                     sessionGeneration: () =>
                         serviceLocator<ShikimoriSessionStore>().generation,

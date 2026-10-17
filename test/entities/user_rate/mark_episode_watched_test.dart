@@ -72,6 +72,18 @@ void main() {
     );
   });
 
+  test('a new rewatch supersedes a known missing entry', () async {
+    await keep(UserRateStatus.rewatching, 0);
+    final result = await mark(
+      userId: '42',
+      animeId: '1',
+      episode: 3,
+      baselineKnown: true,
+    );
+    expect(result, isA<EpisodeMarkObsolete>());
+    expect(repository.rates['1']?.episodes, 0);
+  });
+
   test('the last episode completes an anime that was not being '
       'watched', () async {
     repository.totalEpisodes['1'] = 1;
@@ -133,5 +145,25 @@ void main() {
         score: 7,
       ),
     );
+  });
+
+  test('undo keeps a newer score and does not undo a later episode', () async {
+    await keep(UserRateStatus.watching, 2, score: 7);
+    final marked = await watch(3) as EpisodeMarked;
+    await repository.save(
+      userId: '42',
+      animeId: '1',
+      rateId: marked.saved.id,
+      episodes: 3,
+      score: 10,
+    );
+    await mark.undo(userId: '42', animeId: '1', mark: marked);
+    expect(repository.rates['1']?.episodes, 2);
+    expect(repository.rates['1']?.score, 10);
+
+    final second = await watch(3) as EpisodeMarked;
+    await watch(4);
+    await mark.undo(userId: '42', animeId: '1', mark: second);
+    expect(repository.rates['1']?.episodes, 4);
   });
 }

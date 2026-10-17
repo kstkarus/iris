@@ -199,9 +199,10 @@ class _SlowRates implements UserRateRepository {
     required String userId,
     required String animeId,
     required String? rateId,
-    required UserRateStatus status,
+    UserRateStatus? status,
     required int episodes,
-    required int score,
+    int? score,
+    int? rewatches,
   }) => inner.save(
     userId: userId,
     animeId: animeId,
@@ -209,6 +210,7 @@ class _SlowRates implements UserRateRepository {
     status: status,
     episodes: episodes,
     score: score,
+    rewatches: rewatches,
   );
 
   @override

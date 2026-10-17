@@ -40,7 +40,7 @@ class RemoteUserRateRepository implements UserRateRepository {
   Future<({UserRate? rate, int totalEpisodes})> fetchWithTotal(
     String animeId,
   ) async {
-    final sessionGeneration = await _sessionGeneration();
+    final sessionGeneration = await _sessionGeneration(_session.generation);
     final data = await _graphQl.query(
       document: _userRateQuery,
       variables: {'id': animeId},
@@ -60,19 +60,23 @@ class RemoteUserRateRepository implements UserRateRepository {
     required String userId,
     required String animeId,
     required String? rateId,
-    required UserRateStatus status,
+    UserRateStatus? status,
     required int episodes,
-    required int score,
+    int? score,
+    int? rewatches,
   }) async {
-    final sessionGeneration = await _sessionGeneration();
+    final requestGeneration = _session.generation;
+    final sessionGeneration = await _sessionGeneration(requestGeneration);
     final fields = {
-      'status': UserRateDto.statusToApi(status),
+      if (status != null) 'status': UserRateDto.statusToApi(status),
       'episodes': episodes,
-      'score': score,
+      'score': ?score,
+      'rewatches': ?rewatches,
     };
     final data = rateId == null
         ? await _rest.post(
             _ratesPath,
+            sessionGeneration: requestGeneration,
             data: {
               'user_rate': {
                 'user_id': userId,
@@ -82,7 +86,11 @@ class RemoteUserRateRepository implements UserRateRepository {
               },
             },
           )
-        : await _rest.patch('$_ratesPath/$rateId', data: {'user_rate': fields});
+        : await _rest.patch(
+            '$_ratesPath/$rateId',
+            data: {'user_rate': fields},
+            sessionGeneration: requestGeneration,
+          );
     final saved = UserRateDto.tryParse(data);
     if (saved == null) {
       throw const RemoteResponseException('User rate response is invalid.');
@@ -94,16 +102,22 @@ class RemoteUserRateRepository implements UserRateRepository {
 
   @override
   Future<void> remove({required String animeId, required String rateId}) async {
-    final sessionGeneration = await _sessionGeneration();
-    await _rest.delete('$_ratesPath/$rateId');
+    final requestGeneration = _session.generation;
+    final sessionGeneration = await _sessionGeneration(requestGeneration);
+    await _rest.delete(
+      '$_ratesPath/$rateId',
+      sessionGeneration: requestGeneration,
+    );
     await _publishIfCurrent(sessionGeneration, UserRateChange(animeId, null));
   }
 
   /// A request can outlive the account that authorized it. Its return value
   /// still belongs to the caller, but it must not update shared UI state.
-  Future<int> _sessionGeneration() async {
-    if (await _session.read() == null) return -1;
-    return _session.generation;
+  Future<int> _sessionGeneration(int generation) async {
+    if (await _session.read() == null || _session.generation != generation) {
+      return -1;
+    }
+    return generation;
   }
 
   Future<void> _publishIfCurrent(
@@ -128,6 +142,7 @@ query UserRate($id: String!) {
       status
       episodes
       score
+      rewatches
     }
   }
 }

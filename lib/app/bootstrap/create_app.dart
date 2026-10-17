@@ -5,8 +5,10 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:iris/app/app.dart';
+import 'package:iris/app/bootstrap/episode_sync_lifecycle.dart';
 import 'package:iris/app/di/service_locator.dart';
 import 'package:iris/entities/user_rate/domain/user_rate_repository.dart';
+import 'package:iris/entities/user_rate/domain/episode_watch_sync.dart';
 import 'package:iris/entities/user_rate/presentation/user_rate_book_cubit.dart';
 import 'package:iris/entities/watch_progress/domain/watch_progress_repository.dart';
 import 'package:iris/entities/watch_progress/presentation/watch_progress_cubit.dart';
@@ -66,7 +68,10 @@ Future<Widget> createApp({bool useMocks = false}) async {
     ],
     child: AccountListener(
       onChanged: (context, _) => context.read<UserRateBookCubit>().clear(),
-      child: IrisApp(router: serviceLocator<GoRouter>()),
+      child: EpisodeSyncLifecycle(
+        sync: serviceLocator<EpisodeWatchSync>(),
+        child: IrisApp(router: serviceLocator<GoRouter>()),
+      ),
     ),
   );
 }

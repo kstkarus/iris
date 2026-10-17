@@ -177,6 +177,26 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('a queued mark stays silent in the player', (tester) async {
+    setTestWindowSize(tester, TestWindowSizes.landscape);
+    await tester.pumpWidget(
+      _wrap(source: _onlineSource, marker: _DeferredMarker()),
+    );
+    final cubit =
+        tester.element(find.byType(PlayerPage)).read<PlayerCubit>()
+            as FakePlayerCubit;
+    cubit.push((cubit.state as PlayerReady).copyWith(watched: true));
+    await tester.pump();
+    await tester.pump();
+    expect(
+      tester.element(find.byType(PlayerPage)).read<EpisodeMarkCubit>().state,
+      isA<EpisodeMarkQueued>(),
+    );
+    expect(find.textContaining('notice:'), findsNothing);
+    expect(find.byType(SnackBar), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('keeps the place apart when it differs from the number', (
     tester,
   ) async {
@@ -387,20 +407,34 @@ Widget _wrap({
     PlayerSession(sessionId: '42', streamUrl: 'http://127.0.0.1:8080/stream/2'),
   ),
   MockUserRateRepository? rates,
+  EpisodeMarker? marker,
 }) {
   final page = _page(source, state: state);
   return testApp(
-    rates == null
+    rates == null && marker == null
         ? page
         : BlocProvider(
             create: (_) => EpisodeMarkCubit(
-              markEpisode: MarkEpisodeWatched(rates),
+              markEpisode: marker ?? MarkEpisodeWatched(rates!),
               userId: '42',
               sessionGeneration: () => 0,
             ),
             child: page,
           ),
   );
+}
+
+class _DeferredMarker implements EpisodeMarker {
+  @override
+  Future<EpisodeMarkResult> call({
+    required String userId,
+    required String animeId,
+    required int episode,
+    bool Function()? isCurrent,
+  }) async => const EpisodeMarkDeferred();
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
 Widget _page(

@@ -17,6 +17,8 @@ import 'package:iris/entities/friend/data/mock_friends_repository.dart';
 import 'package:iris/entities/friend/data/remote_friends_repository.dart';
 import 'package:iris/entities/friend/domain/friends_repository.dart';
 import 'package:iris/entities/user_rate/data/mock_user_rate_repository.dart';
+import 'package:iris/entities/user_rate/data/shared_preferences_episode_sync_repository.dart';
+import 'package:iris/entities/user_rate/domain/episode_watch_sync.dart';
 import 'package:iris/entities/user_rate/domain/mark_episode_watched.dart';
 import 'package:iris/entities/user_rate/data/remote_user_rate_repository.dart';
 import 'package:iris/entities/user_rate/domain/user_rate_repository.dart';
@@ -558,8 +560,19 @@ void _registerCommon() {
     ..registerLazySingleton<PlayerScreenMode>(
       () => phone ? const PhonePlayerScreenMode() : const NoPlayerScreenMode(),
     )
-    ..registerLazySingleton<MarkEpisodeWatched>(
-      () => MarkEpisodeWatched(serviceLocator<UserRateRepository>()),
+    ..registerLazySingleton<EpisodeWatchSync>(
+      () => EpisodeWatchSync(
+        storage: SharedPreferencesEpisodeSyncRepository(
+          serviceLocator<SharedPreferences>(),
+        ),
+        rates: serviceLocator<UserRateRepository>(),
+        sessionGeneration: () =>
+            serviceLocator<ShikimoriSessionStore>().generation,
+      ),
+      dispose: (sync) => sync.close(),
+    )
+    ..registerLazySingleton<EpisodeMarker>(
+      () => serviceLocator<EpisodeWatchSync>(),
     )
     ..registerLazySingleton<SubtitlePreferencesRepository>(
       () => SharedPreferencesSubtitlePreferencesRepository(

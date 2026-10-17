@@ -8,9 +8,10 @@ class NetworkRequestException implements Exception {
 }
 
 class RemoteResponseException implements Exception {
-  const RemoteResponseException(this.message);
+  const RemoteResponseException(this.message, {this.statusCode});
 
   final String message;
+  final int? statusCode;
 
   @override
   String toString() => '$runtimeType: $message';

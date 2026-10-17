@@ -43,9 +43,10 @@ class JsonListPreference<T> {
   }
 
   Future<void> write(List<T> items) async {
-    await _preferences.setString(
+    final saved = await _preferences.setString(
       key,
       jsonEncode([for (final item in items) _encode(item)]),
     );
+    if (!saved) throw StateError('Could not save preference: $key');
   }
 }

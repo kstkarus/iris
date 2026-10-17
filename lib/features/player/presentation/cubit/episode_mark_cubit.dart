@@ -39,6 +39,10 @@ final class EpisodeMarkFailed extends EpisodeMarkState {
   final int episode;
 }
 
+final class EpisodeMarkQueued extends EpisodeMarkState {
+  const EpisodeMarkQueued();
+}
+
 /// Counts the episode just watched in the user's Shikimori list.
 ///
 /// An online release numbers its episodes, so it is marked at once (with
@@ -47,7 +51,7 @@ final class EpisodeMarkFailed extends EpisodeMarkState {
 /// happens.
 class EpisodeMarkCubit extends Cubit<EpisodeMarkState> {
   EpisodeMarkCubit({
-    required MarkEpisodeWatched markEpisode,
+    required EpisodeMarker markEpisode,
     required String? userId,
     required int Function() sessionGeneration,
   }) : _markEpisode = markEpisode,
@@ -56,10 +60,11 @@ class EpisodeMarkCubit extends Cubit<EpisodeMarkState> {
        _accountGeneration = sessionGeneration(),
        super(const EpisodeMarkIdle());
 
-  final MarkEpisodeWatched _markEpisode;
+  final EpisodeMarker _markEpisode;
   final int Function() _readSessionGeneration;
   String? _userId;
   int _session = 0;
+  int _operation = 0;
   int _accountGeneration;
   String _animeId = '';
 
@@ -80,6 +85,7 @@ class EpisodeMarkCubit extends Cubit<EpisodeMarkState> {
     if (userId == null || !_isCurrent(_session, userId)) return;
     final episode = source.episodeNumber;
     if (source.animeId.isEmpty || episode == null) return;
+    _operation++;
     _animeId = source.animeId;
     final given = source.files.any(
       (file) => file.index == source.fileIndex && file.episodeNumber != null,
@@ -104,6 +110,7 @@ class EpisodeMarkCubit extends Cubit<EpisodeMarkState> {
   Future<void> undo() async {
     final userId = _userId;
     final session = _session;
+    final operation = _operation;
     final animeId = _animeId;
     final current = state;
     if (userId == null || current is! EpisodeMarkDone) return;
@@ -113,10 +120,10 @@ class EpisodeMarkCubit extends Cubit<EpisodeMarkState> {
         userId: userId,
         animeId: animeId,
         mark: current.mark,
-        isCurrent: () => _isCurrent(session, userId),
+        isCurrent: () => _isCurrent(session, userId) && operation == _operation,
       );
     } on Object {
-      if (_isCurrent(session, userId)) {
+      if (_isCurrent(session, userId) && operation == _operation) {
         emit(EpisodeMarkDone(current.episode, current.mark, undoFailed: true));
       }
     }
@@ -130,6 +137,7 @@ class EpisodeMarkCubit extends Cubit<EpisodeMarkState> {
   Future<void> _mark(int episode) async {
     final userId = _userId;
     final session = _session;
+    final operation = ++_operation;
     if (userId == null || !_isCurrent(session, userId)) return;
     final animeId = _animeId;
     emit(const EpisodeMarkSaving());
@@ -138,16 +146,18 @@ class EpisodeMarkCubit extends Cubit<EpisodeMarkState> {
         userId: userId,
         animeId: animeId,
         episode: episode,
-        isCurrent: () => _isCurrent(session, userId),
+        isCurrent: () => _isCurrent(session, userId) && operation == _operation,
       );
-      if (!_isCurrent(session, userId)) return;
+      if (!_isCurrent(session, userId) || operation != _operation) return;
       emit(switch (result) {
         // The list already counts it: nothing to say.
         EpisodeAlreadyMarked() => const EpisodeMarkIdle(),
+        EpisodeMarkObsolete() => const EpisodeMarkIdle(),
+        EpisodeMarkDeferred() => const EpisodeMarkQueued(),
         final EpisodeMarked mark => EpisodeMarkDone(episode, mark),
       });
     } on Object {
-      if (_isCurrent(session, userId)) {
+      if (_isCurrent(session, userId) && operation == _operation) {
         emit(EpisodeMarkFailed(episode));
       }
     }

@@ -7,7 +7,21 @@ sealed class EpisodeMarkResult {
 
 /// The list already counts the episode; nothing was sent.
 final class EpisodeAlreadyMarked extends EpisodeMarkResult {
-  const EpisodeAlreadyMarked();
+  const EpisodeAlreadyMarked({this.current});
+
+  final UserRate? current;
+}
+
+/// Durably saved on this device; Shikimori has not confirmed it yet.
+final class EpisodeMarkDeferred extends EpisodeMarkResult {
+  const EpisodeMarkDeferred();
+}
+
+/// A reset or a new viewing cycle superseded the offline mark.
+final class EpisodeMarkObsolete extends EpisodeMarkResult {
+  const EpisodeMarkObsolete(this.current);
+
+  final UserRate? current;
 }
 
 final class EpisodeMarked extends EpisodeMarkResult {
@@ -30,25 +44,55 @@ final class EpisodeMarked extends EpisodeMarkResult {
 /// episode, but only when the same change leaves the status alone, so the
 /// last episode of an anime that was not being watched (a film added to
 /// the list from its page) is completed here.
-class MarkEpisodeWatched {
-  const MarkEpisodeWatched(this._repository);
-
-  final UserRateRepository _repository;
-
+abstract interface class EpisodeMarker {
   Future<EpisodeMarkResult> call({
     required String userId,
     required String animeId,
     required int episode,
     bool Function()? isCurrent,
+  });
+
+  Future<void> undo({
+    required String userId,
+    required String animeId,
+    required EpisodeMarked mark,
+    bool Function()? isCurrent,
+  });
+}
+
+class MarkEpisodeWatched implements EpisodeMarker {
+  const MarkEpisodeWatched(this._repository);
+
+  final UserRateRepository _repository;
+
+  @override
+  Future<EpisodeMarkResult> call({
+    required String userId,
+    required String animeId,
+    required int episode,
+    bool Function()? isCurrent,
+    bool baselineKnown = false,
+    UserRate? baseline,
+    Future<void> Function(UserRate? current)? beforeSave,
   }) async {
+    if (episode < 1 || episode > 9999) {
+      throw ArgumentError.value(episode, 'episode');
+    }
     final (rate: current, :totalEpisodes) = await _repository.fetchWithTotal(
       animeId,
     );
     if (isCurrent != null && !isCurrent()) {
       throw StateError('Account session changed');
     }
+    if (baselineKnown && _superseded(baseline, current)) {
+      return EpisodeMarkObsolete(current);
+    }
     if (current != null && current.episodes >= episode) {
-      return const EpisodeAlreadyMarked();
+      return EpisodeAlreadyMarked(current: current);
+    }
+    await beforeSave?.call(current);
+    if (isCurrent != null && !isCurrent()) {
+      throw StateError('Account session changed');
     }
     final last = totalEpisodes > 0 && episode >= totalEpisodes;
     final status = switch (current?.status) {
@@ -62,14 +106,14 @@ class MarkEpisodeWatched {
       userId: userId,
       animeId: animeId,
       rateId: current?.id,
-      status: status,
+      status: status == current?.status ? null : status,
       episodes: episode,
-      score: current?.score ?? 0,
     );
     return EpisodeMarked(previous: current, saved: saved);
   }
 
   /// Puts the list back as it was before [mark].
+  @override
   Future<void> undo({
     required String userId,
     required String animeId,
@@ -77,8 +121,19 @@ class MarkEpisodeWatched {
     bool Function()? isCurrent,
   }) async {
     if (isCurrent != null && !isCurrent()) return;
+    final current = await _repository.fetch(animeId);
+    if (isCurrent != null && !isCurrent()) return;
+    // Undo only our own change, keeping later edits and progress intact.
+    if (current == null ||
+        current.id != mark.saved.id ||
+        current.episodes != mark.saved.episodes ||
+        current.status != mark.saved.status ||
+        current.rewatches != mark.saved.rewatches) {
+      return;
+    }
     final previous = mark.previous;
     if (previous == null) {
+      if (current.score != mark.saved.score) return;
       await _repository.remove(animeId: animeId, rateId: mark.saved.id);
       return;
     }
@@ -88,7 +143,20 @@ class MarkEpisodeWatched {
       rateId: mark.saved.id,
       status: previous.status,
       episodes: previous.episodes,
-      score: previous.score,
+      rewatches: previous.rewatches,
     );
+  }
+
+  bool _superseded(UserRate? baseline, UserRate? current) {
+    if (current?.status == UserRateStatus.rewatching &&
+        baseline?.status != UserRateStatus.rewatching) {
+      return true;
+    }
+    if (baseline == null) return false;
+    if (current == null || current.id != baseline.id) return true;
+    return current.episodes < baseline.episodes ||
+        (current.rewatches != null &&
+            baseline.rewatches != null &&
+            current.rewatches != baseline.rewatches);
   }
 }

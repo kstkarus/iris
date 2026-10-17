@@ -197,7 +197,7 @@ class _PlayerPageState extends State<PlayerPage> {
         onAction: marks.confirm,
         timeout: markNoticeDuration,
       ),
-      EpisodeMarkIdle() || EpisodeMarkSaving() => null,
+      EpisodeMarkIdle() || EpisodeMarkSaving() || EpisodeMarkQueued() => null,
     };
 
     setState(

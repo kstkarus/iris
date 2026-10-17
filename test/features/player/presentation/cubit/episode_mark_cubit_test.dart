@@ -271,9 +271,10 @@ class _GatedFetchRepository extends MockUserRateRepository {
     required String userId,
     required String animeId,
     required String? rateId,
-    required UserRateStatus status,
+    UserRateStatus? status,
     required int episodes,
-    required int score,
+    int? score,
+    int? rewatches,
   }) {
     saveCalls++;
     return super.save(
@@ -283,6 +284,7 @@ class _GatedFetchRepository extends MockUserRateRepository {
       status: status,
       episodes: episodes,
       score: score,
+      rewatches: rewatches,
     );
   }
 }
@@ -324,9 +326,10 @@ class _FailingOnceRepository extends MockUserRateRepository {
     required String userId,
     required String animeId,
     required String? rateId,
-    required UserRateStatus status,
+    UserRateStatus? status,
     required int episodes,
-    required int score,
+    int? score,
+    int? rewatches,
   }) {
     if (!_failed) {
       _failed = true;
@@ -339,6 +342,7 @@ class _FailingOnceRepository extends MockUserRateRepository {
       status: status,
       episodes: episodes,
       score: score,
+      rewatches: rewatches,
     );
   }
 }

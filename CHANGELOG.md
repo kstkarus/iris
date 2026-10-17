@@ -4,6 +4,10 @@ Notable changes to iris, newest first. The format follows [Keep a Changelog](htt
 
 ## [Unreleased]
 
+### Added
+
+- Watched-episode marks are saved on the device before sending to Shikimori and retried silently after network failures, app restarts and returning to Iris. Each account keeps its own queue; confirmed resets and new rewatches on Shikimori cancel older pending marks.
+
 ## [1.4.6] - 2026-10-17
 
 ### Fixed

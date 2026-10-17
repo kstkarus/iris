@@ -15,6 +15,7 @@ class UserRate {
     required this.status,
     required this.episodes,
     this.score = 0,
+    this.rewatches,
   });
 
   static const maxScore = 10;
@@ -28,16 +29,20 @@ class UserRate {
   /// 1 to [maxScore]; 0 when not rated.
   final int score;
 
+  /// Null when the source did not include the viewing cycle.
+  final int? rewatches;
+
   @override
   bool operator ==(Object other) =>
       other is UserRate &&
       other.id == id &&
       other.status == status &&
       other.episodes == episodes &&
-      other.score == score;
+      other.score == score &&
+      other.rewatches == rewatches;
 
   @override
-  int get hashCode => Object.hash(id, status, episodes, score);
+  int get hashCode => Object.hash(id, status, episodes, score, rewatches);
 }
 
 /// An entry seen or changed: [rate] is null when the anime left the list.
