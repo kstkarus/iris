@@ -362,6 +362,40 @@ void main() {
     semantics.dispose();
   });
 
+  for (final entry in TestWindowSizes.all.entries) {
+    testWidgets('keeps found rows while providers finish on ${entry.key}', (
+      tester,
+    ) async {
+      setTestWindowSize(tester, entry.value);
+      final online = _FakeOnlineSources.pending();
+      await _pumpPage(tester, online: online);
+
+      online.answers.add([_release]);
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+      final row = find.byKey(const ValueKey('online_release_anilibria_9542'));
+      final original = tester.element(row);
+      final position = tester.getTopLeft(row);
+
+      online.answers.add(_dubs);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(row, findsOneWidget);
+      expect(tester.element(row), same(original));
+      expect(tester.getTopLeft(row), position);
+
+      // The last provider (e.g. AnimeJoy) found nothing: only noise goes.
+      await online.answers.close();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(row, findsOneWidget);
+      expect(tester.element(row), same(original));
+      expect(tester.getTopLeft(row), position);
+      await tester.pumpAndSettle();
+      expect(tester.element(row), same(original));
+    });
+  }
+
   testWidgets('a failed search offers to retry on its tab', (tester) async {
     final online = _FakeOnlineSources.failing();
     await _pumpPage(tester, online: online);

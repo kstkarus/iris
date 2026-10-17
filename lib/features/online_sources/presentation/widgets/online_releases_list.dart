@@ -26,9 +26,9 @@ import 'package:iris/shared/widgets/tap_row.dart';
 /// file picker, and its download button in the download picker, as a
 /// torrent row does.
 ///
-/// Rows come as the servers answer: each answer develops the list anew out
-/// of the last one, and while a server is still searching a noise row
-/// waits at the end. The page hides the list when no server has the anime.
+/// Rows come as the servers answer, updating the same list after its first
+/// reveal. While a server is still searching a noise row waits at the end.
+/// The page hides the list when no server has the anime.
 class OnlineReleasesList extends StatelessWidget {
   const OnlineReleasesList({
     required this.animeId,
@@ -61,7 +61,7 @@ class OnlineReleasesList extends StatelessWidget {
             _rows(context, const [], standIns: _standInRows),
           ),
           OnlineReleasesLoaded(:final releases, :final searching) => (
-            '${releases.length} $searching',
+            'loaded',
             _rows(context, releases, standIns: searching ? 1 : 0),
           ),
           OnlineReleasesFailure() => (
