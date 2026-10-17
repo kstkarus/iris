@@ -190,10 +190,45 @@ void main() {
     await pumpEventQueue();
     // Completes although the server has not answered.
     await subscription.cancel();
+    await repository.stopPlayback(sessionId: _link);
 
     sources.pendingStreams!.complete(sources.streams);
     await pumpEventQueue();
     expect(updates, isEmpty, reason: 'a late answer is dropped');
+    expect(
+      await repository.renewSession(
+        const PlayerSession(sessionId: _link, streamUrl: 'https://old.test'),
+      ),
+      isNull,
+      reason: 'a cancelled launch cannot restart a stopped session',
+    );
+  });
+
+  test('a cancelled launch cannot change the next episode renewal', () async {
+    final source = await repository.prepareSource(magnet: _link);
+    final pending = Completer<List<OnlineStream>>();
+    sources.pendingStreams = pending;
+    final subscription = repository
+        .startPlayback(sessionId: _link, fileIndex: source.files.first.index)
+        .listen((_) {});
+    await pumpEventQueue();
+    await subscription.cancel();
+    await repository.disposePlayback(sessionId: _link);
+
+    sources.pendingStreams = null;
+    final current =
+        await repository
+                .startPlayback(
+                  sessionId: _link,
+                  fileIndex: source.files.last.index,
+                )
+                .first
+            as PlayerLaunchReadyUpdate;
+    pending.complete(sources.streams);
+    await pumpEventQueue();
+
+    await repository.renewSession(current.session);
+    expect(sources.resolved, ['e1', 'e2', 'e2']);
   });
 
   test('fails to start an episode without streams', () async {

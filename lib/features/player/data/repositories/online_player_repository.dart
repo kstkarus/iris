@@ -86,6 +86,9 @@ class OnlinePlayerRepository implements PlayerRepository {
           fileIndex: fileIndex,
         );
         if (cancelled) return;
+        if (update is PlayerLaunchReadyUpdate) {
+          _playing[sessionId] = fileIndex;
+        }
         controller.add(update);
         await controller.close();
       },
@@ -100,7 +103,6 @@ class OnlinePlayerRepository implements PlayerRepository {
   }) async {
     try {
       final session = await _resolve(sessionId, fileIndex);
-      _playing[sessionId] = fileIndex;
       return PlayerLaunchReadyUpdate(session);
     } on Object catch (error) {
       developer.log(

@@ -4,6 +4,10 @@ Notable changes to iris, newest first. The format follows [Keep a Changelog](htt
 
 ## [Unreleased]
 
+### Fixed
+
+- A cancelled online episode can no longer replace the current episode when its delayed response arrives. Changing quality or renewing a stream keeps the selected episode.
+
 ## [1.4.5] - 2026-10-17
 
 ### Added
