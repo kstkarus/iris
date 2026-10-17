@@ -28,6 +28,8 @@ import 'package:iris/features/anime_details/data/repositories/mock_anime_details
 import 'package:iris/features/anime_details/data/repositories/remote_anime_details_repository.dart';
 import 'package:iris/features/anime_details/domain/repositories/anime_details_repository.dart';
 import 'package:iris/features/app_update/data/github_app_update_repository.dart';
+import 'package:iris/features/app_update/data/repositories/android_app_update_download_repository.dart';
+import 'package:iris/features/app_update/domain/repositories/app_update_download_repository.dart';
 import 'package:iris/features/app_update/domain/repositories/app_update_repository.dart';
 import 'package:iris/features/characters/data/mock_characters_repository.dart';
 import 'package:iris/features/characters/data/remote_characters_repository.dart';
@@ -51,7 +53,7 @@ import 'package:iris/features/auth/data/repositories/mock_auth_repository.dart';
 import 'package:iris/features/auth/data/repositories/shikimori_auth_repository.dart';
 import 'package:iris/features/auth/domain/repositories/auth_repository.dart';
 import 'package:iris/features/downloads/data/adapters/app_storage_usage_adapter.dart';
-import 'package:iris/features/downloads/data/adapters/download_foreground_service_adapter.dart';
+import 'package:iris/shared/platform/download_foreground_service_adapter.dart';
 import 'package:iris/features/downloads/data/adapters/libtorrent_download_engine_adapter.dart';
 import 'package:iris/features/downloads/data/datasources/download_registry_data_source.dart';
 import 'package:iris/features/downloads/data/datasources/shikimori_download_poster_data_source.dart';
@@ -287,6 +289,20 @@ Future<void> _registerReal() async {
     directory: Directory(path.join(temporaryDirectory.path, 'iris', 'stream')),
   );
   serviceLocator.registerSingleton<StreamCacheStorage>(streamCache);
+  if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+    serviceLocator.registerLazySingleton<AppUpdateDownloadRepository>(
+      () => AndroidAppUpdateDownloadRepository(
+        dio: createJsonApiDio(
+          baseUrl: AppReleasesApi.baseUrl,
+          receiveTimeout: const Duration(seconds: 60),
+        ),
+        supportDirectory: () async => supportDirectory,
+        foregroundService: const MethodChannelDownloadForegroundServiceAdapter(
+          owner: 'app_update',
+        ),
+      ),
+    );
+  }
   // Leftovers of a crashed or killed session are useless after restart.
   unawaited(streamCache.prepare());
 

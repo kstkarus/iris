@@ -19,12 +19,14 @@ class MethodChannelDownloadForegroundServiceAdapter
   /// [localizations] defaults to the system language, which the app's UI
   /// follows too.
   const MethodChannelDownloadForegroundServiceAdapter({
+    this.owner = 'downloads',
     AppLocalizations Function() localizations = _systemLocalizations,
   }) : _localizations = localizations;
 
   static const _channel = MethodChannel('iris/download_service');
 
   final AppLocalizations Function() _localizations;
+  final String owner;
 
   @override
   Future<void> start({required String text}) => _invoke('start', text: text);
@@ -39,7 +41,10 @@ class MethodChannelDownloadForegroundServiceAdapter
     final l10n = _localizations();
     try {
       await _channel.invokeMethod<void>(method, {
-        'title': l10n.downloadNotificationTitle,
+        'owner': owner,
+        'title': owner == 'app_update'
+            ? l10n.appUpdateNotificationTitle
+            : l10n.downloadNotificationTitle,
         'text': ?text,
         'channelName': l10n.downloadNotificationChannelName,
         'channelDescription': l10n.downloadNotificationChannelDescription,
@@ -51,6 +56,7 @@ class MethodChannelDownloadForegroundServiceAdapter
         error: error,
         stackTrace: stackTrace,
       );
+      if (owner == 'app_update') rethrow;
     }
   }
 }

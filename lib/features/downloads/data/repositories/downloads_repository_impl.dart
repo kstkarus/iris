@@ -5,7 +5,7 @@ import 'dart:io';
 import 'package:path/path.dart' as path;
 
 import 'package:iris/features/downloads/data/adapters/app_storage_usage_adapter.dart';
-import 'package:iris/features/downloads/data/adapters/download_foreground_service_adapter.dart';
+import 'package:iris/shared/platform/download_foreground_service_adapter.dart';
 import 'package:iris/features/downloads/data/adapters/libtorrent_download_engine_adapter.dart';
 import 'package:iris/features/downloads/data/adapters/online_episode_downloader.dart';
 import 'package:iris/features/downloads/data/datasources/download_registry_data_source.dart';

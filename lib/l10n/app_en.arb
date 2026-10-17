@@ -34,7 +34,7 @@
   "downloadStatusFailed": "Failed",
   "downloadNotificationTitle": "Downloading",
   "downloadNotificationChannelName": "Downloads",
-  "downloadNotificationChannelDescription": "Download progress for offline viewing",
+  "downloadNotificationChannelDescription": "Download progress for episodes and app updates",
   "downloadFailedMessage": "The torrent stopped with an error. Try again later.",
   "downloadWatchButton": "Watch",
   "downloadPauseButton": "Pause",
@@ -750,6 +750,35 @@
   "appUpdateDownload": "Download",
   "appUpdateLater": "Later",
   "appUpdateOpenFailed": "Could not open the download.",
+  "appUpdateNotificationTitle": "Iris update",
+  "appUpdateNoticeAvailable": "Available {version}",
+  "@appUpdateNoticeAvailable": {
+    "placeholders": {
+      "version": { "type": "String" }
+    }
+  },
+  "appUpdateNoticeDownloading": "Updating",
+  "appUpdateNoticeReady": "Update ready",
+  "appUpdateNoticeFailed": "Download failed",
+  "appUpdateNoticeVerifying": "Checking file",
+  "appUpdateNoticeInstalling": "Opening installer",
+  "appUpdateWhatsNew": "What's new",
+  "appUpdateNoNotes": "No release notes were provided.",
+  "appUpdateCancelDownload": "Cancel",
+  "appUpdateInstall": "Install update",
+  "appUpdateRetry": "Retry",
+  "appUpdateProgress": "{received} / {total}",
+  "@appUpdateProgress": {
+    "placeholders": {
+      "received": { "type": "String" },
+      "total": { "type": "String" }
+    }
+  },
+  "appUpdateFailureNetwork": "Couldn't download the update. Check your connection and try again.",
+  "appUpdateFailureInvalidFile": "The update file is damaged. Download it again.",
+  "appUpdateFailureStorage": "Couldn't save the update. Check available storage.",
+  "appUpdateFailureInstall": "Couldn't open the installer. Try again.",
+  "appUpdateFailurePermission": "Allow Iris to install apps in Android settings.",
   "charactersTitle": "Characters",
   "charactersAll": "All {count}",
   "@charactersAll": {

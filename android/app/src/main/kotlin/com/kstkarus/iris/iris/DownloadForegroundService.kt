@@ -15,7 +15,7 @@ import android.os.Looper
 import android.os.Process
 
 /**
- * Keeps the process alive while a download runs. Started only for
+ * Keeps the process alive while a download or update runs. Started only for
  * [ACTION_START]; progress goes straight to the notification through
  * [showNotification], never through `startForegroundService`, which would
  * oblige a service that is not in the foreground (stopped by Android 15's
@@ -25,23 +25,22 @@ import android.os.Process
 class DownloadForegroundService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == ACTION_STOP) {
-            running = false
-            leaveForeground()
-            // Not stopSelf(): a start sent right after this stop would find
-            // its service destroyed under it. With the id, a newer start
-            // keeps it.
-            stopSelf(startId)
+            stopOwner(this, ownerOf(intent), startId)
             return START_NOT_STICKY
         }
 
-        val notification = notification(
-            this,
-            title = intent?.getStringExtra(EXTRA_TITLE),
-            text = intent?.getStringExtra(EXTRA_TEXT),
-            channelName = intent?.getStringExtra(EXTRA_CHANNEL_NAME),
-            channelDescription = intent?.getStringExtra(EXTRA_CHANNEL_DESCRIPTION),
+        val owner = ownerOf(intent)
+        owners[owner] = OwnerState(
+            notification = notificationState(
+                title = intent?.getStringExtra(EXTRA_TITLE),
+                text = intent?.getStringExtra(EXTRA_TEXT),
+                channelName = intent?.getStringExtra(EXTRA_CHANNEL_NAME),
+                channelDescription = intent?.getStringExtra(EXTRA_CHANNEL_DESCRIPTION),
+            ),
+            active = true,
         )
-        running = true
+        val notification = buildCurrentNotification(this)
+        foreground = true
         // Every command but stop came through startForegroundService.
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             startForeground(
@@ -59,7 +58,7 @@ class DownloadForegroundService : Service() {
 
     /**
      * Swiped away from the recent apps: the activity and the Dart side that
-     * ran the downloads are gone, and nothing would ever stop this service
+     * that owned foreground work is gone, and nothing would ever stop this service
      * or the native torrent session in the process. Both end here; the
      * queue picks up again from the registry on the next launch.
      */
@@ -78,7 +77,8 @@ class DownloadForegroundService : Service() {
     }
 
     override fun onDestroy() {
-        running = false
+        foreground = false
+        deactivateOwners()
         super.onDestroy()
     }
 
@@ -86,6 +86,8 @@ class DownloadForegroundService : Service() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
             stopForeground(STOP_FOREGROUND_REMOVE)
         }
+        foreground = false
+        deactivateOwners()
         stopSelf(startId)
     }
 
@@ -96,6 +98,9 @@ class DownloadForegroundService : Service() {
         const val EXTRA_TEXT = "text"
         const val EXTRA_CHANNEL_NAME = "channelName"
         const val EXTRA_CHANNEL_DESCRIPTION = "channelDescription"
+        const val EXTRA_OWNER = "owner"
+        const val OWNER_DOWNLOADS = "downloads"
+        const val OWNER_APP_UPDATE = "app_update"
 
         private const val CHANNEL_ID = "iris_downloads"
         private const val NOTIFICATION_ID = 7101
@@ -108,10 +113,11 @@ class DownloadForegroundService : Service() {
          * beside it on the next launch.
          */
         fun endWithApp(context: Context) {
-            // Progress can show a notification after Android stopped the service.
+            val wasForeground = foreground
+            owners.clear()
             cancelNotification(context)
-            if (!running) return
-            running = false
+            if (!wasForeground) return
+            foreground = false
             context.stopService(Intent(context, DownloadForegroundService::class.java))
             // A moment for writes the app queued on its way out (preferences
             // are saved in the background) to land.
@@ -126,25 +132,103 @@ class DownloadForegroundService : Service() {
         private val exitHandler by lazy { Handler(Looper.getMainLooper()) }
         private val exit = Runnable { Process.killProcess(Process.myPid()) }
 
-        /** Whether a download holds the service, so the process with it. */
+        private data class NotificationState(
+            val title: String?,
+            val text: String?,
+            val channelName: String?,
+            val channelDescription: String?,
+        )
+
+        private data class OwnerState(
+            val notification: NotificationState,
+            val active: Boolean,
+        )
+
+        private val owners = mutableMapOf<String, OwnerState>()
+
+        /** Whether an owner currently holds the service, so the process with it. */
         @Volatile
-        private var running = false
+        private var foreground = false
 
         private const val EXIT_DELAY_MS = 500L
 
-        /** Updates the download notification, whether or not the service runs. */
+        /** Updates one owner's notification without starting the service. */
         fun showNotification(
             context: Context,
+            owner: String,
             title: String?,
             text: String?,
             channelName: String?,
             channelDescription: String?,
         ) {
-            notificationManager(context).notify(
-                NOTIFICATION_ID,
-                notification(context, title, text, channelName, channelDescription),
+            val normalizedOwner = normalizeOwner(owner)
+            val current = owners[normalizedOwner]
+            owners[normalizedOwner] = OwnerState(
+                notification = notificationState(title, text, channelName, channelDescription),
+                active = current?.active ?: false,
+            )
+            showCurrentNotification(context)
+        }
+
+        private fun stopOwner(
+            service: DownloadForegroundService,
+            owner: String,
+            startId: Int,
+        ) {
+            owners.remove(owner)
+            if (owners.values.none { it.active }) {
+                if (foreground) {
+                    service.leaveForeground()
+                    foreground = false
+                }
+                if (owners.isEmpty()) {
+                    cancelNotification(service)
+                } else {
+                    showCurrentNotification(service)
+                }
+                // Not stopSelf(): a newer start must be allowed to keep this service.
+                service.stopSelf(startId)
+                return
+            }
+            showCurrentNotification(service)
+        }
+
+        private fun buildCurrentNotification(context: Context): Notification {
+            val state = visibleState()?.notification
+            return notification(
+                context,
+                title = state?.title,
+                text = state?.text,
+                channelName = state?.channelName,
+                channelDescription = state?.channelDescription,
             )
         }
+
+        private fun showCurrentNotification(context: Context) {
+            notificationManager(context).notify(NOTIFICATION_ID, buildCurrentNotification(context))
+        }
+
+        private fun visibleState(): OwnerState? =
+            owners[OWNER_APP_UPDATE] ?: owners[OWNER_DOWNLOADS]
+
+        private fun deactivateOwners() {
+            owners.keys.toList().forEach { owner ->
+                owners[owner]?.let { owners[owner] = it.copy(active = false) }
+            }
+        }
+
+        private fun ownerOf(intent: Intent?): String =
+            normalizeOwner(intent?.getStringExtra(EXTRA_OWNER))
+
+        private fun normalizeOwner(owner: String?): String =
+            if (owner == OWNER_APP_UPDATE) OWNER_APP_UPDATE else OWNER_DOWNLOADS
+
+        private fun notificationState(
+            title: String?,
+            text: String?,
+            channelName: String?,
+            channelDescription: String?,
+        ) = NotificationState(title, text, channelName, channelDescription)
 
         /** Takes the notification away, also one shown without the service. */
         fun cancelNotification(context: Context) {

@@ -98,7 +98,7 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get downloadNotificationChannelDescription =>
-      'Ход загрузки контента для офлайн-просмотра';
+      'Ход загрузки серий и обновлений приложения';
 
   @override
   String get downloadFailedMessage =>
@@ -1184,6 +1184,69 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get appUpdateOpenFailed => 'Не удалось открыть загрузку.';
+
+  @override
+  String get appUpdateNotificationTitle => 'Обновление Iris';
+
+  @override
+  String appUpdateNoticeAvailable(String version) {
+    return 'Доступна $version';
+  }
+
+  @override
+  String get appUpdateNoticeDownloading => 'Обновление';
+
+  @override
+  String get appUpdateNoticeReady => 'Обновление готово';
+
+  @override
+  String get appUpdateNoticeFailed => 'Не удалось скачать';
+
+  @override
+  String get appUpdateNoticeVerifying => 'Проверяем файл';
+
+  @override
+  String get appUpdateNoticeInstalling => 'Открываем установщик';
+
+  @override
+  String get appUpdateWhatsNew => 'Что нового';
+
+  @override
+  String get appUpdateNoNotes => 'Список изменений не указан.';
+
+  @override
+  String get appUpdateCancelDownload => 'Отменить';
+
+  @override
+  String get appUpdateInstall => 'Установить обновление';
+
+  @override
+  String get appUpdateRetry => 'Повторить';
+
+  @override
+  String appUpdateProgress(String received, String total) {
+    return '$received / $total';
+  }
+
+  @override
+  String get appUpdateFailureNetwork =>
+      'Не удалось скачать обновление. Проверьте подключение и попробуйте ещё раз.';
+
+  @override
+  String get appUpdateFailureInvalidFile =>
+      'Файл обновления повреждён. Скачайте его ещё раз.';
+
+  @override
+  String get appUpdateFailureStorage =>
+      'Не удалось сохранить обновление. Проверьте свободное место.';
+
+  @override
+  String get appUpdateFailureInstall =>
+      'Не удалось открыть установщик. Попробуйте ещё раз.';
+
+  @override
+  String get appUpdateFailurePermission =>
+      'Разрешите Iris устанавливать приложения в настройках Android.';
 
   @override
   String get charactersTitle => 'Персонажи';

@@ -83,10 +83,23 @@ class GitHubAppUpdateRepository implements AppUpdateRepository {
     for (final asset in assets) {
       final fields = jsonMap(asset);
       final url = Uri.tryParse(jsonString(fields['browser_download_url']));
+      final name = jsonString(fields['name']);
       if (url != null &&
-          url.hasScheme &&
-          _target.matches(jsonString(fields['name']))) {
-        return AppRelease(version: version, downloadUrl: url);
+          url.scheme == 'https' &&
+          url.host.isNotEmpty &&
+          _target.matches(name)) {
+        final digest = jsonString(fields['digest']);
+        final sha256 = RegExp(
+          r'^sha256:([0-9a-fA-F]{64})$',
+        ).firstMatch(digest)?.group(1)?.toLowerCase();
+        return AppRelease(
+          version: version,
+          downloadUrl: url,
+          notes: jsonString(release['body']),
+          sizeBytes: jsonInt(fields['size']),
+          sha256: sha256,
+          assetName: name,
+        );
       }
     }
     return null;

@@ -1,20 +1,25 @@
 package com.kstkarus.iris.iris
 
-import android.app.ActivityManager
 import android.Manifest
+import android.app.ActivityManager
+import android.app.usage.StorageStatsManager
+import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.res.Configuration
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.Process
 import android.os.storage.StorageManager
-import android.app.usage.StorageStatsManager
-import java.io.File
+import android.provider.Settings
+import androidx.core.content.FileProvider
+import androidx.lifecycle.Lifecycle
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
+import java.io.File
 
 class MainActivity : FlutterActivity() {
     private var pictureInPicture: PictureInPictureController? = null
@@ -48,6 +53,8 @@ class MainActivity : FlutterActivity() {
         ).setMethodCallHandler { call, result ->
             val title = call.argument<String>("title") ?: "Iris"
             val text = call.argument<String>("text") ?: "Загрузка контента"
+            val owner = call.argument<String>("owner")
+                ?: DownloadForegroundService.OWNER_DOWNLOADS
             val channelName = call.argument<String>("channelName")
             val channelDescription = call.argument<String>("channelDescription")
             when (call.method) {
@@ -57,6 +64,7 @@ class MainActivity : FlutterActivity() {
                         DownloadForegroundService.ACTION_START,
                         title,
                         text,
+                        owner,
                         channelName,
                         channelDescription,
                     )
@@ -66,6 +74,7 @@ class MainActivity : FlutterActivity() {
                     // Not a service command: see DownloadForegroundService.
                     DownloadForegroundService.showNotification(
                         this,
+                        owner,
                         title,
                         text,
                         channelName,
@@ -74,17 +83,47 @@ class MainActivity : FlutterActivity() {
                     result.success(null)
                 }
                 "stop" -> {
-                    // An update may have shown the notification while the
-                    // service did not run; that one goes too.
-                    DownloadForegroundService.cancelNotification(this)
                     sendDownloadServiceAction(
                         DownloadForegroundService.ACTION_STOP,
                         title,
                         text,
+                        owner,
                         channelName,
                         channelDescription,
                     )
                     result.success(null)
+                }
+                else -> result.notImplemented()
+            }
+        }
+
+        MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            "iris/app_update",
+        ).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "canInstall" -> result.success(canInstallPackages())
+                "openInstallPermissionSettings" -> {
+                    try {
+                        openInstallPermissionSettings()
+                        result.success(null)
+                    } catch (error: AppUpdateInstallException) {
+                        result.error(error.code, error.message, null)
+                    } catch (error: ActivityNotFoundException) {
+                        result.error("settings_unavailable", error.message, null)
+                    } catch (error: Exception) {
+                        result.error("permission_settings_failed", error.message, null)
+                    }
+                }
+                "install" -> {
+                    try {
+                        installUpdate(call.argument<String>("path"))
+                        result.success(null)
+                    } catch (error: AppUpdateInstallException) {
+                        result.error(error.code, error.message, null)
+                    } catch (error: Exception) {
+                        result.error("installer_error", error.message, null)
+                    }
                 }
                 else -> result.notImplemented()
             }
@@ -146,10 +185,101 @@ class MainActivity : FlutterActivity() {
         }
     }
 
+    private fun canInstallPackages(): Boolean =
+        Build.VERSION.SDK_INT < Build.VERSION_CODES.O || packageManager.canRequestPackageInstalls()
+
+    private fun openInstallPermissionSettings() {
+        requireUpdateActivityResumed()
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O || canInstallPackages()) return
+        startActivity(
+            Intent(
+                Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                Uri.parse("package:$packageName"),
+            ),
+        )
+    }
+
+    @Suppress("DEPRECATION")
+    private fun installUpdate(path: String?) {
+        if (!canInstallPackages()) {
+            throw AppUpdateInstallException(
+                "install_permission_required",
+                "Allow Iris to install updates in Android settings.",
+            )
+        }
+        requireUpdateActivityResumed()
+
+        val apk = validatedUpdateApk(path)
+        val uri = FileProvider.getUriForFile(this, "$packageName.fileprovider", apk)
+        val intent = Intent(Intent.ACTION_INSTALL_PACKAGE).apply {
+            data = uri
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        try {
+            startActivity(intent)
+        } catch (error: ActivityNotFoundException) {
+            throw AppUpdateInstallException(
+                "installer_unavailable",
+                error.message ?: "No installer is available.",
+            )
+        }
+    }
+
+    private fun requireUpdateActivityResumed() {
+        if (
+            isFinishing || isDestroyed ||
+            !lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)
+        ) {
+            throw AppUpdateInstallException(
+                "activity_not_foreground",
+                "Open Iris before continuing the update.",
+            )
+        }
+    }
+
+    @Suppress("DEPRECATION")
+    private fun validatedUpdateApk(path: String?): File {
+        if (path.isNullOrBlank()) {
+            throw AppUpdateInstallException("invalid_apk", "The update APK path is missing.")
+        }
+
+        val updateDirectory = File(filesDir, "app_updates").canonicalFile
+        val apk = File(path).canonicalFile
+        if (
+            !apk.path.startsWith(updateDirectory.path + File.separator) ||
+            !apk.isFile || !apk.canRead() || apk.length() == 0L ||
+            !apk.extension.equals("apk", ignoreCase = true)
+        ) {
+            throw AppUpdateInstallException("invalid_apk", "The update APK is invalid.")
+        }
+
+        val signingFlag = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            PackageManager.GET_SIGNING_CERTIFICATES
+        } else {
+            PackageManager.GET_SIGNATURES
+        }
+        val archive = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            packageManager.getPackageArchiveInfo(
+                apk.path,
+                PackageManager.PackageInfoFlags.of(signingFlag.toLong()),
+            )
+        } else {
+            packageManager.getPackageArchiveInfo(apk.path, signingFlag)
+        }
+        if (archive?.packageName != packageName) {
+            throw AppUpdateInstallException(
+                "invalid_apk",
+                "The APK does not belong to this Iris installation.",
+            )
+        }
+        return apk
+    }
+
     private fun sendDownloadServiceAction(
         action: String,
         title: String,
         text: String,
+        owner: String,
         channelName: String?,
         channelDescription: String?,
     ) {
@@ -157,6 +287,7 @@ class MainActivity : FlutterActivity() {
             this.action = action
             putExtra(DownloadForegroundService.EXTRA_TITLE, title)
             putExtra(DownloadForegroundService.EXTRA_TEXT, text)
+            putExtra(DownloadForegroundService.EXTRA_OWNER, owner)
             putExtra(DownloadForegroundService.EXTRA_CHANNEL_NAME, channelName)
             putExtra(
                 DownloadForegroundService.EXTRA_CHANNEL_DESCRIPTION,
@@ -217,3 +348,8 @@ class MainActivity : FlutterActivity() {
         private const val NOTIFICATION_PERMISSION_REQUEST_CODE = 710
     }
 }
+
+private class AppUpdateInstallException(
+    val code: String,
+    message: String,
+) : Exception(message)

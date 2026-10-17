@@ -263,7 +263,7 @@ abstract class AppLocalizations {
   /// No description provided for @downloadNotificationChannelDescription.
   ///
   /// In en, this message translates to:
-  /// **'Download progress for offline viewing'**
+  /// **'Download progress for episodes and app updates'**
   String get downloadNotificationChannelDescription;
 
   /// No description provided for @downloadFailedMessage.
@@ -2089,6 +2089,114 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Could not open the download.'**
   String get appUpdateOpenFailed;
+
+  /// No description provided for @appUpdateNotificationTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Iris update'**
+  String get appUpdateNotificationTitle;
+
+  /// No description provided for @appUpdateNoticeAvailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Available {version}'**
+  String appUpdateNoticeAvailable(String version);
+
+  /// No description provided for @appUpdateNoticeDownloading.
+  ///
+  /// In en, this message translates to:
+  /// **'Updating'**
+  String get appUpdateNoticeDownloading;
+
+  /// No description provided for @appUpdateNoticeReady.
+  ///
+  /// In en, this message translates to:
+  /// **'Update ready'**
+  String get appUpdateNoticeReady;
+
+  /// No description provided for @appUpdateNoticeFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Download failed'**
+  String get appUpdateNoticeFailed;
+
+  /// No description provided for @appUpdateNoticeVerifying.
+  ///
+  /// In en, this message translates to:
+  /// **'Checking file'**
+  String get appUpdateNoticeVerifying;
+
+  /// No description provided for @appUpdateNoticeInstalling.
+  ///
+  /// In en, this message translates to:
+  /// **'Opening installer'**
+  String get appUpdateNoticeInstalling;
+
+  /// No description provided for @appUpdateWhatsNew.
+  ///
+  /// In en, this message translates to:
+  /// **'What\'s new'**
+  String get appUpdateWhatsNew;
+
+  /// No description provided for @appUpdateNoNotes.
+  ///
+  /// In en, this message translates to:
+  /// **'No release notes were provided.'**
+  String get appUpdateNoNotes;
+
+  /// No description provided for @appUpdateCancelDownload.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get appUpdateCancelDownload;
+
+  /// No description provided for @appUpdateInstall.
+  ///
+  /// In en, this message translates to:
+  /// **'Install update'**
+  String get appUpdateInstall;
+
+  /// No description provided for @appUpdateRetry.
+  ///
+  /// In en, this message translates to:
+  /// **'Retry'**
+  String get appUpdateRetry;
+
+  /// No description provided for @appUpdateProgress.
+  ///
+  /// In en, this message translates to:
+  /// **'{received} / {total}'**
+  String appUpdateProgress(String received, String total);
+
+  /// No description provided for @appUpdateFailureNetwork.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t download the update. Check your connection and try again.'**
+  String get appUpdateFailureNetwork;
+
+  /// No description provided for @appUpdateFailureInvalidFile.
+  ///
+  /// In en, this message translates to:
+  /// **'The update file is damaged. Download it again.'**
+  String get appUpdateFailureInvalidFile;
+
+  /// No description provided for @appUpdateFailureStorage.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t save the update. Check available storage.'**
+  String get appUpdateFailureStorage;
+
+  /// No description provided for @appUpdateFailureInstall.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t open the installer. Try again.'**
+  String get appUpdateFailureInstall;
+
+  /// No description provided for @appUpdateFailurePermission.
+  ///
+  /// In en, this message translates to:
+  /// **'Allow Iris to install apps in Android settings.'**
+  String get appUpdateFailurePermission;
 
   /// No description provided for @charactersTitle.
   ///

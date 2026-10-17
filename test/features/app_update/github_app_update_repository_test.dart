@@ -12,6 +12,7 @@ import '../../helpers/fake_http_adapter.dart';
 
 final _release = {
   'tag_name': 'v1.3.0',
+  'body': 'Bug fixes and performance improvements.',
   'assets': [
     {
       'name': 'iris-1.3.0-windows-x64.zip',
@@ -22,6 +23,10 @@ final _release = {
         'name': 'iris-1.3.0-android-$abi.apk',
         'browser_download_url':
             'https://example.org/iris-1.3.0-android-$abi.apk',
+        if (abi == 'arm64-v8a') ...{
+          'size': 1024,
+          'digest': 'sha256:${'a' * 64}',
+        },
       },
   ],
 };
@@ -46,12 +51,32 @@ void main() {
 
   test('offers the build for this platform from the latest release', () async {
     final android = await repository(FakeReply(200, _release));
+    final latest = await android.latestRelease();
     expect(
-      await android.latestRelease(),
+      latest,
       AppRelease(
         version: const AppVersion(1, 3, 0),
         downloadUrl: Uri.parse(
           'https://example.org/iris-1.3.0-android-arm64-v8a.apk',
+        ),
+        notes: 'Bug fixes and performance improvements.',
+        sizeBytes: 1024,
+        sha256: 'a' * 64,
+        assetName: 'iris-1.3.0-android-arm64-v8a.apk',
+      ),
+    );
+    expect(latest?.notes, 'Bug fixes and performance improvements.');
+    expect(latest?.sizeBytes, 1024);
+    expect(latest?.sha256, 'a' * 64);
+    expect(latest?.assetName, 'iris-1.3.0-android-arm64-v8a.apk');
+    expect(
+      latest,
+      isNot(
+        AppRelease(
+          version: const AppVersion(1, 3, 0),
+          downloadUrl: Uri.parse(
+            'https://example.org/iris-1.3.0-android-arm64-v8a.apk',
+          ),
         ),
       ),
     );
@@ -98,6 +123,40 @@ void main() {
     );
     expect(await old.latestRelease(), isNull);
   });
+
+  test(
+    'accepts only HTTPS URLs and normalizes GitHub SHA-256 digests',
+    () async {
+      final insecure = await repository(
+        FakeReply(200, {
+          'tag_name': 'v1.3.0',
+          'assets': [
+            {
+              'name': 'iris-1.3.0-android-arm64-v8a.apk',
+              'browser_download_url': 'file:///tmp/update.apk',
+              'digest': 'sha256:${'A' * 64}',
+            },
+          ],
+        }),
+      );
+      expect(await insecure.latestRelease(), isNull);
+
+      final secure = await repository(
+        FakeReply(200, {
+          'tag_name': 'v1.3.0',
+          'assets': [
+            {
+              'name': 'iris-1.3.0-android-arm64-v8a.apk',
+              'browser_download_url':
+                  'https://example.org/iris-1.3.0-android-arm64-v8a.apk',
+              'digest': 'sha256:${'A' * 64}',
+            },
+          ],
+        }),
+      );
+      expect((await secure.latestRelease())?.sha256, 'a' * 64);
+    },
+  );
 
   test('nothing published, or no build here, is no update', () async {
     final unpublished = await repository(const FakeReply(404));

@@ -97,7 +97,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get downloadNotificationChannelDescription =>
-      'Download progress for offline viewing';
+      'Download progress for episodes and app updates';
 
   @override
   String get downloadFailedMessage =>
@@ -1170,6 +1170,69 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get appUpdateOpenFailed => 'Could not open the download.';
+
+  @override
+  String get appUpdateNotificationTitle => 'Iris update';
+
+  @override
+  String appUpdateNoticeAvailable(String version) {
+    return 'Available $version';
+  }
+
+  @override
+  String get appUpdateNoticeDownloading => 'Updating';
+
+  @override
+  String get appUpdateNoticeReady => 'Update ready';
+
+  @override
+  String get appUpdateNoticeFailed => 'Download failed';
+
+  @override
+  String get appUpdateNoticeVerifying => 'Checking file';
+
+  @override
+  String get appUpdateNoticeInstalling => 'Opening installer';
+
+  @override
+  String get appUpdateWhatsNew => 'What\'s new';
+
+  @override
+  String get appUpdateNoNotes => 'No release notes were provided.';
+
+  @override
+  String get appUpdateCancelDownload => 'Cancel';
+
+  @override
+  String get appUpdateInstall => 'Install update';
+
+  @override
+  String get appUpdateRetry => 'Retry';
+
+  @override
+  String appUpdateProgress(String received, String total) {
+    return '$received / $total';
+  }
+
+  @override
+  String get appUpdateFailureNetwork =>
+      'Couldn\'t download the update. Check your connection and try again.';
+
+  @override
+  String get appUpdateFailureInvalidFile =>
+      'The update file is damaged. Download it again.';
+
+  @override
+  String get appUpdateFailureStorage =>
+      'Couldn\'t save the update. Check available storage.';
+
+  @override
+  String get appUpdateFailureInstall =>
+      'Couldn\'t open the installer. Try again.';
+
+  @override
+  String get appUpdateFailurePermission =>
+      'Allow Iris to install apps in Android settings.';
 
   @override
   String get charactersTitle => 'Characters';

@@ -11,6 +11,7 @@ import 'package:iris/entities/user_rate/presentation/user_rate_book_cubit.dart';
 import 'package:iris/entities/watch_progress/domain/watch_progress_repository.dart';
 import 'package:iris/entities/watch_progress/presentation/watch_progress_cubit.dart';
 import 'package:iris/features/app_update/domain/repositories/app_update_repository.dart';
+import 'package:iris/features/app_update/domain/repositories/app_update_download_repository.dart';
 import 'package:iris/features/app_update/presentation/cubit/app_update_cubit.dart';
 import 'package:iris/features/auth/domain/repositories/auth_repository.dart';
 import 'package:iris/features/auth/presentation/cubit/auth_cubit.dart';
@@ -55,9 +56,12 @@ Future<Widget> createApp({bool useMocks = false}) async {
       ),
       // Once a launch: friends get new builds from the releases page.
       BlocProvider(
-        create: (_) =>
-            AppUpdateCubit(repository: serviceLocator<AppUpdateRepository>())
-              ..check(),
+        create: (_) => AppUpdateCubit(
+          repository: serviceLocator<AppUpdateRepository>(),
+          downloads: serviceLocator.isRegistered<AppUpdateDownloadRepository>()
+              ? serviceLocator<AppUpdateDownloadRepository>()
+              : null,
+        )..check(),
       ),
     ],
     child: AccountListener(
