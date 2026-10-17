@@ -7,6 +7,7 @@ Notable changes to iris, newest first. The format follows [Keep a Changelog](htt
 ### Fixed
 
 - A cancelled online episode can no longer replace the current episode when its delayed response arrives. Changing quality or renewing a stream keeps the selected episode.
+- Pausing or deleting an online download no longer waits for a slow provider's metadata or video link. The queue can continue immediately, and delayed responses cannot restart the cancelled task.
 
 ## [1.4.5] - 2026-10-17
 

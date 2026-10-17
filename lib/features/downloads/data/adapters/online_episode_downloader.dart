@@ -17,6 +17,7 @@ import 'package:iris/features/online_sources/domain/online_stream_choice.dart';
 import 'package:iris/features/online_sources/domain/repositories/online_sources_repository.dart';
 import 'package:iris/shared/network/network_exceptions.dart';
 import 'package:iris/shared/online/online_source_link.dart';
+import 'package:iris/shared/torrent/preparation_cancelled_exception.dart';
 
 /// Why an online download stopped; [message] is stored with the download
 /// and read back by [downloadFailureFrom].
@@ -185,7 +186,7 @@ class _Task implements OnlineDownloadTask {
   final _cancelToken = CancelToken();
   bool _cancelled = false;
 
-  /// Ends a wait between tries at once, so a pause is not held up by it.
+  /// Stops waiting for provider replies and retries as soon as pause is asked.
   final _cancelRequested = Completer<void>();
   late final _meter = _RateMeter(downloader._now);
 
@@ -586,7 +587,7 @@ class _Task implements OnlineDownloadTask {
     for (var attempt = 0; ; attempt++) {
       _checkCancelled();
       try {
-        return await request();
+        return await unlessCancelled(request(), _cancelRequested.future);
       } on Object catch (error) {
         if (_cancelled) throw const _Cancelled();
         if (!_isOffline(error) || attempt >= _offlineWaits.length) rethrow;

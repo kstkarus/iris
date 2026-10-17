@@ -146,6 +146,7 @@ Current behavior:
 - a torrent that fails or is removed while its metadata is awaited ends the wait at once, in the picker and in the player
 - canceling a metadata preparation transfers its owned torrent to another picker still awaiting it; the last owner removes it
 - pause and retry preserve already downloaded pieces
+- pausing or deleting an online episode also stops waiting for pending provider metadata or video links, so the queue can continue without waiting for a network timeout. Late responses are ignored and cannot write to a deleted download folder
 - completed files remain in app storage until the user deletes them
 - if the files cannot be removed (for example, a file still open elsewhere), the download stays in the list, stopped, and a message asks to delete it again
 - app restart restores the durable queue and rechecks partial files; a list that cannot be read for the disk is not written over and is read again on the next use, and one that does not parse (or an entry of it) is kept beside it as `downloads.json.corrupt`; a torrent engine or downloads folder that failed to start is started again on the next use

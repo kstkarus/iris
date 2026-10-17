@@ -330,6 +330,64 @@ void main() {
     expect(await task.done, isNull);
   });
 
+  for (final waitingForRelease in [true, false]) {
+    for (final failsLate in [false, true]) {
+      final request = waitingForRelease ? 'release' : 'stream list';
+      final reply = failsLate ? 'failure' : 'success';
+      test('a pause drops a pending $request and its late $reply', () async {
+        final requested = Completer<void>();
+        final answer = Completer<void>();
+        sources.onRelease = () async {
+          if (waitingForRelease) {
+            requested.complete();
+            await answer.future;
+          }
+          return _release;
+        };
+        sources.onResolve = () async {
+          if (!waitingForRelease) {
+            requested.complete();
+            await answer.future;
+          }
+          return [_hls('https://cdn.test/e2/720.m3u8')];
+        };
+        final mediaRequests = <Uri>[];
+        final task = start(
+          downloader((options) {
+            mediaRequests.add(options.uri);
+            return const FakeReply(404);
+          }),
+        );
+        await requested.future;
+
+        var stopped = false;
+        final stopping = task.cancel().then((_) => stopped = true);
+        await pumpEventQueue();
+        try {
+          expect(
+            stopped,
+            isTrue,
+            reason: 'pause must finish before the provider answers',
+          );
+          expect(await task.done, isNull);
+          // Delete can remove the folder as soon as cancellation finishes.
+          await directory.delete(recursive: true);
+        } finally {
+          if (failsLate) {
+            answer.completeError(const NetworkRequestException('offline'));
+          } else {
+            answer.complete();
+          }
+          await stopping;
+        }
+        await pumpEventQueue();
+
+        expect(mediaRequests, isEmpty);
+        expect(await directory.exists(), isFalse);
+      });
+    }
+  }
+
   test('an episode whose segment list changed starts over', () async {
     var resolves = 0;
     sources.onResolve = () => [_hls('https://cdn.test/${++resolves}/720.m3u8')];
@@ -537,7 +595,8 @@ class _FakeOnlineSources implements OnlineSourcesRepository {
   int offlineResolves = 0;
 
   /// Gives each resolve its own streams, in place of [streams].
-  List<OnlineStream> Function()? onResolve;
+  FutureOr<List<OnlineStream>> Function()? onResolve;
+  FutureOr<OnlineRelease> Function()? onRelease;
 
   @override
   Future<OnlineRelease> fetchRelease({
@@ -548,7 +607,7 @@ class _FakeOnlineSources implements OnlineSourcesRepository {
       offlineReleases--;
       throw const NetworkRequestException('offline');
     }
-    return _release;
+    return onRelease?.call() ?? _release;
   }
 
   @override
