@@ -4,6 +4,8 @@ Notable changes to iris, newest first. The format follows [Keep a Changelog](htt
 
 ## [Unreleased]
 
+## [1.4.6] - 2026-10-17
+
 ### Fixed
 
 - A cancelled online episode can no longer replace the current episode when its delayed response arrives. Changing quality or renewing a stream keeps the selected episode.
@@ -191,7 +193,8 @@ First published release.
 - Update notice on Android and Windows when a newer release is published.
 - App icon.
 
-[Unreleased]: https://github.com/kstkarus/iris/compare/v1.4.5...HEAD
+[Unreleased]: https://github.com/kstkarus/iris/compare/v1.4.6...HEAD
+[1.4.6]: https://github.com/kstkarus/iris/compare/v1.4.5...v1.4.6
 [1.4.5]: https://github.com/kstkarus/iris/compare/v1.4.4...v1.4.5
 [1.4.4]: https://github.com/kstkarus/iris/compare/v1.4.3...v1.4.4
 [1.4.3]: https://github.com/kstkarus/iris/compare/v1.4.2...v1.4.3
