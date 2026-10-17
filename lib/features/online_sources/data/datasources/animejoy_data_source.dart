@@ -223,8 +223,30 @@ List<AnimejoyEpisodeDto> _parseEpisodes(String html, Uri baseUri) {
         number: number,
         title: episodes[number]!.title,
         playerUrls: episodes[number]!.urls,
+        bestQuality: _playlistQuality(episodes[number]!.urls),
       ),
   ];
+}
+
+int? _playlistQuality(List<String> playerUrls) {
+  var best = 0;
+  for (final url in playerUrls) {
+    final player = Uri.parse(url);
+    if (player.host != 'animejoya.ru' && player.host != 'www.animejoya.ru') {
+      continue;
+    }
+    try {
+      final file = _queryValueRaw(player, 'file');
+      if (file == null) continue;
+      for (final link in _parseVideoLinks(file, player)) {
+        if (link.quality > best) best = link.quality;
+      }
+    } on RemoteResponseException {
+      // Optional metadata must not hide an episode's other player.
+      continue;
+    }
+  }
+  return best > 0 ? best : null;
 }
 
 Uri? _resolvePlayerUrl(String value, Uri baseUri) {

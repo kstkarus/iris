@@ -120,20 +120,27 @@ class AnimejoyOnlineSourcesRepository implements OnlineSourcesRepository {
     return ordered.map((entry) => entry.$2).toSet().toList(growable: false);
   }
 
-  OnlineRelease _release(int articleId, List<AnimejoyEpisodeDto> episodes) =>
-      OnlineRelease(
-        provider: OnlineProvider.animejoy,
-        id: '$articleId',
-        dub: 'AnimeJoy',
-        episodes: [
-          for (final episode in episodes)
-            OnlineEpisode(
-              id: '$articleId:${_number(episode.number)}',
-              number: episode.number,
-              title: episode.title,
-            ),
-        ],
-      );
+  OnlineRelease _release(int articleId, List<AnimejoyEpisodeDto> episodes) {
+    var bestQuality = 0;
+    for (final episode in episodes) {
+      final quality = episode.bestQuality ?? 0;
+      if (quality > bestQuality) bestQuality = quality;
+    }
+    return OnlineRelease(
+      provider: OnlineProvider.animejoy,
+      id: '$articleId',
+      dub: 'AnimeJoy',
+      bestQuality: bestQuality > 0 ? bestQuality : null,
+      episodes: [
+        for (final episode in episodes)
+          OnlineEpisode(
+            id: '$articleId:${_number(episode.number)}',
+            number: episode.number,
+            title: episode.title,
+          ),
+      ],
+    );
+  }
 }
 
 String _number(num value) => value % 1 == 0 ? '${value.toInt()}' : '$value';

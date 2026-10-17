@@ -86,7 +86,11 @@ void main() {
       );
       expect(releases.single.id, '5682');
       expect(releases.single.dub, 'AnimeJoy');
-      expect(releases.single.bestQuality, isNull);
+      expect(releases.single.bestQuality, 1080);
+      expect(
+        requests.every((request) => request.uri.host == 'animejoy.ru'),
+        isTrue,
+      );
       expect(_link.progressKey, 'online:anime/63181');
 
       final preferences = MemoryOnlineQualityPreferences();
@@ -123,9 +127,17 @@ void main() {
   );
 
   test('an AllVideo-only title still uses the shared player', () async {
-    final player = OnlinePlayerRepository(
-      repository: sources(allVideoOnly: true),
+    final repository = sources(allVideoOnly: true);
+    final releases = await repository.findReleases(
+      shikimoriId: '63181',
+      titles: const ['Tougen Anki'],
     );
+    expect(releases.single.bestQuality, isNull);
+    expect(
+      requests.every((request) => request.uri.host == 'animejoy.ru'),
+      isTrue,
+    );
+    final player = OnlinePlayerRepository(repository: repository);
     final updates = await player
         .startPlayback(sessionId: _link.toString(), fileIndex: 1)
         .toList();

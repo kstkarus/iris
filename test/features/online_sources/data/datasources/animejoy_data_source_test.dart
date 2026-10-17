@@ -58,6 +58,11 @@ void main() {
 
       expect(episodes.map((episode) => episode.number), [1, 1.5, 2]);
       expect(episodes.map((episode) => episode.title), ['', '', '']);
+      expect(episodes.map((episode) => episode.bestQuality), [
+        1080,
+        null,
+        null,
+      ]);
       expect(episodes[0].playerUrls, [
         startsWith('https://animejoya.ru/player/playerjs.html?file='),
         'https://fsst.online/embed/episode-1/',
@@ -74,6 +79,37 @@ void main() {
       });
     },
   );
+
+  for (final (file, quality) in [
+    (Uri.encodeComponent('[1080p]https://cdn.example/video.mp4'), 1080),
+    ('https://cdn.example/1080p.mp4', null),
+    ('[2160p]javascript:alert(1),[720p]https://cdn.example/video.mp4', 720),
+    ('https%3A%2F%2Fcdn.example%2F%FF.mp4', null),
+  ]) {
+    test('playlist quality uses only playable explicit links: $file', () async {
+      final animejoy = source((options) async {
+        requests.add(options);
+        return FakeReply(200, {
+          'success': true,
+          'response':
+              '''
+            <div class="playlists-lists"><div class="playlists-items">
+              <li data-id="our">Наш плеер</li><li data-id="all">AllVideo</li>
+            </div></div>
+            <div class="playlists-videos"><div class="playlists-items">
+              <li data-id="our" data-file="https://animejoya.ru/player/playerjs.html?file=$file">1 серия</li>
+              <li data-id="all" data-file="https://fsst.online/embed/1/">1 серия</li>
+            </div></div>
+          ''',
+        });
+      });
+
+      final episode = (await animejoy.episodes(5682)).single;
+      expect(episode.bestQuality, quality);
+      expect(episode.playerUrls, hasLength(2));
+      expect(requests.single.uri.path, '/engine/ajax/playlists.php');
+    });
+  }
 
   test(
     'own player links preserve embedded URL escapes and sort quality',

@@ -27,12 +27,13 @@ void main() {
           10: [
             _episode(
               1,
+              bestQuality: 720,
               urls: [
                 'https://animejoy.ru/player/1',
                 'https://allvideo.example/1',
               ],
             ),
-            _episode(1.5, title: 'Special'),
+            _episode(1.5, title: 'Special', bestQuality: 1080),
           ],
         },
       );
@@ -45,6 +46,7 @@ void main() {
       expect(releases.single.provider, OnlineProvider.animejoy);
       expect(releases.single.id, '10');
       expect(releases.single.dub, 'AnimeJoy');
+      expect(releases.single.bestQuality, 1080);
       expect(
         [for (final episode in releases.single.episodes) episode.id],
         ['10:1', '10:1.5'],
@@ -52,8 +54,28 @@ void main() {
       expect(releases.single.episodes.last.title, 'Special');
       expect(source.articleCalls, unorderedEquals([10, 11, 12]));
       expect(source.playlistCalls, [10]);
+      expect(source.linkCalls, isEmpty);
     },
   );
+
+  test('fetches known quality without resolving player links', () async {
+    final source = _FakeAnimejoyDataSource(
+      playlists: {
+        10: [_episode(1), _episode(2, bestQuality: 720)],
+        11: [_episode(1)],
+      },
+    );
+    final repository = _repository(source);
+    for (final (id, quality) in [('10', 720), ('11', null)]) {
+      final release = await repository.fetchRelease(
+        provider: OnlineProvider.animejoy,
+        id: id,
+      );
+      expect(release.bestQuality, quality);
+    }
+    expect(source.linkCalls, isEmpty);
+    expect(source.playlistCalls, [10, 11]);
+  });
 
   test('trims and deduplicates queries and candidate article ids', () async {
     final source = _FakeAnimejoyDataSource(
@@ -409,7 +431,13 @@ AnimejoyEpisodeDto _episode(
   num number, {
   String title = '',
   List<String> urls = const [],
-}) => AnimejoyEpisodeDto(number: number, title: title, playerUrls: urls);
+  int? bestQuality,
+}) => AnimejoyEpisodeDto(
+  number: number,
+  title: title,
+  playerUrls: urls,
+  bestQuality: bestQuality,
+);
 
 class _FakeAnimejoyDataSource extends AnimejoyDataSource {
   _FakeAnimejoyDataSource({
