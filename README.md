@@ -20,7 +20,7 @@ The interface is in English and Russian. Online sources offer Russian dubs and s
   Torrents stream piece by piece, without downloading the whole file first.
 - **Downloads.** A compact poster gallery on phones and a selectable poster rail beside episodes on desktop (above them in narrow windows). An empty library explains offline viewing and opens the catalog. A title keeps its name available while scrolling, and episode rows show playback position and total duration. Release headings carry the source and known video quality; Download status shows live transfer details and failure guidance. Open the anime page from the title menu, queue remaining episodes, watch completed files or remove downloads. Torrent and online downloads resume after a pause, an error or an app restart. Open Storage from the library's More menu to inspect or clear the stream cache.
 - **Shikimori account.** Status, score and episode count for any title. Finishing an episode updates the count in your list, and episodes counted there show as watched on every device.
-- **Updates.** On Android and Windows the app checks this repository's latest release and offers it when it is newer.
+- **Updates.** On Android and Windows the app checks this repository's latest release. Android shows release notes, downloads and verifies the APK inside Iris, then opens the system installer; Windows opens the release archive in the browser.
 
 How each feature behaves, and which services it calls, is described in [docs/behaviour.md](docs/behaviour.md).
 

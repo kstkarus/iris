@@ -4,12 +4,17 @@ Notable changes to iris, newest first. The format follows [Keep a Changelog](htt
 
 ## [Unreleased]
 
+## [1.4.5] - 2026-10-17
+
 ### Added
 
+- Android updates download inside Iris, with release notes, progress, cancellation and retry. Verified APKs open in Android's system installer, including the install-source permission flow, and remain available after restarting the app.
 - Releases include an unsigned iOS IPA, built on macOS without Apple signing credentials. Sign the IPA before installing it on an iPhone or iPad.
 
 ### Fixed
 
+- The online sources list no longer replays its transition as other providers answer or finish searching.
+- AnimeJoy shows the known maximum quality from its playlist links without extra player requests. Unknown qualities remain hidden.
 - Downloads keep their files available when an iOS update or restore changes the app's data-container path. Existing records resolve their relative paths against the current app directory, preserving completed files and resumable progress.
 
 ## [1.4.4] - 2026-10-16
@@ -181,7 +186,8 @@ First published release.
 - Update notice on Android and Windows when a newer release is published.
 - App icon.
 
-[Unreleased]: https://github.com/kstkarus/iris/compare/v1.4.4...HEAD
+[Unreleased]: https://github.com/kstkarus/iris/compare/v1.4.5...HEAD
+[1.4.5]: https://github.com/kstkarus/iris/compare/v1.4.4...v1.4.5
 [1.4.4]: https://github.com/kstkarus/iris/compare/v1.4.3...v1.4.4
 [1.4.3]: https://github.com/kstkarus/iris/compare/v1.4.2...v1.4.3
 [1.4.2]: https://github.com/kstkarus/iris/compare/v1.4.1...v1.4.2
