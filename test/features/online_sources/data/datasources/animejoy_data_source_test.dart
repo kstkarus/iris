@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:iris/features/online_sources/data/datasources/animejoy_data_source.dart';
 import 'package:iris/features/online_sources/data/models/video_link_dto.dart';
+import 'package:iris/features/online_sources/data/repositories/animejoy_online_sources_repository.dart';
 import 'package:iris/shared/network/network_exceptions.dart';
 import 'package:iris/shared/network/video_server_dio_factory.dart';
 
@@ -32,6 +33,153 @@ void main() {
       'do': 'search',
       'subaction': 'search',
     });
+  });
+
+  test(
+    'search follows DLE pages before matching the exact Shikimori title',
+    () async {
+      final animejoy = source((options) async {
+        requests.add(options);
+        final uri = options.uri;
+        if (uri.path == '/index.php' && uri.queryParameters['do'] == 'search') {
+          return FakeReply.text(
+            200,
+            switch (uri.queryParameters['search_start']) {
+              null => _searchPage([1314], next: 2),
+              '2' => _searchPage([1315], next: 3),
+              '3' => _searchPage([1316]),
+              _ => '<div id="dle-content"></div>',
+            },
+          );
+        }
+        if (uri.path == '/index.php' && uri.queryParameters['newsid'] != null) {
+          final shikimoriId = uri.queryParameters['newsid'] == '1316'
+              ? 11757
+              : 11756;
+          return FakeReply.text(200, _articlePage(shikimoriId));
+        }
+        if (uri.path == '/engine/ajax/playlists.php') {
+          return FakeReply.text(200, readFixture('animejoy/playlists.json'));
+        }
+        return const FakeReply.text(500, 'unexpected request');
+      });
+
+      final releases = await AnimejoyOnlineSourcesRepository(
+        dataSource: animejoy,
+      ).findReleases(shikimoriId: '11757', titles: const ['Example title']);
+
+      expect(releases.map((release) => release.id), ['1316']);
+      final searchRequests = requests
+          .where((request) => request.uri.queryParameters['do'] == 'search')
+          .toList();
+      expect(searchRequests.map((request) => request.uri.queryParameters), [
+        {'story': 'Example title', 'do': 'search', 'subaction': 'search'},
+        {
+          'story': 'Example title',
+          'do': 'search',
+          'subaction': 'search',
+          'search_start': '2',
+        },
+        {
+          'story': 'Example title',
+          'do': 'search',
+          'subaction': 'search',
+          'search_start': '3',
+        },
+      ]);
+      expect(
+        requests
+            .where(
+              (request) => request.uri.path == '/engine/ajax/playlists.php',
+            )
+            .map((request) => request.uri.queryParameters['news_id']),
+        ['1316'],
+      );
+    },
+  );
+
+  test(
+    'repository keeps an exact playable match when a later page fails',
+    () async {
+      final animejoy = source((options) async {
+        requests.add(options);
+        final uri = options.uri;
+        if (uri.path == '/index.php' && uri.queryParameters['do'] == 'search') {
+          if (uri.queryParameters['search_start'] == null) {
+            return FakeReply.text(200, _searchPage([5682], next: 2));
+          }
+          return const FakeReply.text(503, 'temporarily unavailable');
+        }
+        if (uri.path == '/index.php' && uri.queryParameters['newsid'] != null) {
+          return FakeReply.text(200, _articlePage(11757));
+        }
+        if (uri.path == '/engine/ajax/playlists.php') {
+          return FakeReply.text(200, readFixture('animejoy/playlists.json'));
+        }
+        return const FakeReply.text(500, 'unexpected request');
+      });
+
+      final releases = await AnimejoyOnlineSourcesRepository(
+        dataSource: animejoy,
+      ).findReleases(shikimoriId: '11757', titles: const ['Example title']);
+
+      expect(releases.map((release) => release.id), ['5682']);
+      expect(
+        requests.where(
+          (request) => request.uri.queryParameters['do'] == 'search',
+        ),
+        hasLength(2),
+      );
+    },
+  );
+
+  test('search stops when a repeated page adds no new article ids', () async {
+    final animejoy = source((options) async {
+      requests.add(options);
+      return FakeReply.text(
+        200,
+        _searchPage([
+          5682,
+        ], next: options.uri.queryParameters['search_start'] == null ? 2 : 3),
+      );
+    });
+
+    expect(await animejoy.search('Example title'), [5682]);
+    expect(
+      requests.map((request) => request.uri.queryParameters['search_start']),
+      [null, '2'],
+    );
+  });
+
+  for (final (name, onclick) in [
+    ('invalid', 'javascript:list_submit(nope); return(false);'),
+    ('backward', 'javascript:list_submit(1); return(false);'),
+  ]) {
+    test('search ignores a $name next-page marker', () async {
+      final animejoy = source((options) async {
+        requests.add(options);
+        return FakeReply.text(200, _searchPage([5682], onclick: onclick));
+      });
+
+      expect(await animejoy.search('Example title'), [5682]);
+      expect(requests, hasLength(1));
+    });
+  }
+
+  test('search propagates a later-page failure', () async {
+    final animejoy = source((options) async {
+      requests.add(options);
+      if (options.uri.queryParameters['search_start'] == null) {
+        return FakeReply.text(200, _searchPage([5682], next: 2));
+      }
+      return const FakeReply.text(503, 'temporarily unavailable');
+    });
+
+    await expectLater(
+      animejoy.search('Example title'),
+      throwsA(isA<RemoteResponseException>()),
+    );
+    expect(requests, hasLength(2));
   });
 
   test('article reads Shikimori only from the metadata list', () async {
@@ -239,3 +387,38 @@ void main() {
     expect(animejoy.episodes(5682), throwsA(isA<RemoteResponseException>()));
   });
 }
+
+String _searchPage(List<int> ids, {int? next, String? onclick}) {
+  final articles = ids
+      .map(
+        (id) =>
+            '''
+          <article class="shortstory">
+            <h2><a href="/tv-serialy/$id-title.html">Title</a></h2>
+          </article>
+          ''',
+      )
+      .join('\n');
+  final marker =
+      onclick ??
+      (next == null ? null : 'javascript:list_submit($next); return(false);');
+  final navigation = marker == null
+      ? ''
+      : '''
+          <div class="block navigation">
+            <div class="page_next-prev">
+              <span class="page_next">
+                <a id="nextlink" onclick="$marker" href="#">Next</a>
+              </span>
+            </div>
+          </div>
+          ''';
+  return '<div id="dle-content">$articles$navigation</div>';
+}
+
+String _articlePage(int shikimoriId) =>
+    '''
+    <div class="abasel">
+      <a href="https://shikimori.me/animes/$shikimoriId-title">Title</a>
+    </div>
+    ''';

@@ -9,6 +9,10 @@ Notable changes to iris, newest first. The format follows [Keep a Changelog](htt
 - Watched-episode marks are saved on the device before sending to Shikimori and retried silently after network failures, app restarts and returning to Iris. Each account keeps its own queue; confirmed resets and new rewatches on Shikimori cancel older pending marks.
 - Windows releases include a per-user installer alongside the portable ZIP. Installed copies download and verify updates inside Iris, show release notes in a scrollable dialog, and save playback progress and the download queue before Restart and update.
 
+### Fixed
+
+- AnimeJoy searches include later result pages, so older titles such as the first Sword Art Online season are no longer missed. A failed later page does not hide a matching release already found.
+
 ## [1.4.6] - 2026-10-17
 
 ### Fixed

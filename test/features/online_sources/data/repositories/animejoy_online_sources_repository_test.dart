@@ -466,10 +466,10 @@ class _FakeAnimejoyDataSource extends AnimejoyDataSource {
   final linkCalls = <String>[];
 
   @override
-  Future<List<int>> search(String title) async {
+  Stream<List<int>> searchPages(String title) async* {
     searchCalls.add(title);
     if (searchErrors[title] case final error?) throw error;
-    return searchResults[title] ?? const [];
+    yield searchResults[title] ?? const [];
   }
 
   @override

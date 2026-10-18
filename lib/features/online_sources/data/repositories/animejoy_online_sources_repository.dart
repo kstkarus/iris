@@ -35,22 +35,39 @@ class AnimejoyOnlineSourcesRepository implements OnlineSourcesRepository {
           if (title.trim().isNotEmpty) title.trim(),
       },
       (title) async {
-        final candidates = await dataSource.search(title);
-        final matching = await searchAll(
-          candidates.where((id) => id > 0).toSet(),
-          (id) async => [await (articles[id] ??= dataSource.article(id))],
-          keep: (article) => article.shikimoriId == wanted,
-        );
-        return searchAll(
-          matching,
-          (article) async => [
-            _release(
-              article.id,
-              await (playlists[article.id] ??= dataSource.episodes(article.id)),
-            ),
-          ],
-          keep: (release) => release.episodes.isNotEmpty,
-        );
+        final releases = <OnlineRelease>[];
+        Object? failure;
+        try {
+          await for (final candidates in dataSource.searchPages(title)) {
+            try {
+              final matching = await searchAll(
+                candidates.where((id) => id > 0).toSet(),
+                (id) async => [await (articles[id] ??= dataSource.article(id))],
+                keep: (article) => article.shikimoriId == wanted,
+              );
+              releases.addAll(
+                await searchAll(
+                  matching,
+                  (article) async => [
+                    _release(
+                      article.id,
+                      await (playlists[article.id] ??= dataSource.episodes(
+                        article.id,
+                      )),
+                    ),
+                  ],
+                  keep: (release) => release.episodes.isNotEmpty,
+                ),
+              );
+            } on Object catch (error) {
+              failure ??= error;
+            }
+          }
+        } on Object catch (error) {
+          failure ??= error;
+        }
+        if (releases.isEmpty && failure != null) throw failure;
+        return releases;
       },
       keep: (release) => release.episodes.isNotEmpty,
     );

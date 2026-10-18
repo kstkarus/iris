@@ -18,32 +18,55 @@ class AnimejoyDataSource {
   final Dio _dio;
   final Uri _baseUri;
 
-  Future<List<int>> search(String title) async {
-    final html = await _getText(
-      _baseUri.replace(
-        path: '/index.php',
-        queryParameters: {
-          'story': title,
-          'do': 'search',
-          'subaction': 'search',
-        },
-      ),
-    );
-    final document = parse(html);
+  Future<List<int>> search(String title) async => [
+    for (final page in await searchPages(title).toList()) ...page,
+  ];
+
+  Stream<List<int>> searchPages(String title) async* {
     final ids = <int>{};
-    for (final anchor in document.querySelectorAll(
-      '#dle-content article.shortstory h2 a[href]',
-    )) {
-      final href = anchor.attributes['href'];
-      final uri = href == null ? null : _resolveHttpUri(href, _baseUri);
-      if (uri == null || uri.host != _baseUri.host) continue;
-      final slug = uri.pathSegments.isEmpty ? '' : uri.pathSegments.last;
-      final id = int.tryParse(
-        RegExp(r'^(\d+)-[^/]+\.html$').firstMatch(slug)?.group(1) ?? '',
+    var page = 1;
+    while (true) {
+      final html = await _getText(
+        _baseUri.replace(
+          path: '/index.php',
+          queryParameters: {
+            'story': title,
+            'do': 'search',
+            'subaction': 'search',
+            if (page > 1) 'search_start': '$page',
+          },
+        ),
       );
-      if (id != null && id > 0) ids.add(id);
+      final document = parse(html);
+      final before = ids.length;
+      for (final anchor in document.querySelectorAll(
+        '#dle-content article.shortstory h2 a[href]',
+      )) {
+        final href = anchor.attributes['href'];
+        final uri = href == null ? null : _resolveHttpUri(href, _baseUri);
+        if (uri == null || uri.host != _baseUri.host) continue;
+        final slug = uri.pathSegments.isEmpty ? '' : uri.pathSegments.last;
+        final id = int.tryParse(
+          RegExp(r'^(\d+)-[^/]+\.html$').firstMatch(slug)?.group(1) ?? '',
+        );
+        if (id != null && id > 0) ids.add(id);
+      }
+      if (ids.length == before) break;
+      yield ids.skip(before).toList(growable: false);
+
+      // DLE submits a page number instead of exposing a next-page URL.
+      final nextAction = document
+          .querySelector('#dle-content .navigation .page_next a[onclick]')
+          ?.attributes['onclick'];
+      final nextPage = int.tryParse(
+        RegExp(
+              r'\blist_submit\s*\(\s*(\d+)\s*\)',
+            ).firstMatch(nextAction ?? '')?.group(1) ??
+            '',
+      );
+      if (nextPage == null || nextPage <= page) break;
+      page = nextPage;
     }
-    return ids.toList();
   }
 
   Future<AnimejoyArticleDto> article(int id) async {
