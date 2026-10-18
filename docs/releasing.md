@@ -26,8 +26,12 @@ The version is raised per release, not per commit. Since commits follow [Convent
 The tag runs `.github/workflows/release.yml`:
 
 - It first checks that the tag matches `pubspec.yaml` and that `CHANGELOG.md` has the version's section, and stops otherwise.
-- It builds the APKs, the Windows archive and an unsigned iOS IPA on macOS. The tag becomes the version name and the run number the build number.
+- It builds the APKs, the Windows archive and per-user installer, and an unsigned iOS IPA on macOS. The tag becomes the version name and the run number the build number.
 - It publishes them as a GitHub release, with the changelog section as the release text.
+
+Windows provides both `iris-X.Y.Z-windows-x64.zip` and `iris-X.Y.Z-windows-x64-setup.exe`. The per-user installer uses Inno Setup 6.7.3, whose official release asset is verified before the CI job runs its compiler. It installs under the current user's Programs folder without requesting administrator privileges. Install and uninstall leave the existing app-support data intact. The installer is not Authenticode-signed.
+
+For a local installer build, build Windows first, set `IRIS_VERSION` to the build's version, then run `ISCC.exe windows/installer/iris.iss`; the output goes to `dist/`. Run the native path/startup-mutex check from a Visual Studio Native Tools PowerShell prompt with `./windows/runner/run_app_update_native_check.ps1`.
 
 The iOS job runs `flutter build ios --release --no-codesign`, then packages `Runner.app` inside `Payload/` as `iris-X.Y.Z-ios-unsigned.ipa`. The IPA is also available in the run's `ios-unsigned` artifact. Flutter 3.47.4 migrates the project's older deployment target to iOS 15 during the build, so these artifacts require iOS 15 or later. No Apple signing secrets are needed; the IPA must be signed with the user's certificate and provisioning profile before installation on an iPhone or iPad (see the [Flutter iOS deployment guide](https://docs.flutter.dev/deployment/ios)). It is not an App Store or TestFlight upload. All three platform builds must succeed before the release is published.
 

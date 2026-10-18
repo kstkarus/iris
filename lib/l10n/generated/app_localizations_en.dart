@@ -1207,6 +1207,18 @@ class AppLocalizationsEn extends AppLocalizations {
   String get appUpdateInstall => 'Install update';
 
   @override
+  String get appUpdateRestartAndUpdate => 'Restart and update';
+
+  @override
+  String get appUpdateHide => 'Hide';
+
+  @override
+  String get appUpdateDownloading => 'Downloading';
+
+  @override
+  String get appUpdateCancelDownloadFull => 'Cancel download';
+
+  @override
   String get appUpdateRetry => 'Retry';
 
   @override

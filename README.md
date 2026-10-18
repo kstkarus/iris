@@ -20,7 +20,7 @@ The interface is in English and Russian. Online sources offer Russian dubs and s
   Torrents stream piece by piece, without downloading the whole file first.
 - **Downloads.** A compact poster gallery on phones and a selectable poster rail beside episodes on desktop (above them in narrow windows). An empty library explains offline viewing and opens the catalog. A title keeps its name available while scrolling, and episode rows show playback position and total duration. Release headings carry the source and known video quality; Download status shows live transfer details and failure guidance. Open the anime page from the title menu, queue remaining episodes, watch completed files or remove downloads. Torrent and online downloads resume after a pause, an error or an app restart. Open Storage from the library's More menu to inspect or clear the stream cache.
 - **Shikimori account.** Status, score and episode count for any title. Finishing an episode updates the count in your list, and episodes counted there show as watched on every device. Offline marks stay on the device and retry silently while Iris is open or when you return to it. A confirmed reset or new rewatch on Shikimori takes priority over older queued marks.
-- **Updates.** On Android and Windows the app checks this repository's latest release. Android shows release notes, downloads and verifies the APK inside Iris, then opens the system installer; Windows opens the release archive in the browser.
+- **Updates.** On Android and Windows the app checks this repository's latest release. Android shows release notes, downloads and verifies the APK inside Iris, then opens the system installer. Windows installed through the per-user installer downloads and verifies updates inside Iris, then saves progress and the download queue before an explicit restart and install. Portable Windows builds open the ZIP in the browser.
 
 How each feature behaves, and which services it calls, is described in [docs/behaviour.md](docs/behaviour.md).
 
@@ -56,7 +56,7 @@ Builds are published on the [Releases](https://github.com/kstkarus/iris/releases
   | `iris-X.Y.Z-android-universal.apk` | any device (about twice the size) |
 
   Any of these installs over another. The app then offers updates for its own processor.
-- **Windows.** `iris-X.Y.Z-windows-x64.zip`. Unpack it and run `iris.exe`. To update, unpack the new archive over the old folder.
+- **Windows.** Run `iris-X.Y.Z-windows-x64-setup.exe` to install for your user and receive updates inside Iris. For a portable copy, unpack `iris-X.Y.Z-windows-x64.zip` and run `iris.exe`; update it by unpacking the new archive over the old folder.
 - **iOS 15+.** `iris-X.Y.Z-ios-unsigned.ipa`. Sign it with your certificate and provisioning profile before installing on an iPhone or iPad. Tested less than Android and Windows.
 
 ## Disclaimer

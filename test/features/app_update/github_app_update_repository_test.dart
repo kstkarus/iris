@@ -108,6 +108,41 @@ void main() {
     expect(AppBuildTarget.androidAbiName(Abi.androidIA32), isNull);
   });
 
+  test(
+    'selects the Windows installer without confusing it with the ZIP',
+    () async {
+      final releases = {
+        ..._release,
+        'assets': [
+          ..._release['assets']! as List,
+          {
+            'name': 'iris-1.3.0-windows-x64-setup.exe',
+            'browser_download_url':
+                'https://example.org/iris-1.3.0-windows-x64-setup.exe',
+            'size': 2048,
+            'digest': 'sha256:${'b' * 64}',
+          },
+        ],
+      };
+      final installer = await repository(
+        FakeReply(200, releases),
+        target: const AppBuildTarget.windowsInstaller(),
+      );
+      final release = await installer.latestRelease();
+      expect(release?.assetName, 'iris-1.3.0-windows-x64-setup.exe');
+      expect(release?.sha256, 'b' * 64);
+      expect(release?.sizeBytes, 2048);
+      final portable = await repository(
+        FakeReply(200, releases),
+        target: const AppBuildTarget.windows(),
+      );
+      expect(
+        (await portable.latestRelease())?.assetName,
+        'iris-1.3.0-windows-x64.zip',
+      );
+    },
+  );
+
   test('a release from before the APKs per ABI is no update', () async {
     final old = await repository(
       const FakeReply(200, {

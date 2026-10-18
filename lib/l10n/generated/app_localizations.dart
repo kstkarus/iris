@@ -2156,6 +2156,30 @@ abstract class AppLocalizations {
   /// **'Install update'**
   String get appUpdateInstall;
 
+  /// No description provided for @appUpdateRestartAndUpdate.
+  ///
+  /// In en, this message translates to:
+  /// **'Restart and update'**
+  String get appUpdateRestartAndUpdate;
+
+  /// No description provided for @appUpdateHide.
+  ///
+  /// In en, this message translates to:
+  /// **'Hide'**
+  String get appUpdateHide;
+
+  /// No description provided for @appUpdateDownloading.
+  ///
+  /// In en, this message translates to:
+  /// **'Downloading'**
+  String get appUpdateDownloading;
+
+  /// No description provided for @appUpdateCancelDownloadFull.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel download'**
+  String get appUpdateCancelDownloadFull;
+
   /// No description provided for @appUpdateRetry.
   ///
   /// In en, this message translates to:

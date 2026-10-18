@@ -8,6 +8,7 @@
 
 #include <memory>
 
+#include "app_update_channel.h"
 #include "win32_window.h"
 
 // A window that does nothing but host a Flutter view.
@@ -48,6 +49,8 @@ class FlutterWindow : public Win32Window {
       window_channel_;
   std::unique_ptr<flutter::MethodChannel<flutter::EncodableValue>>
       picture_in_picture_channel_;
+  std::unique_ptr<flutter::MethodChannel<flutter::EncodableValue>>
+      app_update_channel_;
 
   bool fullscreen_ = false;
   WINDOWPLACEMENT placement_before_fullscreen_{sizeof(WINDOWPLACEMENT)};

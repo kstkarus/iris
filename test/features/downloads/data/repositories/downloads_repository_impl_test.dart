@@ -1445,6 +1445,61 @@ void main() {
     expect(registry.reads, 1);
   });
 
+  test('restart flush does not initialize an unavailable engine', () async {
+    final saved = _savedDownload();
+    await registry.writeDownloads([saved]);
+    engine.failedInitializations = 1;
+
+    await expectLater(repository.restore(), throwsA(isA<StateError>()));
+    await repository.flushForRestart();
+
+    expect(engine.initializations, 1);
+    expect((await registry.readDownloads()).single.id, saved.id);
+  });
+
+  test(
+    'restart flush waits for registry writes, propagates, and retries',
+    () async {
+      final registry = _ControlledRegistry(
+        registryFile: File(path.join(temporaryDirectory.path, 'restart.json')),
+      );
+      final restartRepository = DownloadsRepositoryImpl(
+        engine: engine,
+        registry: registry,
+        downloadsDirectory: downloadsDirectory,
+        foregroundService: foregroundService,
+        storageUsageAdapter: const _FakeStorageUsageAdapter(),
+        activityRegistry: activityRegistry,
+      );
+      addTearDown(restartRepository.close);
+      await restartRepository.restore();
+
+      final writesBeforeFlush = registry.writes;
+      final writeGate = Completer<void>();
+      registry.writeGate = writeGate;
+      var finished = false;
+      final flushing = restartRepository.flushForRestart().then(
+        (_) => finished = true,
+      );
+      await _waitFor(() => registry.writes > writesBeforeFlush);
+      expect(finished, isFalse);
+
+      writeGate.complete();
+      await flushing;
+      expect(finished, isTrue);
+
+      registry.writeError = const FileSystemException('storage unavailable');
+      await expectLater(
+        restartRepository.flushForRestart(),
+        throwsA(isA<FileSystemException>()),
+      );
+      expect(await restartRepository.currentDownloads(), isEmpty);
+
+      registry.writeError = null;
+      await restartRepository.flushForRestart();
+    },
+  );
+
   test('a downloads list that cannot be written holds up nothing', () async {
     final registry = _RefusingRegistry(
       registryFile: File(
@@ -1794,6 +1849,7 @@ class _FakeDownloadEngine implements LibtorrentDownloadEngineAdapter {
 
   /// Starts that fail, as an engine that would not come up.
   int failedInitializations = 0;
+  int initializations = 0;
 
   /// Magnets the engine refuses to add.
   final refusedMagnets = <String>{};
@@ -1857,6 +1913,7 @@ class _FakeDownloadEngine implements LibtorrentDownloadEngineAdapter {
 
   @override
   Future<void> initialize() async {
+    initializations++;
     if (failedInitializations > 0) {
       failedInitializations--;
       throw StateError('no engine');
@@ -1962,6 +2019,25 @@ class _CountingRegistry extends DownloadRegistryDataSource {
   Future<List<DownloadItem>> readDownloads() {
     reads++;
     return super.readDownloads();
+  }
+}
+
+class _ControlledRegistry extends DownloadRegistryDataSource {
+  _ControlledRegistry({required super.registryFile});
+
+  Completer<void>? writeGate;
+  Object? writeError;
+  int writes = 0;
+
+  @override
+  Future<List<DownloadItem>> readDownloads() async => const [];
+
+  @override
+  Future<void> writeDownloads(List<DownloadItem> downloads) async {
+    writes++;
+    await writeGate?.future;
+    final error = writeError;
+    if (error != null) Error.throwWithStackTrace(error, StackTrace.current);
   }
 }
 

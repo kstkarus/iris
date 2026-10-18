@@ -14,6 +14,7 @@ import 'package:iris/features/player/domain/repositories/player_skip_times_repos
 import 'package:iris/features/player/domain/repositories/player_track_preferences_repository.dart';
 import 'package:iris/features/player/presentation/cubit/player_state.dart';
 import 'package:iris/features/player/presentation/playback/player_engine.dart';
+import 'package:iris/shared/utils/serial_queue.dart';
 
 /// Owns the page's playback: the torrent stream (through the repository)
 /// and the media player ([PlayerEngine]), and keeps them in order — the
@@ -47,6 +48,8 @@ class PlayerCubit extends Cubit<PlayerState> {
   final PlayerTrackPreferencesRepository? _trackPreferencesRepository;
   final PlayerSkipTimesRepository? _skipTimesRepository;
   final DateTime Function() _now;
+  final _progressWrites = SerialQueue();
+  final _whenClosed = Completer<void>();
 
   /// Upper bound for waiting on the media player to release a stream.
   final Duration engineReleaseTimeout;
@@ -69,6 +72,7 @@ class PlayerCubit extends Cubit<PlayerState> {
   bool _trackPreferencesLoaded = false;
   bool _switchingFile = false;
   bool _skipTimesRequested = false;
+  bool _closing = false;
 
   /// The file currently being played.
   AnimePlayerSource get source => _source;
@@ -84,6 +88,7 @@ class PlayerCubit extends Cubit<PlayerState> {
   StreamSubscription<PlayerLaunchUpdate>? _launchSubscription;
   Completer<void>? _launchCompleter;
   int _launchAttemptId = 0;
+  Future<void> get whenClosed => _whenClosed.future;
 
   Future<void> loadPlayback() async {
     final activeLaunch = _launchCompleter;
@@ -304,12 +309,31 @@ class PlayerCubit extends Cubit<PlayerState> {
 
   @override
   Future<void> close() async {
-    await _cancelActiveLaunch();
-    await _releaseEngine(_engine.close);
-    await _engineEvents.cancel();
-    await _saveProgress();
-    await _disposeOwnedSession();
-    return super.close();
+    if (_closing) {
+      await _whenClosed.future;
+      return;
+    }
+    _closing = true;
+    try {
+      await _cancelActiveLaunch();
+      await _releaseEngine(_engine.close);
+      await _engineEvents.cancel();
+      await _saveProgress();
+      await _disposeOwnedSession();
+      await super.close();
+    } finally {
+      if (!_whenClosed.isCompleted) _whenClosed.complete();
+    }
+  }
+
+  /// Persists the latest position before a Windows updater starts an installer.
+  /// Unlike periodic saves, a storage failure must prevent the restart.
+  Future<void> flushProgressForRestart() async {
+    if (_closing) {
+      await _whenClosed.future;
+      return;
+    }
+    await _saveProgress(rethrowOnError: true);
   }
 
   Future<void> _releaseEngine(Future<void> Function() release) async {
@@ -363,7 +387,7 @@ class PlayerCubit extends Cubit<PlayerState> {
     }
   }
 
-  Future<void> _saveProgress() async {
+  Future<void> _saveProgress({bool rethrowOnError = false}) async {
     final repository = _progressRepository;
     final torrentKey = _source.torrentKey;
     final position = _lastPosition;
@@ -395,11 +419,14 @@ class PlayerCubit extends Cubit<PlayerState> {
     );
     _savedProgress = progress;
     _lastSavedAt = progress.updatedAt;
-    try {
-      await repository.save(progress);
-    } catch (error, stackTrace) {
-      _logStorageError('Unable to save watch progress.', error, stackTrace);
-    }
+    await _progressWrites.run(() async {
+      try {
+        await repository.save(progress);
+      } catch (error, stackTrace) {
+        _logStorageError('Unable to save watch progress.', error, stackTrace);
+        if (rethrowOnError) Error.throwWithStackTrace(error, stackTrace);
+      }
+    });
   }
 
   Future<void> _persistTrackPreferences(

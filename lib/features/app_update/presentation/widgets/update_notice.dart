@@ -39,10 +39,14 @@ class UpdateNotice extends StatelessWidget {
   static const noticeKey = Key('update_notice');
   static const noticeLabelSwitcherKey = Key('update_notice_label_switcher');
   static const sheetKey = Key('update_sheet');
+  static const headerKey = Key('update_sheet_header');
+  static const notesScrollKey = Key('update_sheet_notes_scroll');
+  static const footerKey = Key('update_sheet_footer');
   static const downloadKey = Key('update_notice_download');
   static const laterKey = Key('update_notice_later');
   static const downloadActionKey = Key('update_download_action');
   static const cancelDownloadKey = Key('update_cancel_download');
+  static const hideKey = Key('update_hide');
   static const installKey = Key('update_install');
 
   final Widget child;
@@ -200,11 +204,12 @@ class _Strip extends StatelessWidget {
 
   void _showSheet(BuildContext context) {
     final cubit = context.read<AppUpdateCubit>();
+    final windows = Theme.of(context).platform == TargetPlatform.windows;
     showAdaptiveSheet<void>(
       context: context,
       builder: (_) => BlocProvider.value(
         value: cubit,
-        child: _UpdateSheet(release: state.release!),
+        child: _UpdateSheet(release: state.release!, windows: windows),
       ),
     );
   }
@@ -339,9 +344,10 @@ class _NoticeLabel extends StatelessWidget {
 }
 
 class _UpdateSheet extends StatelessWidget {
-  const _UpdateSheet({required this.release});
+  const _UpdateSheet({required this.release, required this.windows});
 
   final AppRelease release;
+  final bool windows;
 
   @override
   Widget build(BuildContext context) =>
@@ -353,53 +359,161 @@ class _UpdateSheet extends StatelessWidget {
           return SizedBox(
             key: UpdateNotice.sheetKey,
             width: double.infinity,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Flexible(
-                  child: Scrollbar(
-                    child: SingleChildScrollView(
-                      primary: true,
-                      padding: const EdgeInsets.fromLTRB(24, 4, 24, 24),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Text(
-                            '${release.version}',
-                            style: theme.textTheme.displaySmall?.copyWith(
-                              fontSize: 40,
+            child: windows
+                ? _WindowsUpdateContent(
+                    release: release,
+                    state: state,
+                    failure: failure,
+                  )
+                : Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Flexible(
+                        child: Scrollbar(
+                          child: SingleChildScrollView(
+                            primary: true,
+                            padding: const EdgeInsets.fromLTRB(24, 4, 24, 24),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                Text(
+                                  '${release.version}',
+                                  style: theme.textTheme.displaySmall?.copyWith(
+                                    fontSize: 40,
+                                  ),
+                                ),
+                                const SizedBox(height: 20),
+                                Text(
+                                  l10n.appUpdateWhatsNew,
+                                  style: theme.textTheme.titleMedium?.copyWith(
+                                    fontSize: 18,
+                                  ),
+                                ),
+                                if (failure != null) ...[
+                                  const SizedBox(height: 16),
+                                  Text(
+                                    failure,
+                                    style: theme.textTheme.bodySmall?.copyWith(
+                                      color: theme.colorScheme.error,
+                                    ),
+                                  ),
+                                ],
+                                const SizedBox(height: 24),
+                                _ReleaseNotes(notes: release.notes),
+                              ],
                             ),
                           ),
-                          const SizedBox(height: 20),
-                          Text(
-                            l10n.appUpdateWhatsNew,
-                            style: theme.textTheme.titleMedium?.copyWith(
-                              fontSize: 18,
-                            ),
-                          ),
-                          if (failure != null) ...[
-                            const SizedBox(height: 16),
-                            Text(
-                              failure,
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: theme.colorScheme.error,
-                              ),
-                            ),
-                          ],
-                          const SizedBox(height: 24),
-                          _ReleaseNotes(notes: release.notes),
-                        ],
+                        ),
                       ),
-                    ),
+                      _UpdateFooter(release: release, state: state),
+                    ],
                   ),
-                ),
-                _UpdateFooter(release: release, state: state),
-              ],
-            ),
           );
         },
       );
+}
+
+class _WindowsUpdateContent extends StatefulWidget {
+  const _WindowsUpdateContent({
+    required this.release,
+    required this.state,
+    required this.failure,
+  });
+
+  final AppRelease release;
+  final AppUpdateState state;
+  final String? failure;
+
+  @override
+  State<_WindowsUpdateContent> createState() => _WindowsUpdateContentState();
+}
+
+class _WindowsUpdateContentState extends State<_WindowsUpdateContent> {
+  final _notesScroll = ScrollController();
+
+  @override
+  void dispose() {
+    _notesScroll.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context);
+    return BlocListener<AppUpdateCubit, AppUpdateState>(
+      listenWhen: (_, state) => state.failure != null,
+      listener: (_, _) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted && _notesScroll.hasClients) {
+            _notesScroll.jumpTo(_notesScroll.position.minScrollExtent);
+          }
+        });
+      },
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            key: UpdateNotice.headerKey,
+            padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '${widget.release.version}',
+                  style: theme.textTheme.displaySmall?.copyWith(fontSize: 40),
+                ),
+                const SizedBox(height: 20),
+                Text(
+                  l10n.appUpdateWhatsNew,
+                  style: theme.textTheme.titleMedium?.copyWith(fontSize: 18),
+                ),
+              ],
+            ),
+          ),
+          Flexible(
+            fit: FlexFit.loose,
+            child: Scrollbar(
+              controller: _notesScroll,
+              thumbVisibility: true,
+              child: ScrollConfiguration(
+                behavior: ScrollConfiguration.of(
+                  context,
+                ).copyWith(scrollbars: false),
+                child: SingleChildScrollView(
+                  key: UpdateNotice.notesScrollKey,
+                  controller: _notesScroll,
+                  padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      if (widget.failure != null) ...[
+                        const SizedBox(height: 16),
+                        Text(
+                          widget.failure!,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.error,
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                      ],
+                      _ReleaseNotes(
+                        notes: widget.release.notes,
+                        sectionRules: false,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+          _WindowsUpdateFooter(release: widget.release, state: widget.state),
+        ],
+      ),
+    );
+  }
 }
 
 class _UpdateFooter extends StatelessWidget {
@@ -448,7 +562,7 @@ class _UpdateFooter extends StatelessWidget {
         children: [
           TextButton(
             onPressed: () => _dismiss(context),
-            style: _textButtonStyle(largeText),
+            style: _updateTextButtonStyle(largeText),
             child: Text(l10n.appUpdateLater),
           ),
           const SizedBox(width: 16),
@@ -456,7 +570,7 @@ class _UpdateFooter extends StatelessWidget {
             child: FilledButton(
               key: UpdateNotice.downloadActionKey,
               onPressed: () => context.read<AppUpdateCubit>().download(),
-              style: _filledButtonStyle(largeText),
+              style: _updateFilledButtonStyle(largeText),
               child: Text(
                 state.phase == AppUpdatePhase.failed
                     ? l10n.appUpdateRetry
@@ -483,7 +597,7 @@ class _UpdateFooter extends StatelessWidget {
                       key: UpdateNotice.cancelDownloadKey,
                       onPressed: () =>
                           context.read<AppUpdateCubit>().cancelDownload(),
-                      style: _textButtonStyle(false),
+                      style: _updateTextButtonStyle(false),
                       child: Text(l10n.appUpdateCancelDownload),
                     ),
                   ),
@@ -498,7 +612,7 @@ class _UpdateFooter extends StatelessWidget {
                     key: UpdateNotice.cancelDownloadKey,
                     onPressed: () =>
                         context.read<AppUpdateCubit>().cancelDownload(),
-                    style: _textButtonStyle(false),
+                    style: _updateTextButtonStyle(false),
                     child: Text(l10n.appUpdateCancelDownload),
                   ),
                 ],
@@ -517,7 +631,7 @@ class _UpdateFooter extends StatelessWidget {
                       key: UpdateNotice.cancelDownloadKey,
                       onPressed: () =>
                           context.read<AppUpdateCubit>().cancelDownload(),
-                      style: _textButtonStyle(false),
+                      style: _updateTextButtonStyle(false),
                       child: Text(l10n.appUpdateCancelDownload),
                     ),
                   ),
@@ -534,7 +648,7 @@ class _UpdateFooter extends StatelessWidget {
                     key: UpdateNotice.cancelDownloadKey,
                     onPressed: () =>
                         context.read<AppUpdateCubit>().cancelDownload(),
-                    style: _textButtonStyle(false),
+                    style: _updateTextButtonStyle(false),
                     child: Text(l10n.appUpdateCancelDownload),
                   ),
                 ],
@@ -548,7 +662,7 @@ class _UpdateFooter extends StatelessWidget {
         child: FilledButton(
           key: UpdateNotice.installKey,
           onPressed: () => context.read<AppUpdateCubit>().install(),
-          style: _filledButtonStyle(largeText),
+          style: _updateFilledButtonStyle(largeText),
           child: Text(
             l10n.appUpdateInstall,
             maxLines: largeText ? 2 : 1,
@@ -565,48 +679,314 @@ class _UpdateFooter extends StatelessWidget {
     await context.read<AppUpdateCubit>().dismiss();
     if (context.mounted) navigator.pop();
   }
+}
 
-  String _downloadLabel(AppLocalizations l10n, AppRelease release) =>
-      release.sizeBytes > 0
-      ? '${l10n.appUpdateDownload} · ${formatByteSize(l10n, release.sizeBytes, compact: true)}'
-      : l10n.appUpdateDownload;
+String _downloadLabel(AppLocalizations l10n, AppRelease release) =>
+    release.sizeBytes > 0
+    ? '${l10n.appUpdateDownload} · ${formatByteSize(l10n, release.sizeBytes, compact: true)}'
+    : l10n.appUpdateDownload;
 
-  Size _buttonSize(bool largeText) => Size(64, largeText ? 80 : 48);
+Size _updateButtonSize(bool largeText) => Size(64, largeText ? 80 : 48);
 
-  ButtonStyle _textButtonStyle(bool largeText) {
-    final size = _buttonSize(largeText);
-    return TextButton.styleFrom(
-      minimumSize: size,
-      maximumSize: Size(double.infinity, size.height),
-      padding: EdgeInsets.symmetric(
-        horizontal: 16,
-        vertical: largeText ? 8 : 0,
+ButtonStyle _updateTextButtonStyle(bool largeText) {
+  final size = _updateButtonSize(largeText);
+  return TextButton.styleFrom(
+    minimumSize: size,
+    maximumSize: Size(double.infinity, size.height),
+    padding: EdgeInsets.symmetric(horizontal: 16, vertical: largeText ? 8 : 0),
+  );
+}
+
+ButtonStyle _updateFilledButtonStyle(bool largeText) {
+  final size = _updateButtonSize(largeText);
+  return FilledButton.styleFrom(
+    minimumSize: size,
+    maximumSize: Size(double.infinity, size.height),
+    padding: EdgeInsets.symmetric(horizontal: 16, vertical: largeText ? 8 : 0),
+  );
+}
+
+ButtonStyle _updateOutlinedButtonStyle() => OutlinedButton.styleFrom(
+  minimumSize: const Size(64, 80),
+  maximumSize: const Size(double.infinity, 80),
+  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+);
+
+class _WindowsUpdateFooter extends StatelessWidget {
+  const _WindowsUpdateFooter({required this.release, required this.state});
+
+  final AppRelease release;
+  final AppUpdateState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final textScaler = MediaQuery.textScalerOf(context);
+    final largeText = textScaler.scale(1) > 1.2;
+    final scaledProgressHeight = textScaler.scale(24) + 16;
+    final progressHeight = scaledProgressHeight > 48
+        ? scaledProgressHeight
+        : 48.0;
+    final height = largeText ? progressHeight + 80 : 48.0;
+    return DecoratedBox(
+      key: UpdateNotice.footerKey,
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerLow,
+        border: Border(
+          top: BorderSide(color: theme.colorScheme.outlineVariant),
+        ),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: SizedBox(
+            height: height,
+            child: DitherSwitcher(
+              expand: true,
+              collapse: true,
+              child: _footerContent(
+                context,
+                state,
+                release,
+                largeText,
+                progressHeight,
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
 
-  ButtonStyle _filledButtonStyle(bool largeText) {
-    final size = _buttonSize(largeText);
-    return FilledButton.styleFrom(
-      minimumSize: size,
-      maximumSize: Size(double.infinity, size.height),
-      padding: EdgeInsets.symmetric(
-        horizontal: 16,
-        vertical: largeText ? 8 : 0,
+  Widget _footerContent(
+    BuildContext context,
+    AppUpdateState state,
+    AppRelease release,
+    bool largeText,
+    double progressHeight,
+  ) {
+    final l10n = AppLocalizations.of(context);
+    final cubit = context.read<AppUpdateCubit>();
+    void close() => Navigator.of(context).pop();
+    return switch (state.phase) {
+      AppUpdatePhase.available || AppUpdatePhase.failed => Row(
+        key: ValueKey(state.phase),
+        children: [
+          Expanded(
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: FilledButton(
+                key: UpdateNotice.downloadActionKey,
+                onPressed: cubit.download,
+                style: _updateFilledButtonStyle(largeText),
+                child: Text(
+                  state.phase == AppUpdatePhase.failed
+                      ? l10n.appUpdateRetry
+                      : _downloadLabel(l10n, release),
+                  maxLines: largeText ? 2 : 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ),
+          ),
+          TextButton(
+            key: UpdateNotice.laterKey,
+            onPressed: close,
+            style: _updateTextButtonStyle(largeText),
+            child: Text(l10n.appUpdateLater),
+          ),
+        ],
       ),
+      AppUpdatePhase.downloading =>
+        largeText
+            ? Column(
+                key: ValueKey(state.phase),
+                children: [
+                  SizedBox(
+                    height: progressHeight,
+                    child: _DownloadProgress(state: state, windows: true),
+                  ),
+                  _DownloadActions(cubit: cubit),
+                ],
+              )
+            : Row(
+                key: ValueKey(state.phase),
+                children: [
+                  Expanded(
+                    child: _DownloadProgress(state: state, windows: true),
+                  ),
+                  const SizedBox(width: 16),
+                  OutlinedButton(
+                    key: UpdateNotice.cancelDownloadKey,
+                    onPressed: cubit.cancelDownload,
+                    child: Text(l10n.appUpdateCancelDownloadFull),
+                  ),
+                  const SizedBox(width: 8),
+                  TextButton(
+                    key: UpdateNotice.hideKey,
+                    onPressed: close,
+                    style: _updateTextButtonStyle(false),
+                    child: Text(l10n.appUpdateHide),
+                  ),
+                ],
+              ),
+      AppUpdatePhase.verifying =>
+        largeText
+            ? Column(
+                key: ValueKey(state.phase),
+                children: [
+                  SizedBox(
+                    height: progressHeight,
+                    child: _BusyLabel(label: l10n.appUpdateNoticeVerifying),
+                  ),
+                  _DownloadActions(cubit: cubit),
+                ],
+              )
+            : Row(
+                key: ValueKey(state.phase),
+                children: [
+                  Expanded(
+                    child: _BusyLabel(label: l10n.appUpdateNoticeVerifying),
+                  ),
+                  OutlinedButton(
+                    key: UpdateNotice.cancelDownloadKey,
+                    onPressed: cubit.cancelDownload,
+                    child: Text(l10n.appUpdateCancelDownloadFull),
+                  ),
+                  const SizedBox(width: 8),
+                  TextButton(
+                    key: UpdateNotice.hideKey,
+                    onPressed: close,
+                    style: _updateTextButtonStyle(false),
+                    child: Text(l10n.appUpdateHide),
+                  ),
+                ],
+              ),
+      AppUpdatePhase.installing => _BusyLabel(
+        key: ValueKey(state.phase),
+        label: l10n.appUpdateNoticeInstalling,
+      ),
+      AppUpdatePhase.ready => Row(
+        key: ValueKey(state.phase),
+        children: [
+          Expanded(
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: FilledButton(
+                key: UpdateNotice.installKey,
+                onPressed: cubit.install,
+                style: _updateFilledButtonStyle(largeText),
+                child: Text(
+                  l10n.appUpdateRestartAndUpdate,
+                  maxLines: largeText ? 2 : 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ),
+          ),
+          TextButton(
+            key: UpdateNotice.laterKey,
+            onPressed: close,
+            style: _updateTextButtonStyle(largeText),
+            child: Text(l10n.appUpdateLater),
+          ),
+        ],
+      ),
+    };
+  }
+}
+
+class _DownloadActions extends StatelessWidget {
+  const _DownloadActions({required this.cubit});
+
+  final AppUpdateCubit cubit;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return Row(
+      children: [
+        Flexible(
+          child: OutlinedButton(
+            key: UpdateNotice.cancelDownloadKey,
+            onPressed: cubit.cancelDownload,
+            style: _updateOutlinedButtonStyle(),
+            child: Text(
+              l10n.appUpdateCancelDownloadFull,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ),
+        const Spacer(),
+        TextButton(
+          key: UpdateNotice.hideKey,
+          onPressed: () => Navigator.of(context).pop(),
+          style: _updateTextButtonStyle(true),
+          child: Text(
+            l10n.appUpdateHide,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
     );
   }
 }
 
 class _DownloadProgress extends StatelessWidget {
-  const _DownloadProgress({required this.state, this.largeText = false});
+  const _DownloadProgress({
+    required this.state,
+    this.largeText = false,
+    this.windows = false,
+  });
 
   final AppUpdateState state;
   final bool largeText;
+  final bool windows;
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
+    if (windows) {
+      final progress = state.totalBytes > 0
+          ? l10n.appUpdateProgress(
+              formatByteSize(l10n, state.receivedBytes),
+              formatByteSize(l10n, state.totalBytes, compact: true),
+            )
+          : formatByteSize(l10n, state.receivedBytes);
+      return Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  l10n.appUpdateDownloading,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.titleSmall,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Flexible(
+                child: Text(
+                  progress,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.end,
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          SegmentedBar(value: state.progress, height: 6),
+        ],
+      );
+    }
     final percent = state.totalBytes > 0
         ? '${(state.progress * 100).round()}%'
         : null;
@@ -664,9 +1044,10 @@ class _BusyLabel extends StatelessWidget {
 }
 
 class _ReleaseNotes extends StatelessWidget {
-  const _ReleaseNotes({required this.notes});
+  const _ReleaseNotes({required this.notes, this.sectionRules = true});
 
   final String notes;
+  final bool sectionRules;
 
   @override
   Widget build(BuildContext context) {
@@ -680,13 +1061,13 @@ class _ReleaseNotes extends StatelessWidget {
     var hasContent = false;
     for (final block in blocks) {
       if (block.kind == _NoteKind.heading && hasContent) {
-        children.addAll(const [
-          SizedBox(height: 16),
-          SegmentedRule(),
-          SizedBox(height: 16),
-        ]);
+        children.add(const SizedBox(height: 16));
+        if (sectionRules) {
+          children.add(const SegmentedRule());
+          children.add(const SizedBox(height: 16));
+        }
       } else if (hasContent) {
-        children.add(const SizedBox(height: 8));
+        children.add(SizedBox(height: sectionRules ? 8 : 4));
       }
       children.add(_NoteBlock(block: block));
       hasContent = true;

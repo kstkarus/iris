@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:iris/app/bootstrap/windows_update_restart.dart';
 import 'package:iris/app/di/service_locator.dart';
 import 'package:iris/app/router/app_shell_page.dart';
 import 'package:iris/entities/friend/domain/friend.dart';
@@ -565,22 +566,29 @@ abstract final class AppRouter {
                 ),
                 // Below the preference cubits: the media player reads them.
                 BlocProvider(
-                  create: (context) => PlayerCubit(
-                    source: args.source,
-                    repository: serviceLocator<PlayerRepository>(),
-                    engine: viewportFactory.createEngine(
-                      subtitlePreferences: context
-                          .read<PlayerSubtitlePreferencesCubit>(),
-                      decodingPreferences: context
-                          .read<PlayerDecodingPreferencesCubit>(),
-                    ),
-                    progressRepository:
-                        serviceLocator<WatchProgressRepository>(),
-                    trackPreferencesRepository:
-                        serviceLocator<PlayerTrackPreferencesRepository>(),
-                    skipTimesRepository:
-                        serviceLocator<PlayerSkipTimesRepository>(),
-                  )..loadPlayback(),
+                  create: (context) {
+                    final cubit = PlayerCubit(
+                      source: args.source,
+                      repository: serviceLocator<PlayerRepository>(),
+                      engine: viewportFactory.createEngine(
+                        subtitlePreferences: context
+                            .read<PlayerSubtitlePreferencesCubit>(),
+                        decodingPreferences: context
+                            .read<PlayerDecodingPreferencesCubit>(),
+                      ),
+                      progressRepository:
+                          serviceLocator<WatchProgressRepository>(),
+                      trackPreferencesRepository:
+                          serviceLocator<PlayerTrackPreferencesRepository>(),
+                      skipTimesRepository:
+                          serviceLocator<PlayerSkipTimesRepository>(),
+                    );
+                    if (serviceLocator.isRegistered<WindowsUpdateRestart>()) {
+                      serviceLocator<WindowsUpdateRestart>().trackPlayer(cubit);
+                    }
+                    cubit.loadPlayback();
+                    return cubit;
+                  },
                 ),
                 // Marks what is watched in the account's list, if any.
                 BlocProvider(

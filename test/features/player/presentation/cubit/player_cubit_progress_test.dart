@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:iris/app/bootstrap/windows_update_restart.dart';
 import 'package:iris/entities/watch_progress/domain/watch_progress.dart';
 import 'package:iris/entities/watch_progress/domain/watch_progress_repository.dart';
 import 'package:iris/features/player/domain/entities/anime_player_source.dart';
@@ -54,11 +55,14 @@ void main() {
     now = DateTime.utc(2026, 10, 4, 12);
   });
 
-  PlayerCubit createCubit({AnimePlayerSource source = _source}) {
+  PlayerCubit createCubit({
+    AnimePlayerSource source = _source,
+    FakePlayerEngine? playerEngine,
+  }) {
     return PlayerCubit(
       source: source,
       repository: repository,
-      engine: engine,
+      engine: playerEngine ?? engine,
       progressRepository: progress,
       trackPreferencesRepository: tracks,
       skipTimesRepository: skipTimes,
@@ -193,6 +197,192 @@ void main() {
 
     expect(progress.saves.map((item) => item.position.inSeconds), [41, 45, 47]);
     expect(repository.events.last, 'dispose 42');
+  });
+
+  test(
+    'restart preparation waits for every active or closing player',
+    () async {
+      final oldEngine = FakePlayerEngine()..closeGate = Completer<void>();
+      final oldPlayer = createCubit(playerEngine: oldEngine);
+      final latestEngine = FakePlayerEngine();
+      final latestPlayer = createCubit(playerEngine: latestEngine);
+      addTearDown(() async {
+        if (!(oldEngine.closeGate?.isCompleted ?? true)) {
+          oldEngine.closeGate!.complete();
+        }
+        if (!(progress.saveGate?.isCompleted ?? true)) {
+          progress.saveGate!.complete();
+        }
+        await oldPlayer.close();
+        await latestPlayer.close();
+      });
+      progress.saveGate = Completer<void>();
+      oldPlayer.reportProgress(
+        const Duration(minutes: 10),
+        const Duration(minutes: 24),
+        flush: true,
+      );
+      await Future<void>.delayed(Duration.zero);
+      final closingOldPlayer = oldPlayer.close();
+      await Future<void>.delayed(Duration.zero);
+
+      latestPlayer.reportProgress(
+        const Duration(minutes: 12),
+        const Duration(minutes: 24),
+        flush: true,
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      final downloadWrite = Completer<void>();
+      final downloadWriteStarted = Completer<void>();
+      var watchProgressFlushed = false;
+      final restart = WindowsUpdateRestart(
+        flushWatchProgress: () async => watchProgressFlushed = true,
+        flushDownloads: () async {
+          downloadWriteStarted.complete();
+          await downloadWrite.future;
+        },
+      );
+      restart
+        ..trackPlayer(oldPlayer)
+        ..trackPlayer(latestPlayer);
+
+      var finished = false;
+      final preparing = restart.prepareForRestart().then(
+        (_) => finished = true,
+      );
+      await Future<void>.delayed(Duration.zero);
+      expect(finished, isFalse);
+      expect(downloadWriteStarted.isCompleted, isFalse);
+
+      oldEngine.closeGate!.complete();
+      progress.saveGate!.complete();
+      await downloadWriteStarted.future.timeout(const Duration(seconds: 5));
+      expect(finished, isFalse);
+      expect(
+        progress.saves.map((item) => item.position.inMinutes),
+        containsAll([10, 12]),
+      );
+      expect(watchProgressFlushed, isTrue);
+
+      downloadWrite.complete();
+      await preparing;
+      await closingOldPlayer;
+      expect(oldPlayer.isClosed, isTrue);
+      expect(latestPlayer.isClosed, isFalse);
+      await latestPlayer.close();
+    },
+  );
+
+  test('restart storage failure propagates and can be retried', () async {
+    final cubit = createCubit();
+    progress.failSaves = true;
+    cubit.reportProgress(
+      const Duration(minutes: 10),
+      const Duration(minutes: 24),
+      flush: true,
+    );
+    await Future<void>.delayed(Duration.zero);
+
+    var watchProgressFlushed = false;
+    var downloadsFlushed = false;
+    final restart = WindowsUpdateRestart(
+      flushWatchProgress: () async => watchProgressFlushed = true,
+      flushDownloads: () async => downloadsFlushed = true,
+    )..trackPlayer(cubit);
+
+    await expectLater(restart.prepareForRestart(), throwsA(isA<StateError>()));
+    expect(watchProgressFlushed, isFalse);
+    expect(downloadsFlushed, isFalse);
+    expect(cubit.isClosed, isFalse);
+
+    progress.failSaves = false;
+    await restart.prepareForRestart();
+    expect(watchProgressFlushed, isTrue);
+    expect(downloadsFlushed, isTrue);
+    expect(cubit.isClosed, isFalse);
+    await cubit.close();
+  });
+
+  test(
+    'restart does not recreate history removed after a successful close',
+    () async {
+      final cubit = createCubit();
+      final restart = WindowsUpdateRestart(
+        flushWatchProgress: progress.flushForRestart,
+        flushDownloads: () async {},
+      )..trackPlayer(cubit);
+      cubit.reportProgress(
+        const Duration(minutes: 10),
+        const Duration(minutes: 24),
+        flush: true,
+      );
+      await cubit.close();
+
+      await progress.removeTorrent(torrentKey: torrentKeyFromMagnet(_magnet));
+      await restart.prepareForRestart();
+
+      expect(
+        await progress.find(
+          torrentKey: torrentKeyFromMagnet(_magnet),
+          fileIndex: 0,
+        ),
+        isNull,
+      );
+      expect(progress.persisted, isEmpty);
+    },
+  );
+
+  test(
+    'restart preserves a removal from cache after a failed close write',
+    () async {
+      final cubit = createCubit();
+      final restart = WindowsUpdateRestart(
+        flushWatchProgress: progress.flushForRestart,
+        flushDownloads: () async {},
+      )..trackPlayer(cubit);
+      progress.failSaves = true;
+      cubit.reportProgress(
+        const Duration(minutes: 10),
+        const Duration(minutes: 24),
+        flush: true,
+      );
+      await Future<void>.delayed(Duration.zero);
+      await cubit.close();
+      expect(cubit.isClosed, isTrue);
+      expect(progress.saves, isEmpty);
+      progress.failSaves = false;
+      await progress.removeTorrent(torrentKey: torrentKeyFromMagnet(_magnet));
+      expect(progress.persisted, isEmpty);
+
+      await restart.prepareForRestart();
+
+      expect(progress.persisted, isEmpty);
+      expect(progress.findInPersisted(torrentKeyFromMagnet(_magnet)), isNull);
+    },
+  );
+
+  test('restart retries a failed closed player save from the cache', () async {
+    final cubit = createCubit();
+    final restart = WindowsUpdateRestart(
+      flushWatchProgress: progress.flushForRestart,
+      flushDownloads: () async {},
+    )..trackPlayer(cubit);
+    progress.failSaves = true;
+    cubit.reportProgress(
+      const Duration(minutes: 10),
+      const Duration(minutes: 24),
+      flush: true,
+    );
+    await Future<void>.delayed(Duration.zero);
+    await cubit.close();
+    expect(cubit.isClosed, isTrue);
+    expect(progress.persisted, isEmpty);
+
+    progress.failSaves = false;
+    await restart.prepareForRestart();
+
+    expect(progress.persisted.single.position, const Duration(minutes: 10));
   });
 
   test('does not record a file opened only for a moment', () async {
@@ -504,13 +694,20 @@ class _RecordingPlayerRepository extends StubPlayerRepository {
 
 class _MemoryWatchProgressRepository implements WatchProgressRepository {
   final Map<String, WatchProgress> _items = {};
+  final Map<String, WatchProgress> _persisted = {};
   final List<WatchProgress> saves = [];
+  Completer<void>? saveGate;
+  bool failSaves = false;
+  bool _cacheLoaded = false;
+
+  List<WatchProgress> get persisted => List.unmodifiable(_persisted.values);
 
   @override
   Future<WatchProgress?> find({
     required String torrentKey,
     required int fileIndex,
   }) async {
+    _cacheLoaded = true;
     return _items[watchProgressId(
       torrentKey: torrentKey,
       fileIndex: fileIndex,
@@ -518,21 +715,52 @@ class _MemoryWatchProgressRepository implements WatchProgressRepository {
   }
 
   /// Stores a record without counting it as a save by the cubit.
-  void seed(WatchProgress progress) => _items[progress.id] = progress;
+  void seed(WatchProgress progress) {
+    _cacheLoaded = true;
+    _items[progress.id] = progress;
+    _persisted[progress.id] = progress;
+  }
 
   @override
   Future<void> save(WatchProgress progress) async {
-    saves.add(progress);
+    _cacheLoaded = true;
     _items[progress.id] = progress;
+    await saveGate?.future;
+    if (failSaves) throw StateError('watch progress storage failed');
+    saves.add(progress);
+    _persisted[progress.id] = progress;
   }
 
   @override
   Future<void> removeTorrent({required String torrentKey}) async {
+    _cacheLoaded = true;
     _items.removeWhere((_, item) => item.torrentKey == torrentKey);
+    await saveGate?.future;
+    if (failSaves) throw StateError('watch progress storage failed');
+    _persisted
+      ..clear()
+      ..addAll(_items);
+  }
+
+  Future<void> flushForRestart() async {
+    if (!_cacheLoaded) return;
+    await saveGate?.future;
+    if (failSaves) throw StateError('watch progress storage failed');
+    _persisted
+      ..clear()
+      ..addAll(_items);
+  }
+
+  WatchProgress? findInPersisted(String torrentKey) {
+    for (final item in _persisted.values) {
+      if (item.torrentKey == torrentKey) return item;
+    }
+    return null;
   }
 
   @override
   Stream<List<WatchProgress>> watchAll() async* {
+    _cacheLoaded = true;
     yield _items.values.toList();
   }
 }

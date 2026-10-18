@@ -766,6 +766,10 @@
   "appUpdateNoNotes": "No release notes were provided.",
   "appUpdateCancelDownload": "Cancel",
   "appUpdateInstall": "Install update",
+  "appUpdateRestartAndUpdate": "Restart and update",
+  "appUpdateHide": "Hide",
+  "appUpdateDownloading": "Downloading",
+  "appUpdateCancelDownloadFull": "Cancel download",
   "appUpdateRetry": "Retry",
   "appUpdateProgress": "{received} / {total}",
   "@appUpdateProgress": {

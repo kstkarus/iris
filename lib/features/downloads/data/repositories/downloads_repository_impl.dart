@@ -687,6 +687,23 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
     await _downloadsController.close();
   }
 
+  Future<void> flushForRestart() async {
+    final restoration = _restoration;
+    if (restoration != null) {
+      try {
+        await restoration;
+      } on Object {
+        if (!_restored) return;
+        rethrow;
+      }
+    }
+    if (!_restored) return;
+    _persistTimer?.cancel();
+    _persistTimer = null;
+    await _engineUpdates.idle;
+    await _registry.writeDownloads(_downloads);
+  }
+
   /// Once; a start that failed (the engine, the folder) is tried again
   /// by the next caller rather than handed back to everyone.
   Future<void> _ensureInitialized() {

@@ -27,6 +27,9 @@ final class AppBuildTarget {
   /// `iris-1.2.3-windows-x64.zip`
   const AppBuildTarget.windows() : _suffix = '-windows-x64.zip';
 
+  /// The per-user installer, used by installed Windows builds.
+  const AppBuildTarget.windowsInstaller() : _suffix = '-windows-x64-setup.exe';
+
   final String _suffix;
 
   bool matches(String assetName) => assetName.toLowerCase().endsWith(_suffix);

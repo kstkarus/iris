@@ -31,6 +31,8 @@ import 'package:iris/features/anime_details/data/repositories/remote_anime_detai
 import 'package:iris/features/anime_details/domain/repositories/anime_details_repository.dart';
 import 'package:iris/features/app_update/data/github_app_update_repository.dart';
 import 'package:iris/features/app_update/data/repositories/android_app_update_download_repository.dart';
+import 'package:iris/features/app_update/data/repositories/windows_app_update_download_repository.dart';
+import 'package:iris/app/bootstrap/windows_update_restart.dart';
 import 'package:iris/features/app_update/domain/repositories/app_update_download_repository.dart';
 import 'package:iris/features/app_update/domain/repositories/app_update_repository.dart';
 import 'package:iris/features/characters/data/mock_characters_repository.dart';
@@ -304,6 +306,46 @@ Future<void> _registerReal() async {
         ),
       ),
     );
+  }
+  if (!kIsWeb && defaultTargetPlatform == TargetPlatform.windows) {
+    serviceLocator
+      ..registerLazySingleton<WindowsUpdateRestart>(
+        () => WindowsUpdateRestart(
+          flushWatchProgress: () =>
+              (serviceLocator<WatchProgressRepository>()
+                      as SharedPreferencesWatchProgressRepository)
+                  .flushForRestart(),
+          flushDownloads: () =>
+              (serviceLocator<DownloadsRepository>() as DownloadsRepositoryImpl)
+                  .flushForRestart(),
+        ),
+      )
+      ..registerLazySingleton<WindowsAppUpdateDownloadRepository>(
+        () => WindowsAppUpdateDownloadRepository(
+          dio: createJsonApiDio(
+            baseUrl: AppReleasesApi.baseUrl,
+            receiveTimeout: const Duration(seconds: 60),
+          ),
+          supportDirectory: () async => supportDirectory,
+          prepareForRestart:
+              serviceLocator<WindowsUpdateRestart>().prepareForRestart,
+        ),
+      );
+    final windowsUpdates = serviceLocator<WindowsAppUpdateDownloadRepository>();
+    try {
+      // Portable builds keep updating from ZIP; silent updates require setup.
+      if (await windowsUpdates.canInstall()) {
+        serviceLocator.registerSingleton<AppUpdateDownloadRepository>(
+          windowsUpdates,
+        );
+      }
+    } on Object catch (error) {
+      developer.log(
+        'Windows installer registration is unavailable; using portable updates.',
+        name: 'iris.app_update',
+        error: error,
+      );
+    }
   }
   // Leftovers of a crashed or killed session are useless after restart.
   unawaited(streamCache.prepare());
@@ -625,7 +667,9 @@ AppBuildTarget? _appBuildTarget() {
       final abi = AppBuildTarget.androidAbiName(Abi.current());
       return abi == null ? null : AppBuildTarget.android(abi);
     case TargetPlatform.windows:
-      return const AppBuildTarget.windows();
+      return serviceLocator.isRegistered<AppUpdateDownloadRepository>()
+          ? const AppBuildTarget.windowsInstaller()
+          : const AppBuildTarget.windows();
     default:
       return null;
   }

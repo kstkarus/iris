@@ -1221,6 +1221,18 @@ class AppLocalizationsRu extends AppLocalizations {
   String get appUpdateInstall => 'Установить обновление';
 
   @override
+  String get appUpdateRestartAndUpdate => 'Перезапустить и обновить';
+
+  @override
+  String get appUpdateHide => 'Скрыть';
+
+  @override
+  String get appUpdateDownloading => 'Скачивание';
+
+  @override
+  String get appUpdateCancelDownloadFull => 'Отменить загрузку';
+
+  @override
   String get appUpdateRetry => 'Повторить';
 
   @override

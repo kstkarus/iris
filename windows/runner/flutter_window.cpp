@@ -12,6 +12,7 @@
 
 namespace {
 constexpr UINT kStartPictureInPictureDrag = WM_APP + 1;
+constexpr UINT kQuitForAppUpdate = WM_APP + 2;
 constexpr double kDefaultPictureInPictureAspectRatio = 16.0 / 9.0;
 constexpr double kMinimumPictureInPictureAspectRatio = 1.0 / 2.38;
 constexpr double kMaximumPictureInPictureAspectRatio = 2.38;
@@ -166,6 +167,14 @@ bool FlutterWindow::OnCreate() {
   }
   RegisterPlugins(flutter_controller_->engine());
 
+  app_update_channel_ = CreateAppUpdateChannel(
+      flutter_controller_->engine()->messenger(), [this]() {
+        HWND window = GetHandle();
+        if (window != nullptr && IsWindow(window)) {
+          PostMessage(window, kQuitForAppUpdate, 0, 0);
+        }
+      });
+
   window_channel_ =
       std::make_unique<flutter::MethodChannel<flutter::EncodableValue>>(
           flutter_controller_->engine()->messenger(), "iris/window",
@@ -254,6 +263,7 @@ void FlutterWindow::OnDestroy() {
     NotifyPictureInPicture(false, false);
   }
   picture_in_picture_channel_ = nullptr;
+  app_update_channel_ = nullptr;
   window_channel_ = nullptr;
   if (flutter_controller_) {
     if (picture_in_picture_resizing_) {
@@ -550,6 +560,11 @@ FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
                     MAKELPARAM(cursor.x, cursor.y));
       }
     }
+    return 0;
+  }
+  if (message == kQuitForAppUpdate) {
+    picture_in_picture_ = false;
+    DestroyWindow(hwnd);
     return 0;
   }
   if (picture_in_picture_ && message == WM_CLOSE) {

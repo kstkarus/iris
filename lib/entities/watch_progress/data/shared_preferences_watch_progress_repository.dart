@@ -68,6 +68,11 @@ class SharedPreferencesWatchProgressRepository
     await _write(remaining);
   }
 
+  Future<void> flushForRestart() async {
+    final cache = _cache;
+    if (cache != null) await _storage.write(cache);
+  }
+
   Future<void> close() => _changes.close();
 
   List<WatchProgress> _items() =>

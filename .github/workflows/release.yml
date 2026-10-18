@@ -157,13 +157,33 @@ jobs:
             --build-name="$VERSION" \
             --build-number="${{ github.run_number }}" \
             --dart-define-from-file=config/shikimori.json
-      - name: Pack
+      - name: Pack and build setup installer
         shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           $version = "$env:GITHUB_REF_NAME".TrimStart('v')
+          if ($version -notmatch '^\d+\.\d+\.\d+$') { throw "Invalid release tag version: $version" }
           New-Item -ItemType Directory -Force dist | Out-Null
           Compress-Archive -Path build/windows/x64/runner/Release/* `
             -DestinationPath "dist/iris-$version-windows-x64.zip"
+
+          $compilerSetup = Join-Path $env:RUNNER_TEMP 'innosetup-6.7.3.exe'
+          Invoke-WebRequest `
+            -Uri 'https://github.com/jrsoftware/issrc/releases/download/is-6_7_3/innosetup-6.7.3.exe' `
+            -OutFile $compilerSetup
+          gh release verify-asset is-6_7_3 $compilerSetup --repo jrsoftware/issrc
+          if ($LASTEXITCODE -ne 0) { throw 'Inno Setup release attestation verification failed.' }
+
+          $compilerDir = Join-Path $env:RUNNER_TEMP 'innosetup-6.7.3-portable'
+          $install = Start-Process -FilePath $compilerSetup -WindowStyle Hidden -Wait -PassThru `
+            -ArgumentList @('/PORTABLE=1', '/CURRENTUSER', '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/SP-', "/DIR=$compilerDir")
+          if ($install.ExitCode -ne 0) { throw "Inno Setup installation failed with exit code $($install.ExitCode)." }
+
+          $env:IRIS_VERSION = $version
+          & (Join-Path $compilerDir 'ISCC.exe') (Join-Path $PWD.Path 'windows/installer/iris.iss')
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if (-not (Test-Path "dist/iris-$version-windows-x64-setup.exe")) { throw 'The Windows setup installer was not created.' }
       - uses: actions/upload-artifact@v4
         with:
           name: windows
