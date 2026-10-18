@@ -53,7 +53,7 @@ class _AnimeGridState extends State<AnimeGrid> {
   /// Rows of stand-in cards shown as noise while the first page loads.
   static const _standInRows = 3;
 
-  bool _viewportFillCheckScheduled = false;
+  bool _prefetchCheckScheduled = false;
 
   @override
   void initState() {
@@ -77,42 +77,42 @@ class _AnimeGridState extends State<AnimeGrid> {
   }
 
   void _onScroll() {
+    if (!mounted || !_canLoadMore) return;
     final controller = widget.controller;
     if (!controller.hasClients) return;
     final position = controller.position;
-    if (position.maxScrollExtent - position.pixels <= _loadMoreThreshold) {
+    if (position.hasContentDimensions &&
+        position.extentAfter <= _loadMoreThreshold) {
       widget.bloc.add(const AnimeListNextPageRequested());
     }
   }
 
-  void _scheduleViewportFillCheck() {
-    final state = widget.state;
-    if (_viewportFillCheckScheduled ||
-        state.isInitialLoading ||
-        !state.hasMore ||
-        state.isLoadingMore ||
-        state.errorType != AnimeListErrorType.none) {
-      return;
-    }
+  bool get _canLoadMore {
+    final state = widget.bloc.state;
+    return state.hasLoadedOnce &&
+        !state.isInitialLoading &&
+        state.hasMore &&
+        !state.isLoadingMore &&
+        state.errorType == AnimeListErrorType.none &&
+        TickerMode.valuesOf(context).enabled;
+  }
 
-    // Wide windows can fit a whole page without scrolling, which would never
-    // trigger the scroll listener; request the next page in that case.
-    _viewportFillCheckScheduled = true;
+  void _schedulePrefetchCheck() {
+    if (_prefetchCheckScheduled || !_canLoadMore) return;
+
+    // Layout and resize need the same buffer as scrolling, including when
+    // a page only slightly exceeds the viewport. Read fresh metrics and state.
+    _prefetchCheckScheduled = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _viewportFillCheckScheduled = false;
-      final controller = widget.controller;
-      if (!mounted || !controller.hasClients) return;
-
-      final position = controller.position;
-      if (position.hasContentDimensions && position.maxScrollExtent <= 0) {
-        widget.bloc.add(const AnimeListNextPageRequested());
-      }
+      _prefetchCheckScheduled = false;
+      _onScroll();
     });
+    WidgetsBinding.instance.ensureVisualUpdate();
   }
 
   @override
   Widget build(BuildContext context) {
-    _scheduleViewportFillCheck();
+    _schedulePrefetchCheck();
     final state = widget.state;
     final columns = widget.columns;
     final header = widget.header;
@@ -129,48 +129,57 @@ class _AnimeGridState extends State<AnimeGrid> {
         state.isLoadingMore || state.errorType == AnimeListErrorType.loadMore;
     final first = header == null ? 0 : 1;
 
-    return ListView.separated(
-      controller: widget.controller,
-      padding: const EdgeInsets.only(bottom: 24),
-      itemCount: first + rowCount + (hasFooter ? 1 : 0),
-      separatorBuilder: (context, index) =>
-          SizedBox(height: index < first ? AnimeGrid.headerGap : _rowSpacing),
-      itemBuilder: (context, index) {
-        if (index < first) return header;
-        index -= first;
-        if (index >= rowCount) {
-          return PagingFooter(
-            loadingMore: state.isLoadingMore,
-            failed: state.errorType == AnimeListErrorType.loadMore,
-            failedMessage: AppLocalizations.of(context).animeListLoadMoreError,
-            onRetry: () => widget.bloc.add(const AnimeListNextPageRequested()),
-          );
-        }
-
-        final start = index * columns;
-        final end = math.min(start + columns, items.length);
-
-        // Each row develops out of its own noise when the page arrives.
-        return AppSkeleton(
-          enabled: loading,
-          semanticLabel: index == 0 ? loadingLabel : null,
-          child: AdaptiveGridRow(
-            columns: columns,
-            spacing: _columnSpacing,
-            children: [
-              for (final item in items.sublist(start, end))
-                AnimeCard(
-                  item: item,
-                  onTap: () => context.pushNamed(
-                    'anime-details',
-                    pathParameters: {'id': item.anime.id},
-                    extra: AnimeDetailsPreview.fromSummary(item.anime),
-                  ),
-                ),
-            ],
-          ),
-        );
+    return NotificationListener<ScrollMetricsNotification>(
+      onNotification: (notification) {
+        if (notification.depth == 0) _schedulePrefetchCheck();
+        return false;
       },
+      child: ListView.separated(
+        controller: widget.controller,
+        padding: const EdgeInsets.only(bottom: 24),
+        itemCount: first + rowCount + (hasFooter ? 1 : 0),
+        separatorBuilder: (context, index) =>
+            SizedBox(height: index < first ? AnimeGrid.headerGap : _rowSpacing),
+        itemBuilder: (context, index) {
+          if (index < first) return header;
+          index -= first;
+          if (index >= rowCount) {
+            return PagingFooter(
+              loadingMore: state.isLoadingMore,
+              failed: state.errorType == AnimeListErrorType.loadMore,
+              failedMessage: AppLocalizations.of(
+                context,
+              ).animeListLoadMoreError,
+              onRetry: () =>
+                  widget.bloc.add(const AnimeListNextPageRequested()),
+            );
+          }
+
+          final start = index * columns;
+          final end = math.min(start + columns, items.length);
+
+          // Each row develops out of its own noise when the page arrives.
+          return AppSkeleton(
+            enabled: loading,
+            semanticLabel: index == 0 ? loadingLabel : null,
+            child: AdaptiveGridRow(
+              columns: columns,
+              spacing: _columnSpacing,
+              children: [
+                for (final item in items.sublist(start, end))
+                  AnimeCard(
+                    item: item,
+                    onTap: () => context.pushNamed(
+                      'anime-details',
+                      pathParameters: {'id': item.anime.id},
+                      extra: AnimeDetailsPreview.fromSummary(item.anime),
+                    ),
+                  ),
+              ],
+            ),
+          );
+        },
+      ),
     );
   }
 }

@@ -333,7 +333,7 @@ void main() {
     await tester.tap(find.text('Apply'));
     await tester.pumpAndSettle();
 
-    expect(repository.calls.length, 2);
+    expect(_firstPages(repository, ''), 2);
     expect(repository.calls.last.query.sort, AnimeListSortOption.score);
     expect(repository.calls.last.query.filters.kinds, {AnimeKindFilter.movie});
     expect(repository.calls.last.query.filters.statuses, {

@@ -4,6 +4,10 @@ Notable changes to iris, newest first. The format follows [Keep a Changelog](htt
 
 ## [Unreleased]
 
+### Fixed
+
+- Catalog and search results prefetch after layout and window resizing, filling wide windows without waiting for a scroll. Failed pages wait for an explicit retry.
+
 ## [1.4.7] - 2026-10-18
 
 ### Added
