@@ -4,6 +4,8 @@ Notable changes to iris, newest first. The format follows [Keep a Changelog](htt
 
 ## [Unreleased]
 
+## [1.4.7] - 2026-10-18
+
 ### Added
 
 - Watched-episode marks are saved on the device before sending to Shikimori and retried silently after network failures, app restarts and returning to Iris. Each account keeps its own queue; confirmed resets and new rewatches on Shikimori cancel older pending marks.
@@ -204,7 +206,8 @@ First published release.
 - Update notice on Android and Windows when a newer release is published.
 - App icon.
 
-[Unreleased]: https://github.com/kstkarus/iris/compare/v1.4.6...HEAD
+[Unreleased]: https://github.com/kstkarus/iris/compare/v1.4.7...HEAD
+[1.4.7]: https://github.com/kstkarus/iris/compare/v1.4.6...v1.4.7
 [1.4.6]: https://github.com/kstkarus/iris/compare/v1.4.5...v1.4.6
 [1.4.5]: https://github.com/kstkarus/iris/compare/v1.4.4...v1.4.5
 [1.4.4]: https://github.com/kstkarus/iris/compare/v1.4.3...v1.4.4
