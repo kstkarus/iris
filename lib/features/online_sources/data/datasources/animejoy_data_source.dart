@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:dio/dio.dart';
+import 'package:html/dom.dart' as dom;
 import 'package:html/parser.dart' show parse;
 
 import 'package:iris/features/online_sources/data/models/animejoy_dto.dart';
@@ -215,40 +216,86 @@ Uri? _resolveHttpUri(String value, Uri base) {
 
 List<AnimejoyEpisodeDto> _parseEpisodes(String html, Uri baseUri) {
   final document = parse(html);
+  final labels = <String, String>{};
   final playerTypes = <String, _PlayerType>{};
   for (final item in document.querySelectorAll(
     '.playlists-lists .playlists-items li[data-id]',
   )) {
     final id = item.attributes['data-id'];
-    final name = item.text.trim().replaceAll(RegExp(r'\s+'), ' ').toLowerCase();
+    final label = item.nodes
+        .whereType<dom.Text>()
+        .map((node) => node.data)
+        .join(' ')
+        .trim()
+        .replaceAll(RegExp(r'\s+'), ' ');
+    final name = label.toLowerCase();
     if (id == null) continue;
+    labels[id] = label;
     if (name == 'наш плеер') playerTypes[id] = _PlayerType.our;
     if (name == 'allvideo') playerTypes[id] = _PlayerType.allVideo;
   }
 
-  final episodes = <num, _EpisodeBuilder>{};
+  final groups = <String, Map<num, _EpisodeBuilder>>{};
   for (final item in document.querySelectorAll(
     '.playlists-videos .playlists-items li[data-id][data-file]',
   )) {
-    final type = playerTypes[item.attributes['data-id']];
+    final playerId = _ancestors(
+      item.attributes['data-id'] ?? '',
+    ).where(playerTypes.containsKey).firstOrNull;
+    final type = playerTypes[playerId];
     final url = _resolvePlayerUrl(item.attributes['data-file'] ?? '', baseUri);
     final parsed = _episodeLabel(item.text);
     if (type == null || url == null || parsed == null) continue;
+    final translation =
+        _ancestors(playerId!)
+            .skip(1)
+            .map((id) => labels[id] ?? '')
+            .where(
+              (label) =>
+                  label.isNotEmpty &&
+                  !RegExp(r'^\d+(?:\s*[-–—+]\s*\d*)?$').hasMatch(label),
+            )
+            .firstOrNull ??
+        '';
+    final episodes = groups[translation] ??= {};
     (episodes[parsed.number] ??= _EpisodeBuilder(
       parsed.title,
     )).add(type, url.toString());
   }
 
-  final numbers = episodes.keys.toList()..sort();
-  return [
-    for (final number in numbers)
-      AnimejoyEpisodeDto(
-        number: number,
-        title: episodes[number]!.title,
-        playerUrls: episodes[number]!.urls,
-        bestQuality: _playlistQuality(episodes[number]!.urls),
-      ),
-  ];
+  final result = <AnimejoyEpisodeDto>[];
+  for (final group in groups.entries) {
+    final episodes = group.value;
+    final numbers = episodes.keys.toList()..sort();
+    // Some tabs append a live episode counter to the translator's name.
+    // Strip it only when it agrees with that group's final episode.
+    final counter = RegExp(r'\s+(\d+)$').firstMatch(group.key);
+    final translation =
+        counter != null && num.tryParse(counter.group(1)!) == numbers.last
+        ? group.key.substring(0, counter.start).trim()
+        : group.key;
+    for (final number in numbers) {
+      result.add(
+        AnimejoyEpisodeDto(
+          number: number,
+          title: episodes[number]!.title,
+          playerUrls: episodes[number]!.urls,
+          translation: translation,
+          bestQuality: _playlistQuality(episodes[number]!.urls),
+        ),
+      );
+    }
+  }
+  return result;
+}
+
+Iterable<String> _ancestors(String id) sync* {
+  while (id.isNotEmpty) {
+    yield id;
+    final separator = id.lastIndexOf('_');
+    if (separator < 0) break;
+    id = id.substring(0, separator);
+  }
 }
 
 int? _playlistQuality(List<String> playerUrls) {

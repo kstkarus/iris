@@ -182,6 +182,72 @@ void main() {
     expect(requests, hasLength(2));
   });
 
+  test(
+    'nested player ranges preserve arbitrary translations and mirrors',
+    () async {
+      final animejoy = source(
+        (_) async => const FakeReply(200, {
+          'success': true,
+          'response': '''
+        <div class="playlists-lists"><div class="playlists-items"><ul>
+          <li data-id="0_0">North Star 12</li>
+          <li data-id="0_1">Studio 42</li>
+          <li data-id="0_0_0">Наш плеер</li>
+          <li data-id="0_0_1">AllVideo</li>
+          <li data-id="0_0_2">Kodik</li>
+          <li data-id="0_0_0_0">1-10</li>
+          <li data-id="0_0_0_1">11-20</li>
+          <li data-id="0_1_0">AllVideo</li>
+        </ul></div></div>
+        <div class="playlists-videos"><div class="playlists-items"><ul>
+          <li data-id="0_0_0_1" data-file="https://animejoya.ru/player/playerjs.html?file=[1080p]https://cdn.example/north12.mp4">12 серия</li>
+          <li data-id="0_0_0_0" data-file="https://animejoya.ru/player/playerjs.html?file=[720p]https://cdn.example/north1.mp4">1 серия</li>
+          <li data-id="0_0_1_1" data-file="https://fsst.online/embed/north12/">12 серия</li>
+          <li data-id="0_0_2_0" data-file="https://fsst.online/embed/not-allvideo/">2 серия</li>
+          <li data-id="0_1_0_0" data-file="https://fsst.online/embed/studio12/">12 серия</li>
+          <li data-id="0_00_0" data-file="https://fsst.online/embed/wrong-prefix/">3 серия</li>
+          <li data-id="0_0_1_1" data-file="https://fsst.online/embed/recap/">Рекап</li>
+        </ul></div></div>
+      ''',
+        }),
+      );
+
+      final episodes = await animejoy.episodes(100);
+      expect(episodes.map((e) => (e.translation, e.number)), [
+        ('North Star', 1),
+        ('North Star', 12),
+        ('Studio 42', 12),
+      ]);
+      expect(episodes[1].playerUrls, [
+        contains('north12.mp4'),
+        'https://fsst.online/embed/north12/',
+      ]);
+      expect(episodes[1].bestQuality, 1080);
+      expect(episodes[2].playerUrls, ['https://fsst.online/embed/studio12/']);
+    },
+  );
+
+  test('unnamed ranges stay unnamed and do not become translations', () async {
+    final animejoy = source(
+      (_) async => const FakeReply(200, {
+        'success': true,
+        'response': '''
+        <div class="playlists-lists"><div class="playlists-items"><ul>
+          <li data-id="0_0">201-400</li>
+          <li data-id="0_0_0">AllVideo</li>
+          <li data-id="0_0_0_0">201-210</li>
+        </ul></div></div>
+        <div class="playlists-videos"><div class="playlists-items"><ul>
+          <li data-id="0_0_0_0" data-file="https://fsst.online/embed/201/">201 серия</li>
+        </ul></div></div>
+      ''',
+      }),
+    );
+    final episodes = await animejoy.episodes(100);
+    expect(episodes.single.translation, '');
+    expect(episodes.single.number, 201);
+  });
+
   test('article reads Shikimori only from the metadata list', () async {
     final animejoy = source((options) async {
       requests.add(options);

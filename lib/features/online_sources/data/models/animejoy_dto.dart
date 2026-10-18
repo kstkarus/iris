@@ -10,11 +10,13 @@ class AnimejoyEpisodeDto {
     required this.number,
     required this.title,
     required this.playerUrls,
+    this.translation = '',
     this.bestQuality,
   });
 
   final num number;
   final String title;
   final List<String> playerUrls;
+  final String translation;
   final int? bestQuality;
 }
