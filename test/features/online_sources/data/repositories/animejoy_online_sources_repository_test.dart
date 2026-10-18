@@ -209,13 +209,20 @@ void main() {
         ['50:1', '50:2.5'],
       );
 
-      for (final id in ['x', '0', '-1']) {
+      for (final id in [
+        'x',
+        '0',
+        '-1',
+        'parts:0:',
+        'parts:50,x:',
+        'parts:50:%GG',
+      ]) {
         await expectLater(
           repository.fetchRelease(provider: OnlineProvider.animejoy, id: id),
           throwsA(isA<ResourceNotFoundException>()),
         );
       }
-      for (final id in ['bad', '50:NaN', '50:-1', '50:1:2']) {
+      for (final id in ['bad', '50:NaN', '50:-1', '50:1:%GG', '50:1:x:y']) {
         await expectLater(
           repository.resolveStreams(
             provider: OnlineProvider.animejoy,
@@ -422,6 +429,126 @@ void main() {
     expect(source.articleCalls, isEmpty);
     expect(source.playlistCalls, isEmpty);
   });
+
+  test(
+    'merges article parts and prefers the newer overlapping episode',
+    () async {
+      final source = _FakeAnimejoyDataSource(
+        searchResults: {
+          'Example': [20, 10],
+        },
+        articles: {
+          10: const AnimejoyArticleDto(id: 10, shikimoriId: target),
+          20: const AnimejoyArticleDto(id: 20, shikimoriId: target),
+        },
+        playlists: {
+          10: [_episode(1), _episode(2, title: 'Older')],
+          20: [_episode(2, title: 'Newer'), _episode(3, bestQuality: 1080)],
+        },
+      );
+      final repository = _repository(source);
+      final found = await repository.findReleases(
+        shikimoriId: '$target',
+        titles: ['Example'],
+      );
+      expect(found, hasLength(1));
+      expect(found.single.id, 'parts:10,20:');
+      expect(found.single.episodes.map((e) => e.id), ['10:1', '20:2', '20:3']);
+      expect(found.single.episodes[1].title, 'Newer');
+      expect(found.single.bestQuality, 1080);
+
+      final reopened = await _repository(
+        source,
+      ).fetchRelease(provider: OnlineProvider.animejoy, id: found.single.id);
+      expect(reopened, found.single);
+      final legacy = await repository.fetchRelease(
+        provider: OnlineProvider.animejoy,
+        id: '10',
+      );
+      expect(legacy.episodes.map((e) => e.id), ['10:1', '10:2']);
+      expect(legacy.episodes[1].title, 'Older');
+    },
+  );
+
+  test(
+    'merges normalized translation names without falling back to another group',
+    () async {
+      final source = _FakeAnimejoyDataSource(
+        searchResults: {
+          'Example': [10, 20],
+        },
+        articles: {
+          10: const AnimejoyArticleDto(id: 10, shikimoriId: target),
+          20: const AnimejoyArticleDto(id: 20, shikimoriId: target),
+        },
+        playlists: {
+          10: [_episode(1, translation: 'North Star')],
+          20: [
+            _episode(2, translation: ' north  STAR '),
+            _episode(2, translation: 'Another Team'),
+            _episode(2),
+          ],
+        },
+      );
+      final repository = _repository(source);
+      final found = await repository.findReleases(
+        shikimoriId: '$target',
+        titles: ['Example'],
+      );
+      expect(found, hasLength(3));
+      final selected = found.singleWhere(
+        (release) => release.episodes.length == 2,
+      );
+      expect(selected.dub, 'AnimeJoy · North Star');
+      expect(selected.id, 'parts:10,20:north%20star');
+      expect(selected.episodes.map((e) => e.id), [
+        '10:1:north%20star',
+        '20:2:north%20star',
+      ]);
+      expect(
+        await _repository(
+          source,
+        ).fetchRelease(provider: OnlineProvider.animejoy, id: selected.id),
+        selected,
+      );
+
+      source.playlists[20] = [
+        _episode(2, translation: 'Another Team'),
+        _episode(2),
+      ];
+      await expectLater(
+        repository.resolveStreams(
+          provider: OnlineProvider.animejoy,
+          episodeId: selected.episodes.last.id,
+        ),
+        throwsA(isA<ResourceNotFoundException>()),
+      );
+      expect(source.linkCalls, isEmpty);
+    },
+  );
+
+  test(
+    'reopening a group keeps available parts after another part fails',
+    () async {
+      final source = _FakeAnimejoyDataSource(
+        playlists: {
+          10: [_episode(1)],
+        },
+        playlistErrors: {20: StateError('temporarily unavailable')},
+      );
+      final reopened = await _repository(
+        source,
+      ).fetchRelease(provider: OnlineProvider.animejoy, id: 'parts:10,20:');
+      expect(reopened.id, 'parts:10,20:');
+      expect(reopened.episodes.single.id, '10:1');
+      await expectLater(
+        _repository(
+          source,
+        ).fetchRelease(provider: OnlineProvider.animejoy, id: 'parts:20:'),
+        throwsA(isA<StateError>()),
+      );
+    },
+  );
 }
 
 AnimejoyOnlineSourcesRepository _repository(AnimejoyDataSource source) =>
@@ -430,11 +557,13 @@ AnimejoyOnlineSourcesRepository _repository(AnimejoyDataSource source) =>
 AnimejoyEpisodeDto _episode(
   num number, {
   String title = '',
+  String translation = '',
   List<String> urls = const [],
   int? bestQuality,
 }) => AnimejoyEpisodeDto(
   number: number,
   title: title,
+  translation: translation,
   playerUrls: urls,
   bestQuality: bestQuality,
 );

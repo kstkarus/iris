@@ -12,6 +12,8 @@ Notable changes to iris, newest first. The format follows [Keep a Changelog](htt
 ### Fixed
 
 - AnimeJoy searches include later result pages, so older titles such as the first Sword Art Online season are no longer missed. A failed later page does not hide a matching release already found.
+- AnimeJoy reads episodes nested under player and episode-range tabs, keeping the site's translation groups separate.
+- AnimeJoy article parts of the same anime and translation appear as one ordered episode list. Unnamed parts stay separate from named translations, and saved links reopen the selected variant.
 
 ## [1.4.6] - 2026-10-17
 

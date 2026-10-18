@@ -11,8 +11,8 @@ import 'package:iris/features/online_sources/domain/repositories/online_sources_
 import 'package:iris/shared/network/network_exceptions.dart';
 import 'package:iris/shared/network/search_all.dart';
 
-/// One release per AnimeJoy article. Its two players are mirrors of an
-/// episode, not separate translations.
+/// Article parts of one anime form a release per translation. The two
+/// supported players are mirrors within that translation.
 class AnimejoyOnlineSourcesRepository implements OnlineSourcesRepository {
   const AnimejoyOnlineSourcesRepository({required this.dataSource});
 
@@ -29,13 +29,13 @@ class AnimejoyOnlineSourcesRepository implements OnlineSourcesRepository {
     // requests; a later search or playback must see the current playlist.
     final articles = <int, Future<AnimejoyArticleDto>>{};
     final playlists = <int, Future<List<AnimejoyEpisodeDto>>>{};
-    final found = await searchAll(
+    final found = await searchAll<String, _ArticleEpisodes>(
       {
         for (final title in titles)
           if (title.trim().isNotEmpty) title.trim(),
       },
       (title) async {
-        final releases = <OnlineRelease>[];
+        final parts = <_ArticleEpisodes>[];
         Object? failure;
         try {
           await for (final candidates in dataSource.searchPages(title)) {
@@ -45,18 +45,17 @@ class AnimejoyOnlineSourcesRepository implements OnlineSourcesRepository {
                 (id) async => [await (articles[id] ??= dataSource.article(id))],
                 keep: (article) => article.shikimoriId == wanted,
               );
-              releases.addAll(
+              parts.addAll(
                 await searchAll(
                   matching,
                   (article) async => [
-                    _release(
-                      article.id,
-                      await (playlists[article.id] ??= dataSource.episodes(
-                        article.id,
-                      )),
+                    (
+                      id: article.id,
+                      episodes: await (playlists[article.id] ??= dataSource
+                          .episodes(article.id)),
                     ),
                   ],
-                  keep: (release) => release.episodes.isNotEmpty,
+                  keep: (part) => part.episodes.isNotEmpty,
                 ),
               );
             } on Object catch (error) {
@@ -66,12 +65,22 @@ class AnimejoyOnlineSourcesRepository implements OnlineSourcesRepository {
         } on Object catch (error) {
           failure ??= error;
         }
-        if (releases.isEmpty && failure != null) throw failure;
-        return releases;
+        if (parts.isEmpty && failure != null) throw failure;
+        return parts;
       },
-      keep: (release) => release.episodes.isNotEmpty,
+      keep: (part) => part.episodes.isNotEmpty,
     );
-    return found.toSet().toList(growable: false);
+    final groups = <String, Map<int, List<AnimejoyEpisodeDto>>>{};
+    for (final part in {for (final part in found) part.id: part}.values) {
+      for (final episode in part.episodes) {
+        final group = groups[_translationKey(episode.translation)] ??= {};
+        (group[part.id] ??= []).add(episode);
+      }
+    }
+    return [
+      for (final group in groups.entries)
+        _release(group.value, translation: group.key),
+    ];
   }
 
   @override
@@ -79,15 +88,44 @@ class AnimejoyOnlineSourcesRepository implements OnlineSourcesRepository {
     required OnlineProvider provider,
     required String id,
   }) async {
-    final articleId = int.tryParse(id);
-    if (articleId == null || articleId <= 0) {
+    final parsed = _parseReleaseId(id);
+    if (parsed == null) {
       throw ResourceNotFoundException('No AnimeJoy release $id.');
     }
-    final episodes = await dataSource.episodes(articleId);
-    if (episodes.isEmpty) {
+    final parts = await searchAll<int, _ArticleEpisodes>(parsed.articles, (
+      articleId,
+    ) async {
+      final episodes = await dataSource.episodes(articleId);
+      // Old numeric links keep the article's first translation.
+      final translation =
+          parsed.translation ??
+          (episodes.any((episode) => episode.translation.isEmpty)
+              ? ''
+              : episodes.isEmpty
+              ? ''
+              : _translationKey(episodes.first.translation));
+      return [
+        (
+          id: articleId,
+          episodes: episodes
+              .where(
+                (episode) =>
+                    _translationKey(episode.translation) == translation,
+              )
+              .toList(growable: false),
+        ),
+      ];
+    }, keep: (part) => part.episodes.isNotEmpty);
+    if (parts.isEmpty) {
       throw ResourceNotFoundException('No playable AnimeJoy release $id.');
     }
-    return _release(articleId, episodes);
+    return _release(
+      {for (final part in parts) part.id: part.episodes},
+      translation:
+          parsed.translation ??
+          _translationKey(parts.first.episodes.first.translation),
+      id: id,
+    );
   }
 
   @override
@@ -96,19 +134,31 @@ class AnimejoyOnlineSourcesRepository implements OnlineSourcesRepository {
     required String episodeId,
   }) async {
     final parts = episodeId.split(':');
-    final articleId = parts.length == 2 ? int.tryParse(parts.first) : null;
-    final number = parts.length == 2 ? num.tryParse(parts.last) : null;
+    final validParts = parts.length == 2 || parts.length == 3;
+    final articleId = validParts ? int.tryParse(parts.first) : null;
+    final number = validParts ? num.tryParse(parts[1]) : null;
+    final translation = parts.length == 3 ? _decodeTranslation(parts[2]) : null;
     if (articleId == null ||
         articleId <= 0 ||
         number == null ||
         !number.isFinite ||
-        number < 0) {
+        number < 0 ||
+        (parts.length == 3 && translation == null)) {
       throw ResourceNotFoundException('No AnimeJoy episode $episodeId.');
     }
     // Re-read the playlist: expiring CDN links never become episode ids,
     // and an episode can gain another mirror or a higher quality later.
     final episodes = await dataSource.episodes(articleId);
-    final episode = episodes.where((item) => item.number == number).firstOrNull;
+    final candidates = episodes.where(
+      (item) =>
+          item.number == number &&
+          (translation == null ||
+              _translationKey(item.translation) == translation),
+    );
+    final episode = translation == null
+        ? candidates.where((item) => item.translation.isEmpty).firstOrNull ??
+              candidates.firstOrNull
+        : candidates.firstOrNull;
     if (episode == null) {
       throw ResourceNotFoundException('No AnimeJoy episode $episodeId.');
     }
@@ -137,26 +187,86 @@ class AnimejoyOnlineSourcesRepository implements OnlineSourcesRepository {
     return ordered.map((entry) => entry.$2).toSet().toList(growable: false);
   }
 
-  OnlineRelease _release(int articleId, List<AnimejoyEpisodeDto> episodes) {
+  OnlineRelease _release(
+    Map<int, List<AnimejoyEpisodeDto>> articles, {
+    required String translation,
+    String? id,
+  }) {
+    final articleIds = articles.keys.toList()..sort();
+    final episodes = <num, ({int articleId, AnimejoyEpisodeDto episode})>{};
+    // Prefer the newer article when ranges overlap; progress still uses
+    // the original episode number, independently of the chosen article.
+    for (final articleId in articleIds.reversed) {
+      for (final episode in articles[articleId]!) {
+        episodes.putIfAbsent(
+          episode.number,
+          () => (articleId: articleId, episode: episode),
+        );
+      }
+    }
+    final numbers = episodes.keys.toList()..sort();
+    final name = episodes[numbers.first]!.episode.translation;
     var bestQuality = 0;
-    for (final episode in episodes) {
-      final quality = episode.bestQuality ?? 0;
+    for (final item in episodes.values) {
+      final quality = item.episode.bestQuality ?? 0;
       if (quality > bestQuality) bestQuality = quality;
     }
     return OnlineRelease(
       provider: OnlineProvider.animejoy,
-      id: '$articleId',
-      dub: 'AnimeJoy',
+      id:
+          id ??
+          (articleIds.length == 1 && translation.isEmpty
+              ? '${articleIds.single}'
+              : 'parts:${articleIds.join(',')}:${Uri.encodeComponent(translation)}'),
+      dub: name.isEmpty ? 'AnimeJoy' : 'AnimeJoy · $name',
       bestQuality: bestQuality > 0 ? bestQuality : null,
       episodes: [
-        for (final episode in episodes)
+        for (final number in numbers)
           OnlineEpisode(
-            id: '$articleId:${_number(episode.number)}',
-            number: episode.number,
-            title: episode.title,
+            id: [
+              '${episodes[number]!.articleId}:${_number(number)}',
+              if (translation.isNotEmpty) Uri.encodeComponent(translation),
+            ].join(':'),
+            number: number,
+            title: episodes[number]!.episode.title,
           ),
       ],
     );
+  }
+}
+
+typedef _ArticleEpisodes = ({int id, List<AnimejoyEpisodeDto> episodes});
+
+({List<int> articles, String? translation})? _parseReleaseId(String id) {
+  final legacy = int.tryParse(id);
+  if (legacy != null && legacy > 0) {
+    return (articles: [legacy], translation: null);
+  }
+  final parts = id.split(':');
+  if (parts.length != 3 || parts.first != 'parts') return null;
+  final articles = <int>{};
+  for (final value in parts[1].split(',')) {
+    final article = RegExp(r'^\d+$').hasMatch(value)
+        ? int.tryParse(value)
+        : null;
+    if (article == null || article <= 0) return null;
+    articles.add(article);
+  }
+  final translation = _decodeTranslation(parts[2]);
+  if (translation == null) return null;
+  return (articles: articles.toList()..sort(), translation: translation);
+}
+
+String _translationKey(String name) =>
+    name.trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
+
+String? _decodeTranslation(String value) {
+  try {
+    return _translationKey(Uri.decodeComponent(value));
+  } on FormatException {
+    return null;
+  } on ArgumentError {
+    return null;
   }
 }
 
