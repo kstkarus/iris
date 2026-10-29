@@ -4,6 +4,8 @@ Notable changes to iris, newest first. The format follows [Keep a Changelog](htt
 
 ## [Unreleased]
 
+## [1.4.8] - 2026-10-29
+
 ### Added
 
 - Picture in picture is available from the player controls on iOS 15 and later, with play/pause, seeking, subtitles and return to the player. Playback in this mode has not yet been tested on an iPhone.
@@ -227,7 +229,8 @@ First published release.
 - Update notice on Android and Windows when a newer release is published.
 - App icon.
 
-[Unreleased]: https://github.com/kstkarus/iris/compare/v1.4.7...HEAD
+[Unreleased]: https://github.com/kstkarus/iris/compare/v1.4.8...HEAD
+[1.4.8]: https://github.com/kstkarus/iris/compare/v1.4.7...v1.4.8
 [1.4.7]: https://github.com/kstkarus/iris/compare/v1.4.6...v1.4.7
 [1.4.6]: https://github.com/kstkarus/iris/compare/v1.4.5...v1.4.6
 [1.4.5]: https://github.com/kstkarus/iris/compare/v1.4.4...v1.4.5
