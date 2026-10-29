@@ -204,6 +204,74 @@ void main() {
     );
   });
 
+  for (final cancel in [true, false]) {
+    test(
+      'a late release from a ${cancel ? 'cancelled' : 'disposed'} preparation '
+      'cannot replace the new episode list',
+      () async {
+        final old = Completer<OnlineRelease>();
+        sources.pendingRelease = old;
+        final cancellation = Completer<void>();
+        final preparation = repository.prepareSource(
+          magnet: _link,
+          cancelled: cancel ? cancellation.future : null,
+        );
+        if (cancel) {
+          cancellation.complete();
+          await expectLater(
+            preparation,
+            throwsA(isA<PreparationCancelledException>()),
+          );
+        }
+        await repository.disposePlayback(sessionId: _link);
+        sources
+          ..pendingRelease = null
+          ..release = const OnlineRelease(
+            provider: OnlineProvider.anilibria,
+            id: '9542',
+            dub: 'AniLibria',
+            episodes: [OnlineEpisode(id: 'new2', number: 2)],
+          );
+        final current = await repository.prepareSource(magnet: _link);
+        expect(current.files.single.index, 2);
+
+        old.complete(_release);
+        if (!cancel) await preparation;
+        await pumpEventQueue();
+
+        expect(
+          await repository.startPlayback(sessionId: _link, fileIndex: 2).first,
+          isA<PlayerLaunchReadyUpdate>(),
+        );
+        expect(sources.resolved, ['new2']);
+      },
+    );
+  }
+
+  test('a cancelled history launch cannot cache its late release', () async {
+    final old = Completer<OnlineRelease>();
+    sources.pendingRelease = old;
+    final subscription = repository
+        .startPlayback(sessionId: _link, fileIndex: 1)
+        .listen((_) {});
+    await pumpEventQueue();
+    await subscription.cancel();
+    old.complete(_release);
+    await pumpEventQueue();
+    sources
+      ..pendingRelease = null
+      ..release = const OnlineRelease(
+        provider: OnlineProvider.anilibria,
+        id: '9542',
+        dub: 'AniLibria',
+        episodes: [OnlineEpisode(id: 'new2', number: 2)],
+      );
+
+    final current = await repository.prepareSource(magnet: _link);
+    expect(current.files.single.index, 2);
+    expect(sources.fetched, hasLength(2));
+  });
+
   test('a cancelled launch cannot change the next episode renewal', () async {
     final source = await repository.prepareSource(magnet: _link);
     final pending = Completer<List<OnlineStream>>();

@@ -36,6 +36,9 @@ class OnlinePlayerRepository implements PlayerRepository {
   /// The releases of the sessions in use: "next episode" needs no request.
   final _releases = <String, OnlineRelease>{};
 
+  /// Only the current load may publish metadata into a live session.
+  final _releaseLoads = <String, Object>{};
+
   /// The episode each session plays now, to renew its link.
   final _playing = <String, int>{};
 
@@ -46,7 +49,7 @@ class OnlinePlayerRepository implements PlayerRepository {
     required String magnet,
     Future<void>? cancelled,
   }) async {
-    final release = await unlessCancelled(_release(magnet), cancelled);
+    final release = await _release(magnet, cancelled: cancelled);
     return PreparedPlayerSource(
       sessionId: magnet,
       files: [
@@ -77,22 +80,23 @@ class OnlinePlayerRepository implements PlayerRepository {
     required String sessionId,
     required int fileIndex,
   }) {
-    var cancelled = false;
+    final cancelled = Completer<void>();
     late final StreamController<PlayerLaunchUpdate> controller;
     controller = StreamController<PlayerLaunchUpdate>(
       onListen: () async {
         final update = await _launch(
           sessionId: sessionId,
           fileIndex: fileIndex,
+          cancelled: cancelled.future,
         );
-        if (cancelled) return;
+        if (cancelled.isCompleted) return;
         if (update is PlayerLaunchReadyUpdate) {
           _playing[sessionId] = fileIndex;
         }
         controller.add(update);
         await controller.close();
       },
-      onCancel: () => cancelled = true,
+      onCancel: cancelled.complete,
     );
     return controller.stream;
   }
@@ -100,10 +104,17 @@ class OnlinePlayerRepository implements PlayerRepository {
   Future<PlayerLaunchUpdate> _launch({
     required String sessionId,
     required int fileIndex,
+    required Future<void> cancelled,
   }) async {
     try {
-      final session = await _resolve(sessionId, fileIndex);
+      final session = await _resolve(
+        sessionId,
+        fileIndex,
+        cancelled: cancelled,
+      );
       return PlayerLaunchReadyUpdate(session);
+    } on PreparationCancelledException {
+      return const PlayerLaunchFailureUpdate();
     } on Object catch (error) {
       developer.log(
         'Online episode $fileIndex of $sessionId did not start: $error',
@@ -129,15 +140,22 @@ class OnlinePlayerRepository implements PlayerRepository {
   }
 
   /// A fresh link to episode [fileIndex] of the release [sessionId] names.
-  Future<PlayerSession> _resolve(String sessionId, int fileIndex) async {
-    final release = await _release(sessionId);
+  Future<PlayerSession> _resolve(
+    String sessionId,
+    int fileIndex, {
+    Future<void>? cancelled,
+  }) async {
+    final release = await _release(sessionId, cancelled: cancelled);
     final position = onlineEpisodeFileIndices(release).indexOf(fileIndex);
     if (position < 0) {
       throw RangeError.value(fileIndex, 'fileIndex', 'No such episode');
     }
-    final streams = await _repository.resolveStreams(
-      provider: release.provider,
-      episodeId: release.episodes[position].id,
+    final streams = await unlessCancelled(
+      _repository.resolveStreams(
+        provider: release.provider,
+        episodeId: release.episodes[position].id,
+      ),
+      cancelled,
     );
     final stream = chooseOnlineStream(
       streams,
@@ -165,11 +183,12 @@ class OnlinePlayerRepository implements PlayerRepository {
 
   @override
   Future<void> disposePlayback({required String sessionId}) async {
+    _releaseLoads.remove(sessionId);
     _releases.remove(sessionId);
     _playing.remove(sessionId);
   }
 
-  Future<OnlineRelease> _release(String link) async {
+  Future<OnlineRelease> _release(String link, {Future<void>? cancelled}) async {
     final known = _releases[link];
     if (known != null) return known;
     final parsed = OnlineSourceLink.tryParse(link);
@@ -179,10 +198,17 @@ class OnlinePlayerRepository implements PlayerRepository {
     if (parsed == null || provider == null) {
       throw ArgumentError.value(link, 'link');
     }
-    final release = await _repository.fetchRelease(
-      provider: provider,
-      id: parsed.releaseId,
-    );
-    return _releases[link] = release;
+    final load = Object();
+    _releaseLoads[link] = load;
+    try {
+      final release = await unlessCancelled(
+        _repository.fetchRelease(provider: provider, id: parsed.releaseId),
+        cancelled,
+      );
+      if (identical(_releaseLoads[link], load)) _releases[link] = release;
+      return release;
+    } finally {
+      if (identical(_releaseLoads[link], load)) _releaseLoads.remove(link);
+    }
   }
 }
