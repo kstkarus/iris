@@ -39,7 +39,7 @@ void main() {
     expect(items.map((item) => (item.torrentKey, item.fileIndex)), [('a', 0)]);
   });
 
-  testWidgets('folds the rows after the first one under a toggle', (
+  testWidgets('shows all five compact entries and opens the selected one', (
     tester,
   ) async {
     setTestWindowSize(tester, const Size(1280, 1600));
@@ -48,24 +48,31 @@ void main() {
         _progress('t$index', seconds: 600 + index * 60, minute: 50 - index),
     ];
 
-    await tester.pumpWidget(_app(ContinueWatchingRow(items: items)));
+    WatchProgress? selected;
+    await tester.pumpWidget(
+      _app(
+        ContinueWatchingRow(
+          items: items,
+          onOpen: (item) => selected = item,
+          onRemove: (_) {},
+        ),
+      ),
+    );
     await tester.pumpAndSettle();
 
     expect(find.byKey(const ValueKey('continue_watching_t1')), findsOneWidget);
-    expect(find.byKey(const ValueKey('continue_watching_t2')), findsNothing);
+    expect(find.byKey(const ValueKey('continue_watching_t2')), findsOneWidget);
     // The list already says what the times are.
     expect(find.text('11:00 / 24:00'), findsOneWidget);
 
-    await tester.tap(find.text('3 more'));
-    await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('continue_watching_t4')), findsOneWidget);
-
-    await tester.tap(find.text('Show less'));
-    await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('continue_watching_t2')), findsNothing);
+    await tester.tap(find.byKey(const ValueKey('continue_watching_t2')));
+    expect(selected, items[2]);
   });
 
-  testWidgets('shows a single extra row instead of folding it', (tester) async {
+  testWidgets('marks a finished entry instead of showing unfinished times', (
+    tester,
+  ) async {
     setTestWindowSize(tester, const Size(1280, 1200));
 
     await tester.pumpWidget(
@@ -73,8 +80,14 @@ void main() {
         ContinueWatchingRow(
           items: [
             for (var index = 0; index < 3; index++)
-              _progress('t$index', seconds: 600, minute: 50 - index),
+              _progress(
+                't$index',
+                seconds: index == 0 ? 1440 : 600,
+                minute: 50 - index,
+              ),
           ],
+          onOpen: (_) {},
+          onRemove: (_) {},
         ),
       ),
     );
@@ -82,6 +95,8 @@ void main() {
 
     expect(find.byKey(const Key('continue_watching_more')), findsNothing);
     expect(find.byKey(const ValueKey('continue_watching_t2')), findsOneWidget);
+    expect(find.text('Watched'), findsOneWidget);
+    expect(find.text('24:00 / 24:00'), findsNothing);
   });
 }
 

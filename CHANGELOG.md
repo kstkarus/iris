@@ -4,8 +4,21 @@ Notable changes to iris, newest first. The format follows [Keep a Changelog](htt
 
 ## [Unreleased]
 
+### Changed
+
+- Continue watching opens from a button beside the catalog filters: a compact popup on desktop and a bottom sheet on phones, with covers, playback times and the existing resume and remove actions. It stays available during search without taking space above the catalog.
+
 ### Fixed
 
+- Player notices and episode offers share a common height and baseline during playback. Notices still rise above the title when paused, and offers fade in on first appearance.
+- Windows picture-in-picture separates Close in the upper-right corner from Return to player in the lower-right corner.
+- Resuming an HLS download no longer creates a damaged video when its playlist changes or saved data is missing. Older partial downloads that cannot be verified restart safely.
+- Interrupted MP4 downloads no longer appear complete when the video server reports a different or unknown file size.
+- Late replies from cancelled or closed online episode pickers and playback requests no longer replace the current episode list or break the next episode.
+- Sign-in no longer succeeds after its session expires, and delayed account replies leave a newer session intact.
+- Requests retried after signing out no longer send the previous account's token.
+- A secure-storage failure during sign-in now shows an error instead of leaving the profile loading indefinitely, even if cleanup also fails.
+- Player controls auto-hide again after entering or leaving picture in picture with the mouse on Windows.
 - Catalog and search results prefetch after layout and window resizing, filling wide windows without waiting for a scroll. Failed pages wait for an explicit retry.
 
 ## [1.4.7] - 2026-10-18

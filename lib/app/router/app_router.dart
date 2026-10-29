@@ -209,7 +209,10 @@ abstract final class AppRouter {
                           context.read<AnimeListBloc>().add(event);
                           context.read<AnimeSearchBloc>().add(event);
                         },
-                        child: const AnimeListPage(),
+                        child: AnimeListPage(
+                          detailsRepository:
+                              serviceLocator<AnimeDetailsRepository>(),
+                        ),
                       ),
                     );
                   },

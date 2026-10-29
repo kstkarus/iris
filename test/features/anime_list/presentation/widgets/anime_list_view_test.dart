@@ -19,6 +19,7 @@ import 'package:iris/features/anime_list/presentation/bloc/anime_search_bloc.dar
 import 'package:iris/features/anime_list/presentation/pages/anime_list_page.dart';
 import 'package:iris/features/anime_list/presentation/widgets/anime_card.dart';
 import 'package:iris/features/anime_list/presentation/widgets/anime_list_view.dart';
+import 'package:iris/features/anime_list/presentation/widgets/continue_watching_button.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/widgets/adaptive/adaptive_content_width.dart';
 import 'package:iris/shared/widgets/app_skeleton.dart';
@@ -402,7 +403,7 @@ void main() {
   for (final watched in const [false, true]) {
     testWidgets(
       watched
-          ? 'a failed catalog keeps Continue watching above the error'
+          ? 'a failed catalog keeps Continue watching available from its button'
           : 'a failed catalog without history is only the error',
       (tester) async {
         final history = WatchProgressCubit(
@@ -431,17 +432,15 @@ void main() {
         expect(find.text('Unable to load anime list.'), findsOneWidget);
         expect(find.text('Try Again'), findsOneWidget);
         expect(
-          find.byKey(const ValueKey('continue_watching_abc')),
+          find.byKey(ContinueWatchingButton.buttonKey),
           watched ? findsOneWidget : findsNothing,
         );
         if (watched) {
+          await tester.tap(find.byKey(ContinueWatchingButton.buttonKey));
+          await tester.pumpAndSettle();
           expect(
-            tester.getRect(find.text('Unable to load anime list.')).top,
-            greaterThan(
-              tester
-                  .getRect(find.byKey(const ValueKey('continue_watching_abc')))
-                  .bottom,
-            ),
+            find.byKey(const ValueKey('continue_watching_abc')),
+            findsOneWidget,
           );
         }
         expect(tester.takeException(), isNull);

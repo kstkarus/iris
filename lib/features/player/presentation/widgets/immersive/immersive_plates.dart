@@ -63,14 +63,16 @@ class _BufferingSpinner extends StatelessWidget {
 
 const _overVideoOutlineWidth = 1.5;
 
-/// Room inside the buttons offered over the video; square, as the app is.
-const _offerPadding = EdgeInsets.symmetric(horizontal: 20, vertical: 14);
+/// Notices and offers keep the same height, with room for two text lines.
+const _plateMinHeight = 64.0;
+const _offerPadding = EdgeInsets.symmetric(horizontal: 20, vertical: 8);
 
 const _offerShape = RoundedRectangleBorder();
 
 /// Secondary buttons over the video: a dark glass with a light outline.
 ButtonStyle _overVideoButtonStyle(ThemeData theme) {
   return OutlinedButton.styleFrom(
+    minimumSize: const Size(64, _plateMinHeight),
     padding: _offerPadding,
     shape: _offerShape,
     foregroundColor: Colors.white,
@@ -95,42 +97,48 @@ class _NoticeCard extends StatelessWidget {
     final theme = Theme.of(context);
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0, end: 1),
-      duration: const Duration(milliseconds: 200),
+      duration: motionDuration(context, const Duration(milliseconds: 200)),
       builder: (context, value, child) => Opacity(opacity: value, child: child),
       child: PlayerCountdown(
         duration: notice.timeout,
         onElapsed: notice.onTimeout,
         child: PlayerCountdownBar(
           color: Colors.white70,
-          inset: const EdgeInsets.all(1),
+          inset: const EdgeInsets.all(_overVideoOutlineWidth),
           child: DecoratedBox(
             key: const Key('player_notice'),
             decoration: BoxDecoration(
               color: Colors.black54,
-              border: Border.all(color: Colors.white24),
+              border: Border.all(
+                color: Colors.white24,
+                width: _overVideoOutlineWidth,
+              ),
             ),
-            child: Padding(
-              padding: const EdgeInsetsDirectional.fromSTEB(18, 6, 8, 6),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    notice.message,
-                    style: theme.textTheme.bodyLarge?.copyWith(
-                      color: Colors.white,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: _plateMinHeight),
+              child: Padding(
+                padding: _offerPadding,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      notice.message,
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        color: Colors.white,
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 16),
-                  TextButton(
-                    key: const Key('player_notice_action'),
-                    onPressed: notice.onAction,
-                    style: TextButton.styleFrom(
-                      foregroundColor: accent,
-                      textStyle: theme.textTheme.titleSmall,
+                    const SizedBox(width: 16),
+                    TextButton(
+                      key: const Key('player_notice_action'),
+                      onPressed: notice.onAction,
+                      style: TextButton.styleFrom(
+                        foregroundColor: accent,
+                        textStyle: theme.textTheme.titleSmall,
+                      ),
+                      child: Text(notice.actionLabel),
                     ),
-                    child: Text(notice.actionLabel),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
@@ -214,6 +222,7 @@ class _OfferButton extends StatelessWidget {
               child: FilledButton(
                 onPressed: onPressed,
                 style: FilledButton.styleFrom(
+                  minimumSize: const Size(64, _plateMinHeight),
                   padding: _offerPadding,
                   shape: _offerShape,
                   textStyle: theme.textTheme.titleSmall,

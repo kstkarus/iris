@@ -8,6 +8,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:iris/entities/user_rate/domain/user_rate.dart';
 import 'package:iris/entities/user_rate/presentation/user_rate_status_label.dart';
 import 'package:iris/entities/watch_progress/presentation/watch_progress_cubit.dart';
+import 'package:iris/features/anime_details/domain/repositories/anime_details_repository.dart';
 import 'package:iris/features/anime_list/domain/entities/anime_list_query.dart';
 import 'package:iris/features/anime_list/presentation/bloc/anime_list_bloc.dart';
 import 'package:iris/features/anime_list/presentation/bloc/anime_list_event.dart';
@@ -15,6 +16,7 @@ import 'package:iris/features/anime_list/presentation/bloc/anime_list_state.dart
 import 'package:iris/features/anime_list/presentation/bloc/anime_search_bloc.dart';
 import 'package:iris/features/anime_list/presentation/widgets/anime_grid.dart';
 import 'package:iris/features/anime_list/presentation/widgets/anime_list_criteria_sheet.dart';
+import 'package:iris/features/anime_list/presentation/widgets/continue_watching_button.dart';
 import 'package:iris/features/anime_list/presentation/widgets/continue_watching_row.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/utils/bayer_mask.dart';
@@ -39,7 +41,9 @@ import 'package:iris/shared/widgets/status_views.dart';
 /// field ends it, and the catalog returns to where it was. Results live in
 /// their own [AnimeSearchBloc], so the catalog never reloads for a search.
 class AnimeListView extends StatefulWidget {
-  const AnimeListView({super.key});
+  const AnimeListView({this.detailsRepository, super.key});
+
+  final AnimeDetailsRepository? detailsRepository;
 
   @override
   State<AnimeListView> createState() => _AnimeListViewState();
@@ -224,6 +228,7 @@ class _AnimeListViewState extends State<AnimeListView>
                     isWide: isWide,
                     // Wide windows leave with Escape or a click elsewhere.
                     onCancel: _searching && !isWide ? _exitSearch : null,
+                    detailsRepository: widget.detailsRepository,
                   ),
                 ),
                 const SizedBox(height: 24),
@@ -257,6 +262,7 @@ class _SearchControls extends StatelessWidget {
     required this.onChanged,
     required this.isWide,
     required this.onCancel,
+    required this.detailsRepository,
   });
 
   final TextEditingController controller;
@@ -264,6 +270,7 @@ class _SearchControls extends StatelessWidget {
   final ValueChanged<String> onChanged;
   final bool isWide;
   final VoidCallback? onCancel;
+  final AnimeDetailsRepository? detailsRepository;
 
   @override
   Widget build(BuildContext context) {
@@ -273,6 +280,7 @@ class _SearchControls extends StatelessWidget {
           bloc.state.filters.hasAny ||
           bloc.state.sort != AnimeListSortOption.popularity,
     );
+    final continueItems = continueWatchingItems(context.watchWatchProgress());
     return SearchToolbar(
       searchField: SearchField(
         controller: controller,
@@ -286,6 +294,9 @@ class _SearchControls extends StatelessWidget {
       onAction: () => showAnimeListCriteriaSheet(context),
       isWide: isWide,
       onCancel: onCancel,
+      trailingAction: continueItems.isEmpty
+          ? null
+          : ContinueWatchingButton(repository: detailsRepository),
     );
   }
 }
@@ -346,29 +357,10 @@ class _CatalogPane extends StatelessWidget {
       builder: (context, state) {
         final l10n = AppLocalizations.of(context);
         final bloc = context.read<AnimeListBloc>();
-        // Local history: it stays when the catalog cannot load.
-        final continueItems = continueWatchingItems(
-          context.watchWatchProgress(),
-        );
         if (!state.isInitialLoading) {
           if (state.errorType == AnimeListErrorType.initial &&
               !state.hasLoadedOnce) {
-            if (continueItems.isEmpty) return _FailureState(bloc: bloc);
-            return CustomScrollView(
-              controller: controller,
-              slivers: [
-                SliverToBoxAdapter(
-                  child: KeyedSubtree(
-                    key: headerKey,
-                    child: ContinueWatchingRow(items: continueItems),
-                  ),
-                ),
-                SliverFillRemaining(
-                  hasScrollBody: false,
-                  child: _FailureState(bloc: bloc),
-                ),
-              ],
-            );
+            return _FailureState(bloc: bloc);
           }
           if (state.hasLoadedOnce && state.items.isEmpty) {
             return MessageView(
@@ -386,16 +378,7 @@ class _CatalogPane extends StatelessWidget {
           controller: controller,
           header: KeyedSubtree(
             key: headerKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                if (continueItems.isNotEmpty) ...[
-                  ContinueWatchingRow(items: continueItems),
-                  const SizedBox(height: 56),
-                ],
-                _CatalogHeading(state: state),
-              ],
-            ),
+            child: _CatalogHeading(state: state),
           ),
         );
       },

@@ -19,6 +19,7 @@ import 'package:iris/features/player/presentation/widgets/player_viewport_factor
 import 'package:iris/features/player/presentation/widgets/player_wait_indicator.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/utils/duration_formatter.dart';
+import 'package:iris/shared/utils/motion_duration.dart';
 import 'package:iris/shared/window/screen_brightness_control.dart';
 import 'package:iris/shared/widgets/pixel_icon.dart';
 import 'package:iris/features/player/presentation/widgets/player_glyph_switcher.dart';
@@ -219,6 +220,8 @@ class _PlayerImmersiveControlsState extends State<PlayerImmersiveControls> {
     super.didUpdateWidget(oldWidget);
     _attachPlayer();
     if (widget.pictureInPicture != oldWidget.pictureInPicture) {
+      // Replaced controls receive no MouseRegion.onExit when unmounted.
+      _holds.clear();
       widget.pictureInPicture ? _enterPictureInPicture() : _showControls();
     }
     if (widget.chrome.episodes == null && _episodesOpen) {
@@ -693,7 +696,7 @@ class _PlayerImmersiveControlsState extends State<PlayerImmersiveControls> {
         if (widget.chrome.notice case final notice? when !pictureInPicture)
           Positioned(
             left: _insets.left,
-            bottom: _barHeight > 0 ? _subtitleClearanceAbove : _offerClearance,
+            bottom: _offerClearance + (_playing ? 0 : _titleHeight),
             child: Offstage(
               offstage: _locked,
               // The mark notice after the resume one counts afresh.
@@ -876,29 +879,31 @@ class _PlayerImmersiveControlsState extends State<PlayerImmersiveControls> {
           child: MouseRegion(
             onEnter: (_) => _setHold(#compactControls, true),
             onExit: (_) => _setHold(#compactControls, false),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _GlyphButton(
-                  key: const Key('player_picture_in_picture_restore'),
-                  glyph: const PixelIcon(PixelGlyph.fullscreenExit, size: 20),
-                  iconSize: 20,
-                  size: const Size.square(44),
-                  label: l10n.playerRestoreFromPictureInPicture,
-                  onPressed: () => widget.onRestorePictureInPicture?.call(),
-                  onFocusChange: _onCompactControlFocus,
-                ),
-                const SizedBox(width: 8),
-                _GlyphButton(
-                  key: const Key('player_picture_in_picture_dismiss'),
-                  glyph: const PixelIcon(PixelGlyph.close, size: 20),
-                  iconSize: 20,
-                  size: const Size.square(44),
-                  label: l10n.playerClosePictureInPicture,
-                  onPressed: () => widget.onDismissPictureInPicture?.call(),
-                  onFocusChange: _onCompactControlFocus,
-                ),
-              ],
+            child: _GlyphButton(
+              key: const Key('player_picture_in_picture_dismiss'),
+              glyph: const PixelIcon(PixelGlyph.close, size: 20),
+              iconSize: 20,
+              size: const Size.square(44),
+              label: l10n.playerClosePictureInPicture,
+              onPressed: () => widget.onDismissPictureInPicture?.call(),
+              onFocusChange: _onCompactControlFocus,
+            ),
+          ),
+        ),
+        Positioned(
+          bottom: 4,
+          right: 4,
+          child: MouseRegion(
+            onEnter: (_) => _setHold(#compactControls, true),
+            onExit: (_) => _setHold(#compactControls, false),
+            child: _GlyphButton(
+              key: const Key('player_picture_in_picture_restore'),
+              glyph: const PixelIcon(PixelGlyph.fullscreenExit, size: 20),
+              iconSize: 20,
+              size: const Size.square(44),
+              label: l10n.playerRestoreFromPictureInPicture,
+              onPressed: () => widget.onRestorePictureInPicture?.call(),
+              onFocusChange: _onCompactControlFocus,
             ),
           ),
         ),

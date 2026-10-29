@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 
 import 'package:iris/features/player/presentation/widgets/player_countdown.dart';
+import 'package:iris/shared/utils/motion_duration.dart';
 
 /// Shows [child] for [shownAtStart] when it appears, counting down, and
 /// from then on exactly while the player's controls are visible, without a
@@ -64,7 +65,13 @@ class _PlayerAutoHidingOfferState extends State<PlayerAutoHidingOffer> {
             ),
           );
         },
-        child: widget.child,
+        child: TweenAnimationBuilder<double>(
+          tween: Tween(begin: 0, end: 1),
+          duration: motionDuration(context, const Duration(milliseconds: 200)),
+          builder: (context, value, child) =>
+              Opacity(opacity: value, child: child),
+          child: widget.child,
+        ),
       ),
     );
   }

@@ -1,26 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:go_router/go_router.dart';
 
 import 'package:iris/entities/watch_progress/domain/watch_progress.dart';
-import 'package:iris/entities/watch_progress/presentation/watch_progress_cubit.dart';
 import 'package:iris/entities/watch_progress/presentation/watch_progress_line.dart';
-import 'package:iris/features/player/presentation/models/anime_player_source_args.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
-import 'package:iris/shared/utils/duration_formatter.dart';
 import 'package:iris/shared/utils/file_display_name.dart';
-import 'package:iris/shared/widgets/caption_text.dart';
-import 'package:iris/shared/widgets/display_title.dart';
-import 'package:iris/shared/widgets/fold_row.dart';
 import 'package:iris/shared/widgets/pixel_icon.dart';
-import 'package:iris/shared/widgets/section_label.dart';
-import 'package:iris/shared/widgets/segmented_bar.dart';
+import 'package:iris/shared/widgets/poster_image.dart';
 import 'package:iris/shared/widgets/tap_row.dart';
 
-/// The latest file of each recently watched torrent, from the catalog and
-/// from saved torrents alike. Files only looked at are left out before the
-/// latest is picked, so a glance at the next episode does not hide the one
-/// actually being watched. Linked sources then share one entry per anime.
+/// Keep the same useful record, source grouping and five-title limit as before.
 List<WatchProgress> continueWatchingItems(List<WatchProgress> history) {
   final seen = <String>{};
   return latestPerTorrent(history.where((item) => item.isWorthContinuing))
@@ -32,316 +20,118 @@ List<WatchProgress> continueWatchingItems(List<WatchProgress> history) {
       .toList();
 }
 
-/// The most recent title large, with where it stopped on a position
-/// panel; the next few below it as numbered rows.
+/// The compact contents shared by the catalog's popover and phone sheet.
 class ContinueWatchingRow extends StatelessWidget {
-  const ContinueWatchingRow({required this.items, super.key});
+  const ContinueWatchingRow({
+    required this.items,
+    required this.onOpen,
+    required this.onRemove,
+    this.posters = const {},
+    super.key,
+  });
 
   static const maxItems = 5;
-
-  /// Rows under the panel before the rest folds away, so the catalog
-  /// still starts on the first screen.
-  static const visibleRows = 1;
-
-  /// A toggle as tall as the one row it would hide saves nothing.
-  static const _minFolded = 2;
-
-  /// From here the title and the position panel sit side by side.
-  static const _twoColumnMinWidth = 840.0;
-
   final List<WatchProgress> items;
+  final Map<String, String> posters;
+  final ValueChanged<WatchProgress> onOpen;
+  final ValueChanged<WatchProgress> onRemove;
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     final l10n = AppLocalizations.of(context);
-    final latest = items.first;
-    final queued = items.skip(1).toList();
+    final titleStyle = theme.textTheme.titleSmall;
+    final painter = TextPainter(
+      text: TextSpan(text: 'M\nM', style: titleStyle),
+      textDirection: Directionality.of(context),
+      textScaler: MediaQuery.textScalerOf(context),
+    )..layout();
+    final titleHeight = painter.height;
+    painter.dispose();
     return Column(
       key: const Key('continue_watching_row'),
+      mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        SectionLabel(l10n.continueWatchingTitle),
-        const SizedBox(height: 20),
-        LayoutBuilder(
-          builder: (context, constraints) {
-            final wide = constraints.maxWidth >= _twoColumnMinWidth;
-            final title = _LatestTitle(progress: latest, wide: wide);
-            final panel = _PositionPanel(progress: latest, compact: !wide);
-            return KeyedSubtree(
-              key: ValueKey('continue_watching_${latest.torrentKey}'),
-              child: wide
-                  ? Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(flex: 7, child: title),
-                        const SizedBox(width: 40),
-                        Expanded(flex: 5, child: panel),
-                      ],
-                    )
-                  : Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [title, const SizedBox(height: 20), panel],
-                    ),
-            );
-          },
+        Semantics(
+          header: true,
+          child: Text(
+            l10n.continueWatchingTitle,
+            style: theme.textTheme.titleLarge,
+          ),
         ),
-        if (queued.isNotEmpty) ...[
-          const SizedBox(height: 24),
-          // An emptied queue unmounts the list, so an unfolded list comes
-          // back folded once three or more titles queue up again. Rare enough
-          // to leave; if it matters, hold `expanded` here and pass it in.
-          FoldingList(
-            items: queued,
-            visible: visibleRows,
-            minFolded: _minFolded,
-            toggleKey: const Key('continue_watching_more'),
-            builder: (context, shown) => Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                for (final (index, progress) in shown.indexed) ...[
-                  const SegmentedRule(),
-                  _QueuedRow(number: index + 2, progress: progress),
-                ],
-              ],
+        const SizedBox(height: 8),
+        for (final (index, progress) in items.indexed) ...[
+          if (index > 0) const Divider(height: 1),
+          Tooltip(
+            message: progress.isFinished
+                ? l10n.watchProgressPlayNextButton
+                : l10n.watchProgressContinueButton,
+            child: TapRow(
+              inkKey: ValueKey('continue_watching_${progress.torrentKey}'),
+              onTap: () => onOpen(progress),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Row(
+                  children: [
+                    SizedBox(
+                      width: 48,
+                      height: 72,
+                      child: PosterImage(
+                        url: posters[progress.animeId] ?? '',
+                        fallback: ColoredBox(
+                          color: theme.colorScheme.surfaceContainer,
+                          child: const Center(
+                            child: PixelIcon(PixelGlyph.file, size: 18),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          SizedBox(
+                            height: titleHeight,
+                            child: Text(
+                              progress.displayTitle,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: titleStyle,
+                            ),
+                          ),
+                          Text(
+                            fileDisplayName(progress.fileName),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.bodySmall,
+                          ),
+                          WatchProgressLine(
+                            progress: progress,
+                            showBar: false,
+                            timesOnly: true,
+                          ),
+                        ],
+                      ),
+                    ),
+                    PopupMenuButton<void>(
+                      tooltip: l10n.commonMoreActions,
+                      constraints: const BoxConstraints(minWidth: 160),
+                      icon: const PixelIcon(PixelGlyph.more, size: 16),
+                      itemBuilder: (_) => [
+                        PopupMenuItem(
+                          onTap: () => onRemove(progress),
+                          child: Text(l10n.continueWatchingRemove),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
         ],
-      ],
-    );
-  }
-}
-
-void _open(BuildContext context, WatchProgress progress) {
-  context.pushNamed(
-    'torrent-stream-files',
-    extra: AnimePlayerSourceArgs.resume(progress),
-  );
-}
-
-class _LatestTitle extends StatelessWidget {
-  const _LatestTitle({required this.progress, required this.wide});
-
-  final WatchProgress progress;
-  final bool wide;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        DisplayTitle(
-          progress.displayTitle,
-          maxSize: wide ? 80 : 30,
-          minSize: wide ? 36 : 26,
-          maxLines: 3,
-        ),
-        const SizedBox(height: 14),
-        Text(
-          fileDisplayName(progress.fileName),
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-          style: theme.textTheme.bodySmall,
-        ),
-      ],
-    );
-  }
-}
-
-/// Where the latest file stopped, set like a readout: the position in
-/// large figures over a block bar that fades out where the file goes on.
-class _PositionPanel extends StatelessWidget {
-  const _PositionPanel({required this.progress, required this.compact});
-
-  final WatchProgress progress;
-
-  /// Phones get a smaller readout, so the catalog still shows below it.
-  final bool compact;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    final finished = progress.isFinished;
-    final shown = finished ? progress.duration : progress.position;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        border: Border.all(color: scheme.outlineVariant),
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [scheme.surfaceContainerHigh, scheme.surfaceContainerLow],
-        ),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 12, 8, 20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: CaptionText(
-                    finished
-                        ? l10n.continueWatchingFinishedLabel
-                        : l10n.continueWatchingStoppedAtLabel,
-                  ),
-                ),
-                _RemoveMenu(progress: progress),
-              ],
-            ),
-            Padding(
-              padding: const EdgeInsets.only(right: 12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text.rich(
-                    TextSpan(
-                      children: [
-                        TextSpan(text: formatPlaybackPosition(shown)),
-                        TextSpan(
-                          text:
-                              ' / ${formatPlaybackPosition(progress.duration)}',
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            color: scheme.onSurfaceVariant,
-                            fontWeight: FontWeight.w400,
-                          ),
-                        ),
-                      ],
-                    ),
-                    style:
-                        DisplayTitle.styleAt(
-                          theme.textTheme.displayMedium!,
-                          compact ? 36 : 48,
-                        ).copyWith(
-                          fontFeatures: const [FontFeature.tabularFigures()],
-                        ),
-                  ),
-                  const SizedBox(height: 14),
-                  ExcludeSemantics(
-                    child: SegmentedBar(
-                      value: finished ? 1 : progress.fraction,
-                      height: compact ? 12 : 18,
-                      segment: compact ? 14 : 20,
-                      gap: 4,
-                      ditherTrack: true,
-                      animateIn: true,
-                    ),
-                  ),
-                  SizedBox(height: compact ? 16 : 20),
-                  FilledButton(
-                    onPressed: () => _open(context, progress),
-                    child: Text(
-                      finished
-                          ? l10n.watchProgressPlayNextButton
-                          : l10n.watchProgressContinueButton,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _QueuedRow extends StatelessWidget {
-  const _QueuedRow({required this.number, required this.progress});
-
-  final int number;
-  final WatchProgress progress;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return TapRow(
-      inkKey: ValueKey('continue_watching_${progress.torrentKey}'),
-      onTap: () => _open(context, progress),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 10),
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final wide = constraints.maxWidth >= 720;
-            final names = Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  progress.displayTitle,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.titleSmall,
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  fileDisplayName(progress.fileName),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodySmall,
-                ),
-                if (!wide) ...[
-                  const SizedBox(height: 6),
-                  WatchProgressLine(progress: progress, timesOnly: true),
-                ],
-              ],
-            );
-            return Row(
-              children: [
-                SizedBox(
-                  width: 44,
-                  child: Text(
-                    number.toString().padLeft(2, '0'),
-                    style: theme.textTheme.labelMedium?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ),
-                Expanded(child: names),
-                if (wide) ...[
-                  const SizedBox(width: 24),
-                  SizedBox(
-                    width: 200,
-                    child: WatchProgressLine(
-                      progress: progress,
-                      timesOnly: true,
-                    ),
-                  ),
-                ],
-                _RemoveMenu(progress: progress),
-                if (wide)
-                  const Padding(
-                    padding: EdgeInsets.only(left: 4, right: 8),
-                    child: PixelIcon(PixelGlyph.arrowRight, size: 16),
-                  ),
-              ],
-            );
-          },
-        ),
-      ),
-    );
-  }
-}
-
-class _RemoveMenu extends StatelessWidget {
-  const _RemoveMenu({required this.progress});
-
-  final WatchProgress progress;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
-    return PopupMenuButton<void>(
-      tooltip: l10n.commonMoreActions,
-      icon: const PixelIcon(PixelGlyph.more, size: 18),
-      itemBuilder: (_) => [
-        PopupMenuItem(
-          onTap: () => context.read<WatchProgressCubit>().removeTorrent(
-            progress.torrentKey,
-          ),
-          child: Text(l10n.continueWatchingRemove),
-        ),
       ],
     );
   }

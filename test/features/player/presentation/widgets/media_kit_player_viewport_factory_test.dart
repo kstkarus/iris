@@ -8,6 +8,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 
+import 'package:iris/app/theme/app_theme.dart';
 import 'package:iris/features/online_sources/domain/repositories/online_quality_preferences.dart';
 import 'package:iris/features/player/domain/entities/player_playback_stats.dart';
 import 'package:iris/features/player/domain/entities/player_skip_segment.dart';
@@ -1187,11 +1188,11 @@ void main() {
       ..emitPosition(const Duration(seconds: 30));
     await _deliverPlayerEvent(tester);
     await _deliverPlayerEvent(tester);
-    expect(
-      engine.timeline.value.map((part) => part.title),
-      ['Part A', 'Part B', 'ED'],
-      reason: 'the chapters are read',
-    );
+    expect(engine.timeline.value.map((part) => part.title), [
+      'Part A',
+      'Part B',
+      'ED',
+    ], reason: 'the chapters are read');
     engine.useSkipTimes(const [
       PlayerSkipSegment(
         kind: PlayerSkipKind.opening,
@@ -2032,6 +2033,78 @@ void main() {
 
       expect(timedOut, ['Resumed from 2:22', 'Episode 11 marked']);
     });
+
+    for (final (platform, input, size) in const [
+      (TargetPlatform.windows, PlayerInputMode.pointer, Size(1280, 720)),
+      (TargetPlatform.android, PlayerInputMode.touch, Size(844, 390)),
+      (TargetPlatform.iOS, PlayerInputMode.touch, Size(844, 390)),
+    ]) {
+      testWidgets('align notice and offer geometry on $platform, lifting only '
+          'the notice above the paused title', (tester) async {
+        setTestWindowSize(tester, size);
+        final platformPlayer = _FakePlatformPlayer(
+          configuration: const PlayerConfiguration(),
+        );
+        await tester.pumpWidget(
+          _wrapViewport(
+            platformPlayer: platformPlayer,
+            input: input,
+            theme: buildAppTheme(
+              brightness: Brightness.dark,
+            ).copyWith(platform: platform),
+            chrome: chrome(
+              notice: PlayerNotice(
+                message: 'Episode 11 marked',
+                actionLabel: 'Undo',
+                onAction: () {},
+                onTimeout: () {},
+              ),
+            ),
+            next: PlayerNextFile(title: 'Episode 12', play: () {}),
+          ),
+        );
+        await tester.pump();
+        platformPlayer.emitDuration(const Duration(minutes: 24));
+        platformPlayer.emitPosition(const Duration(seconds: 40));
+        platformPlayer.emitPlaying(true);
+        await _deliverPlayerEvent(tester);
+        await tester.pump(const Duration(milliseconds: 300));
+
+        Rect noticeRect() =>
+            tester.getRect(find.byKey(const Key('player_notice')));
+        Rect offerRect(Key key, Type type) => tester.getRect(
+          find.descendant(of: find.byKey(key), matching: find.byType(type)),
+        );
+        final skip = offerRect(
+          const Key('player_skip_forward_button'),
+          OutlinedButton,
+        );
+        expect(noticeRect().height, skip.height);
+        expect(noticeRect().bottom, skip.bottom);
+
+        platformPlayer.emitPosition(const Duration(minutes: 22));
+        await _deliverPlayerEvent(tester);
+        await tester.pump(const Duration(milliseconds: 300));
+        final next = offerRect(_nextPrompt, FilledButton);
+        expect(noticeRect().height, next.height);
+        expect(noticeRect().bottom, next.bottom);
+        expect(noticeRect().overlaps(next), isFalse);
+
+        platformPlayer.emitPlaying(false);
+        await _deliverPlayerEvent(tester);
+        await tester.pump(const Duration(milliseconds: 300));
+        await tester.pump();
+        expect(offerRect(_nextPrompt, FilledButton).bottom, next.bottom);
+        final titleHeight = tester
+            .getSize(find.byKey(const Key('player_title_block')))
+            .height;
+        expect(
+          next.bottom - noticeRect().bottom,
+          closeTo(titleHeight + 12, 0.01),
+        );
+        expect(tester.takeException(), isNull);
+      });
+    }
 
     testWidgets('keep the episodes with the buttons beside the timeline', (
       tester,
@@ -3466,6 +3539,34 @@ void main() {
       tester.platformDispatcher.textScaleFactorTestValue = 2;
       addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
       await tester.pump();
+      for (final size in const [
+        Size(240, 135),
+        Size(320, 180),
+        Size(420, 236),
+        Size(240, 430),
+        Size(560, 236),
+      ]) {
+        setTestWindowSize(tester, size);
+        await tester.pump();
+        final restore = tester.getRect(
+          find.byKey(const Key('player_picture_in_picture_restore')),
+        );
+        final dismiss = tester.getRect(
+          find.byKey(const Key('player_picture_in_picture_dismiss')),
+        );
+        final playPause = tester.getRect(
+          find.byKey(const Key('player_play_pause_button')),
+        );
+        expect(restore.right, size.width - 4);
+        expect(restore.bottom, size.height - 4);
+        expect(dismiss.right, restore.right);
+        expect(dismiss.top, 4);
+        expect(playPause.center, size.center(Offset.zero));
+        expect(restore.overlaps(dismiss), isFalse);
+        expect(restore.overlaps(playPause), isFalse);
+        expect(dismiss.overlaps(playPause), isFalse);
+        expect(tester.takeException(), isNull);
+      }
       platformPlayer.emitPlaying(true);
       await _deliverPlayerEvent(tester);
       await tester.pump(PlayerImmersiveControls.hideAfter);
@@ -3646,6 +3747,55 @@ void main() {
       },
     );
 
+    testWidgets('Windows controls still auto-hide after entering and leaving '
+        'PiP with the mouse', (tester) async {
+      setTestWindowSize(tester, TestWindowSizes.landscape);
+      final window = _FakeWindowsPictureInPicture();
+      final platformPlayer = _FakePlatformPlayer(
+        configuration: const PlayerConfiguration(),
+      );
+      await tester.pumpWidget(
+        _wrapViewport(platformPlayer: platformPlayer, pictureInPicture: window),
+      );
+      await tester.pump();
+      platformPlayer.emitPlaying(true);
+      await _deliverPlayerEvent(tester);
+
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      addTearDown(mouse.removePointer);
+      await mouse.addPointer(location: const Offset(300, 300));
+      await mouse.moveTo(tester.getCenter(find.byKey(button)));
+      await tester.pump();
+      await mouse.down(tester.getCenter(find.byKey(button)));
+      await mouse.up();
+      await tester.pump();
+      expect(window.active.value, isTrue);
+
+      await mouse.moveTo(const Offset(300, 300));
+      await tester.pump(PlayerImmersiveControls.hideAfter);
+      expect(_controlsOpacity(tester), 0, reason: 'PiP controls hide too');
+
+      final restore = find.byKey(
+        const Key('player_picture_in_picture_restore'),
+      );
+      await mouse.moveTo(tester.getCenter(restore));
+      await tester.pump();
+      await mouse.down(tester.getCenter(restore));
+      await mouse.up();
+      await tester.pump();
+      expect(window.active.value, isFalse);
+      expect(_controlsOpacity(tester), 1);
+
+      await mouse.moveTo(const Offset(300, 300));
+      await tester.pump(PlayerImmersiveControls.hideAfter);
+      expect(
+        _controlsOpacity(tester),
+        0,
+        reason: 'restored controls hide again',
+      );
+      expect(platformPlayer.pauseCount, 0);
+    });
+
     testWidgets('Windows PiP failure fits its minimum window at large text', (
       tester,
     ) async {
@@ -3815,6 +3965,7 @@ Widget _wrapViewport({
   PictureInPicture? pictureInPicture,
   OnlineQualityPreferences? onlineQuality,
   Duration? startPosition,
+  ThemeData? theme,
 }) {
   final effectivePlatformPlayer =
       platformPlayer ??
@@ -3876,6 +4027,7 @@ Widget _wrapViewport({
         ),
       ),
     ),
+    theme: theme,
   );
 }
 

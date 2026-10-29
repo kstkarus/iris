@@ -167,6 +167,8 @@ void main() {
     // Opening the anime scrolled the catalog to its cover.
     await tester.fling(find.text('Steins;Gate'), const Offset(0, 2000), 3000);
     await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('continue_watching_button')));
+    await tester.pumpAndSettle();
     final continueCard = find.descendant(
       of: find.byKey(const Key('continue_watching_row')),
       matching: find.text('Fullmetal Alchemist: Brotherhood'),
@@ -174,13 +176,7 @@ void main() {
     expect(continueCard, findsOneWidget);
 
     // Continue skips the file picker and resumes the saved position.
-    await _tapVisible(
-      tester,
-      find.descendant(
-        of: find.byKey(const Key('continue_watching_row')),
-        matching: find.widgetWithText(FilledButton, 'Continue'),
-      ),
-    );
+    await _tapVisible(tester, continueCard);
     await pumpUntilVisible(tester, _playerSurface);
     // Not pumpAndSettle: the notice's countdown would run out meanwhile.
     await tester.pump(const Duration(seconds: 1));

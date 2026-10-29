@@ -19,6 +19,7 @@ class SearchToolbar extends StatelessWidget {
     required this.onAction,
     required this.isWide,
     this.actionActive = false,
+    this.trailingAction,
     this.onCancel,
     super.key,
   });
@@ -31,6 +32,7 @@ class SearchToolbar extends StatelessWidget {
   final VoidCallback onAction;
   final bool isWide;
   final bool actionActive;
+  final Widget? trailingAction;
   final VoidCallback? onCancel;
 
   @override
@@ -68,6 +70,51 @@ class SearchToolbar extends StatelessWidget {
             ],
           );
 
+    if (trailingAction != null && !isWide) {
+      final theme = Theme.of(context);
+      final buttonStyle = theme.textButtonTheme.style;
+      final label = TextPainter(
+        text: TextSpan(
+          text: AppLocalizations.of(context).searchCancelButton,
+          style:
+              buttonStyle?.textStyle?.resolve({}) ?? theme.textTheme.labelLarge,
+        ),
+        textDirection: Directionality.of(context),
+        textScaler: MediaQuery.textScalerOf(context),
+      )..layout();
+      final padding = buttonStyle?.padding?.resolve({})?.horizontal ?? 16;
+      final cancelWidth = (label.width + padding).clamp(48.0, double.infinity);
+      label.dispose();
+      // Reserve room for Clear and Cancel before focusing the field, so the
+      // new action does not squeeze out the existing search controls.
+      final minimumWidth = SearchField.height * 4 + 20 + cancelWidth;
+      return LayoutBuilder(
+        builder: (context, constraints) {
+          if (constraints.maxWidth >= minimumWidth) {
+            return _row(context, action);
+          }
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _row(context, action, includeTrailing: false),
+              const SizedBox(height: 8),
+              Align(
+                alignment: AlignmentDirectional.centerEnd,
+                child: trailingAction,
+              ),
+            ],
+          );
+        },
+      );
+    }
+    return _row(context, action);
+  }
+
+  Widget _row(
+    BuildContext context,
+    Widget action, {
+    bool includeTrailing = true,
+  }) {
     return Row(
       children: [
         Flexible(
@@ -80,6 +127,10 @@ class SearchToolbar extends StatelessWidget {
         ),
         const SizedBox(width: 8),
         action,
+        if (includeTrailing && trailingAction != null) ...[
+          const SizedBox(width: 8),
+          trailingAction!,
+        ],
         if (onCancel case final onCancel?) ...[
           const SizedBox(width: 4),
           TextButton(
