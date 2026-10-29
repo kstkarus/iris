@@ -318,7 +318,9 @@ class _Task implements OnlineDownloadTask {
         state.format == stream.format.name &&
         state.quality == stream.quality &&
         state.pieces == pieces.length &&
-        await output.exists();
+        state.playlistHash == plan.fingerprint &&
+        await output.exists() &&
+        await output.length() >= state.bytes;
     if (state != null && !resumable) {
       developer.log(
         'The episode changed since the last run; loading it anew.',
@@ -355,6 +357,7 @@ class _Task implements OnlineDownloadTask {
             pieces: pieces.length,
             done: done,
             bytes: bytes,
+            playlistHash: plan.fingerprint,
           ),
         );
         _report(
@@ -469,9 +472,19 @@ class _Task implements OnlineDownloadTask {
     final status = response.statusCode ?? 0;
     final body = response.data!;
     if (status == 416 && have > 0) {
-      // Nothing past the end: the file is whole.
       await body.stream.drain<void>();
-      return have;
+      final range = response.headers
+          .value('content-range')
+          ?.trim()
+          .toLowerCase();
+      if (range != null &&
+          range.startsWith('bytes */') &&
+          _totalFromRange(range) == have) {
+        return have;
+      }
+      // A changed or unknown remote size cannot confirm the partial file.
+      await output.writeAsBytes(const <int>[]);
+      throw const _Retryable('the remote file length changed');
     }
     _checkStatus(status);
     final partial = status == 206;
@@ -663,6 +676,7 @@ class _State {
     required this.pieces,
     required this.done,
     required this.bytes,
+    this.playlistHash,
   });
 
   static _State? fromJson(Map<String, Object?> json) {
@@ -675,7 +689,11 @@ class _State {
         quality is! int ||
         pieces is! int ||
         done is! int ||
-        bytes is! int) {
+        bytes is! int ||
+        pieces <= 0 ||
+        done < 0 ||
+        done > pieces ||
+        bytes < 0) {
       return null;
     }
     return _State(
@@ -684,6 +702,7 @@ class _State {
       pieces: pieces,
       done: done,
       bytes: bytes,
+      playlistHash: json['playlistHash'] as String?,
     );
   }
 
@@ -694,6 +713,7 @@ class _State {
   final int pieces;
   final int done;
   final int bytes;
+  final String? playlistHash;
 
   Map<String, Object?> toJson() => {
     'format': format,
@@ -701,6 +721,7 @@ class _State {
     'pieces': pieces,
     'done': done,
     'bytes': bytes,
+    if (playlistHash != null) 'playlistHash': playlistHash,
   };
 }
 

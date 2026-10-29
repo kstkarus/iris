@@ -1,3 +1,7 @@
+import 'dart:convert';
+
+import 'package:crypto/crypto.dart';
+
 /// One piece of an HLS episode to load: a media segment, or the init
 /// segment of fragmented MP4.
 class HlsPiece {
@@ -11,11 +15,14 @@ class HlsPiece {
 
 /// The pieces of an HLS episode, in order.
 class HlsPlan {
-  const HlsPlan({required this.segments, this.init});
+  const HlsPlan({required this.segments, required this.fingerprint, this.init});
 
   /// The init segment of fragmented MP4; null for MPEG-TS.
   final HlsPiece? init;
   final List<HlsPiece> segments;
+
+  /// Identifies the playlist, independent of a renewed base URL.
+  final String fingerprint;
 
   bool get fragmentedMp4 => init != null;
 }
@@ -75,7 +82,8 @@ abstract final class HlsPlaylist {
     HlsPiece? init;
     final segments = <HlsPiece>[];
     var seconds = 0.0;
-    for (final line in _lines(text)) {
+    final lines = _lines(text);
+    for (final line in lines) {
       if (line.isEmpty) continue;
       if (line.startsWith('#EXTINF:')) {
         final value = line.substring('#EXTINF:'.length).split(',').first;
@@ -97,7 +105,11 @@ abstract final class HlsPlaylist {
       }
     }
     if (segments.isEmpty) return null;
-    return HlsPlan(init: init, segments: List.unmodifiable(segments));
+    return HlsPlan(
+      init: init,
+      segments: List.unmodifiable(segments),
+      fingerprint: sha256.convert(utf8.encode(lines.join('\n'))).toString(),
+    );
   }
 
   static List<String> _lines(String text) => [

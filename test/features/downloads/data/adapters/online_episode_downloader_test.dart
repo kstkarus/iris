@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:dio/dio.dart';
@@ -74,6 +75,27 @@ void main() {
 
   bool stateLeft() =>
       File(path.join(directory.path, 'online_download.json')).existsSync();
+
+  Future<void> pauseAfterFirstPiece({String? playlist}) async {
+    sources.streams = [_hls('https://cdn.test/e2/720.m3u8')];
+    final secondAsked = Completer<void>();
+    final task = start(
+      downloader((options) {
+        final name = options.uri.pathSegments.last;
+        if (name.endsWith('.m3u8')) {
+          return FakeReply.text(200, playlist ?? _playlist(2));
+        }
+        if (name == 's2.ts') {
+          secondAsked.complete();
+          return Completer<FakeReply>().future;
+        }
+        return FakeReply.text(200, '[$name]');
+      }),
+    );
+    await secondAsked.future;
+    await task.cancel();
+    expect(await task.done, isNull);
+  }
 
   test('offers the episodes as files, by number, of no known size', () async {
     sources.streams = [
@@ -407,6 +429,86 @@ void main() {
     expect(await file!.readAsString(), '[2/s1.ts][2/s2.ts]');
   });
 
+  for (final changed in ['names', 'order', 'durations', 'init']) {
+    test(
+      'HLS starts over when $changed change with the same piece count',
+      () async {
+        await pauseAfterFirstPiece(
+          playlist: changed == 'init'
+              ? '#EXTM3U\n#EXT-X-MAP:URI="old-init.mp4"\n#EXTINF:6,\ns2.ts\n#EXT-X-ENDLIST'
+              : null,
+        );
+        final playlist = switch (changed) {
+          'names' => _playlist(
+            2,
+          ).replaceAll('s1.ts', 'new1.ts').replaceAll('s2.ts', 'new2.ts'),
+          'order' =>
+            '#EXTM3U\n#EXTINF:6,\ns2.ts\n#EXTINF:6,\ns1.ts\n#EXT-X-ENDLIST',
+          'durations' => _playlist(2).replaceAll('6.0', '8.0'),
+          _ =>
+            '#EXTM3U\n#EXT-X-MAP:URI="init.mp4"\n#EXTINF:6,\ns2.ts\n#EXT-X-ENDLIST',
+        };
+        final asked = <String>[];
+        final task = start(
+          downloader((options) {
+            final name = options.uri.pathSegments.last;
+            asked.add(name);
+            return name.endsWith('.m3u8')
+                ? FakeReply.text(200, playlist)
+                : FakeReply.text(200, '[new:$name]');
+          }),
+        );
+        final file = (await task.done)!;
+        final pieces = switch (changed) {
+          'names' => ['new1.ts', 'new2.ts'],
+          'order' => ['s2.ts', 's1.ts'],
+          'init' => ['init.mp4', 's2.ts'],
+          _ => ['s1.ts', 's2.ts'],
+        };
+        expect(asked, ['720.m3u8', ...pieces]);
+        expect(
+          await file.readAsString(),
+          pieces.map((name) => '[new:$name]').join(),
+        );
+      },
+    );
+  }
+
+  for (final legacy in [false, true]) {
+    test(
+      legacy
+          ? 'HLS restarts when an old checkpoint has no playlist identity'
+          : 'HLS restarts instead of padding a file shorter than its checkpoint',
+      () async {
+        await pauseAfterFirstPiece();
+        if (legacy) {
+          final state = File(path.join(directory.path, 'online_download.json'));
+          final json =
+              jsonDecode(await state.readAsString()) as Map<String, dynamic>;
+          json.remove('playlistHash');
+          await state.writeAsString(jsonEncode(json));
+        } else {
+          await File(
+            path.join(directory.path, 'episode.ts'),
+          ).writeAsString('[s');
+        }
+        final asked = <String>[];
+        final task = start(
+          downloader((options) {
+            final name = options.uri.pathSegments.last;
+            asked.add(name);
+            return name.endsWith('.m3u8')
+                ? FakeReply.text(200, _playlist(2))
+                : FakeReply.text(200, '[$name]');
+          }),
+        );
+
+        expect(await (await task.done)!.readAsString(), '[s1.ts][s2.ts]');
+        expect(asked, ['720.m3u8', 's1.ts', 's2.ts']);
+      },
+    );
+  }
+
   test('a server error is tried again after a growing wait', () async {
     sources.streams = [_hls('https://cdn.test/e2/720.m3u8')];
     var failures = 0;
@@ -544,6 +646,60 @@ void main() {
     expect(updates.map((update) => update.videoHeight), everyElement(720));
     expect(stateLeft(), isFalse);
   });
+
+  for (final total in [2, 8, null, 4]) {
+    test('MP4 validates the total on a 416 response ($total)', () async {
+      sources.streams = const [
+        OnlineStream(
+          url: 'https://cdn.test/e2/720.mp4',
+          quality: 720,
+          format: OnlineStreamFormat.mp4,
+        ),
+      ];
+      await File(
+        path.join(directory.path, 'episode.mp4'),
+      ).writeAsString('OLD!');
+      await File(
+        path.join(directory.path, 'online_download.json'),
+      ).writeAsString(
+        jsonEncode({
+          'format': 'mp4',
+          'quality': 720,
+          'pieces': 1,
+          'done': 0,
+          'bytes': 0,
+        }),
+      );
+      final ranges = <Object?>[];
+      final task = start(
+        downloader((options) {
+          final range = options.headers['Range'];
+          ranges.add(range);
+          if (range != null) {
+            return FakeReply.text(
+              416,
+              '',
+              headers: {
+                if (total != null) 'content-range': ['bytes */$total'],
+              },
+            );
+          }
+          return const FakeReply.text(
+            200,
+            'NEW',
+            headers: {
+              'content-length': ['3'],
+            },
+          );
+        }),
+      );
+
+      final file = (await task.done)!;
+      expect(await file.readAsString(), total == 4 ? 'OLD!' : 'NEW');
+      expect(ranges, ['bytes=4-', if (total != 4) null]);
+      expect(stateLeft(), isFalse);
+    });
+  }
 
   test('an mp4 whose connection drops mid-body goes on with Range', () async {
     sources.streams = const [
