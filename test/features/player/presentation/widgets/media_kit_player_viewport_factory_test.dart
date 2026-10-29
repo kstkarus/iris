@@ -27,6 +27,7 @@ import 'package:iris/features/player/presentation/widgets/player_track_selector_
 import 'package:iris/features/player/presentation/widgets/player_wait_indicator.dart';
 import 'package:iris/shared/widgets/segmented_choice.dart';
 import 'package:iris/shared/window/picture_in_picture.dart';
+import 'package:iris/shared/window/ios_picture_in_picture.dart';
 import 'package:iris/shared/window/screen_brightness_control.dart';
 
 import '../../../../helpers/fake_player_repository.dart';
@@ -3303,6 +3304,239 @@ void main() {
   group('picture in picture', () {
     const button = Key('player_picture_in_picture_button');
 
+    const iosChannel = MethodChannel('iris/test/ios_picture_in_picture');
+    final messenger =
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+
+    Future<void> iosEvent(String method, Map<String, Object?> values) =>
+        messenger.handlePlatformMessage(
+          iosChannel.name,
+          iosChannel.codec.encodeMethodCall(
+            MethodCall(method, {'handle': '42', ...values}),
+          ),
+          (_) {},
+        );
+
+    Future<
+      ({
+        IOSPictureInPicture window,
+        _FakePlatformPlayer player,
+        List<MethodCall> calls,
+        MediaKitPlayerEngine engine,
+      })
+    >
+    openIOS(
+      WidgetTester tester, {
+      bool refuses = false,
+      Completer<bool>? entry,
+      bool ready = true,
+      Object? entryError,
+    }) async {
+      setTestWindowSize(tester, TestWindowSizes.landscape);
+      final calls = <MethodCall>[];
+      messenger.setMockMethodCallHandler(iosChannel, (call) async {
+        calls.add(call);
+        if (call.method == 'enter' && entryError != null) throw entryError;
+        return switch (call.method) {
+          'isSupported' || 'attachPlayer' => true,
+          'enter' => entry?.future ?? !refuses,
+          _ => null,
+        };
+      });
+      addTearDown(() => messenger.setMockMethodCallHandler(iosChannel, null));
+      final window = IOSPictureInPicture(channel: iosChannel);
+      final player = _FakePlatformPlayer(
+        configuration: const PlayerConfiguration(libass: false),
+      );
+      late MediaKitPlayerEngine engine;
+      await tester.pumpWidget(
+        _wrapViewport(
+          platformPlayer: player,
+          input: PlayerInputMode.touch,
+          pictureInPicture: window,
+          onEngine: (value) => engine = value,
+          videoControllerBuilder: (player, configuration) =>
+              _FakeVideoController(
+                player: player,
+                firstFrameFuture: Future.value(),
+                ready: ready,
+              ),
+        ),
+      );
+      await tester.pump();
+      player.emitDuration(const Duration(minutes: 24));
+      player.emitPosition(const Duration(seconds: 24));
+      player.emitPlaying(true);
+      await _deliverPlayerEvent(tester);
+      return (window: window, player: player, calls: calls, engine: engine);
+    }
+
+    testWidgets(
+      'iOS uses the existing decoder, timeline and temporary native subtitles',
+      (tester) async {
+        final fixture = await openIOS(tester);
+        final opens = fixture.player.openCount;
+        await tester.tap(find.byKey(button));
+        await tester.pump();
+        expect(
+          fixture.calls
+              .firstWhere((call) => call.method == 'attachPlayer')
+              .arguments,
+          {'handle': '42'},
+        );
+        expect(
+          fixture.calls
+              .lastWhere((call) => call.method == 'setPlayback')
+              .arguments,
+          {'handle': '42', 'position': 24000, 'duration': 1440000, 'rate': 1.0},
+        );
+        expect(fixture.player.openCount, opens);
+        expect(fixture.engine.pictureInPictureSubtitles, isTrue);
+        expect(fixture.player.nativeProperties['sub-visibility'], 'yes');
+        await iosEvent('modeChanged', {'active': true});
+        await tester.pump();
+        expect(find.byType(SubtitleView), findsNothing);
+        await iosEvent('modeChanged', {'active': false, 'dismissed': false});
+        await tester.pump();
+        expect(fixture.engine.pictureInPictureSubtitles, isFalse);
+        expect(fixture.player.nativeProperties['sub-visibility'], 'no');
+        expect(fixture.player.pauseCount, 0);
+        expect(find.byType(SubtitleView), findsOneWidget);
+        await tester.pumpWidget(const SizedBox());
+        await tester.pump();
+        expect(fixture.calls.last.method, 'clearPlayer');
+      },
+    );
+
+    testWidgets(
+      'iOS commands are absolute and seeks clamp before acknowledgement',
+      (tester) async {
+        final fixture = await openIOS(tester);
+        await tester.tap(find.byKey(button));
+        await tester.pump();
+        await iosEvent('modeChanged', {'active': true});
+        await iosEvent('setPlaying', {'playing': false});
+        await tester.pump();
+        await iosEvent('setPlaying', {'playing': false});
+        await tester.pump();
+        expect(fixture.player.pauseCount, 1);
+        await iosEvent('setPlaying', {'playing': true});
+        await tester.pump();
+        expect(fixture.player.state.playing, isTrue);
+        await iosEvent('seek', {'id': 1, 'milliseconds': -30000});
+        await tester.pump();
+        expect(fixture.player.seeks.last, Duration.zero);
+        expect(fixture.calls.last.method, 'seekCompleted');
+        expect(
+          fixture.calls[fixture.calls.length - 2].arguments,
+          containsPair('position', 0),
+        );
+        fixture.player.emitPosition(const Duration(minutes: 23, seconds: 55));
+        await tester.pump();
+        await iosEvent('seek', {'id': 2, 'milliseconds': 15000});
+        await tester.pump();
+        expect(fixture.player.seeks.last, const Duration(minutes: 24));
+        expect(fixture.calls.last.arguments, {'handle': '42', 'id': 2});
+        await fixture.player.setRate(1.5);
+        await tester.pump();
+        expect(fixture.calls.last.arguments, containsPair('rate', 1.5));
+      },
+    );
+
+    testWidgets('iOS keeps playing when hidden in PiP and pauses on Close', (
+      tester,
+    ) async {
+      final fixture = await openIOS(tester);
+      await tester.tap(find.byKey(button));
+      await tester.pump();
+      await iosEvent('modeChanged', {'active': true});
+      tester.binding
+        ..handleAppLifecycleStateChanged(AppLifecycleState.inactive)
+        ..handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+      await tester.pump();
+      expect(fixture.player.pauseCount, 0);
+      await iosEvent('modeChanged', {'active': false, 'dismissed': true});
+      await tester.pump();
+      expect(fixture.player.pauseCount, 1);
+      tester.binding
+        ..handleAppLifecycleStateChanged(AppLifecycleState.inactive)
+        ..handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pump();
+      expect(fixture.player.state.playing, isFalse);
+    });
+
+    testWidgets(
+      'iOS entry failure restores subtitles and shows the generic error',
+      (tester) async {
+        final fixture = await openIOS(tester, refuses: true);
+        await tester.tap(find.byKey(button));
+        await tester.pump();
+        expect(fixture.engine.pictureInPictureSubtitles, isFalse);
+        expect(fixture.player.nativeProperties['sub-visibility'], 'no');
+        expect(find.text("Couldn't open the mini player."), findsOneWidget);
+      },
+    );
+
+    testWidgets('iOS disposal during entry clears the native session', (
+      tester,
+    ) async {
+      final entry = Completer<bool>();
+      final fixture = await openIOS(tester, entry: entry);
+      await tester.tap(find.byKey(button));
+      await tester.pump();
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump();
+      entry.complete(true);
+      await tester.pump();
+      await iosEvent('modeChanged', {'active': true});
+      await tester.pump();
+      expect(fixture.window.active.value, isFalse);
+      expect(fixture.calls.last.method, 'clearPlayer');
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('iOS native errors restore the normal subtitle renderer', (
+      tester,
+    ) async {
+      final fixture = await openIOS(
+        tester,
+        entryError: PlatformException(code: 'pip_audio_session'),
+      );
+      await tester.tap(find.byKey(button));
+      await tester.pump();
+      expect(fixture.engine.pictureInPictureSubtitles, isFalse);
+      expect(fixture.player.nativeProperties['sub-visibility'], 'no');
+      expect(find.text("Couldn't open the mini player."), findsOneWidget);
+    });
+
+    testWidgets(
+      'iOS acknowledges a failed seek so system controls do not hang',
+      (tester) async {
+        final fixture = await openIOS(tester);
+        await tester.tap(find.byKey(button));
+        await tester.pump();
+        fixture.player.seekError = StateError('seek failed');
+        await iosEvent('seek', {'id': 1, 'milliseconds': 15000});
+        await tester.pump();
+        expect(fixture.calls.last.method, 'seekCompleted');
+        expect(fixture.calls.last.arguments, {'handle': '42', 'id': 1});
+        expect(tester.takeException(), isNull);
+      },
+    );
+
+    testWidgets('iOS entry times out cleanly before the native output exists', (
+      tester,
+    ) async {
+      final fixture = await openIOS(tester, ready: false);
+      await tester.tap(find.byKey(button));
+      await tester.pump(const Duration(seconds: 4));
+      expect(
+        fixture.calls.where((call) => call.method == 'attachPlayer'),
+        isEmpty,
+      );
+      expect(find.text("Couldn't open the mini player."), findsOneWidget);
+    });
+
     Future<_FakePlatformPlayer> open(
       WidgetTester tester,
       PictureInPicture window,
@@ -4186,6 +4420,9 @@ class _FakePlatformPlayer extends PlatformPlayer {
 
   void finishStarting() => completer.complete();
 
+  @override
+  Future<int> get handle async => 42;
+
   /// Properties read while mpv was not there yet: a crash for the real one.
   final readsBeforeStart = <String>[];
 
@@ -4232,9 +4469,11 @@ class _FakePlatformPlayer extends PlatformPlayer {
   }
 
   final seeks = <Duration>[];
+  Object? seekError;
 
   @override
   Future<void> seek(Duration duration) async {
+    if (seekError case final error?) throw error;
     seeks.add(duration);
   }
 
@@ -4252,6 +4491,9 @@ class _FakePlatformPlayer extends PlatformPlayer {
   void emitError(String text) => errorController.add(text);
 
   int pauseCount = 0;
+
+  @override
+  Future<void> play() async => emitPlaying(true);
 
   @override
   Future<void> pause() async {
@@ -4471,7 +4713,13 @@ class _ControllablePlatformPlayer extends _FakePlatformPlayer {
 }
 
 class _FakeVideoController implements VideoController {
-  _FakeVideoController({required this.player, required this.firstFrameFuture});
+  _FakeVideoController({
+    required this.player,
+    required this.firstFrameFuture,
+    bool ready = false,
+  }) {
+    if (ready) platform.complete(_ReadyPlatformVideoController(player));
+  }
 
   @override
   final Player player;
@@ -4495,6 +4743,14 @@ class _FakeVideoController implements VideoController {
 
   @override
   Future<void> get waitUntilFirstFrameRendered async => firstFrameFuture;
+}
+
+class _ReadyPlatformVideoController extends PlatformVideoController {
+  _ReadyPlatformVideoController(Player player)
+    : super(player, const VideoControllerConfiguration());
+
+  @override
+  Future<void> setSize({int? width, int? height}) async {}
 }
 
 /// mpv that never reports idle after a stop.

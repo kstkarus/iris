@@ -166,6 +166,7 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
   PlayerDecodingPreferences _decodingPreferences;
   Player? _player;
   VideoController? _videoController;
+  bool _pictureInPictureSubtitles = false;
 
   PlayerSession? _session;
   Duration? _startPosition;
@@ -848,6 +849,22 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
     }
   }
 
+  bool get pictureInPictureSubtitles => _pictureInPictureSubtitles;
+
+  /// Flutter overlays cannot appear in AVKit's separate video layer.
+  Future<void> setPictureInPictureSubtitles(bool enabled) async {
+    if (_closed || enabled == _pictureInPictureSubtitles) return;
+    _pictureInPictureSubtitles = enabled;
+    final native =
+        enabled || (_player?.platform?.configuration.libass ?? false);
+    await _applyMpvProperties({
+      'sub-ass': native ? 'yes' : 'no',
+      'sub-visibility': native ? 'yes' : 'no',
+      'secondary-sub-visibility': native ? 'yes' : 'no',
+    });
+    if (!_closed) notifyListeners();
+  }
+
   /// mpv's `sub-pos` (percent of the height, 100 = bottom) with the lift.
   String get _liftedSubtitlePosition {
     final position = subtitleMpvPosition(_subtitlePreferences.verticalPosition);
@@ -857,6 +874,11 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
 
   Map<String, String> get _subtitleMpvProperties => {
     ...buildSubtitleMpvProperties(_subtitlePreferences),
+    if (_pictureInPictureSubtitles) ...{
+      'sub-ass': 'yes',
+      'sub-visibility': 'yes',
+      'secondary-sub-visibility': 'yes',
+    },
     'sub-pos': _liftedSubtitlePosition,
   };
 
@@ -1557,6 +1579,7 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
   }
 
   Future<void> _disposePlayer() async {
+    _pictureInPictureSubtitles = false;
     _cancelStartupTimeout();
     final subscriptions = List.of(_playerSubscriptions);
     _playerSubscriptions.clear();

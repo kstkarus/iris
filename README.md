@@ -6,7 +6,7 @@ The interface is in English and Russian. Online sources offer Russian dubs and s
 
 ## Features
 
-- **Catalog.** Popular titles, search, and filters by type, status, genre, season, rating and episode length. Results fill the available window and load more as you scroll. Continue watching opens from the button beside the filters, including during search. When signed in, covers show the title's status in your list.
+- **Catalog.** Popular titles, search, and filters by type, status, genre, season, rating and episode length. Results fill the available window and load more as you scroll. When signed in, covers show the title's status in your list.
 - **Title pages.** Details, description, dubs, related titles, characters with their own pages, and the Shikimori friends who have the title in their lists.
 - **Sources.** Online releases from AniLibria, yummy_anime and AnimeJoy, and torrents from Nyaa through a public API mirror. AnimeJoy uses its own player and AllVideo; access to animejoy.ru may require a VPN. You can add your own torrent to an anime, as a magnet link or a `.torrent` file.
 - **Player.** mpv through `media_kit`, with the same full-screen controls on every platform:
@@ -15,6 +15,7 @@ The interface is in English and Russian. Online sources offer Russian dubs and s
   - opening skip, based on chapters or [AniSkip](https://api.aniskip.com);
   - next-episode prompt and resume from the last position;
   - on phones, swipe seeking, brightness control and a screen lock;
+  - on Android and supported iOS 15+ devices, system picture in picture with playback controls;
   - on Windows, a resizable picture-in-picture window above other apps, without restarting playback.
 
   Torrents stream piece by piece, without downloading the whole file first.
@@ -23,6 +24,9 @@ The interface is in English and Russian. Online sources offer Russian dubs and s
 - **Updates.** On Android and Windows the app checks this repository's latest release. Android shows release notes, downloads and verifies the APK inside Iris, then opens the system installer. Windows installed through the per-user installer downloads and verifies updates inside Iris, then saves progress and the download queue before an explicit restart and install. Portable Windows builds open the ZIP in the browser.
 
 How each feature behaves, and which services it calls, is described in [docs/behaviour.md](docs/behaviour.md).
+
+`media_kit_video` 2.0.1 is included locally with an iOS AVKit PiP bridge;
+its other platforms are unchanged. See [the patch notes](packages/media_kit_video/IRIS_PATCHES.md).
 
 ## Screenshots
 

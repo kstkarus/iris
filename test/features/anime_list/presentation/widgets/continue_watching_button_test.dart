@@ -81,60 +81,86 @@ void main() {
     });
   }
 
-  testWidgets(
-    'history remains available during search without replacing its controls',
-    (tester) async {
-      await _pump(tester, const Size(390, 844));
-      await tester.enterText(find.byType(TextField), 'test');
-      await tester.pump(const Duration(milliseconds: 450));
-      await tester.pumpAndSettle();
-      final field = tester.widget<TextField>(find.byType(TextField));
-      final query = field.controller;
-      expect(find.byKey(SearchToolbar.cancelButtonKey), findsOneWidget);
-      expect(find.byKey(SearchField.clearButtonKey), findsOneWidget);
-      expect(find.byTooltip('Filter & Sort'), findsOneWidget);
-      expect(find.byKey(ContinueWatchingButton.buttonKey), findsOneWidget);
-      await tester.tap(find.byKey(ContinueWatchingButton.buttonKey));
-      await tester.pumpAndSettle();
-      await tester.binding.handlePopRoute();
-      await tester.pumpAndSettle();
-      expect(
-        tester.widget<TextField>(find.byType(TextField)).controller,
-        same(query),
-      );
-      expect(query!.text, 'test');
-      expect(find.byKey(SearchToolbar.cancelButtonKey), findsOneWidget);
-      await tester.tap(find.byKey(SearchField.clearButtonKey));
-      await tester.pumpAndSettle();
-      await tester.tap(find.byKey(SearchToolbar.cancelButtonKey));
-      await tester.pumpAndSettle();
-      expect(find.text('Popular'), findsOneWidget);
-      expect(find.byKey(ContinueWatchingButton.buttonKey), findsOneWidget);
-    },
-  );
+  for (final size in [const Size(390, 844), const Size(1280, 900)]) {
+    testWidgets(
+      'Close replaces history in the same slot during search at $size',
+      (tester) async {
+        await _pump(tester, size);
+        final filters = size.width >= 600
+            ? find.widgetWithText(OutlinedButton, 'Filter & Sort')
+            : find.byTooltip('Filter & Sort');
+        final fieldBounds = tester.getRect(find.byType(TextField));
+        final actionBounds = tester.getRect(filters);
+        final historyBounds = tester.getRect(
+          find.byKey(ContinueWatchingButton.buttonKey),
+        );
+        await tester.tap(find.byType(TextField));
+        await tester.pumpAndSettle();
+        expect(find.byKey(ContinueWatchingButton.buttonKey), findsNothing);
+        expect(
+          tester.getRect(find.byKey(SearchToolbar.cancelButtonKey)),
+          historyBounds,
+        );
+        await tester.enterText(find.byType(TextField), 'test');
+        await tester.pump(const Duration(milliseconds: 450));
+        await tester.pumpAndSettle();
+        final query = tester
+            .widget<TextField>(find.byType(TextField))
+            .controller!;
+        expect(find.byKey(SearchToolbar.cancelButtonKey), findsOneWidget);
+        expect(find.byKey(SearchField.clearButtonKey), findsOneWidget);
+        expect(filters, findsOneWidget);
+        expect(find.text('Cancel'), findsNothing);
+        expect(tester.getRect(find.byType(TextField)), fieldBounds);
+        expect(tester.getRect(filters), actionBounds);
+        expect(
+          tester.getRect(find.byKey(SearchToolbar.cancelButtonKey)),
+          historyBounds,
+        );
+        await tester.tap(find.byKey(SearchField.clearButtonKey));
+        await tester.pumpAndSettle();
+        expect(query.text, isEmpty);
+        expect(find.byKey(SearchToolbar.cancelButtonKey), findsOneWidget);
+        expect(find.byKey(ContinueWatchingButton.buttonKey), findsNothing);
+        await tester.enterText(find.byType(TextField), 'test');
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(SearchToolbar.cancelButtonKey));
+        await tester.pumpAndSettle();
+        expect(query.text, isEmpty);
+        expect(
+          tester.widget<TextField>(find.byType(TextField)).focusNode!.hasFocus,
+          isFalse,
+        );
+        expect(find.text('Popular'), findsOneWidget);
+        expect(find.byKey(SearchToolbar.cancelButtonKey), findsNothing);
+        expect(find.byKey(ContinueWatchingButton.buttonKey), findsOneWidget);
+        await tester.tap(find.byKey(ContinueWatchingButton.buttonKey));
+        await tester.pumpAndSettle();
+        expect(find.byType(ContinueWatchingRow), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
 
-  testWidgets('Escape closes the desktop overlay before leaving search', (
+  testWidgets('Escape closes history and still exits desktop search', (
     tester,
   ) async {
     await _pump(tester, const Size(1280, 900));
-    await tester.enterText(find.byType(TextField), 'test');
-    await tester.pump(const Duration(milliseconds: 450));
-    await tester.pumpAndSettle();
     await tester.tap(find.byKey(ContinueWatchingButton.buttonKey));
     await tester.pumpAndSettle();
     await tester.sendKeyEvent(LogicalKeyboardKey.escape);
     await tester.pumpAndSettle();
     expect(find.byType(ContinueWatchingRow), findsNothing);
-    expect(
-      tester.widget<TextField>(find.byType(TextField)).controller!.text,
-      'test',
-    );
+    await tester.enterText(find.byType(TextField), 'test');
+    await tester.pump(const Duration(milliseconds: 450));
+    await tester.pumpAndSettle();
     await tester.sendKeyEvent(LogicalKeyboardKey.escape);
     await tester.pumpAndSettle();
     expect(
       tester.widget<TextField>(find.byType(TextField)).controller!.text,
       isEmpty,
     );
+    expect(find.byKey(ContinueWatchingButton.buttonKey), findsOneWidget);
   });
 
   testWidgets('a narrow large-text phone can search and scroll all history', (
@@ -150,12 +176,28 @@ void main() {
     await tester.pump(const Duration(milliseconds: 450));
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
+    await tester.tap(find.byKey(SearchToolbar.cancelButtonKey));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(ContinueWatchingButton.buttonKey));
     await tester.pumpAndSettle();
     await tester.ensureVisible(
       find.byKey(const ValueKey('continue_watching_source4')),
     );
     await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('search still has Close when history is empty', (tester) async {
+    await _pump(tester, const Size(390, 844), items: []);
+    expect(find.byKey(ContinueWatchingButton.buttonKey), findsNothing);
+    await tester.enterText(find.byType(TextField), 'test');
+    await tester.pump(const Duration(milliseconds: 450));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(SearchToolbar.cancelButtonKey));
+    await tester.pumpAndSettle();
+    expect(find.byKey(SearchToolbar.cancelButtonKey), findsNothing);
+    expect(find.byKey(ContinueWatchingButton.buttonKey), findsNothing);
+    expect(find.text('Popular'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }

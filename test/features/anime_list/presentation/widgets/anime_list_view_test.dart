@@ -267,7 +267,7 @@ void main() {
 
     await tester.tap(find.byType(TextField));
     await tester.pumpAndSettle();
-    expect(find.byKey(SearchToolbar.cancelButtonKey), findsNothing);
+    expect(find.byKey(SearchToolbar.cancelButtonKey), findsOneWidget);
 
     await tester.sendKeyEvent(LogicalKeyboardKey.escape);
     await tester.pumpAndSettle();

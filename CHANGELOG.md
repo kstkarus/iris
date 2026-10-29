@@ -4,9 +4,13 @@ Notable changes to iris, newest first. The format follows [Keep a Changelog](htt
 
 ## [Unreleased]
 
+### Added
+
+- Picture in picture is available from the player controls on iOS 15 and later, with play/pause, seeking, subtitles and return to the player. Playback in this mode has not yet been tested on an iPhone.
+
 ### Changed
 
-- Continue watching opens from a button beside the catalog filters: a compact popup on desktop and a bottom sheet on phones, with covers, playback times and the existing resume and remove actions. It stays available during search without taking space above the catalog.
+- Continue watching opens from a button beside the catalog filters: a compact popup on desktop and a bottom sheet on phones, with covers, playback times and the existing resume and remove actions. During search, a Close icon replaces this button to cancel search without an additional text button.
 
 ### Fixed
 

@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
-/// The player's platform window: system picture in picture on Android or a
+/// The player's platform window: system picture in picture on Android/iOS or a
 /// compact native window on Windows.
 abstract interface class PictureInPicture {
   /// Whether this device can show it.

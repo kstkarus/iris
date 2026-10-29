@@ -15,6 +15,7 @@ analyzer:
     - web/**
     - windows/**
     - .design/**
+    - packages/media_kit_video/**
 include: package:flutter_lints/flutter.yaml
 
 linter:

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:iris/shared/widgets/adaptive/adaptive_content_width.dart';
+import 'package:iris/shared/widgets/adaptive/window_size_class.dart';
 import 'package:iris/shared/widgets/pixel_icon.dart';
 import 'package:iris/shared/widgets/search_field.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
@@ -9,8 +10,8 @@ import 'package:iris/l10n/generated/app_localizations.dart';
 /// labelled button on wide windows, a square icon button on narrow ones.
 ///
 /// [actionActive] marks an action whose settings differ from the default,
-/// so a narrowed list never looks complete by accident. With [onCancel],
-/// a text button at the end leaves the search.
+/// so a narrowed list never looks complete by accident. [onCancel] replaces
+/// [trailingAction] with a same-sized Close button that leaves the search.
 class SearchToolbar extends StatelessWidget {
   const SearchToolbar({
     required this.searchField,
@@ -70,51 +71,43 @@ class SearchToolbar extends StatelessWidget {
             ],
           );
 
-    if (trailingAction != null && !isWide) {
-      final theme = Theme.of(context);
-      final buttonStyle = theme.textButtonTheme.style;
-      final label = TextPainter(
-        text: TextSpan(
-          text: AppLocalizations.of(context).searchCancelButton,
-          style:
-              buttonStyle?.textStyle?.resolve({}) ?? theme.textTheme.labelLarge,
-        ),
-        textDirection: Directionality.of(context),
-        textScaler: MediaQuery.textScalerOf(context),
-      )..layout();
-      final padding = buttonStyle?.padding?.resolve({})?.horizontal ?? 16;
-      final cancelWidth = (label.width + padding).clamp(48.0, double.infinity);
-      label.dispose();
-      // Reserve room for Clear and Cancel before focusing the field, so the
-      // new action does not squeeze out the existing search controls.
-      final minimumWidth = SearchField.height * 4 + 20 + cancelWidth;
+    final trailing = onCancel == null
+        ? trailingAction
+        : IconButton(
+            key: cancelButtonKey,
+            tooltip: AppLocalizations.of(context).searchCancelButton,
+            onPressed: onCancel,
+            style: IconButton.styleFrom(
+              minimumSize: const Size.square(SearchField.height),
+              backgroundColor: WindowSizeClass.of(context).isCompact
+                  ? Theme.of(context).colorScheme.surfaceContainerHigh
+                  : null,
+            ),
+            icon: const PixelIcon(PixelGlyph.close, size: 18),
+          );
+    if (trailing != null && !isWide) {
+      // The field keeps room for Search, text and Clear beside two buttons.
+      const minimumWidth = SearchField.height * 5 + 16;
       return LayoutBuilder(
         builder: (context, constraints) {
           if (constraints.maxWidth >= minimumWidth) {
-            return _row(context, action);
+            return _row(action, trailing: trailing);
           }
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              _row(context, action, includeTrailing: false),
+              _row(action),
               const SizedBox(height: 8),
-              Align(
-                alignment: AlignmentDirectional.centerEnd,
-                child: trailingAction,
-              ),
+              Align(alignment: AlignmentDirectional.centerEnd, child: trailing),
             ],
           );
         },
       );
     }
-    return _row(context, action);
+    return _row(action, trailing: trailing);
   }
 
-  Widget _row(
-    BuildContext context,
-    Widget action, {
-    bool includeTrailing = true,
-  }) {
+  Widget _row(Widget action, {Widget? trailing}) {
     return Row(
       children: [
         Flexible(
@@ -127,18 +120,7 @@ class SearchToolbar extends StatelessWidget {
         ),
         const SizedBox(width: 8),
         action,
-        if (includeTrailing && trailingAction != null) ...[
-          const SizedBox(width: 8),
-          trailingAction!,
-        ],
-        if (onCancel case final onCancel?) ...[
-          const SizedBox(width: 4),
-          TextButton(
-            key: cancelButtonKey,
-            onPressed: onCancel,
-            child: Text(AppLocalizations.of(context).searchCancelButton),
-          ),
-        ],
+        if (trailing != null) ...[const SizedBox(width: 8), trailing],
       ],
     );
   }

@@ -226,8 +226,7 @@ class _AnimeListViewState extends State<AnimeListView>
                     focusNode: _searchFocus,
                     onChanged: _onSearchChanged,
                     isWide: isWide,
-                    // Wide windows leave with Escape or a click elsewhere.
-                    onCancel: _searching && !isWide ? _exitSearch : null,
+                    onCancel: _searching ? _exitSearch : null,
                     detailsRepository: widget.detailsRepository,
                   ),
                 ),

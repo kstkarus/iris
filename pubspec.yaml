@@ -41,7 +41,9 @@ dependencies:
   # every torrent file reports 0 bytes.
   libtorrent_flutter: 1.7.8
   media_kit: ^1.2.6
-  media_kit_video: ^2.0.1
+  # Upstream 2.0.1 with the iOS PiP bridge; see the package's IRIS_PATCHES.md.
+  media_kit_video:
+    path: packages/media_kit_video
   media_kit_libs_video: ^1.0.7
   path: ^1.9.1
   path_provider: ^2.1.5

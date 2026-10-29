@@ -25,6 +25,7 @@ import 'package:iris/features/player/presentation/widgets/player_viewport_factor
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/utils/motion_duration.dart';
 import 'package:iris/shared/window/picture_in_picture.dart';
+import 'package:iris/shared/window/ios_picture_in_picture.dart';
 import 'package:iris/shared/window/screen_brightness_control.dart';
 
 export 'package:iris/features/player/presentation/playback/media_kit_player_engine.dart'
@@ -283,8 +284,9 @@ class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
   }
 
   Future<void> _enterPictureInPicture() async {
-    final windowsPictureInPicture =
-        widget.pictureInPicture is WindowsPictureInPicture;
+    final genericFailure =
+        widget.pictureInPicture is WindowsPictureInPicture ||
+        widget.pictureInPicture is IOSPictureInPicture;
     try {
       final entered = await _pictureInPicture?.enter() ?? false;
       if (entered || !mounted) return;
@@ -293,7 +295,7 @@ class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
         ..showSnackBar(
           SnackBar(
             content: Text(
-              windowsPictureInPicture
+              genericFailure
                   ? AppLocalizations.of(context).playerPictureInPictureFailed
                   : AppLocalizations.of(context).playerPictureInPictureOff,
             ),
@@ -301,7 +303,7 @@ class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
         );
     } catch (error) {
       debugPrint('Picture-in-picture enter failed: $error');
-      if (mounted && windowsPictureInPicture) {
+      if (mounted && genericFailure) {
         ScaffoldMessenger.maybeOf(context)
           ?..hideCurrentSnackBar()
           ..showSnackBar(
@@ -362,7 +364,9 @@ class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
   Widget _buildVideo(MediaKitPlayerEngine engine) {
     final subtitles = engine.subtitleViewConfiguration;
     final player = engine.hasPlayer ? engine.player : null;
-    final libass = player?.platform?.configuration.libass ?? false;
+    final libass =
+        engine.pictureInPictureSubtitles ||
+        (player?.platform?.configuration.libass ?? false);
     final drawsSubtitles = subtitles.visible && !libass;
     if (drawsSubtitles && subtitles.padding != _subtitleBase) {
       // The view mounts, or takes new settings, in this frame.
