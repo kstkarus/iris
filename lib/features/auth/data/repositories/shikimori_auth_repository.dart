@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:developer' as developer;
 import 'dart:math';
 
 import 'package:shared_preferences/shared_preferences.dart';
@@ -92,14 +93,34 @@ class ShikimoriAuthRepository implements AuthRepository {
     final code = params['code'];
     if (code == null || code.isEmpty) throw const AuthRejected();
 
+    var generation = _session.generation;
     try {
-      await _session.write(await _oauth.exchangeCode(code));
+      // Capture ownership even if writing to secure storage fails.
+      final saving = _session.write(await _oauth.exchangeCode(code));
+      generation = _session.generation;
+      await saving;
       final account = await _accounts.fetchCurrent();
-      if (account == null) throw const AuthRejected();
+      if (account == null ||
+          await _session.read() == null ||
+          _session.generation != generation) {
+        throw const AuthRejected();
+      }
       await _cacheAccount(account);
+      if (_session.generation != generation) throw const AuthRejected();
       return account.toEntity();
     } on Exception catch (error) {
-      await _session.clear();
+      if (_session.generation == generation) {
+        try {
+          await _session.clear();
+        } on Exception catch (cleanupError, stackTrace) {
+          developer.log(
+            'Unable to clear a failed Shikimori sign-in from secure storage.',
+            name: 'iris.auth',
+            error: cleanupError,
+            stackTrace: stackTrace,
+          );
+        }
+      }
       throw switch (error) {
         AuthFailure() => error,
         NetworkRequestException() => const AuthNetworkFailure(),

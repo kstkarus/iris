@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:iris/shared/network/network_exceptions.dart';
+import 'package:iris/shared/network/rate_limit_interceptor.dart';
 import 'package:iris/shared/network/shikimori_auth_interceptor.dart';
 import 'package:iris/shared/network/shikimori_oauth_client.dart';
 import 'package:iris/shared/storage/shikimori_session_store.dart';
@@ -71,6 +72,35 @@ void main() {
 
     expect(sentTokens(), ['Bearer fresh']);
   });
+
+  test(
+    'a 429 retry after signing out drops the previous account header',
+    () async {
+      await store.write(tokens('fresh'));
+      dio.httpClientAdapter = FakeHttpAdapter((options) {
+        sent.add(options.headers['Authorization']);
+        return sent.length == 1
+            ? const FakeReply(429, {}, {
+                'retry-after': ['1'],
+              })
+            : const FakeReply(200);
+      });
+      dio.interceptors.add(
+        RateLimitInterceptor(
+          dio: dio,
+          limits: const [RateLimit(100, Duration(seconds: 1))],
+          now: () => now,
+          wait: (_) => store.clear(),
+        ),
+      );
+
+      await dio.get<dynamic>('/api/animes');
+
+      expect(sentTokens(), ['Bearer fresh', null]);
+      expect(await store.read(), isNull);
+      expect(oauth.refreshes, 0);
+    },
+  );
 
   test('a session-bound mutation never starts under another account', () async {
     await store.write(tokens('old'));

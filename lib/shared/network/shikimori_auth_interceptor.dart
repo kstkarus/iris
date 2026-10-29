@@ -68,6 +68,8 @@ class ShikimoriAuthInterceptor extends Interceptor {
     }
     if (tokens != null) {
       options.headers[_header] = _bearer(tokens);
+    } else {
+      options.headers.remove(_header);
     }
     handler.next(options);
   }

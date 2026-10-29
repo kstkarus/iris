@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:dio/dio.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -46,7 +47,7 @@ void main() {
   late ShikimoriSessionStore session;
   late SharedPreferences preferences;
   late _FakeAuthenticator authenticator;
-  late FakeReply Function(RequestOptions) server;
+  late FutureOr<FakeReply> Function(RequestOptions) server;
 
   setUp(() async {
     SharedPreferences.setMockInitialValues({});
@@ -134,6 +135,47 @@ void main() {
       expect(storage.values, isEmpty);
     });
 
+    test('an account response cannot complete an expired sign-in', () async {
+      server = (options) async {
+        if (options.path == '/oauth/token') return tokens;
+        await session.expire();
+        return currentUser;
+      };
+
+      await expectLater(repository().signIn(), throwsA(isA<AuthRejected>()));
+      expect(await session.read(), isNull);
+      expect(preferences.getKeys(), isEmpty);
+    });
+
+    test('a late account response leaves a newer session intact', () async {
+      server = (options) async {
+        if (options.path == '/oauth/token') return tokens;
+        await session.write(
+          ShikimoriTokens(
+            accessToken: 'newer',
+            refreshToken: 'refresh-newer',
+            expiresAt: DateTime.utc(2030),
+          ),
+        );
+        return currentUser;
+      };
+
+      await expectLater(repository().signIn(), throwsA(isA<AuthRejected>()));
+      expect((await session.read())?.accessToken, 'newer');
+      expect(preferences.getKeys(), isEmpty);
+    });
+
+    test(
+      'failed session storage and cleanup still return an auth failure',
+      () async {
+        session = ShikimoriSessionStore(_UnavailableSecureStorage());
+
+        await expectLater(repository().signIn(), throwsA(isA<AuthRejected>()));
+        expect(await session.read(), isNull);
+        expect(preferences.getKeys(), isEmpty);
+      },
+    );
+
     test('without credentials or platform support it is unavailable', () async {
       const empty = ShikimoriOAuthConfig(clientId: '', clientSecret: '');
       expect(repository(config: empty).canSignIn, isFalse);
@@ -218,5 +260,15 @@ class _FakeAuthenticator implements WebAuthenticator {
     final failure = this.failure;
     if (failure != null) throw failure;
     return reply(url);
+  }
+}
+
+class _UnavailableSecureStorage extends FakeSecureStorage {
+  @override
+  dynamic noSuchMethod(Invocation invocation) {
+    if (invocation.memberName == #write || invocation.memberName == #delete) {
+      return Future<void>.error(PlatformException(code: 'storage_unavailable'));
+    }
+    return super.noSuchMethod(invocation);
   }
 }
