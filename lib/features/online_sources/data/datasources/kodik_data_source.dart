@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:dio/dio.dart';
+import 'package:html/parser.dart' show parse;
 
 import 'package:iris/features/online_sources/data/models/video_link_dto.dart';
 import 'package:iris/shared/network/dio_exception_mapper.dart';
@@ -39,13 +40,68 @@ class KodikDataSource {
     r'''\$\.ajax[^)]+atob\(["'](\w+=*)["']\)''',
   );
 
-  Future<List<VideoLinkDto>> links(String playerUrl) async {
+  /// The selected subtitle translation and its actual episode numbers.
+  Future<
+    ({String translationId, String translation, Map<int, String> videoIds})?
+  >
+  episodes(String playerUrl) async {
+    final page = Uri.parse(playerUrl);
+    final html = await _getText(page);
+    final document = parse(html);
+    final selected = document.querySelector(
+      'option[data-translation-type][selected]',
+    );
+    if (selected?.attributes['data-translation-type'] != 'subtitles') {
+      return null;
+    }
+    final translationId = selected?.attributes['data-id'] ?? '';
+    final parsedTranslationId = int.tryParse(translationId);
+    if (parsedTranslationId == null || parsedTranslationId <= 0) return null;
+    final translation = selected?.attributes['data-title']?.trim() ?? '';
+    final videoIds = <int, String>{};
+    for (final option in document.querySelectorAll(
+      '.serial-series-box select option[data-id][data-hash]',
+    )) {
+      final number = int.tryParse(option.attributes['value'] ?? '');
+      final videoId = option.attributes['data-id'] ?? '';
+      final parsedVideoId = int.tryParse(videoId);
+      if (number == null ||
+          number <= 0 ||
+          parsedVideoId == null ||
+          parsedVideoId <= 0 ||
+          (option.attributes['data-hash'] ?? '').isEmpty ||
+          option.attributes['data-other-translation'] == 'true') {
+        continue;
+      }
+      videoIds.putIfAbsent(number, () => videoId);
+    }
+    if (page.pathSegments.firstOrNull == 'video') {
+      final videoId = _payload(html)?['id'];
+      final parsedVideoId = videoId == null ? null : int.tryParse(videoId);
+      if (videoId != null && parsedVideoId != null && parsedVideoId > 0) {
+        videoIds[1] = videoId;
+      }
+    }
+    return (
+      translationId: translationId,
+      translation: translation,
+      videoIds: videoIds,
+    );
+  }
+
+  Future<List<VideoLinkDto>> links(
+    String playerUrl, {
+    String? expectedVideoId,
+  }) async {
     final page = Uri.parse(playerUrl);
     final html = await _getText(page);
     final payload = _payload(html);
     if (payload == null) {
       // A deleted video's page has a message and no request in it.
       throw const ResourceNotFoundException('Kodik has no such video.');
+    }
+    if (expectedVideoId != null && payload['id'] != expectedVideoId) {
+      throw const ResourceNotFoundException('Kodik returned another episode.');
     }
     _apiPath ??= await _readApiPath(page, html);
     var response = await _post(page, payload);

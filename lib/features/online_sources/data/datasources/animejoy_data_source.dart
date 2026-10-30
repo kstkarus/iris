@@ -4,6 +4,8 @@ import 'package:dio/dio.dart';
 import 'package:html/dom.dart' as dom;
 import 'package:html/parser.dart' show parse;
 
+import 'package:iris/features/online_sources/data/datasources/kodik_data_source.dart';
+import 'package:iris/features/online_sources/data/datasources/alloha_data_source.dart';
 import 'package:iris/features/online_sources/data/models/animejoy_dto.dart';
 import 'package:iris/features/online_sources/data/models/video_link_dto.dart';
 import 'package:iris/shared/network/dio_exception_mapper.dart';
@@ -14,9 +16,13 @@ class AnimejoyDataSource {
     required Dio dio,
     String baseUrl = 'https://animejoy.ru/',
   }) : _dio = dio,
+       _kodik = KodikDataSource(dio: dio),
+       _alloha = AllohaDataSource(dio: dio),
        _baseUri = Uri.parse(baseUrl);
 
   final Dio _dio;
+  final KodikDataSource _kodik;
+  final AllohaDataSource _alloha;
   final Uri _baseUri;
 
   Future<List<int>> search(String title) async => [
@@ -85,7 +91,7 @@ class AnimejoyDataSource {
       final uri = href == null ? null : _resolveHttpUri(href, _baseUri);
       if (uri == null || !_shikimoriHosts.contains(uri.host)) continue;
       final match = RegExp(
-        r'^/animes/(\d+)(?:-[^/]*)?/?$',
+        r'^/animes/[xyz]?(\d+)(?:-[^/]*)?/?$',
       ).firstMatch(uri.path);
       final candidate = int.tryParse(match?.group(1) ?? '');
       if (candidate != null && candidate > 0) {
@@ -96,7 +102,11 @@ class AnimejoyDataSource {
     return AnimejoyArticleDto(id: id, shikimoriId: shikimoriId);
   }
 
-  Future<List<AnimejoyEpisodeDto>> episodes(int articleId) async {
+  Future<List<AnimejoyEpisodeDto>> episodes(
+    int articleId, {
+    bool includeKodik = true,
+    bool includeAlloha = true,
+  }) async {
     if (articleId <= 0) {
       throw const ResourceNotFoundException('Invalid Animejoy article id.');
     }
@@ -123,8 +133,25 @@ class AnimejoyDataSource {
         'Animejoy playlist response is invalid.',
       );
     }
-    return _parseEpisodes(json['response'] as String, _baseUri);
+    return _parseEpisodes(
+      json['response'] as String,
+      _baseUri,
+      _kodik,
+      _alloha,
+      includeKodik: includeKodik,
+      includeAlloha: includeAlloha,
+    );
   }
+
+  Future<List<VideoLinkDto>> kodikLinks({
+    required String url,
+    required String videoId,
+  }) => _kodik.links(url, expectedVideoId: videoId);
+
+  Future<List<VideoLinkDto>> allohaLinks({
+    required String url,
+    required int videoId,
+  }) => _alloha.links(url, videoId: videoId);
 
   Future<List<VideoLinkDto>> links(String playerUrl) async {
     final player = _resolveHttpUri(playerUrl, _baseUri);
@@ -196,6 +223,12 @@ const _playerHosts = {
   'incvideo1.online',
   'www.incvideo1.online',
 };
+const _kodikHosts = {
+  'kodikplayer.com',
+  'www.kodikplayer.com',
+  'kodik.info',
+  'www.kodik.info',
+};
 
 Uri? _resolveHttpUri(String value, Uri base) {
   final Uri? uri;
@@ -214,7 +247,14 @@ Uri? _resolveHttpUri(String value, Uri base) {
   }
 }
 
-List<AnimejoyEpisodeDto> _parseEpisodes(String html, Uri baseUri) {
+Future<List<AnimejoyEpisodeDto>> _parseEpisodes(
+  String html,
+  Uri baseUri,
+  KodikDataSource kodik,
+  AllohaDataSource alloha, {
+  required bool includeKodik,
+  required bool includeAlloha,
+}) async {
   final document = parse(html);
   final labels = <String, String>{};
   final playerTypes = <String, _PlayerType>{};
@@ -233,9 +273,14 @@ List<AnimejoyEpisodeDto> _parseEpisodes(String html, Uri baseUri) {
     labels[id] = label;
     if (name == 'наш плеер') playerTypes[id] = _PlayerType.our;
     if (name == 'allvideo') playerTypes[id] = _PlayerType.allVideo;
+    if (name == 'alloha') playerTypes[id] = _PlayerType.alloha;
+    if (name == 'kodik') playerTypes[id] = _PlayerType.kodik;
   }
 
-  final groups = <String, Map<num, _EpisodeBuilder>>{};
+  final groups =
+      <({String translation, String? key}), Map<num, _EpisodeBuilder>>{};
+  final kodikEmbeds = <({String translation, Uri url})>[];
+  final allohaEmbeds = <({String translation, Uri url})>[];
   for (final item in document.querySelectorAll(
     '.playlists-videos .playlists-items li[data-id][data-file]',
   )) {
@@ -243,9 +288,7 @@ List<AnimejoyEpisodeDto> _parseEpisodes(String html, Uri baseUri) {
       item.attributes['data-id'] ?? '',
     ).where(playerTypes.containsKey).firstOrNull;
     final type = playerTypes[playerId];
-    final url = _resolvePlayerUrl(item.attributes['data-file'] ?? '', baseUri);
-    final parsed = _episodeLabel(item.text);
-    if (type == null || url == null || parsed == null) continue;
+    if (type == null) continue;
     final translation =
         _ancestors(playerId!)
             .skip(1)
@@ -257,23 +300,135 @@ List<AnimejoyEpisodeDto> _parseEpisodes(String html, Uri baseUri) {
             )
             .firstOrNull ??
         '';
-    final episodes = groups[translation] ??= {};
+    if (type == _PlayerType.kodik || type == _PlayerType.alloha) {
+      if (type == _PlayerType.kodik && !includeKodik ||
+          type == _PlayerType.alloha && !includeAlloha) {
+        continue;
+      }
+      final url = _resolveHttpUri(item.attributes['data-file'] ?? '', baseUri);
+      if (type == _PlayerType.alloha && url != null && isAllohaPlayer(url)) {
+        allohaEmbeds.add((translation: translation, url: url));
+      } else if (type == _PlayerType.kodik &&
+          url != null &&
+          _kodikHosts.contains(url.host) &&
+          RegExp(
+            r'^/(serial|season|video)/\d+/[\w-]+(?:/\d{3,4}p)?/?$',
+          ).hasMatch(url.path)) {
+        kodikEmbeds.add((translation: translation, url: url));
+      }
+      continue;
+    }
+    final url = _resolvePlayerUrl(item.attributes['data-file'] ?? '', baseUri);
+    final parsed = _episodeLabel(item.text);
+    if (url == null || parsed == null) continue;
+    final episodes = groups[(translation: translation, key: null)] ??= {};
     (episodes[parsed.number] ??= _EpisodeBuilder(
       parsed.title,
     )).add(type, url.toString());
+  }
+
+  final preferredLastEpisode = {
+    for (final group in groups.entries)
+      group.key: (group.value.keys.toList()..sort()).last,
+  };
+  final loadedAlloha = await Future.wait(
+    allohaEmbeds.map((embed) async {
+      try {
+        return (
+          embed: embed,
+          data: await alloha.episodes(embed.url.toString()),
+          error: null as Object?,
+        );
+      } on Object catch (error) {
+        return (embed: embed, data: null, error: error);
+      }
+    }),
+  );
+  Object? allohaFailure;
+  for (final item in loadedAlloha) {
+    final data = item.data;
+    if (data == null) {
+      allohaFailure ??= item.error;
+      continue;
+    }
+    final parent = item.embed.translation;
+    final group = (
+      translation: parent.isEmpty ? data.translation : parent,
+      key: parent.isEmpty ? 'alloha-${data.translationId}' : null,
+    );
+    final episodes = groups[group] ??= {};
+    for (final video in data.videoIds.entries) {
+      (episodes[video.key] ??= _EpisodeBuilder('')).alloha ??= (
+        url: item.embed.url.toString(),
+        videoId: video.value,
+      );
+    }
+    if (episodes.isEmpty) groups.remove(group);
+  }
+  final loaded = await Future.wait(
+    kodikEmbeds.map((embed) async {
+      try {
+        return (
+          embed: embed,
+          data: await kodik.episodes(embed.url.toString()),
+          error: null as Object?,
+        );
+      } on Object catch (error) {
+        return (embed: embed, data: null, error: error);
+      }
+    }),
+  );
+  Object? kodikFailure;
+  for (final item in loaded) {
+    final data = item.data;
+    if (data == null) {
+      kodikFailure ??= item.error;
+      continue;
+    }
+    final parent = item.embed.translation;
+    final group = (
+      translation: parent.isEmpty
+          ? (data.translation.isEmpty ? 'Kodik' : data.translation)
+          : parent,
+      key: parent.isEmpty ? 'kodik-${data.translationId}' : null,
+    );
+    final episodes = groups[group] ??= {};
+    for (final video in data.videoIds.entries) {
+      final url = item.embed.url;
+      final player = url.pathSegments.first == 'video'
+          ? url
+          : url.replace(
+              queryParameters: {
+                ...url.queryParameters,
+                'episode': '${video.key}',
+                'translations': 'false',
+                'only_episode': 'true',
+              },
+            );
+      (episodes[video.key] ??= _EpisodeBuilder('')).kodik ??= (
+        url: player.toString(),
+        videoId: video.value,
+      );
+    }
+    if (episodes.isEmpty) groups.remove(group);
+  }
+  if (groups.isEmpty && (allohaFailure ?? kodikFailure) != null) {
+    throw (allohaFailure ?? kodikFailure)!;
   }
 
   final result = <AnimejoyEpisodeDto>[];
   for (final group in groups.entries) {
     final episodes = group.value;
     final numbers = episodes.keys.toList()..sort();
-    // Some tabs append a live episode counter to the translator's name.
-    // Strip it only when it agrees with that group's final episode.
-    final counter = RegExp(r'\s+(\d+)$').firstMatch(group.key);
+    // Keep an existing translation's identity when Kodik adds later episodes.
+    final name = group.key.translation;
+    final counter = RegExp(r'\s+(\d+)$').firstMatch(name);
     final translation =
-        counter != null && num.tryParse(counter.group(1)!) == numbers.last
-        ? group.key.substring(0, counter.start).trim()
-        : group.key;
+        counter != null &&
+            num.tryParse(counter.group(1)!) ==
+                (preferredLastEpisode[group.key] ?? numbers.last)
+        ? name.substring(0, counter.start).trim()
+        : name;
     for (final number in numbers) {
       result.add(
         AnimejoyEpisodeDto(
@@ -281,7 +436,10 @@ List<AnimejoyEpisodeDto> _parseEpisodes(String html, Uri baseUri) {
           title: episodes[number]!.title,
           playerUrls: episodes[number]!.urls,
           translation: translation,
+          translationKey: group.key.key,
           bestQuality: _playlistQuality(episodes[number]!.urls),
+          kodik: episodes[number]!.kodik,
+          alloha: episodes[number]!.alloha,
         ),
       );
     }
@@ -344,7 +502,7 @@ Uri? _resolvePlayerUrl(String value, Uri baseUri) {
   return (number: number, title: title);
 }
 
-enum _PlayerType { our, allVideo }
+enum _PlayerType { our, allVideo, alloha, kodik }
 
 class _EpisodeBuilder {
   _EpisodeBuilder(this.title);
@@ -352,6 +510,8 @@ class _EpisodeBuilder {
   final String title;
   String? ourUrl;
   String? allVideoUrl;
+  ({String url, String videoId})? kodik;
+  ({String url, int videoId})? alloha;
 
   void add(_PlayerType type, String url) {
     switch (type) {
@@ -359,6 +519,9 @@ class _EpisodeBuilder {
         ourUrl ??= url;
       case _PlayerType.allVideo:
         allVideoUrl ??= url;
+      case _PlayerType.kodik:
+      case _PlayerType.alloha:
+        throw StateError('Kodik requires an episode id.');
     }
   }
 

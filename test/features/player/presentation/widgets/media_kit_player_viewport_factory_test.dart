@@ -767,6 +767,47 @@ void main() {
     expect(find.text('Buffering'), findsNothing);
   });
 
+  testWidgets('a delayed open cannot replace the selected episode', (
+    tester,
+  ) async {
+    final platformPlayer = _FakePlatformPlayer(
+      configuration: const PlayerConfiguration(),
+    );
+    late MediaKitPlayerEngine engine;
+    await tester.pumpWidget(
+      _wrapViewport(
+        platformPlayer: platformPlayer,
+        onEngine: (value) => engine = value,
+      ),
+    );
+    await tester.pump();
+    await tester.runAsync(engine.stop);
+
+    final gate = Completer<void>();
+    platformPlayer.nextPropertyGate = gate;
+    final oldOpening = engine.open(
+      const PlayerSession(
+        sessionId: '42',
+        streamUrl: 'https://video.example/episode6.mp4',
+      ),
+    );
+    await tester.pump();
+    expect(platformPlayer.nextPropertyGate, isNull);
+
+    await tester.runAsync(engine.stop);
+    const selected = PlayerSession(
+      sessionId: '42',
+      streamUrl: 'https://video.example/episode5.mp4',
+    );
+    await tester.runAsync(() => engine.open(selected));
+    expect((platformPlayer.lastOpened! as Media).uri, selected.streamUrl);
+
+    gate.complete();
+    await tester.runAsync(() => oldOpening);
+    expect((platformPlayer.lastOpened! as Media).uri, selected.streamUrl);
+    expect(platformPlayer.openCount, 2);
+  });
+
   testWidgets('offers the next file in the credits for 8 s, then with the '
       'controls', (tester) async {
     setTestWindowSize(tester, TestWindowSizes.landscape);
@@ -1397,6 +1438,41 @@ void main() {
       (platformPlayer.lastOpened! as Media).uri,
       'https://video.example/episode/1.m3u8',
     );
+  });
+
+  testWidgets('adds external subtitles after the video track is available', (
+    tester,
+  ) async {
+    final platformPlayer = _FakePlatformPlayer(
+      configuration: const PlayerConfiguration(),
+    );
+    await tester.pumpWidget(
+      _wrapViewport(
+        platformPlayer: platformPlayer,
+        session: const PlayerSession(
+          sessionId: '7',
+          streamUrl: 'https://video.example/1.m3u8',
+          subtitleUrl: 'http://127.0.0.1/full.vtt',
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(platformPlayer.subtitles, isEmpty);
+    platformPlayer.emitTracks(
+      const Tracks(
+        video: [
+          VideoTrack('auto', null, null),
+          VideoTrack('no', null, null),
+          VideoTrack('1', 'Video', 'jpn'),
+        ],
+      ),
+    );
+    await tester.pump();
+    expect(platformPlayer.subtitles.single.id, 'http://127.0.0.1/full.vtt');
+    expect(platformPlayer.subtitles.single.language, 'ru');
+    platformPlayer.emitTracks(platformPlayer.state.tracks);
+    await tester.pump();
+    expect(platformPlayer.subtitles, hasLength(1));
   });
 
   testWidgets('keep the playback stats coming when the next file opens on the '
@@ -4427,6 +4503,12 @@ class _FakePlatformPlayer extends PlatformPlayer {
   final readsBeforeStart = <String>[];
 
   final Map<String, String> nativeProperties = {};
+  final subtitles = <SubtitleTrack>[];
+
+  @override
+  Future<void> setSubtitleTrack(SubtitleTrack track) async =>
+      subtitles.add(track);
+  Completer<void>? nextPropertyGate;
 
   int openCount = 0;
   Playable? lastOpened;
@@ -4450,6 +4532,9 @@ class _FakePlatformPlayer extends PlatformPlayer {
     String value, {
     bool waitForInitialization = true,
   }) async {
+    final gate = nextPropertyGate;
+    nextPropertyGate = null;
+    if (gate != null) await gate.future;
     nativeProperties[key] = value;
   }
 

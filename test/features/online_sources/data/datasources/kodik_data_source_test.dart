@@ -30,7 +30,9 @@ void main() {
     dio.httpClientAdapter = FakeHttpAdapter((options) {
       requests.add(options);
       final path = options.uri.path;
-      if (path.startsWith('/season/')) {
+      if (path.startsWith('/season/') ||
+          path.startsWith('/serial/') ||
+          path.startsWith('/video/')) {
         return FakeReply.text(200, page.isEmpty ? _fixture('page.html') : page);
       } else if (path.startsWith('/assets/js/')) {
         return FakeReply.text(200, _fixture('player.js'));
@@ -43,6 +45,63 @@ void main() {
   }
 
   setUp(() => requests = []);
+
+  test(
+    'reads only the selected subtitle translation and its real episodes',
+    () async {
+      final kodik = source(
+        page: '''
+      <div class="serial-translations-box"><select>
+        <option data-id="7" data-translation-type="voice">Voice</option>
+        <option data-id="8" data-title="Subtitles" data-translation-type="subtitles" selected>Subtitles</option>
+      </select></div>
+      <div class="serial-series-box"><select>
+        <option value="5" data-id="105" data-hash="hash5">5</option>
+        <option value="6" data-id="106" data-hash="hash6">6</option>
+        <option value="6" data-id="106" data-hash="hash6">6</option>
+        <option value="52" data-id="152" data-hash="hash52" data-other-translation="true">52</option>
+        <option value="366" data-id="466" data-hash="hash366">366</option>
+      </select></div>
+      ''',
+      );
+
+      final result = await kodik.episodes(
+        'https://kodikplayer.com/serial/1/a/720p',
+      );
+      expect(result?.translationId, '8');
+      expect(result?.translation, 'Subtitles');
+      expect(result?.videoIds, {5: '105', 6: '106', 366: '466'});
+    },
+  );
+
+  test('does not change a selected voice translation into subtitles', () async {
+    final kodik = source(
+      page:
+          '<select><option data-id="7" data-translation-type="voice" selected>Voice</option>'
+          '<option data-id="8" data-translation-type="subtitles">Subtitles</option></select>',
+    );
+    expect(await kodik.episodes(_player), isNull);
+  });
+
+  test('exposes a subtitled movie as one episode', () async {
+    final kodik = source(
+      page:
+          '${_fixture('page.html')}'
+          '<select><option data-id="8" data-translation-type="subtitles" selected>Subtitles</option></select>',
+    );
+    final result = await kodik.episodes(
+      'https://kodikplayer.com/video/1/a/720p',
+    );
+    expect(result?.videoIds, {1: '1211977'});
+  });
+
+  test('rejects a player page that selected a different episode', () async {
+    await expectLater(
+      source().links(_player, expectedVideoId: '999'),
+      throwsA(isA<ResourceNotFoundException>()),
+    );
+    expect(requests, hasLength(1));
+  });
 
   test('reads the links the player page signs for, best first', () async {
     final links = await source().links(_player);

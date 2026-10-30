@@ -172,6 +172,8 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
   Duration? _startPosition;
   PlayerTrackPreferences? _preferredTracks;
   bool _preferredTracksApplied = false;
+  bool _externalSubtitleReady = false;
+  int? _externalSubtitleGeneration;
 
   /// Last position seen after startup; reopening (decoder change) resumes
   /// from here.
@@ -789,6 +791,7 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
     final player = _player;
     if (_closed || session == null || player == null) return;
     final startupGeneration = ++_startupGeneration;
+    _externalSubtitleReady = false;
     _reopened = _opened;
     _opened = true;
     _startupClock
@@ -808,10 +811,13 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
         ..._subtitleMpvProperties,
       });
       await _applyPlaybackRate();
+      if (_closed || startupGeneration != _startupGeneration) return;
       _preferredTracksApplied = false;
       _openTarget = _openPosition;
       await player.open(Media(session.streamUrl, start: _openPosition));
-      if (startupGeneration != _startupGeneration) return;
+      if (_closed || startupGeneration != _startupGeneration) return;
+      _externalSubtitleReady = true;
+      _attachExternalSubtitle(player.state.tracks);
 
       developer.log(
         'media_kit opened the stream successfully. Waiting for first frame or timeline metadata.',
@@ -1170,6 +1176,7 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
 
   void _onTracks(Tracks tracks) {
     if (_closed) return;
+    _attachExternalSubtitle(tracks);
     unawaited(_applyPreferredTracks(tracks));
     final hasVideoTrack = _hasRealVideoTrack(tracks);
     if (_startupState.hasVideoTrack == hasVideoTrack) return;
@@ -1180,6 +1187,43 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
     );
     _updateStartupState(_startupState.copyWith(hasVideoTrack: hasVideoTrack));
     _markReadyIfPrepared();
+  }
+
+  void _attachExternalSubtitle(Tracks tracks) {
+    final session = _session;
+    final player = _player;
+    final generation = _startupGeneration;
+    if (!_externalSubtitleReady ||
+        !_hasRealVideoTrack(tracks) ||
+        session?.subtitleUrl == null ||
+        player == null ||
+        _externalSubtitleGeneration == generation) {
+      return;
+    }
+    _externalSubtitleGeneration = generation;
+    unawaited(() async {
+      try {
+        await player.setSubtitleTrack(
+          SubtitleTrack.uri(
+            session!.subtitleUrl!,
+            title: 'Русские',
+            language: 'ru',
+          ),
+        );
+        if (!_closed &&
+            generation == _startupGeneration &&
+            _preferredTracks?.subtitle?.disabled == true) {
+          await player.setSubtitleTrack(SubtitleTrack.no());
+        }
+      } on Object catch (error, stackTrace) {
+        developer.log(
+          'Failed to load external subtitles.',
+          name: 'iris.player.media',
+          error: error,
+          stackTrace: stackTrace,
+        );
+      }
+    }());
   }
 
   void _onError(String error) {

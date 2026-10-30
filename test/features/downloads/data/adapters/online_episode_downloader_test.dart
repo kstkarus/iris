@@ -141,6 +141,33 @@ void main() {
     expect(qualities, isEmpty);
   });
 
+  test('saves an external subtitle beside the downloaded video', () async {
+    sources.streams = [
+      const OnlineStream(
+        url: 'https://cdn.test/e2/720.m3u8',
+        quality: 720,
+        format: OnlineStreamFormat.hls,
+        subtitleUrl: 'https://cdn.test/e2/full.vtt',
+      ),
+    ];
+    final task = start(
+      downloader((options) {
+        final name = options.uri.pathSegments.last;
+        if (name.endsWith('.vtt')) {
+          return const FakeReply.text(200, 'WEBVTT\n\n');
+        }
+        if (name.endsWith('.m3u8')) return FakeReply.text(200, _playlist(1));
+        return const FakeReply.text(200, 'video');
+      }),
+    );
+    final video = await task.done;
+    expect(path.basename(video!.path), 'episode.ts');
+    expect(
+      await File(path.join(directory.path, 'episode.vtt')).readAsString(),
+      'WEBVTT\n\n',
+    );
+  });
+
   test('loads the quality asked for, or the closest below it', () async {
     sources.streams = [
       _hls('https://cdn.test/e2/1080.m3u8', quality: 1080),

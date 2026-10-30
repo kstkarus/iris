@@ -6,6 +6,7 @@ class PlayerSession {
     required this.streamUrl,
     this.qualities = const [],
     this.quality,
+    this.subtitleUrl,
   });
 
   final String sessionId;
@@ -17,6 +18,7 @@ class PlayerSession {
 
   /// The height [streamUrl] plays in, when it is one of [qualities].
   final int? quality;
+  final String? subtitleUrl;
 
   @override
   bool operator ==(Object other) {
@@ -27,11 +29,17 @@ class PlayerSession {
     return other is PlayerSession &&
         other.sessionId == sessionId &&
         other.streamUrl == streamUrl &&
+        other.subtitleUrl == subtitleUrl &&
         other.quality == quality &&
         sameList(other.qualities, qualities);
   }
 
   @override
-  int get hashCode =>
-      Object.hash(sessionId, streamUrl, quality, Object.hashAll(qualities));
+  int get hashCode => Object.hash(
+    sessionId,
+    streamUrl,
+    quality,
+    subtitleUrl,
+    Object.hashAll(qualities),
+  );
 }

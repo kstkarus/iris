@@ -165,6 +165,7 @@ class OnlinePlayerRepository implements PlayerRepository {
     return PlayerSession(
       sessionId: sessionId,
       streamUrl: stream.url,
+      subtitleUrl: stream.subtitleUrl,
       qualities: onlineQualities(streams),
       quality: stream.quality,
     );

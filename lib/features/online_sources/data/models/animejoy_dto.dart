@@ -11,12 +11,18 @@ class AnimejoyEpisodeDto {
     required this.title,
     required this.playerUrls,
     this.translation = '',
+    this.translationKey,
     this.bestQuality,
+    this.kodik,
+    this.alloha,
   });
 
   final num number;
   final String title;
   final List<String> playerUrls;
   final String translation;
+  final String? translationKey;
   final int? bestQuality;
+  final ({String url, String videoId})? kodik;
+  final ({String url, int videoId})? alloha;
 }

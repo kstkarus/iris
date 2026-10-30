@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -260,6 +262,21 @@ void main() {
     expect(requests.single.uri.queryParameters, {'newsid': '5682'});
   });
 
+  for (final prefix in ['x', 'y', 'z']) {
+    test('article reads the Shikimori ID with the $prefix prefix', () async {
+      final animejoy = source(
+        (_) async => FakeReply.text(
+          200,
+          '<div class="abasel">'
+          '<a href="https://shikimori.io/animes/${prefix}269-bleach">'
+          'Shikimori</a></div>',
+        ),
+      );
+
+      expect((await animejoy.article(2802)).shikimoriId, 269);
+    });
+  }
+
   test(
     'playlists merge supported players by episode label and sort numerically',
     () async {
@@ -452,6 +469,52 @@ void main() {
 
     expect(animejoy.episodes(5682), throwsA(isA<RemoteResponseException>()));
   });
+
+  test(
+    'keeps an unnamed Alloha subtitle translation separate from preferred players',
+    () async {
+      final list = {
+        'type': 'movie',
+        'active': {'id': 42, 'id_translation': 79, 'translation': 'Субтитры'},
+      };
+      final animejoy = source((options) async {
+        requests.add(options);
+        if (options.uri.host == 'player.stravers.live') {
+          return FakeReply.text(
+            200,
+            "const fileList = JSON.parse('${jsonEncode(list)}');",
+          );
+        }
+        return const FakeReply(200, {
+          'success': true,
+          'response': '''
+      <div class="playlists-lists"><div class="playlists-items"><ul>
+      <li data-id="0_0">Наш плеер</li><li data-id="0_1">Alloha</li>
+      </ul></div></div><div class="playlists-videos"><div class="playlists-items"><ul>
+      <li data-id="0_0" data-file="https://animejoya.ru/player?file=https://cdn.test/video.mp4">1 серия</li>
+      <li data-id="0_1" data-file="https://player.stravers.live/?token=example">TV</li>
+      </ul></div></div>''',
+        });
+      });
+      final all = await animejoy.episodes(1);
+      expect(all, hasLength(2));
+      final alloha = all.singleWhere((item) => item.alloha != null);
+      expect(alloha.translationKey, 'alloha-79');
+      expect(alloha.alloha!.videoId, 42);
+      expect(alloha.playerUrls, isEmpty);
+      requests.clear();
+      final preferred = await animejoy.episodes(
+        1,
+        includeAlloha: false,
+        includeKodik: false,
+      );
+      expect(preferred.single.playerUrls, hasLength(1));
+      expect(
+        requests.where((r) => r.uri.host == 'player.stravers.live'),
+        isEmpty,
+      );
+    },
+  );
 }
 
 String _searchPage(List<int> ids, {int? next, String? onclick}) {

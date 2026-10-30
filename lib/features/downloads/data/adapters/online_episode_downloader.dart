@@ -242,6 +242,15 @@ class _Task implements OnlineDownloadTask {
       final state = await _readState();
       final stream = await _pickStream(episodeId, state);
       try {
+        if (stream.subtitleUrl != null) {
+          final subtitle = await _fetchText(Uri.parse(stream.subtitleUrl!));
+          if (!subtitle.trimLeft().startsWith('WEBVTT')) {
+            throw const OnlineDownloadException(downloadCouldNotStartMessage);
+          }
+          await File(
+            path.join(directory.path, 'episode.vtt'),
+          ).writeAsString(subtitle);
+        }
         return stream.format == OnlineStreamFormat.mp4
             ? await _loadMp4(stream, state, () => renewalsLeft = _renewals)
             : await _loadHls(stream, state, () => renewalsLeft = _renewals);

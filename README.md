@@ -8,7 +8,7 @@ The interface is in English and Russian. Online sources offer Russian dubs and s
 
 - **Catalog.** Popular titles, search, and filters by type, status, genre, season, rating and episode length. Results fill the available window and load more as you scroll. When signed in, covers show the title's status in your list.
 - **Title pages.** Details, description, dubs, related titles, characters with their own pages, and the Shikimori friends who have the title in their lists.
-- **Sources.** Online releases from AniLibria, yummy_anime and AnimeJoy, and torrents from Nyaa through a public API mirror. AnimeJoy uses its own player and AllVideo; access to animejoy.ru may require a VPN. You can add your own torrent to an anime, as a magnet link or a `.torrent` file.
+- **Sources.** Online releases from AniLibria, yummy_anime and AnimeJoy, and torrents from Nyaa through a public API mirror. AnimeJoy uses its own player and AllVideo, with Alloha and then Kodik as subtitle fallbacks; access to animejoy.ru may require a VPN. You can add your own torrent to an anime, as a magnet link or a `.torrent` file.
 - **Player.** mpv through `media_kit`, with the same full-screen controls on every platform:
   - audio and subtitle tracks, subtitle styling, playback speed and decoder choice;
   - a timeline divided by the file's chapters or by the opening and ending;

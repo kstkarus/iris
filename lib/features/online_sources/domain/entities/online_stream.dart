@@ -7,6 +7,7 @@ class OnlineStream {
     required this.url,
     required this.quality,
     required this.format,
+    this.subtitleUrl,
   });
 
   final String url;
@@ -14,15 +15,17 @@ class OnlineStream {
   /// The picture's height, e.g. 720.
   final int quality;
   final OnlineStreamFormat format;
+  final String? subtitleUrl;
 
   @override
   bool operator ==(Object other) {
     return other is OnlineStream &&
         other.url == url &&
         other.quality == quality &&
-        other.format == format;
+        other.format == format &&
+        other.subtitleUrl == subtitleUrl;
   }
 
   @override
-  int get hashCode => Object.hash(url, quality, format);
+  int get hashCode => Object.hash(url, quality, format, subtitleUrl);
 }

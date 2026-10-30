@@ -4,6 +4,7 @@ class VideoLinkDto {
     required this.url,
     required this.quality,
     required this.kind,
+    this.subtitleUrl,
   });
 
   final String url;
@@ -11,6 +12,7 @@ class VideoLinkDto {
   /// The picture's height, e.g. 720.
   final int quality;
   final VideoLinkKind kind;
+  final String? subtitleUrl;
 }
 
 enum VideoLinkKind { hls, dash, mp4 }

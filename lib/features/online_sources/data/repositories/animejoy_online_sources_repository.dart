@@ -11,8 +11,8 @@ import 'package:iris/features/online_sources/domain/repositories/online_sources_
 import 'package:iris/shared/network/network_exceptions.dart';
 import 'package:iris/shared/network/search_all.dart';
 
-/// Article parts of one anime form a release per translation. The two
-/// supported players are mirrors within that translation.
+/// Article parts of one anime form a release per translation. Players are
+/// mirrors within that translation, with Kodik as a fallback.
 class AnimejoyOnlineSourcesRepository implements OnlineSourcesRepository {
   const AnimejoyOnlineSourcesRepository({required this.dataSource});
 
@@ -73,7 +73,7 @@ class AnimejoyOnlineSourcesRepository implements OnlineSourcesRepository {
     final groups = <String, Map<int, List<AnimejoyEpisodeDto>>>{};
     for (final part in {for (final part in found) part.id: part}.values) {
       for (final episode in part.episodes) {
-        final group = groups[_translationKey(episode.translation)] ??= {};
+        final group = groups[_episodeTranslationKey(episode)] ??= {};
         (group[part.id] ??= []).add(episode);
       }
     }
@@ -99,18 +99,17 @@ class AnimejoyOnlineSourcesRepository implements OnlineSourcesRepository {
       // Old numeric links keep the article's first translation.
       final translation =
           parsed.translation ??
-          (episodes.any((episode) => episode.translation.isEmpty)
+          (episodes.any((episode) => _episodeTranslationKey(episode).isEmpty)
               ? ''
               : episodes.isEmpty
               ? ''
-              : _translationKey(episodes.first.translation));
+              : _episodeTranslationKey(episodes.first));
       return [
         (
           id: articleId,
           episodes: episodes
               .where(
-                (episode) =>
-                    _translationKey(episode.translation) == translation,
+                (episode) => _episodeTranslationKey(episode) == translation,
               )
               .toList(growable: false),
         ),
@@ -123,7 +122,7 @@ class AnimejoyOnlineSourcesRepository implements OnlineSourcesRepository {
       {for (final part in parts) part.id: part.episodes},
       translation:
           parsed.translation ??
-          _translationKey(parts.first.episodes.first.translation),
+          _episodeTranslationKey(parts.first.episodes.first),
       id: id,
     );
   }
@@ -146,38 +145,93 @@ class AnimejoyOnlineSourcesRepository implements OnlineSourcesRepository {
         (parts.length == 3 && translation == null)) {
       throw ResourceNotFoundException('No AnimeJoy episode $episodeId.');
     }
-    // Re-read the playlist: expiring CDN links never become episode ids,
-    // and an episode can gain another mirror or a higher quality later.
-    final episodes = await dataSource.episodes(articleId);
-    final candidates = episodes.where(
-      (item) =>
-          item.number == number &&
-          (translation == null ||
-              _translationKey(item.translation) == translation),
-    );
-    final episode = translation == null
-        ? candidates.where((item) => item.translation.isEmpty).firstOrNull ??
-              candidates.firstOrNull
-        : candidates.firstOrNull;
-    if (episode == null) {
-      throw ResourceNotFoundException('No AnimeJoy episode $episodeId.');
+    AnimejoyEpisodeDto? selectEpisode(List<AnimejoyEpisodeDto> episodes) {
+      final candidates = episodes.where(
+        (item) =>
+            item.number == number &&
+            (translation == null ||
+                _episodeTranslationKey(item) == translation),
+      );
+      return translation == null
+          ? candidates
+                    .where((item) => _episodeTranslationKey(item).isEmpty)
+                    .firstOrNull ??
+                candidates.firstOrNull
+          : candidates.firstOrNull;
     }
+
+    // Ask the preferred players before loading either fallback catalog.
+    var episode = selectEpisode(
+      await dataSource.episodes(
+        articleId,
+        includeKodik: false,
+        includeAlloha: false,
+      ),
+    );
     final streams = <OnlineStream>[];
     Object? firstError;
-    for (final url in episode.playerUrls) {
-      try {
-        final links = await dataSource.links(url);
-        streams.addAll(links.map(mapVideoLink));
-      } on Object catch (error) {
-        firstError ??= error;
-        developer.log(
-          'An AnimeJoy player gave no links for episode $episodeId.',
-          name: 'iris.online.animejoy',
-          error: error,
-        );
+    final attempted = <String>{};
+    Future<void> readPreferred(AnimejoyEpisodeDto? selected) async {
+      if (selected == null) return;
+      for (final url in selected.playerUrls) {
+        if (!attempted.add(url)) continue;
+        try {
+          final links = await dataSource.links(url);
+          streams.addAll(links.map(mapVideoLink));
+        } on Object catch (error) {
+          firstError ??= error;
+          developer.log(
+            'An AnimeJoy player gave no links for episode $episodeId.',
+            name: 'iris.online.animejoy',
+            error: error,
+          );
+        }
       }
     }
-    if (streams.isEmpty && firstError != null) throw firstError;
+
+    await readPreferred(episode);
+    if (streams.isEmpty) {
+      try {
+        episode = selectEpisode(
+          await dataSource.episodes(articleId, includeKodik: false),
+        );
+        await readPreferred(episode);
+        final fallback = episode?.alloha;
+        if (streams.isEmpty && fallback != null) {
+          final links = await dataSource.allohaLinks(
+            url: fallback.url,
+            videoId: fallback.videoId,
+          );
+          streams.addAll(links.map(mapVideoLink));
+        }
+      } on Object catch (error) {
+        firstError ??= error;
+      }
+    }
+    if (streams.isEmpty) {
+      try {
+        episode = selectEpisode(await dataSource.episodes(articleId));
+        await readPreferred(episode);
+        final fallback = episode?.kodik;
+        if (streams.isEmpty && fallback != null) {
+          try {
+            final links = await dataSource.kodikLinks(
+              url: fallback.url,
+              videoId: fallback.videoId,
+            );
+            streams.addAll(links.map(mapVideoLink));
+          } on Object catch (error) {
+            firstError ??= error;
+          }
+        }
+      } on Object catch (error) {
+        firstError ??= error;
+      }
+    }
+    if (episode == null && firstError == null) {
+      throw ResourceNotFoundException('No AnimeJoy episode $episodeId.');
+    }
+    if (streams.isEmpty && firstError != null) throw firstError!;
     // List.sort is not stable; preserve the preferred mirror at a tie.
     final ordered = streams.indexed.toList()
       ..sort((a, b) {
@@ -259,6 +313,9 @@ typedef _ArticleEpisodes = ({int id, List<AnimejoyEpisodeDto> episodes});
 
 String _translationKey(String name) =>
     name.trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
+
+String _episodeTranslationKey(AnimejoyEpisodeDto episode) =>
+    episode.translationKey ?? _translationKey(episode.translation);
 
 String? _decodeTranslation(String value) {
   try {

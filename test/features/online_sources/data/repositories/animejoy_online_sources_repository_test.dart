@@ -549,6 +549,58 @@ void main() {
       );
     },
   );
+
+  test('tries preferred mirrors, then Alloha, then Kodik', () async {
+    const primary = VideoLinkDto(
+      url: 'https://media.test/primary.m3u8',
+      quality: 720,
+      kind: VideoLinkKind.hls,
+    );
+    const alloha = VideoLinkDto(
+      url: 'http://127.0.0.1/alloha.m3u8',
+      quality: 1080,
+      kind: VideoLinkKind.hls,
+      subtitleUrl: 'http://127.0.0.1/full.vtt',
+    );
+    const kodik = VideoLinkDto(
+      url: 'https://media.test/kodik.m3u8',
+      quality: 720,
+      kind: VideoLinkKind.hls,
+    );
+    final source = _FakeAnimejoyDataSource(
+      playlists: {
+        10: [
+          const AnimejoyEpisodeDto(
+            number: 1,
+            title: '',
+            playerUrls: ['primary'],
+            alloha: (url: 'alloha', videoId: 12),
+            kodik: (url: 'kodik', videoId: '13'),
+          ),
+        ],
+      },
+      players: {
+        'primary': [primary],
+      },
+      allohaResult: [alloha],
+      kodikResult: [kodik],
+    );
+    final repo = _repository(source);
+    Future<List<OnlineStream>> resolve() => repo.resolveStreams(
+      provider: OnlineProvider.animejoy,
+      episodeId: '10:1',
+    );
+    expect((await resolve()).single.url, primary.url);
+    expect(source.fallbackCalls, isEmpty);
+    source.players['primary'] = [];
+    final fallback = (await resolve()).single;
+    expect(fallback.url, alloha.url);
+    expect(fallback.subtitleUrl, alloha.subtitleUrl);
+    expect(source.fallbackCalls, ['alloha']);
+    source.allohaError = StateError('unavailable');
+    expect((await resolve()).single.url, kodik.url);
+    expect(source.fallbackCalls, ['alloha', 'alloha', 'kodik']);
+  });
 }
 
 AnimejoyOnlineSourcesRepository _repository(AnimejoyDataSource source) =>
@@ -578,6 +630,8 @@ class _FakeAnimejoyDataSource extends AnimejoyDataSource {
     this.articleErrors = const {},
     this.playlistErrors = const {},
     this.linkErrors = const {},
+    this.allohaResult = const [],
+    this.kodikResult = const [],
   }) : playlists = playlists ?? {},
        super(dio: createVideoServerDio());
 
@@ -589,6 +643,10 @@ class _FakeAnimejoyDataSource extends AnimejoyDataSource {
   final Map<int, Object> articleErrors;
   final Map<int, Object> playlistErrors;
   final Map<String, Object> linkErrors;
+  final List<VideoLinkDto> allohaResult;
+  final List<VideoLinkDto> kodikResult;
+  Object? allohaError;
+  final fallbackCalls = <String>[];
   final searchCalls = <String>[];
   final articleCalls = <int>[];
   final playlistCalls = <int>[];
@@ -609,7 +667,11 @@ class _FakeAnimejoyDataSource extends AnimejoyDataSource {
   }
 
   @override
-  Future<List<AnimejoyEpisodeDto>> episodes(int articleId) async {
+  Future<List<AnimejoyEpisodeDto>> episodes(
+    int articleId, {
+    bool includeKodik = true,
+    bool includeAlloha = true,
+  }) async {
     playlistCalls.add(articleId);
     if (playlistErrors[articleId] case final error?) throw error;
     return playlists[articleId] ?? const [];
@@ -620,5 +682,24 @@ class _FakeAnimejoyDataSource extends AnimejoyDataSource {
     linkCalls.add(playerUrl);
     if (linkErrors[playerUrl] case final error?) throw error;
     return players[playerUrl] ?? const [];
+  }
+
+  @override
+  Future<List<VideoLinkDto>> allohaLinks({
+    required String url,
+    required int videoId,
+  }) async {
+    fallbackCalls.add('alloha');
+    if (allohaError case final error?) throw error;
+    return allohaResult;
+  }
+
+  @override
+  Future<List<VideoLinkDto>> kodikLinks({
+    required String url,
+    required String videoId,
+  }) async {
+    fallbackCalls.add('kodik');
+    return kodikResult;
   }
 }
