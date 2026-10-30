@@ -4,6 +4,8 @@ Notable changes to iris, newest first. The format follows [Keep a Changelog](htt
 
 ## [Unreleased]
 
+## [1.4.9] - 2026-10-31
+
 ### Добавлено
 
 - В AnimeJoy появились Alloha и Kodik для просмотра с субтитрами. Если для одного перевода доступны несколько плееров, сначала используются «Наш плеер» и AllVideo, затем Alloha и только после него Kodik.
@@ -243,7 +245,8 @@ First published release.
 - Update notice on Android and Windows when a newer release is published.
 - App icon.
 
-[Unreleased]: https://github.com/kstkarus/iris/compare/v1.4.8...HEAD
+[Unreleased]: https://github.com/kstkarus/iris/compare/v1.4.9...HEAD
+[1.4.9]: https://github.com/kstkarus/iris/compare/v1.4.8...v1.4.9
 [1.4.8]: https://github.com/kstkarus/iris/compare/v1.4.7...v1.4.8
 [1.4.7]: https://github.com/kstkarus/iris/compare/v1.4.6...v1.4.7
 [1.4.6]: https://github.com/kstkarus/iris/compare/v1.4.5...v1.4.6
