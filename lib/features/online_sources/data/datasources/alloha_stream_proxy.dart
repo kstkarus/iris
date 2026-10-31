@@ -6,6 +6,11 @@ import 'dart:math';
 import 'package:crypto/crypto.dart';
 import 'package:dio/dio.dart';
 
+// Some Alloha subtitle servers reject the desktop browser user agent.
+const allohaUserAgent =
+    'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 '
+    '(KHTML, like Gecko) Chrome/140.0.0.0 Mobile Safari/537.36';
+
 typedef AllohaSocketConnect =
     Future<WebSocket> Function(Uri uri, Map<String, dynamic> headers);
 
@@ -251,7 +256,7 @@ class _Session {
     );
     final ws = await connectAllohaSocket(connect, uri, {
       'Origin': player.origin,
-      'User-Agent': dio.options.headers['User-Agent'],
+      'User-Agent': allohaUserAgent,
     });
     if (_closed) {
       await ws.close();
@@ -335,6 +340,7 @@ class _Session {
           headers: {
             'Origin': player.origin,
             'Referer': player.toString(),
+            'User-Agent': allohaUserAgent,
             'Authorizations': 'Bearer $guard',
             'Accepts-Controls': _edge,
             'Range': ?range,
@@ -390,7 +396,11 @@ class _Session {
   }
 
   Future<void> serve(Uri uri, HttpRequest request) async {
-    final response = await _fetch(uri, range: request.headers.value('range'));
+    final isPlaylist = uri.path.toLowerCase().endsWith('.m3u8');
+    final response = await _fetch(
+      uri,
+      range: isPlaylist ? null : request.headers.value('range'),
+    );
     final status = response.statusCode ?? 502;
     request.response.statusCode = status;
     request.response.headers.set('Cache-Control', 'no-store');
@@ -398,11 +408,20 @@ class _Session {
       await response.data?.stream.drain<void>();
       return;
     }
-    for (final header in ['content-type', 'content-range', 'accept-ranges']) {
+    if (isPlaylist && status != HttpStatus.ok) {
+      await response.data!.stream.drain<void>();
+      request.response.statusCode = HttpStatus.badGateway;
+      return;
+    }
+    for (final header in [
+      'content-type',
+      if (!isPlaylist) 'content-range',
+      if (!isPlaylist) 'accept-ranges',
+    ]) {
       final value = response.headers.value(header);
       if (value != null) request.response.headers.set(header, value);
     }
-    if (uri.path.toLowerCase().endsWith('.m3u8')) {
+    if (isPlaylist) {
       final text = await _readText(response);
       if (!text.startsWith('#EXTM3U')) {
         throw const FormatException('Invalid Alloha playlist.');

@@ -163,6 +163,7 @@ class AllohaDataSource {
           headers: {
             'Origin': player.origin,
             'Referer': player.toString(),
+            'User-Agent': allohaUserAgent,
             'X-Requested-With': 'XMLHttpRequest',
             'Borth': '$nonce|${_viewportSignature(viewport)}',
           },
@@ -269,7 +270,9 @@ class AllohaDataSource {
     try {
       response = await _dio.getUri<String>(
         uri,
-        options: Options(headers: {'Referer': referer}),
+        options: Options(
+          headers: {'Referer': referer, 'User-Agent': allohaUserAgent},
+        ),
       );
     } on DioException {
       throw const NetworkRequestException('Unable to reach Alloha.');

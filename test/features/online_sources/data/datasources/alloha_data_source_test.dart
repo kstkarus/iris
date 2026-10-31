@@ -156,9 +156,11 @@ void main() {
       final mediaRequests = <RequestOptions>[];
       var failFirstSegment = true;
       var failSubtitle = false;
+      var partialPlaylist = false;
       final dio = createVideoServerDio()
         ..httpClientAdapter = FakeHttpAdapter((request) {
           if (request.uri.host == 'player.stravers.live') {
+            expect(request.headers['User-Agent'], contains('Mobile'));
             if (request.uri.path == '/build/app.test.js') {
               return FakeReply.text(200, "'$guard'");
             }
@@ -208,19 +210,32 @@ void main() {
             return FakeReply.text(200, page);
           }
           mediaRequests.add(request);
+          expect(request.headers['User-Agent'], contains('Mobile'));
           expect(request.headers['Authorizations'], 'Bearer $guard');
           expect(request.headers['Accepts-Controls'], 'edge');
           if (request.uri.host == 'badcdn.example') {
             return const FakeReply.text(403, '');
           }
           if (request.uri.path == '/video.m3u8') {
+            if (request.headers['Range'] != null || partialPlaylist) {
+              return const FakeReply.text(
+                206,
+                '#EXTM3U\n#EXT-X',
+                headers: {
+                  'content-range': ['bytes 0-13/69'],
+                },
+              );
+            }
             return const FakeReply.text(
               200,
               '#EXTM3U\n#EXT-X-MAP:URI="init.mp4"\n#EXTINF:4,\nsegment.ts\n#EXT-X-ENDLIST\n',
             );
           }
           if (request.uri.path == '/full.vtt') {
-            return failSubtitle
+            final mobileAgent = '${request.headers['User-Agent']}'.contains(
+              'Mobile',
+            );
+            return failSubtitle || !mobileAgent
                 ? const FakeReply.text(403, '')
                 : const FakeReply.text(200, 'WEBVTT\n\n');
           }
@@ -236,8 +251,10 @@ void main() {
             },
           );
         });
-      Future<WebSocket> connect(Uri _, Map<String, dynamic> _) =>
-          WebSocket.connect('ws://127.0.0.1:${socketServer.port}');
+      Future<WebSocket> connect(Uri _, Map<String, dynamic> headers) {
+        expect(headers['User-Agent'], contains('Mobile'));
+        return WebSocket.connect('ws://127.0.0.1:${socketServer.port}');
+      }
 
       final source = AllohaDataSource(dio: dio, connect: connect);
       final client = HttpClient();
@@ -250,10 +267,11 @@ void main() {
         await socketServer.close(force: true);
       });
       final links = await source.links(_player, videoId: 42);
+      expect(dio.options.headers['User-Agent'], contains('Windows'));
       expect(links.single.quality, 720);
       expect(starts.map((start) => start['track_id']), everyElement('6'));
       expect(starts, hasLength(2));
-      Future<({int status, String text})> fetch(
+      Future<({int status, String text, String? contentRange})> fetch(
         String url, {
         String? range,
       }) async {
@@ -263,6 +281,7 @@ void main() {
         return (
           status: response.statusCode,
           text: await utf8.decoder.bind(response).join(),
+          contentRange: response.headers.value('content-range'),
         );
       }
 
@@ -271,6 +290,14 @@ void main() {
       expect(mediaRequests.last.uri.path, '/full.vtt');
       final playlist = await fetch(links.single.url);
       expect(playlist.text, contains('#EXTM3U'));
+      final rangedPlaylist = await fetch(links.single.url, range: 'bytes=0-');
+      expect(rangedPlaylist.status, 200);
+      expect(rangedPlaylist.text, playlist.text);
+      expect(rangedPlaylist.contentRange, isNull);
+      expect(mediaRequests.last.headers['Range'], isNull);
+      partialPlaylist = true;
+      expect((await fetch(links.single.url)).status, 502);
+      partialPlaylist = false;
       final lines = playlist.text.split('\n');
       expect(lines[1], contains('URI="../'));
       final segment = await fetch(
@@ -279,6 +306,7 @@ void main() {
       );
       expect(segment.status, 206);
       expect(segment.text, 'segment');
+      expect(segment.contentRange, 'bytes 0-6/10');
       expect(mediaRequests.last.headers['Range'], 'bytes=0-6');
       expect(starts.length, 3);
       final reopened = await source.links(_player, videoId: 42);

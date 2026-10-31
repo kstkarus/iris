@@ -4,6 +4,10 @@ Notable changes to iris, newest first. The format follows [Keep a Changelog](htt
 
 ## [Unreleased]
 
+### Исправлено
+
+- Исправлена загрузка некоторых серий AnimeJoy через Alloha, когда сервер субтитров отклонял запрос приложения.
+
 ## [1.4.9] - 2026-10-31
 
 ### Добавлено
