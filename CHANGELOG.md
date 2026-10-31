@@ -4,6 +4,8 @@ Notable changes to iris, newest first. The format follows [Keep a Changelog](htt
 
 ## [Unreleased]
 
+## [1.4.10] - 2026-10-31
+
 ### Исправлено
 
 - Исправлена загрузка некоторых серий AnimeJoy через Alloha, когда сервер субтитров отклонял запрос приложения.
@@ -249,7 +251,8 @@ First published release.
 - Update notice on Android and Windows when a newer release is published.
 - App icon.
 
-[Unreleased]: https://github.com/kstkarus/iris/compare/v1.4.9...HEAD
+[Unreleased]: https://github.com/kstkarus/iris/compare/v1.4.10...HEAD
+[1.4.10]: https://github.com/kstkarus/iris/compare/v1.4.9...v1.4.10
 [1.4.9]: https://github.com/kstkarus/iris/compare/v1.4.8...v1.4.9
 [1.4.8]: https://github.com/kstkarus/iris/compare/v1.4.7...v1.4.8
 [1.4.7]: https://github.com/kstkarus/iris/compare/v1.4.6...v1.4.7
