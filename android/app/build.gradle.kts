@@ -21,7 +21,8 @@ android {
 
     defaultConfig {
         applicationId = "com.kstkarus.iris.iris"
-        minSdk = flutter.minSdkVersion
+        // The bundled mpv uses Vulkan 1.1 symbols provided from Android 9.
+        minSdk = 28
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 
@@ -245,6 +246,12 @@ class AllohaDataSource {
       );
     } on DioException {
       throw const NetworkRequestException('Unable to reach Alloha.');
+    } on FormatException catch (error) {
+      throw RemoteResponseException(
+        'Alloha video session is unavailable: ${error.message}',
+      );
+    } on TimeoutException {
+      throw const RemoteResponseException('Alloha video session timed out.');
     } on Object {
       throw const RemoteResponseException(
         'Alloha video session is unavailable.',

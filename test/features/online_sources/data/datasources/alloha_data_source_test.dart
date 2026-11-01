@@ -100,6 +100,34 @@ void main() {
     );
   });
 
+  test('sends only the Alloha user agent in the WebSocket handshake', () async {
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    final receivedAgent = Completer<String?>();
+    final sockets = <WebSocket>[];
+    server.listen((request) async {
+      receivedAgent.complete(request.headers.value('user-agent'));
+      final socket = await WebSocketTransformer.upgrade(request);
+      sockets.add(socket);
+      socket.listen(socket.add);
+    });
+    addTearDown(() async {
+      for (final socket in sockets) {
+        await socket.close();
+      }
+      await server.close(force: true);
+    });
+    final socket = await connectAllohaSocket(
+      null,
+      Uri.parse('ws://127.0.0.1:${server.port}/'),
+      {'User-Agent': allohaUserAgent},
+    );
+    addTearDown(socket.close);
+    expect(await receivedAgent.future, allohaUserAgent);
+    final echoed = socket.first;
+    socket.add('ping');
+    expect(await echoed, 'ping');
+  });
+
   test('times out a stalled socket and closes a late connection', () {
     fakeAsync((clock) {
       final pending = Completer<WebSocket>();
@@ -160,7 +188,7 @@ void main() {
       final dio = createVideoServerDio()
         ..httpClientAdapter = FakeHttpAdapter((request) {
           if (request.uri.host == 'player.stravers.live') {
-            expect(request.headers['User-Agent'], contains('Mobile'));
+            expect(request.headers['User-Agent'], allohaUserAgent);
             if (request.uri.path == '/build/app.test.js') {
               return FakeReply.text(200, "'$guard'");
             }
@@ -210,7 +238,7 @@ void main() {
             return FakeReply.text(200, page);
           }
           mediaRequests.add(request);
-          expect(request.headers['User-Agent'], contains('Mobile'));
+          expect(request.headers['User-Agent'], allohaUserAgent);
           expect(request.headers['Authorizations'], 'Bearer $guard');
           expect(request.headers['Accepts-Controls'], 'edge');
           if (request.uri.host == 'badcdn.example') {
@@ -232,10 +260,7 @@ void main() {
             );
           }
           if (request.uri.path == '/full.vtt') {
-            final mobileAgent = '${request.headers['User-Agent']}'.contains(
-              'Mobile',
-            );
-            return failSubtitle || !mobileAgent
+            return failSubtitle
                 ? const FakeReply.text(403, '')
                 : const FakeReply.text(200, 'WEBVTT\n\n');
           }
@@ -252,7 +277,7 @@ void main() {
           );
         });
       Future<WebSocket> connect(Uri _, Map<String, dynamic> headers) {
-        expect(headers['User-Agent'], contains('Mobile'));
+        expect(headers['User-Agent'], allohaUserAgent);
         return WebSocket.connect('ws://127.0.0.1:${socketServer.port}');
       }
 
@@ -270,6 +295,7 @@ void main() {
       expect(dio.options.headers['User-Agent'], contains('Windows'));
       expect(links.single.quality, 720);
       expect(starts.map((start) => start['track_id']), everyElement('6'));
+      expect(starts.map((start) => start['subtitle']), everyElement(-1));
       expect(starts, hasLength(2));
       Future<({int status, String text, String? contentRange})> fetch(
         String url, {
@@ -314,7 +340,13 @@ void main() {
       failSubtitle = true;
       await expectLater(
         source.links(_player, videoId: 42),
-        throwsA(isA<RemoteResponseException>()),
+        throwsA(
+          isA<RemoteResponseException>().having(
+            (error) => error.message,
+            'message',
+            contains('Alloha subtitle refused (HTTP 403)'),
+          ),
+        ),
       );
       final local = Uri.parse(links.single.url);
       final missing = local.replace(

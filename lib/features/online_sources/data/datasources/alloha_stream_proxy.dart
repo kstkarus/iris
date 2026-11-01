@@ -6,36 +6,47 @@ import 'dart:math';
 import 'package:crypto/crypto.dart';
 import 'package:dio/dio.dart';
 
-// Some Alloha subtitle servers reject the desktop browser user agent.
+// Keep the player, WebSocket and signed media requests on the same browser profile.
 const allohaUserAgent =
-    'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 '
-    '(KHTML, like Gecko) Chrome/140.0.0.0 Mobile Safari/537.36';
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
+    '(KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36';
 
 typedef AllohaSocketConnect =
     Future<WebSocket> Function(Uri uri, Map<String, dynamic> headers);
 
 Future<WebSocket> connectAllohaSocket(
-  AllohaSocketConnect connect,
+  AllohaSocketConnect? connect,
   Uri uri,
   Map<String, dynamic> headers,
 ) async {
-  final pending = connect(uri, headers);
+  final client = connect == null ? (HttpClient()..userAgent = null) : null;
   try {
-    return await pending.timeout(const Duration(seconds: 15));
-  } on TimeoutException {
-    unawaited(
-      pending.then<void>((socket) async {
-        try {
-          await socket.close().timeout(
-            const Duration(seconds: 2),
-            onTimeout: () {},
+    final pending = connect != null
+        ? connect(uri, headers)
+        : WebSocket.connect(
+            uri.toString(),
+            headers: headers,
+            customClient: client,
           );
-        } on Object {
-          // The late socket may already be closed.
-        }
-      }, onError: (Object _, StackTrace _) {}),
-    );
-    rethrow;
+    try {
+      return await pending.timeout(const Duration(seconds: 15));
+    } on TimeoutException {
+      unawaited(
+        pending.then<void>((socket) async {
+          try {
+            await socket.close().timeout(
+              const Duration(seconds: 2),
+              onTimeout: () {},
+            );
+          } on Object {
+            // The late socket may already be closed.
+          }
+        }, onError: (Object _, StackTrace _) {}),
+      );
+      rethrow;
+    }
+  } finally {
+    client?.close();
   }
 }
 
@@ -43,13 +54,10 @@ Future<WebSocket> connectAllohaSocket(
 class AllohaStreamProxy {
   AllohaStreamProxy({required Dio dio, AllohaSocketConnect? connect})
     : _dio = dio,
-      _connect =
-          connect ??
-          ((uri, headers) =>
-              WebSocket.connect(uri.toString(), headers: headers));
+      _connect = connect;
 
   final Dio _dio;
-  final AllohaSocketConnect _connect;
+  final AllohaSocketConnect? _connect;
   final _sessions = <String, _Session>{};
   Future<HttpServer>? _server;
 
@@ -195,7 +203,7 @@ class _Session {
   });
 
   final Dio dio;
-  final AllohaSocketConnect connect;
+  final AllohaSocketConnect? connect;
   final Uri player;
   final Uri socketUri;
   final String socketId;
@@ -304,8 +312,8 @@ class _Session {
         'resolution': '720',
         'track_id': audioId,
         'speed': 1,
-        'subtitle': null,
-        'ts': now,
+        'subtitle': -1,
+        'ts': DateTime.now().millisecondsSinceEpoch,
       }),
     );
     await ready.future.timeout(const Duration(seconds: 15));
@@ -364,7 +372,9 @@ class _Session {
     final response = await _fetch(uri);
     if (response.statusCode != 200) {
       await response.data?.stream.drain<void>();
-      throw const FormatException('Alloha playlist refused.');
+      throw FormatException(
+        'Alloha playlist refused (HTTP ${response.statusCode}).',
+      );
     }
     final text = await _readText(response);
     if (!text.startsWith('#EXTM3U')) {
@@ -376,7 +386,9 @@ class _Session {
     final response = await _fetch(uri);
     if (response.statusCode != 200) {
       await response.data?.stream.drain<void>();
-      throw const FormatException('Alloha subtitle refused.');
+      throw FormatException(
+        'Alloha subtitle refused (HTTP ${response.statusCode}).',
+      );
     }
     final text = await _readText(response);
     if (!text.trimLeft().startsWith('WEBVTT')) {

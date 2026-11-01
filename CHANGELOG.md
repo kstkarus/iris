@@ -4,6 +4,23 @@ Notable changes to iris, newest first. The format follows [Keep a Changelog](htt
 
 ## [Unreleased]
 
+## [1.4.11] - 2026-11-01
+
+### Изменено
+
+- Для Iris теперь нужен Android 9 или новее.
+- Обновлён движок воспроизведения mpv/FFmpeg на Android, iOS и Windows. В новых сборках FFmpeg исправлены ошибки при продолжении HLS-видео с сохранённой позиции.
+
+### Исправлено
+
+- При подключении к Alloha Dart больше не добавляет свою строку к браузерному User-Agent. Страница плеера, WebSocket, видео и субтитры используют один и тот же User-Agent.
+- В сообщении о старте серии для Alloha исправлены время отправки и начальное значение субтитров.
+- В журнале Alloha теперь видны причина отказа сессии и HTTP-коды ошибок видео и субтитров.
+
+### Известные ограничения
+
+- Alloha иногда завершает сессию с кодом 4005 или отклоняет запрос субтитров с ошибкой 403.
+
 ## [1.4.10] - 2026-10-31
 
 ### Исправлено
@@ -251,7 +268,8 @@ First published release.
 - Update notice on Android and Windows when a newer release is published.
 - App icon.
 
-[Unreleased]: https://github.com/kstkarus/iris/compare/v1.4.10...HEAD
+[Unreleased]: https://github.com/kstkarus/iris/compare/v1.4.11...HEAD
+[1.4.11]: https://github.com/kstkarus/iris/compare/v1.4.10...v1.4.11
 [1.4.10]: https://github.com/kstkarus/iris/compare/v1.4.9...v1.4.10
 [1.4.9]: https://github.com/kstkarus/iris/compare/v1.4.8...v1.4.9
 [1.4.8]: https://github.com/kstkarus/iris/compare/v1.4.7...v1.4.8

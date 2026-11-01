@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 1.4.10+1
+version: 1.4.11+1
 
 environment:
   sdk: ^3.11.4
@@ -60,6 +60,15 @@ dependencies:
   file_selector: ^1.1.0
   crypto: ^3.0.7
   html: ^0.15.7
+
+dependency_overrides:
+  # Pinned mpv/FFmpeg builds; see each package's IRIS_PATCHES.md.
+  media_kit_libs_android_video:
+    path: packages/media_kit_libs_android_video
+  media_kit_libs_ios_video:
+    path: packages/media_kit_libs_ios_video
+  media_kit_libs_windows_video:
+    path: packages/media_kit_libs_windows_video
 
 dev_dependencies:
   flutter_test:
