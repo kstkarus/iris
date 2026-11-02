@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:math';
 
+import 'package:crypto/crypto.dart';
 import 'package:dio/dio.dart';
 import 'package:html/parser.dart' show parse;
 
@@ -143,11 +143,8 @@ class AllohaDataSource {
         'Alloha player guard is unavailable.',
       );
     }
-    final random = Random.secure();
-    final nonce = List.generate(
-      32,
-      (_) => random.nextInt(256).toRadixString(16).padLeft(2, '0'),
-    ).join();
+    final guard = guards.single.group(1)!;
+    final fingerprint = sha256.convert(utf8.encode('fingerprint-alloha'));
     final Response<String> response;
     try {
       response = await _dio.postUri<String>(
@@ -166,7 +163,7 @@ class AllohaDataSource {
             'Referer': player.toString(),
             'User-Agent': allohaUserAgent,
             'X-Requested-With': 'XMLHttpRequest',
-            'Borth': '$nonce|${_viewportSignature(viewport)}',
+            'Borth': '$fingerprint|${_viewportSignature(viewport)}',
           },
         ),
       );
@@ -213,11 +210,21 @@ class AllohaDataSource {
         fullSubtitles.where((track) => track['default'] == true).firstOrNull ??
         fullSubtitles.firstOrNull;
     final qualities = <int, List<Uri>>{};
+    final reserve = jsonMap(source?['reserve']);
     for (final entry in jsonMap(source?['quality']).entries) {
       final quality = int.tryParse('${entry.key}');
-      final mirrors = jsonString(
-        entry.value,
-      ).split(' or ').map(Uri.tryParse).whereType<Uri>().toList();
+      final backup = jsonString(reserve[entry.key]);
+      final primaryMirrors = jsonString(entry.value)
+          .split(' or ')
+          .where((value) => value.trim().isNotEmpty)
+          .map((value) => Uri.tryParse(value.trim()))
+          .whereType<Uri>();
+      final backupMirrors = backup
+          .split(' or ')
+          .map((value) => Uri.tryParse(value.trim()))
+          .whereType<Uri>()
+          .where(isAllowedAllohaMediaUri);
+      final mirrors = {...primaryMirrors, ...backupMirrors}.toList();
       if (quality != null && quality > 0 && mirrors.isNotEmpty) {
         qualities[quality] = mirrors;
       }
@@ -239,10 +246,17 @@ class AllohaDataSource {
         player: player,
         socket: socket,
         socketId: jsonString(data['pnk']),
-        guard: guards.single.group(1)!,
+        guard: guard,
         audioId: audioId,
         qualities: qualities,
-        subtitle: subtitleUri,
+        subtitle: subtitleUri.replace(
+          query: [
+            if (subtitleUri.hasQuery && subtitleUri.query.isNotEmpty)
+              subtitleUri.query,
+            't=${Uri.encodeQueryComponent(guard)}',
+            'b=$fingerprint',
+          ].join('&'),
+        ),
       );
     } on DioException {
       throw const NetworkRequestException('Unable to reach Alloha.');

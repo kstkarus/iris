@@ -8,8 +8,8 @@ import 'package:dio/dio.dart';
 
 // Keep the player, WebSocket and signed media requests on the same browser profile.
 const allohaUserAgent =
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
-    '(KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36';
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:159.0) '
+    'Gecko/20100101 Firefox/159.0';
 
 typedef AllohaSocketConnect =
     Future<WebSocket> Function(Uri uri, Map<String, dynamic> headers);
@@ -136,7 +136,11 @@ class AllohaStreamProxy {
                 .where((uri) => uri.host == playable!.host)
                 .firstOrNull ??
             entry.value.firstOrNull;
-        if (mirror != null) links[entry.key] = session.add(mirror).toString();
+        if (mirror != null) {
+          links[entry.key] = session
+              .add(mirror, mirrors: entry.value)
+              .toString();
+        }
       }
       _sessions[id] = session;
       if (_sessions.length > 32) {
@@ -213,6 +217,10 @@ class _Session {
   final Uri localBase;
   final resources = <String, Uri>{};
   final _resourceIds = <Uri, String>{};
+  final _alternatives = <Uri, Set<Uri>>{};
+  final _preferredMirrors = <Uri, Uri>{};
+  final _playlistParents =
+      <Uri, Set<({Uri playlist, Uri source, String key})>>{};
   DateTime lastUsed = DateTime.now();
   WebSocket? _socket;
   String? _edge;
@@ -220,12 +228,21 @@ class _Session {
   Timer? _idle;
   bool _closed = false;
 
-  Uri add(Uri uri) {
+  Uri add(Uri uri, {List<Uri> mirrors = const []}) {
     if (!_allowed(uri, allowed)) {
       throw const FormatException('Invalid media URL.');
     }
     if (resources.length >= 10000) {
       throw const FormatException('Playlist is too large.');
+    }
+    if (mirrors.isNotEmpty) {
+      final alternatives = _alternatives.putIfAbsent(uri, () => <Uri>{});
+      for (final mirror in mirrors) {
+        if (!_allowed(mirror, allowed)) {
+          throw const FormatException('Invalid media URL.');
+        }
+        if (mirror != uri) alternatives.add(mirror);
+      }
     }
     final id = _resourceIds.putIfAbsent(uri, () {
       final value = '${resources.length}';
@@ -407,22 +424,110 @@ class _Session {
     return utf8.decode(bytes);
   }
 
-  Future<void> serve(Uri uri, HttpRequest request) async {
-    final isPlaylist = uri.path.toLowerCase().endsWith('.m3u8');
-    final response = await _fetch(
+  Stream<Uri> _playlistCandidates(Uri uri, [Set<Uri>? ancestors]) async* {
+    final visited = {...?ancestors};
+    if (!visited.add(uri)) return;
+    final emitted = <Uri>{};
+    for (final candidate in <Uri>{
+      ?_preferredMirrors[uri],
       uri,
-      range: isPlaylist ? null : request.headers.value('range'),
-    );
-    final status = response.statusCode ?? 502;
-    request.response.statusCode = status;
+      ...?_alternatives[uri],
+    }) {
+      if (emitted.add(candidate)) yield candidate;
+    }
+    for (final parent in _playlistParents[uri]?.toList() ?? []) {
+      await for (final candidate in _playlistCandidates(
+        parent.playlist,
+        visited,
+      )) {
+        if (candidate == parent.source) continue;
+        final child = await _matchingPlaylist(candidate, parent.key);
+        if (child == null || !emitted.add(child)) continue;
+        _alternatives.putIfAbsent(uri, () => <Uri>{}).add(child);
+        yield child;
+      }
+    }
+  }
+
+  Future<Uri?> _matchingPlaylist(Uri parent, String key) async {
+    var receivedResponse = false;
+    try {
+      final response = await _fetch(parent);
+      receivedResponse = true;
+      if (response.statusCode != HttpStatus.ok || response.data == null) {
+        await response.data?.stream.drain<void>();
+        return null;
+      }
+      final text = await _readText(response);
+      if (!text.startsWith('#EXTM3U')) return null;
+      final matches = <Uri>[];
+      _mapPlaylist(text, (reference, candidateKey) {
+        if (candidateKey == key) {
+          final child = _resolve(parent, reference);
+          if (_isPlaylist(child)) matches.add(child);
+        }
+        return reference;
+      });
+      if (matches.length == 1 && _allowed(matches.single, allowed)) {
+        return matches.single;
+      }
+    } on Exception {
+      if (!receivedResponse && _edge == null) rethrow;
+    }
+    return null;
+  }
+
+  Future<void> serve(Uri uri, HttpRequest request) async {
+    final isPlaylist = _isPlaylist(uri);
+    final candidates = isPlaylist
+        ? _playlistCandidates(uri)
+        : Stream.value(uri);
+    Response<ResponseBody>? response;
+    var resolvedUri = uri;
+    String? playlistText;
+    int? firstFailureStatus;
+    await for (final candidate in candidates) {
+      resolvedUri = candidate;
+      var receivedResponse = false;
+      try {
+        response = await _fetch(
+          resolvedUri,
+          range: isPlaylist ? null : request.headers.value('range'),
+        );
+        receivedResponse = true;
+        if (!isPlaylist) break;
+        if (response.statusCode == HttpStatus.ok && response.data != null) {
+          final text = await _readText(response);
+          if (text.startsWith('#EXTM3U')) {
+            playlistText = text;
+            if (resolvedUri == uri) {
+              _preferredMirrors.remove(uri);
+            } else {
+              _preferredMirrors[uri] = resolvedUri;
+            }
+            break;
+          }
+          firstFailureStatus ??= HttpStatus.badGateway;
+          continue;
+        }
+        final status = response.statusCode ?? HttpStatus.badGateway;
+        firstFailureStatus ??= status >= 200 && status < 300
+            ? HttpStatus.badGateway
+            : status;
+        await response.data?.stream.drain<void>();
+      } on Exception {
+        if (!receivedResponse && _edge == null) rethrow;
+      }
+    }
     request.response.headers.set('Cache-Control', 'no-store');
-    if (status < 200 || status >= 300 || response.data == null) {
-      await response.data?.stream.drain<void>();
+    if (response == null || (isPlaylist && playlistText == null)) {
+      request.response.statusCode = firstFailureStatus ?? HttpStatus.badGateway;
       return;
     }
-    if (isPlaylist && status != HttpStatus.ok) {
-      await response.data!.stream.drain<void>();
-      request.response.statusCode = HttpStatus.badGateway;
+    final status = response.statusCode ?? 502;
+    request.response.statusCode = status;
+    if (status < 200 || status >= 300 || response.data == null) {
+      await response.data?.stream.drain<void>();
       return;
     }
     for (final header in [
@@ -434,22 +539,10 @@ class _Session {
       if (value != null) request.response.headers.set(header, value);
     }
     if (isPlaylist) {
-      final text = await _readText(response);
-      if (!text.startsWith('#EXTM3U')) {
-        throw const FormatException('Invalid Alloha playlist.');
-      }
-      final lines = text
-          .split('\n')
-          .map((line) {
-            final trimmed = line.trim();
-            if (trimmed.isEmpty) return line;
-            if (!trimmed.startsWith('#')) return _rewrite(uri, trimmed);
-            return line.replaceAllMapped(
-              RegExp(r'URI="([^"]+)"'),
-              (match) => 'URI="${_rewrite(uri, match.group(1)!)}"',
-            );
-          })
-          .join('\n');
+      final lines = _mapPlaylist(
+        playlistText!,
+        (reference, key) => _rewrite(uri, resolvedUri, reference, key),
+      );
       request.response.headers.contentType = ContentType(
         'application',
         'vnd.apple.mpegurl',
@@ -461,8 +554,13 @@ class _Session {
     }
   }
 
-  String _rewrite(Uri base, String reference) {
-    final local = add(_resolve(base, reference));
+  String _rewrite(Uri playlist, Uri base, String reference, String key) {
+    final child = _resolve(base, reference);
+    final local = add(child);
+    if (_isPlaylist(child)) {
+      final parents = _playlistParents.putIfAbsent(child, () => {});
+      parents.add((playlist: playlist, source: base, key: key));
+    }
     final digest = sha256.convert(utf8.encode(reference)).toString();
     return '../${local.pathSegments[1]}/$digest-${Uri.encodeComponent(local.pathSegments.last)}';
   }
@@ -474,6 +572,56 @@ class _Session {
   }
 }
 
+bool _isPlaylist(Uri uri) => uri.path.toLowerCase().endsWith('.m3u8');
+
+String _mapPlaylist(
+  String text,
+  String Function(String reference, String key) map,
+) {
+  final uriAttribute = RegExp(r'URI="([^"]+)"');
+  String? streamInfo;
+  return text
+      .split('\n')
+      .map((line) {
+        final trimmed = line.trim();
+        if (trimmed.isEmpty) return line;
+        if (!trimmed.startsWith('#')) {
+          final key = 'stream:${streamInfo ?? ''}';
+          streamInfo = null;
+          return map(trimmed, key);
+        }
+        if (trimmed.startsWith('#EXT-X-STREAM-INF:')) {
+          streamInfo = _playlistTagKey(trimmed);
+        }
+        if (!uriAttribute.hasMatch(line)) return line;
+        final key = 'tag:${_playlistTagKey(trimmed)}';
+        return line.replaceAllMapped(
+          uriAttribute,
+          (match) => 'URI="${map(match.group(1)!, key)}"',
+        );
+      })
+      .join('\n');
+}
+
+String _playlistTagKey(String tag) {
+  final colon = tag.indexOf(':');
+  if (colon < 0) return tag;
+  final attributes = <String, String>{};
+  final pattern = RegExp(r'([A-Z0-9-]+)=("[^"]*"|[^,]*)');
+  for (final match in pattern.allMatches(tag.substring(colon + 1))) {
+    attributes[match.group(1)!] = match.group(2)!;
+  }
+  attributes.remove('URI');
+  // The same resolution can have different bitrates on different mirrors.
+  if (tag.startsWith('#EXT-X-STREAM-INF:') &&
+      attributes.containsKey('RESOLUTION')) {
+    attributes.remove('BANDWIDTH');
+    attributes.remove('AVERAGE-BANDWIDTH');
+  }
+  final names = attributes.keys.toList()..sort();
+  return '${tag.substring(0, colon)}:${names.map((name) => '$name=${attributes[name]}').join(',')}';
+}
+
 Uri _resolve(Uri base, String reference) {
   final parsed = Uri.tryParse(reference);
   if (reference.startsWith('//')) return Uri.parse('${base.scheme}:$reference');
@@ -483,6 +631,9 @@ Uri _resolve(Uri base, String reference) {
   if (parsed != null && !parsed.hasScheme) return base.resolveUri(parsed);
   return base.resolve('./$reference');
 }
+
+bool isAllowedAllohaMediaUri(Uri uri) =>
+    _allowed(uri, {uri.host.toLowerCase()});
 
 bool _allowed(Uri uri, Set<String> hosts) {
   final host = uri.host.toLowerCase();

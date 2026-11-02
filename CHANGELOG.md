@@ -4,6 +4,12 @@ Notable changes to iris, newest first. The format follows [Keep a Changelog](htt
 
 ## [Unreleased]
 
+## [1.4.12] - 2026-11-02
+
+### Изменено
+
+- Улучшена загрузка некоторых видео на AnimeJoy.
+
 ## [1.4.11] - 2026-11-01
 
 ### Изменено
@@ -268,7 +274,8 @@ First published release.
 - Update notice on Android and Windows when a newer release is published.
 - App icon.
 
-[Unreleased]: https://github.com/kstkarus/iris/compare/v1.4.11...HEAD
+[Unreleased]: https://github.com/kstkarus/iris/compare/v1.4.12...HEAD
+[1.4.12]: https://github.com/kstkarus/iris/compare/v1.4.11...v1.4.12
 [1.4.11]: https://github.com/kstkarus/iris/compare/v1.4.10...v1.4.11
 [1.4.10]: https://github.com/kstkarus/iris/compare/v1.4.9...v1.4.10
 [1.4.9]: https://github.com/kstkarus/iris/compare/v1.4.8...v1.4.9
