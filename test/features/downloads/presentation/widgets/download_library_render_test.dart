@@ -46,13 +46,13 @@ const _desktop = Size(1440, 900);
 const _mb = 1024 * 1024;
 
 Future<void> _loadFonts() async {
-  final mono = FontLoader('Geist Mono')
-    ..addFont(rootBundle.load('assets/fonts/GeistMono-Regular.ttf'))
-    ..addFont(rootBundle.load('assets/fonts/GeistMono-Medium.ttf'))
-    ..addFont(rootBundle.load('assets/fonts/GeistMono-SemiBold.ttf'));
-  final sans = FontLoader('Geist')
-    ..addFont(rootBundle.load('assets/fonts/Geist-Regular.ttf'))
-    ..addFont(rootBundle.load('assets/fonts/Geist-Medium.ttf'));
+  final mono = FontLoader('Medeo Mono')
+    ..addFont(rootBundle.load('assets/fonts/MedeoMono-Regular.ttf'))
+    ..addFont(rootBundle.load('assets/fonts/MedeoMono-Medium.ttf'))
+    ..addFont(rootBundle.load('assets/fonts/MedeoMono-SemiBold.ttf'));
+  final sans = FontLoader('Medeo Sans')
+    ..addFont(rootBundle.load('assets/fonts/MedeoSans-Regular.ttf'))
+    ..addFont(rootBundle.load('assets/fonts/MedeoSans-Medium.ttf'));
   await Future.wait([mono.load(), sans.load()]);
 }
 

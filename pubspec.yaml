@@ -98,21 +98,27 @@ flutter:
   # assets:
   assets:
     - assets/fonts/NotoSansCJKjp-Regular.otf
-    - assets/fonts/Geist-OFL.txt
+    - assets/fonts/Medeo-OFL.txt
 
   fonts:
-    - family: Geist Mono
+    - family: Medeo Mono
       fonts:
-        - asset: assets/fonts/GeistMono-Regular.ttf
-        - asset: assets/fonts/GeistMono-Medium.ttf
+        - asset: assets/fonts/MedeoMono-Regular.ttf
+        - asset: assets/fonts/MedeoMono-Medium.ttf
           weight: 500
-        - asset: assets/fonts/GeistMono-SemiBold.ttf
+        - asset: assets/fonts/MedeoMono-SemiBold.ttf
           weight: 600
-    - family: Geist
+    - family: Medeo Sans
       fonts:
-        - asset: assets/fonts/Geist-Regular.ttf
-        - asset: assets/fonts/Geist-Medium.ttf
+        - asset: assets/fonts/MedeoSans-Regular.ttf
+        - asset: assets/fonts/MedeoSans-Medium.ttf
           weight: 500
+    - family: Medeo Pixel Circle
+      fonts:
+        - asset: assets/fonts/MedeoPixel-Circle.ttf
+    - family: Medeo Pixel Grid
+      fonts:
+        - asset: assets/fonts/MedeoPixel-Grid.ttf
     # Also libass's subtitle font; the same file, bundled once.
     - family: Noto Sans CJK JP
       fonts:

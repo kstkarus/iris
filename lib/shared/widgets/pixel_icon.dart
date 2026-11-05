@@ -26,6 +26,24 @@ class PixelGlyph {
     '...#####...',
   ]);
 
+  /// Shikimori's mark; a finer grid preserves its curved strokes.
+  static const shikimori = PixelGlyph._([
+    '.......#######',
+    '.....#########',
+    '....##########',
+    '...######....#',
+    '...###........',
+    '...###........',
+    '...#######....',
+    '....#######...',
+    '.........###..',
+    '.#........##..',
+    '##......####..',
+    '############..',
+    '###########...',
+    '.########.....',
+  ]);
+
   static const arrowLeft = PixelGlyph._([
     '...#...',
     '..#....',
@@ -125,6 +143,26 @@ class PixelGlyph {
     '.###...',
     '..#....',
     '.......',
+  ]);
+
+  static const markEmpty = PixelGlyph._([
+    '..###..',
+    '.#...#.',
+    '#.....#',
+    '#.....#',
+    '#.....#',
+    '.#...#.',
+    '..###..',
+  ]);
+
+  static const markWarning = PixelGlyph._([
+    '..###..',
+    '.#####.',
+    '###.###',
+    '###.###',
+    '#######',
+    '.##.##.',
+    '..###..',
   ]);
 
   /// Centred by its bounds: a triangle looks heavier at its flat side, so

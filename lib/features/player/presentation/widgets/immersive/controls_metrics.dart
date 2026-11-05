@@ -14,11 +14,8 @@ class _ControlsMetrics {
     required this.barButton,
     required this.barGlyph,
     required this.barButtonInset,
-    required this.seekButton,
-    required this.seekFigure,
     required this.playBox,
     required this.playGlyph,
-    required this.centerGap,
     required this.touch,
   });
 
@@ -32,11 +29,8 @@ class _ControlsMetrics {
     barButton: Size(44, 40),
     barGlyph: 24,
     barButtonInset: 14,
-    seekButton: 60,
-    seekFigure: 22,
     playBox: 96,
     playGlyph: 42,
-    centerGap: 48,
     touch: false,
   );
 
@@ -50,11 +44,8 @@ class _ControlsMetrics {
     barButton: Size(48, 48),
     barGlyph: 18,
     barButtonInset: 15,
-    seekButton: 56,
-    seekFigure: 18,
     playBox: 64,
     playGlyph: 28,
-    centerGap: 40,
     touch: true,
   );
 
@@ -84,15 +75,8 @@ class _ControlsMetrics {
 
   /// The same for the last bar button and the offers above it.
   final double barButtonInset;
-  final double seekButton;
-
-  /// The "−10" / "+10" font size.
-  final double seekFigure;
   final double playBox;
   final double playGlyph;
-
-  /// Between play and the ±10 s buttons.
-  final double centerGap;
 
   /// Sized for a finger: titles at most `headlineSmall`, no volume and no
   /// full-screen button, the lock at the top right.

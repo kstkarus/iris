@@ -25,6 +25,7 @@ class ContinueWatchingRow extends StatelessWidget {
   const ContinueWatchingRow({
     required this.items,
     required this.onOpen,
+    required this.onOpenAnime,
     required this.onRemove,
     this.posters = const {},
     super.key,
@@ -34,6 +35,7 @@ class ContinueWatchingRow extends StatelessWidget {
   final List<WatchProgress> items;
   final Map<String, String> posters;
   final ValueChanged<WatchProgress> onOpen;
+  final ValueChanged<WatchProgress> onOpenAnime;
   final ValueChanged<WatchProgress> onRemove;
 
   @override
@@ -120,6 +122,11 @@ class ContinueWatchingRow extends StatelessWidget {
                       constraints: const BoxConstraints(minWidth: 160),
                       icon: const PixelIcon(PixelGlyph.more, size: 16),
                       itemBuilder: (_) => [
+                        if (progress.hasAnime)
+                          PopupMenuItem(
+                            onTap: () => onOpenAnime(progress),
+                            child: Text(l10n.downloadOpenAnime),
+                          ),
                         PopupMenuItem(
                           onTap: () => onRemove(progress),
                           child: Text(l10n.continueWatchingRemove),

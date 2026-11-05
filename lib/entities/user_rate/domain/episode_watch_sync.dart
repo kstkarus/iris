@@ -35,7 +35,7 @@ class EpisodeSyncState {
 
 /// A durable outbox for watched episodes, scoped to the signed-in account.
 /// Writes absolute counts, so a lost response cannot count an episode twice.
-class EpisodeWatchSync implements EpisodeMarker {
+class EpisodeWatchSync implements EpisodeMarker, EpisodeMarkSync {
   EpisodeWatchSync({
     required EpisodeSyncRepository storage,
     required UserRateRepository rates,
@@ -56,6 +56,7 @@ class EpisodeWatchSync implements EpisodeMarker {
   final _storageQueue = SerialQueue();
   final _networkQueue = SerialQueue();
   final _changes = StreamController<EpisodeSyncState>.broadcast();
+  final _markUpdates = StreamController<EpisodeMarkUpdate>.broadcast();
   final _retryAt = <String, DateTime>{};
   final _attempts = <String, int>{};
   List<EpisodeSyncEntry> _entries;
@@ -73,6 +74,28 @@ class EpisodeWatchSync implements EpisodeMarker {
 
   EpisodeSyncState get state => _state;
   Stream<EpisodeSyncState> get changes => _changes.stream;
+  @override
+  Stream<EpisodeMarkUpdate> get markUpdates => _markUpdates.stream;
+
+  @override
+  List<EpisodeMarkUpdate> pendingMarks({
+    required String userId,
+    required String animeId,
+  }) {
+    final entry = _find(userId, animeId);
+    if (entry == null) return const [];
+    return [
+      for (final episode in entry.episodes)
+        EpisodeMarkUpdate(
+          userId: userId,
+          animeId: animeId,
+          episode: episode,
+          generation: _generation,
+          result: const EpisodeMarkDeferred(),
+          blocked: entry.blocked,
+        ),
+    ];
+  }
 
   void accountChanged(String? userId) {
     if (_closed || (userId == _userId && _generation == _sessionGeneration())) {
@@ -148,7 +171,7 @@ class EpisodeWatchSync implements EpisodeMarker {
   }
 
   @override
-  Future<void> undo({
+  Future<bool> undo({
     required String userId,
     required String animeId,
     required EpisodeMarked mark,
@@ -164,6 +187,56 @@ class EpisodeWatchSync implements EpisodeMarker {
             _current(userId, generation) && (isCurrent == null || isCurrent()),
       ),
     );
+  }
+
+  @override
+  Future<EpisodeMarkResult> retryMark({
+    required String userId,
+    required String animeId,
+    required int episode,
+    bool Function()? isCurrent,
+  }) async {
+    final generation = _generation;
+    if (!_current(userId, generation) || (isCurrent != null && !isCurrent())) {
+      throw StateError('Account session changed');
+    }
+    await _mutate(
+      (entries) => [
+        for (final entry in entries)
+          if (entry.userId == userId && entry.animeId == animeId)
+            entry.withEpisodes(entry.episodes)
+          else
+            entry,
+      ],
+    );
+    _retryAt.remove(animeId);
+    _attempts.remove(animeId);
+    try {
+      return await _networkQueue.run(() async {
+        if (!_current(userId, generation) ||
+            (isCurrent != null && !isCurrent())) {
+          throw StateError('Account session changed');
+        }
+        final entry = _find(userId, animeId);
+        if (entry == null || !entry.episodes.contains(episode)) {
+          final current = entry?.rate;
+          return current != null && current.episodes >= episode
+              ? EpisodeAlreadyMarked(current: current)
+              : EpisodeMarkObsolete(current);
+        }
+        if (!_canSend(userId, generation) ||
+            entry.blocked ||
+            (_retryAt[animeId]?.isAfter(_now()) ?? false)) {
+          return const EpisodeMarkDeferred();
+        }
+        final result = await _send(entry, generation);
+        return entry.episodes.first == episode
+            ? result
+            : const EpisodeMarkDeferred();
+      });
+    } finally {
+      _schedule();
+    }
   }
 
   /// Explicit retry also releases requests refused by the server (e.g. 403).
@@ -246,20 +319,37 @@ class EpisodeWatchSync implements EpisodeMarker {
         EpisodeMarkObsolete(:final current) => current,
         EpisodeMarkDeferred() => throw StateError('Unexpected deferred mark'),
       };
-      await _update(
-        entry.userId,
-        entry.animeId,
-        (latest) => latest.observed(
+      var obsoleteEpisodes = <int>[];
+      await _update(entry.userId, entry.animeId, (latest) {
+        if (result is EpisodeMarkObsolete) obsoleteEpisodes = latest.episodes;
+        return latest.observed(
           current,
           remaining: result is EpisodeMarkObsolete
               ? []
               : latest.episodes
                     .where((episode) => episode != entry.episodes.first)
                     .toList(),
-        ),
-      );
+        );
+      });
       _retryAt.remove(entry.animeId);
       _attempts.remove(entry.animeId);
+      if (!_current(entry.userId, generation)) {
+        return const EpisodeMarkDeferred();
+      }
+      for (final episode
+          in obsoleteEpisodes.isEmpty
+              ? [entry.episodes.first]
+              : obsoleteEpisodes) {
+        _markUpdates.add(
+          EpisodeMarkUpdate(
+            userId: entry.userId,
+            animeId: entry.animeId,
+            episode: episode,
+            generation: generation,
+            result: result,
+          ),
+        );
+      }
       return result;
     } on Object catch (error, stack) {
       _log(error, stack);
@@ -287,7 +377,26 @@ class EpisodeWatchSync implements EpisodeMarker {
           }
         }
       }
-      return const EpisodeMarkDeferred();
+      final deferred = const EpisodeMarkDeferred();
+      if (_current(entry.userId, generation)) {
+        final latest = _find(entry.userId, entry.animeId);
+        final blocked = latest?.blocked ?? false;
+        for (final episode
+            in blocked ? latest!.episodes : [entry.episodes.first]) {
+          _markUpdates.add(
+            EpisodeMarkUpdate(
+              userId: entry.userId,
+              animeId: entry.animeId,
+              episode: episode,
+              generation: generation,
+              result: deferred,
+              blocked: blocked,
+              failed: error is! NetworkRequestException,
+            ),
+          );
+        }
+      }
+      return deferred;
     } finally {
       _sending = false;
       _publish();
@@ -425,5 +534,6 @@ class EpisodeWatchSync implements EpisodeMarker {
     await _writing;
     // A paused UI subscriber must not hold disposal open.
     unawaited(_changes.close());
+    unawaited(_markUpdates.close());
   }
 }

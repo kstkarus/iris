@@ -13,6 +13,7 @@ PlayerChrome playerChromeFor(
   AnimePlayerSource source, {
   required VoidCallback onBack,
   PlayerNotice? notice,
+  PlayerMarkBuilder? mark,
   PlayerEpisodesBuilder? episodes,
 }) {
   final release = source.sourceTitle.trim();
@@ -48,6 +49,7 @@ PlayerChrome playerChromeFor(
     episodesCaption: episodesCaption,
     onBack: onBack,
     notice: notice,
+    mark: mark,
     episodes: episodes,
   );
 }

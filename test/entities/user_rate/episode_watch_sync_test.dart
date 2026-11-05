@@ -10,6 +10,7 @@ import 'package:iris/entities/user_rate/domain/episode_sync_repository.dart';
 import 'package:iris/entities/user_rate/domain/episode_watch_sync.dart';
 import 'package:iris/entities/user_rate/domain/mark_episode_watched.dart';
 import 'package:iris/entities/user_rate/domain/user_rate.dart';
+import 'package:iris/features/player/presentation/cubit/episode_mark_cubit.dart';
 import 'package:iris/shared/network/network_exceptions.dart';
 
 void main() {
@@ -345,6 +346,88 @@ void main() {
       throwsStateError,
     );
     expect(storage.read(), isEmpty);
+  });
+
+  test(
+    'a retry does not requeue a mark already sent in the background',
+    () async {
+      rates.offline = true;
+      final updates = <EpisodeMarkUpdate>[];
+      final subscription = sync.markUpdates.listen(updates.add);
+      addTearDown(subscription.cancel);
+      expect(await watch(5), isA<EpisodeMarkDeferred>());
+      await pumpEventQueue();
+      expect(updates.last.result, isA<EpisodeMarkDeferred>());
+
+      rates.offline = false;
+      await sync.retry();
+      await pumpEventQueue();
+      expect(updates.last.result, isA<EpisodeMarked>());
+      expect(sync.state.pending, 0);
+      final result = await sync.retryMark(
+        userId: '42',
+        animeId: '1',
+        episode: 5,
+      );
+      expect(result, isA<EpisodeAlreadyMarked>());
+      expect(sync.state.pending, 0);
+      expect(rates.writes.length, 1);
+    },
+  );
+
+  test('a reset resolves every queued episode as obsolete', () async {
+    final baseline = await rates.seed(3);
+    await sync.close();
+    await storage.write([
+      EpisodeSyncEntry(
+        userId: '42',
+        animeId: '1',
+        rateKnown: true,
+        rate: baseline,
+        episodes: const [4, 5],
+      ),
+    ]);
+    await rates.seed(0, id: baseline.id);
+    sync = start();
+    final updates = <EpisodeMarkUpdate>[];
+    final subscription = sync.markUpdates.listen(updates.add);
+    addTearDown(subscription.cancel);
+    await activate();
+    await pumpEventQueue();
+    expect(updates.map((event) => event.episode), [4, 5]);
+    expect(
+      updates.every((event) => event.result is EpisodeMarkObsolete),
+      isTrue,
+    );
+    expect(sync.state.pending, 0);
+    final result = await sync.retryMark(userId: '42', animeId: '1', episode: 5);
+    expect(result, isA<EpisodeMarkObsolete>());
+    expect(sync.state.pending, 0);
+  });
+
+  test('a reopened player can retry a blocked mark from the outbox', () async {
+    rates.refused.add('1');
+    expect(await watch(5), isA<EpisodeMarkDeferred>());
+    expect(storage.read().single.blocked, isTrue);
+    final cubit = EpisodeMarkCubit(
+      markEpisode: sync,
+      userId: '42',
+      animeId: '1',
+      sessionGeneration: () => generation,
+    );
+    addTearDown(cubit.close);
+    expect(
+      cubit.state,
+      isA<EpisodeMarkQueued>()
+          .having((state) => state.episode, 'episode', 5)
+          .having((state) => state.failed, 'failed', true),
+    );
+    rates.refused.clear();
+    cubit.confirm();
+    await pumpEventQueue(times: 100);
+    expect(cubit.state, isA<EpisodeMarkDone>());
+    expect(sync.state.pending, 0);
+    expect(rates.rates['1']?.episodes, 5);
   });
 }
 

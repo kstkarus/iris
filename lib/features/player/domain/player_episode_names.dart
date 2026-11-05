@@ -11,6 +11,7 @@ final _bracketGroups = RegExp(r'\[[^\]]*\]|\([^)]*\)');
 final _leadingNumber = RegExp(r'^[\s\d._\-–—:#]+');
 final _trailingSeparators = RegExp(r'[\s._\-–—:#]+$');
 final _letter = RegExp(r'\p{L}', unicode: true);
+final _episodeLabel = RegExp(r'^(?:episode|серия)\s+', caseSensitive: false);
 
 /// Each file's own episode name, where its name says more than the series
 /// and the number every file shares: `Frieren - 11 - The Hero's Party`
@@ -36,6 +37,18 @@ Map<int, String> distinctEpisodeNames(List<PlayerVideoFile> files) {
     for (final (position, file) in files.indexed)
       file.index: ?_ownName(names[position], prefix, suffix),
   };
+}
+
+/// Whether any episode has a title beyond a fallback such as `Episode 1`.
+bool hasEpisodeTitles(List<PlayerVideoFile> files) {
+  final names = distinctEpisodeNames(files);
+  return files.indexed.any((entry) {
+    final (position, file) = entry;
+    final name = names[file.index]?.trim();
+    return name != null &&
+        name.isNotEmpty &&
+        !nameIsJustNumber(name, episodeNumberLabel(file, position));
+  });
 }
 
 String? _ownName(String name, int prefix, int suffix) {
@@ -81,9 +94,9 @@ int _commonSuffixLength(List<String> names, int prefix) {
 }
 
 /// Whether [name] says nothing but the [number] beside it: an online
-/// episode without a title is named by its number, a torrent file may be
-/// just `01.mkv`.
+/// episode without a title may be named `01` or `Episode 1`, a torrent
+/// file may be just `01.mkv`.
 bool nameIsJustNumber(String name, String number) {
-  final named = num.tryParse(name.trim());
+  final named = num.tryParse(name.trim().replaceFirst(_episodeLabel, ''));
   return named != null && named == num.tryParse(number);
 }

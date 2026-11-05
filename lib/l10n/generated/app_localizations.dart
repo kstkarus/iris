@@ -1388,18 +1388,6 @@ abstract class AppLocalizations {
   /// **'{time} left'**
   String playerTimeLeft(String time);
 
-  /// No description provided for @playerSeekBackward.
-  ///
-  /// In en, this message translates to:
-  /// **'Back {seconds} s'**
-  String playerSeekBackward(int seconds);
-
-  /// No description provided for @playerSeekForward.
-  ///
-  /// In en, this message translates to:
-  /// **'Forward {seconds} s'**
-  String playerSeekForward(int seconds);
-
   /// No description provided for @playerMute.
   ///
   /// In en, this message translates to:
@@ -1751,19 +1739,19 @@ abstract class AppLocalizations {
   /// No description provided for @profileSignInTitle.
   ///
   /// In en, this message translates to:
-  /// **'Your Shikimori list'**
+  /// **'Shikimori account'**
   String get profileSignInTitle;
 
   /// No description provided for @profileSignInMessage.
   ///
   /// In en, this message translates to:
-  /// **'Sign in to mark anime in your Shikimori list right from the app.'**
+  /// **'Track what you\'ve watched and keep up with airing anime and friends'**
   String get profileSignInMessage;
 
   /// No description provided for @profileSignInButton.
   ///
   /// In en, this message translates to:
-  /// **'Sign in with Shikimori'**
+  /// **'Sign in'**
   String get profileSignInButton;
 
   /// No description provided for @profileSignInUnavailable.
@@ -2333,7 +2321,7 @@ abstract class AppLocalizations {
   /// No description provided for @playerMarked.
   ///
   /// In en, this message translates to:
-  /// **'Episode {episode} marked on Shikimori'**
+  /// **'Episode {episode} marked'**
   String playerMarked(int episode);
 
   /// No description provided for @playerMarkOffer.
@@ -2351,14 +2339,140 @@ abstract class AppLocalizations {
   /// No description provided for @playerMarkFailed.
   ///
   /// In en, this message translates to:
-  /// **'Shikimori did not save the mark.'**
-  String get playerMarkFailed;
+  /// **'Could not mark episode {episode}'**
+  String playerMarkFailed(int episode);
 
   /// No description provided for @playerUnmarkFailed.
   ///
   /// In en, this message translates to:
-  /// **'Shikimori did not take the mark back.'**
+  /// **'Could not undo'**
   String get playerUnmarkFailed;
+
+  /// No description provided for @playerRestoreFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not restore'**
+  String get playerRestoreFailed;
+
+  /// No description provided for @playerMarkUnset.
+  ///
+  /// In en, this message translates to:
+  /// **'Episode {episode} not marked'**
+  String playerMarkUnset(int episode);
+
+  /// No description provided for @playerMarkWaiting.
+  ///
+  /// In en, this message translates to:
+  /// **'Episode {episode} waiting to sync'**
+  String playerMarkWaiting(int episode);
+
+  /// No description provided for @playerMarkSyncFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Episode {episode} · sync failed'**
+  String playerMarkSyncFailed(int episode);
+
+  /// No description provided for @playerMarkConflict.
+  ///
+  /// In en, this message translates to:
+  /// **'List entry changed elsewhere'**
+  String get playerMarkConflict;
+
+  /// No description provided for @playerMarkSaving.
+  ///
+  /// In en, this message translates to:
+  /// **'Marking…'**
+  String get playerMarkSaving;
+
+  /// No description provided for @playerUnmarkSaving.
+  ///
+  /// In en, this message translates to:
+  /// **'Undoing…'**
+  String get playerUnmarkSaving;
+
+  /// No description provided for @playerRestoreSaving.
+  ///
+  /// In en, this message translates to:
+  /// **'Restoring mark…'**
+  String get playerRestoreSaving;
+
+  /// No description provided for @playerMarkShortMarked.
+  ///
+  /// In en, this message translates to:
+  /// **'Marked'**
+  String get playerMarkShortMarked;
+
+  /// No description provided for @playerMarkShortUnset.
+  ///
+  /// In en, this message translates to:
+  /// **'Not marked'**
+  String get playerMarkShortUnset;
+
+  /// No description provided for @playerMarkShortFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not mark'**
+  String get playerMarkShortFailed;
+
+  /// No description provided for @playerMarkShortWaiting.
+  ///
+  /// In en, this message translates to:
+  /// **'Waiting to sync'**
+  String get playerMarkShortWaiting;
+
+  /// No description provided for @playerMarkShortSyncFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Sync failed'**
+  String get playerMarkShortSyncFailed;
+
+  /// No description provided for @playerMarkShortConflict.
+  ///
+  /// In en, this message translates to:
+  /// **'Entry changed'**
+  String get playerMarkShortConflict;
+
+  /// No description provided for @playerMarkShortRestoreSaving.
+  ///
+  /// In en, this message translates to:
+  /// **'Restoring…'**
+  String get playerMarkShortRestoreSaving;
+
+  /// No description provided for @playerMarkRestore.
+  ///
+  /// In en, this message translates to:
+  /// **'Restore'**
+  String get playerMarkRestore;
+
+  /// No description provided for @playerMarkExpand.
+  ///
+  /// In en, this message translates to:
+  /// **'Show mark actions'**
+  String get playerMarkExpand;
+
+  /// No description provided for @playerMarkCollapse.
+  ///
+  /// In en, this message translates to:
+  /// **'Hide mark actions'**
+  String get playerMarkCollapse;
+
+  /// No description provided for @playerMarkDismiss.
+  ///
+  /// In en, this message translates to:
+  /// **'Close'**
+  String get playerMarkDismiss;
+
+  /// No description provided for @playerMarkPreviously.
+  ///
+  /// In en, this message translates to:
+  /// **'Previously: {status}'**
+  String playerMarkPreviously(String status);
+
+  /// No description provided for @playerMarkNextPending.
+  ///
+  /// In en, this message translates to:
+  /// **'Show another mark: {current} of {total}'**
+  String playerMarkNextPending(int current, int total);
 
   /// No description provided for @profileSigningInHint.
   ///

@@ -54,6 +54,7 @@ void main() {
         ContinueWatchingRow(
           items: items,
           onOpen: (item) => selected = item,
+          onOpenAnime: (_) {},
           onRemove: (_) {},
         ),
       ),
@@ -87,6 +88,7 @@ void main() {
               ),
           ],
           onOpen: (_) {},
+          onOpenAnime: (_) {},
           onRemove: (_) {},
         ),
       ),

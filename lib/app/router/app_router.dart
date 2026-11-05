@@ -598,6 +598,7 @@ abstract final class AppRouter {
                   create: (context) => EpisodeMarkCubit(
                     markEpisode: serviceLocator<EpisodeMarker>(),
                     userId: accountIdOf(context.read<AuthCubit>().state),
+                    animeId: args.source.animeId,
                     sessionGeneration: () =>
                         serviceLocator<ShikimoriSessionStore>().generation,
                   ),

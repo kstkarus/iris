@@ -752,16 +752,6 @@ class AppLocalizationsRu extends AppLocalizations {
   }
 
   @override
-  String playerSeekBackward(int seconds) {
-    return 'Назад на $seconds с';
-  }
-
-  @override
-  String playerSeekForward(int seconds) {
-    return 'Вперёд на $seconds с';
-  }
-
-  @override
   String get playerMute => 'Выключить звук';
 
   @override
@@ -975,14 +965,14 @@ class AppLocalizationsRu extends AppLocalizations {
   String get navigationProfile => 'Профиль';
 
   @override
-  String get profileSignInTitle => 'Список на Шикимори';
+  String get profileSignInTitle => 'Аккаунт Шикимори';
 
   @override
   String get profileSignInMessage =>
-      'Войдите, чтобы отмечать аниме в своём списке на Шикимори прямо из приложения.';
+      'Отмечайте просмотренное, следите за онгоингами и друзьями';
 
   @override
-  String get profileSignInButton => 'Войти через Шикимори';
+  String get profileSignInButton => 'Войти';
 
   @override
   String get profileSignInUnavailable => 'Вход не настроен в этой сборке.';
@@ -1318,7 +1308,7 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String playerMarked(int episode) {
-    return '$episode серия отмечена на Шикимори';
+    return '$episode серия отмечена';
   }
 
   @override
@@ -1330,10 +1320,85 @@ class AppLocalizationsRu extends AppLocalizations {
   String get playerMarkAction => 'Отметить';
 
   @override
-  String get playerMarkFailed => 'Шикимори не сохранил отметку.';
+  String playerMarkFailed(int episode) {
+    return 'Не удалось отметить $episode серию';
+  }
 
   @override
-  String get playerUnmarkFailed => 'Шикимори не снял отметку.';
+  String get playerUnmarkFailed => 'Не удалось отменить';
+
+  @override
+  String get playerRestoreFailed => 'Не удалось вернуть';
+
+  @override
+  String playerMarkUnset(int episode) {
+    return '$episode серия не отмечена';
+  }
+
+  @override
+  String playerMarkWaiting(int episode) {
+    return 'Отметка $episode-й серии ждёт отправки';
+  }
+
+  @override
+  String playerMarkSyncFailed(int episode) {
+    return '$episode серия · ошибка синхронизации';
+  }
+
+  @override
+  String get playerMarkConflict => 'Запись изменилась в списке';
+
+  @override
+  String get playerMarkSaving => 'Отмечаем…';
+
+  @override
+  String get playerUnmarkSaving => 'Отменяем…';
+
+  @override
+  String get playerRestoreSaving => 'Возвращаем отметку…';
+
+  @override
+  String get playerMarkShortMarked => 'Отмечена';
+
+  @override
+  String get playerMarkShortUnset => 'Не отмечена';
+
+  @override
+  String get playerMarkShortFailed => 'Ошибка отметки';
+
+  @override
+  String get playerMarkShortWaiting => 'Ждёт отправки';
+
+  @override
+  String get playerMarkShortSyncFailed => 'Ошибка синхронизации';
+
+  @override
+  String get playerMarkShortConflict => 'Запись изменилась';
+
+  @override
+  String get playerMarkShortRestoreSaving => 'Возвращаем…';
+
+  @override
+  String get playerMarkRestore => 'Вернуть';
+
+  @override
+  String get playerMarkExpand => 'Показать действия с отметкой';
+
+  @override
+  String get playerMarkCollapse => 'Скрыть действия с отметкой';
+
+  @override
+  String get playerMarkDismiss => 'Закрыть';
+
+  @override
+  String playerMarkPreviously(String status) {
+    return 'Ранее: $status';
+  }
+
+  @override
+  String playerMarkNextPending(int current, int total) {
+    return 'Показать другую отметку: $current из $total';
+  }
 
   @override
   String get profileSigningInHint =>

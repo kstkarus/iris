@@ -13,6 +13,7 @@ import 'package:iris/features/player/presentation/cubit/player_cubit.dart';
 import 'package:iris/features/player/presentation/cubit/player_state.dart';
 import 'package:iris/features/player/presentation/models/player_chrome_mapper.dart';
 import 'package:iris/features/player/presentation/widgets/player_episode_cards.dart';
+import 'package:iris/features/player/presentation/widgets/episode_mark_plate.dart';
 import 'package:iris/features/player/presentation/widgets/player_view.dart';
 import 'package:iris/features/player/presentation/widgets/player_viewport_factory.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
@@ -45,10 +46,6 @@ class _PlayerPageState extends State<PlayerPage> {
 
   /// The resume message.
   PlayerNotice? _notice;
-
-  /// What became of the episode in the Shikimori list; the resume message
-  /// goes first.
-  PlayerNotice? _markNotice;
 
   @override
   void initState() {
@@ -92,10 +89,6 @@ class _PlayerPageState extends State<PlayerPage> {
           listener: (context, state) =>
               marks.watched(context.read<PlayerCubit>().source),
         ),
-        BlocListener<EpisodeMarkCubit, EpisodeMarkState>(
-          bloc: marks,
-          listener: _showMarkNotice,
-        ),
       ],
       child: page,
     );
@@ -129,7 +122,14 @@ class _PlayerPageState extends State<PlayerPage> {
       AppLocalizations.of(context),
       source,
       onBack: () => Navigator.of(context).maybePop(),
-      notice: _notice ?? _markNotice,
+      notice: _notice,
+      mark: switch (context.read<EpisodeMarkCubit?>()) {
+        final marks? => (context, visible) => EpisodeMarkPlate(
+          cubit: marks,
+          controlsVisible: visible,
+        ),
+        null => null,
+      },
       episodes: source.files.length > 1
           ? (context, close) => _EpisodeCardsPane(
               source: source,
@@ -164,54 +164,6 @@ class _PlayerPageState extends State<PlayerPage> {
         timeout: state.started ? resumeNoticeDuration : null,
         onTimeout: cubit.dismissResumeNotice,
       ),
-    );
-  }
-
-  /// What became of the watched episode in the Shikimori list: marked (with
-  /// undo), offered when its number is a guess, or failed (with retry).
-  void _showMarkNotice(BuildContext context, EpisodeMarkState state) {
-    final l10n = AppLocalizations.of(context);
-    final marks = context.read<EpisodeMarkCubit>();
-    final notice = switch (state) {
-      EpisodeMarkOffered(:final episode) => (
-        message: l10n.playerMarkOffer(episode),
-        actionLabel: l10n.playerMarkAction,
-        onAction: marks.confirm,
-        timeout: markOfferDuration,
-      ),
-      EpisodeMarkDone(undoFailed: true) => (
-        message: l10n.playerUnmarkFailed,
-        actionLabel: l10n.commonRetry,
-        onAction: () => unawaited(marks.undo()),
-        timeout: markNoticeDuration,
-      ),
-      EpisodeMarkDone(:final episode) => (
-        message: l10n.playerMarked(episode),
-        actionLabel: l10n.commonUndo,
-        onAction: () => unawaited(marks.undo()),
-        timeout: markNoticeDuration,
-      ),
-      EpisodeMarkFailed() => (
-        message: l10n.playerMarkFailed,
-        actionLabel: l10n.commonRetry,
-        onAction: marks.confirm,
-        timeout: markNoticeDuration,
-      ),
-      EpisodeMarkIdle() || EpisodeMarkSaving() || EpisodeMarkQueued() => null,
-    };
-
-    setState(
-      () => _markNotice = notice == null
-          ? null
-          : PlayerNotice(
-              message: notice.message,
-              actionLabel: notice.actionLabel,
-              onAction: notice.onAction,
-              timeout: notice.timeout,
-              onTimeout: marks.dismiss,
-              // Another episode's offer over this one is a new notice.
-              id: state,
-            ),
     );
   }
 }

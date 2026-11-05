@@ -28,37 +28,13 @@ class _ShadowedGlyph extends StatelessWidget {
   }
 }
 
-/// "−10" / "+10": the seek step as a figure, which says more than any
-/// arrow could.
-class _SeekFigure extends StatelessWidget {
-  const _SeekFigure(this.text, {required this.size});
-
-  final String text;
-  final double size;
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(
-      text,
-      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-        color: Colors.white,
-        fontSize: size,
-        fontWeight: FontWeight.w500,
-        fontFeatures: const [FontFeature.tabularFigures()],
-      ),
-    );
-  }
-}
-
-class _CenterButtons extends StatelessWidget {
-  const _CenterButtons({
+class _CenterButton extends StatelessWidget {
+  const _CenterButton({
     required this.playing,
     required this.engine,
     required this.metrics,
     required this.starting,
     required this.onPlayPause,
-    required this.onBackward,
-    required this.onForward,
   });
 
   final bool playing;
@@ -66,55 +42,27 @@ class _CenterButtons extends StatelessWidget {
   final _ControlsMetrics metrics;
   final bool starting;
   final VoidCallback onPlayPause;
-  final VoidCallback onBackward;
-  final VoidCallback onForward;
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final seconds = PlayerImmersiveControls.seekStep.inSeconds;
-    final seekSize = Size.square(metrics.seekButton);
-    final gap = SizedBox(width: metrics.centerGap);
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        _GlyphButton(
-          key: const Key('player_seek_backward_button'),
-          glyph: _SeekFigure('\u2212$seconds', size: metrics.seekFigure),
-          iconSize: 44,
-          size: seekSize,
-          label: l10n.playerSeekBackward(seconds),
-          onPressed: onBackward,
-        ),
-        gap,
-        ListenableBuilder(
-          listenable: Listenable.merge([engine.buffering, engine.phase]),
-          builder: (context, _) {
-            final waiting =
-                starting ||
-                engine.buffering.value ||
-                engine.phase.value != PlayerEnginePhase.ready;
-            // The spinner takes the button's place while the stream waits.
-            if (waiting) return SizedBox.square(dimension: metrics.playBox);
-            return _PlayPauseButton(
-              playing: playing,
-              size: metrics.playBox,
-              glyphSize: metrics.playGlyph,
-              label: playing ? l10n.playerPauseButton : l10n.playerPlayButton,
-              onPressed: onPlayPause,
-            );
-          },
-        ),
-        gap,
-        _GlyphButton(
-          key: const Key('player_seek_forward_button'),
-          glyph: _SeekFigure('+$seconds', size: metrics.seekFigure),
-          iconSize: 44,
-          size: seekSize,
-          label: l10n.playerSeekForward(seconds),
-          onPressed: onForward,
-        ),
-      ],
+    return ListenableBuilder(
+      listenable: Listenable.merge([engine.buffering, engine.phase]),
+      builder: (context, _) {
+        final waiting =
+            starting ||
+            engine.buffering.value ||
+            engine.phase.value != PlayerEnginePhase.ready;
+        // The spinner takes the button's place while the stream waits.
+        if (waiting) return SizedBox.square(dimension: metrics.playBox);
+        return _PlayPauseButton(
+          playing: playing,
+          size: metrics.playBox,
+          glyphSize: metrics.playGlyph,
+          label: playing ? l10n.playerPauseButton : l10n.playerPlayButton,
+          onPressed: onPlayPause,
+        );
+      },
     );
   }
 }
@@ -215,6 +163,7 @@ class _GlyphButton extends StatefulWidget {
     required this.onPressed,
     this.onFocusChange,
     this.selected = false,
+    this.color,
     super.key,
   });
 
@@ -223,6 +172,7 @@ class _GlyphButton extends StatefulWidget {
   /// Its panel is open: an inverse square, as the chosen cell of a
   /// segmented choice.
   final bool selected;
+  final Color? color;
 
   /// A [PixelIcon] or a short figure; give it a key that changes with the
   /// state it shows, and it cross-fades when the state flips.
@@ -295,10 +245,11 @@ class _GlyphButtonState extends State<_GlyphButton> {
                     child: IconTheme.merge(
                       data: IconThemeData(
                         size: widget.iconSize,
-                        color: selected ? Colors.black : Colors.white,
+                        color: selected
+                            ? Colors.black
+                            : widget.color ?? Colors.white,
                       ),
-                      // The button's label speaks for it; a figure such
-                      // as "+10" must not be read out on top of it.
+                      // The button's label speaks for its glyph.
                       child: ExcludeSemantics(
                         child: PlayerGlyphSwitcher(
                           // On the light square the glyph needs no shadow.

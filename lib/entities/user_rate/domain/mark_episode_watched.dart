@@ -52,12 +52,50 @@ abstract interface class EpisodeMarker {
     bool Function()? isCurrent,
   });
 
-  Future<void> undo({
+  /// Returns false when the entry changed since the mark and was left alone.
+  Future<bool> undo({
     required String userId,
     required String animeId,
     required EpisodeMarked mark,
     bool Function()? isCurrent,
   });
+}
+
+/// Updates for marks that were saved locally and sent later.
+abstract interface class EpisodeMarkSync {
+  Stream<EpisodeMarkUpdate> get markUpdates;
+
+  List<EpisodeMarkUpdate> pendingMarks({
+    required String userId,
+    required String animeId,
+  });
+
+  Future<EpisodeMarkResult> retryMark({
+    required String userId,
+    required String animeId,
+    required int episode,
+    bool Function()? isCurrent,
+  });
+}
+
+class EpisodeMarkUpdate {
+  const EpisodeMarkUpdate({
+    required this.userId,
+    required this.animeId,
+    required this.episode,
+    required this.generation,
+    required this.result,
+    this.blocked = false,
+    this.failed = false,
+  });
+
+  final String userId;
+  final String animeId;
+  final int episode;
+  final int generation;
+  final EpisodeMarkResult result;
+  final bool blocked;
+  final bool failed;
 }
 
 class MarkEpisodeWatched implements EpisodeMarker {
@@ -114,28 +152,28 @@ class MarkEpisodeWatched implements EpisodeMarker {
 
   /// Puts the list back as it was before [mark].
   @override
-  Future<void> undo({
+  Future<bool> undo({
     required String userId,
     required String animeId,
     required EpisodeMarked mark,
     bool Function()? isCurrent,
   }) async {
-    if (isCurrent != null && !isCurrent()) return;
+    if (isCurrent != null && !isCurrent()) return false;
     final current = await _repository.fetch(animeId);
-    if (isCurrent != null && !isCurrent()) return;
+    if (isCurrent != null && !isCurrent()) return false;
     // Undo only our own change, keeping later edits and progress intact.
     if (current == null ||
         current.id != mark.saved.id ||
         current.episodes != mark.saved.episodes ||
         current.status != mark.saved.status ||
         current.rewatches != mark.saved.rewatches) {
-      return;
+      return false;
     }
     final previous = mark.previous;
     if (previous == null) {
-      if (current.score != mark.saved.score) return;
+      if (current.score != mark.saved.score) return false;
       await _repository.remove(animeId: animeId, rateId: mark.saved.id);
-      return;
+      return true;
     }
     await _repository.save(
       userId: userId,
@@ -145,6 +183,7 @@ class MarkEpisodeWatched implements EpisodeMarker {
       episodes: previous.episodes,
       rewatches: previous.rewatches,
     );
+    return true;
   }
 
   bool _superseded(UserRate? baseline, UserRate? current) {

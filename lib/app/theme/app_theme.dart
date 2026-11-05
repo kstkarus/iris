@@ -7,11 +7,11 @@ import 'package:iris/shared/theme/over_video_theme.dart';
 import 'package:iris/shared/widgets/pixel_icon.dart';
 
 /// The voice of the interface: titles, text, tables and numbers.
-const _appFontFamily = 'Geist Mono';
+const _appFontFamily = 'Medeo Mono';
 
 /// Small chrome only: button labels, tooltips and snackbars, which read
 /// faster in a proportional face and stay out of the content's way.
-const _appSansFamily = 'Geist';
+const _appSansFamily = 'Medeo Sans';
 
 /// Monochrome surfaces, square shapes and one signal colour.
 ///

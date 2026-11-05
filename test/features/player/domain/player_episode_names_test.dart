@@ -31,6 +31,33 @@ void main() {
       );
       expect(distinctEpisodeNames([_file(0, 'Movie.mkv')]), isEmpty);
     });
+
+    test('ignores fallback labels but keeps a partially named release', () {
+      final files = [
+        for (final (index, title) in [' 01 ', 'Серия 2', 'Episode 3'].indexed)
+          PlayerVideoFile(
+            index: index,
+            name: '${index + 1}',
+            size: 0,
+            extension: 'm3u8',
+            episodeNumber: index + 1,
+            title: title,
+          ),
+      ];
+      expect(hasEpisodeTitles(files), isFalse);
+
+      files.add(
+        const PlayerVideoFile(
+          index: 3,
+          name: '04',
+          size: 0,
+          extension: 'm3u8',
+          episodeNumber: 4,
+          title: ' The Journey Continues ',
+        ),
+      );
+      expect(hasEpisodeTitles(files), isTrue);
+    });
   });
 
   group('episodeNumberLabel', () {

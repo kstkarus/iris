@@ -1115,8 +1115,8 @@ void main() {
         addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
         await tester.runAsync(
           () =>
-              (FontLoader('Geist Mono')..addFont(
-                    rootBundle.load('assets/fonts/GeistMono-Regular.ttf'),
+              (FontLoader('Medeo Mono')..addFont(
+                    rootBundle.load('assets/fonts/MedeoMono-Regular.ttf'),
                   ))
                   .load(),
         );

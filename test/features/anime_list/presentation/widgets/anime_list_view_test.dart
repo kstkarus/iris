@@ -75,7 +75,7 @@ void main() {
     );
     await tester.pump();
 
-    page.complete(_pageOneResult);
+    page.complete(_withHasMore(_pageOneResult, false));
     await tester.pump();
     await tester.pump(DitherTransition.duration);
     await tester.pump(DitherTransition.duration);
@@ -91,7 +91,9 @@ void main() {
   ) async {
     await _pumpCatalog(
       tester,
-      _SuccessAnimeListRepository(initialResult: _pageOneResult),
+      _SuccessAnimeListRepository(
+        initialResult: _withHasMore(_pageOneResult, false),
+      ),
     );
 
     expect(find.byType(TextField), findsOneWidget);

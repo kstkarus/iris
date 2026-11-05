@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'package:iris/features/player/presentation/cubit/player_decoding_preferences_cubit.dart';
@@ -20,6 +21,12 @@ class PlayerNextFile {
 /// [close] hides the drawer.
 typedef PlayerEpisodesBuilder =
     Widget Function(BuildContext context, VoidCallback close);
+
+typedef PlayerMarkBuilder =
+    Widget Function(
+      BuildContext context,
+      ValueListenable<bool> controlsVisible,
+    );
 
 /// A short message over the immersive player, with one action.
 class PlayerNotice {
@@ -58,6 +65,7 @@ class PlayerChrome {
     this.episodes,
     this.episodesCaption,
     this.notice,
+    this.mark,
   });
 
   /// The episode, the largest line.
@@ -82,6 +90,9 @@ class PlayerChrome {
 
   /// Shown above the timeline while set, e.g. the automatic resume.
   final PlayerNotice? notice;
+
+  /// The watched-episode status, independent of the resume notice.
+  final PlayerMarkBuilder? mark;
 }
 
 /// Creates the page's media player and the widget that renders it.

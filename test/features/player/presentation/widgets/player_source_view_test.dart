@@ -8,7 +8,9 @@ import 'package:iris/features/player/domain/entities/prepared_player_source.dart
 import 'package:iris/features/player/presentation/cubit/player_source_cubit.dart';
 import 'package:iris/features/player/presentation/cubit/player_source_state.dart';
 import 'package:iris/features/player/presentation/widgets/player_source_view.dart';
+import 'package:iris/features/player/presentation/widgets/player_episode_grid.dart';
 import 'package:iris/shared/widgets/pixel_icon.dart';
+import 'package:iris/shared/widgets/segmented_bar.dart';
 
 import '../../../../helpers/test_app.dart';
 import '../../player_test_doubles.dart';
@@ -34,13 +36,13 @@ void main() {
           files: [
             PlayerVideoFile(
               index: 1,
-              name: 'episode-01.mkv',
+              name: 'episode-01 - First.mkv',
               size: 734003200,
               extension: 'mkv',
             ),
             PlayerVideoFile(
               index: 2,
-              name: 'episode-02.mp4',
+              name: 'episode-02 - Second.mp4',
               size: 524288000,
               extension: 'mp4',
             ),
@@ -54,13 +56,13 @@ void main() {
       _wrap(cubit: cubit, onFileSelected: (file) => selected.add(file.index)),
     );
 
-    expect(find.text('episode-01'), findsOneWidget);
+    expect(find.text('episode-01 - First'), findsOneWidget);
     expect(find.text('700.0 MB'), findsOneWidget);
-    expect(find.text('episode-02'), findsOneWidget);
+    expect(find.text('episode-02 - Second'), findsOneWidget);
     expect(find.text('500.0 MB'), findsOneWidget);
     expect(find.byType(FilledButton), findsNothing);
 
-    await tester.tap(find.text('episode-02'));
+    await tester.tap(find.text('episode-02 - Second'));
     expect(selected, [2]);
   });
 
@@ -174,11 +176,10 @@ void main() {
       ),
     );
 
-    // The card above the list and the file's own row both show where it
-    // stopped; the card's button is the only "Continue".
+    // The Continue card keeps the time; the grid tile shows its progress bar.
     expect(find.widgetWithText(FilledButton, 'Continue'), findsOneWidget);
     expect(find.text('Continue'), findsOneWidget);
-    expect(find.text('Stopped at 5:00 of 24:00'), findsNWidgets(2));
+    expect(find.text('Stopped at 5:00 of 24:00'), findsOneWidget);
 
     await tester.tap(find.byKey(PlayerSourceView.continueButtonKey));
     expect(selected, [2]);
@@ -265,6 +266,62 @@ void main() {
     expect(_watchedMarks, findsOneWidget);
     expect(find.widgetWithText(FilledButton, 'Continue'), findsOneWidget);
     expect(find.text('Stopped at 10:00 of 24:00'), findsWidgets);
+  });
+
+  testWidgets('unnamed episodes use a grid and keep progress and replay', (
+    tester,
+  ) async {
+    final selected = <int>[];
+    await tester.pumpWidget(
+      _wrap(
+        cubit: FakePlayerSourceCubit(
+          PlayerSourceReady(
+            PreparedPlayerSource(
+              sessionId: 'online:test',
+              files: [
+                for (var number = 1; number <= 3; number++)
+                  PlayerVideoFile(
+                    index: number,
+                    name: '$number',
+                    size: 0,
+                    extension: 'm3u8',
+                    episodeNumber: number,
+                    title: 'Серия $number',
+                  ),
+                const PlayerVideoFile(
+                  index: 10,
+                  name: '12.5',
+                  size: 0,
+                  extension: 'm3u8',
+                  episodeNumber: 12.5,
+                ),
+              ],
+            ),
+          ),
+        ),
+        isOnline: true,
+        listedEpisodes: 2,
+        progressByFile: {2: _progress(2, 600)},
+        onFileSelected: (file) => selected.add(file.index),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    Finder tile(int index) => find.byKey(ValueKey('player_episode_$index'));
+    expect(tester.getTopLeft(tile(1)).dy, tester.getTopLeft(tile(2)).dy);
+    expect(find.text('12.5'), findsOneWidget);
+    expect(_watchedMarks, findsOneWidget);
+    final bar = tester.widget<SegmentedBar>(
+      find.descendant(
+        of: find.byType(PlayerEpisodeGrid),
+        matching: find.byType(SegmentedBar),
+      ),
+    );
+    expect(bar.value, 600 / 1440);
+    for (final index in [1, 2, 10]) {
+      await tester.tap(tile(index));
+    }
+    expect(selected, [1, 2, 10]);
   });
 
   testWidgets('shows unsupported-source failure state', (tester) async {

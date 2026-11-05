@@ -43,7 +43,7 @@ const _controlsFade = Duration(milliseconds: 250);
 typedef PlayerPanelOpener = Future<void> Function(BuildContext anchor);
 
 /// Streaming-app controls drawn over a full-bleed video: the way back and
-/// the episodes at the top, play and ±10 s in the middle, the titles and
+/// the episodes at the top, play/pause in the middle, the titles and
 /// the timeline at the bottom, the episodes in a drawer on the right.
 ///
 /// With a pointer they hide with the cursor after a few seconds of
@@ -693,6 +693,39 @@ class _PlayerImmersiveControlsState extends State<PlayerImmersiveControls> {
         // where they are, and the controls keep the rest of the screen.
         ?widget.failure,
         _buildOffers(context),
+        if (widget.chrome.mark case final mark?)
+          Positioned(
+            top: _insets.top + metrics.backButton + 12,
+            left: _insets.left + (_touch && widget.brightness != null ? 40 : 0),
+            right: _insets.right + (widget.next == null ? 0 : 60),
+            child: Offstage(
+              offstage:
+                  _locked || pictureInPicture || widget.windowsPictureInPicture,
+              child: TickerMode(
+                enabled:
+                    !_locked &&
+                    !pictureInPicture &&
+                    !widget.windowsPictureInPicture,
+                child: mark(context, _visibility),
+              ),
+            ),
+          ),
+        if (widget.next case final next?
+            when !_controlsVisible &&
+                !_locked &&
+                !pictureInPicture &&
+                !widget.windowsPictureInPicture)
+          Positioned(
+            top: _insets.top + metrics.backButton + 12,
+            right: _insets.right,
+            child: _NextHint(
+              next: next,
+              finishing: widget.engine.finishing,
+              completed: widget.engine.completed,
+              metrics: metrics,
+              floating: true,
+            ),
+          ),
         if (widget.chrome.notice case final notice? when !pictureInPicture)
           Positioned(
             left: _insets.left,
@@ -803,17 +836,15 @@ class _PlayerImmersiveControlsState extends State<PlayerImmersiveControls> {
             ),
           ),
         ),
-        // A failed player has nothing to play or seek; the failure stands here.
+        // A failed player has nothing to play; the failure stands here.
         if (widget.failure == null)
           Center(
-            child: _CenterButtons(
+            child: _CenterButton(
               playing: _playing,
               engine: widget.engine,
               metrics: metrics,
               starting: widget.startupLabel != null,
               onPlayPause: _togglePlay,
-              onBackward: () => _seekBy(-PlayerImmersiveControls.seekStep),
-              onForward: () => _seekBy(PlayerImmersiveControls.seekStep),
             ),
           ),
         Align(
@@ -832,6 +863,8 @@ class _PlayerImmersiveControlsState extends State<PlayerImmersiveControls> {
               timeline: widget.engine.timeline,
               accent: accent,
               next: widget.next,
+              finishing: widget.engine.finishing,
+              completed: widget.engine.completed,
               fullscreen: widget.fullscreen,
               onSeek: _seekTo,
               onSeekActive: (active) => _setHold(#seek, active),
@@ -939,12 +972,10 @@ class _PlayerImmersiveControlsState extends State<PlayerImmersiveControls> {
     }
   }
 
-  /// Skip and next-episode offers sit above the timeline on the right. A
+  /// Skip offers sit above the timeline on the right. A
   /// pointer resting on them keeps the controls, and so the offers, up.
   Widget _buildOffers(BuildContext context) {
     final engine = widget.engine;
-    final next = widget.next;
-
     return Positioned(
       right: _insets.right,
       bottom: _offerClearance,
@@ -971,20 +1002,6 @@ class _PlayerImmersiveControlsState extends State<PlayerImmersiveControls> {
                   onPressed: () => unawaited(engine.skipCurrentSegment()),
                 ),
               ),
-              if (next != null)
-                PlayerNextOffer(
-                  finishing: engine.finishing,
-                  completed: engine.completed,
-                  title: next.title,
-                  controlsVisible: _visibility,
-                  running: engine.advancing,
-                  plate: (label, detail) => _OfferButton.filled(
-                    key: const Key('player_next_file_prompt'),
-                    label: label,
-                    detail: detail,
-                    onPressed: next.play,
-                  ),
-                ),
             ],
           ),
         ),

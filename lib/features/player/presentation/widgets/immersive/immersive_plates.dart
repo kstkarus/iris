@@ -1,7 +1,7 @@
 part of '../player_immersive_controls.dart';
 
-/// Sits where the play button is, so it lines up with ±10 s; the startup
-/// label goes below it, with the torrent's numbers if the start drags on.
+/// Sits where the play button is; the startup label goes below it, with
+/// the torrent's numbers if the start drags on.
 class _BufferingSpinner extends StatelessWidget {
   const _BufferingSpinner({
     required this.engine,
@@ -184,62 +184,33 @@ class _SkipForwardOffer extends StatelessWidget {
   }
 }
 
-/// An action offered over the video ("Skip opening", "Play next"). Its
+/// An action offered over the video ("Skip opening"). Its
 /// label names the action, so it carries no glyph.
 class _OfferButton extends StatelessWidget {
   const _OfferButton.outlined({
     required this.label,
     required this.onPressed,
     super.key,
-  }) : filled = false,
-       detail = null;
+  });
 
-  const _OfferButton.filled({
-    required this.label,
-    required this.onPressed,
-    this.detail,
-    super.key,
-  }) : filled = true;
-
-  final bool filled;
   final String label;
-  final String? detail;
   final VoidCallback onPressed;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final content = PlayerOfferLabel(
-      label: label,
-      detail: detail,
-      maxWidth: 240,
-    );
+    final content = PlayerOfferLabel(label: label, maxWidth: 240);
     return Padding(
       padding: const EdgeInsets.only(top: 12),
-      child: filled
-          ? PlayerCountdownBar(
-              color: theme.colorScheme.onPrimary,
-              child: FilledButton(
-                onPressed: onPressed,
-                style: FilledButton.styleFrom(
-                  minimumSize: const Size(64, _plateMinHeight),
-                  padding: _offerPadding,
-                  shape: _offerShape,
-                  textStyle: theme.textTheme.titleSmall,
-                ),
-                child: content,
-              ),
-            )
-          : PlayerCountdownBar(
-              color: Colors.white,
-              // Inside the outline, not over it.
-              inset: const EdgeInsets.all(_overVideoOutlineWidth),
-              child: OutlinedButton(
-                onPressed: onPressed,
-                style: _overVideoButtonStyle(theme),
-                child: content,
-              ),
-            ),
+      child: PlayerCountdownBar(
+        color: Colors.white,
+        inset: const EdgeInsets.all(_overVideoOutlineWidth),
+        child: OutlinedButton(
+          onPressed: onPressed,
+          style: _overVideoButtonStyle(theme),
+          child: content,
+        ),
+      ),
     );
   }
 }

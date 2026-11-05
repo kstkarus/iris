@@ -9,6 +9,7 @@ import 'package:iris/features/player/domain/player_episode_names.dart';
 import 'package:iris/features/player/presentation/cubit/player_source_cubit.dart';
 import 'package:iris/features/player/presentation/cubit/player_source_state.dart';
 import 'package:iris/features/player/presentation/widgets/player_episodes_list.dart';
+import 'package:iris/features/player/presentation/widgets/player_episode_grid.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/entities/watch_progress/presentation/watch_progress_line.dart';
 import 'package:iris/shared/widgets/status_views.dart';
@@ -76,8 +77,6 @@ class _SuccessState extends StatelessWidget {
     final target = files.length > 1
         ? continueTarget(files, progressByFile, listed: listed)
         : null;
-    // Text rows instead of a card and a button per file: the whole row
-    // starts the file, so 24 episodes stay scannable.
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -92,14 +91,22 @@ class _SuccessState extends StatelessWidget {
           const SizedBox(height: 16),
         ],
         Expanded(
-          child: PlayerEpisodesList(
-            files: files,
-            currentFileIndex: null,
-            progressByFile: progressByFile,
-            listed: listed,
-            onSelected: onFileSelected,
-            showSizes: true,
-          ),
+          child: hasEpisodeTitles(files)
+              ? PlayerEpisodesList(
+                  files: files,
+                  currentFileIndex: null,
+                  progressByFile: progressByFile,
+                  listed: listed,
+                  onSelected: onFileSelected,
+                  showSizes: true,
+                )
+              : PlayerEpisodeGrid(
+                  files: files,
+                  highlightedFileIndex: target?.file.index,
+                  progressByFile: progressByFile,
+                  listed: listed,
+                  onSelected: onFileSelected,
+                ),
         ),
       ],
     );

@@ -2,7 +2,7 @@
 
 An ad-free anime client for Android, Windows and iOS. It browses the [Shikimori](https://shikimori.io) catalog, plays episodes from online sources and torrents in its own player, downloads them for offline viewing and syncs watch progress with a Shikimori list.
 
-The interface is in English and Russian. Online sources offer Russian dubs and subtitles only; torrents come in whatever languages their releases have.
+The interface is in English and Russian, with bundled Medeo Mono and Medeo Sans fonts. Online sources offer Russian dubs and subtitles only; torrents come in whatever languages their releases have.
 
 ## Features
 
@@ -20,7 +20,7 @@ The interface is in English and Russian. Online sources offer Russian dubs and s
 
   Torrents stream piece by piece, without downloading the whole file first.
 - **Downloads.** A compact poster gallery on phones and a selectable poster rail beside episodes on desktop (above them in narrow windows). An empty library explains offline viewing and opens the catalog. A title keeps its name available while scrolling, and episode rows show playback position and total duration. Release headings carry the source and known video quality; Download status shows live transfer details and failure guidance. Open the anime page from the title menu, queue remaining episodes, watch completed files or remove downloads. Torrent and online downloads resume after a pause, an error or an app restart. Open Storage from the library's More menu to inspect or clear the stream cache.
-- **Shikimori account.** Status, score and episode count for any title. Finishing an episode updates the count in your list, and episodes counted there show as watched on every device. Offline marks stay on the device and retry silently while Iris is open or when you return to it. A confirmed reset or new rewatch on Shikimori takes priority over older queued marks.
+- **Shikimori account.** Status, score and episode count for any title. Finishing an episode updates the count in your list, and episodes counted there show as watched on every device. Offline marks stay on the device and retry while Iris is open or when you return to it; the player shows marks waiting to sync and lets you retry them. A confirmed reset or new rewatch on Shikimori takes priority over older queued marks.
 - **Updates.** On Android and Windows the app checks this repository's latest release. Android shows release notes, downloads and verifies the APK inside Iris, then opens the system installer. Windows installed through the per-user installer downloads and verifies updates inside Iris, then saves progress and the download queue before an explicit restart and install. Portable Windows builds open the ZIP in the browser.
 
 How each feature behaves, and which services it calls, is described in [docs/behaviour.md](docs/behaviour.md).

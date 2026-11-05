@@ -450,7 +450,8 @@ class _CatalogHeading extends StatelessWidget {
             children: [
               DisplayTitle(
                 heading,
-                maxSize: compact ? 56 : 144,
+                fontFamily: 'Medeo Pixel Grid',
+                maxSize: compact ? 48 : 72,
                 minSize: 32,
                 maxLines: 1,
               ),

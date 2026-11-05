@@ -88,6 +88,13 @@ class _ContinueWatchingButtonState extends State<ContinueWatchingButton> {
             extra: AnimePlayerSourceArgs.resume(progress),
           );
         },
+        onOpenAnime: (progress) {
+          close();
+          context.pushNamed(
+            'anime-details',
+            pathParameters: {'id': progress.animeId},
+          );
+        },
       ),
     );
   }
@@ -145,9 +152,14 @@ class _ContinueWatchingButtonState extends State<ContinueWatchingButton> {
 }
 
 class _HistoryContents extends StatelessWidget {
-  const _HistoryContents({required this.onOpen, required this.onEmpty});
+  const _HistoryContents({
+    required this.onOpen,
+    required this.onOpenAnime,
+    required this.onEmpty,
+  });
 
   final ValueChanged<WatchProgress> onOpen;
+  final ValueChanged<WatchProgress> onOpenAnime;
   final VoidCallback onEmpty;
 
   @override
@@ -170,6 +182,7 @@ class _HistoryContents extends StatelessWidget {
                 items: items,
                 posters: posters,
                 onOpen: onOpen,
+                onOpenAnime: onOpenAnime,
                 onRemove: (progress) => context
                     .read<WatchProgressCubit>()
                     .removeTorrent(progress.torrentKey),

@@ -109,13 +109,15 @@ void main() {
     await tester.pump();
 
     expect(find.byType(SnackBar), findsNothing);
-    await tester.tap(find.text('notice: Mark episode 2 on Shikimori? / Mark'));
+    expect(find.text('Mark episode 2 on Shikimori?'), findsOneWidget);
+    await tester.tap(find.text('Mark'));
     await tester.pump();
     await tester.pump();
 
     expect(rates.rates['5114']?.episodes, 2);
     expect(rates.rates['5114']?.status, UserRateStatus.watching);
-    await tester.tap(find.text('notice: Episode 2 marked on Shikimori / Undo'));
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.tap(find.text('Undo'));
     await tester.pump();
     await tester.pump();
     expect(rates.rates['5114'], isNull);
@@ -137,15 +139,13 @@ void main() {
 
     expect(rates.rates['5114']?.episodes, 3);
     expect(find.byType(SnackBar), findsNothing);
-    expect(
-      find.text('notice: Episode 3 marked on Shikimori / Undo'),
-      findsOneWidget,
-    );
+    expect(find.text('Episode 3 marked'), findsOneWidget);
 
     await tester.pump();
-    await tester.pump(markNoticeDuration);
+    await tester.pump(const Duration(seconds: 6));
     await tester.pump();
-    expect(find.textContaining('notice:'), findsNothing);
+    expect(find.text('Episode 3 marked'), findsOneWidget);
+    expect(find.text('Undo'), findsNothing);
   });
 
   testWidgets('fills the window with the immersive player', (tester) async {
@@ -177,7 +177,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('a queued mark stays silent in the player', (tester) async {
+  testWidgets('a queued mark is shown as waiting to sync', (tester) async {
     setTestWindowSize(tester, TestWindowSizes.landscape);
     await tester.pumpWidget(
       _wrap(source: _onlineSource, marker: _DeferredMarker()),
@@ -192,7 +192,7 @@ void main() {
       tester.element(find.byType(PlayerPage)).read<EpisodeMarkCubit>().state,
       isA<EpisodeMarkQueued>(),
     );
-    expect(find.textContaining('notice:'), findsNothing);
+    expect(find.text('Episode 3 waiting to sync'), findsOneWidget);
     expect(find.byType(SnackBar), findsNothing);
     expect(tester.takeException(), isNull);
   });

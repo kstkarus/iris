@@ -38,11 +38,18 @@ class AnimeCard extends StatelessWidget {
       color: scheme.onSurfaceVariant,
       fontWeight: FontWeight.w400,
     );
+    final titleStyle = theme.textTheme.titleSmall!;
+    final alternateStyle = theme.textTheme.bodySmall!;
+    final textScaler = MediaQuery.textScalerOf(context);
+    // Paragraphs round line heights; reserve whole lines before multiplying.
+    double lineHeight(TextStyle style) =>
+        (textScaler.scale(style.fontSize!) * (style.height ?? 1))
+            .ceilToDouble();
 
     return TapRow(
       onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.all(4),
+        padding: const EdgeInsets.symmetric(vertical: 4),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -65,21 +72,29 @@ class AnimeCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 10),
-            Text(
-              anime.name,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.titleSmall,
+            ConstrainedBox(
+              constraints: BoxConstraints(
+                minHeight: lineHeight(titleStyle) * 2,
+              ),
+              child: Text(
+                anime.name,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: titleStyle,
+              ),
             ),
-            if (anime.russian.isNotEmpty) ...[
-              const SizedBox(height: 2),
-              Text(
+            const SizedBox(height: 2),
+            ConstrainedBox(
+              constraints: BoxConstraints(
+                minHeight: lineHeight(alternateStyle),
+              ),
+              child: Text(
                 anime.russian,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.bodySmall,
+                style: alternateStyle,
               ),
-            ],
+            ),
             const SizedBox(height: 8),
             Row(
               children: [

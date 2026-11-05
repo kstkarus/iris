@@ -11,6 +11,7 @@ import 'package:iris/features/profile/presentation/widgets/profile_header.dart';
 import 'package:iris/features/profile/presentation/widgets/user_list_view.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/widgets/adaptive/page_frame.dart';
+import 'package:iris/shared/widgets/pixel_icon.dart';
 import 'package:iris/shared/widgets/status_views.dart';
 
 /// The Shikimori account: an invitation to sign in, or whose list the app
@@ -82,6 +83,11 @@ class _SignedOut extends StatelessWidget {
             AuthCancelled() || null => l10n.profileSignInMessage,
           };
     return MessageView(
+      icon: PixelIcon(
+        PixelGlyph.shikimori,
+        size: 42,
+        color: Theme.of(context).colorScheme.onSurfaceVariant,
+      ),
       title: l10n.profileSignInTitle,
       message: message,
       action: FilledButton(

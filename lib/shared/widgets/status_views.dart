@@ -133,23 +133,26 @@ class _BlockSpinnerState extends State<BlockSpinner>
   }
 }
 
-/// A centred message for empty and failed states, with an optional action.
+/// A centred message for empty and failed states, with an optional icon and action.
 class MessageView extends StatelessWidget {
   const MessageView({
     required this.message,
     this.title,
+    this.icon,
     this.action,
     super.key,
   });
 
   final String? title;
   final String message;
+  final Widget? icon;
   final Widget? action;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final title = this.title;
+    final icon = this.icon;
     final action = this.action;
     return Center(
       child: SingleChildScrollView(
@@ -159,6 +162,7 @@ class MessageView extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              if (icon != null) ...[icon, const SizedBox(height: 24)],
               if (title != null) ...[
                 Text(
                   title,

@@ -73,7 +73,11 @@ void main() {
 
     await marks.undo();
     expect(rates.rates['1'], isNull);
-    expect(marks.state, isA<EpisodeMarkIdle>());
+    expect(marks.state, isA<EpisodeMarkUndone>());
+    marks.confirm();
+    await settle();
+    expect(rates.rates['1']?.episodes, 5);
+    expect(marks.state, isA<EpisodeMarkDone>());
   });
 
   test('a refused undo keeps the mark and can be tried again', () async {
@@ -86,14 +90,18 @@ void main() {
     await marks.undo();
     expect(
       marks.state,
-      isA<EpisodeMarkDone>().having((s) => s.undoFailed, 'undoFailed', true),
+      isA<EpisodeMarkFailed>().having(
+        (s) => s.action,
+        'action',
+        EpisodeMarkAction.undo,
+      ),
     );
     expect(rates.rates['1']?.episodes, 5);
 
     failing.refuse = false;
     await marks.undo();
     expect(rates.rates['1'], isNull);
-    expect(marks.state, isA<EpisodeMarkIdle>());
+    expect(marks.state, isA<EpisodeMarkUndone>());
   });
 
   test('a torrent episode is offered first', () async {
@@ -154,6 +162,52 @@ void main() {
     expect(rates.rates['1']?.episodes, 7);
   });
 
+  test('an already-counted torrent leaves no empty mark to select', () async {
+    await rates.save(userId: '42', animeId: '1', rateId: null, episodes: 5);
+    final marks = cubit()..watched(torrent());
+    marks.confirm();
+    await settle();
+
+    expect(marks.state, isA<EpisodeMarkIdle>());
+    expect(marks.pendingCount, 0);
+    expect(marks.pendingIndex, -1);
+
+    marks.watched(online(number: 6));
+    await settle();
+    expect(marks.pendingCount, 1);
+    expect(marks.pendingIndex, 0);
+    marks.showNextPending();
+    expect(
+      marks.state,
+      isA<EpisodeMarkDone>().having((state) => state.episode, 'episode', 6),
+    );
+    await marks.undo();
+    expect(rates.rates['1']?.episodes, 5);
+    expect(marks.state, isA<EpisodeMarkUndone>());
+  });
+
+  test('an already-counted torrent returns to a retained mark', () async {
+    await rates.save(userId: '42', animeId: '1', rateId: null, episodes: 5);
+    final marks = cubit()..watched(online(number: 6));
+    await settle();
+    await marks.undo();
+
+    marks.watched(torrent());
+    marks.confirm();
+    await settle();
+
+    expect(marks.pendingCount, 1);
+    expect(marks.pendingIndex, 0);
+    expect(
+      marks.state,
+      isA<EpisodeMarkUndone>().having((state) => state.episode, 'episode', 6),
+    );
+    marks.confirm();
+    await settle();
+    expect(marks.state, isA<EpisodeMarkDone>());
+    expect(rates.rates['1']?.episodes, 6);
+  });
+
   test('without an account, an anime or a number nothing happens', () {
     final signedOut = cubit(userId: null)..watched(online());
     final savedTorrent = cubit()..watched(online(animeId: ''));
@@ -183,6 +237,140 @@ void main() {
     expect(marks.state, isA<EpisodeMarkDone>());
   });
 
+  test('a failed restore remains unmarked and can be retried', () async {
+    final failing = _ToggleSaveRepository();
+    rates = failing;
+    final marks = cubit()..watched(online());
+    await settle();
+    await marks.undo();
+    failing.fail = true;
+    marks.confirm();
+    await settle();
+    expect(
+      marks.state,
+      isA<EpisodeMarkFailed>().having(
+        (state) => state.action,
+        'action',
+        EpisodeMarkAction.restore,
+      ),
+    );
+    expect(rates.rates['1'], isNull);
+    failing.fail = false;
+    marks.confirm();
+    await settle();
+    expect(marks.state, isA<EpisodeMarkDone>());
+    expect(rates.rates['1']?.episodes, 5);
+  });
+
+  test('undo does not overwrite progress changed elsewhere', () async {
+    final marks = cubit()..watched(online());
+    await settle();
+    await rates.save(
+      userId: '42',
+      animeId: '1',
+      rateId: rates.rates['1']!.id,
+      episodes: 6,
+    );
+    await marks.undo();
+    expect(marks.state, isA<EpisodeMarkConflict>());
+    expect(rates.rates['1']?.episodes, 6);
+  });
+
+  test(
+    'a pending earlier failure survives the next episode finishing',
+    () async {
+      final marker = _ConcurrentMarker();
+      final marks = EpisodeMarkCubit(
+        markEpisode: marker,
+        userId: '42',
+        sessionGeneration: () => 0,
+      );
+      addTearDown(marks.close);
+      marks.watched(online(number: 5));
+      marks.watched(online(number: 6));
+      marker.replies[5]!.completeError(StateError('first failed'));
+      await settle();
+      expect(
+        marks.state,
+        isA<EpisodeMarkFailed>().having((s) => s.episode, 'episode', 5),
+      );
+      marker.replies[6]!.complete(const EpisodeAlreadyMarked());
+      await settle();
+      expect(
+        marks.state,
+        isA<EpisodeMarkFailed>().having((s) => s.episode, 'episode', 5),
+      );
+    },
+  );
+
+  test(
+    'multiple failures can be selected and a retry keeps its undo',
+    () async {
+      final marker = _ConcurrentMarker();
+      final marks = EpisodeMarkCubit(
+        markEpisode: marker,
+        userId: '42',
+        sessionGeneration: () => 0,
+      );
+      addTearDown(marks.close);
+      marks.watched(online(number: 5));
+      marks.watched(online(number: 6));
+      marker.replies[5]!.completeError(StateError('first failed'));
+      marker.replies[6]!.completeError(StateError('second failed'));
+      await settle();
+      expect(marks.pendingCount, 2);
+      marks.showNextPending();
+      expect(
+        marks.state,
+        isA<EpisodeMarkFailed>().having((s) => s.episode, 'episode', 6),
+      );
+      marks.confirm();
+      marker.replies[6]!.complete(
+        const EpisodeMarked(
+          previous: null,
+          saved: UserRate(
+            id: '1',
+            status: UserRateStatus.watching,
+            episodes: 6,
+          ),
+        ),
+      );
+      await settle();
+      expect(
+        marks.state,
+        isA<EpisodeMarkFailed>().having((s) => s.episode, 'episode', 5),
+      );
+      expect(marks.pendingCount, 2);
+      marks.showNextPending();
+      expect(
+        marks.state,
+        isA<EpisodeMarkDone>().having((s) => s.episode, 'episode', 6),
+      );
+    },
+  );
+
+  test(
+    'an undone mark stays reachable after a later episode is marked',
+    () async {
+      final marks = cubit()..watched(online(number: 5));
+      await settle();
+      await marks.undo();
+      expect(marks.state, isA<EpisodeMarkUndone>());
+      marks.watched(online(number: 6));
+      await settle();
+      expect(
+        marks.state,
+        isA<EpisodeMarkDone>().having((s) => s.episode, 'episode', 6),
+      );
+      expect(marks.pendingCount, 2);
+      marks.showNextPending();
+      expect(
+        marks.state,
+        isA<EpisodeMarkUndone>().having((s) => s.episode, 'episode', 5),
+      );
+    },
+  );
+
   test('a mark finishing after account expiration changes nothing', () async {
     final gated = _GatedFetchRepository();
     final marks = EpisodeMarkCubit(
@@ -201,6 +389,63 @@ void main() {
     expect(marks.state, isA<EpisodeMarkIdle>());
     expect(gated.rates, isEmpty);
   });
+
+  test(
+    'an update from a previous sign-in of the same account is ignored',
+    () async {
+      var generation = 0;
+      final marker = _SyncMarker();
+      final marks = EpisodeMarkCubit(
+        markEpisode: marker,
+        userId: '42',
+        sessionGeneration: () => generation,
+      );
+      addTearDown(marks.close);
+      addTearDown(marker.updates.close);
+      marks.watched(online());
+      await settle();
+      generation++;
+      marks.accountChanged('42');
+      marks.watched(online());
+      await settle();
+      marker.updates.add(
+        const EpisodeMarkUpdate(
+          userId: '42',
+          animeId: '1',
+          episode: 5,
+          generation: 0,
+          result: EpisodeMarked(
+            previous: null,
+            saved: UserRate(
+              id: '1',
+              status: UserRateStatus.watching,
+              episodes: 5,
+            ),
+          ),
+        ),
+      );
+      await settle();
+      expect(marks.state, isA<EpisodeMarkQueued>());
+      marker.updates.add(
+        const EpisodeMarkUpdate(
+          userId: '42',
+          animeId: '1',
+          episode: 5,
+          generation: 1,
+          result: EpisodeMarked(
+            previous: null,
+            saved: UserRate(
+              id: '1',
+              status: UserRateStatus.watching,
+              episodes: 5,
+            ),
+          ),
+        ),
+      );
+      await settle();
+      expect(marks.state, isA<EpisodeMarkDone>());
+    },
+  );
 
   test('a pending undo failure after account expiration is ignored', () async {
     final gated = _GatedRemoveRepository();
@@ -254,6 +499,71 @@ void main() {
       await expiring;
     },
   );
+}
+
+class _ConcurrentMarker implements EpisodeMarker {
+  final replies = <int, Completer<EpisodeMarkResult>>{};
+
+  @override
+  Future<EpisodeMarkResult> call({
+    required String userId,
+    required String animeId,
+    required int episode,
+    bool Function()? isCurrent,
+  }) => (replies[episode] = Completer<EpisodeMarkResult>()).future;
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _SyncMarker implements EpisodeMarker, EpisodeMarkSync {
+  final updates = StreamController<EpisodeMarkUpdate>.broadcast();
+
+  @override
+  Stream<EpisodeMarkUpdate> get markUpdates => updates.stream;
+
+  @override
+  List<EpisodeMarkUpdate> pendingMarks({
+    required String userId,
+    required String animeId,
+  }) => [];
+
+  @override
+  Future<EpisodeMarkResult> call({
+    required String userId,
+    required String animeId,
+    required int episode,
+    bool Function()? isCurrent,
+  }) async => const EpisodeMarkDeferred();
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _ToggleSaveRepository extends MockUserRateRepository {
+  bool fail = false;
+
+  @override
+  Future<UserRate> save({
+    required String userId,
+    required String animeId,
+    required String? rateId,
+    UserRateStatus? status,
+    required int episodes,
+    int? score,
+    int? rewatches,
+  }) {
+    if (fail) throw StateError('save failed');
+    return super.save(
+      userId: userId,
+      animeId: animeId,
+      rateId: rateId,
+      status: status,
+      episodes: episodes,
+      score: score,
+      rewatches: rewatches,
+    );
+  }
 }
 
 class _GatedFetchRepository extends MockUserRateRepository {

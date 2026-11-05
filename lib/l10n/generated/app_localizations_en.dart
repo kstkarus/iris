@@ -746,16 +746,6 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String playerSeekBackward(int seconds) {
-    return 'Back $seconds s';
-  }
-
-  @override
-  String playerSeekForward(int seconds) {
-    return 'Forward $seconds s';
-  }
-
-  @override
   String get playerMute => 'Mute';
 
   @override
@@ -963,14 +953,14 @@ class AppLocalizationsEn extends AppLocalizations {
   String get navigationProfile => 'Profile';
 
   @override
-  String get profileSignInTitle => 'Your Shikimori list';
+  String get profileSignInTitle => 'Shikimori account';
 
   @override
   String get profileSignInMessage =>
-      'Sign in to mark anime in your Shikimori list right from the app.';
+      'Track what you\'ve watched and keep up with airing anime and friends';
 
   @override
-  String get profileSignInButton => 'Sign in with Shikimori';
+  String get profileSignInButton => 'Sign in';
 
   @override
   String get profileSignInUnavailable => 'Sign-in is not set up in this build.';
@@ -1304,7 +1294,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String playerMarked(int episode) {
-    return 'Episode $episode marked on Shikimori';
+    return 'Episode $episode marked';
   }
 
   @override
@@ -1316,10 +1306,85 @@ class AppLocalizationsEn extends AppLocalizations {
   String get playerMarkAction => 'Mark';
 
   @override
-  String get playerMarkFailed => 'Shikimori did not save the mark.';
+  String playerMarkFailed(int episode) {
+    return 'Could not mark episode $episode';
+  }
 
   @override
-  String get playerUnmarkFailed => 'Shikimori did not take the mark back.';
+  String get playerUnmarkFailed => 'Could not undo';
+
+  @override
+  String get playerRestoreFailed => 'Could not restore';
+
+  @override
+  String playerMarkUnset(int episode) {
+    return 'Episode $episode not marked';
+  }
+
+  @override
+  String playerMarkWaiting(int episode) {
+    return 'Episode $episode waiting to sync';
+  }
+
+  @override
+  String playerMarkSyncFailed(int episode) {
+    return 'Episode $episode · sync failed';
+  }
+
+  @override
+  String get playerMarkConflict => 'List entry changed elsewhere';
+
+  @override
+  String get playerMarkSaving => 'Marking…';
+
+  @override
+  String get playerUnmarkSaving => 'Undoing…';
+
+  @override
+  String get playerRestoreSaving => 'Restoring mark…';
+
+  @override
+  String get playerMarkShortMarked => 'Marked';
+
+  @override
+  String get playerMarkShortUnset => 'Not marked';
+
+  @override
+  String get playerMarkShortFailed => 'Could not mark';
+
+  @override
+  String get playerMarkShortWaiting => 'Waiting to sync';
+
+  @override
+  String get playerMarkShortSyncFailed => 'Sync failed';
+
+  @override
+  String get playerMarkShortConflict => 'Entry changed';
+
+  @override
+  String get playerMarkShortRestoreSaving => 'Restoring…';
+
+  @override
+  String get playerMarkRestore => 'Restore';
+
+  @override
+  String get playerMarkExpand => 'Show mark actions';
+
+  @override
+  String get playerMarkCollapse => 'Hide mark actions';
+
+  @override
+  String get playerMarkDismiss => 'Close';
+
+  @override
+  String playerMarkPreviously(String status) {
+    return 'Previously: $status';
+  }
+
+  @override
+  String playerMarkNextPending(int current, int total) {
+    return 'Show another mark: $current of $total';
+  }
 
   @override
   String get profileSigningInHint =>

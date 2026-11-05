@@ -20,6 +20,8 @@ import 'package:iris/features/player/presentation/widgets/player_viewport_factor
 import '../../helpers/fake_player_engine.dart';
 import '../../helpers/fake_player_repository.dart';
 
+final _controlsVisible = ValueNotifier<bool>(true);
+
 const fmaPlayerSource = AnimePlayerSource(
   animeId: '5114',
   animeTitle: 'Fullmetal Alchemist: Brotherhood',
@@ -122,6 +124,13 @@ class FakePlayerViewportFactory implements PlayerViewportFactory {
             child: TextButton(
               onPressed: notice.onAction,
               child: Text('notice: ${notice.message} / ${notice.actionLabel}'),
+            ),
+          ),
+        if (chrome.mark case final mark?)
+          SizedBox(
+            width: 600,
+            child: Builder(
+              builder: (context) => mark(context, _controlsVisible),
             ),
           ),
         TextButton(onPressed: chrome.onBack, child: const Text('back')),

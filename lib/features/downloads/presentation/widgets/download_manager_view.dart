@@ -275,7 +275,7 @@ class _EmptyLibrary extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(height: 24),
-                          OutlinedButton(
+                          FilledButton(
                             key: const Key('downloads_browse_catalog'),
                             onPressed: onBrowseCatalog,
                             child: Text(l10n.commonBrowseCatalog),

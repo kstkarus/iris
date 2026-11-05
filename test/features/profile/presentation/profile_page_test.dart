@@ -97,7 +97,7 @@ void main() {
     final repository = FakeAuthRepository()..signInGate = Completer();
     await pumpPage(tester, repository);
 
-    expect(find.text('Your Shikimori list'), findsOneWidget);
+    expect(find.text('Shikimori account'), findsOneWidget);
     expect(signInButton(tester).onPressed, isNotNull);
 
     await tester.tap(find.byKey(ProfilePage.signInButtonKey));

@@ -64,6 +64,31 @@ void main() {
       });
     }
 
+    testWidgets('opens the anime page from the history menu at $size', (
+      tester,
+    ) async {
+      final harness = await _pump(
+        tester,
+        size,
+        items: [_progress(animeId: '52991')],
+      );
+      await tester.tap(find.byKey(ContinueWatchingButton.buttonKey));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('More actions'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Open anime'));
+      await tester.pumpAndSettle();
+
+      final destination = find.text('Anime destination 52991');
+      expect(destination, findsOneWidget);
+      expect(harness.opened, isEmpty);
+      expect(harness.history.items, hasLength(1));
+      GoRouter.of(tester.element(destination)).pop();
+      await tester.pumpAndSettle();
+      expect(find.byType(ContinueWatchingRow), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+
     testWidgets('removing the last entry closes its overlay at $size', (
       tester,
     ) async {
@@ -219,6 +244,13 @@ Future<({List<AnimePlayerSourceArgs> opened, _History history})> _pump(
     routes: [
       GoRoute(path: '/', builder: (_, _) => const AnimeListPage()),
       GoRoute(
+        path: '/animes/:id',
+        name: 'anime-details',
+        builder: (_, state) => Scaffold(
+          body: Text('Anime destination ${state.pathParameters['id']}'),
+        ),
+      ),
+      GoRoute(
         path: '/play',
         name: 'torrent-stream-files',
         builder: (_, state) {
@@ -260,19 +292,22 @@ Future<({List<AnimePlayerSourceArgs> opened, _History history})> _pump(
   return (opened: opened, history: history);
 }
 
-WatchProgress _progress({bool finished = false, String source = 'source'}) =>
-    WatchProgress(
-      torrentKey: source,
-      fileIndex: 2,
-      fileName: 'Episode 3.mkv',
-      magnet: 'magnet:$source',
-      sourceTitle: 'Release',
-      animeId: source,
-      animeTitle: 'An exceptionally long anime title to check wrapping',
-      position: Duration(minutes: finished ? 24 : 12),
-      duration: const Duration(minutes: 24),
-      updatedAt: DateTime(2026),
-    );
+WatchProgress _progress({
+  bool finished = false,
+  String source = 'source',
+  String? animeId,
+}) => WatchProgress(
+  torrentKey: source,
+  fileIndex: 2,
+  fileName: 'Episode 3.mkv',
+  magnet: 'magnet:$source',
+  sourceTitle: 'Release',
+  animeId: animeId ?? source,
+  animeTitle: 'An exceptionally long anime title to check wrapping',
+  position: Duration(minutes: finished ? 24 : 12),
+  duration: const Duration(minutes: 24),
+  updatedAt: DateTime(2026),
+);
 
 class _History implements WatchProgressRepository {
   _History(this.items);

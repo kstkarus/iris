@@ -9,22 +9,29 @@ import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 
 import 'package:iris/app/theme/app_theme.dart';
+import 'package:iris/entities/user_rate/data/mock_user_rate_repository.dart';
+import 'package:iris/entities/user_rate/domain/mark_episode_watched.dart';
 import 'package:iris/features/online_sources/domain/repositories/online_quality_preferences.dart';
+import 'package:iris/features/player/domain/entities/anime_player_source.dart';
 import 'package:iris/features/player/domain/entities/player_playback_stats.dart';
 import 'package:iris/features/player/domain/entities/player_skip_segment.dart';
 import 'package:iris/features/player/domain/entities/player_session.dart';
+import 'package:iris/features/player/domain/entities/player_video_file.dart';
 import 'package:iris/features/player/domain/entities/player_decoding_preferences.dart';
 import 'package:iris/features/player/domain/repositories/player_repository.dart';
 import 'package:iris/features/player/presentation/cubit/player_decoding_preferences_cubit.dart';
+import 'package:iris/features/player/presentation/cubit/episode_mark_cubit.dart';
 import 'package:iris/features/player/presentation/cubit/player_subtitle_preferences_cubit.dart';
 import 'package:iris/features/player/presentation/playback/media_kit_player_engine.dart';
 import 'package:iris/features/player/presentation/widgets/media_kit_player_viewport_factory.dart';
+import 'package:iris/features/player/presentation/widgets/episode_mark_plate.dart';
 import 'package:iris/features/player/presentation/widgets/player_auto_hiding_offer.dart';
 import 'package:iris/features/player/presentation/widgets/player_immersive_controls.dart';
 import 'package:iris/features/player/presentation/widgets/player_viewport_factory.dart';
 import 'package:iris/features/player/presentation/widgets/player_overlay_preferences.dart';
 import 'package:iris/features/player/presentation/widgets/player_track_selector_sheet.dart';
 import 'package:iris/features/player/presentation/widgets/player_wait_indicator.dart';
+import 'package:iris/shared/widgets/pixel_icon.dart';
 import 'package:iris/shared/widgets/segmented_choice.dart';
 import 'package:iris/shared/window/picture_in_picture.dart';
 import 'package:iris/shared/window/ios_picture_in_picture.dart';
@@ -808,8 +815,8 @@ void main() {
     expect(platformPlayer.openCount, 2);
   });
 
-  testWidgets('offers the next file in the credits for 8 s, then with the '
-      'controls', (tester) async {
+  testWidgets('highlights the next button in the credits and shows a compact '
+      'button while controls are hidden', (tester) async {
     setTestWindowSize(tester, TestWindowSizes.landscape);
     late _FakePlatformPlayer platformPlayer;
 
@@ -828,24 +835,25 @@ void main() {
     platformPlayer.emitPlaying(true);
     await _deliverPlayerEvent(tester);
     expect(find.byKey(_nextPrompt), findsNothing);
+    final button = find.byKey(const Key('player_next_file_button'));
+    Color? buttonColor() => IconTheme.of(
+      tester.element(
+        find.descendant(of: button, matching: find.byType(PixelIcon)).last,
+      ),
+    ).color;
+    expect(buttonColor(), Colors.white);
 
     platformPlayer.emitPosition(const Duration(minutes: 22));
     await _deliverPlayerEvent(tester);
-    expect(find.text('Next episode'), findsOneWidget);
-    expect(find.text('Episode 3'), findsOneWidget);
-    expect(_nextPromptOpacity(tester), 1);
-    expect(_nextPromptCountdown(), findsOneWidget);
-
-    // The countdown starts with the next frame; the controls went before.
-    await tester.pump();
-    await tester.pump(const Duration(seconds: 7));
+    expect(buttonColor(), isNot(Colors.white));
+    expect(find.byKey(_nextPrompt), findsNothing);
+    await tester.pump(PlayerImmersiveControls.hideAfter);
     expect(_controlsOpacity(tester), 0);
-    expect(_nextPromptOpacity(tester), 1, reason: 'its first 8 s');
-    await tester.pump(const Duration(seconds: 1));
-    await tester.pump();
-    expect(_nextPromptOpacity(tester), 0);
+    expect(
+      find.byKey(const Key('player_floating_next_button')),
+      findsOneWidget,
+    );
 
-    // From then on it comes and goes with the controls, without a count.
     final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
     addTearDown(mouse.removePointer);
     // Over the video, clear of the bars that hold the controls.
@@ -853,29 +861,36 @@ void main() {
     await mouse.moveTo(const Offset(310, 300));
     await tester.pump();
     expect(_controlsOpacity(tester), 1);
-    expect(_nextPromptOpacity(tester), 1);
-    expect(_nextPromptCountdown(), findsNothing);
-    await tester.pump(PlayerImmersiveControls.hideAfter);
-    expect(_controlsOpacity(tester), 0);
-    expect(_nextPromptOpacity(tester), 0);
-
-    // Resting on it keeps the controls, and the offer with them.
-    await mouse.moveTo(tester.getCenter(find.byKey(_nextPrompt)));
-    await tester.pump();
-    await tester.pump(const Duration(seconds: 5));
-    expect(_controlsOpacity(tester), 1);
-    expect(_nextPromptOpacity(tester), 1);
-    await mouse.moveTo(const Offset(300, 300));
-    await tester.pump(PlayerImmersiveControls.hideAfter);
-    expect(_nextPromptOpacity(tester), 0);
+    expect(find.byKey(const Key('player_floating_next_button')), findsNothing);
 
     platformPlayer.emitPosition(const Duration(minutes: 10));
     await _deliverPlayerEvent(tester);
-    expect(find.byKey(_nextPrompt), findsNothing);
+    expect(buttonColor(), Colors.white);
   });
 
-  testWidgets('by touch, offers the next file with the controls a tap '
-      'brings up', (tester) async {
+  testWidgets('does not suggest a next file when there is none', (
+    tester,
+  ) async {
+    setTestWindowSize(tester, const Size(844, 390));
+    final player = _FakePlatformPlayer(
+      configuration: const PlayerConfiguration(),
+    );
+    await tester.pumpWidget(
+      _wrapViewport(platformPlayer: player, input: PlayerInputMode.touch),
+    );
+    await tester.pump();
+    player.emitDuration(const Duration(minutes: 24));
+    player.emitPosition(const Duration(minutes: 22));
+    player.emitPlaying(true);
+    await _deliverPlayerEvent(tester);
+    expect(find.byKey(const Key('player_next_file_button')), findsNothing);
+    await tester.pump(PlayerImmersiveControls.hideAfter);
+    await tester.pump();
+    expect(find.byKey(const Key('player_floating_next_button')), findsNothing);
+  });
+
+  testWidgets('by touch, moves the next hint between the compact button '
+      'and the bar', (tester) async {
     setTestWindowSize(tester, const Size(844, 390));
     late _FakePlatformPlayer platformPlayer;
 
@@ -895,20 +910,26 @@ void main() {
     platformPlayer.emitPlaying(true);
     await _deliverPlayerEvent(tester);
     await tester.pump();
-    await tester.pump(PlayerAutoHidingOffer.shownAtStart);
+    await tester.pump(PlayerImmersiveControls.hideAfter);
     await tester.pump();
-    expect(_nextPromptOpacity(tester), 0);
+    expect(
+      find.byKey(const Key('player_floating_next_button')),
+      findsOneWidget,
+    );
 
     // In the middle a tap answers at once.
     const middle = Offset(422, 120);
     await tester.tapAt(middle);
     await tester.pump();
-    expect(_nextPromptOpacity(tester), 1);
-    expect(_nextPromptCountdown(), findsNothing);
+    expect(find.byKey(const Key('player_floating_next_button')), findsNothing);
+    expect(find.byKey(const Key('player_next_file_button')), findsOneWidget);
 
     await tester.tapAt(middle);
     await tester.pump();
-    expect(_nextPromptOpacity(tester), 0, reason: 'hidden with the controls');
+    expect(
+      find.byKey(const Key('player_floating_next_button')),
+      findsOneWidget,
+    );
   });
 
   testWidgets('offers the fixed skip for 8 s, then with the controls', (
@@ -1078,7 +1099,7 @@ void main() {
     platformPlayer.emitPosition(const Duration(minutes: 20, seconds: 5));
     await _deliverPlayerEvent(tester);
     expect(find.byKey(_skipSegmentButton), findsNothing);
-    expect(find.byKey(_nextPrompt), findsOneWidget, reason: 'the ending began');
+    expect(engine.finishing.value, isTrue, reason: 'the ending began');
   });
 
   testWidgets('reads nothing of mpv before it has started', (tester) async {
@@ -1279,7 +1300,7 @@ void main() {
       ..emitPosition(const Duration(minutes: 20, seconds: 5));
     await _deliverPlayerEvent(tester);
 
-    expect(find.byKey(_nextPrompt), findsOneWidget, reason: 'the ending began');
+    expect(find.byKey(const Key('player_next_file_button')), findsOneWidget);
   });
 
   testWidgets('holds a seek asked for before the file loads until it can '
@@ -1391,8 +1412,7 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(seconds: 10));
 
-    expect(_nextPromptOpacity(tester), 1);
-    await tester.tap(find.byKey(_nextPrompt));
+    await tester.tap(find.byKey(const Key('player_next_file_button')));
     expect(played, 1);
   });
 
@@ -1528,6 +1548,105 @@ void main() {
         onBack: onBack ?? () {},
         episodes: episodes,
         notice: notice,
+      );
+    }
+
+    for (final (platform, input, size, textScale) in const [
+      (TargetPlatform.windows, PlayerInputMode.pointer, Size(1280, 720), 1.0),
+      (TargetPlatform.android, PlayerInputMode.touch, Size(844, 390), 1.0),
+      (TargetPlatform.iOS, PlayerInputMode.touch, Size(480, 320), 2.0),
+    ]) {
+      testWidgets(
+        'keeps the mark clear of sliders and the next hint on $platform',
+        (tester) async {
+          setTestWindowSize(tester, size);
+          tester.platformDispatcher.textScaleFactorTestValue = textScale;
+          addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+          final rates = MockUserRateRepository();
+          final marks = EpisodeMarkCubit(
+            markEpisode: MarkEpisodeWatched(rates),
+            userId: '42',
+            sessionGeneration: () => 0,
+          );
+          addTearDown(marks.close);
+          final player = _FakePlatformPlayer(
+            configuration: const PlayerConfiguration(),
+          );
+          const source = AnimePlayerSource(
+            animeId: '1',
+            animeTitle: 'Anime',
+            sourceTitle: 'Source',
+            sessionId: 's',
+            fileIndex: 0,
+            fileName: 'Episode',
+            files: [
+              PlayerVideoFile(
+                index: 0,
+                name: 'Episode',
+                size: 0,
+                extension: '',
+                episodeNumber: 11,
+              ),
+            ],
+          );
+          await tester.pumpWidget(
+            _wrapViewport(
+              platformPlayer: player,
+              input: input,
+              brightness: input == PlayerInputMode.touch
+                  ? _FakeScreenBrightness(.5)
+                  : null,
+              theme: buildAppTheme(
+                brightness: Brightness.dark,
+              ).copyWith(platform: platform),
+              chrome: PlayerChrome(
+                title: 'Episode 11',
+                onBack: () {},
+                mark: (context, visible) =>
+                    EpisodeMarkPlate(cubit: marks, controlsVisible: visible),
+              ),
+              next: PlayerNextFile(title: 'Episode 12', play: () {}),
+            ),
+          );
+          await tester.pump();
+          marks.watched(source);
+          player.emitDuration(const Duration(minutes: 24));
+          player.emitPosition(const Duration(minutes: 22));
+          player.emitPlaying(true);
+          await _deliverPlayerEvent(tester);
+          await tester.pump(const Duration(milliseconds: 400));
+          Rect plate() =>
+              tester.getRect(find.byKey(const Key('player_mark_plate')));
+          final play = find.byKey(const Key('player_play_pause_button'));
+          if (play.evaluate().isNotEmpty) {
+            expect(plate().overlaps(tester.getRect(play)), isFalse);
+          }
+          final slider = find.byKey(const Key('player_brightness_slider'));
+          if (slider.evaluate().isNotEmpty) {
+            expect(plate().overlaps(tester.getRect(slider)), isFalse);
+          }
+          if (input == PlayerInputMode.pointer) {
+            final mouse = await tester.createGesture(
+              kind: PointerDeviceKind.mouse,
+            );
+            await mouse.addPointer(
+              location: tester.getCenter(
+                find.byKey(const Key('player_mute_button')),
+              ),
+            );
+            await tester.pump(const Duration(milliseconds: 300));
+            final volume = find.byKey(const Key('player_volume_slider'));
+            expect(volume, findsOneWidget);
+            expect(plate().overlaps(tester.getRect(volume)), isFalse);
+            await mouse.removePointer();
+          }
+          await tester.pump(PlayerImmersiveControls.hideAfter);
+          await tester.pump(const Duration(milliseconds: 300));
+          final next = find.byKey(const Key('player_floating_next_button'));
+          expect(next, findsOneWidget);
+          expect(plate().overlaps(tester.getRect(next)), isFalse);
+          expect(tester.takeException(), isNull);
+        },
       );
     }
 
@@ -2023,14 +2142,10 @@ void main() {
       final spinner = tester.getCenter(
         find.byKey(const Key('player_buffering_spinner')),
       );
-      final backward = tester.getCenter(
-        find.byKey(const Key('player_seek_backward_button')),
+      expect(
+        spinner,
+        tester.getCenter(find.byKey(const Key('player_immersive_controls'))),
       );
-      final forward = tester.getCenter(
-        find.byKey(const Key('player_seek_forward_button')),
-      );
-      expect(spinner.dy, closeTo(backward.dy, 0.5));
-      expect(spinner.dx, closeTo((backward.dx + forward.dx) / 2, 0.5));
       expect(
         tester.getTopLeft(find.text('Buffering')).dy,
         greaterThan(
@@ -2162,21 +2277,26 @@ void main() {
         platformPlayer.emitPosition(const Duration(minutes: 22));
         await _deliverPlayerEvent(tester);
         await tester.pump(const Duration(milliseconds: 300));
-        final next = offerRect(_nextPrompt, FilledButton);
-        expect(noticeRect().height, next.height);
-        expect(noticeRect().bottom, next.bottom);
+        final next = tester.getRect(
+          find.byKey(const Key('player_next_file_button')),
+        );
         expect(noticeRect().overlaps(next), isFalse);
 
         platformPlayer.emitPlaying(false);
         await _deliverPlayerEvent(tester);
         await tester.pump(const Duration(milliseconds: 300));
         await tester.pump();
-        expect(offerRect(_nextPrompt, FilledButton).bottom, next.bottom);
+        expect(
+          tester
+              .getRect(find.byKey(const Key('player_next_file_button')))
+              .bottom,
+          next.bottom,
+        );
         final titleHeight = tester
             .getSize(find.byKey(const Key('player_title_block')))
             .height;
         expect(
-          next.bottom - noticeRect().bottom,
+          skip.bottom - noticeRect().bottom,
           closeTo(titleHeight + 12, 0.01),
         );
         expect(tester.takeException(), isNull);
@@ -2503,13 +2623,13 @@ void main() {
       final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
       await mouse.addPointer(location: Offset.zero);
       await mouse.moveTo(
-        tester.getCenter(find.byKey(const Key('player_seek_forward_button'))),
+        tester.getCenter(find.byKey(const Key('player_mute_button'))),
       );
       await tester.pump(const Duration(seconds: 2));
 
-      expect(find.text('Forward 10 s'), findsNothing);
+      expect(find.text('Mute'), findsNothing);
       expect(
-        find.bySemanticsLabel('Forward 10 s'),
+        find.bySemanticsLabel('Mute'),
         findsOneWidget,
         reason: 'screen readers keep the label',
       );
@@ -2646,10 +2766,6 @@ void main() {
       await _deliverPlayerEvent(tester);
       expect(controlsOpacity(), 1);
 
-      expect(
-        find.byKey(const Key('player_seek_backward_button')),
-        findsNothing,
-      );
       expect(find.byKey(const Key('player_play_pause_button')), findsNothing);
       expect(find.byKey(const Key('player_immersive_tap_layer')), findsNothing);
       expect(find.byKey(const Key('player_buffering_spinner')), findsNothing);
@@ -2686,7 +2802,7 @@ void main() {
           find.byKey(const Key('player_immersive_controls')),
         )
         .opacity;
-    // Clear of the buttons: in the middle third, above play and ±10 s.
+    // Clear of the play button, in the middle third.
     final middle = Offset(phone.width / 2, 120);
     final left = Offset(phone.width * 0.2, 120);
     final right = Offset(phone.width * 0.8, 120);
@@ -2708,8 +2824,6 @@ void main() {
         expect(tester.takeException(), isNull);
         for (final key in const [
           'player_back_button',
-          'player_seek_backward_button',
-          'player_seek_forward_button',
           'player_play_pause_button',
           'player_next_file_button',
           'player_episodes_button',
@@ -3309,7 +3423,7 @@ void main() {
     testWidgets('set the brightness from a slider at the left that keeps the '
         'controls while dragged, and give it back on leaving', (tester) async {
       setTestWindowSize(tester, phone);
-      final brightness = _FakeScreenBrightness(0.4);
+      final brightness = _FakeScreenBrightness(0.5);
       final platformPlayer = _FakePlatformPlayer(
         configuration: const PlayerConfiguration(),
       );
@@ -3339,10 +3453,13 @@ void main() {
 
       final drag = await tester.startGesture(track.center);
       await drag.moveBy(const Offset(0, -20));
-      await drag.moveBy(Offset(0, -track.height / 4));
+      await drag.moveBy(Offset(0, -track.height / 8));
       await tester.pump(const Duration(seconds: 5));
       expect(opacity(tester), 1, reason: 'the drag holds the controls');
-      expect(brightness.values.last, closeTo(0.75 + 20 / track.height, 0.01));
+      expect(
+        brightness.values.last,
+        closeTo(0.5 + (20 + track.height / 8) / (track.height - 14), 0.01),
+      );
       await drag.up();
       await tester.pump(PlayerImmersiveControls.hideAfter);
       await tester.pump();
@@ -3351,6 +3468,66 @@ void main() {
 
       await tester.pumpWidget(const SizedBox());
       expect(brightness.resets, 1);
+    });
+
+    testWidgets('brightness thumb stays in place at both ends', (tester) async {
+      setTestWindowSize(tester, phone);
+      final brightness = _FakeScreenBrightness(0);
+      await tester.pumpWidget(
+        _wrapViewport(
+          input: PlayerInputMode.touch,
+          chrome: chrome(),
+          brightness: brightness,
+        ),
+      );
+      await tester.pump();
+      final track = tester.getRect(
+        find.byKey(const Key('player_brightness_slider')),
+      );
+
+      for (final offset in [1.0, 7.0, 13.0]) {
+        await tester.tapAt(Offset(track.center.dx, track.bottom - offset));
+        await tester.pump();
+      }
+      expect(brightness.values, isEmpty);
+
+      await tester.tapAt(Offset(track.center.dx, track.top + 7));
+      await tester.pump();
+      expect(brightness.values, [1]);
+      for (final offset in [1.0, 7.0, 13.0]) {
+        await tester.tapAt(Offset(track.center.dx, track.top + offset));
+        await tester.pump();
+      }
+      expect(brightness.values, [1]);
+
+      await tester.tapAt(Offset(track.center.dx, track.bottom - 7));
+      await tester.pump();
+      expect(brightness.values, [1, 0]);
+
+      final drag = await tester.startGesture(
+        Offset(track.center.dx, track.bottom - 1),
+      );
+      await drag.moveBy(const Offset(0, -20));
+      await tester.pump();
+      expect(brightness.values.last, closeTo(20 / (track.height - 14), 0.001));
+      await drag.moveTo(Offset(track.center.dx, track.top - 10));
+      await tester.pump();
+      expect(brightness.values.last, 1);
+      await drag.up();
+
+      final reverse = await tester.startGesture(
+        Offset(track.center.dx, track.top + 1),
+      );
+      await reverse.moveBy(const Offset(0, 20));
+      await tester.pump();
+      expect(
+        brightness.values.last,
+        closeTo(1 - 20 / (track.height - 14), 0.001),
+      );
+      await reverse.moveTo(Offset(track.center.dx, track.bottom + 10));
+      await tester.pump();
+      expect(brightness.values.last, 0);
+      await reverse.up();
     });
 
     testWidgets('show no brightness slider without a control for it or with '
@@ -4239,20 +4416,6 @@ Future<void> _deliverPlayerEvent(WidgetTester tester) async {
 double _controlsOpacity(WidgetTester tester) => tester
     .widget<AnimatedOpacity>(find.byKey(const Key('player_immersive_controls')))
     .opacity;
-
-/// The time an offer has left, drawn while it counts down.
-Finder _nextPromptCountdown() => find.byKey(const Key('player_countdown_bar'));
-
-double _nextPromptOpacity(WidgetTester tester) {
-  return tester
-      .widget<AnimatedOpacity>(
-        find.ancestor(
-          of: find.byKey(_nextPrompt),
-          matching: find.byType(AnimatedOpacity),
-        ),
-      )
-      .opacity;
-}
 
 Widget _wrapViewport({
   _FakePlatformPlayer? platformPlayer,

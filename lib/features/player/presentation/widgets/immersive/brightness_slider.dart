@@ -32,6 +32,7 @@ class _BrightnessSlider extends StatefulWidget {
 class _BrightnessSliderState extends State<_BrightnessSlider> {
   double? _value;
   bool _dragging = false;
+  double _dragOffset = 0;
 
   @override
   void initState() {
@@ -57,8 +58,11 @@ class _BrightnessSliderState extends State<_BrightnessSlider> {
     unawaited(widget.control.set(clamped));
   }
 
-  void _setAt(Offset local, double trackHeight) =>
-      _set(1 - local.dy / trackHeight);
+  void _setAt(double y, double trackHeight) => _set(
+    1 -
+        (y - _BrightnessTrackPainter._thumb / 2) /
+            (trackHeight - _BrightnessTrackPainter._thumb),
+  );
 
   void _setDragging(bool dragging) {
     if (dragging == _dragging) return;
@@ -108,13 +112,29 @@ class _BrightnessSliderState extends State<_BrightnessSlider> {
                 GestureDetector(
                   key: const Key('player_brightness_slider'),
                   behavior: HitTestBehavior.opaque,
-                  onTapUp: (details) => _setAt(details.localPosition, track),
+                  onTapUp: (details) {
+                    final y = details.localPosition.dy;
+                    if ((y - _BrightnessTrackPainter.thumbCenter(value, track))
+                            .abs() >
+                        _BrightnessTrackPainter._thumb / 2) {
+                      _setAt(y, track);
+                    }
+                  },
+                  onVerticalDragDown: (details) {
+                    final offset =
+                        details.localPosition.dy -
+                        _BrightnessTrackPainter.thumbCenter(value, track);
+                    _dragOffset =
+                        offset.abs() <= _BrightnessTrackPainter._thumb / 2
+                        ? offset
+                        : 0;
+                  },
                   onVerticalDragStart: (details) {
                     _setDragging(true);
-                    _setAt(details.localPosition, track);
+                    _setAt(details.localPosition.dy - _dragOffset, track);
                   },
                   onVerticalDragUpdate: (details) =>
-                      _setAt(details.localPosition, track),
+                      _setAt(details.localPosition.dy - _dragOffset, track),
                   onVerticalDragEnd: (_) => _setDragging(false),
                   onVerticalDragCancel: () => _setDragging(false),
                   child: SizedBox(
@@ -139,6 +159,9 @@ class _BrightnessTrackPainter extends CustomPainter {
   static const _trackWidth = 4.0;
   static const _thumb = 14.0;
 
+  static double thumbCenter(double value, double height) =>
+      _thumb / 2 + (height - _thumb) * (1 - value);
+
   final double value;
 
   @override
@@ -151,12 +174,12 @@ class _BrightnessTrackPainter extends CustomPainter {
       size.height,
     );
     canvas.drawRect(track, Paint()..color = Colors.white30);
-    final level = size.height * (1 - value);
+    final level = thumbCenter(value, size.height);
     canvas.drawRect(
       Rect.fromLTRB(track.left, level, track.right, track.bottom),
       Paint()..color = Colors.white,
     );
-    final thumbTop = (level - _thumb / 2).clamp(0.0, size.height - _thumb);
+    final thumbTop = level - _thumb / 2;
     canvas.drawRect(
       Rect.fromLTWH(centre - _thumb / 2, thumbTop, _thumb, _thumb),
       Paint()..color = Colors.white,

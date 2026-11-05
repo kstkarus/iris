@@ -53,54 +53,6 @@ class PlayerSkipSegmentOffer extends StatelessWidget {
   }
 }
 
-/// "Play next" with the next file's [title], once the file is [finishing];
-/// it stays once the file has [completed].
-class PlayerNextOffer extends StatelessWidget {
-  const PlayerNextOffer({
-    required this.finishing,
-    required this.completed,
-    required this.title,
-    required this.controlsVisible,
-    required this.plate,
-    this.running,
-    super.key,
-  });
-
-  /// Whether the video moves, so its time passes; see
-  /// [PlayerAutoHidingOffer.running].
-  final ValueListenable<bool>? running;
-
-  final ValueListenable<bool> finishing;
-  final ValueListenable<bool> completed;
-
-  /// Null when there is no next file.
-  final String? title;
-  final ValueListenable<bool> controlsVisible;
-  final PlayerOfferPlate plate;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
-    return ListenableBuilder(
-      listenable: Listenable.merge([finishing, completed]),
-      builder: (context, _) {
-        final title = this.title;
-        final completed = this.completed.value;
-        if (title == null || !(finishing.value || completed)) {
-          return const SizedBox.shrink();
-        }
-        return PlayerAutoHidingOffer(
-          controlsVisible: controlsVisible,
-          running: running,
-          // Once the file has ended there is nothing left to cover.
-          pinned: completed,
-          child: plate(l10n.playerPlayNext, title),
-        );
-      },
-    );
-  }
-}
-
 /// An offer's text: what it does, and under it, smaller, what it does it
 /// to (the next file's title).
 class PlayerOfferLabel extends StatelessWidget {

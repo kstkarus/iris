@@ -12,6 +12,8 @@ class _BottomSection extends StatelessWidget {
     required this.timeline,
     required this.accent,
     required this.next,
+    required this.finishing,
+    required this.completed,
     required this.fullscreen,
     required this.onSeek,
     required this.onSeekActive,
@@ -51,6 +53,8 @@ class _BottomSection extends StatelessWidget {
   final ValueListenable<List<PlayerTimelinePart>> timeline;
   final Color accent;
   final PlayerNextFile? next;
+  final ValueListenable<bool> finishing;
+  final ValueListenable<bool> completed;
   final ValueListenable<bool> fullscreen;
   final ValueChanged<Duration> onSeek;
   final ValueChanged<bool> onSeekActive;
@@ -88,6 +92,8 @@ class _BottomSection extends StatelessWidget {
             player: player,
             metrics: metrics,
             next: next,
+            finishing: finishing,
+            completed: completed,
             fullscreen: fullscreen,
             onToggleMute: onToggleMute,
             onVolume: onVolume,
@@ -376,6 +382,8 @@ class _BarButtons extends StatelessWidget {
     required this.player,
     required this.metrics,
     required this.next,
+    required this.finishing,
+    required this.completed,
     required this.fullscreen,
     required this.onToggleMute,
     required this.onVolume,
@@ -390,6 +398,8 @@ class _BarButtons extends StatelessWidget {
   final Player player;
   final _ControlsMetrics metrics;
   final PlayerNextFile? next;
+  final ValueListenable<bool> finishing;
+  final ValueListenable<bool> completed;
   final ValueListenable<bool> fullscreen;
   final VoidCallback onToggleMute;
   final ValueChanged<double> onVolume;
@@ -409,12 +419,11 @@ class _BarButtons extends StatelessWidget {
     final touch = metrics.touch;
     final playback = [
       if (next != null)
-        _BarButton(
-          key: const Key('player_next_file_button'),
+        _NextHint(
+          next: next,
+          finishing: finishing,
+          completed: completed,
           metrics: metrics,
-          glyph: PixelGlyph.skipNext,
-          label: '${l10n.playerPlayNext}: ${next.title}',
-          onPressed: next.play,
         ),
       if (onEpisodes != null)
         _BarButton(
@@ -502,6 +511,76 @@ class _BarButtons extends StatelessWidget {
 }
 
 const _barGroupGap = 20.0;
+
+class _NextHint extends StatelessWidget {
+  const _NextHint({
+    required this.next,
+    required this.finishing,
+    required this.completed,
+    required this.metrics,
+    this.floating = false,
+  });
+
+  final PlayerNextFile next;
+  final ValueListenable<bool> finishing;
+  final ValueListenable<bool> completed;
+  final _ControlsMetrics metrics;
+  final bool floating;
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = playerAccentColor(Theme.of(context).colorScheme);
+    final label =
+        '${AppLocalizations.of(context).playerPlayNext}: ${next.title}';
+    return ListenableBuilder(
+      listenable: Listenable.merge([finishing, completed]),
+      builder: (context, _) {
+        final active = finishing.value || completed.value;
+        if (floating && !active) return const SizedBox.shrink();
+        return TweenAnimationBuilder<double>(
+          key: ValueKey(active),
+          tween: Tween(begin: active ? 1 : 0, end: 0),
+          duration: motionDuration(context, const Duration(milliseconds: 1700)),
+          builder: (context, value, child) {
+            final wave = math.pow(math.sin(value * math.pi * 2), 2).toDouble();
+            return DecoratedBox(
+              decoration: BoxDecoration(
+                color: floating
+                    ? Colors.black.withValues(alpha: .72)
+                    : active
+                    ? accent.withValues(alpha: .13 + .27 * wave * value)
+                    : Colors.transparent,
+                border: Border.all(
+                  color: active
+                      ? accent.withValues(alpha: .9)
+                      : Colors.transparent,
+                ),
+              ),
+              child: child,
+            );
+          },
+          child: _GlyphButton(
+            key: Key(
+              floating
+                  ? 'player_floating_next_button'
+                  : 'player_next_file_button',
+            ),
+            glyph: PixelIcon(
+              PixelGlyph.skipNext,
+              size: metrics.barGlyph,
+              fineGrain: metrics.touch,
+            ),
+            color: active ? accent : null,
+            iconSize: metrics.barGlyph,
+            size: floating ? const Size.square(48) : metrics.barButton,
+            label: label,
+            onPressed: next.play,
+          ),
+        );
+      },
+    );
+  }
+}
 
 /// A button of the bottom bar, and the lock at the top by touch. Pixel
 /// glyphs all fill their 7×7 grid, so one size fits every button.

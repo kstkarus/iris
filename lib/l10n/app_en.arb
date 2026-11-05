@@ -454,22 +454,6 @@
       }
     }
   },
-  "playerSeekBackward": "Back {seconds} s",
-  "@playerSeekBackward": {
-    "placeholders": {
-      "seconds": {
-        "type": "int"
-      }
-    }
-  },
-  "playerSeekForward": "Forward {seconds} s",
-  "@playerSeekForward": {
-    "placeholders": {
-      "seconds": {
-        "type": "int"
-      }
-    }
-  },
   "playerMute": "Mute",
   "playerUnmute": "Unmute",
   "playerAudioAndSubtitles": "Audio & subtitles",
@@ -599,9 +583,9 @@
   "animeRelationCharacter": "Shared characters",
   "animeRelationOther": "Other",
   "navigationProfile": "Profile",
-  "profileSignInTitle": "Your Shikimori list",
-  "profileSignInMessage": "Sign in to mark anime in your Shikimori list right from the app.",
-  "profileSignInButton": "Sign in with Shikimori",
+  "profileSignInTitle": "Shikimori account",
+  "profileSignInMessage": "Track what you've watched and keep up with airing anime and friends",
+  "profileSignInButton": "Sign in",
   "profileSignInUnavailable": "Sign-in is not set up in this build.",
   "profileSigningIn": "Waiting for Shikimori",
   "profileSignInNetworkError": "Shikimori did not respond. Try again.",
@@ -809,7 +793,7 @@
   "animeDetailsFactGenres": "Genres",
   "animeDetailsFactRating": "Rated",
   "animeDetailsDubsTitle": "Dubs",
-  "playerMarked": "Episode {episode} marked on Shikimori",
+  "playerMarked": "Episode {episode} marked",
   "@playerMarked": {
     "placeholders": {
       "episode": {
@@ -826,8 +810,35 @@
     }
   },
   "playerMarkAction": "Mark",
-  "playerMarkFailed": "Shikimori did not save the mark.",
-  "playerUnmarkFailed": "Shikimori did not take the mark back.",
+  "playerMarkFailed": "Could not mark episode {episode}",
+  "@playerMarkFailed": {"placeholders": {"episode": {"type": "int"}}},
+  "playerUnmarkFailed": "Could not undo",
+  "playerRestoreFailed": "Could not restore",
+  "playerMarkUnset": "Episode {episode} not marked",
+  "@playerMarkUnset": {"placeholders": {"episode": {"type": "int"}}},
+  "playerMarkWaiting": "Episode {episode} waiting to sync",
+  "@playerMarkWaiting": {"placeholders": {"episode": {"type": "int"}}},
+  "playerMarkSyncFailed": "Episode {episode} · sync failed",
+  "@playerMarkSyncFailed": {"placeholders": {"episode": {"type": "int"}}},
+  "playerMarkConflict": "List entry changed elsewhere",
+  "playerMarkSaving": "Marking…",
+  "playerUnmarkSaving": "Undoing…",
+  "playerRestoreSaving": "Restoring mark…",
+  "playerMarkShortMarked": "Marked",
+  "playerMarkShortUnset": "Not marked",
+  "playerMarkShortFailed": "Could not mark",
+  "playerMarkShortWaiting": "Waiting to sync",
+  "playerMarkShortSyncFailed": "Sync failed",
+  "playerMarkShortConflict": "Entry changed",
+  "playerMarkShortRestoreSaving": "Restoring…",
+  "playerMarkRestore": "Restore",
+  "playerMarkExpand": "Show mark actions",
+  "playerMarkCollapse": "Hide mark actions",
+  "playerMarkDismiss": "Close",
+  "playerMarkPreviously": "Previously: {status}",
+  "@playerMarkPreviously": {"placeholders": {"status": {"type": "String"}}},
+  "playerMarkNextPending": "Show another mark: {current} of {total}",
+  "@playerMarkNextPending": {"placeholders": {"current": {"type": "int"}, "total": {"type": "int"}}},
   "profileSigningInHint": "Finish signing in in the browser. Coming back here before that cancels it.",
   "profileSignInPortBusy": "Another program holds port 43821, which sign-in needs. Close it and try again.",
   "profileListTab": "List",
