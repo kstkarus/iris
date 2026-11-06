@@ -79,4 +79,39 @@ void main() {
     expect(fillLeft(tester), closeTo(200, 0.5));
     expect(tester.hasRunningAnimations, isFalse);
   });
+
+  testWidgets('long labels wrap without shrinking one option', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MediaQuery(
+          data: const MediaQueryData(textScaler: TextScaler.linear(1.4)),
+          child: Scaffold(
+            body: Center(
+              child: SizedBox(
+                width: 272,
+                child: SegmentedChoice<int>(
+                  selected: 0,
+                  onSelected: (_) {},
+                  options: const [
+                    SegmentedOption(value: 0, label: 'Popular'),
+                    SegmentedOption(value: 1, label: 'Rating'),
+                    SegmentedOption(value: 2, label: 'Newest'),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    final control = tester.renderObject(find.byType(SegmentedChoice<int>));
+    for (final label in ['Popular', 'Rating', 'Newest']) {
+      final text = tester.renderObject(find.text(label));
+      expect(
+        text.getTransformTo(control).getMaxScaleOnAxis(),
+        closeTo(1, 0.001),
+      );
+    }
+    expect(tester.takeException(), isNull);
+  });
 }

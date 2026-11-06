@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import 'package:iris/shared/widgets/adaptive/show_app_dialog.dart';
 import 'package:iris/features/downloads/domain/entities/download_failure.dart';
 import 'package:iris/features/downloads/domain/entities/download_item.dart';
 import 'package:iris/features/downloads/domain/entities/download_status.dart';
@@ -479,7 +480,7 @@ class _DownloadsMenuState extends State<_DownloadsMenu> {
 Future<void> _showStorage(BuildContext context) async {
   final cubit = context.read<DownloadManagerCubit>();
   unawaited(cubit.refreshStorage());
-  await showDialog<void>(
+  await showAppDialog<void>(
     context: context,
     builder: (context) => BlocProvider.value(
       value: cubit,
@@ -508,7 +509,7 @@ Future<void> _showDownloadStatus(
   required String itemId,
 }) async {
   final cubit = context.read<DownloadManagerCubit>();
-  await showDialog<void>(
+  await showAppDialog<void>(
     context: context,
     builder: (context) => BlocProvider<DownloadManagerCubit>.value(
       value: cubit,
@@ -1113,7 +1114,7 @@ Future<bool> confirmDownloadDeletion(
   final lost = items
       .where((item) => item.status != DownloadStatus.completed)
       .fold<int>(0, (sum, item) => sum + item.downloadedBytes);
-  final confirmed = await showDialog<bool>(
+  final confirmed = await showAppDialog<bool>(
     context: context,
     builder: (dialogContext) => AlertDialog(
       scrollable: true,

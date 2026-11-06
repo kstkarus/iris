@@ -58,51 +58,54 @@ class SegmentedChoice<T> extends StatelessWidget {
       child: LayoutBuilder(
         builder: (context, constraints) {
           final cellWidth = constraints.maxWidth / options.length;
-          return Stack(
-            children: [
-              for (var divider = 1; divider < options.length; divider++)
-                Positioned(
-                  left: divider * cellWidth - 0.5,
-                  top: 0,
-                  bottom: 0,
-                  width: 1,
-                  child: ColoredBox(color: scheme.outline),
-                ),
-              if (index >= 0)
-                AnimatedPositioned(
-                  duration: duration,
-                  curve: Curves.easeOutCubic,
-                  left: index * cellWidth,
-                  top: 0,
-                  bottom: 0,
-                  width: cellWidth,
-                  child: ColoredBox(
-                    color: onSelected == null
-                        ? scheme.onSurface.withValues(alpha: 0.12)
-                        : scheme.onSurface,
+          return IntrinsicHeight(
+            child: Stack(
+              children: [
+                for (var divider = 1; divider < options.length; divider++)
+                  Positioned(
+                    left: divider * cellWidth - 0.5,
+                    top: 0,
+                    bottom: 0,
+                    width: 1,
+                    child: ColoredBox(color: scheme.outline),
+                  ),
+                if (index >= 0)
+                  AnimatedPositioned(
+                    duration: duration,
+                    curve: Curves.easeOutCubic,
+                    left: index * cellWidth,
+                    top: 0,
+                    bottom: 0,
+                    width: cellWidth,
+                    child: ColoredBox(
+                      color: onSelected == null
+                          ? scheme.onSurface.withValues(alpha: 0.12)
+                          : scheme.onSurface,
+                    ),
+                  ),
+                Material(
+                  type: MaterialType.transparency,
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      for (final option in options)
+                        Expanded(
+                          child: _Cell(
+                            option: option,
+                            selected: option.value == selected,
+                            height: _height,
+                            duration: duration,
+                            textStyle: textStyle,
+                            onTap: onSelected == null
+                                ? null
+                                : () => onSelected(option.value),
+                          ),
+                        ),
+                    ],
                   ),
                 ),
-              Material(
-                type: MaterialType.transparency,
-                child: Row(
-                  children: [
-                    for (final option in options)
-                      Expanded(
-                        child: _Cell(
-                          option: option,
-                          selected: option.value == selected,
-                          height: _height,
-                          duration: duration,
-                          textStyle: textStyle,
-                          onTap: onSelected == null
-                              ? null
-                              : () => onSelected(option.value),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            ],
+              ],
+            ),
           );
         },
       ),
@@ -139,38 +142,40 @@ class _Cell<T> extends StatelessWidget {
       label: option.label,
       child: InkWell(
         onTap: onTap,
-        child: SizedBox(
-          height: height,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(minHeight: height),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 6),
             child: Center(
-              // A long label in a narrow cell shrinks rather than wraps.
-              child: FittedBox(
-                fit: BoxFit.scaleDown,
-                child: AnimatedDefaultTextStyle(
-                  duration: duration,
-                  curve: Curves.easeOutCubic,
-                  style: (textStyle ?? const TextStyle())
-                      .merge(option.textStyle)
-                      .copyWith(
-                        color: onTap == null
-                            ? scheme.onSurface.withValues(alpha: 0.38)
-                            : selected
-                            ? scheme.surface
-                            : scheme.onSurfaceVariant,
-                      ),
-                  // The label above names it; a sample like "Aa" would not.
-                  child: ExcludeSemantics(
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (leading != null) ...[
-                          leading,
-                          const SizedBox(width: 6),
-                        ],
-                        Text(option.text ?? option.label, maxLines: 1),
-                      ],
+              child: AnimatedDefaultTextStyle(
+                duration: duration,
+                curve: Curves.easeOutCubic,
+                style: (textStyle ?? const TextStyle())
+                    .merge(option.textStyle)
+                    .copyWith(
+                      color: onTap == null
+                          ? scheme.onSurface.withValues(alpha: 0.38)
+                          : selected
+                          ? scheme.surface
+                          : scheme.onSurfaceVariant,
                     ),
+                // The label above names it; a sample like "Aa" would not.
+                child: ExcludeSemantics(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (leading != null) ...[
+                        leading,
+                        const SizedBox(width: 6),
+                      ],
+                      Flexible(
+                        child: Text(
+                          option.text ?? option.label,
+                          maxLines: 2,
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),

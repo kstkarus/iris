@@ -194,13 +194,13 @@ class AppLocalizationsRu extends AppLocalizations {
   String get animeListStatusSectionTitle => 'Статус';
 
   @override
-  String get animeListSortPopularity => 'По популярности';
+  String get animeListSortPopularity => 'Популярное';
 
   @override
-  String get animeListSortScore => 'По оценке';
+  String get animeListSortScore => 'Рейтинг';
 
   @override
-  String get animeListSortAiredOn => 'По дате выхода';
+  String get animeListSortAiredOn => 'Новинки';
 
   @override
   String get animeListApplyButton => 'Применить';
@@ -1632,5 +1632,57 @@ class AppLocalizationsRu extends AppLocalizations {
   @override
   String downloadSelectedQuality(String quality) {
     return 'Выбрано: $quality';
+  }
+
+  @override
+  String get animeListDemographicsSectionTitle => 'Аудитория';
+
+  @override
+  String get animeListThemesSectionTitle => 'Темы';
+
+  @override
+  String get animeListShowAll => 'Все';
+
+  @override
+  String get animeListCollapse => 'Свернуть';
+
+  @override
+  String get animeListShowResults => 'Показать';
+
+  @override
+  String animeListShowCount(String count) {
+    return 'Показать $count';
+  }
+
+  @override
+  String animeListActiveFilters(int count) {
+    return 'Активные фильтры: $count';
+  }
+
+  @override
+  String get searchRecentEmpty => 'Недавние запросы появятся здесь.';
+
+  @override
+  String get searchRecentClear => 'Очистить историю';
+
+  @override
+  String searchRecentRemove(String query) {
+    return 'Удалить запрос «$query»';
+  }
+
+  @override
+  String animeListRemoveFilter(String filter) {
+    return 'Снять фильтр «$filter»';
+  }
+
+  @override
+  String get animeListFiltersTitle => 'Фильтры';
+
+  @override
+  String get animeListResetFilters => 'Сбросить фильтры';
+
+  @override
+  String animeListShowMore(int count) {
+    return 'Ещё $count';
   }
 }

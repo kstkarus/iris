@@ -5,8 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:iris/entities/user_rate/domain/user_rate.dart';
-import 'package:iris/entities/user_rate/presentation/user_rate_status_label.dart';
 import 'package:iris/entities/watch_progress/presentation/watch_progress_cubit.dart';
 import 'package:iris/features/anime_details/domain/repositories/anime_details_repository.dart';
 import 'package:iris/features/anime_list/domain/entities/anime_list_query.dart';
@@ -14,18 +12,21 @@ import 'package:iris/features/anime_list/presentation/bloc/anime_list_bloc.dart'
 import 'package:iris/features/anime_list/presentation/bloc/anime_list_event.dart';
 import 'package:iris/features/anime_list/presentation/bloc/anime_list_state.dart';
 import 'package:iris/features/anime_list/presentation/bloc/anime_search_bloc.dart';
+import 'package:iris/features/anime_list/presentation/cubit/search_history_cubit.dart';
 import 'package:iris/features/anime_list/presentation/widgets/anime_grid.dart';
 import 'package:iris/features/anime_list/presentation/widgets/anime_list_criteria_sheet.dart';
+import 'package:iris/features/anime_list/presentation/widgets/anime_list_filter_chips.dart';
 import 'package:iris/features/anime_list/presentation/widgets/continue_watching_button.dart';
 import 'package:iris/features/anime_list/presentation/widgets/continue_watching_row.dart';
+import 'package:iris/features/anime_list/presentation/widgets/recent_searches.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/utils/bayer_mask.dart';
 import 'package:iris/shared/widgets/adaptive/adaptive_grid_row.dart';
+import 'package:iris/shared/widgets/adaptive/adaptive_content_width.dart';
 import 'package:iris/shared/widgets/adaptive/window_size_class.dart';
-import 'package:iris/shared/widgets/caption_text.dart';
+import 'package:iris/shared/widgets/display_title.dart';
 import 'package:iris/shared/widgets/dither_switcher.dart';
 import 'package:iris/shared/widgets/dither_transition.dart';
-import 'package:iris/shared/widgets/display_title.dart';
 import 'package:iris/shared/widgets/pixel_icon.dart';
 import 'package:iris/shared/widgets/search_field.dart';
 import 'package:iris/shared/widgets/search_toolbar.dart';
@@ -33,13 +34,9 @@ import 'package:iris/shared/widgets/status_views.dart';
 
 /// The catalog under a search field.
 ///
-/// Searching is a mode entered on purpose, by focusing the field, so the
-/// page changes once rather than with every keystroke: the catalog scrolls
-/// its header away and the grid sits under the field. Typing develops the
-/// results over the catalog; clearing the field brings the catalog back
-/// without leaving the mode. Cancel, Escape, Back, or leaving an empty
-/// field ends it, and the catalog returns to where it was. Results live in
-/// their own [AnimeSearchBloc], so the catalog never reloads for a search.
+/// Focusing the field shows recent queries; typing shows search results.
+/// Back or Escape restores the catalog in place.
+/// Results live in their own [AnimeSearchBloc].
 class AnimeListView extends StatefulWidget {
   const AnimeListView({this.detailsRepository, super.key});
 
@@ -54,13 +51,11 @@ class _AnimeListViewState extends State<AnimeListView>
   static const _minCardWidth = 150.0;
   static const _maxColumns = 8;
   static const _searchDebounceDuration = Duration(milliseconds: 400);
-  static const _scrollDuration = Duration(milliseconds: 320);
 
   final _catalogScroll = ScrollController();
   final _resultsScroll = ScrollController();
   final _searchController = TextEditingController();
   final _searchFocus = FocusNode();
-  final _headerKey = GlobalKey();
 
   /// 0 shows the catalog, 1 the search results.
   late final AnimationController _results = AnimationController(
@@ -69,10 +64,6 @@ class _AnimeListViewState extends State<AnimeListView>
   );
   Timer? _searchDebounceTimer;
   bool _searching = false;
-
-  /// Where the catalog was before the search moved it, and where it left
-  /// it; the catalog goes back only if it was not scrolled further since.
-  ({double before, double after})? _catalogShift;
 
   @override
   void initState() {
@@ -98,62 +89,63 @@ class _AnimeListViewState extends State<AnimeListView>
       _enterSearch();
       return;
     }
-    // Focus that moves to a sheet or a page on top keeps the search.
-    final onTop = ModalRoute.of(context)?.isCurrent ?? true;
-    if (onTop && _searchController.text.trim().isEmpty) _exitSearch();
   }
 
   void _enterSearch() {
     if (_searching) return;
     setState(() => _searching = true);
 
-    final header = _headerKey.currentContext?.findRenderObject();
-    if (!_catalogScroll.hasClients || header is! RenderBox || !header.hasSize) {
-      return;
+    _animateSearch(true);
+  }
+
+  void _recordQuery(String query) =>
+      context.read<SearchHistoryCubit?>()?.record(query);
+
+  void _submitSearch(String query) {
+    _searchDebounceTimer?.cancel();
+    _recordQuery(query);
+    final trimmed = query.trim();
+    if (trimmed.isNotEmpty) {
+      context.read<AnimeSearchBloc>().add(AnimeListSearchChanged(trimmed));
     }
-    final position = _catalogScroll.position;
-    final target = math.min(
-      header.size.height + AnimeGrid.headerGap,
-      position.maxScrollExtent,
+    _searchFocus.unfocus();
+  }
+
+  void _selectRecent(String query) {
+    _searchController.value = TextEditingValue(
+      text: query,
+      selection: TextSelection.collapsed(offset: query.length),
     );
-    if (position.pixels >= target) return;
-    _catalogShift = (before: position.pixels, after: target);
-    _scrollCatalog(target);
+    _recordQuery(query);
+    _searchDebounceTimer?.cancel();
+    context.read<AnimeSearchBloc>().add(AnimeListSearchChanged(query));
   }
 
   void _exitSearch() {
     if (!_searching) return;
+    _recordQuery(_searchController.text);
     _searchDebounceTimer?.cancel();
     _searchController.clear();
     context.read<AnimeSearchBloc>().add(const AnimeListSearchCleared());
     setState(() => _searching = false);
+    _animateSearch(false);
     _searchFocus.unfocus();
-
-    final shift = _catalogShift;
-    _catalogShift = null;
-    if (shift != null &&
-        _catalogScroll.hasClients &&
-        _catalogScroll.position.pixels <= shift.after + 1) {
-      _scrollCatalog(shift.before);
-    }
   }
 
-  void _scrollCatalog(double offset) {
+  void _animateSearch(bool show) {
     if (MediaQuery.disableAnimationsOf(context)) {
-      _catalogScroll.jumpTo(offset);
+      _results.value = show ? 1 : 0;
+    } else if (show) {
+      _results.forward();
     } else {
-      _catalogScroll.animateTo(
-        offset,
-        duration: _scrollDuration,
-        curve: Curves.easeOutCubic,
-      );
+      _results.reverse();
     }
   }
 
   void _onSearchChanged(String value) {
     _searchDebounceTimer?.cancel();
     final query = value.trim();
-    // An emptied field brings the catalog back at once.
+    // An emptied field brings recent queries back at once.
     if (query.isEmpty) {
       context.read<AnimeSearchBloc>().add(const AnimeListSearchCleared());
       return;
@@ -166,14 +158,6 @@ class _AnimeListViewState extends State<AnimeListView>
 
   void _onSearchQueryChanged(BuildContext context, AnimeListState state) {
     if (_resultsScroll.hasClients) _resultsScroll.jumpTo(0);
-    final show = state.query.isNotEmpty;
-    if (MediaQuery.disableAnimationsOf(context)) {
-      _results.value = show ? 1 : 0;
-    } else if (show) {
-      _results.forward();
-    } else {
-      _results.reverse();
-    }
   }
 
   @override
@@ -204,14 +188,19 @@ class _AnimeListViewState extends State<AnimeListView>
         ],
         child: LayoutBuilder(
           builder: (context, constraints) {
+            final inset = math.max(
+              WindowSizeClass.of(context).pageMargin,
+              (constraints.maxWidth - AdaptiveContentWidth.page) / 2,
+            );
+            final contentPadding = EdgeInsets.symmetric(horizontal: inset);
+            final contentWidth = constraints.maxWidth - inset * 2;
             final columns = adaptiveColumnCount(
-              availableWidth: constraints.maxWidth,
+              availableWidth: contentWidth,
               minItemWidth: _minCardWidth,
               spacing: AnimeGrid.columnSpacing,
               maxColumns: _maxColumns,
-            );
-            final isWide =
-                constraints.maxWidth >= WindowSizeClass.mediumMinWidth;
+            ).clamp(2, _maxColumns);
+            final isWide = contentWidth >= WindowSizeClass.mediumMinWidth;
 
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -221,13 +210,17 @@ class _AnimeListViewState extends State<AnimeListView>
                     const SingleActivator(LogicalKeyboardKey.escape):
                         _exitSearch,
                   },
-                  child: _SearchControls(
-                    controller: _searchController,
-                    focusNode: _searchFocus,
-                    onChanged: _onSearchChanged,
-                    isWide: isWide,
-                    onCancel: _searching ? _exitSearch : null,
-                    detailsRepository: widget.detailsRepository,
+                  child: Padding(
+                    padding: contentPadding,
+                    child: _SearchControls(
+                      controller: _searchController,
+                      focusNode: _searchFocus,
+                      onChanged: _onSearchChanged,
+                      onSubmitted: _submitSearch,
+                      isWide: isWide,
+                      onCancel: _searching ? _exitSearch : null,
+                      detailsRepository: widget.detailsRepository,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 24),
@@ -237,11 +230,13 @@ class _AnimeListViewState extends State<AnimeListView>
                     catalog: _CatalogPane(
                       columns: columns,
                       controller: _catalogScroll,
-                      headerKey: _headerKey,
+                      padding: contentPadding,
                     ),
                     search: _ResultsPane(
                       columns: columns,
                       controller: _resultsScroll,
+                      onRecent: _selectRecent,
+                      padding: contentPadding,
                     ),
                   ),
                 ),
@@ -259,6 +254,7 @@ class _SearchControls extends StatelessWidget {
     required this.controller,
     required this.focusNode,
     required this.onChanged,
+    required this.onSubmitted,
     required this.isWide,
     required this.onCancel,
     required this.detailsRepository,
@@ -267,6 +263,7 @@ class _SearchControls extends StatelessWidget {
   final TextEditingController controller;
   final FocusNode focusNode;
   final ValueChanged<String> onChanged;
+  final ValueChanged<String> onSubmitted;
   final bool isWide;
   final VoidCallback? onCancel;
   final AnimeDetailsRepository? detailsRepository;
@@ -279,23 +276,30 @@ class _SearchControls extends StatelessWidget {
           bloc.state.filters.hasAny ||
           bloc.state.sort != AnimeListSortOption.popularity,
     );
+    final count = context.select<AnimeListBloc, int>(
+      (bloc) => bloc.state.filters.activeCount,
+    );
     final continueItems = continueWatchingItems(context.watchWatchProgress());
+    final history = continueItems.isEmpty
+        ? null
+        : ContinueWatchingButton(repository: detailsRepository);
     return SearchToolbar(
       searchField: SearchField(
         controller: controller,
         focusNode: focusNode,
         hintText: l10n.animeListSearchHint,
         onChanged: onChanged,
+        onSubmitted: onSubmitted,
+        onCancel: onCancel,
       ),
       actionIcon: PixelGlyph.tune,
       actionLabel: l10n.animeListFilterSortButton,
       actionActive: narrowed,
-      onAction: () => showAnimeListCriteriaSheet(context),
+      actionCount: count,
+      onAction: () =>
+          showAnimeListCriteriaSheet(context, search: controller.text.trim()),
       isWide: isWide,
-      onCancel: onCancel,
-      trailingAction: continueItems.isEmpty
-          ? null
-          : ContinueWatchingButton(repository: detailsRepository),
+      trailingAction: history,
     );
   }
 }
@@ -343,12 +347,12 @@ class _CatalogPane extends StatelessWidget {
   const _CatalogPane({
     required this.columns,
     required this.controller,
-    required this.headerKey,
+    required this.padding,
   });
 
   final int columns;
   final ScrollController controller;
-  final Key headerKey;
+  final EdgeInsetsGeometry padding;
 
   @override
   Widget build(BuildContext context) {
@@ -356,18 +360,35 @@ class _CatalogPane extends StatelessWidget {
       builder: (context, state) {
         final l10n = AppLocalizations.of(context);
         final bloc = context.read<AnimeListBloc>();
+        final heading = _CatalogHeading(state: state, padding: padding);
+        Widget? message;
         if (!state.isInitialLoading) {
           if (state.errorType == AnimeListErrorType.initial &&
               !state.hasLoadedOnce) {
-            return _FailureState(bloc: bloc);
-          }
-          if (state.hasLoadedOnce && state.items.isEmpty) {
-            return MessageView(
+            message = _FailureState(bloc: bloc);
+          } else if (state.hasLoadedOnce && state.items.isEmpty) {
+            message = MessageView(
               message: state.filters.hasAny
                   ? l10n.animeListCriteriaEmpty
                   : l10n.animeListEmpty,
+              action: state.filters.hasAny ? _ResetFiltersButton() : null,
             );
           }
+        }
+        if (message != null) {
+          return CustomScrollView(
+            controller: controller,
+            slivers: [
+              SliverToBoxAdapter(child: heading),
+              const SliverToBoxAdapter(
+                child: SizedBox(height: AnimeGrid.headerGap),
+              ),
+              SliverFillRemaining(
+                hasScrollBody: false,
+                child: Padding(padding: padding, child: message),
+              ),
+            ],
+          );
         }
 
         return AnimeGrid(
@@ -375,10 +396,8 @@ class _CatalogPane extends StatelessWidget {
           state: state,
           columns: columns,
           controller: controller,
-          header: KeyedSubtree(
-            key: headerKey,
-            child: _CatalogHeading(state: state),
-          ),
+          header: heading,
+          contentPadding: padding,
         );
       },
     );
@@ -387,48 +406,109 @@ class _CatalogPane extends StatelessWidget {
 
 /// Search results speak for themselves: no header over them.
 class _ResultsPane extends StatelessWidget {
-  const _ResultsPane({required this.columns, required this.controller});
+  const _ResultsPane({
+    required this.columns,
+    required this.controller,
+    required this.onRecent,
+    required this.padding,
+  });
 
+  final ValueChanged<String> onRecent;
+
+  final int columns;
+  final ScrollController controller;
+  final EdgeInsetsGeometry padding;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        BlocBuilder<AnimeListBloc, AnimeListState>(
+          buildWhen: (before, after) => before.filters != after.filters,
+          builder: (context, state) => AnimeListFilterChips(
+            filters: state.filters,
+            padding: padding.add(const EdgeInsets.only(bottom: 16)),
+          ),
+        ),
+        Expanded(
+          child: Padding(
+            padding: padding,
+            child: BlocBuilder<AnimeSearchBloc, AnimeListState>(
+              builder: (context, state) {
+                return DitherSwitcher(
+                  expand: true,
+                  child: state.query.isEmpty
+                      ? RecentSearches(
+                          key: const ValueKey('recent'),
+                          onSelected: onRecent,
+                        )
+                      : _SearchResults(
+                          key: const ValueKey('results'),
+                          state: state,
+                          columns: columns,
+                          controller: controller,
+                        ),
+                );
+              },
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _SearchResults extends StatelessWidget {
+  const _SearchResults({
+    required this.state,
+    required this.columns,
+    required this.controller,
+    super.key,
+  });
+
+  final AnimeListState state;
   final int columns;
   final ScrollController controller;
 
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<AnimeSearchBloc, AnimeListState>(
-      // The last results stay while they make way for the catalog.
-      buildWhen: (previous, current) => current.query.isNotEmpty,
-      builder: (context, state) {
-        final bloc = context.read<AnimeSearchBloc>();
-        if (!state.isInitialLoading) {
-          if (state.errorType == AnimeListErrorType.initial &&
-              !state.hasLoadedOnce) {
-            return _FailureState(bloc: bloc);
-          }
-          if (state.hasLoadedOnce && state.items.isEmpty) {
-            return MessageView(
-              message: AppLocalizations.of(context).animeListSearchEmpty,
-            );
-          }
-        }
-        return AnimeGrid(
-          bloc: bloc,
-          state: state,
-          columns: columns,
-          controller: controller,
+    final bloc = context.read<AnimeSearchBloc>();
+    if (!state.isInitialLoading) {
+      if (state.errorType == AnimeListErrorType.initial &&
+          !state.hasLoadedOnce) {
+        return _FailureState(bloc: bloc);
+      }
+      if (state.hasLoadedOnce && state.items.isEmpty) {
+        return MessageView(
+          message: AppLocalizations.of(context).animeListSearchEmpty,
+          icon: PixelIcon(
+            PixelGlyph.search,
+            size: 42,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+          action: state.filters.hasAny ? _ResetFiltersButton() : null,
         );
-      },
+      }
+    }
+    return AnimeGrid(
+      bloc: bloc,
+      state: state,
+      columns: columns,
+      controller: controller,
+      onOpenAnime: () =>
+          context.read<SearchHistoryCubit?>()?.record(state.query),
     );
   }
 }
 
 /// The catalog's one big word: what the list below is, by its order.
-/// Active filters follow it in small type. When the
-/// order or filters change, the words dissolve into the new ones while the
-/// grid below turns to noise.
+/// Removable filters follow the heading.
 class _CatalogHeading extends StatelessWidget {
-  const _CatalogHeading({required this.state});
+  const _CatalogHeading({required this.state, required this.padding});
 
   final AnimeListState state;
+  final EdgeInsetsGeometry padding;
 
   @override
   Widget build(BuildContext context) {
@@ -438,33 +518,40 @@ class _CatalogHeading extends StatelessWidget {
       AnimeListSortOption.score => l10n.animeListHeadingScore,
       AnimeListSortOption.airedOn => l10n.animeListHeadingAiredOn,
     };
-    final filters = animeListFilterLabels(l10n, state.filters);
     final compact = WindowSizeClass.of(context).isCompact;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        DitherSwitcher(
-          child: Column(
-            key: ValueKey((heading, filters.join())),
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              DisplayTitle(
-                heading,
-                fontFamily: 'Medeo Pixel Grid',
-                maxSize: compact ? 48 : 72,
-                minSize: 32,
-                maxLines: 1,
-              ),
-              if (filters.isNotEmpty) ...[
-                const SizedBox(height: 12),
-                CaptionText(filters.join(' · ')),
-              ],
-            ],
+        Padding(
+          padding: padding,
+          child: DitherSwitcher(
+            child: DisplayTitle(
+              heading,
+              key: ValueKey(heading),
+              fontFamily: 'Medeo Pixel Grid',
+              maxSize: compact ? 48 : 72,
+              minSize: 32,
+              maxLines: 1,
+            ),
           ),
+        ),
+        AnimeListFilterChips(
+          filters: state.filters,
+          padding: padding.add(const EdgeInsets.only(top: 16)),
         ),
       ],
     );
   }
+}
+
+class _ResetFiltersButton extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) => FilledButton(
+    onPressed: () => context.read<AnimeListBloc>().add(
+      const AnimeListCriteriaApplied(filters: AnimeListFilters()),
+    ),
+    child: Text(AppLocalizations.of(context).animeListResetFilters),
+  );
 }
 
 class _FailureState extends StatelessWidget {
@@ -482,24 +569,3 @@ class _FailureState extends StatelessWidget {
     );
   }
 }
-
-/// Every filter in force, in the order the filter sheet shows them.
-List<String> animeListFilterLabels(
-  AppLocalizations l10n,
-  AnimeListFilters filters,
-) => [
-  for (final kind in AnimeKindFilter.values)
-    if (filters.kinds.contains(kind)) animeKindFilterLabel(l10n, kind),
-  for (final status in AnimeStatusFilter.values)
-    if (filters.statuses.contains(status)) animeStatusFilterLabel(l10n, status),
-  for (final status in UserRateStatus.values)
-    if (filters.myList.contains(status)) userRateStatusLabel(l10n, status),
-  if (filters.hideCompleted) l10n.animeListHideCompleted,
-  for (final genre in filters.genres) animeGenreLabel(l10n, genre),
-  for (final season in filters.seasons) seasonFilterLabel(l10n, season),
-  for (final rating in AnimeRatingFilter.values)
-    if (filters.ratings.contains(rating)) animeRatingFilterLabel(rating),
-  for (final duration in AnimeDurationFilter.values)
-    if (filters.durations.contains(duration))
-      animeDurationFilterLabel(l10n, duration),
-];

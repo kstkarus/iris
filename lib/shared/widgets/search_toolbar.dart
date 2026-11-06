@@ -1,17 +1,14 @@
 import 'package:flutter/material.dart';
 
 import 'package:iris/shared/widgets/adaptive/adaptive_content_width.dart';
-import 'package:iris/shared/widgets/adaptive/window_size_class.dart';
 import 'package:iris/shared/widgets/pixel_icon.dart';
 import 'package:iris/shared/widgets/search_field.dart';
-import 'package:iris/l10n/generated/app_localizations.dart';
 
 /// A search field with one action (sort, filters) on the same row: a
 /// labelled button on wide windows, a square icon button on narrow ones.
 ///
 /// [actionActive] marks an action whose settings differ from the default,
-/// so a narrowed list never looks complete by accident. [onCancel] replaces
-/// [trailingAction] with a same-sized Close button that leaves the search.
+/// so a narrowed list never looks complete by accident.
 class SearchToolbar extends StatelessWidget {
   const SearchToolbar({
     required this.searchField,
@@ -21,11 +18,11 @@ class SearchToolbar extends StatelessWidget {
     required this.isWide,
     this.actionActive = false,
     this.trailingAction,
-    this.onCancel,
+    this.actionCount = 0,
     super.key,
   });
 
-  static const cancelButtonKey = Key('search_toolbar_cancel_button');
+  static const cancelButtonKey = SearchField.cancelButtonKey;
 
   final SearchField searchField;
   final PixelGlyph actionIcon;
@@ -34,11 +31,24 @@ class SearchToolbar extends StatelessWidget {
   final bool isWide;
   final bool actionActive;
   final Widget? trailingAction;
-  final VoidCallback? onCancel;
+  final int actionCount;
 
   @override
   Widget build(BuildContext context) {
-    final marker = actionActive ? const _ActiveMarker() : null;
+    final marker = actionCount > 0
+        ? Container(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+            color: Theme.of(context).colorScheme.onSurface,
+            child: Text(
+              '$actionCount',
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: Theme.of(context).colorScheme.surface,
+              ),
+            ),
+          )
+        : actionActive
+        ? const _ActiveMarker()
+        : null;
     final Widget action = isWide
         ? OutlinedButton.icon(
             onPressed: onAction,
@@ -55,6 +65,7 @@ class SearchToolbar extends StatelessWidget {
             ),
           )
         : Stack(
+            clipBehavior: Clip.none,
             children: [
               IconButton.filledTonal(
                 tooltip: actionLabel,
@@ -67,24 +78,16 @@ class SearchToolbar extends StatelessWidget {
                 ),
                 icon: PixelIcon(actionIcon, size: 18),
               ),
-              if (marker != null) Positioned(top: 8, right: 8, child: marker),
+              if (marker != null)
+                Positioned(
+                  top: actionCount > 0 ? -10 : 8,
+                  right: actionCount > 0 ? -8 : 8,
+                  child: marker,
+                ),
             ],
           );
 
-    final trailing = onCancel == null
-        ? trailingAction
-        : IconButton(
-            key: cancelButtonKey,
-            tooltip: AppLocalizations.of(context).searchCancelButton,
-            onPressed: onCancel,
-            style: IconButton.styleFrom(
-              minimumSize: const Size.square(SearchField.height),
-              backgroundColor: WindowSizeClass.of(context).isCompact
-                  ? Theme.of(context).colorScheme.surfaceContainerHigh
-                  : null,
-            ),
-            icon: const PixelIcon(PixelGlyph.close, size: 18),
-          );
+    final trailing = trailingAction;
     if (trailing != null && !isWide) {
       // The field keeps room for Search, text and Clear beside two buttons.
       const minimumWidth = SearchField.height * 5 + 16;

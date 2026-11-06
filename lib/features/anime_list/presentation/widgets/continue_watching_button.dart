@@ -13,6 +13,7 @@ import 'package:iris/features/anime_list/presentation/widgets/continue_watching_
 import 'package:iris/features/player/presentation/models/anime_player_source_args.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/widgets/adaptive/show_adaptive_sheet.dart';
+import 'package:iris/shared/theme/inverse_theme.dart';
 import 'package:iris/shared/widgets/adaptive/window_size_class.dart';
 import 'package:iris/shared/widgets/checked_menu_item.dart';
 import 'package:iris/shared/widgets/pixel_icon.dart';
@@ -113,40 +114,53 @@ class _ContinueWatchingButtonState extends State<ContinueWatchingButton> {
   Widget build(BuildContext context) {
     final compact = WindowSizeClass.of(context).isCompact;
     final label = AppLocalizations.of(context).continueWatchingTitle;
-    const icon = PixelIcon(PixelGlyph.episodes, size: 18);
-    if (compact) {
-      return IconButton.filledTonal(
-        key: ContinueWatchingButton.buttonKey,
-        tooltip: label,
-        onPressed: _showSheet,
-        style: IconButton.styleFrom(
-          minimumSize: const Size.square(SearchField.height),
-          backgroundColor: Theme.of(context).colorScheme.surfaceContainerHigh,
-        ),
-        icon: icon,
-      );
-    }
+    const icon = PixelIcon(PixelGlyph.play, size: 18);
+    Widget button(VoidCallback onPressed) => compact
+        ? IconButton.filledTonal(
+            key: ContinueWatchingButton.buttonKey,
+            tooltip: label,
+            onPressed: onPressed,
+            style: IconButton.styleFrom(
+              minimumSize: const Size.square(SearchField.height),
+              backgroundColor: Theme.of(
+                context,
+              ).colorScheme.surfaceContainerHigh,
+            ),
+            icon: icon,
+          )
+        : OutlinedButton.icon(
+            key: ContinueWatchingButton.buttonKey,
+            onPressed: onPressed,
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size(0, SearchField.height),
+            ),
+            icon: icon,
+            label: Text(label),
+          );
+    if (compact) return button(_showSheet);
+    final inverse = InverseTheme.of(Theme.of(context));
     const width = 360.0;
     return MenuAnchor(
       controller: _menu,
       onOpen: _loadPosters,
-      alignmentOffset: const Offset(SearchField.height - width, 8),
+      alignmentOffset: const Offset(-width, SearchField.height + 8),
       crossAxisUnconstrained: false,
-      style: const MenuStyle(
-        padding: WidgetStatePropertyAll(EdgeInsets.zero),
-        minimumSize: WidgetStatePropertyAll(Size(width, 0)),
-        maximumSize: WidgetStatePropertyAll(Size(width, double.infinity)),
-      ),
-      menuChildren: [Focus(autofocus: true, child: _contents(_menu.close))],
-      builder: (_, controller, _) => IconButton(
-        key: ContinueWatchingButton.buttonKey,
-        tooltip: label,
-        onPressed: controller.toggle,
-        style: IconButton.styleFrom(
-          minimumSize: const Size.square(SearchField.height),
+      style: MenuStyle(
+        alignment: AlignmentDirectional.topEnd,
+        backgroundColor: WidgetStatePropertyAll(
+          inverse.colorScheme.surfaceContainerLow,
         ),
-        icon: icon,
+        padding: const WidgetStatePropertyAll(EdgeInsets.zero),
+        minimumSize: const WidgetStatePropertyAll(Size(width, 0)),
+        maximumSize: const WidgetStatePropertyAll(Size(width, double.infinity)),
       ),
+      menuChildren: [
+        Theme(
+          data: inverse,
+          child: Focus(autofocus: true, child: _contents(_menu.close)),
+        ),
+      ],
+      builder: (_, controller, _) => button(controller.toggle),
     );
   }
 }

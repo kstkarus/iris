@@ -2797,6 +2797,90 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Selected: {quality}'**
   String downloadSelectedQuality(String quality);
+
+  /// No description provided for @animeListDemographicsSectionTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Audience'**
+  String get animeListDemographicsSectionTitle;
+
+  /// No description provided for @animeListThemesSectionTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Themes'**
+  String get animeListThemesSectionTitle;
+
+  /// No description provided for @animeListShowAll.
+  ///
+  /// In en, this message translates to:
+  /// **'All'**
+  String get animeListShowAll;
+
+  /// No description provided for @animeListCollapse.
+  ///
+  /// In en, this message translates to:
+  /// **'Show less'**
+  String get animeListCollapse;
+
+  /// No description provided for @animeListShowResults.
+  ///
+  /// In en, this message translates to:
+  /// **'Show results'**
+  String get animeListShowResults;
+
+  /// No description provided for @animeListShowCount.
+  ///
+  /// In en, this message translates to:
+  /// **'Show {count}'**
+  String animeListShowCount(String count);
+
+  /// No description provided for @animeListActiveFilters.
+  ///
+  /// In en, this message translates to:
+  /// **'Active filters: {count}'**
+  String animeListActiveFilters(int count);
+
+  /// No description provided for @searchRecentEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'Your recent searches will appear here.'**
+  String get searchRecentEmpty;
+
+  /// No description provided for @searchRecentClear.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear history'**
+  String get searchRecentClear;
+
+  /// No description provided for @searchRecentRemove.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove “{query}”'**
+  String searchRecentRemove(String query);
+
+  /// No description provided for @animeListRemoveFilter.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove “{filter}” filter'**
+  String animeListRemoveFilter(String filter);
+
+  /// No description provided for @animeListFiltersTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Filters'**
+  String get animeListFiltersTitle;
+
+  /// No description provided for @animeListResetFilters.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset filters'**
+  String get animeListResetFilters;
+
+  /// No description provided for @animeListShowMore.
+  ///
+  /// In en, this message translates to:
+  /// **'More ({count})'**
+  String animeListShowMore(int count);
 }
 
 class _AppLocalizationsDelegate

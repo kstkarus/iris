@@ -18,6 +18,7 @@ class DitherSwitcher extends StatelessWidget {
     this.expand = false,
     this.collapse = false,
     this.duration = DitherTransition.duration,
+    this.reverseDuration,
     super.key,
   });
 
@@ -28,6 +29,9 @@ class DitherSwitcher extends StatelessWidget {
   /// How long a swap takes; shorter where it answers a gesture.
   final Duration duration;
 
+  /// Overrides removal without changing how new content appears.
+  final Duration? reverseDuration;
+
   @override
   Widget build(BuildContext context) {
     final duration = MediaQuery.disableAnimationsOf(context)
@@ -35,7 +39,9 @@ class DitherSwitcher extends StatelessWidget {
         : this.duration;
     return AnimatedSwitcher(
       duration: duration,
-      reverseDuration: collapse ? duration * 2 : null,
+      reverseDuration: MediaQuery.disableAnimationsOf(context)
+          ? Duration.zero
+          : reverseDuration ?? (collapse ? duration * 2 : null),
       transitionBuilder: collapse
           ? DitherTransition.collapsingTransition
           : DitherTransition.transition,

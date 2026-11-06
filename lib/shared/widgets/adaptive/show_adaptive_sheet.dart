@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:iris/shared/theme/inverse_theme.dart';
+import 'package:iris/shared/widgets/adaptive/show_app_dialog.dart';
 import 'package:iris/shared/widgets/adaptive/adaptive_content_width.dart';
 import 'package:iris/shared/widgets/adaptive/window_size_class.dart';
 
@@ -43,22 +44,17 @@ Future<T?> showAdaptiveSheet<T>({
     );
   }
 
-  return showDialog<T>(
+  return showAppDialog<T>(
     context: context,
-    builder: (dialogContext) {
-      return Theme(
-        data: inverse,
-        child: Dialog(
-          clipBehavior: Clip.antiAlias,
-          child: ConstrainedBox(
-            constraints: BoxConstraints(
-              maxWidth: AdaptiveContentWidth.form,
-              maxHeight: MediaQuery.sizeOf(dialogContext).height * 0.85,
-            ),
-            child: Builder(builder: builder),
-          ),
+    builder: (dialogContext) => Dialog(
+      clipBehavior: Clip.antiAlias,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: AdaptiveContentWidth.form,
+          maxHeight: MediaQuery.sizeOf(dialogContext).height * 0.85,
         ),
-      );
-    },
+        child: Builder(builder: builder),
+      ),
+    ),
   );
 }

@@ -6,26 +6,29 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:iris/entities/anime/domain/anime_summary.dart';
-
 import 'package:iris/entities/watch_progress/domain/watch_progress.dart';
 import 'package:iris/entities/watch_progress/presentation/watch_progress_cubit.dart';
+import 'package:iris/features/anime_list/domain/entities/anime_genre.dart';
 import 'package:iris/features/anime_list/domain/entities/anime_list_item.dart';
 import 'package:iris/features/anime_list/domain/entities/anime_list_page_result.dart';
 import 'package:iris/features/anime_list/domain/entities/anime_list_query.dart';
 import 'package:iris/features/anime_list/domain/repositories/anime_list_repository.dart';
+import 'package:iris/features/anime_list/domain/repositories/search_history_repository.dart';
 import 'package:iris/features/anime_list/presentation/bloc/anime_list_bloc.dart';
 import 'package:iris/features/anime_list/presentation/bloc/anime_list_event.dart';
 import 'package:iris/features/anime_list/presentation/bloc/anime_search_bloc.dart';
+import 'package:iris/features/anime_list/presentation/cubit/search_history_cubit.dart';
 import 'package:iris/features/anime_list/presentation/pages/anime_list_page.dart';
 import 'package:iris/features/anime_list/presentation/widgets/anime_card.dart';
 import 'package:iris/features/anime_list/presentation/widgets/anime_list_view.dart';
 import 'package:iris/features/anime_list/presentation/widgets/continue_watching_button.dart';
-import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/widgets/adaptive/adaptive_content_width.dart';
 import 'package:iris/shared/widgets/app_skeleton.dart';
-import 'package:iris/shared/widgets/search_field.dart';
-import 'package:iris/shared/widgets/search_toolbar.dart';
 import 'package:iris/shared/widgets/dither_transition.dart';
+import 'package:iris/shared/widgets/search_field.dart';
+import 'package:iris/shared/widgets/pixel_icon.dart';
+import 'package:iris/features/anime_list/presentation/widgets/recent_searches.dart';
+import 'package:iris/shared/widgets/search_toolbar.dart';
 
 import '../../../../helpers/fake_watch_progress_repository.dart';
 import '../../../../helpers/test_app.dart';
@@ -186,7 +189,9 @@ void main() {
     expect(materialInList, findsOneWidget);
   });
 
-  testWidgets('focusing the field moves the header away once', (tester) async {
+  testWidgets('focusing shows recent searches without moving the catalog', (
+    tester,
+  ) async {
     setTestWindowSize(tester, TestWindowSizes.phone);
     await _pumpCatalog(
       tester,
@@ -198,8 +203,21 @@ void main() {
     await tester.pumpAndSettle();
 
     final inSearch = _catalogOffset(tester);
-    expect(inSearch, greaterThan(0));
+    expect(inSearch, 0);
+    expect(find.byKey(const Key('catalog_recent_searches')), findsOneWidget);
     expect(find.text('Popular'), findsNothing);
+    expect(find.text('Recent searches'), findsNothing);
+    final empty = find.text('Your recent searches will appear here.');
+    final icon = find.byWidgetPredicate(
+      (widget) => widget is PixelIcon && widget.size == 42,
+    );
+    final area = tester.getRect(
+      find.byKey(const Key('catalog_recent_searches')),
+    );
+    final textRect = tester.getRect(empty);
+    final iconRect = tester.getRect(icon);
+    expect(textRect.center.dx, closeTo(area.center.dx, 1));
+    expect((iconRect.top + textRect.bottom) / 2, closeTo(area.center.dy, 1));
     expect(find.byKey(SearchToolbar.cancelButtonKey), findsOneWidget);
 
     // Typing a letter and taking it back changes the grid, not the page.
@@ -218,16 +236,26 @@ void main() {
       resultsByQuery: {'': _pageOneResult, 'fullmetal': _searchResult},
     );
     await _pumpCatalog(tester, repository);
+    await tester.tap(find.byType(TextField));
+    await tester.pumpAndSettle();
 
     await tester.enterText(find.byType(TextField), 'fullmetal');
     await tester.pump(const Duration(milliseconds: 450));
+    await tester.pump();
+    expect(
+      find.byType(RecentSearches),
+      findsOneWidget,
+      reason: 'history is still dissolving',
+    );
     await tester.pumpAndSettle();
+    expect(find.byType(RecentSearches), findsNothing);
     expect(find.text('Fullmetal Alchemist: Brotherhood'), findsOneWidget);
     expect(find.text('Solo Leveling'), findsNothing);
 
     await tester.tap(find.byKey(SearchField.clearButtonKey));
     await tester.pumpAndSettle();
-    expect(find.text('Solo Leveling'), findsOneWidget);
+    expect(find.byKey(const Key('catalog_recent_searches')), findsOneWidget);
+    expect(find.text('Solo Leveling'), findsNothing);
     expect(find.text('Fullmetal Alchemist: Brotherhood'), findsNothing);
     // The catalog was never fetched again.
     expect(_firstPages(repository, ''), 1);
@@ -287,7 +315,12 @@ void main() {
     );
     final bloc = await _pumpCatalog(tester, repository);
 
-    bloc.add(const AnimeListCriteriaApplied(sort: AnimeListSortOption.score));
+    bloc.add(
+      const AnimeListCriteriaApplied(
+        sort: AnimeListSortOption.score,
+        filters: AnimeListFilters(kinds: {AnimeKindFilter.movie}),
+      ),
+    );
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), 'fullmetal');
     await tester.pump(const Duration(milliseconds: 450));
@@ -297,6 +330,9 @@ void main() {
       (call) => call.query.search == 'fullmetal',
     );
     expect(search.query.sort, AnimeListSortOption.score);
+    expect(search.query.filters.kinds, {AnimeKindFilter.movie});
+    expect(find.byTooltip('Remove “Movie” filter'), findsOneWidget);
+    expect(find.text('1'), findsOneWidget);
   });
 
   testWidgets('opens the filter & sort panel with its controls', (
@@ -316,7 +352,7 @@ void main() {
     expect(find.text('Popularity'), findsOneWidget);
     expect(find.text('Score'), findsOneWidget);
     expect(find.text('Aired On'), findsOneWidget);
-    expect(find.text('Apply'), findsOneWidget);
+    expect(find.text('Show results'), findsOneWidget);
     expect(find.text('Reset'), findsOneWidget);
   });
 
@@ -333,7 +369,7 @@ void main() {
     await tester.tap(find.text('Score'));
     await tester.tap(find.text('Movie'));
     await tester.tap(find.text('Released'));
-    await tester.tap(find.text('Apply'));
+    await tester.tap(find.text('Show results'));
     await tester.pumpAndSettle();
 
     expect(_firstPages(repository, ''), 2);
@@ -356,23 +392,308 @@ void main() {
     await tester.tap(find.text('Movie'));
     await tester.tap(find.text('Released'));
     await tester.tap(find.text('Reset'));
-    await tester.tap(find.text('Apply'));
+    await tester.tap(find.text('Show results'));
     await tester.pumpAndSettle();
 
     expect(repository.calls.last.query.sort, AnimeListSortOption.popularity);
     expect(repository.calls.last.query.filters, const AnimeListFilters());
   });
 
-  test('the filter caption lists kinds and statuses in sheet order', () {
-    final labels = animeListFilterLabels(
-      lookupAppLocalizations(const Locale('en')),
-      const AnimeListFilters(
-        kinds: {AnimeKindFilter.ona, AnimeKindFilter.tv},
-        statuses: {AnimeStatusFilter.announced, AnimeStatusFilter.released},
+  testWidgets('recent queries reopen a search and can be deleted', (
+    tester,
+  ) async {
+    final repository = _TrackingAnimeListRepository(
+      resultsByQuery: {'': _pageOneResult, 'fullmetal': _searchResult},
+    );
+    await _pumpCatalog(tester, repository);
+    final history = tester
+        .element(find.byType(TextField))
+        .read<SearchHistoryCubit>();
+    history.record('fullmetal');
+    await tester.tap(find.byType(TextField));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('catalog_recent_searches')), findsOneWidget);
+    await tester.tap(find.text('fullmetal'));
+    await tester.pumpAndSettle();
+    expect(find.text('Fullmetal Alchemist: Brotherhood'), findsOneWidget);
+    expect(_firstPages(repository, 'fullmetal'), 1);
+    await tester.tap(find.byKey(SearchField.clearButtonKey));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Remove “fullmetal”'));
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(history.state, isEmpty);
+    expect(
+      find.text('fullmetal'),
+      findsOneWidget,
+      reason: 'the removed query is still dissolving',
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('fullmetal'), findsNothing);
+    expect(find.text('Your recent searches will appear here.'), findsOneWidget);
+    await tester.enterText(find.byType(TextField), 'fullmetal');
+    await tester.testTextInput.receiveAction(TextInputAction.search);
+    await tester.pumpAndSettle();
+    expect(history.state, ['fullmetal']);
+  });
+
+  testWidgets('individual chips and reset preserve the chosen sort', (
+    tester,
+  ) async {
+    final repository = _TrackingAnimeListRepository(
+      resultsByQuery: {'': _pageOneResult},
+    );
+    final bloc = await _pumpCatalog(tester, repository);
+    bloc.add(
+      const AnimeListCriteriaApplied(
+        sort: AnimeListSortOption.score,
+        filters: AnimeListFilters(
+          kinds: {AnimeKindFilter.tv, AnimeKindFilter.movie},
+          statuses: {AnimeStatusFilter.released},
+        ),
       ),
     );
+    await tester.pumpAndSettle();
+    expect(
+      tester.getSize(find.byTooltip('Remove “TV” filter')).height,
+      greaterThanOrEqualTo(44),
+    );
+    await tester.tap(find.text('TV'));
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(
+      find.text('TV'),
+      findsOneWidget,
+      reason: 'only the removed chip dissolves',
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('TV'), findsNothing);
+    expect(bloc.state.sort, AnimeListSortOption.score);
+    expect(bloc.state.filters.kinds, {AnimeKindFilter.movie});
+    expect(bloc.state.filters.statuses, {AnimeStatusFilter.released});
+    expect(bloc.state.filters.activeCount, 2);
+    await tester.tap(find.text('Reset'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 321));
+    await tester.pump();
+    expect(find.byKey(const Key('catalog_active_filters')), findsNothing);
+    await tester.pumpAndSettle();
+    expect(bloc.state.filters.hasAny, isFalse);
+    expect(bloc.state.sort, AnimeListSortOption.score);
+    expect(find.byKey(const Key('catalog_active_filters')), findsNothing);
+    bloc.add(
+      const AnimeListCriteriaApplied(
+        filters: AnimeListFilters(kinds: {AnimeKindFilter.tv}),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('TV'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 321));
+    await tester.pump();
+    expect(bloc.state.filters.hasAny, isFalse);
+    expect(find.byKey(const Key('catalog_active_filters')), findsNothing);
+  });
 
-    expect(labels, ['TV', 'ONA', 'Released', 'Announced']);
+  testWidgets('a 320 wide phone keeps two poster columns', (tester) async {
+    setTestWindowSize(tester, const Size(320, 760));
+    await _pumpCatalog(
+      tester,
+      const _SuccessAnimeListRepository(initialResult: _pageOneResult),
+    );
+    final cards = find.byType(AnimeCard);
+    expect(
+      tester.getTopLeft(cards.at(0)).dy,
+      tester.getTopLeft(cards.at(1)).dy,
+    );
+    expect(
+      tester.getSize(cards.first).width,
+      lessThan(tester.getSize(find.byType(AnimeListView)).width / 2),
+    );
+  });
+
+  testWidgets(
+    'empty search resets filters while retaining the query and sort',
+    (tester) async {
+      final repository = _TrackingAnimeListRepository(
+        resultsByQuery: {
+          '': _pageOneResult,
+          'absent': const AnimeListPageResult(
+            items: [],
+            page: 1,
+            hasMore: false,
+            query: 'absent',
+          ),
+        },
+      );
+      final bloc = await _pumpCatalog(tester, repository);
+      bloc.add(
+        const AnimeListCriteriaApplied(
+          sort: AnimeListSortOption.score,
+          filters: AnimeListFilters(statuses: {AnimeStatusFilter.ongoing}),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), 'absent');
+      await tester.pump(const Duration(milliseconds: 450));
+      await tester.pumpAndSettle();
+      expect(find.text('Reset filters'), findsOneWidget);
+      await tester.tap(find.text('Reset filters'));
+      await tester.pumpAndSettle();
+      expect(bloc.state.filters.hasAny, isFalse);
+      expect(bloc.state.sort, AnimeListSortOption.score);
+      expect(
+        tester.widget<TextField>(find.byType(TextField)).controller!.text,
+        'absent',
+      );
+      expect(
+        repository.calls
+            .lastWhere((call) => call.query.search == 'absent')
+            .query
+            .filters
+            .hasAny,
+        isFalse,
+      );
+    },
+  );
+
+  for (final searching in [false, true]) {
+    testWidgets(
+      'filter chips scroll to screen edges (${searching ? 'search' : 'catalog'})',
+      (tester) async {
+        setTestWindowSize(tester, const Size(320, 760));
+        final bloc = await _pumpCatalog(
+          tester,
+          const _SuccessAnimeListRepository(initialResult: _pageOneResult),
+        );
+        bloc.add(
+          AnimeListCriteriaApplied(
+            filters: AnimeListFilters(
+              kinds: const {AnimeKindFilter.tv},
+              genres: {
+                for (var i = 0; i < 8; i++)
+                  AnimeGenre(
+                    id: '$i',
+                    name: 'Genre $i',
+                    russian: '',
+                    kind: AnimeGenreKind.genre,
+                  ),
+              },
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        if (searching) {
+          await tester.tap(find.byType(TextField));
+          await tester.pumpAndSettle();
+        }
+        final filters = find.byKey(const Key('catalog_active_filters'));
+        final viewport = tester.getRect(filters);
+        final first = find.byTooltip('Remove “TV” filter');
+        final firstBounds = tester.getRect(first);
+        final inset = tester.getTopLeft(find.byType(TextField)).dx;
+        expect(viewport.left, 0);
+        expect(viewport.right, 320);
+        expect(firstBounds.left, inset);
+        for (var i = 0; i < 8; i++) {
+          expect(
+            tester
+                .getRect(find.byTooltip('Remove “Genre $i” filter'))
+                .center
+                .dy,
+            firstBounds.center.dy,
+          );
+        }
+        final scroll = tester
+            .state<ScrollableState>(
+              find.descendant(of: filters, matching: find.byType(Scrollable)),
+            )
+            .position;
+        scroll.jumpTo(firstBounds.right - 10);
+        await tester.pumpAndSettle();
+        expect(tester.getRect(first).right, closeTo(10, 0.01));
+        await tester.tapAt(Offset(4, firstBounds.center.dy));
+        await tester.pumpAndSettle();
+        expect(bloc.state.filters.kinds, isEmpty);
+        expect(bloc.state.filters.genres, hasLength(8));
+
+        final before = scroll.pixels;
+        await tester.dragFrom(
+          Offset(4, firstBounds.center.dy),
+          const Offset(-80, 0),
+        );
+        await tester.pumpAndSettle();
+        expect(scroll.pixels, greaterThan(before));
+        scroll.jumpTo(scroll.maxScrollExtent);
+        await tester.pumpAndSettle();
+        expect(
+          tester.getRect(find.text('Reset')).right,
+          closeTo(viewport.right - inset, 0.01),
+        );
+        await tester.tap(find.text('Reset'));
+        await tester.pumpAndSettle();
+        expect(bloc.state.filters.hasAny, isFalse);
+        expect(filters, findsNothing);
+      },
+    );
+  }
+
+  testWidgets('many applied filters leave search usable on a small phone', (
+    tester,
+  ) async {
+    setTestWindowSize(tester, const Size(320, 600));
+    tester.platformDispatcher.textScaleFactorTestValue = 1.4;
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+    final bloc = await _pumpCatalog(
+      tester,
+      const _SuccessAnimeListRepository(initialResult: _pageOneResult),
+    );
+    bloc.add(
+      AnimeListCriteriaApplied(
+        filters: AnimeListFilters(
+          genres: {
+            for (var i = 0; i < 30; i++)
+              AnimeGenre(
+                id: '$i',
+                name: 'Genre $i',
+                russian: '',
+                kind: AnimeGenreKind.genre,
+              ),
+          },
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(TextField));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('catalog_recent_searches')), findsOneWidget);
+    expect(find.byKey(SearchToolbar.cancelButtonKey), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('empty filtered results retain removable filters', (
+    tester,
+  ) async {
+    final bloc = await _pumpCatalog(
+      tester,
+      const _SuccessAnimeListRepository(
+        initialResult: AnimeListPageResult(
+          items: [],
+          page: 1,
+          hasMore: false,
+          query: '',
+        ),
+      ),
+    );
+    bloc.add(
+      const AnimeListCriteriaApplied(
+        filters: AnimeListFilters(statuses: {AnimeStatusFilter.ongoing}),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('Remove “Ongoing” filter'), findsOneWidget);
+    expect(find.text('Reset filters'), findsOneWidget);
+    await tester.tap(find.text('Reset filters'));
+    await tester.pumpAndSettle();
+    expect(bloc.state.filters.hasAny, isFalse);
   });
 
   testWidgets('loads the next page near the end of the list', (tester) async {
@@ -536,9 +857,17 @@ void main() {
 /// The app around [child], with search results served by [search].
 Widget _wrapWithApp(Widget child, {AnimeListRepository? search}) {
   return testApp(
-    BlocProvider(
-      create: (_) =>
-          AnimeSearchBloc(repository: search ?? _PendingAnimeListRepository()),
+    MultiBlocProvider(
+      providers: [
+        BlocProvider(
+          create: (_) => AnimeSearchBloc(
+            repository: search ?? _PendingAnimeListRepository(),
+          ),
+        ),
+        BlocProvider(
+          create: (_) => SearchHistoryCubit(repository: _HistoryRepository()),
+        ),
+      ],
       child: child,
     ),
   );
@@ -553,10 +882,7 @@ Future<AnimeListBloc> _pumpCatalog(
     ..add(const AnimeListStarted());
   await tester.pumpWidget(
     _wrapWithApp(
-      BlocProvider.value(
-        value: bloc,
-        child: const Scaffold(body: AnimeListView()),
-      ),
+      BlocProvider.value(value: bloc, child: const AnimeListPage()),
       search: repository,
     ),
   );
@@ -843,3 +1169,10 @@ final _watchProgress = WatchProgress(
   animeId: '5114',
   animeTitle: 'Fullmetal Alchemist: Brotherhood',
 );
+
+class _HistoryRepository implements SearchHistoryRepository {
+  @override
+  List<String> read() => const [];
+  @override
+  Future<void> save(List<String> queries) async {}
+}

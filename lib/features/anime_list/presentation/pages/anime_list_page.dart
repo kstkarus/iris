@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'package:iris/features/anime_details/domain/repositories/anime_details_repository.dart';
 import 'package:iris/features/anime_list/presentation/widgets/anime_list_view.dart';
-import 'package:iris/shared/widgets/adaptive/page_frame.dart';
+import 'package:iris/shared/widgets/adaptive/window_size_class.dart';
 
 /// The catalog. The search field heads the page: the section's name is
 /// already in the navigation.
@@ -15,7 +15,8 @@ class AnimeListPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       body: SafeArea(
-        child: PageFrame(
+        child: Padding(
+          padding: EdgeInsets.only(top: WindowSizeClass.of(context).pageTop),
           child: AnimeListView(detailsRepository: detailsRepository),
         ),
       ),

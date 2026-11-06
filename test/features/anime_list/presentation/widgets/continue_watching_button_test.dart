@@ -50,6 +50,14 @@ void main() {
         );
         if (size.width >= 600) {
           expect(tester.getRect(find.byType(AnimeGrid)), grid);
+          expect(
+            tester.getTopLeft(find.text('Continue watching').last).dy,
+            greaterThanOrEqualTo(
+              tester
+                  .getBottomLeft(find.byKey(ContinueWatchingButton.buttonKey))
+                  .dy,
+            ),
+          );
         }
         await tester.tap(
           find.byKey(const ValueKey('continue_watching_source')),
@@ -108,7 +116,7 @@ void main() {
 
   for (final size in [const Size(390, 844), const Size(1280, 900)]) {
     testWidgets(
-      'Close replaces history in the same slot during search at $size',
+      'Back stays in the field while history keeps its slot during search at $size',
       (tester) async {
         await _pump(tester, size);
         final filters = size.width >= 600
@@ -119,11 +127,20 @@ void main() {
         final historyBounds = tester.getRect(
           find.byKey(ContinueWatchingButton.buttonKey),
         );
+        expect(historyBounds.height, SearchField.height);
+        if (size.width >= 600) {
+          expect(find.text('Continue watching'), findsOneWidget);
+          expect(historyBounds.width, greaterThan(SearchField.height));
+        } else {
+          expect(find.text('Continue watching'), findsNothing);
+          expect(historyBounds.width, SearchField.height);
+        }
+        expect(historyBounds.top, fieldBounds.top);
         await tester.tap(find.byType(TextField));
         await tester.pumpAndSettle();
-        expect(find.byKey(ContinueWatchingButton.buttonKey), findsNothing);
+        expect(find.byKey(ContinueWatchingButton.buttonKey), findsOneWidget);
         expect(
-          tester.getRect(find.byKey(SearchToolbar.cancelButtonKey)),
+          tester.getRect(find.byKey(ContinueWatchingButton.buttonKey)),
           historyBounds,
         );
         await tester.enterText(find.byType(TextField), 'test');
@@ -139,14 +156,14 @@ void main() {
         expect(tester.getRect(find.byType(TextField)), fieldBounds);
         expect(tester.getRect(filters), actionBounds);
         expect(
-          tester.getRect(find.byKey(SearchToolbar.cancelButtonKey)),
+          tester.getRect(find.byKey(ContinueWatchingButton.buttonKey)),
           historyBounds,
         );
         await tester.tap(find.byKey(SearchField.clearButtonKey));
         await tester.pumpAndSettle();
         expect(query.text, isEmpty);
         expect(find.byKey(SearchToolbar.cancelButtonKey), findsOneWidget);
-        expect(find.byKey(ContinueWatchingButton.buttonKey), findsNothing);
+        expect(find.byKey(ContinueWatchingButton.buttonKey), findsOneWidget);
         await tester.enterText(find.byType(TextField), 'test');
         await tester.pumpAndSettle();
         await tester.tap(find.byKey(SearchToolbar.cancelButtonKey));

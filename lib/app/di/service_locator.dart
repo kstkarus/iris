@@ -51,6 +51,8 @@ import 'package:iris/features/anime_list/data/repositories/remote_anime_list_rep
 import 'package:iris/features/anime_list/domain/repositories/anime_list_repository.dart';
 import 'package:iris/features/anime_list/presentation/bloc/anime_list_bloc.dart';
 import 'package:iris/features/anime_list/presentation/bloc/anime_search_bloc.dart';
+import 'package:iris/features/anime_list/data/repositories/shared_preferences_search_history_repository.dart';
+import 'package:iris/features/anime_list/domain/repositories/search_history_repository.dart';
 import 'package:iris/features/auth/data/datasources/shikimori_account_data_source.dart';
 import 'package:iris/features/auth/data/datasources/web_authenticator.dart';
 import 'package:iris/features/auth/data/repositories/mock_auth_repository.dart';
@@ -651,6 +653,11 @@ void _registerCommon() {
     )
     ..registerLazySingleton<SavedTorrentsRepository>(
       () => SharedPreferencesSavedTorrentsRepository(
+        serviceLocator<SharedPreferences>(),
+      ),
+    )
+    ..registerLazySingleton<SearchHistoryRepository>(
+      () => SharedPreferencesSearchHistoryRepository(
         serviceLocator<SharedPreferences>(),
       ),
     )

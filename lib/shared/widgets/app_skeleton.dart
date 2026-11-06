@@ -17,12 +17,14 @@ class AppSkeleton extends StatelessWidget {
     required this.enabled,
     required this.child,
     this.semanticLabel,
+    this.color,
     super.key,
   });
 
   final bool enabled;
   final Widget child;
   final String? semanticLabel;
+  final Color? color;
 
   @override
   Widget build(BuildContext context) {
@@ -33,7 +35,10 @@ class AppSkeleton extends StatelessWidget {
         excluding: enabled,
         child: Skeletonizer(
           enabled: enabled,
-          effect: PixelNoiseEffect.of(context),
+          effect: PixelNoiseEffect(
+            color: color ?? Theme.of(context).colorScheme.onSurface,
+            animate: animate,
+          ),
           textBoneBorderRadius: const TextBoneBorderRadius(BorderRadius.zero),
           enableSwitchAnimation: animate,
           switchAnimationConfig: const SwitchAnimationConfig(

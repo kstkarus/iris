@@ -8,25 +8,39 @@ import 'package:iris/features/anime_list/domain/entities/anime_list_query.dart';
 import 'package:iris/features/anime_list/domain/entities/season_filter.dart';
 import 'package:iris/features/anime_list/presentation/bloc/anime_list_bloc.dart';
 import 'package:iris/features/anime_list/presentation/bloc/anime_list_event.dart';
+import 'package:iris/features/anime_list/presentation/bloc/anime_search_bloc.dart';
 import 'package:iris/features/anime_list/presentation/cubit/anime_genres_cubit.dart';
+import 'package:iris/features/anime_list/presentation/cubit/anime_list_preview_cubit.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/widgets/adaptive/show_adaptive_sheet.dart';
-import 'package:iris/shared/widgets/option_toggle.dart';
+import 'package:iris/shared/widgets/app_skeleton.dart';
 import 'package:iris/shared/widgets/section_label.dart';
+import 'package:iris/shared/widgets/pixel_icon.dart';
+import 'package:iris/shared/widgets/segmented_choice.dart';
 import 'package:iris/shared/widgets/status_views.dart';
 
 /// Opens sort and filter controls: a bottom sheet on phones, a dialog on
 /// wider windows.
-Future<void> showAnimeListCriteriaSheet(BuildContext context) {
+Future<void> showAnimeListCriteriaSheet(
+  BuildContext context, {
+  String? search,
+}) {
   final bloc = context.read<AnimeListBloc>();
   final genres = context.read<AnimeGenresCubit?>()?..load();
+  final preview = context.read<AnimeListPreviewCubit?>();
+  final searchQuery =
+      search ??
+      context.read<AnimeSearchBloc?>()?.state.query ??
+      bloc.state.query;
 
   return showAdaptiveSheet<void>(
     context: context,
     builder: (_) => _AnimeListCriteriaSheet(
       bloc: bloc,
       genres: genres,
+      preview: preview,
       now: DateTime.now(),
+      search: searchQuery,
     ),
   );
 }
@@ -35,13 +49,17 @@ class _AnimeListCriteriaSheet extends StatefulWidget {
   const _AnimeListCriteriaSheet({
     required this.bloc,
     required this.genres,
+    required this.preview,
     required this.now,
+    required this.search,
   });
 
   final AnimeListBloc bloc;
+  final String search;
 
   /// Null leaves genres out.
   final AnimeGenresCubit? genres;
+  final AnimeListPreviewCubit? preview;
 
   /// The day the seasons on offer count from.
   final DateTime now;
@@ -85,10 +103,43 @@ class _AnimeListCriteriaSheetState extends State<_AnimeListCriteriaSheet> {
       ...presets,
       ...filters.seasons.where((season) => !presets.contains(season)),
     ];
+    _preview();
+  }
+
+  @override
+  void dispose() {
+    widget.preview?.cancel();
+    super.dispose();
+  }
+
+  AnimeListFilters get _filters => AnimeListFilters(
+    kinds: Set.unmodifiable(_kinds),
+    statuses: Set.unmodifiable(_statuses),
+    myList: _signedIn ? Set.unmodifiable(_myList) : const {},
+    hideCompleted: _signedIn && _hideCompleted,
+    genres: Set.unmodifiable(_genres),
+    seasons: Set.unmodifiable(_seasons),
+    ratings: Set.unmodifiable(_ratings),
+    durations: Set.unmodifiable(_durations),
+  );
+
+  void _preview() => widget.preview?.update(
+    AnimeListQuery(
+      page: 1,
+      limit: AnimeListPreviewCubit.limit,
+      search: widget.search,
+      sort: _sort,
+      filters: _filters,
+    ),
+  );
+
+  void _change(VoidCallback change) {
+    setState(change);
+    _preview();
   }
 
   void _reset() {
-    setState(() {
+    _change(() {
       _sort = AnimeListSortOption.popularity;
       _kinds = {};
       _statuses = {};
@@ -102,26 +153,12 @@ class _AnimeListCriteriaSheetState extends State<_AnimeListCriteriaSheet> {
   }
 
   void _apply() {
-    widget.bloc.add(
-      AnimeListCriteriaApplied(
-        sort: _sort,
-        filters: AnimeListFilters(
-          kinds: _kinds,
-          statuses: _statuses,
-          myList: _signedIn ? _myList : const {},
-          hideCompleted: _signedIn && _hideCompleted,
-          genres: _genres,
-          seasons: _seasons,
-          ratings: _ratings,
-          durations: _durations,
-        ),
-      ),
-    );
+    widget.bloc.add(AnimeListCriteriaApplied(sort: _sort, filters: _filters));
     Navigator.of(context).pop();
   }
 
   void _toggle<T>(Set<T> set, T value, bool selected) {
-    setState(() => selected ? set.add(value) : set.remove(value));
+    _change(() => selected ? set.add(value) : set.remove(value));
   }
 
   @override
@@ -129,160 +166,205 @@ class _AnimeListCriteriaSheetState extends State<_AnimeListCriteriaSheet> {
     final l10n = AppLocalizations.of(context);
     final textTheme = Theme.of(context).textTheme;
 
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(24, 24, 24, 20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(l10n.animeListFilterSortTitle, style: textTheme.titleLarge),
-            const SizedBox(height: 24),
-            Flexible(
-              child: SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _CriteriaSection(
-                      title: l10n.animeListSortSectionTitle,
-                      options: [
-                        for (final sort in AnimeListSortOption.values)
-                          OptionToggle(
-                            label: animeListSortLabel(l10n, sort),
-                            selected: _sort == sort,
-                            exclusive: true,
-                            onChanged: (_) => setState(() => _sort = sort),
-                          ),
-                      ],
-                    ),
-                    const SizedBox(height: 20),
-                    _CriteriaSection(
-                      title: l10n.animeListTypeSectionTitle,
-                      options: [
-                        for (final kind in AnimeKindFilter.values)
-                          OptionToggle(
-                            label: animeKindFilterLabel(l10n, kind),
-                            selected: _kinds.contains(kind),
-                            onChanged: (selected) =>
-                                _toggle(_kinds, kind, selected),
-                          ),
-                      ],
-                    ),
-                    const SizedBox(height: 20),
-                    _CriteriaSection(
-                      title: l10n.animeListStatusSectionTitle,
-                      options: [
-                        for (final status in AnimeStatusFilter.values)
-                          OptionToggle(
-                            label: animeStatusFilterLabel(l10n, status),
-                            selected: _statuses.contains(status),
-                            onChanged: (selected) =>
-                                _toggle(_statuses, status, selected),
-                          ),
-                      ],
-                    ),
-                    if (_signedIn) ...[
+    return ConstrainedBox(
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.sizeOf(context).height * 0.78,
+      ),
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 24, 24, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(l10n.animeListFiltersTitle, style: textTheme.titleLarge),
+              const SizedBox(height: 24),
+              Flexible(
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      SectionLabel(l10n.animeListSortSectionTitle),
+                      const SizedBox(height: 8),
+                      SegmentedChoice<AnimeListSortOption>(
+                        key: const Key('catalog_sort_choice'),
+                        options: [
+                          for (final sort in AnimeListSortOption.values)
+                            SegmentedOption(
+                              value: sort,
+                              label: animeListSortLabel(l10n, sort),
+                            ),
+                        ],
+                        selected: _sort,
+                        onSelected: (sort) => _change(() => _sort = sort),
+                      ),
                       const SizedBox(height: 20),
                       _CriteriaSection(
-                        title: l10n.userRateTitle,
+                        title: l10n.animeListTypeSectionTitle,
                         options: [
-                          for (final status in UserRateStatus.values)
-                            OptionToggle(
-                              label: userRateStatusLabel(l10n, status),
-                              selected: _myList.contains(status),
+                          for (final kind in AnimeKindFilter.values)
+                            _FilterTag(
+                              label: animeKindFilterLabel(l10n, kind),
+                              selected: _kinds.contains(kind),
                               onChanged: (selected) =>
-                                  _toggle(_myList, status, selected),
+                                  _toggle(_kinds, kind, selected),
                             ),
-                          OptionToggle(
-                            label: l10n.animeListHideCompleted,
-                            selected: _hideCompleted,
-                            onChanged: (selected) =>
-                                setState(() => _hideCompleted = selected),
-                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 20),
+                      _CriteriaSection(
+                        title: l10n.animeListStatusSectionTitle,
+                        options: [
+                          for (final status in AnimeStatusFilter.values)
+                            _FilterTag(
+                              label: animeStatusFilterLabel(l10n, status),
+                              selected: _statuses.contains(status),
+                              onChanged: (selected) =>
+                                  _toggle(_statuses, status, selected),
+                            ),
+                        ],
+                      ),
+                      if (_signedIn) ...[
+                        const SizedBox(height: 20),
+                        _CriteriaSection(
+                          title: l10n.userRateTitle,
+                          options: [
+                            for (final status in UserRateStatus.values)
+                              _FilterTag(
+                                label: userRateStatusLabel(l10n, status),
+                                selected: _myList.contains(status),
+                                onChanged: (selected) =>
+                                    _toggle(_myList, status, selected),
+                              ),
+                            _FilterTag(
+                              label: l10n.animeListHideCompleted,
+                              selected: _hideCompleted,
+                              onChanged: (selected) =>
+                                  _change(() => _hideCompleted = selected),
+                            ),
+                          ],
+                        ),
+                      ],
+                      if (widget.genres case final genres?)
+                        _GenresSection(
+                          cubit: genres,
+                          selected: _genres,
+                          onChanged: (genre, selected) =>
+                              _toggle(_genres, genre, selected),
+                        ),
+                      const SizedBox(height: 20),
+                      _CriteriaSection(
+                        title: l10n.animeListSeasonSectionTitle,
+                        options: [
+                          for (final season in _seasonOptions)
+                            _FilterTag(
+                              label: seasonFilterLabel(l10n, season),
+                              selected: _seasons.contains(season),
+                              onChanged: (selected) =>
+                                  _toggle(_seasons, season, selected),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 20),
+                      _CriteriaSection(
+                        title: l10n.animeListRatingSectionTitle,
+                        options: [
+                          for (final rating in AnimeRatingFilter.values)
+                            _FilterTag(
+                              label: animeRatingFilterLabel(rating),
+                              selected: _ratings.contains(rating),
+                              onChanged: (selected) =>
+                                  _toggle(_ratings, rating, selected),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 20),
+                      _CriteriaSection(
+                        title: l10n.animeListDurationSectionTitle,
+                        options: [
+                          for (final duration in AnimeDurationFilter.values)
+                            _FilterTag(
+                              label: animeDurationFilterLabel(l10n, duration),
+                              selected: _durations.contains(duration),
+                              onChanged: (selected) =>
+                                  _toggle(_durations, duration, selected),
+                            ),
                         ],
                       ),
                     ],
-                    if (widget.genres case final genres?)
-                      _GenresSection(
-                        cubit: genres,
-                        selected: _genres,
-                        onChanged: (genre, selected) =>
-                            _toggle(_genres, genre, selected),
-                      ),
-                    const SizedBox(height: 20),
-                    _CriteriaSection(
-                      title: l10n.animeListSeasonSectionTitle,
-                      options: [
-                        for (final season in _seasonOptions)
-                          OptionToggle(
-                            label: seasonFilterLabel(l10n, season),
-                            selected: _seasons.contains(season),
-                            onChanged: (selected) =>
-                                _toggle(_seasons, season, selected),
-                          ),
-                      ],
-                    ),
-                    const SizedBox(height: 20),
-                    _CriteriaSection(
-                      title: l10n.animeListRatingSectionTitle,
-                      options: [
-                        for (final rating in AnimeRatingFilter.values)
-                          OptionToggle(
-                            label: animeRatingFilterLabel(rating),
-                            selected: _ratings.contains(rating),
-                            onChanged: (selected) =>
-                                _toggle(_ratings, rating, selected),
-                          ),
-                      ],
-                    ),
-                    const SizedBox(height: 20),
-                    _CriteriaSection(
-                      title: l10n.animeListDurationSectionTitle,
-                      options: [
-                        for (final duration in AnimeDurationFilter.values)
-                          OptionToggle(
-                            label: animeDurationFilterLabel(l10n, duration),
-                            selected: _durations.contains(duration),
-                            onChanged: (selected) =>
-                                _toggle(_durations, duration, selected),
-                          ),
-                      ],
-                    ),
-                  ],
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(height: 24),
-            Row(
-              children: [
-                TextButton(
-                  onPressed: _reset,
-                  child: Text(l10n.animeListResetButton),
-                ),
-                const Spacer(),
-                FilledButton(
-                  onPressed: _apply,
-                  child: Text(l10n.animeListApplyButton),
-                ),
-              ],
-            ),
-          ],
+              const SizedBox(height: 16),
+              const Divider(height: 1),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  TextButton(
+                    onPressed: _reset,
+                    child: Text(l10n.animeListResetButton),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: widget.preview != null
+                        ? BlocBuilder<AnimeListPreviewCubit, AnimeListPreview>(
+                            bloc: widget.preview,
+                            builder: (context, state) => FilledButton(
+                              onPressed: _apply,
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(l10n.animeListShowCount('').trim()),
+                                  const SizedBox(width: 8),
+                                  Stack(
+                                    children: [
+                                      const ExcludeSemantics(
+                                        child: Opacity(
+                                          opacity: 0,
+                                          child: Text('50+'),
+                                        ),
+                                      ),
+                                      AppSkeleton(
+                                        enabled: state.loading,
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.onPrimary,
+                                        semanticLabel: l10n.animeListLoading,
+                                        child: Text(
+                                          state.loading
+                                              ? '00'
+                                              : state.count == null
+                                              ? ''
+                                              : '${state.count}${state.hasMore ? '+' : ''}',
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                          )
+                        : FilledButton(
+                            onPressed: _apply,
+                            child: Text(l10n.animeListShowResults),
+                          ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 }
 
-/// Genres and audiences at once, the many themes a tap away; while they
-/// load, a spinner holds their place, and if they do not, the section is
-/// left out.
 class _GenresSection extends StatefulWidget {
   const _GenresSection({
     required this.cubit,
     required this.selected,
     required this.onChanged,
   });
-
   final AnimeGenresCubit cubit;
   final Set<AnimeGenre> selected;
   final void Function(AnimeGenre genre, bool selected) onChanged;
@@ -292,10 +374,7 @@ class _GenresSection extends StatefulWidget {
 }
 
 class _GenresSectionState extends State<_GenresSection> {
-  // A theme already chosen is never folded away.
-  late bool _themesShown = widget.selected.any(
-    (genre) => genre.kind == AnimeGenreKind.theme,
-  );
+  final _expanded = <AnimeGenreKind>{};
 
   @override
   Widget build(BuildContext context) {
@@ -303,47 +382,101 @@ class _GenresSectionState extends State<_GenresSection> {
     return BlocBuilder<AnimeGenresCubit, AnimeGenresState>(
       bloc: widget.cubit,
       builder: (context, state) {
-        final List<Widget> options;
-        switch (state) {
-          case AnimeGenresUnavailable():
-            return const SizedBox.shrink();
-          case AnimeGenresIdle() || AnimeGenresLoading():
-            options = const [
-              Padding(
-                padding: EdgeInsets.fromLTRB(8, 12, 0, 12),
-                child: SizedBox(width: 80, child: BlockSpinner()),
-              ),
-            ];
-          case AnimeGenresLoaded(:final genres):
-            final themes = [
-              for (final genre in genres)
-                if (genre.kind == AnimeGenreKind.theme) genre,
-            ];
-            options = [
-              for (final genre in genres)
-                if (genre.kind != AnimeGenreKind.theme || _themesShown)
-                  OptionToggle(
+        if (state is AnimeGenresUnavailable) return const SizedBox.shrink();
+        if (state is! AnimeGenresLoaded) {
+          return const Padding(
+            padding: EdgeInsets.only(top: 20),
+            child: SizedBox(width: 80, child: BlockSpinner()),
+          );
+        }
+        final sections = <Widget>[];
+        for (final kind in AnimeGenreKind.values) {
+          final all = state.genres
+              .where((genre) => genre.kind == kind)
+              .toList();
+          if (all.isEmpty) continue;
+          final expanded = _expanded.contains(kind);
+          final visible = [
+            for (final (index, genre) in all.indexed)
+              if (expanded ||
+                  kind == AnimeGenreKind.demographic ||
+                  index < 10 ||
+                  widget.selected.contains(genre))
+                genre,
+          ];
+          sections.addAll([
+            const SizedBox(height: 20),
+            _CriteriaSection(
+              title: switch (kind) {
+                AnimeGenreKind.genre => l10n.animeListGenresSectionTitle,
+                AnimeGenreKind.demographic =>
+                  l10n.animeListDemographicsSectionTitle,
+                AnimeGenreKind.theme => l10n.animeListThemesSectionTitle,
+              },
+              options: [
+                for (final genre in visible)
+                  _FilterTag(
                     label: animeGenreLabel(l10n, genre),
                     selected: widget.selected.contains(genre),
-                    onChanged: (selected) {
-                      setState(() => widget.onChanged(genre, selected));
-                    },
+                    onChanged: (selected) => widget.onChanged(genre, selected),
                   ),
-              if (themes.isNotEmpty && !_themesShown)
-                TextButton(
-                  onPressed: () => setState(() => _themesShown = true),
-                  child: Text(l10n.animeListShowThemes(themes.length)),
-                ),
-            ];
+                if (visible.length < all.length || expanded)
+                  TextButton.icon(
+                    onPressed: () => setState(
+                      () => expanded
+                          ? _expanded.remove(kind)
+                          : _expanded.add(kind),
+                    ),
+                    icon: RotatedBox(
+                      quarterTurns: expanded ? 2 : 0,
+                      child: const PixelIcon(PixelGlyph.expand, size: 12),
+                    ),
+                    label: Text(
+                      expanded
+                          ? l10n.animeListCollapse
+                          : l10n.animeListShowMore(all.length - visible.length),
+                    ),
+                  ),
+              ],
+            ),
+          ]);
         }
-        return Padding(
-          padding: const EdgeInsets.only(top: 20),
-          child: _CriteriaSection(
-            title: l10n.animeListGenresSectionTitle,
-            options: options,
-          ),
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: sections,
         );
       },
+    );
+  }
+}
+
+class _FilterTag extends StatelessWidget {
+  const _FilterTag({
+    required this.label,
+    required this.selected,
+    required this.onChanged,
+  });
+  final String label;
+  final bool selected;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Semantics(
+      selected: selected,
+      child: OutlinedButton(
+        onPressed: () => onChanged(!selected),
+        style: OutlinedButton.styleFrom(
+          minimumSize: const Size(48, 44),
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          backgroundColor: selected ? scheme.onSurface : scheme.surface,
+          foregroundColor: selected ? scheme.surface : scheme.onSurface,
+          overlayColor: selected ? scheme.surface : scheme.onSurface,
+          side: BorderSide(color: selected ? scheme.onSurface : scheme.outline),
+        ),
+        child: Text(label),
+      ),
     );
   }
 }
@@ -361,11 +494,7 @@ class _CriteriaSection extends StatelessWidget {
       children: [
         SectionLabel(title),
         const SizedBox(height: 4),
-        // The boxes line up with the label above them.
-        Transform.translate(
-          offset: const Offset(-8, 0),
-          child: Wrap(spacing: 8, children: options),
-        ),
+        Wrap(spacing: 8, runSpacing: 8, children: options),
       ],
     );
   }

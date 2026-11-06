@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'package:iris/shared/widgets/adaptive/show_app_dialog.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 
 /// Asks for a new name; resolves to null when cancelled or left blank.
@@ -7,7 +8,7 @@ Future<String?> showRenameSavedTorrentDialog({
   required BuildContext context,
   required String currentTitle,
 }) {
-  return showDialog<String>(
+  return showAppDialog<String>(
     context: context,
     builder: (_) => _RenameDialog(currentTitle: currentTitle),
   );

@@ -1009,5 +1009,24 @@
         "type": "String"
       }
     }
-  }
+  },
+  "animeListDemographicsSectionTitle": "Audience",
+  "animeListThemesSectionTitle": "Themes",
+  "animeListShowAll": "All",
+  "animeListCollapse": "Show less",
+  "animeListShowResults": "Show results",
+  "animeListShowCount": "Show {count}",
+  "@animeListShowCount": {"placeholders": {"count": {"type": "String"}}},
+  "animeListActiveFilters": "Active filters: {count}",
+  "@animeListActiveFilters": {"placeholders": {"count": {"type": "int"}}},
+  "searchRecentEmpty": "Your recent searches will appear here.",
+  "searchRecentClear": "Clear history",
+  "searchRecentRemove": "Remove “{query}”",
+  "@searchRecentRemove": {"placeholders": {"query": {"type": "String"}}},
+  "animeListRemoveFilter": "Remove “{filter}” filter",
+  "@animeListRemoveFilter": {"placeholders": {"filter": {"type": "String"}}},
+  "animeListFiltersTitle": "Filters",
+  "animeListResetFilters": "Reset filters",
+  "animeListShowMore": "More ({count})",
+  "@animeListShowMore": {"placeholders": {"count": {"type": "int"}}}
 }

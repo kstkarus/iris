@@ -81,9 +81,9 @@
   "animeListSortSectionTitle": "Сортировка",
   "animeListTypeSectionTitle": "Тип",
   "animeListStatusSectionTitle": "Статус",
-  "animeListSortPopularity": "По популярности",
-  "animeListSortScore": "По оценке",
-  "animeListSortAiredOn": "По дате выхода",
+  "animeListSortPopularity": "Популярное",
+  "animeListSortScore": "Рейтинг",
+  "animeListSortAiredOn": "Новинки",
   "animeListApplyButton": "Применить",
   "animeListResetButton": "Сбросить",
   "animeListEmpty": "Сейчас список аниме пуст.",
@@ -540,5 +540,24 @@
         "type": "String"
       }
     }
-  }
+  },
+  "animeListDemographicsSectionTitle": "Аудитория",
+  "animeListThemesSectionTitle": "Темы",
+  "animeListShowAll": "Все",
+  "animeListCollapse": "Свернуть",
+  "animeListShowResults": "Показать",
+  "animeListShowCount": "Показать {count}",
+  "@animeListShowCount": {"placeholders": {"count": {"type": "String"}}},
+  "animeListActiveFilters": "Активные фильтры: {count}",
+  "@animeListActiveFilters": {"placeholders": {"count": {"type": "int"}}},
+  "searchRecentEmpty": "Недавние запросы появятся здесь.",
+  "searchRecentClear": "Очистить историю",
+  "searchRecentRemove": "Удалить запрос «{query}»",
+  "@searchRecentRemove": {"placeholders": {"query": {"type": "String"}}},
+  "animeListRemoveFilter": "Снять фильтр «{filter}»",
+  "@animeListRemoveFilter": {"placeholders": {"filter": {"type": "String"}}},
+  "animeListFiltersTitle": "Фильтры",
+  "animeListResetFilters": "Сбросить фильтры",
+  "animeListShowMore": "Ещё {count}",
+  "@animeListShowMore": {"placeholders": {"count": {"type": "int"}}}
 }

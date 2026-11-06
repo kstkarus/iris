@@ -31,6 +31,8 @@ class AnimeGrid extends StatefulWidget {
     required this.columns,
     required this.controller,
     this.header,
+    this.contentPadding = EdgeInsets.zero,
+    this.onOpenAnime,
     super.key,
   });
 
@@ -42,6 +44,8 @@ class AnimeGrid extends StatefulWidget {
   final int columns;
   final ScrollController controller;
   final Widget? header;
+  final EdgeInsetsGeometry contentPadding;
+  final VoidCallback? onOpenAnime;
 
   @override
   State<AnimeGrid> createState() => _AnimeGridState();
@@ -144,14 +148,17 @@ class _AnimeGridState extends State<AnimeGrid> {
           if (index < first) return header;
           index -= first;
           if (index >= rowCount) {
-            return PagingFooter(
-              loadingMore: state.isLoadingMore,
-              failed: state.errorType == AnimeListErrorType.loadMore,
-              failedMessage: AppLocalizations.of(
-                context,
-              ).animeListLoadMoreError,
-              onRetry: () =>
-                  widget.bloc.add(const AnimeListNextPageRequested()),
+            return Padding(
+              padding: widget.contentPadding,
+              child: PagingFooter(
+                loadingMore: state.isLoadingMore,
+                failed: state.errorType == AnimeListErrorType.loadMore,
+                failedMessage: AppLocalizations.of(
+                  context,
+                ).animeListLoadMoreError,
+                onRetry: () =>
+                    widget.bloc.add(const AnimeListNextPageRequested()),
+              ),
             );
           }
 
@@ -159,23 +166,29 @@ class _AnimeGridState extends State<AnimeGrid> {
           final end = math.min(start + columns, items.length);
 
           // Each row develops out of its own noise when the page arrives.
-          return AppSkeleton(
-            enabled: loading,
-            semanticLabel: index == 0 ? loadingLabel : null,
-            child: AdaptiveGridRow(
-              columns: columns,
-              spacing: _columnSpacing,
-              children: [
-                for (final item in items.sublist(start, end))
-                  AnimeCard(
-                    item: item,
-                    onTap: () => context.pushNamed(
-                      'anime-details',
-                      pathParameters: {'id': item.anime.id},
-                      extra: AnimeDetailsPreview.fromSummary(item.anime),
+          return Padding(
+            padding: widget.contentPadding,
+            child: AppSkeleton(
+              enabled: loading,
+              semanticLabel: index == 0 ? loadingLabel : null,
+              child: AdaptiveGridRow(
+                columns: columns,
+                spacing: _columnSpacing,
+                children: [
+                  for (final item in items.sublist(start, end))
+                    AnimeCard(
+                      item: item,
+                      onTap: () {
+                        widget.onOpenAnime?.call();
+                        context.pushNamed(
+                          'anime-details',
+                          pathParameters: {'id': item.anime.id},
+                          extra: AnimeDetailsPreview.fromSummary(item.anime),
+                        );
+                      },
                     ),
-                  ),
-              ],
+                ],
+              ),
             ),
           );
         },

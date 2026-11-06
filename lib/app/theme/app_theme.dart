@@ -9,8 +9,7 @@ import 'package:iris/shared/widgets/pixel_icon.dart';
 /// The voice of the interface: titles, text, tables and numbers.
 const _appFontFamily = 'Medeo Mono';
 
-/// Small chrome only: button labels, tooltips and snackbars, which read
-/// faster in a proportional face and stay out of the content's way.
+/// Small chrome only: tooltips and snackbars.
 const _appSansFamily = 'Medeo Sans';
 
 /// Monochrome surfaces, square shapes and one signal colour.
@@ -38,6 +37,7 @@ ThemeData buildAppTheme({
           withTwin: false,
         )
       : null;
+  final menuScheme = twin?.colorScheme ?? scheme;
   final bevel = BevelBorder(
     light: dark ? const Color(0xFFFFFFFF) : const Color(0xFF4D4D4B),
     dark: dark ? const Color(0xFF8E8B85) : const Color(0xFF000000),
@@ -47,7 +47,7 @@ ThemeData buildAppTheme({
   const buttonSize = Size(64, 44);
   const buttonPadding = EdgeInsets.symmetric(horizontal: 18);
   const buttonText = TextStyle(
-    fontFamily: _appSansFamily,
+    fontFamily: _appFontFamily,
     fontSize: 13,
     height: 1.2,
     fontWeight: FontWeight.w500,
@@ -257,21 +257,32 @@ ThemeData buildAppTheme({
     // Menus open in reverse, like the sheets and dialogs that carry the
     // inverse theme.
     popupMenuTheme: PopupMenuThemeData(
-      color: scheme.inverseSurface,
+      color: menuScheme.surfaceContainerLow,
       surfaceTintColor: Colors.transparent,
       elevation: 0,
       shape: square,
-      textStyle: text.bodyMedium?.copyWith(color: scheme.onInverseSurface),
+      textStyle: text.bodyMedium?.copyWith(color: menuScheme.onSurface),
       labelTextStyle: WidgetStatePropertyAll(
-        text.bodyMedium?.copyWith(color: scheme.onInverseSurface),
+        text.bodyMedium?.copyWith(color: menuScheme.onSurface),
       ),
     ),
     menuTheme: MenuThemeData(
       style: MenuStyle(
-        backgroundColor: WidgetStatePropertyAll(scheme.surfaceContainerLow),
+        backgroundColor: WidgetStatePropertyAll(menuScheme.surfaceContainerLow),
         elevation: const WidgetStatePropertyAll(0),
         shape: WidgetStatePropertyAll(
-          RoundedRectangleBorder(side: BorderSide(color: scheme.outline)),
+          RoundedRectangleBorder(side: BorderSide(color: menuScheme.outline)),
+        ),
+      ),
+    ),
+    menuButtonTheme: MenuButtonThemeData(
+      style: ButtonStyle(
+        foregroundColor: _unlessDisabled(
+          menuScheme.onSurface,
+          disabled: menuScheme.onSurfaceVariant,
+        ),
+        overlayColor: WidgetStatePropertyAll(
+          menuScheme.onSurface.withValues(alpha: 0.08),
         ),
       ),
     ),

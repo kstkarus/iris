@@ -1609,4 +1609,56 @@ class AppLocalizationsEn extends AppLocalizations {
   String downloadSelectedQuality(String quality) {
     return 'Selected: $quality';
   }
+
+  @override
+  String get animeListDemographicsSectionTitle => 'Audience';
+
+  @override
+  String get animeListThemesSectionTitle => 'Themes';
+
+  @override
+  String get animeListShowAll => 'All';
+
+  @override
+  String get animeListCollapse => 'Show less';
+
+  @override
+  String get animeListShowResults => 'Show results';
+
+  @override
+  String animeListShowCount(String count) {
+    return 'Show $count';
+  }
+
+  @override
+  String animeListActiveFilters(int count) {
+    return 'Active filters: $count';
+  }
+
+  @override
+  String get searchRecentEmpty => 'Your recent searches will appear here.';
+
+  @override
+  String get searchRecentClear => 'Clear history';
+
+  @override
+  String searchRecentRemove(String query) {
+    return 'Remove “$query”';
+  }
+
+  @override
+  String animeListRemoveFilter(String filter) {
+    return 'Remove “$filter” filter';
+  }
+
+  @override
+  String get animeListFiltersTitle => 'Filters';
+
+  @override
+  String get animeListResetFilters => 'Reset filters';
+
+  @override
+  String animeListShowMore(int count) {
+    return 'More ($count)';
+  }
 }

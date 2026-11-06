@@ -5,6 +5,60 @@ import 'package:iris/shared/widgets/dither_list.dart';
 import 'package:iris/shared/widgets/dither_transition.dart';
 
 void main() {
+  Widget horizontal(List<String> items, {bool noMotion = false}) => MaterialApp(
+    home: MediaQuery(
+      data: MediaQueryData(disableAnimations: noMotion),
+      child: Scaffold(
+        body: SizedBox(
+          width: 180,
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: DitherList<String>.horizontal(
+              items: items,
+              keyOf: (item) => item,
+              itemBuilder: (context, item) =>
+                  SizedBox(width: 80, height: 44, child: Text(item)),
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
+
+  for (final noMotion in [false, true]) {
+    testWidgets('horizontal removal keeps other entries intact ($noMotion)', (
+      tester,
+    ) async {
+      await tester.pumpWidget(horizontal(['a', 'b', 'c'], noMotion: noMotion));
+      final before = tester.getRect(find.text('b'));
+      await tester.pumpWidget(horizontal(['b', 'c'], noMotion: noMotion));
+      await tester.pump();
+      if (!noMotion) {
+        await tester.pump(const Duration(milliseconds: 100));
+        expect(find.text('a'), findsOneWidget);
+        expect(tester.getRect(find.text('b')), before);
+        expect(
+          find.ancestor(of: find.text('b'), matching: find.byType(BayerMasked)),
+          findsNothing,
+        );
+        await tester.pump(const Duration(milliseconds: 120));
+        expect(tester.getTopLeft(find.text('b')).dx, lessThan(before.left));
+        await tester.pump(const Duration(milliseconds: 101));
+        await tester.pump();
+        expect(find.text('a'), findsNothing);
+      }
+      await tester.pumpAndSettle();
+      expect(find.text('a'), findsNothing);
+      expect(tester.getTopLeft(find.text('b')).dx, 0);
+      await tester.pumpWidget(horizontal(['a', 'b', 'c'], noMotion: noMotion));
+      await tester.pumpAndSettle();
+      await tester.pumpWidget(horizontal([], noMotion: noMotion));
+      await tester.pumpAndSettle();
+      expect(find.text('b'), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   Widget list(
     List<String> items, {
     bool noMotion = false,

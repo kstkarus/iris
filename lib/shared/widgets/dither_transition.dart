@@ -55,24 +55,29 @@ class _DitherTransition extends AnimatedWidget {
     };
     final progress = leaving ? 1 - animation.value : animation.value;
     if (!leaving || !collapse) {
-      return BayerMasked(
-        open: (progress * BayerMask.steps).round(),
-        inverse: leaving,
-        child: child,
+      return IgnorePointer(
+        ignoring: leaving,
+        child: BayerMasked(
+          open: (progress * BayerMask.steps).round(),
+          inverse: leaving,
+          child: child,
+        ),
       );
     }
     final dissolved = (progress * 2).clamp(0.0, 1.0);
     final collapsed = Curves.easeInOut.transform(
       (progress * 2 - 1).clamp(0.0, 1.0),
     );
-    return ClipRect(
-      child: Align(
-        alignment: AlignmentDirectional.topStart,
-        heightFactor: 1 - collapsed,
-        child: BayerMasked(
-          open: (dissolved * BayerMask.steps).round(),
-          inverse: true,
-          child: child,
+    return IgnorePointer(
+      child: ClipRect(
+        child: Align(
+          alignment: AlignmentDirectional.topStart,
+          heightFactor: 1 - collapsed,
+          child: BayerMasked(
+            open: (dissolved * BayerMask.steps).round(),
+            inverse: true,
+            child: child,
+          ),
         ),
       ),
     );

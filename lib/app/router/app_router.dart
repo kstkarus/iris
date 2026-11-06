@@ -26,6 +26,10 @@ import 'package:iris/features/anime_list/presentation/bloc/anime_list_bloc.dart'
 import 'package:iris/features/anime_list/presentation/bloc/anime_search_bloc.dart';
 import 'package:iris/features/anime_list/presentation/bloc/anime_list_event.dart';
 import 'package:iris/features/anime_list/presentation/pages/anime_list_page.dart';
+import 'package:iris/features/anime_list/domain/repositories/anime_list_repository.dart';
+import 'package:iris/features/anime_list/domain/repositories/search_history_repository.dart';
+import 'package:iris/features/anime_list/presentation/cubit/anime_list_preview_cubit.dart';
+import 'package:iris/features/anime_list/presentation/cubit/search_history_cubit.dart';
 import 'package:iris/features/auth/presentation/cubit/auth_cubit.dart';
 import 'package:iris/features/auth/presentation/cubit/auth_state.dart';
 import 'package:iris/features/auth/presentation/widgets/account_listener.dart';
@@ -177,6 +181,17 @@ abstract final class AppRouter {
                               ),
                             )
                             ..add(const AnimeListStarted()),
+                        ),
+                        BlocProvider(
+                          create: (_) => AnimeListPreviewCubit(
+                            repository: serviceLocator<AnimeListRepository>(),
+                          ),
+                        ),
+                        BlocProvider(
+                          create: (_) => SearchHistoryCubit(
+                            repository:
+                                serviceLocator<SearchHistoryRepository>(),
+                          ),
                         ),
                         BlocProvider(
                           create: (_) => AnimeGenresCubit(

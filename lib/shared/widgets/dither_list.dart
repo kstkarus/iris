@@ -9,6 +9,8 @@ import 'package:iris/shared/widgets/dither_transition.dart';
 /// row dissolves, then gives its height back, so the rows around it slide
 /// instead of jumping. Rows are told apart by [keyOf].
 class DitherList<T> extends StatefulWidget {
+  static const horizontalRemovalDuration = Duration(milliseconds: 320);
+
   const DitherList({
     required this.items,
     required this.keyOf,
@@ -21,7 +23,26 @@ class DitherList<T> extends StatefulWidget {
     this.columnSpacing = 16,
     this.rowSpacing = 0,
     super.key,
-  }) : assert(crossAxisCount > 0);
+  }) : assert(crossAxisCount > 0),
+       _horizontal = false;
+
+  /// Content-sized entries in one row, for a horizontal scroll view.
+  const DitherList.horizontal({
+    required this.items,
+    required this.keyOf,
+    required this.itemBuilder,
+    this.footer,
+    double spacing = 8,
+    super.key,
+  }) : _horizontal = true,
+       padding = null,
+       header = null,
+       physics = null,
+       crossAxisCount = 1,
+       columnSpacing = spacing,
+       rowSpacing = 0;
+
+  final bool _horizontal;
 
   final List<T> items;
   final Object Function(T item) keyOf;
@@ -72,8 +93,28 @@ class _DitherListState<T> extends State<DitherList<T>> {
     setState(() => _entries.removeWhere((e) => e.key == key && e.leaving));
   }
 
+  Widget _presence(_Entry<T> entry) => _Presence(
+    key: ValueKey<Object>(entry.key),
+    axis: widget._horizontal ? Axis.horizontal : Axis.vertical,
+    entering: entry.entering,
+    leaving: entry.leaving,
+    onEntered: () => entry.entering = false,
+    onLeft: () => _left(entry.key),
+    child: widget.itemBuilder(context, entry.item),
+  );
+
   @override
   Widget build(BuildContext context) {
+    if (widget._horizontal) {
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        spacing: widget.columnSpacing,
+        children: [
+          for (final entry in _entries) _presence(entry),
+          ?widget.footer,
+        ],
+      );
+    }
     final headerCount = widget.header == null ? 0 : 1;
     final rowCount = (_entries.length / widget.crossAxisCount).ceil();
     return ListView.builder(
@@ -121,17 +162,7 @@ class _DitherListState<T> extends State<DitherList<T>> {
             child: AdaptiveGridRow(
               columns: widget.crossAxisCount,
               spacing: widget.columnSpacing,
-              children: [
-                for (final entry in rowEntries)
-                  _Presence(
-                    key: ValueKey<Object>(entry.key),
-                    entering: entry.entering,
-                    leaving: entry.leaving,
-                    onEntered: () => entry.entering = false,
-                    onLeft: () => _left(entry.key),
-                    child: widget.itemBuilder(context, entry.item),
-                  ),
-              ],
+              children: [for (final entry in rowEntries) _presence(entry)],
             ),
           ),
         );
@@ -162,6 +193,7 @@ class _Entry<T> {
 /// second develops or dissolves it.
 class _Presence extends StatefulWidget {
   const _Presence({
+    required this.axis,
     required this.entering,
     required this.leaving,
     required this.onEntered,
@@ -170,6 +202,7 @@ class _Presence extends StatefulWidget {
     super.key,
   });
 
+  final Axis axis;
   final bool entering;
   final bool leaving;
   final VoidCallback onEntered;
@@ -185,6 +218,9 @@ class _PresenceState extends State<_Presence>
   late final AnimationController _controller = AnimationController(
     vsync: this,
     duration: DitherTransition.duration * 2,
+    reverseDuration: widget.axis == Axis.horizontal
+        ? DitherList.horizontalRemovalDuration
+        : null,
     value: widget.entering ? 0 : 1,
   );
 
@@ -265,7 +301,8 @@ class _PresenceState extends State<_Presence>
           child: ClipRect(
             child: Align(
               alignment: AlignmentDirectional.topStart,
-              heightFactor: opened,
+              heightFactor: widget.axis == Axis.vertical ? opened : 1,
+              widthFactor: widget.axis == Axis.horizontal ? opened : null,
               child: BayerMasked(
                 open: (developed * BayerMask.steps).round(),
                 child: child,

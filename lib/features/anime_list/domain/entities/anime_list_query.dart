@@ -42,6 +42,36 @@ class AnimeListFilters {
   final Set<AnimeRatingFilter> ratings;
   final Set<AnimeDurationFilter> durations;
 
+  int get activeCount =>
+      kinds.length +
+      statuses.length +
+      myList.length +
+      (hideCompleted ? 1 : 0) +
+      genres.length +
+      seasons.length +
+      ratings.length +
+      durations.length;
+
+  AnimeListFilters copyWith({
+    Set<AnimeKindFilter>? kinds,
+    Set<AnimeStatusFilter>? statuses,
+    Set<UserRateStatus>? myList,
+    bool? hideCompleted,
+    Set<AnimeGenre>? genres,
+    Set<SeasonFilter>? seasons,
+    Set<AnimeRatingFilter>? ratings,
+    Set<AnimeDurationFilter>? durations,
+  }) => AnimeListFilters(
+    kinds: kinds ?? this.kinds,
+    statuses: statuses ?? this.statuses,
+    myList: myList ?? this.myList,
+    hideCompleted: hideCompleted ?? this.hideCompleted,
+    genres: genres ?? this.genres,
+    seasons: seasons ?? this.seasons,
+    ratings: ratings ?? this.ratings,
+    durations: durations ?? this.durations,
+  );
+
   bool get hasAny =>
       kinds.isNotEmpty ||
       statuses.isNotEmpty ||
