@@ -1,4 +1,5 @@
 import 'package:iris/features/downloads/domain/entities/download_item.dart';
+import 'package:iris/features/downloads/domain/entities/download_status.dart';
 import 'package:iris/features/downloads/domain/entities/prepared_download_source.dart';
 import 'package:iris/shared/utils/equality.dart';
 
@@ -22,7 +23,9 @@ class DownloadSelectionReady extends DownloadSelectionState {
     this.downloads = const {},
     this.adding = const {},
     this.notAdded = const {},
-    this.addingAll = false,
+    this.addingBatch = false,
+    this.selecting = false,
+    this.selected = const {},
   });
 
   final PreparedDownloadSource source;
@@ -39,14 +42,31 @@ class DownloadSelectionReady extends DownloadSelectionState {
 
   /// Files the queue did not take, by index, until they are tried again.
   final Set<int> notAdded;
-  final bool addingAll;
+  final bool addingBatch;
+  final bool selecting;
+  final Set<int> selected;
+
+  bool get canStartSelection =>
+      !selecting &&
+      !addingBatch &&
+      adding.isEmpty &&
+      source.files.any((file) => canSelect(file.index));
+
+  bool canSelect(int index) =>
+      !adding.contains(index) &&
+      switch (downloads[index]?.status) {
+        null || DownloadStatus.paused || DownloadStatus.failed => true,
+        _ => false,
+      };
 
   DownloadSelectionReady copyWith({
     int? Function()? quality,
     Map<int, DownloadItem>? downloads,
     Set<int>? adding,
     Set<int>? notAdded,
-    bool? addingAll,
+    bool? addingBatch,
+    bool? selecting,
+    Set<int>? selected,
   }) {
     return DownloadSelectionReady(
       source,
@@ -54,7 +74,9 @@ class DownloadSelectionReady extends DownloadSelectionState {
       downloads: downloads ?? this.downloads,
       adding: adding ?? this.adding,
       notAdded: notAdded ?? this.notAdded,
-      addingAll: addingAll ?? this.addingAll,
+      addingBatch: addingBatch ?? this.addingBatch,
+      selecting: selecting ?? this.selecting,
+      selected: selected ?? this.selected,
     );
   }
 
@@ -63,7 +85,9 @@ class DownloadSelectionReady extends DownloadSelectionState {
       other is DownloadSelectionReady &&
       identical(other.source, source) &&
       other.quality == quality &&
-      other.addingAll == addingAll &&
+      other.addingBatch == addingBatch &&
+      other.selecting == selecting &&
+      sameSet(other.selected, selected) &&
       sameMap(other.downloads, downloads) &&
       sameSet(other.adding, adding) &&
       sameSet(other.notAdded, notAdded);
@@ -72,7 +96,9 @@ class DownloadSelectionReady extends DownloadSelectionState {
   int get hashCode => Object.hash(
     source,
     quality,
-    addingAll,
+    addingBatch,
+    selecting,
+    Object.hashAllUnordered(selected),
     Object.hashAllUnordered(downloads.values),
     Object.hashAllUnordered(adding),
     Object.hashAllUnordered(notAdded),

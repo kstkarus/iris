@@ -1619,9 +1619,6 @@ class AppLocalizationsRu extends AppLocalizations {
   }
 
   @override
-  String get downloadAllRemaining => 'Скачать оставшиеся серии';
-
-  @override
   String get downloadDeleteAll => 'Удалить все серии';
 
   @override
@@ -1685,4 +1682,61 @@ class AppLocalizationsRu extends AppLocalizations {
   String animeListShowMore(int count) {
     return 'Ещё $count';
   }
+
+  @override
+  String get downloadSelectEpisodes => 'Выбрать серии';
+
+  @override
+  String get downloadSelectFiles => 'Выбрать файлы';
+
+  @override
+  String get downloadSelectAll => 'Выбрать все';
+
+  @override
+  String get downloadDeselectAll => 'Снять выбор';
+
+  @override
+  String downloadSelectedEpisodes(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Скачать $count серии',
+      many: 'Скачать $count серий',
+      few: 'Скачать $count серии',
+      one: 'Скачать $count серию',
+      zero: 'Скачать',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String downloadSelectedFiles(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Скачать $count файла',
+      many: 'Скачать $count файлов',
+      few: 'Скачать $count файла',
+      one: 'Скачать $count файл',
+      zero: 'Скачать',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get downloadQueueTitle => 'Очередь загрузок';
+
+  @override
+  String downloadQueueCount(int count) {
+    return 'Очередь · $count';
+  }
+
+  @override
+  String get downloadQueueEmpty => 'В очереди ничего нет';
+
+  @override
+  String get downloadNext => 'В начало очереди';
+
+  @override
+  String get downloadMore => 'Скачать ещё';
 }

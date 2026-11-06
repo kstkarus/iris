@@ -1,5 +1,6 @@
 import 'package:iris/features/downloads/domain/entities/download_item.dart';
 import 'package:iris/features/downloads/domain/entities/download_storage_usage.dart';
+import 'package:iris/features/downloads/domain/entities/download_status.dart';
 
 class DownloadManagerState {
   const DownloadManagerState({
@@ -13,6 +14,11 @@ class DownloadManagerState {
   final List<DownloadItem> downloads;
   final DownloadStorageUsage? storageUsage;
   final bool hasError;
+
+  List<DownloadItem> get queue => [
+    ...downloads.where((item) => item.status == DownloadStatus.downloading),
+    ...downloads.where((item) => item.status == DownloadStatus.queued),
+  ];
 
   DownloadManagerState copyWith({
     bool? isLoading,

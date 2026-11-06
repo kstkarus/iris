@@ -99,6 +99,19 @@ void _openDownloaded(BuildContext context, DownloadTitle title) {
   context.pushNamed('anime-details', pathParameters: {'id': item.animeId});
 }
 
+void _downloadMore(BuildContext context, DownloadItem item) {
+  context.pushNamed(
+    'torrent-download-files',
+    extra: DownloadSelectionArgs(
+      animeId: item.animeId,
+      animeTitle: item.animeTitle,
+      sourceTitle: item.sourceTitle,
+      magnet: item.magnet,
+      posterUrl: item.posterUrl,
+    ),
+  );
+}
+
 abstract final class AppRouter {
   static Future<void> _watchDownload(
     BuildContext context,
@@ -246,6 +259,7 @@ abstract final class AppRouter {
                       )..load(),
                       child: DownloadManagerPage(
                         onOpenAnime: (title) => _openDownloaded(context, title),
+                        onDownloadMore: (item) => _downloadMore(context, item),
                         onBrowseCatalog: () => context.goNamed('anime-list'),
                         onOpenTitle: (title) =>
                             context.pushNamed('download-title', extra: title),
@@ -270,6 +284,8 @@ abstract final class AppRouter {
                             title: title,
                             onOpenAnime: (title) =>
                                 _openDownloaded(context, title),
+                            onDownloadMore: (item) =>
+                                _downloadMore(context, item),
                             onWatch: (item) => _watchDownload(context, item),
                           ),
                         );

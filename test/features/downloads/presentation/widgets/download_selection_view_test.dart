@@ -13,6 +13,8 @@ import 'package:iris/features/downloads/domain/entities/prepared_download_source
 import 'package:iris/features/downloads/presentation/cubit/download_selection_cubit.dart';
 import 'package:iris/features/downloads/presentation/models/download_selection_args.dart';
 import 'package:iris/features/downloads/presentation/pages/download_selection_page.dart';
+import 'package:iris/shared/utils/bayer_mask.dart';
+import 'package:iris/shared/widgets/dither_transition.dart';
 import 'package:iris/shared/widgets/segmented_choice.dart';
 
 import '../../../../helpers/memory_online_quality_preferences.dart';
@@ -53,6 +55,156 @@ void main() {
         find.byKey(const Key('download_quality_choice')),
       );
 
+  testWidgets('holding an episode selects it without downloading, and '
+      'selection can be entered again after leaving', (tester) async {
+    final repository = _LoadingRepository();
+    final cubit = DownloadSelectionCubit(args: _online, repository: repository);
+    final semantics = tester.ensureSemantics();
+    await tester.pumpWidget(
+      testApp(
+        BlocProvider(
+          create: (_) => cubit..load(),
+          child: DownloadSelectionPage(args: _online, onWatch: (_) {}),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('download_select')), findsNothing);
+    expect(find.byKey(const Key('download_selected')), findsNothing);
+    final heldFile = find.byKey(const ValueKey('download_selection_file_2'));
+    final heldPosition = tester.getTopLeft(heldFile);
+    try {
+      expect(
+        tester
+            .getSemantics(
+              find.byKey(const ValueKey('download_selection_file_2')),
+            )
+            .getSemanticsData()
+            .hasAction(SemanticsAction.longPress),
+        isTrue,
+      );
+    } finally {
+      semantics.dispose();
+    }
+    await tester.longPress(find.text('02'));
+    await tester.pump();
+    for (var frame = 0; frame <= 4; frame++) {
+      if (frame > 0) await tester.pump(const Duration(milliseconds: 50));
+      expect(tester.getTopLeft(heldFile), heldPosition);
+      if (frame == 2) {
+        final opacity = tester.widget<Opacity>(
+          find
+              .ancestor(
+                of: find.byKey(const Key('download_selected')),
+                matching: find.byType(Opacity),
+              )
+              .first,
+        );
+        expect(opacity.opacity, allOf(greaterThan(0), lessThan(1)));
+      }
+    }
+    expect(find.byType(Checkbox), findsNWidgets(2));
+    expect(
+      tester
+          .widgetList<Checkbox>(find.byType(Checkbox))
+          .map((box) => box.value),
+      [false, true],
+    );
+    expect(repository.queued, isEmpty);
+    expect(find.text('Download 1 episode'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('download_selected')));
+    await tester.pumpAndSettle();
+    expect(repository.queued, [2]);
+    expect(find.byType(Checkbox), findsNothing);
+
+    await tester.longPress(find.text('01'));
+    await tester.pump();
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.byType(Checkbox), findsNothing);
+    expect(find.text('Download episodes'), findsOneWidget);
+    expect(repository.queued, [2]);
+    await tester.longPress(find.text('01'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(find.text('Download 1 episode'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('download_selection_cancel')));
+    await tester.pumpAndSettle();
+    expect(find.byType(Checkbox), findsNothing);
+    expect(repository.queued, [2]);
+  });
+
+  testWidgets('selection shows checkboxes only for missing, paused and failed '
+      'episodes and prevents watching during the transition', (tester) async {
+    final repository = _LoadingRepository();
+    final cubit = DownloadSelectionCubit(args: _online, repository: repository);
+    var watched = 0;
+    await tester.pumpWidget(
+      testApp(
+        BlocProvider(
+          create: (_) => cubit..load(),
+          child: DownloadSelectionPage(
+            args: _online,
+            onWatch: (_) => watched++,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('01'));
+    await tester.pumpAndSettle();
+    repository.load(1, 1);
+    await tester.pumpAndSettle();
+    await tester.longPress(find.text('01'));
+    await tester.pump();
+    expect(watched, 0);
+    expect(find.byType(Checkbox), findsOneWidget);
+    expect(
+      tester
+          .widgetList<Checkbox>(find.byType(Checkbox))
+          .map((box) => box.value),
+      [false],
+    );
+    expect(find.byKey(const ValueKey('download_file_watch_1')), findsOneWidget);
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(
+      tester
+          .widgetList<BayerMasked>(find.byType(BayerMasked))
+          .any((mask) => mask.open > 0 && mask.open < BayerMask.steps),
+      isTrue,
+    );
+    await tester.tap(
+      find.byKey(const ValueKey('download_file_watch_1')),
+      warnIfMissed: false,
+    );
+    await tester.pumpAndSettle();
+    expect(watched, 0);
+    expect(find.byKey(const ValueKey('download_file_watch_1')), findsNothing);
+    await tester.tap(find.text('02'));
+    await tester.pump();
+    for (final status in [
+      DownloadStatus.queued,
+      DownloadStatus.downloading,
+      DownloadStatus.completed,
+      DownloadStatus.paused,
+      DownloadStatus.failed,
+    ]) {
+      repository.setStatus(1, status);
+      await tester.pumpAndSettle();
+      final boxes = tester.widgetList<Checkbox>(find.byType(Checkbox)).toList();
+      final selectable =
+          status == DownloadStatus.paused || status == DownloadStatus.failed;
+      expect(boxes, hasLength(selectable ? 2 : 1), reason: status.name);
+      expect(
+        boxes.every((box) => box.onChanged != null),
+        isTrue,
+        reason: status.name,
+      );
+      expect(boxes.last.onChanged, isNotNull);
+    }
+    expect(repository.queued, [1]);
+  });
+
   testWidgets('quality choices expose no tap action while a batch is queued', (
     tester,
   ) async {
@@ -68,7 +220,9 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    final batch = cubit.downloadAll();
+    cubit.startSelection();
+    cubit.selectAll();
+    final batch = cubit.downloadSelected();
     await tester.pump();
     await tester.pump();
     try {
@@ -315,6 +469,9 @@ class _LoadingRepository extends _EpisodesRepository {
       ),
     );
   }
+
+  void setStatus(int index, DownloadStatus status) =>
+      _set(_downloads[index]!.copyWith(status: status));
 
   void _set(DownloadItem item) {
     _downloads[item.fileIndex] = item;

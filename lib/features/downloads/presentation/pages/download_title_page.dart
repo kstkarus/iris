@@ -10,11 +10,13 @@ class DownloadTitlePage extends StatelessWidget {
     required this.title,
     required this.onWatch,
     this.onOpenAnime,
+    this.onDownloadMore,
     super.key,
   });
   final DownloadTitle title;
   final ValueChanged<DownloadItem> onWatch;
   final ValueChanged<DownloadTitle>? onOpenAnime;
+  final ValueChanged<DownloadItem>? onDownloadMore;
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -25,6 +27,7 @@ class DownloadTitlePage extends StatelessWidget {
           onWatch: onWatch,
           onOpenTitle: (_) {},
           onOpenAnime: onOpenAnime,
+          onDownloadMore: onDownloadMore,
           onBrowseCatalog: () {},
           onTitleDeleted: () {
             if (context.mounted) Navigator.of(context).maybePop();

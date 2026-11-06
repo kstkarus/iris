@@ -38,6 +38,236 @@ import '../../../../helpers/test_window.dart';
 import '../../../../helpers/fake_watch_progress_repository.dart';
 
 void main() {
+  testWidgets('the queue shows active first and supports priority, pause and '
+      'confirmed deletion', (tester) async {
+    setTestWindowSize(tester, const Size(390, 844));
+    final items = [
+      for (var index = 0; index < 3; index++)
+        _libraryDownload(
+          id: 'queue-$index',
+          animeId: '$index',
+          animeTitle: 'Anime $index',
+          fileName: 'episode-01.mkv',
+          status: index == 1
+              ? DownloadStatus.downloading
+              : DownloadStatus.queued,
+          createdAt: DateTime(2026),
+        ),
+    ];
+    final repository = _QueueDownloadsRepository(items);
+    final cubit = DownloadManagerCubit(repository: repository)..load();
+    await _pumpApp(
+      tester,
+      BlocProvider(
+        create: (_) => cubit,
+        child: DownloadManagerPage(
+          onWatch: (_) {},
+          onBrowseCatalog: () {},
+          onOpenTitle: (_) {},
+        ),
+      ),
+    );
+    expect(cubit.state.queue.map((item) => item.id), [
+      'queue-1',
+      'queue-0',
+      'queue-2',
+    ]);
+    await tester.tap(find.byKey(const Key('download_queue_open')));
+    await tester.pumpAndSettle();
+    final sheet = find.byKey(const Key('download_queue_sheet'));
+    expect(sheet, findsOneWidget);
+    expect(
+      tester
+          .getTopLeft(
+            find.descendant(
+              of: sheet,
+              matching: find.byKey(const ValueKey('queue-1')),
+            ),
+          )
+          .dy,
+      lessThan(
+        tester
+            .getTopLeft(
+              find.descendant(
+                of: sheet,
+                matching: find.byKey(const ValueKey('queue-0')),
+              ),
+            )
+            .dy,
+      ),
+    );
+
+    await tester.tap(find.byKey(const ValueKey('queue_menu_queue-2')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('queue_next_queue-2')));
+    await tester.pumpAndSettle();
+    expect(repository.prioritized, ['queue-2']);
+    expect(cubit.state.queue.map((item) => item.id), [
+      'queue-1',
+      'queue-2',
+      'queue-0',
+    ]);
+
+    await tester.tap(find.byKey(const ValueKey('queue_pause_queue-1')));
+    await tester.pumpAndSettle();
+    expect(cubit.state.queue.map((item) => item.id), ['queue-2', 'queue-0']);
+    expect(repository.paused, ['queue-1']);
+
+    await tester.tap(find.byKey(const ValueKey('queue_menu_queue-0')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('queue_delete_queue-0')));
+    await tester.pumpAndSettle();
+    expect(repository.deleted, isEmpty);
+    expect(find.byType(AlertDialog), findsOneWidget);
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+    expect(repository.deleted, isEmpty);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('download more keeps the chosen release on phone and desktop', (
+    tester,
+  ) async {
+    final first = _libraryDownload(
+      id: 'release-a',
+      animeId: '52991',
+      animeTitle: 'Frieren',
+      fileName: 'episode-01.mkv',
+      status: DownloadStatus.completed,
+      createdAt: DateTime(2026),
+    );
+    final second = first.copyWith(
+      id: 'release-b',
+      sourceTitle: 'Another dub',
+      magnet: 'online:anilibria/9542?anime=52991',
+    );
+    final title = DownloadTitle(downloadTitleKey(first), [first, second]);
+    for (final platform in [TargetPlatform.android, TargetPlatform.windows]) {
+      await _withTargetPlatform(platform, () async {
+        setTestWindowSize(
+          tester,
+          platform == TargetPlatform.windows
+              ? const Size(1440, 900)
+              : const Size(390, 844),
+        );
+        DownloadItem? chosen;
+        final repository = _ScriptedDownloadsRepository([first, second]);
+        await _pumpApp(
+          tester,
+          BlocProvider(
+            create: (_) => DownloadManagerCubit(repository: repository)..load(),
+            child: platform == TargetPlatform.windows
+                ? DownloadManagerPage(
+                    onWatch: (_) {},
+                    onBrowseCatalog: () {},
+                    onOpenTitle: (_) {},
+                    onDownloadMore: (item) => chosen = item,
+                  )
+                : DownloadTitlePage(
+                    title: title,
+                    onWatch: (_) {},
+                    onDownloadMore: (item) => chosen = item,
+                  ),
+          ),
+        );
+        expect(find.text('Download more'), findsNWidgets(2));
+        await tester.tap(find.byKey(const Key('download_title_menu')));
+        await tester.pumpAndSettle();
+        expect(
+          find.byKey(const Key('download_title_download_more')),
+          findsNothing,
+        );
+        tester
+            .widget<MenuAnchor>(
+              find.descendant(
+                of: find.byKey(const Key('download_title_menu')),
+                matching: find.byType(MenuAnchor),
+              ),
+            )
+            .controller!
+            .close();
+        await tester.pumpAndSettle();
+        await tester.tap(
+          find.byKey(const ValueKey('download_more_online:anilibria/9542')),
+        );
+        expect(chosen, same(second));
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox.shrink());
+      });
+    }
+  });
+
+  testWidgets('one release puts download more only in the title menu, even '
+      'with one file and no linked anime', (tester) async {
+    final first = _libraryDownload(
+      id: 'single-source-1',
+      animeId: '',
+      animeTitle: 'Frieren',
+      fileName: 'episode-01.mkv',
+      status: DownloadStatus.completed,
+      createdAt: DateTime(2026),
+    );
+    for (final platform in [TargetPlatform.android, TargetPlatform.windows]) {
+      await _withTargetPlatform(platform, () async {
+        setTestWindowSize(
+          tester,
+          platform == TargetPlatform.windows
+              ? const Size(1440, 900)
+              : const Size(390, 844),
+        );
+        for (final count in [1, 2]) {
+          final items = [
+            first,
+            if (count == 2)
+              first.copyWith(
+                id: 'single-source-2',
+                fileName: 'episode-02.mkv',
+                fileIndex: 1,
+              ),
+          ];
+          final title = DownloadTitle(downloadTitleKey(first), items);
+          final repository = _ScriptedDownloadsRepository(items);
+          DownloadItem? chosen;
+          await _pumpApp(
+            tester,
+            BlocProvider(
+              create: (_) =>
+                  DownloadManagerCubit(repository: repository)..load(),
+              child: platform == TargetPlatform.windows
+                  ? DownloadManagerPage(
+                      onWatch: (_) {},
+                      onBrowseCatalog: () {},
+                      onOpenTitle: (_) {},
+                      onDownloadMore: (item) => chosen = item,
+                    )
+                  : DownloadTitlePage(
+                      title: title,
+                      onWatch: (_) {},
+                      onDownloadMore: (item) => chosen = item,
+                    ),
+            ),
+          );
+          expect(find.text('Download more'), findsNothing);
+          expect(
+            find.byKey(
+              ValueKey('download_more_${downloadSourceKey(first.magnet)}'),
+            ),
+            findsNothing,
+          );
+          await tester.tap(find.byKey(const Key('download_title_menu')));
+          await tester.pumpAndSettle();
+          await tester.tap(
+            find.byKey(const Key('download_title_download_more')),
+          );
+          await tester.pumpAndSettle();
+          expect(chosen, same(first));
+          expect(tester.takeException(), isNull);
+          await tester.pumpWidget(const SizedBox.shrink());
+        }
+      });
+    }
+  });
+
   for (final entry in TestWindowSizes.all.entries) {
     testWidgets('library keeps storage in its menu on ${entry.key}', (
       tester,
@@ -1984,5 +2214,41 @@ class _ScriptedDownloadsRepository extends MockDownloadsRepository {
   Stream<List<DownloadItem>> watchDownloads() async* {
     yield _items;
     yield* _changes.stream;
+  }
+}
+
+class _QueueDownloadsRepository extends _ScriptedDownloadsRepository {
+  _QueueDownloadsRepository(super.items);
+
+  final prioritized = <String>[];
+  final paused = <String>[];
+  final deleted = <String>[];
+
+  @override
+  Future<void> downloadNext({required String id}) async {
+    prioritized.add(id);
+    push([
+      _items.singleWhere((item) => item.id == id),
+      ..._items.where((item) => item.id != id),
+    ]);
+  }
+
+  @override
+  Future<void> pause({required String id}) async {
+    paused.add(id);
+    push([
+      for (final item in _items)
+        if (item.id == id)
+          item.copyWith(status: DownloadStatus.paused)
+        else
+          item,
+    ]);
+  }
+
+  @override
+  Future<bool> delete({required String id}) async {
+    deleted.add(id);
+    push(_items.where((item) => item.id != id).toList());
+    return true;
   }
 }

@@ -38,6 +38,10 @@ abstract interface class DownloadsRepository {
 
   Future<void> retry({required String id});
 
+  /// Moves a queued file ahead of the other waiting files, without
+  /// interrupting the current download. The order survives a restart.
+  Future<void> downloadNext({required String id});
+
   /// Returns false when the files could not be removed; the record is then
   /// kept, stopped if it was loading.
   Future<bool> delete({required String id});

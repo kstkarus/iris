@@ -17,11 +17,13 @@ import 'package:iris/features/downloads/domain/entities/download_storage_usage.d
 import 'package:iris/features/downloads/presentation/cubit/download_manager_cubit.dart';
 import 'package:iris/features/downloads/presentation/cubit/download_manager_state.dart';
 import 'package:iris/features/downloads/presentation/widgets/download_status_label.dart';
+import 'package:iris/features/downloads/presentation/widgets/download_labels.dart';
+import 'package:iris/features/downloads/presentation/widgets/download_deletion_dialog.dart';
+import 'package:iris/features/downloads/presentation/widgets/download_queue.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/utils/byte_size_formatter.dart';
 import 'package:iris/shared/utils/desktop_platform.dart';
 import 'package:iris/shared/utils/episode_number.dart';
-import 'package:iris/shared/utils/file_display_name.dart';
 import 'package:iris/shared/widgets/dither_switcher.dart';
 import 'package:iris/features/downloads/presentation/widgets/download_title_widgets.dart';
 import 'package:iris/shared/widgets/focusable_list_row.dart';
@@ -39,6 +41,7 @@ class DownloadManagerView extends StatefulWidget {
     required this.onBrowseCatalog,
     required this.onOpenTitle,
     this.onOpenAnime,
+    this.onDownloadMore,
     this.titleKey,
     this.onTitleDeleted,
     super.key,
@@ -47,6 +50,7 @@ class DownloadManagerView extends StatefulWidget {
   final ValueChanged<DownloadItem> onWatch;
   final ValueChanged<DownloadTitle> onOpenTitle;
   final ValueChanged<DownloadTitle>? onOpenAnime;
+  final ValueChanged<DownloadItem>? onDownloadMore;
   final String? titleKey;
   final VoidCallback? onTitleDeleted;
 
@@ -89,23 +93,35 @@ class _DownloadManagerViewState extends State<DownloadManagerView> {
             onWatch: widget.onWatch,
             title: title,
             onOpenAnime: widget.onOpenAnime,
+            onDownloadMore: widget.onDownloadMore,
             onTitleDeleted: widget.onTitleDeleted,
           );
         }
         if (titles.isEmpty) {
           return _EmptyLibrary(onBrowseCatalog: widget.onBrowseCatalog);
         }
-        if (isDesktopPlatform) {
-          return _DesktopLibrary(
-            titles: titles,
-            onWatch: widget.onWatch,
-            onOpenAnime: widget.onOpenAnime,
-          );
-        }
-        return DownloadLibraryGallery(
-          titles: titles,
-          onOpenTitle: widget.onOpenTitle,
-          menu: const _DownloadsMenu(showStorage: true),
+        final library = isDesktopPlatform
+            ? _DesktopLibrary(
+                titles: titles,
+                onWatch: widget.onWatch,
+                onOpenAnime: widget.onOpenAnime,
+                onDownloadMore: widget.onDownloadMore,
+              )
+            : DownloadLibraryGallery(
+                titles: titles,
+                onOpenTitle: widget.onOpenTitle,
+                menu: const _DownloadsMenu(showStorage: true),
+              );
+        final queue = state.queue;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (queue.isNotEmpty) ...[
+              DownloadQueueSummary(items: queue),
+              const SizedBox(height: 16),
+            ],
+            Expanded(child: library),
+          ],
         );
       },
     );
@@ -139,17 +155,6 @@ class _DownloadManagerViewState extends State<DownloadManagerView> {
 
 /// "Frieren, Episode 6": the title and the episode read from the file
 /// name, or the file's own name when it has no number.
-String downloadName(AppLocalizations l10n, DownloadItem item) =>
-    '${item.animeTitle}, ${downloadEpisode(l10n, item)}';
-
-/// The episode read from the file name, or the file's own name.
-String downloadEpisode(AppLocalizations l10n, DownloadItem item) {
-  final number = episodeNumberFromFileName(item.fileName);
-  return number == null
-      ? fileDisplayName(item.fileName)
-      : l10n.downloadEpisodeLabel(number.toString().padLeft(2, '0'));
-}
-
 class _Storage extends StatelessWidget {
   const _Storage({required this.usage});
 
@@ -300,10 +305,12 @@ class _DesktopLibrary extends StatefulWidget {
     required this.titles,
     required this.onWatch,
     this.onOpenAnime,
+    this.onDownloadMore,
   });
   final List<DownloadTitle> titles;
   final ValueChanged<DownloadItem> onWatch;
   final ValueChanged<DownloadTitle>? onOpenAnime;
+  final ValueChanged<DownloadItem>? onDownloadMore;
 
   @override
   State<_DesktopLibrary> createState() => _DesktopLibraryState();
@@ -342,6 +349,7 @@ class _DesktopLibraryState extends State<_DesktopLibrary> {
             downloads: selected.items,
             onWatch: widget.onWatch,
             onOpenAnime: widget.onOpenAnime,
+            onDownloadMore: widget.onDownloadMore,
             desktop: true,
           ),
         );
@@ -406,11 +414,13 @@ class _DownloadsMenu extends StatefulWidget {
     this.title,
     this.onTitleDeleted,
     this.onOpenAnime,
+    this.onDownloadMore,
     this.showStorage = false,
   });
   final DownloadTitle? title;
   final VoidCallback? onTitleDeleted;
   final ValueChanged<DownloadTitle>? onOpenAnime;
+  final VoidCallback? onDownloadMore;
   final bool showStorage;
 
   @override
@@ -430,6 +440,7 @@ class _DownloadsMenuState extends State<_DownloadsMenu> {
         title.items.any((item) => item.animeId.isNotEmpty);
     if (title != null &&
         !canOpenAnime &&
+        widget.onDownloadMore == null &&
         title.items.length == 1 &&
         !widget.showStorage) {
       return const SizedBox.shrink();
@@ -439,6 +450,12 @@ class _DownloadsMenuState extends State<_DownloadsMenu> {
       controller: _controller,
       tooltip: l10n.commonMoreActions,
       menuChildren: [
+        if (widget.onDownloadMore case final downloadMore?)
+          MenuItemButton(
+            key: const Key('download_title_download_more'),
+            onPressed: downloadMore,
+            child: Text(l10n.downloadMore),
+          ),
         if (canOpenAnime)
           MenuItemButton(
             key: const Key('download_title_open_anime'),
@@ -591,6 +608,7 @@ class _Episodes extends StatelessWidget {
     this.title,
     this.desktop = false,
     this.onOpenAnime,
+    this.onDownloadMore,
     this.onTitleDeleted,
     super.key,
   });
@@ -600,6 +618,7 @@ class _Episodes extends StatelessWidget {
   final ValueChanged<DownloadItem> onWatch;
   final bool desktop;
   final ValueChanged<DownloadTitle>? onOpenAnime;
+  final ValueChanged<DownloadItem>? onDownloadMore;
   final VoidCallback? onTitleDeleted;
 
   @override
@@ -615,13 +634,21 @@ class _Episodes extends StatelessWidget {
     final canOpenAnime =
         onOpenAnime != null &&
         (title?.items.any((item) => item.animeId.isNotEmpty) ?? false);
+    final downloadMore = onDownloadMore != null && releases.length == 1
+        ? () => onDownloadMore!(releases.single.first)
+        : null;
     final hasMenu =
-        title != null && (canOpenAnime || title.items.length > 1 || desktop);
+        title != null &&
+        (canOpenAnime ||
+            downloadMore != null ||
+            title.items.length > 1 ||
+            desktop);
     final menu = hasMenu
         ? _DownloadsMenu(
             title: title,
             onTitleDeleted: onTitleDeleted,
             onOpenAnime: onOpenAnime,
+            onDownloadMore: downloadMore,
             showStorage: desktop,
           )
         : null;
@@ -652,11 +679,28 @@ class _Episodes extends StatelessWidget {
             (
               'release:${downloadSourceKey(release.first.magnet)}',
               Padding(
-                padding: const EdgeInsets.only(top: 16, bottom: 16),
-                child: _ReleaseFacts(
-                  item: release.first,
-                  videoHeight:
-                      sharedHeights[downloadSourceKey(release.first.magnet)],
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: _ReleaseFacts(
+                        item: release.first,
+                        videoHeight:
+                            sharedHeights[downloadSourceKey(
+                              release.first.magnet,
+                            )],
+                      ),
+                    ),
+                    if (onDownloadMore != null && releases.length > 1)
+                      TextButton.icon(
+                        key: ValueKey(
+                          'download_more_${downloadSourceKey(release.first.magnet)}',
+                        ),
+                        onPressed: () => onDownloadMore!(release.first),
+                        icon: const PixelIcon(PixelGlyph.download, size: 14),
+                        label: Text(l10n.downloadMore),
+                      ),
+                  ],
                 ),
               ),
             ),
@@ -701,36 +745,15 @@ class _ReleaseFacts extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final name = item.animeTitle;
-    var label = name.isEmpty
-        ? item.sourceTitle
-        : item.sourceTitle
-              .replaceAll(RegExp(RegExp.escape(name), caseSensitive: false), '')
-              .trim();
-    label = label
-        .replaceAll(RegExp(r'[\[\]()]'), '')
-        .replaceAll(RegExp(r'^\s*[·|—-]+|[·|—-]+\s*$'), '')
-        .trim();
-    if (label.isEmpty) label = item.sourceTitle;
-    label = label
-        .replaceAll(
-          RegExp(
-            r'\.(?:mp4|mkv|avi|mov|m4v|webm|ts|flv|wmv)$',
-            caseSensitive: false,
-          ),
-          '',
-        )
-        .trim();
     final l10n = AppLocalizations.of(context);
     return Tooltip(
       message: item.sourceTitle,
       child: Semantics(
         header: true,
         child: Text(
-          [
-            label.toUpperCase(),
-            if (videoHeight != null) l10n.onlineQualityHeight(videoHeight!),
-          ].join(' · '),
+          downloadSourceLabel(l10n, item, videoHeight: videoHeight),
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
           style: Theme.of(context).textTheme.bodySmall,
         ),
       ),
@@ -1100,57 +1123,6 @@ Size _textSize(BuildContext context, TextStyle? style, {String text = 'Mg'}) {
   } finally {
     painter.dispose();
   }
-}
-
-/// The same confirmation for one file or all downloads of a title.
-Future<bool> confirmDownloadDeletion(
-  BuildContext context,
-  List<DownloadItem> items,
-  String name, {
-  bool all = false,
-}) async {
-  if (items.isEmpty) return false;
-  final l10n = AppLocalizations.of(context);
-  final lost = items
-      .where((item) => item.status != DownloadStatus.completed)
-      .fold<int>(0, (sum, item) => sum + item.downloadedBytes);
-  final confirmed = await showAppDialog<bool>(
-    context: context,
-    builder: (dialogContext) => AlertDialog(
-      scrollable: true,
-      title: Text(all ? l10n.downloadDeleteAll : l10n.downloadDeleteTitle),
-      content: Text(
-        [
-          all
-              ? l10n.downloadDeleteTitleMessage(name)
-              : l10n.downloadDeleteMessage(name),
-          if (lost > 0)
-            l10n.downloadDeleteProgressLost(formatByteSize(l10n, lost)),
-        ].join(' '),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(dialogContext, false),
-          child: Text(l10n.downloadCancelButton),
-        ),
-        FilledButton(
-          onPressed: () => Navigator.pop(dialogContext, true),
-          child: Text(l10n.downloadDeleteButton),
-        ),
-      ],
-    ),
-  );
-  if (confirmed != true || !context.mounted) return false;
-  final cubit = context.read<DownloadManagerCubit>();
-  final messenger = ScaffoldMessenger.of(context);
-  var deleted = true;
-  for (final item in items) {
-    if (!await cubit.delete(item.id)) deleted = false;
-  }
-  if (!deleted && context.mounted) {
-    messenger.showSnackBar(SnackBar(content: Text(l10n.downloadDeleteFailed)));
-  }
-  return deleted;
 }
 
 /// Sizes, and while downloading how long is left at what speed; peers

@@ -69,6 +69,88 @@ void main() {
 
     DownloadSelectionReady ready() => cubit.state as DownloadSelectionReady;
 
+    Future<void> downloadAll() {
+      cubit.startSelection();
+      cubit.selectAll();
+      return cubit.downloadSelected();
+    }
+
+    test('starting at a file selects only a valid downloadable file', () async {
+      cubit.startSelection(index: 99);
+      expect(ready().selecting, isFalse);
+      cubit.startSelection(index: 1);
+      expect(ready().selected, {1});
+      expect(repository.queued, isEmpty);
+      cubit.cancelSelection();
+      await cubit.download(_files[1]);
+      for (final status in [
+        DownloadStatus.queued,
+        DownloadStatus.downloading,
+        DownloadStatus.completed,
+      ]) {
+        repository.setStatus(1, status);
+        await pumpEventQueue();
+        cubit.startSelection(index: 1);
+        expect(ready().selecting, isFalse, reason: status.name);
+      }
+      cubit.startSelection(index: 0);
+      expect(ready().selected, {0});
+      expect(repository.queued, [1]);
+    });
+
+    test('a selected batch queues only its files, in source order', () async {
+      cubit.startSelection();
+      cubit.toggleSelection(1);
+      cubit.toggleSelection(99);
+      expect(ready().selected, {1});
+      expect(repository.queued, isEmpty);
+      await cubit.downloadSelected();
+      expect(repository.queued, [1]);
+      expect(ready().selecting, isFalse);
+      expect(ready().selected, isEmpty);
+
+      cubit.startSelection();
+      cubit.selectAll();
+      expect(ready().selected, {0});
+      cubit.cancelSelection();
+      expect(ready().selected, isEmpty);
+      expect(repository.queued, [1]);
+    });
+
+    test(
+      'select all skips existing downloads and can clear the selection',
+      () async {
+        await cubit.download(_files[0]);
+        await pumpEventQueue();
+        cubit.startSelection();
+        cubit.toggleSelection(0);
+        expect(ready().selected, isEmpty);
+        cubit.selectAll();
+        expect(ready().selected, {1});
+        cubit.selectAll();
+        expect(ready().selected, isEmpty);
+      },
+    );
+
+    test(
+      'files refused by the queue stay selected for another attempt',
+      () async {
+        cubit.startSelection();
+        cubit.toggleSelection(1);
+        repository.refuse = true;
+        await cubit.downloadSelected();
+        expect(ready().selecting, isTrue);
+        expect(ready().selected, {1});
+        expect(ready().notAdded, {1});
+
+        repository.refuse = false;
+        await cubit.downloadSelected();
+        expect(repository.queued, [1]);
+        expect(ready().selecting, isFalse);
+        expect(ready().notAdded, isEmpty);
+      },
+    );
+
     test(
       'several files are queued one tap each, and the screen stays',
       () async {
@@ -91,9 +173,9 @@ void main() {
       () async {
         await cubit.download(_files[0]);
         await pumpEventQueue();
-        await cubit.downloadAll();
+        await downloadAll();
         expect(repository.queued, [for (final file in _files) file.index]);
-        expect(ready().addingAll, false);
+        expect(ready().addingBatch, false);
       },
     );
 
@@ -101,7 +183,7 @@ void main() {
       'leaving after download remaining lets the whole batch enter the queue',
       () async {
         repository.gate = Completer<void>();
-        final batch = cubit.downloadAll();
+        final batch = downloadAll();
         final closing = cubit.close();
         await pumpEventQueue();
         expect(repository.disposed, isEmpty);
@@ -118,7 +200,7 @@ void main() {
       () async {
         repository.gate = Completer<void>();
         repository.gatedIndex = 0;
-        final batch = cubit.downloadAll();
+        final batch = downloadAll();
         try {
           await cubit.download(_files[1]);
           expect(repository.queued, isEmpty);

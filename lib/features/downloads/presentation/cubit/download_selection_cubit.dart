@@ -12,11 +12,9 @@ import 'package:iris/features/downloads/presentation/cubit/download_selection_st
 import 'package:iris/features/downloads/presentation/models/download_selection_args.dart';
 import 'package:iris/features/online_sources/domain/online_stream_choice.dart';
 import 'package:iris/features/online_sources/domain/repositories/online_quality_preferences.dart';
+import 'package:iris/shared/utils/equality.dart';
 
-/// A torrent's files or a release's episodes to download, one tap each.
-/// The screen stays: every file shows whether it is queued, loading (and
-/// how far) or done, and a paused or failed one is taken up again by the
-/// same tap.
+/// Keeps the source open while individual files or a selected batch are queued.
 class DownloadSelectionCubit extends Cubit<DownloadSelectionState> {
   DownloadSelectionCubit({
     required this.args,
@@ -117,27 +115,83 @@ class DownloadSelectionCubit extends Cubit<DownloadSelectionState> {
   /// the next downloads.
   void chooseQuality(int? quality) {
     final current = state;
-    if (current is! DownloadSelectionReady || current.addingAll) return;
+    if (current is! DownloadSelectionReady || current.addingBatch) return;
     emit(current.copyWith(quality: () => quality));
     unawaited(_qualityPreferences?.setDownloading(quality));
   }
 
-  /// Queues [file], or takes up its paused or failed download; one already
-  /// queued, loading or done is left as it is.
-  Future<void> download(DownloadableFile file) {
+  void startSelection({int? index}) {
     final current = state;
-    if (current is DownloadSelectionReady && current.addingAll) {
-      return Future.value();
+    if (current is! DownloadSelectionReady || !current.canStartSelection) {
+      return;
     }
-    return _download(file);
+    if (index != null &&
+        (!current.source.files.any((file) => file.index == index) ||
+            !current.canSelect(index))) {
+      return;
+    }
+    emit(
+      current.copyWith(
+        selecting: true,
+        selected: index == null ? null : {index},
+      ),
+    );
   }
 
-  Future<void> _download(DownloadableFile file) async {
+  void cancelSelection() {
+    final current = state;
+    if (current is! DownloadSelectionReady || current.addingBatch) return;
+    emit(current.copyWith(selecting: false, selected: const {}));
+  }
+
+  void toggleSelection(int index) {
+    final current = state;
+    if (current is! DownloadSelectionReady ||
+        !current.selecting ||
+        current.addingBatch ||
+        !current.source.files.any((file) => file.index == index) ||
+        !current.canSelect(index)) {
+      return;
+    }
+    final selected = {...current.selected};
+    if (!selected.remove(index)) selected.add(index);
+    emit(current.copyWith(selected: selected));
+  }
+
+  void selectAll() {
+    final current = state;
+    if (current is! DownloadSelectionReady ||
+        !current.selecting ||
+        current.addingBatch) {
+      return;
+    }
+    final available = {
+      for (final file in current.source.files)
+        if (current.canSelect(file.index)) file.index,
+    };
+    emit(
+      current.copyWith(
+        selected: sameSet(current.selected, available) ? const {} : available,
+      ),
+    );
+  }
+
+  /// Queues [file], or takes up its paused or failed download; one already
+  /// queued, loading or done is left as it is.
+  Future<void> download(DownloadableFile file) async {
+    final current = state;
+    if (current is DownloadSelectionReady && current.addingBatch) {
+      return;
+    }
+    await _download(file);
+  }
+
+  Future<bool> _download(DownloadableFile file) async {
     final source = _source;
     final current = state;
-    if (source == null || current is! DownloadSelectionReady) return;
+    if (source == null || current is! DownloadSelectionReady) return false;
     final index = file.index;
-    if (current.adding.contains(index)) return;
+    if (current.adding.contains(index)) return false;
     final existing = current.downloads[index];
     switch (existing?.status) {
       case DownloadStatus.paused:
@@ -147,7 +201,7 @@ class DownloadSelectionCubit extends Cubit<DownloadSelectionState> {
       case DownloadStatus.queued ||
           DownloadStatus.downloading ||
           DownloadStatus.completed:
-        return;
+        return true;
       case null:
     }
     final quality = current.quality;
@@ -181,7 +235,7 @@ class DownloadSelectionCubit extends Cubit<DownloadSelectionState> {
       );
     }
     final latest = state;
-    if (isClosed || latest is! DownloadSelectionReady) return;
+    if (isClosed || latest is! DownloadSelectionReady) return added;
     emit(
       latest.copyWith(
         downloads: _downloads,
@@ -189,36 +243,54 @@ class DownloadSelectionCubit extends Cubit<DownloadSelectionState> {
         notAdded: added ? null : {...latest.notAdded, index},
       ),
     );
+    return added;
   }
 
-  /// Keeps episode order and skips files already loading or completed.
-  Future<void> downloadAll() =>
-      _batch ??= _downloadAll().whenComplete(() => _batch = null);
-
-  Future<void> _downloadAll() async {
+  Future<void> downloadSelected() {
     final current = state;
     if (current is! DownloadSelectionReady ||
-        current.addingAll ||
+        !current.selecting ||
+        current.selected.isEmpty) {
+      return Future.value();
+    }
+    return _batch ??= _downloadFiles(
+      selected: current.selected,
+    ).whenComplete(() => _batch = null);
+  }
+
+  Future<void> _downloadFiles({required Set<int> selected}) async {
+    final current = state;
+    if (current is! DownloadSelectionReady ||
+        current.addingBatch ||
         current.adding.isNotEmpty) {
       return;
     }
-    emit(current.copyWith(addingAll: true));
+    emit(current.copyWith(addingBatch: true));
+    final failed = <int>{};
     try {
       for (final file in current.source.files) {
+        if (!selected.contains(file.index)) continue;
         if (isClosed || !identical(_source, current.source)) return;
-        await _download(file);
+        if (!await _download(file)) failed.add(file.index);
       }
     } finally {
       final latest = state;
       if (!isClosed && latest is DownloadSelectionReady) {
-        emit(latest.copyWith(addingAll: false));
+        emit(
+          latest.copyWith(
+            addingBatch: false,
+            selecting: failed.isNotEmpty,
+            selected: failed,
+          ),
+        );
       }
     }
   }
 
-  Future<void> _quietly(Future<void> Function() action) async {
+  Future<bool> _quietly(Future<void> Function() action) async {
     try {
       await action();
+      return true;
     } catch (error, stackTrace) {
       developer.log(
         'Unable to take up a download again.',
@@ -226,6 +298,7 @@ class DownloadSelectionCubit extends Cubit<DownloadSelectionState> {
         error: error,
         stackTrace: stackTrace,
       );
+      return false;
     }
   }
 
@@ -254,7 +327,14 @@ class DownloadSelectionCubit extends Cubit<DownloadSelectionState> {
     _downloads = downloads;
     final current = state;
     if (isClosed || current is! DownloadSelectionReady) return;
-    emit(current.copyWith(downloads: downloads));
+    final updated = current.copyWith(downloads: downloads);
+    emit(
+      updated.copyWith(
+        selected: current.addingBatch
+            ? null
+            : current.selected.where(updated.canSelect).toSet(),
+      ),
+    );
   }
 
   @override

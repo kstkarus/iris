@@ -122,6 +122,55 @@ void main() {
     },
   );
 
+  test('priority changes the waiting order without interrupting the active '
+      'file, and survives a restart', () async {
+    final items = [
+      for (var index = 0; index < 3; index++)
+        _savedDownload(id: 'queue-$index').copyWith(
+          magnet: 'magnet:?xt=urn:btih:ABCDEF123456789$index',
+          status: DownloadStatus.queued,
+        ),
+    ];
+    await registry.writeDownloads(items);
+    await repository.restore();
+    await _waitFor(() => engine.priorityCalls.isNotEmpty);
+    expect(
+      (await repository.currentDownloads()).first.status,
+      DownloadStatus.downloading,
+    );
+    final starts = engine.priorityCalls.length;
+
+    await repository.downloadNext(id: 'queue-2');
+    final reordered = await repository.currentDownloads();
+    expect(reordered.map((item) => item.id), ['queue-2', 'queue-0', 'queue-1']);
+    expect(
+      reordered.singleWhere((item) => item.id == 'queue-0').status,
+      DownloadStatus.downloading,
+    );
+    expect(engine.priorityCalls, hasLength(starts));
+    expect(engine.pausedTorrentIds, isEmpty);
+    expect((await registry.readDownloads()).map((item) => item.id), [
+      'queue-2',
+      'queue-0',
+      'queue-1',
+    ]);
+
+    await repository.close();
+    repository = DownloadsRepositoryImpl(
+      engine: engine,
+      registry: registry,
+      downloadsDirectory: downloadsDirectory,
+      foregroundService: foregroundService,
+      storageUsageAdapter: const _FakeStorageUsageAdapter(),
+      activityRegistry: activityRegistry,
+    );
+    await repository.restore();
+    await _waitFor(() => engine.priorityCalls.length > starts);
+    final restored = await repository.currentDownloads();
+    expect(restored.map((item) => item.id), ['queue-2', 'queue-0', 'queue-1']);
+    expect(restored.first.status, DownloadStatus.downloading);
+  });
+
   test(
     'a repeated enqueue fills a missing poster on the existing record',
     () async {

@@ -8,10 +8,16 @@ import 'package:iris/shared/widgets/adaptive/window_size_class.dart';
 /// surface and rule still span the window. A [trailing] action ends the
 /// row at the frame's right edge, its glyph in line with the content.
 class FramedAppBar extends StatelessWidget implements PreferredSizeWidget {
-  const FramedAppBar({this.title, this.trailing, super.key});
+  const FramedAppBar({
+    this.title,
+    this.trailing,
+    this.showBackButton = true,
+    super.key,
+  });
 
   final Widget? title;
   final Widget? trailing;
+  final bool showBackButton;
 
   /// Space between the back button's edge and its glyph: the glyph, not
   /// the button, lines up with the content.
@@ -23,7 +29,9 @@ class FramedAppBar extends StatelessWidget implements PreferredSizeWidget {
   @override
   Widget build(BuildContext context) {
     final margin = WindowSizeClass.of(context).pageMargin;
-    final canGoBack = ModalRoute.of(context)?.impliesAppBarDismissal ?? false;
+    final canGoBack =
+        showBackButton &&
+        (ModalRoute.of(context)?.impliesAppBarDismissal ?? false);
     final title = this.title;
     final trailing = this.trailing;
     return AppBar(

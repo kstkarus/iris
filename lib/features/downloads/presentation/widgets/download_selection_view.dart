@@ -12,11 +12,14 @@ import 'package:iris/features/downloads/presentation/widgets/download_status_lab
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/utils/byte_size_formatter.dart';
 import 'package:iris/shared/utils/file_display_name.dart';
+import 'package:iris/shared/utils/motion_duration.dart';
+import 'package:iris/shared/widgets/dither_switcher.dart';
 import 'package:iris/shared/widgets/pixel_icon.dart';
 import 'package:iris/shared/widgets/segmented_bar.dart';
 import 'package:iris/shared/widgets/segmented_choice.dart';
 import 'package:iris/shared/widgets/status_views.dart';
 import 'package:iris/shared/widgets/tap_row.dart';
+import 'package:iris/shared/widgets/adaptive/window_size_class.dart';
 
 class DownloadSelectionView extends StatelessWidget {
   const DownloadSelectionView({required this.onWatch, super.key});
@@ -67,50 +70,97 @@ class _FileList extends StatelessWidget {
           file: file,
           download: state.downloads[file.index],
           adding: state.adding.contains(file.index),
-          addingAll: state.addingAll,
+          addingBatch: state.addingBatch,
           notAdded: state.notAdded.contains(file.index),
+          selecting: state.selecting,
+          selected: state.selected.contains(file.index),
+          selectable: state.canSelect(file.index),
+          onSelect: !state.addingBatch && state.canSelect(file.index)
+              ? () => context.read<DownloadSelectionCubit>().toggleSelection(
+                  file.index,
+                )
+              : null,
+          onStartSelection: state.canStartSelection
+              ? () => context.read<DownloadSelectionCubit>().startSelection(
+                  index: state.canSelect(file.index) ? file.index : null,
+                )
+              : null,
           onWatch: onWatch,
         );
       },
     );
     final qualities = state.source.qualities;
-    final pending = files.any((file) {
-      final status = state.downloads[file.index]?.status;
-      return status == null ||
-          status == DownloadStatus.paused ||
-          status == DownloadStatus.failed;
-    });
-    if (qualities.isEmpty && (files.length < 2 || !pending)) return list;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        if (qualities.isNotEmpty)
-          _QualityChoice(
-            qualities: qualities,
-            quality: state.quality,
-            enabled: !state.addingAll,
-          ),
-        if (files.length > 1 && pending)
-          Align(
-            alignment: Alignment.centerLeft,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
-              child: OutlinedButton(
-                key: const Key('download_all'),
-                onPressed: state.addingAll || state.adding.isNotEmpty
-                    ? null
-                    : () =>
-                          context.read<DownloadSelectionCubit>().downloadAll(),
-                child: Text(
-                  state.addingAll
-                      ? AppLocalizations.of(context).downloadAddingToQueue
-                      : AppLocalizations.of(context).downloadAllRemaining,
+    final cubit = context.read<DownloadSelectionCubit>();
+    final l10n = AppLocalizations.of(context);
+    return PopScope(
+      canPop: !state.selecting || state.addingBatch,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) cubit.cancelSelection();
+      },
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (qualities.isNotEmpty)
+            _QualityChoice(
+              qualities: qualities,
+              quality: state.quality,
+              enabled: !state.addingBatch,
+            ),
+          Expanded(key: const Key('download_selection_list'), child: list),
+          IgnorePointer(
+            ignoring: !state.selecting,
+            child: ExcludeSemantics(
+              excluding: !state.selecting,
+              child: TweenAnimationBuilder<double>(
+                tween: Tween(begin: 0, end: state.selecting ? 1 : 0),
+                duration: motionDuration(
+                  context,
+                  const Duration(milliseconds: 200),
+                ),
+                curve: Curves.easeOutCubic,
+                builder: (context, value, child) => Offstage(
+                  offstage: value == 0,
+                  child: ClipRect(
+                    child: Align(
+                      alignment: Alignment.bottomCenter,
+                      heightFactor: value,
+                      child: Opacity(opacity: value, child: child),
+                    ),
+                  ),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  child: Align(
+                    alignment: Alignment.centerRight,
+                    child: SizedBox(
+                      width: WindowSizeClass.of(context).isCompact
+                          ? double.infinity
+                          : null,
+                      child: FilledButton(
+                        key: const Key('download_selected'),
+                        onPressed: state.addingBatch || state.selected.isEmpty
+                            ? null
+                            : cubit.downloadSelected,
+                        child: Text(
+                          state.addingBatch
+                              ? l10n.downloadAddingToQueue
+                              : cubit.args.isOnlineRelease
+                              ? l10n.downloadSelectedEpisodes(
+                                  state.selected.length,
+                                )
+                              : l10n.downloadSelectedFiles(
+                                  state.selected.length,
+                                ),
+                        ),
+                      ),
+                    ),
+                  ),
                 ),
               ),
             ),
           ),
-        Expanded(child: list),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -122,16 +172,26 @@ class _FileRow extends StatelessWidget {
     required this.file,
     required this.download,
     required this.adding,
-    required this.addingAll,
+    required this.addingBatch,
     required this.notAdded,
+    required this.selecting,
+    required this.selected,
+    required this.selectable,
+    required this.onSelect,
+    required this.onStartSelection,
     required this.onWatch,
   });
 
   final DownloadableFile file;
   final DownloadItem? download;
   final bool adding;
-  final bool addingAll;
+  final bool addingBatch;
   final bool notAdded;
+  final bool selecting;
+  final bool selected;
+  final bool selectable;
+  final VoidCallback? onSelect;
+  final VoidCallback? onStartSelection;
   final ValueChanged<DownloadItem> onWatch;
 
   @override
@@ -143,13 +203,10 @@ class _FileRow extends StatelessWidget {
     final download = this.download;
     final status = adding ? null : download?.status;
     // A tap queues the file, or takes a stopped download up again.
-    final actionable =
-        !adding &&
-        !addingAll &&
-        (download == null ||
-            status == DownloadStatus.paused ||
-            status == DownloadStatus.failed);
-    final onTap = actionable
+    final actionable = selectable && !addingBatch;
+    final onTap = selecting
+        ? onSelect
+        : actionable
         ? () => unawaited(cubit.download(file))
         : status == DownloadStatus.completed
         ? () => onWatch(download!)
@@ -174,87 +231,139 @@ class _FileRow extends StatelessWidget {
       if (size > 0) '${estimated ? '~' : ''}${formatByteSize(l10n, size)}',
       ?note,
     ].join(' · ');
-    return TapRow(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 8, 0, 8),
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    fileDisplayName(file.name),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.bodyMedium,
-                  ),
-                  if (details.isNotEmpty) ...[
-                    const SizedBox(height: 2),
+    return Semantics(
+      key: ValueKey('download_selection_file_${file.index}'),
+      checked: selecting && selectable ? selected : null,
+      enabled: selecting ? onSelect != null : null,
+      onLongPressHint: onStartSelection == null
+          ? null
+          : cubit.args.isOnlineRelease
+          ? l10n.downloadSelectEpisodes
+          : l10n.downloadSelectFiles,
+      child: TapRow(
+        onTap: onTap,
+        onLongPress: onStartSelection,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 8, 0, 8),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
                     Text(
-                      details,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color:
-                            notAdded && !adding ||
-                                status == DownloadStatus.failed
-                            ? scheme.error
-                            : null,
+                      fileDisplayName(file.name),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodyMedium,
+                    ),
+                    if (details.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        details,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color:
+                              notAdded && !adding ||
+                                  status == DownloadStatus.failed
+                              ? scheme.error
+                              : null,
+                        ),
                       ),
-                    ),
+                    ],
                   ],
-                ],
+                ),
               ),
-            ),
-            const SizedBox(width: 8),
-            SizedBox(
-              width: 48,
-              child: Center(
-                child: switch (status) {
-                  _ when adding => const SizedBox(
-                    width: 28,
-                    child: BlockSpinner(height: 4),
+              const SizedBox(width: 8),
+              SizedBox(
+                width: 48,
+                height:
+                    theme.materialTapTargetSize == MaterialTapTargetSize.padded
+                    ? 48
+                    : 40,
+                child: Center(
+                  child: DitherSwitcher(
+                    duration: const Duration(milliseconds: 200),
+                    child: selecting
+                        ? selectable
+                              ? ExcludeSemantics(
+                                  key: const ValueKey('selection'),
+                                  child: Checkbox(
+                                    value: selected,
+                                    onChanged: onSelect == null
+                                        ? null
+                                        : (_) => onSelect!(),
+                                  ),
+                                )
+                              : const SizedBox.shrink(
+                                  key: ValueKey('unavailable'),
+                                )
+                        : KeyedSubtree(
+                            key: const ValueKey('action'),
+                            child: switch (status) {
+                              _ when adding => const SizedBox(
+                                width: 28,
+                                child: BlockSpinner(height: 4),
+                              ),
+                              null => IconButton(
+                                key: ValueKey(
+                                  'download_file_button_${file.index}',
+                                ),
+                                tooltip: l10n.downloadFileButton,
+                                icon: const PixelIcon(
+                                  PixelGlyph.download,
+                                  size: 18,
+                                ),
+                                onPressed: onTap,
+                              ),
+                              DownloadStatus.paused ||
+                              DownloadStatus.failed => IconButton(
+                                key: ValueKey(
+                                  'download_file_button_${file.index}',
+                                ),
+                                tooltip: status == DownloadStatus.paused
+                                    ? l10n.downloadResumeButton
+                                    : l10n.commonRetry,
+                                icon: PixelIcon(
+                                  PixelGlyph.download,
+                                  size: 18,
+                                  fill: _loaded(download!),
+                                  color: status == DownloadStatus.failed
+                                      ? scheme.error
+                                      : scheme.onSurface,
+                                ),
+                                onPressed: onTap,
+                              ),
+                              DownloadStatus.completed => IconButton(
+                                key: ValueKey(
+                                  'download_file_watch_${file.index}',
+                                ),
+                                tooltip: l10n.downloadWatchButton,
+                                onPressed: onTap,
+                                icon: const PixelIcon(
+                                  PixelGlyph.play,
+                                  size: 18,
+                                ),
+                              ),
+                              DownloadStatus.queued ||
+                              DownloadStatus.downloading => PixelIcon(
+                                PixelGlyph.download,
+                                key: ValueKey(
+                                  'download_file_progress_${file.index}',
+                                ),
+                                size: 18,
+                                fill: _loaded(download!),
+                                color: scheme.tertiary,
+                                trackColor: scheme.onSurfaceVariant.withValues(
+                                  alpha: 0.4,
+                                ),
+                              ),
+                            },
+                          ),
                   ),
-                  null => IconButton(
-                    key: ValueKey('download_file_button_${file.index}'),
-                    tooltip: l10n.downloadFileButton,
-                    icon: const PixelIcon(PixelGlyph.download, size: 18),
-                    onPressed: onTap,
-                  ),
-                  DownloadStatus.paused || DownloadStatus.failed => IconButton(
-                    key: ValueKey('download_file_button_${file.index}'),
-                    tooltip: status == DownloadStatus.paused
-                        ? l10n.downloadResumeButton
-                        : l10n.commonRetry,
-                    icon: PixelIcon(
-                      PixelGlyph.download,
-                      size: 18,
-                      fill: _loaded(download!),
-                      color: status == DownloadStatus.failed
-                          ? scheme.error
-                          : scheme.onSurface,
-                    ),
-                    onPressed: onTap,
-                  ),
-                  DownloadStatus.completed => IconButton(
-                    key: ValueKey('download_file_watch_${file.index}'),
-                    tooltip: l10n.downloadWatchButton,
-                    onPressed: onTap,
-                    icon: const PixelIcon(PixelGlyph.play, size: 18),
-                  ),
-                  DownloadStatus.queued ||
-                  DownloadStatus.downloading => PixelIcon(
-                    PixelGlyph.download,
-                    key: ValueKey('download_file_progress_${file.index}'),
-                    size: 18,
-                    fill: _loaded(download!),
-                    color: scheme.tertiary,
-                    trackColor: scheme.onSurfaceVariant.withValues(alpha: 0.4),
-                  ),
-                },
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

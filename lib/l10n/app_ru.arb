@@ -523,7 +523,6 @@
   "downloadStatusDetails": "Состояние загрузки",
   "downloadTitleEpisodeCount": "{ready} из {total} {total, plural, one{серии} other{серий}}",
   "@downloadTitleEpisodeCount": {"placeholders": {"ready": {"type": "int"}, "total": {"type": "int"}}},
-  "downloadAllRemaining": "Скачать оставшиеся серии",
   "downloadDeleteAll": "Удалить все серии",
   "downloadDeleteTitleMessage": "Удалить все загрузки «{name}» с этого устройства?",
   "@downloadDeleteTitleMessage": {
@@ -559,5 +558,37 @@
   "animeListFiltersTitle": "Фильтры",
   "animeListResetFilters": "Сбросить фильтры",
   "animeListShowMore": "Ещё {count}",
-  "@animeListShowMore": {"placeholders": {"count": {"type": "int"}}}
+  "@animeListShowMore": {"placeholders": {"count": {"type": "int"}}},
+  "downloadSelectEpisodes": "Выбрать серии",
+  "downloadSelectFiles": "Выбрать файлы",
+  "downloadSelectAll": "Выбрать все",
+  "downloadDeselectAll": "Снять выбор",
+  "downloadSelectedEpisodes": "{count, plural, =0{Скачать} one{Скачать {count} серию} few{Скачать {count} серии} many{Скачать {count} серий} other{Скачать {count} серии}}",
+  "downloadSelectedFiles": "{count, plural, =0{Скачать} one{Скачать {count} файл} few{Скачать {count} файла} many{Скачать {count} файлов} other{Скачать {count} файла}}",
+  "downloadQueueTitle": "Очередь загрузок",
+  "downloadQueueCount": "Очередь · {count}",
+  "downloadQueueEmpty": "В очереди ничего нет",
+  "downloadNext": "В начало очереди",
+  "downloadMore": "Скачать ещё",
+  "@downloadSelectedEpisodes": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "@downloadSelectedFiles": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "@downloadQueueCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  }
 }

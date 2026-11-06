@@ -196,6 +196,20 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
   }
 
   @override
+  Future<void> downloadNext({required String id}) async {
+    await restore();
+    final item = _find(id);
+    if (item == null ||
+        item.status != DownloadStatus.queued ||
+        _deletingIds.contains(id)) {
+      return;
+    }
+    _downloads = [item, ..._downloads.where((other) => other.id != id)];
+    await _commit();
+    unawaited(_pumpQueue());
+  }
+
+  @override
   Future<DownloadItem> enqueueDownload({
     required PreparedDownloadSource source,
     required DownloadableFile file,

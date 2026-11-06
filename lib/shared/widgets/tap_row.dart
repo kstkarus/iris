@@ -5,11 +5,13 @@ class TapRow extends StatelessWidget {
   const TapRow({
     required this.onTap,
     required this.child,
+    this.onLongPress,
     this.inkKey,
     super.key,
   });
 
   final VoidCallback? onTap;
+  final VoidCallback? onLongPress;
   final Widget child;
 
   /// The ink well's own key, for finding the tap target.
@@ -21,7 +23,12 @@ class TapRow extends StatelessWidget {
       // Ink paints on the nearest Material: this one scrolls with the row,
       // so the list's edge clips the highlight.
       type: MaterialType.transparency,
-      child: InkWell(key: inkKey, onTap: onTap, child: child),
+      child: InkWell(
+        key: inkKey,
+        onTap: onTap,
+        onLongPress: onLongPress,
+        child: child,
+      ),
     );
   }
 }

@@ -992,7 +992,6 @@
   "downloadStatusDetails": "Download status",
   "downloadTitleEpisodeCount": "{ready} of {total} {total, plural, one{episode} other{episodes}}",
   "@downloadTitleEpisodeCount": {"placeholders": {"ready": {"type": "int"}, "total": {"type": "int"}}},
-  "downloadAllRemaining": "Download remaining episodes",
   "downloadDeleteAll": "Delete all episodes",
   "downloadDeleteTitleMessage": "Remove all downloads of “{name}” from this device?",
   "@downloadDeleteTitleMessage": {
@@ -1028,5 +1027,37 @@
   "animeListFiltersTitle": "Filters",
   "animeListResetFilters": "Reset filters",
   "animeListShowMore": "More ({count})",
-  "@animeListShowMore": {"placeholders": {"count": {"type": "int"}}}
+  "@animeListShowMore": {"placeholders": {"count": {"type": "int"}}},
+  "downloadSelectEpisodes": "Select episodes",
+  "downloadSelectFiles": "Select files",
+  "downloadSelectAll": "Select all",
+  "downloadDeselectAll": "Deselect all",
+  "downloadSelectedEpisodes": "{count, plural, =0{Download} one{Download {count} episode} other{Download {count} episodes}}",
+  "downloadSelectedFiles": "{count, plural, =0{Download} one{Download {count} file} other{Download {count} files}}",
+  "downloadQueueTitle": "Download queue",
+  "downloadQueueCount": "Queue · {count}",
+  "downloadQueueEmpty": "Nothing in the queue",
+  "downloadNext": "Move to front",
+  "downloadMore": "Download more",
+  "@downloadSelectedEpisodes": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "@downloadSelectedFiles": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "@downloadQueueCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  }
 }

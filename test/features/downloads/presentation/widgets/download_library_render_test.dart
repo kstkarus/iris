@@ -37,6 +37,7 @@ import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/widgets/dither_transition.dart';
 import 'package:iris/shared/widgets/poster_image.dart';
 import 'package:iris/features/downloads/presentation/widgets/download_title_widgets.dart';
+import 'package:iris/features/downloads/presentation/widgets/download_queue.dart';
 
 TextScaler _textScaler = TextScaler.noScaling;
 
@@ -340,15 +341,19 @@ void main() {
     )..load();
     await tester.pumpWidget(_shell(cubit: cubit, brightness: brightness));
     await tester.pumpAndSettle();
+    final queue = find.byType(DownloadQueueSummary);
+    final queueOffset = queue.evaluate().isEmpty
+        ? 0.0
+        : tester.getSize(queue).height + 16;
     if (!details && scale == 1 && size == _desktop) {
       final identity = tester.getRect(find.byType(DownloadTitleIdentity));
       expect(identity.left, 160, reason: 'approved C2 detail position');
-      expect(identity.top, 122, reason: 'approved C2 detail position');
+      expect(identity.top, 122 + queueOffset, reason: 'detail header spacing');
     }
     if (!details && scale == 1 && size == _phone && items?.isEmpty != true) {
       final poster = tester.getRect(find.byType(PosterImage).first);
       expect(poster.left, 16, reason: 'approved B gallery frame');
-      expect(poster.top, 87, reason: 'approved B gallery spacing');
+      expect(poster.top, 87 + queueOffset, reason: 'gallery header spacing');
       expect(poster.width, 171, reason: 'approved B gallery columns');
     }
     if (details && size.width <= 900) {
@@ -446,10 +451,14 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      expect(find.byKey(const Key('download_all')), findsOneWidget);
+      expect(find.byKey(const Key('download_select')), findsNothing);
       expect(tester.takeException(), isNull);
       await _capture(tester, 'selection_${config.$1}');
-      final batch = cubit.downloadAll();
+      await tester.longPress(find.text('01'));
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('download_selection_all')));
+      await tester.pump();
+      final batch = cubit.downloadSelected();
       await tester.pump();
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 220));

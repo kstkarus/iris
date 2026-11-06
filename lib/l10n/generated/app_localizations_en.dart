@@ -1595,9 +1595,6 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get downloadAllRemaining => 'Download remaining episodes';
-
-  @override
   String get downloadDeleteAll => 'Delete all episodes';
 
   @override
@@ -1661,4 +1658,57 @@ class AppLocalizationsEn extends AppLocalizations {
   String animeListShowMore(int count) {
     return 'More ($count)';
   }
+
+  @override
+  String get downloadSelectEpisodes => 'Select episodes';
+
+  @override
+  String get downloadSelectFiles => 'Select files';
+
+  @override
+  String get downloadSelectAll => 'Select all';
+
+  @override
+  String get downloadDeselectAll => 'Deselect all';
+
+  @override
+  String downloadSelectedEpisodes(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Download $count episodes',
+      one: 'Download $count episode',
+      zero: 'Download',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String downloadSelectedFiles(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Download $count files',
+      one: 'Download $count file',
+      zero: 'Download',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get downloadQueueTitle => 'Download queue';
+
+  @override
+  String downloadQueueCount(int count) {
+    return 'Queue · $count';
+  }
+
+  @override
+  String get downloadQueueEmpty => 'Nothing in the queue';
+
+  @override
+  String get downloadNext => 'Move to front';
+
+  @override
+  String get downloadMore => 'Download more';
 }

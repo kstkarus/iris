@@ -2774,12 +2774,6 @@ abstract class AppLocalizations {
   /// **'{ready} of {total} {total, plural, one{episode} other{episodes}}'**
   String downloadTitleEpisodeCount(int ready, int total);
 
-  /// No description provided for @downloadAllRemaining.
-  ///
-  /// In en, this message translates to:
-  /// **'Download remaining episodes'**
-  String get downloadAllRemaining;
-
   /// No description provided for @downloadDeleteAll.
   ///
   /// In en, this message translates to:
@@ -2881,6 +2875,72 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'More ({count})'**
   String animeListShowMore(int count);
+
+  /// No description provided for @downloadSelectEpisodes.
+  ///
+  /// In en, this message translates to:
+  /// **'Select episodes'**
+  String get downloadSelectEpisodes;
+
+  /// No description provided for @downloadSelectFiles.
+  ///
+  /// In en, this message translates to:
+  /// **'Select files'**
+  String get downloadSelectFiles;
+
+  /// No description provided for @downloadSelectAll.
+  ///
+  /// In en, this message translates to:
+  /// **'Select all'**
+  String get downloadSelectAll;
+
+  /// No description provided for @downloadDeselectAll.
+  ///
+  /// In en, this message translates to:
+  /// **'Deselect all'**
+  String get downloadDeselectAll;
+
+  /// No description provided for @downloadSelectedEpisodes.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{Download} one{Download {count} episode} other{Download {count} episodes}}'**
+  String downloadSelectedEpisodes(int count);
+
+  /// No description provided for @downloadSelectedFiles.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{Download} one{Download {count} file} other{Download {count} files}}'**
+  String downloadSelectedFiles(int count);
+
+  /// No description provided for @downloadQueueTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Download queue'**
+  String get downloadQueueTitle;
+
+  /// No description provided for @downloadQueueCount.
+  ///
+  /// In en, this message translates to:
+  /// **'Queue · {count}'**
+  String downloadQueueCount(int count);
+
+  /// No description provided for @downloadQueueEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing in the queue'**
+  String get downloadQueueEmpty;
+
+  /// No description provided for @downloadNext.
+  ///
+  /// In en, this message translates to:
+  /// **'Move to front'**
+  String get downloadNext;
+
+  /// No description provided for @downloadMore.
+  ///
+  /// In en, this message translates to:
+  /// **'Download more'**
+  String get downloadMore;
 }
 
 class _AppLocalizationsDelegate
