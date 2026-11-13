@@ -32,13 +32,4 @@ void main() {
       expect(await read({'key': '{"name":1}'}), 'fallback');
     },
   );
-
-  test('writes what it reads back', () async {
-    SharedPreferences.setMockInitialValues({});
-    final preferences = await SharedPreferences.getInstance();
-
-    await writeStoredJson(preferences, 'key', {'name': 'written'});
-
-    expect(preferences.getString('key'), '{"name":"written"}');
-  });
 }

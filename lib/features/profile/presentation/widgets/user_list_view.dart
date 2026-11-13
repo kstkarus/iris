@@ -75,7 +75,45 @@ class UserListView extends StatefulWidget {
 }
 
 class _UserListViewState extends State<UserListView> {
+  ScrollableState? _scrollable;
   bool _friendsShown = false;
+  bool _prefetchCheckScheduled = false;
+
+  bool get _canLoadMore {
+    final state = context.read<UserListCubit>().state;
+    return state.load == UserListLoad.loaded &&
+        state.hasMore &&
+        !state.loadingMore &&
+        !state.refreshing &&
+        !state.moreFailed &&
+        !(_friendsShown && widget.onOpenFriend != null) &&
+        TickerMode.valuesOf(context).enabled;
+  }
+
+  void _loadMoreIfNearEnd() {
+    final scrollable = _scrollable;
+    if (!mounted ||
+        !_canLoadMore ||
+        scrollable == null ||
+        !scrollable.mounted) {
+      return;
+    }
+    final position = scrollable.position;
+    if (position.hasContentDimensions &&
+        position.extentAfter < UserListView._loadMoreExtent) {
+      context.read<UserListCubit>().loadMore();
+    }
+  }
+
+  void _schedulePrefetchCheck() {
+    if (_prefetchCheckScheduled || !_canLoadMore) return;
+    _prefetchCheckScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _prefetchCheckScheduled = false;
+      _loadMoreIfNearEnd();
+    });
+    WidgetsBinding.instance.ensureVisualUpdate();
+  }
 
   void _showList() => setState(() => _friendsShown = false);
 
@@ -90,31 +128,38 @@ class _UserListViewState extends State<UserListView> {
     final state = context.watch<UserListCubit>().state;
     final onOpenFriend = widget.onOpenFriend;
     final friendsShown = _friendsShown && onOpenFriend != null;
+    _schedulePrefetchCheck();
     return NotificationListener<ScrollNotification>(
       onNotification: (notification) {
-        if (!friendsShown &&
-            notification.metrics.extentAfter < UserListView._loadMoreExtent) {
-          cubit.loadMore();
-        }
+        if (notification.depth == 0) _loadMoreIfNearEnd();
         return false;
       },
-      child: CustomScrollView(
-        slivers: [
-          SliverToBoxAdapter(child: widget.header),
-          PinnedHeaderSliver(
-            child: _Bar(
-              status: friendsShown ? null : state.status,
-              onStatus: cubit.select,
-              sections: onOpenFriend == null
-                  ? null
-                  : (onList: _showList, onFriends: _showFriends),
+      child: NotificationListener<ScrollMetricsNotification>(
+        onNotification: (notification) {
+          if (notification.depth == 0) {
+            _scrollable = Scrollable.maybeOf(notification.context);
+            _schedulePrefetchCheck();
+          }
+          return false;
+        },
+        child: CustomScrollView(
+          slivers: [
+            SliverToBoxAdapter(child: widget.header),
+            PinnedHeaderSliver(
+              child: _Bar(
+                status: friendsShown ? null : state.status,
+                onStatus: cubit.select,
+                sections: onOpenFriend == null
+                    ? null
+                    : (onList: _showList, onFriends: _showFriends),
+              ),
             ),
-          ),
-          if (friendsShown)
-            ...friendListSlivers(context, onOpen: onOpenFriend)
-          else
-            ..._content(context, state),
-        ],
+            if (friendsShown)
+              ...friendListSlivers(context, onOpen: onOpenFriend)
+            else
+              ..._content(context, state),
+          ],
+        ),
       ),
     );
   }
@@ -147,7 +192,10 @@ class _UserListViewState extends State<UserListView> {
     }
     final loading = state.load == UserListLoad.loading;
     final entries = loading ? _standIns : _shown(context, state);
-    if (entries.isEmpty) {
+    if (entries.isEmpty &&
+        !state.hasMore &&
+        !state.loadingMore &&
+        !state.moreFailed) {
       final status = userRateStatusLabel(l10n, state.status);
       return [
         SliverFillRemaining(

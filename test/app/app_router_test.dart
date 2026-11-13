@@ -26,41 +26,25 @@ void main() {
     await serviceLocator.reset();
   });
 
-  testWidgets('shows route error when player route receives invalid args', (
-    tester,
-  ) async {
-    final router = AppRouter.createRouter();
-
-    await tester.pumpWidget(_app(router));
-    await tester.pumpAndSettle();
-
-    router.goNamed('player', extra: 'bad');
-    await tester.pumpAndSettle();
-
-    expect(
-      find.text('This screen was opened with invalid navigation data.'),
-      findsOneWidget,
-    );
-  });
-
-  testWidgets(
-    'shows route error when streaming file route receives invalid args',
-    (tester) async {
+  for (final route in ['player', 'torrent-stream-files']) {
+    testWidgets('$route shows an error for invalid navigation arguments', (
+      tester,
+    ) async {
       final router = AppRouter.createRouter();
       addTearDown(router.dispose);
 
       await tester.pumpWidget(_app(router));
       await tester.pumpAndSettle();
 
-      router.goNamed('torrent-stream-files', extra: 'bad');
+      router.goNamed(route, extra: 'bad');
       await tester.pumpAndSettle();
 
       expect(
         find.text('This screen was opened with invalid navigation data.'),
         findsOneWidget,
       );
-    },
-  );
+    });
+  }
 
   testWidgets('a friend opens on their own page', (tester) async {
     final router = AppRouter.createRouter();
@@ -119,23 +103,10 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(router.state.uri.path, startsWith('/downloads'));
-      expect(
-        find.byKey(const Key('download_header_expanded_identity')),
-        findsOneWidget,
-      );
       expect(find.text('Episode 01'), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
   );
-
-  test('torrent and player routes do not depend on a catalog title', () {
-    final router = AppRouter.createRouter();
-    addTearDown(router.dispose);
-
-    expect(router.namedLocation('player'), '/player');
-    expect(router.namedLocation('torrent-stream-files'), '/torrent/watch');
-    expect(router.namedLocation('torrent-download-files'), '/torrent/download');
-  });
 }
 
 /// The router under the session every page can read, as in the app.

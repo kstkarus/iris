@@ -3,8 +3,30 @@ import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/utils/episode_number.dart';
 import 'package:iris/shared/utils/file_display_name.dart';
 
-String downloadName(AppLocalizations l10n, DownloadItem item) =>
-    '${item.animeTitle}, ${downloadEpisode(l10n, item)}';
+String downloadName(AppLocalizations l10n, DownloadItem item) {
+  final title = item.animeTitle.trim().isNotEmpty
+      ? item.animeTitle.trim()
+      : item.sourceTitle.trim().isNotEmpty
+      ? item.sourceTitle.trim()
+      : fileDisplayName(item.fileName).trim();
+  final episode = downloadEpisode(l10n, item);
+  return title.isEmpty || title.toLowerCase() == episode.toLowerCase()
+      ? episode
+      : '$title, $episode';
+}
+
+String downloadSemanticName(AppLocalizations l10n, DownloadItem item) {
+  final name = downloadName(l10n, item);
+  final release =
+      item.animeTitle.trim().isNotEmpty && item.sourceTitle.trim().isNotEmpty
+      ? downloadSourceLabel(l10n, item)
+      : '';
+  return [
+    name,
+    if (release.isNotEmpty) release,
+    if (item.videoHeight case final height?) l10n.onlineQualityHeight(height),
+  ].join(', ');
+}
 
 /// The episode read from the file name, or the file's own name.
 String downloadEpisode(AppLocalizations l10n, DownloadItem item) {

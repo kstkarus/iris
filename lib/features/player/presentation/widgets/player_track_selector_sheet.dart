@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:media_kit/media_kit.dart';
 
+import 'package:iris/features/player/presentation/playback/player_track_availability.dart';
 import 'package:iris/features/player/presentation/widgets/player_choice_row.dart';
 import 'package:iris/features/player/presentation/widgets/player_panel.dart';
 import 'package:iris/features/player/presentation/widgets/player_track_option_formatter.dart';
@@ -41,24 +42,31 @@ class PlayerTrackSelectorSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final audio = _TrackSection<AudioTrack>(
-      title: l10n.playerAudioTracksTitle,
-      tracks: _buildAudioOptions(audioTracks),
-      selectedTrack: selectedAudioTrack,
-      labelBuilder: (track) => formatAudioTrackLabel(l10n, track),
-      codecOf: (track) => track.codec,
-      emptyLabel: l10n.playerTracksUnavailable,
-      onSelected: onAudioTrackSelected,
-    );
-    final subtitles = _TrackSection<SubtitleTrack>(
-      title: l10n.playerSubtitleTracksTitle,
-      tracks: _buildSubtitleOptions(subtitleTracks),
-      selectedTrack: selectedSubtitleTrack,
-      labelBuilder: (track) => formatSubtitleTrackLabel(l10n, track),
-      codecOf: (track) => track.codec,
-      emptyLabel: l10n.playerTracksUnavailable,
-      onSelected: onSubtitleTrackSelected,
-    );
+    final tracks = Tracks(audio: audioTracks, subtitle: subtitleTracks);
+    final audio = tracks.hasAudioChoice
+        ? _TrackSection<AudioTrack>(
+            title: l10n.playerAudioTracksTitle,
+            tracks: [AudioTrack.auto(), ...tracks.realAudioTracks],
+            selectedTrack: selectedAudioTrack,
+            labelBuilder: (track) => formatAudioTrackLabel(l10n, track),
+            codecOf: (track) => track.codec,
+            onSelected: onAudioTrackSelected,
+          )
+        : null;
+    final subtitles = tracks.hasSubtitles
+        ? _TrackSection<SubtitleTrack>(
+            title: l10n.playerSubtitleTracksTitle,
+            tracks: [
+              SubtitleTrack.no(),
+              SubtitleTrack.auto(),
+              ...tracks.realSubtitleTracks,
+            ],
+            selectedTrack: selectedSubtitleTrack,
+            labelBuilder: (track) => formatSubtitleTrackLabel(l10n, track),
+            codecOf: (track) => track.codec,
+            onSelected: onSubtitleTrackSelected,
+          )
+        : null;
 
     return PlayerPanel(
       title: l10n.playerAudioAndSubtitles,
@@ -66,6 +74,10 @@ class PlayerTrackSelectorSheet extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       child: LayoutBuilder(
         builder: (context, constraints) {
+          if (audio == null) {
+            return subtitles ?? Text(l10n.playerTracksUnavailable);
+          }
+          if (subtitles == null) return audio;
           if (constraints.maxWidth < _sideBySideMinWidth) {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -93,7 +105,6 @@ class _TrackSection<T> extends StatelessWidget {
     required this.selectedTrack,
     required this.labelBuilder,
     required this.codecOf,
-    required this.emptyLabel,
     required this.onSelected,
   });
 
@@ -102,36 +113,22 @@ class _TrackSection<T> extends StatelessWidget {
   final T selectedTrack;
   final String Function(T track) labelBuilder;
   final String? Function(T track) codecOf;
-  final String emptyLabel;
   final ValueChanged<T> onSelected;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SectionLabel(title),
         const SizedBox(height: 4),
-        if (tracks.isEmpty)
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 12),
-            child: Text(
-              emptyLabel,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-          )
-        else
-          for (final track in tracks)
-            PlayerChoiceRow(
-              label: labelBuilder(track),
-              detail: _codecDetail(labelBuilder(track), codecOf(track)),
-              selected: selectedTrack == track,
-              onTap: () => onSelected(track),
-            ),
+        for (final track in tracks)
+          PlayerChoiceRow(
+            label: labelBuilder(track),
+            detail: _codecDetail(labelBuilder(track), codecOf(track)),
+            selected: selectedTrack == track,
+            onTap: () => onSelected(track),
+          ),
       ],
     );
   }
@@ -154,30 +151,3 @@ const _codecNames = {
   'hdmv_pgs_subtitle': 'PGS',
   'dvd_subtitle': 'VOBSUB',
 };
-
-List<AudioTrack> _buildAudioOptions(List<AudioTrack> tracks) {
-  final options = <AudioTrack>[AudioTrack.auto()];
-  for (final track in tracks) {
-    if (track.id == AudioTrack.auto().id || track.id == AudioTrack.no().id) {
-      continue;
-    }
-    if (!options.contains(track)) {
-      options.add(track);
-    }
-  }
-  return options;
-}
-
-List<SubtitleTrack> _buildSubtitleOptions(List<SubtitleTrack> tracks) {
-  final options = <SubtitleTrack>[SubtitleTrack.no(), SubtitleTrack.auto()];
-  for (final track in tracks) {
-    if (track.id == SubtitleTrack.auto().id ||
-        track.id == SubtitleTrack.no().id) {
-      continue;
-    }
-    if (!options.contains(track)) {
-      options.add(track);
-    }
-  }
-  return options;
-}

@@ -18,6 +18,7 @@ import 'package:iris/features/app_update/presentation/cubit/app_update_cubit.dar
 import 'package:iris/features/auth/domain/repositories/auth_repository.dart';
 import 'package:iris/features/auth/presentation/cubit/auth_cubit.dart';
 import 'package:iris/features/auth/presentation/widgets/account_listener.dart';
+import 'package:iris/features/downloads/domain/repositories/downloads_repository.dart';
 import 'package:iris/shared/utils/playback_runtime_initializer.dart';
 
 Future<Widget> createApp({bool useMocks = false}) async {
@@ -70,7 +71,10 @@ Future<Widget> createApp({bool useMocks = false}) async {
       onChanged: (context, _) => context.read<UserRateBookCubit>().clear(),
       child: EpisodeSyncLifecycle(
         sync: serviceLocator<EpisodeWatchSync>(),
-        child: IrisApp(router: serviceLocator<GoRouter>()),
+        child: IrisApp(
+          router: serviceLocator<GoRouter>(),
+          downloadsRepository: serviceLocator<DownloadsRepository>(),
+        ),
       ),
     ),
   );

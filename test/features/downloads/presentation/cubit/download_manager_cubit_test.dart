@@ -5,9 +5,40 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:iris/features/downloads/data/repositories/mock_downloads_repository.dart';
 import 'package:iris/features/downloads/domain/entities/download_item.dart';
 import 'package:iris/features/downloads/domain/entities/download_status.dart';
+import 'package:iris/features/downloads/domain/entities/download_storage_usage.dart';
 import 'package:iris/features/downloads/presentation/cubit/download_manager_cubit.dart';
 
 void main() {
+  test(
+    'batch deletion locks actions, reports failed ids and refreshes storage once',
+    () async {
+      final repository = _DeletingDownloadsRepository();
+      final cubit = DownloadManagerCubit(repository: repository);
+      addTearDown(cubit.close);
+      final deleting = cubit.deleteMany(['one', 'two', 'one']);
+      expect(cubit.state.deletingIds, {'one', 'two'});
+      expect(repository.requested, [
+        {'one', 'two'},
+      ]);
+      await cubit.pause('one');
+      await cubit.resume('one');
+      await cubit.retry('two');
+      await cubit.downloadNext('two');
+      expect(repository.actions, isEmpty);
+      expect(await cubit.deleteMany(['one']), {'one'});
+      expect(repository.requested, hasLength(1));
+      repository.result.complete({'two'});
+      expect(await deleting, {'two'});
+      expect(cubit.state.deletingIds, isEmpty);
+      expect(repository.storageReads, 1);
+      repository.result = Completer();
+      final failed = cubit.deleteMany(['two']);
+      repository.result.completeError(StateError('registry unavailable'));
+      expect(await failed, {'two'});
+      expect(cubit.state.deletingIds, isEmpty);
+      expect(repository.storageReads, 2);
+    },
+  );
   test(
     'subscribes again on retry after the stream reported an error',
     () async {
@@ -121,6 +152,35 @@ void main() {
 }
 
 /// Hands out one stream per [watchDownloads] call, in order.
+class _DeletingDownloadsRepository extends MockDownloadsRepository {
+  Completer<Set<String>> result = Completer();
+  final requested = <Set<String>>[];
+  final actions = <String>[];
+  int storageReads = 0;
+
+  @override
+  Future<Set<String>> deleteMany({required Iterable<String> ids}) {
+    requested.add(ids.toSet());
+    return result.future;
+  }
+
+  @override
+  Future<void> pause({required String id}) async => actions.add('pause:$id');
+  @override
+  Future<void> resume({required String id}) async => actions.add('resume:$id');
+  @override
+  Future<void> retry({required String id}) async => actions.add('retry:$id');
+  @override
+  Future<void> downloadNext({required String id}) async =>
+      actions.add('next:$id');
+
+  @override
+  Future<DownloadStorageUsage> calculateStorageUsage() async {
+    storageReads++;
+    return const DownloadStorageUsage(cacheBytes: 0);
+  }
+}
+
 class _StreamsDownloadsRepository extends MockDownloadsRepository {
   _StreamsDownloadsRepository(this._streams);
 

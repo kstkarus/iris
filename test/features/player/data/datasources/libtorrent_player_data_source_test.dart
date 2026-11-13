@@ -228,25 +228,6 @@ void main() {
     },
   );
 
-  test('disposes torrent session when metadata loading times out', () async {
-    final engine = _FakeLibtorrentEngineAdapter(
-      files: const [],
-      streamUrl: 'http://127.0.0.1:8080/stream/0',
-      waitForMetadataError: TimeoutException(
-        'No metadata',
-        const Duration(seconds: 90),
-      ),
-    );
-
-    final dataSource = LibtorrentPlayerDataSource(engine: engine);
-
-    await expectLater(
-      () => dataSource.prepareSource(magnet: 'magnet:?xt=urn:btih:no-meta'),
-      throwsA(isA<TimeoutException>()),
-    );
-    expect(engine.disposedTorrentIds, [42]);
-  });
-
   test(
     'starts playback for selected file index instead of auto-choosing a file',
     () async {

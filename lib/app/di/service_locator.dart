@@ -58,7 +58,6 @@ import 'package:iris/features/auth/data/datasources/web_authenticator.dart';
 import 'package:iris/features/auth/data/repositories/mock_auth_repository.dart';
 import 'package:iris/features/auth/data/repositories/shikimori_auth_repository.dart';
 import 'package:iris/features/auth/domain/repositories/auth_repository.dart';
-import 'package:iris/features/downloads/data/adapters/app_storage_usage_adapter.dart';
 import 'package:iris/shared/platform/download_foreground_service_adapter.dart';
 import 'package:iris/features/downloads/data/adapters/libtorrent_download_engine_adapter.dart';
 import 'package:iris/features/downloads/data/datasources/download_registry_data_source.dart';
@@ -544,9 +543,6 @@ Future<void> _registerDownloads(Directory supportDirectory) async {
           ? const MethodChannelDownloadForegroundServiceAdapter()
           : const NoopDownloadForegroundServiceAdapter(),
     )
-    ..registerLazySingleton<AppStorageUsageAdapter>(
-      MethodChannelAppStorageUsageAdapter.new,
-    )
     ..registerLazySingleton<DownloadRegistryDataSource>(
       () => DownloadRegistryDataSource(
         registryFile: File(
@@ -562,7 +558,6 @@ Future<void> _registerDownloads(Directory supportDirectory) async {
       path.join(supportDirectory.path, 'offline_downloads'),
     ),
     foregroundService: serviceLocator<DownloadForegroundServiceAdapter>(),
-    storageUsageAdapter: serviceLocator<AppStorageUsageAdapter>(),
     streamCache: serviceLocator<StreamCacheStorage>(),
     activityRegistry: serviceLocator<TorrentActivityRegistry>(),
     onlineDownloader: OnlineEpisodeDownloader(

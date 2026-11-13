@@ -22,6 +22,8 @@ class DitherList<T> extends StatefulWidget {
     this.crossAxisCount = 1,
     this.columnSpacing = 16,
     this.rowSpacing = 0,
+    this.removalDuration,
+    this.onEmptied,
     super.key,
   }) : assert(crossAxisCount > 0),
        _horizontal = false;
@@ -40,7 +42,9 @@ class DitherList<T> extends StatefulWidget {
        physics = null,
        crossAxisCount = 1,
        columnSpacing = spacing,
-       rowSpacing = 0;
+       rowSpacing = 0,
+       removalDuration = horizontalRemovalDuration,
+       onEmptied = null;
 
   final bool _horizontal;
 
@@ -58,6 +62,10 @@ class DitherList<T> extends StatefulWidget {
   final int crossAxisCount;
   final double columnSpacing;
   final double rowSpacing;
+  final Duration? removalDuration;
+
+  /// Called when the list is empty and its visible rows have finished leaving.
+  final VoidCallback? onEmptied;
 
   @override
   State<DitherList<T>> createState() => _DitherListState<T>();
@@ -70,11 +78,17 @@ class _DitherListState<T> extends State<DitherList<T>> {
     for (final item in widget.items)
       _Entry(item, widget.keyOf(item), entering: false),
   ];
+  final _animatingRemovals = <Object>{};
+  bool _reportedEmpty = false;
 
   @override
   void didUpdateWidget(covariant DitherList<T> oldWidget) {
     super.didUpdateWidget(oldWidget);
     final current = {for (final item in widget.items) widget.keyOf(item): item};
+    if (current.isNotEmpty) {
+      _reportedEmpty = false;
+      _animatingRemovals.removeWhere(current.containsKey);
+    }
     final shown = {for (final entry in _entries) entry.key: entry};
     final entries = [
       for (final item in widget.items)
@@ -90,6 +104,7 @@ class _DitherListState<T> extends State<DitherList<T>> {
 
   void _left(Object key) {
     if (!mounted) return;
+    _animatingRemovals.remove(key);
     setState(() => _entries.removeWhere((e) => e.key == key && e.leaving));
   }
 
@@ -98,13 +113,30 @@ class _DitherListState<T> extends State<DitherList<T>> {
     axis: widget._horizontal ? Axis.horizontal : Axis.vertical,
     entering: entry.entering,
     leaving: entry.leaving,
+    removalDuration: widget.removalDuration,
     onEntered: () => entry.entering = false,
+    onLeaving: widget.onEmptied == null
+        ? null
+        : () => _animatingRemovals.add(entry.key),
     onLeft: () => _left(entry.key),
     child: widget.itemBuilder(context, entry.item),
   );
 
   @override
   Widget build(BuildContext context) {
+    if (widget.onEmptied != null && widget.items.isEmpty && !_reportedEmpty) {
+      // Only built rows can start a dissolve. Check after they have updated.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted ||
+            _reportedEmpty ||
+            widget.items.isNotEmpty ||
+            _animatingRemovals.isNotEmpty) {
+          return;
+        }
+        _reportedEmpty = true;
+        widget.onEmptied?.call();
+      });
+    }
     if (widget._horizontal) {
       return Row(
         mainAxisSize: MainAxisSize.min,
@@ -197,7 +229,9 @@ class _Presence extends StatefulWidget {
     required this.entering,
     required this.leaving,
     required this.onEntered,
+    required this.onLeaving,
     required this.onLeft,
+    required this.removalDuration,
     required this.child,
     super.key,
   });
@@ -206,7 +240,9 @@ class _Presence extends StatefulWidget {
   final bool entering;
   final bool leaving;
   final VoidCallback onEntered;
+  final VoidCallback? onLeaving;
   final VoidCallback onLeft;
+  final Duration? removalDuration;
   final Widget child;
 
   @override
@@ -218,9 +254,7 @@ class _PresenceState extends State<_Presence>
   late final AnimationController _controller = AnimationController(
     vsync: this,
     duration: DitherTransition.duration * 2,
-    reverseDuration: widget.axis == Axis.horizontal
-        ? DitherList.horizontalRemovalDuration
-        : null,
+    reverseDuration: widget.removalDuration,
     value: widget.entering ? 0 : 1,
   );
 
@@ -245,7 +279,13 @@ class _PresenceState extends State<_Presence>
   @override
   void didUpdateWidget(covariant _Presence oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.leaving != oldWidget.leaving) _run(forward: !widget.leaving);
+    if (widget.removalDuration != oldWidget.removalDuration) {
+      _controller.reverseDuration = widget.removalDuration;
+    }
+    if (widget.leaving != oldWidget.leaving) {
+      if (widget.leaving && _animate) widget.onLeaving?.call();
+      _run(forward: !widget.leaving);
+    }
   }
 
   void _run({required bool forward}) {
@@ -286,7 +326,7 @@ class _PresenceState extends State<_Presence>
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
+    final row = AnimatedBuilder(
       animation: _controller,
       child: widget.child,
       builder: (context, child) {
@@ -296,21 +336,25 @@ class _PresenceState extends State<_Presence>
           (progress * 2).clamp(0.0, 1.0),
         );
         final developed = (progress * 2 - 1).clamp(0.0, 1.0);
-        return IgnorePointer(
-          ignoring: widget.leaving,
-          child: ClipRect(
-            child: Align(
-              alignment: AlignmentDirectional.topStart,
-              heightFactor: widget.axis == Axis.vertical ? opened : 1,
-              widthFactor: widget.axis == Axis.horizontal ? opened : null,
-              child: BayerMasked(
-                open: (developed * BayerMask.steps).round(),
-                child: child,
-              ),
+        return ClipRect(
+          child: Align(
+            alignment: AlignmentDirectional.topStart,
+            heightFactor: widget.axis == Axis.vertical ? opened : 1,
+            widthFactor: widget.axis == Axis.horizontal ? opened : null,
+            child: BayerMasked(
+              open: (developed * BayerMask.steps).round(),
+              child: child,
             ),
           ),
         );
       },
+    );
+    return ExcludeFocus(
+      excluding: widget.leaving,
+      child: IgnorePointer(
+        ignoring: widget.leaving,
+        child: ExcludeSemantics(excluding: widget.leaving, child: row),
+      ),
     );
   }
 }

@@ -62,7 +62,7 @@ void main() {
       onBack: () {},
     );
 
-    expect(chrome.overline, isNot('[Group] Frieren [1080p]'));
+    expect(chrome.overline, 'Frieren');
     expect(chrome.details, isNull);
   });
 }

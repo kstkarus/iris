@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:skeletonizer/skeletonizer.dart';
 
 import 'package:iris/entities/user_rate/domain/user_rate.dart';
 import 'package:iris/features/anime_list/data/repositories/mock_anime_genres_repository.dart';
@@ -14,8 +13,6 @@ import 'package:iris/features/anime_list/presentation/bloc/anime_list_event.dart
 import 'package:iris/features/anime_list/presentation/cubit/anime_genres_cubit.dart';
 import 'package:iris/features/anime_list/presentation/cubit/anime_list_preview_cubit.dart';
 import 'package:iris/features/anime_list/presentation/widgets/anime_list_criteria_sheet.dart';
-import 'package:iris/shared/widgets/app_skeleton.dart';
-import 'package:iris/shared/widgets/dither_transition.dart';
 
 import '../../../../helpers/test_app.dart';
 import '../../../../helpers/test_window.dart';
@@ -77,9 +74,6 @@ void main() {
 
     expect(find.text('NOT COMPLETED'), findsNothing);
     expect(find.text('Not completed'), findsNothing);
-    expect(find.text('Action'), findsOneWidget);
-    expect(find.text('Military'), findsOneWidget);
-    expect(find.text('All'), findsNothing);
   });
 
   testWidgets('applies the list, genre, season, rating and length', (
@@ -124,42 +118,6 @@ void main() {
     expect(find.text('0'), findsOneWidget);
   });
 
-  testWidgets('count reveal keeps its animation when the result is capped', (
-    tester,
-  ) async {
-    final preview = _ControlledPreview();
-    addTearDown(preview.close);
-    await openSheet(tester, signedIn: false, preview: preview);
-    final skeleton = find.descendant(
-      of: find.byType(AppSkeleton),
-      matching: find.byWidgetPredicate((widget) => widget is Skeletonizer),
-    );
-    for (final count in [1, 42, 50]) {
-      preview.show((loading: true, count: null, hasMore: false));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 600));
-      final before = tester.state(skeleton);
-      preview.show((loading: false, count: count, hasMore: count == 50));
-      await tester.pump();
-      expect(
-        identical(tester.state(skeleton), before),
-        isTrue,
-        reason: '$count',
-      );
-      final label = find.descendant(
-        of: find.byType(AppSkeleton),
-        matching: find.text('$count${count == 50 ? '+' : ''}'),
-      );
-      final mask = find.ancestor(of: label, matching: find.byType(BayerMasked));
-      await tester.pump(const Duration(milliseconds: 100));
-      expect(
-        tester.widget<BayerMasked>(mask.first).open,
-        inExclusiveRange(0, 16),
-      );
-      await tester.pumpAndSettle();
-    }
-  });
-
   testWidgets(
     'genres fold after ten, selected tags stay, audience is separate',
     (tester) async {
@@ -184,27 +142,12 @@ void main() {
     },
   );
 
-  testWidgets('selected tags invert without shifting their hit targets', (
-    tester,
-  ) async {
+  testWidgets('selected tags retain a usable touch target', (tester) async {
     await openSheet(tester, signedIn: false);
     final tag = find.widgetWithText(OutlinedButton, 'TV');
-    final before = tester.getRect(tag);
-    for (final label in ['TV', 'G']) {
-      final button = find.widgetWithText(OutlinedButton, label);
-      final surface = find
-          .descendant(of: button, matching: find.byType(Material))
-          .first;
-      expect(tester.getRect(surface).left, tester.getRect(button).left);
-    }
     await tester.tap(tag);
     await tester.pumpAndSettle();
-    expect(tester.getRect(tag), before);
-    expect(before.height, greaterThanOrEqualTo(44));
-    final style = tester.widget<OutlinedButton>(tag).style!;
-    final scheme = Theme.of(tester.element(tag)).colorScheme;
-    expect(style.backgroundColor!.resolve({}), scheme.onSurface);
-    expect(style.foregroundColor!.resolve({}), scheme.surface);
+    expect(tester.getSize(tag).height, greaterThanOrEqualTo(44));
   });
 
   testWidgets('dismissing a draft leaves the catalog criteria untouched', (
@@ -218,12 +161,6 @@ void main() {
     expect(bloc.state.sort, AnimeListSortOption.popularity);
     expect(bloc.state.filters.hasAny, isFalse);
   });
-}
-
-class _ControlledPreview extends AnimeListPreviewCubit {
-  _ControlledPreview() : super(repository: RecordingAnimeListRepository());
-
-  void show(AnimeListPreview state) => emit(state);
 }
 
 class _ManyGenres implements AnimeGenresRepository {

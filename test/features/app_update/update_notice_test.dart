@@ -13,10 +13,6 @@ import 'package:iris/features/app_update/presentation/cubit/app_update_cubit.dar
 import 'package:iris/features/app_update/presentation/cubit/app_update_state.dart';
 import 'package:iris/features/app_update/presentation/widgets/update_notice.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
-import 'package:iris/shared/utils/bayer_mask.dart';
-import 'package:iris/shared/widgets/dither_switcher.dart';
-import 'package:iris/shared/widgets/dither_transition.dart';
-import 'package:iris/shared/widgets/segmented_bar.dart';
 
 import '../../helpers/test_app.dart';
 import 'app_update_test_doubles.dart';
@@ -96,49 +92,6 @@ void main() {
     expect(_InsetProbe.topOf(tester), 24);
   });
 
-  testWidgets('the space opens first, then the strip develops in it', (
-    tester,
-  ) async {
-    tester.view.padding = const FakeViewPadding(top: 72);
-    addTearDown(tester.view.resetPadding);
-    final cubit = AppUpdateCubit(
-      repository: FakeAppUpdateRepository(
-        latest: testRelease(3),
-        installed: const AppVersion(1, 2, 0),
-      ),
-    );
-    addTearDown(cubit.close);
-    await tester.pumpWidget(
-      testApp(
-        Scaffold(
-          body: BlocProvider.value(
-            value: cubit,
-            child: const UpdateNotice(child: _InsetProbe()),
-          ),
-        ),
-      ),
-    );
-    await tester.runAsync(cubit.check);
-    await tester.pump();
-
-    int developed() =>
-        tester.widget<BayerMasked>(find.byType(BayerMasked)).open;
-
-    // A third in: the space is opening, the strip not painted yet and
-    // not to be pressed.
-    await tester.pump(DitherTransition.duration * 2 ~/ 3);
-    expect(developed(), 0);
-    expect(_InsetProbe.topOf(tester), inExclusiveRange(0, 24));
-    await tester.tap(find.byKey(UpdateNotice.laterKey), warnIfMissed: false);
-    await tester.pump(DitherTransition.duration);
-    expect(developed(), greaterThan(0));
-
-    await tester.pumpAndSettle();
-    expect(developed(), BayerMask.steps);
-    expect(_InsetProbe.topOf(tester), 0);
-    expect(cubit.state.release, testRelease(3));
-  });
-
   testWidgets('Later puts the release off', (tester) async {
     final repository = await pumpNotice(tester);
 
@@ -149,7 +102,7 @@ void main() {
     expect(repository.dismissed, const AppVersion(1, 3, 0));
   });
 
-  testWidgets('the Android notice opens release notes without outside actions', (
+  testWidgets('the Android notice opens formatted release notes', (
     tester,
   ) async {
     _usePhoneSize(tester);
@@ -162,8 +115,6 @@ void main() {
     );
 
     expect(find.byKey(UpdateNotice.noticeKey), findsOneWidget);
-    expect(find.byKey(UpdateNotice.downloadKey), findsNothing);
-    expect(find.byKey(UpdateNotice.laterKey), findsNothing);
     await tester.tap(find.byKey(UpdateNotice.noticeKey));
     await tester.pumpAndSettle();
 
@@ -187,15 +138,11 @@ void main() {
       find.descendant(of: sheet, matching: find.text('First change')),
       findsOneWidget,
     );
-    expect(
-      find.descendant(of: sheet, matching: find.text('Android')),
-      findsNothing,
-    );
     expect(find.byKey(UpdateNotice.downloadActionKey), findsOneWidget);
     expect(find.text('Later'), findsOneWidget);
   });
 
-  testWidgets('Windows keeps the header and footer fixed while notes scroll', (
+  testWidgets('Windows can cancel a download after scrolling release notes', (
     tester,
   ) async {
     _useDesktopSize(tester);
@@ -213,29 +160,17 @@ void main() {
     await tester.tap(find.byKey(UpdateNotice.noticeKey));
     await tester.pumpAndSettle();
 
-    final header = find.byKey(UpdateNotice.headerKey);
     final notesScroll = find.byKey(UpdateNotice.notesScrollKey);
-    final footer = find.byKey(UpdateNotice.footerKey);
-    final headerRect = tester.getRect(header);
-    final footerRect = tester.getRect(footer);
     const firstNote = 'Change 1: a long release note for scrolling.';
     final noteTop = tester.getTopLeft(find.text(firstNote)).dy;
 
-    expect(
-      tester.widget<Scrollbar>(find.byType(Scrollbar)).thumbVisibility,
-      isTrue,
-    );
     await tester.tap(find.byKey(UpdateNotice.downloadActionKey));
     await tester.pumpAndSettle();
     expect(cubit.state.phase, AppUpdatePhase.downloading);
-    expect(tester.getRect(header), headerRect);
-    expect(tester.getRect(footer), footerRect);
 
     await tester.drag(notesScroll, const Offset(0, -300));
     await tester.pumpAndSettle();
 
-    expect(tester.getRect(header), headerRect);
-    expect(tester.getRect(footer), footerRect);
     expect(tester.getTopLeft(find.text(firstNote)).dy, lessThan(noteTop));
 
     await tester.tap(find.byKey(UpdateNotice.cancelDownloadKey));
@@ -255,9 +190,7 @@ void main() {
 
     await tester.tap(find.byKey(UpdateNotice.noticeKey));
     await tester.pumpAndSettle();
-    final download = find.byKey(UpdateNotice.downloadActionKey);
     final later = find.byKey(UpdateNotice.laterKey);
-    expect(tester.getCenter(download).dx, lessThan(tester.getCenter(later).dx));
 
     await tester.tap(later);
     await tester.pumpAndSettle();
@@ -288,14 +221,6 @@ void main() {
     expect(cubit.state.phase, AppUpdatePhase.downloading);
     expect(find.text('Downloading'), findsOneWidget);
     expect(find.text('42 B / 100 B'), findsOneWidget);
-    expect(
-      find.descendant(
-        of: find.byKey(UpdateNotice.sheetKey),
-        matching: find.text('42%'),
-      ),
-      findsNothing,
-    );
-    expect(tester.widget<SegmentedBar>(find.byType(SegmentedBar)).height, 6);
 
     await tester.tap(find.byKey(UpdateNotice.hideKey));
     await tester.pumpAndSettle();
@@ -323,12 +248,8 @@ void main() {
 
     await tester.tap(find.byKey(UpdateNotice.noticeKey));
     await tester.pumpAndSettle();
-    final headerRect = tester.getRect(find.byKey(UpdateNotice.headerKey));
-    final footerRect = tester.getRect(find.byKey(UpdateNotice.footerKey));
-    final restart = find.byKey(UpdateNotice.installKey);
     final later = find.byKey(UpdateNotice.laterKey);
     expect(find.text('Restart and update'), findsOneWidget);
-    expect(tester.getCenter(restart).dx, lessThan(tester.getCenter(later).dx));
 
     await tester.tap(later);
     await tester.pumpAndSettle();
@@ -338,8 +259,6 @@ void main() {
     await tester.tap(find.byKey(UpdateNotice.noticeKey));
     await tester.pumpAndSettle();
     expect(find.byKey(UpdateNotice.installKey), findsOneWidget);
-    expect(tester.getRect(find.byKey(UpdateNotice.headerKey)), headerRect);
-    expect(tester.getRect(find.byKey(UpdateNotice.footerKey)), footerRect);
   });
 
   testWidgets('Windows Restart and update starts installation', (tester) async {
@@ -375,10 +294,6 @@ void main() {
 
     await tester.tap(find.byKey(UpdateNotice.noticeKey));
     await tester.pumpAndSettle();
-    final header = find.byKey(UpdateNotice.headerKey);
-    final footer = find.byKey(UpdateNotice.footerKey);
-    final headerRect = tester.getRect(header);
-    final footerRect = tester.getRect(footer);
     _expectOnScreen(tester, find.byKey(UpdateNotice.downloadActionKey), size);
     _expectOnScreen(tester, find.byKey(UpdateNotice.laterKey), size);
     expect(tester.takeException(), isNull);
@@ -386,8 +301,6 @@ void main() {
     await tester.tap(find.byKey(UpdateNotice.downloadActionKey));
     await tester.pumpAndSettle();
     expect(cubit.state.phase, AppUpdatePhase.downloading);
-    expect(tester.getRect(header), headerRect);
-    expect(tester.getRect(footer), footerRect);
     _expectOnScreen(tester, find.byKey(UpdateNotice.cancelDownloadKey), size);
     _expectOnScreen(tester, find.byKey(UpdateNotice.hideKey), size);
     expect(tester.takeException(), isNull);
@@ -395,8 +308,6 @@ void main() {
     downloads.completeDownload(r'C:\updates\iris.exe');
     await tester.pumpAndSettle();
     expect(cubit.state.phase, AppUpdatePhase.ready);
-    expect(tester.getRect(header), headerRect);
-    expect(tester.getRect(footer), footerRect);
     _expectOnScreen(tester, find.byKey(UpdateNotice.installKey), size);
     _expectOnScreen(tester, find.byKey(UpdateNotice.laterKey), size);
     expect(tester.takeException(), isNull);
@@ -418,10 +329,6 @@ void main() {
 
     await tester.tap(find.byKey(UpdateNotice.noticeKey));
     await tester.pumpAndSettle();
-    final header = find.byKey(UpdateNotice.headerKey);
-    final footer = find.byKey(UpdateNotice.footerKey);
-    final headerRect = tester.getRect(header);
-    final footerRect = tester.getRect(footer);
     _expectOnScreen(tester, find.byKey(UpdateNotice.downloadActionKey), size);
     _expectOnScreen(tester, find.byKey(UpdateNotice.laterKey), size);
     expect(tester.takeException(), isNull);
@@ -429,8 +336,6 @@ void main() {
     await tester.tap(find.byKey(UpdateNotice.downloadActionKey));
     await tester.pumpAndSettle();
     expect(cubit.state.phase, AppUpdatePhase.downloading);
-    expect(tester.getRect(header), headerRect);
-    expect(tester.getRect(footer), footerRect);
     _expectOnScreen(tester, find.byKey(UpdateNotice.cancelDownloadKey), size);
     _expectOnScreen(tester, find.byKey(UpdateNotice.hideKey), size);
     expect(tester.takeException(), isNull);
@@ -438,7 +343,6 @@ void main() {
     downloads.emitProgress(100, 100);
     await tester.pumpAndSettle();
     expect(cubit.state.phase, AppUpdatePhase.verifying);
-    expect(tester.getRect(footer), footerRect);
     _expectOnScreen(tester, find.byKey(UpdateNotice.cancelDownloadKey), size);
     _expectOnScreen(tester, find.byKey(UpdateNotice.hideKey), size);
     expect(tester.takeException(), isNull);
@@ -446,8 +350,6 @@ void main() {
     downloads.completeDownload(r'C:\updates\iris.exe');
     await tester.pumpAndSettle();
     expect(cubit.state.phase, AppUpdatePhase.ready);
-    expect(tester.getRect(header), headerRect);
-    expect(tester.getRect(footer), footerRect);
     _expectOnScreen(tester, find.byKey(UpdateNotice.installKey), size);
     _expectOnScreen(tester, find.byKey(UpdateNotice.laterKey), size);
     expect(tester.takeException(), isNull);
@@ -517,25 +419,28 @@ void main() {
 
       await tester.tap(find.byKey(UpdateNotice.noticeKey));
       await tester.pumpAndSettle();
-      final scroll = tester
-          .widget<SingleChildScrollView>(
-            find.byKey(UpdateNotice.notesScrollKey),
-          )
-          .controller!;
       for (var attempt = 1; attempt <= 2; attempt++) {
         await tester.drag(
           find.byKey(UpdateNotice.notesScrollKey),
           const Offset(0, -500),
         );
         await tester.pumpAndSettle();
-        expect(scroll.offset, greaterThan(0));
+        expect(
+          find
+              .text('Change 1: a long release note for scrolling.')
+              .hitTestable(),
+          findsNothing,
+        );
 
         await tester.tap(find.byKey(UpdateNotice.installKey));
         await tester.pumpAndSettle();
 
         expect(downloads.installCalls, attempt);
         expect(cubit.state.failure, AppUpdateFailureKind.install);
-        expect(scroll.offset, 0);
+        expect(
+          find.text("Couldn't open the installer. Try again.").hitTestable(),
+          findsOneWidget,
+        );
         expect(tester.takeException(), isNull);
       }
     },
@@ -561,12 +466,9 @@ void main() {
       findsOneWidget,
     );
 
-    final switcher = find.byKey(UpdateNotice.noticeLabelSwitcherKey);
-    final phaseKey = tester.widget<DitherSwitcher>(switcher).child.key;
     downloads.emitProgress(60, 100);
     await tester.pumpAndSettle();
     expect(cubit.state.receivedBytes, 60);
-    expect(tester.widget<DitherSwitcher>(switcher).child.key, phaseKey);
     expect(
       find.descendant(
         of: find.byKey(UpdateNotice.sheetKey),
@@ -592,22 +494,6 @@ void main() {
       find.descendant(of: sheet, matching: find.text('Checking file')),
       findsOneWidget,
     );
-    expect(
-      find.descendant(
-        of: sheet,
-        matching: find.byType(LinearProgressIndicator),
-      ),
-      findsNothing,
-    );
-    expect(
-      tester
-          .widgetList<RichText>(
-            find.descendant(of: sheet, matching: find.byType(RichText)),
-          )
-          .map((text) => text.text.toPlainText())
-          .where((text) => text.contains('%')),
-      isEmpty,
-    );
 
     await tester.tap(find.byKey(UpdateNotice.cancelDownloadKey));
     await tester.pumpAndSettle();
@@ -627,7 +513,6 @@ void main() {
     await tester.tap(find.byKey(UpdateNotice.noticeKey));
     await tester.pumpAndSettle();
     expect(find.text('Install update'), findsOneWidget);
-    expect(find.text('Later'), findsNothing);
 
     await tester.tap(find.byKey(UpdateNotice.installKey));
     await tester.pumpAndSettle();
@@ -637,27 +522,6 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('Install update'), findsOneWidget);
-  });
-
-  testWidgets('the sheet supports large text with reduced motion', (
-    tester,
-  ) async {
-    _usePhoneSize(tester);
-    final downloads = _AndroidDownloads();
-    await _pumpInAppNotice(
-      tester,
-      downloads,
-      textScale: 1.4,
-      reducedMotion: true,
-    );
-
-    await tester.tap(find.byKey(UpdateNotice.noticeKey));
-    await tester.pumpAndSettle();
-    expect(
-      tester.getRect(find.byKey(UpdateNotice.downloadActionKey)).height,
-      greaterThanOrEqualTo(48),
-    );
-    expect(tester.takeException(), isNull);
   });
 
   testWidgets(

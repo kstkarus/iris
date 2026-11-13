@@ -14,7 +14,16 @@ void main() {
 
     final result = await repository.loadPreferences();
 
-    expect(result, const SubtitlePreferences.defaults());
+    expect(
+      result,
+      const SubtitlePreferences(
+        libassEnabled: true,
+        textScale: SubtitleTextScalePreset.normal,
+        textColor: SubtitleTextColorPreset.white,
+        backgroundStyle: SubtitleBackgroundStylePreset.translucent,
+        verticalPosition: SubtitleVerticalPositionPreset.standard,
+      ),
+    );
   });
 
   test('persists and restores subtitle preferences', () async {

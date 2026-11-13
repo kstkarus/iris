@@ -5,13 +5,13 @@ import 'package:iris/features/downloads/domain/entities/download_title.dart';
 import 'package:iris/features/downloads/presentation/widgets/download_status_label.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/utils/byte_size_formatter.dart';
+import 'package:iris/shared/utils/motion_duration.dart';
 import 'package:iris/shared/widgets/dither_switcher.dart';
 import 'package:iris/shared/widgets/dither_list.dart';
 import 'package:iris/shared/widgets/headline_anchor.dart';
 import 'package:iris/shared/widgets/page_title.dart';
 import 'package:iris/shared/widgets/pixel_icon.dart';
 import 'package:iris/shared/widgets/poster_image.dart';
-import 'package:iris/shared/widgets/segmented_bar.dart';
 import 'package:iris/shared/widgets/tap_row.dart';
 
 class DownloadTitleIdentity extends StatelessWidget {
@@ -62,6 +62,7 @@ class DownloadAdaptiveTitleHeader extends StatefulWidget {
     required this.desktop,
     required this.menu,
     required this.buildList,
+    this.selectionActions,
     super.key,
   });
 
@@ -69,6 +70,7 @@ class DownloadAdaptiveTitleHeader extends StatefulWidget {
   final bool desktop;
   final Widget? menu;
   final Widget Function(Widget? header) buildList;
+  final Widget? selectionActions;
 
   @override
   State<DownloadAdaptiveTitleHeader> createState() =>
@@ -176,60 +178,123 @@ class _DownloadAdaptiveTitleHeaderState
 
   Widget _toolbar() {
     final title = widget.title;
+    final selecting = widget.selectionActions != null;
+    final actionTextStyle =
+        TextButtonTheme.of(context).style?.textStyle?.resolve(const {}) ??
+        Theme.of(context).textTheme.labelLarge;
+    final toolbar = Row(
+      children: [
+        if (!widget.desktop) const BackButton(),
+        Expanded(
+          child: ValueListenableBuilder<bool>(
+            valueListenable: _headlineGone,
+            builder: (context, shown, _) {
+              final Widget titleWidget;
+              if (shown && title != null) {
+                titleWidget = KeyedSubtree(
+                  key: const Key('download_header_compact_identity'),
+                  child: widget.desktop
+                      ? Semantics(
+                          header: true,
+                          label: title.name,
+                          child: _CollapsedDownloadTitle(
+                            title: title,
+                            showPoster: false,
+                          ),
+                        )
+                      : _CollapsedDownloadTitle(title: title, showPoster: true),
+                );
+              } else if (widget.desktop && title != null) {
+                titleWidget = KeyedSubtree(
+                  key: const Key('download_header_expanded_identity'),
+                  child: Semantics(
+                    header: true,
+                    child: DownloadTitleIdentity(
+                      title: title,
+                      showPoster: false,
+                    ),
+                  ),
+                );
+              } else {
+                titleWidget = const SizedBox.shrink(
+                  key: ValueKey('download_header_empty'),
+                );
+              }
+              final switcher = DitherSwitcher(
+                duration: const Duration(milliseconds: 300),
+                child: titleWidget,
+              );
+              return widget.desktop
+                  ? switcher
+                  : ExcludeSemantics(child: switcher);
+            },
+          ),
+        ),
+        if (widget.menu != null) ...[const SizedBox(width: 8), widget.menu!],
+      ],
+    );
     return Container(
       key: _toolbarKey,
-      child: Row(
+      child: Stack(
         children: [
-          if (!widget.desktop) const BackButton(),
-          Expanded(
-            child: ValueListenableBuilder<bool>(
-              valueListenable: _headlineGone,
-              builder: (context, shown, _) {
-                final Widget titleWidget;
-                if (shown && title != null) {
-                  titleWidget = KeyedSubtree(
-                    key: const Key('download_header_compact_identity'),
-                    child: widget.desktop
-                        ? Semantics(
-                            header: true,
-                            label: title.name,
-                            child: _CollapsedDownloadTitle(
-                              title: title,
-                              showPoster: false,
-                            ),
-                          )
-                        : _CollapsedDownloadTitle(
-                            title: title,
-                            showPoster: true,
-                          ),
-                  );
-                } else if (widget.desktop && title != null) {
-                  titleWidget = KeyedSubtree(
-                    key: const Key('download_header_expanded_identity'),
-                    child: Semantics(
-                      header: true,
-                      child: DownloadTitleIdentity(
-                        title: title,
-                        showPoster: false,
-                      ),
+          // Keep measuring the original toolbar: entering selection must
+          // not move the episodes, including with a wrapped desktop title.
+          ExcludeFocus(
+            excluding: selecting,
+            child: IgnorePointer(
+              ignoring: selecting,
+              child: ExcludeSemantics(
+                excluding: selecting,
+                child: AnimatedOpacity(
+                  opacity: selecting ? 0 : 1,
+                  duration: motionDuration(
+                    context,
+                    const Duration(milliseconds: 200),
+                  ),
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      minHeight: _lineHeight(context, actionTextStyle),
                     ),
-                  );
-                } else {
-                  titleWidget = const SizedBox.shrink(
-                    key: ValueKey('download_header_empty'),
-                  );
-                }
-                final switcher = DitherSwitcher(
-                  duration: const Duration(milliseconds: 300),
-                  child: titleWidget,
-                );
-                return widget.desktop
-                    ? switcher
-                    : ExcludeSemantics(child: switcher);
-              },
+                    child: toolbar,
+                  ),
+                ),
+              ),
             ),
           ),
-          if (widget.menu != null) ...[const SizedBox(width: 8), widget.menu!],
+          Positioned.fill(
+            child: IgnorePointer(
+              ignoring: !selecting,
+              child: ExcludeSemantics(
+                excluding: !selecting,
+                child: DitherSwitcher(
+                  expand: true,
+                  duration: const Duration(milliseconds: 200),
+                  child: selecting
+                      ? Row(
+                          key: const ValueKey('download_delete_actions'),
+                          children: [
+                            if (widget.desktop && title != null) ...[
+                              Expanded(
+                                child: _CollapsedDownloadTitle(
+                                  title: title,
+                                  showPoster: false,
+                                ),
+                              ),
+                              const SizedBox(width: 16),
+                            ],
+                            Flexible(
+                              fit: FlexFit.tight,
+                              child: widget.selectionActions!,
+                            ),
+                          ],
+                        )
+                      : const SizedBox.shrink(
+                          key: ValueKey('download_delete_no_actions'),
+                        ),
+                ),
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -398,17 +463,14 @@ class DownloadLibraryGallery extends StatelessWidget {
   const DownloadLibraryGallery({
     required this.titles,
     required this.onOpenTitle,
-    required this.menu,
     super.key,
   });
 
   final List<DownloadTitle> titles;
   final ValueChanged<DownloadTitle> onOpenTitle;
-  final Widget menu;
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
     return LayoutBuilder(
       builder: (context, constraints) {
         final scale = MediaQuery.textScalerOf(context).scale(16) / 16;
@@ -422,26 +484,6 @@ class DownloadLibraryGallery extends StatelessWidget {
           crossAxisCount: columns,
           columnSpacing: gap,
           rowSpacing: constraints.maxWidth < 600 ? 24 : 32,
-          header: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
-                children: [
-                  Text(
-                    l10n.downloadLibraryCount(titles.length),
-                    style: Theme.of(context).textTheme.labelLarge,
-                  ),
-                  const Spacer(),
-                  menu,
-                ],
-              ),
-              const Padding(
-                padding: EdgeInsets.only(top: 8),
-                child: SegmentedRule(),
-              ),
-              const SizedBox(height: 18),
-            ],
-          ),
           itemBuilder: (context, title) => _GalleryTitle(
             title: title,
             horizontal: horizontal,

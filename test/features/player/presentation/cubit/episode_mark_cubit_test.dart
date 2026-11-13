@@ -549,7 +549,7 @@ class _ToggleSaveRepository extends MockUserRateRepository {
     required String animeId,
     required String? rateId,
     UserRateStatus? status,
-    required int episodes,
+    int? episodes,
     int? score,
     int? rewatches,
   }) {
@@ -582,7 +582,7 @@ class _GatedFetchRepository extends MockUserRateRepository {
     required String animeId,
     required String? rateId,
     UserRateStatus? status,
-    required int episodes,
+    int? episodes,
     int? score,
     int? rewatches,
   }) {
@@ -637,7 +637,7 @@ class _FailingOnceRepository extends MockUserRateRepository {
     required String animeId,
     required String? rateId,
     UserRateStatus? status,
-    required int episodes,
+    int? episodes,
     int? score,
     int? rewatches,
   }) {

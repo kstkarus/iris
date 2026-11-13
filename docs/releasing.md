@@ -26,6 +26,7 @@ The version is raised per release, not per commit. Since commits follow [Convent
 The tag runs `.github/workflows/release.yml`:
 
 - It first checks that the tag matches `pubspec.yaml` and that `CHANGELOG.md` has the version's section, and stops otherwise.
+- Before any platform build, the reusable `.github/workflows/checks.yml` workflow runs `flutter analyze --no-pub` and `flutter test --no-pub` on Windows with the pinned Flutter version. A failed check stops the release builds. The same checks run on pull requests and pushes to `main`.
 - It builds the APKs, the Windows archive and per-user installer, and an unsigned iOS IPA on macOS. The tag becomes the version name and the run number the build number.
 - It publishes them as a GitHub release, with the changelog section as the release text.
 

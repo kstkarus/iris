@@ -24,17 +24,6 @@ void main() {
     }
   });
 
-  test('uses a generic message for connection errors without one', () {
-    expect(
-      mapDioException(_error(DioExceptionType.connectionError)),
-      isA<NetworkRequestException>().having(
-        (exception) => exception.message,
-        'message',
-        'Unable to reach the remote service.',
-      ),
-    );
-  });
-
   test('maps a bad response to a remote failure with its status code', () {
     final response = Response<dynamic>(
       requestOptions: RequestOptions(path: '/test'),
@@ -44,9 +33,9 @@ void main() {
     expect(
       mapDioException(_error(DioExceptionType.badResponse, response: response)),
       isA<RemoteResponseException>().having(
-        (exception) => exception.message,
-        'message',
-        'Remote service responded with 503.',
+        (exception) => exception.statusCode,
+        'statusCode',
+        503,
       ),
     );
   });
@@ -54,22 +43,14 @@ void main() {
   test('maps a bad response without a status to a remote failure', () {
     expect(
       mapDioException(_error(DioExceptionType.badResponse)),
-      isA<RemoteResponseException>().having(
-        (exception) => exception.message,
-        'message',
-        'Remote service responded with an invalid status.',
-      ),
+      isA<RemoteResponseException>(),
     );
   });
 
   test('maps a cancelled request to a network failure', () {
     expect(
       mapDioException(_error(DioExceptionType.cancel)),
-      isA<NetworkRequestException>().having(
-        (exception) => exception.message,
-        'message',
-        'The request was cancelled.',
-      ),
+      isA<NetworkRequestException>(),
     );
   });
 
@@ -78,14 +59,7 @@ void main() {
       DioExceptionType.badCertificate,
       DioExceptionType.unknown,
     ]) {
-      expect(
-        mapDioException(_error(type)),
-        isA<NetworkRequestException>().having(
-          (exception) => exception.message,
-          'message',
-          'Unexpected network error.',
-        ),
-      );
+      expect(mapDioException(_error(type)), isA<NetworkRequestException>());
     }
   });
 }

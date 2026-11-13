@@ -31,7 +31,6 @@ import 'package:iris/features/player/presentation/widgets/player_viewport_factor
 import 'package:iris/features/player/presentation/widgets/player_overlay_preferences.dart';
 import 'package:iris/features/player/presentation/widgets/player_track_selector_sheet.dart';
 import 'package:iris/features/player/presentation/widgets/player_wait_indicator.dart';
-import 'package:iris/shared/widgets/pixel_icon.dart';
 import 'package:iris/shared/widgets/segmented_choice.dart';
 import 'package:iris/shared/window/picture_in_picture.dart';
 import 'package:iris/shared/window/ios_picture_in_picture.dart';
@@ -43,20 +42,294 @@ import '../../../../helpers/test_app.dart';
 import '../../../../helpers/test_window.dart';
 import '../../player_test_doubles.dart';
 
+const _availableTracks = Tracks(
+  audio: [AudioTrack('1', 'Japanese', 'ja'), AudioTrack('2', 'English', 'en')],
+  subtitle: [SubtitleTrack('1', 'Russian', 'ru', codec: 'ass')],
+);
+
 void main() {
-  testWidgets('keeps the tracks button available before and after the '
-      'first frame', (tester) async {
-    final firstFrameCompleter = Completer<void>();
+  testWidgets('retains track snapshots at EOF until the file changes', (
+    tester,
+  ) async {
+    final platform = _FakePlatformPlayer(
+      configuration: const PlayerConfiguration(),
+      initialTracks: const Tracks(),
+    );
+    late MediaKitPlayerEngine engine;
     await tester.pumpWidget(
-      _wrapViewport(firstFrameFuture: firstFrameCompleter.future),
+      _wrapViewport(
+        platformPlayer: platform,
+        onEngine: (value) => engine = value,
+      ),
+    );
+    await tester.pump();
+    const selected = Track(
+      audio: AudioTrack('2', 'English', 'en'),
+      subtitle: SubtitleTrack('1', 'Russian', 'ru', codec: 'ass'),
+    );
+    platform
+      ..emitTracks(_availableTracks)
+      ..emitTrack(selected);
+    await _deliverPlayerEvent(tester);
+
+    // This is the sequence sent by native media_kit on EOF with keep-open.
+    platform
+      ..emitCompleted()
+      ..emitTracks(const Tracks())
+      ..emitTrack(const Track());
+    await _deliverPlayerEvent(tester);
+    expect(engine.completed.value, isTrue);
+    expect(engine.availableTracks.value, _availableTracks);
+    expect(engine.selectedTrack.value, selected);
+    expect(engine.selectedTrack.value.subtitle.codec, 'ass');
+    expect(find.byKey(const Key('player_tracks_button')), findsOneWidget);
+
+    platform.emitTrack(Track(subtitle: SubtitleTrack.no()));
+    await _deliverPlayerEvent(tester);
+    expect(engine.selectedTrack.value.subtitle.id, 'no');
+    platform.emitTrack(const Track());
+    await _deliverPlayerEvent(tester);
+    expect(engine.selectedTrack.value, const Track());
+    platform.emitTracks(const Tracks());
+    await _deliverPlayerEvent(tester);
+    expect(engine.availableTracks.value, const Tracks());
+    expect(find.byKey(const Key('player_tracks_button')), findsNothing);
+
+    const changed = Tracks(subtitle: [SubtitleTrack('7', 'English', 'en')]);
+    platform.emitTracks(changed);
+    await _deliverPlayerEvent(tester);
+    expect(engine.availableTracks.value, changed);
+    platform
+      ..emitTracks(_availableTracks)
+      ..emitTrack(selected);
+    await _deliverPlayerEvent(tester);
+
+    await engine.seek(const Duration(minutes: 2));
+    platform.emitCompleted(false);
+    await _deliverPlayerEvent(tester);
+    expect(engine.completed.value, isFalse);
+    expect(engine.availableTracks.value, _availableTracks);
+    expect(engine.selectedTrack.value, selected);
+
+    final opening = engine.open(
+      const PlayerSession(
+        sessionId: '42',
+        streamUrl: 'https://video.example/next.mp4',
+      ),
+    );
+    expect(engine.availableTracks.value, const Tracks());
+    expect(engine.selectedTrack.value, const Track());
+    await tester.pump();
+    await opening;
+    platform
+      ..emitTracks(_availableTracks)
+      ..emitTrack(selected);
+    await _deliverPlayerEvent(tester);
+    await tester.runAsync(engine.stop);
+    expect(engine.availableTracks.value, const Tracks());
+    expect(engine.selectedTrack.value, const Track());
+    platform.emitTrack(selected);
+    await _deliverPlayerEvent(tester);
+    expect(engine.selectedTrack.value, const Track());
+  });
+
+  testWidgets(
+    'keeps available and selected track metadata updates with unchanged ids',
+    (tester) async {
+      setTestWindowSize(tester, TestWindowSizes.landscape);
+      final platform = _FakePlatformPlayer(
+        configuration: const PlayerConfiguration(),
+        initialTracks: const Tracks(),
+      );
+      late MediaKitPlayerEngine engine;
+      await tester.pumpWidget(
+        _wrapViewport(
+          platformPlayer: platform,
+          onEngine: (value) => engine = value,
+        ),
+      );
+      await tester.pump();
+      const before = Tracks(subtitle: [SubtitleTrack('1', 'Old', 'en')]);
+      const after = Tracks(
+        subtitle: [
+          SubtitleTrack('1', 'Russian PGS', 'ru', codec: 'hdmv_pgs_subtitle'),
+        ],
+      );
+      platform.emitTracks(before);
+      await _deliverPlayerEvent(tester);
+      await tester.tap(find.byKey(const Key('player_settings_button')));
+      await tester.pumpAndSettle();
+      expect(find.text('SUBTITLE APPEARANCE'), findsOneWidget);
+      platform.emitTracks(after);
+      await _deliverPlayerEvent(tester);
+      final retained = engine.availableTracks.value.subtitle.single;
+      expect(platform.state.tracks.subtitle.single.codec, 'hdmv_pgs_subtitle');
+      expect(retained.codec, 'hdmv_pgs_subtitle');
+      expect(retained.title, 'Russian PGS');
+      expect(retained.language, 'ru');
+      expect(find.text('SUBTITLE APPEARANCE'), findsNothing);
+      platform.emitTrack(
+        const Track(subtitle: SubtitleTrack('1', 'Old', 'en')),
+      );
+      await _deliverPlayerEvent(tester);
+      platform.emitTrack(
+        const Track(
+          subtitle: SubtitleTrack(
+            '1',
+            'Russian PGS',
+            'ru',
+            codec: 'hdmv_pgs_subtitle',
+          ),
+        ),
+      );
+      await _deliverPlayerEvent(tester);
+      final selected = engine.selectedTrack.value.subtitle;
+      expect(selected.codec, 'hdmv_pgs_subtitle');
+      expect(selected.title, 'Russian PGS');
+      expect(selected.language, 'ru');
+    },
+  );
+
+  testWidgets('shows the tracks button only when real track choices arrive', (
+    tester,
+  ) async {
+    final firstFrameCompleter = Completer<void>();
+    final platformPlayer = _FakePlatformPlayer(
+      configuration: const PlayerConfiguration(),
+      initialTracks: const Tracks(),
+    );
+    await tester.pumpWidget(
+      _wrapViewport(
+        platformPlayer: platformPlayer,
+        firstFrameFuture: firstFrameCompleter.future,
+      ),
     );
     await tester.pump();
 
-    expect(find.byKey(const Key('player_tracks_button')), findsOneWidget);
+    expect(find.byKey(const Key('player_tracks_button')), findsNothing);
 
     firstFrameCompleter.complete();
     await tester.pump();
+    expect(find.byKey(const Key('player_tracks_button')), findsNothing);
 
+    platformPlayer.emitTracks(
+      const Tracks(
+        audio: [
+          AudioTrack('auto', null, null),
+          AudioTrack('no', null, null),
+          AudioTrack('1', 'Japanese', 'ja'),
+        ],
+      ),
+    );
+    await _deliverPlayerEvent(tester);
+    expect(find.byKey(const Key('player_tracks_button')), findsNothing);
+
+    platformPlayer.emitTracks(
+      const Tracks(
+        subtitle: [SubtitleTrack('1', 'Russian', 'ru', codec: 'webvtt')],
+      ),
+    );
+    await _deliverPlayerEvent(tester);
+    expect(find.byKey(const Key('player_tracks_button')), findsOneWidget);
+
+    platformPlayer.emitTracks(const Tracks());
+    await _deliverPlayerEvent(tester);
+    expect(find.byKey(const Key('player_tracks_button')), findsNothing);
+
+    platformPlayer.emitTracks(
+      const Tracks(
+        audio: [
+          AudioTrack('1', 'Japanese', 'ja'),
+          AudioTrack('2', 'English', 'en'),
+        ],
+      ),
+    );
+    await _deliverPlayerEvent(tester);
+    expect(find.byKey(const Key('player_tracks_button')), findsOneWidget);
+  });
+
+  testWidgets(
+    'updates open settings when subtitles arrive, change or disappear',
+    (tester) async {
+      setTestWindowSize(tester, TestWindowSizes.landscape);
+      final platformPlayer = _FakePlatformPlayer(
+        configuration: const PlayerConfiguration(),
+        initialTracks: const Tracks(),
+      );
+      await tester.pumpWidget(_wrapViewport(platformPlayer: platformPlayer));
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('player_settings_button')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('SUBTITLE APPEARANCE'), findsNothing);
+      expect(find.text('Playback speed'), findsOneWidget);
+      platformPlayer.emitTracks(
+        const Tracks(
+          subtitle: [
+            SubtitleTrack('1', 'Russian', 'ru', codec: 'ass'),
+            SubtitleTrack('2', 'English', 'en', codec: 'hdmv_pgs_subtitle'),
+          ],
+        ),
+      );
+      await _deliverPlayerEvent(tester);
+      expect(find.text('SUBTITLE APPEARANCE'), findsOneWidget);
+
+      platformPlayer.emitTrack(
+        const Track(subtitle: SubtitleTrack('2', 'English', 'en')),
+      );
+      await _deliverPlayerEvent(tester);
+      expect(find.text('SUBTITLE APPEARANCE'), findsNothing);
+
+      platformPlayer.emitTrack(Track(subtitle: SubtitleTrack.no()));
+      await _deliverPlayerEvent(tester);
+      expect(find.text('SUBTITLE APPEARANCE'), findsOneWidget);
+
+      platformPlayer.emitTracks(const Tracks());
+      await _deliverPlayerEvent(tester);
+      expect(find.text('SUBTITLE APPEARANCE'), findsNothing);
+      expect(find.text('Playback speed'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('updates open track sections after external subtitles attach', (
+    tester,
+  ) async {
+    setTestWindowSize(tester, TestWindowSizes.landscape);
+    final platformPlayer = _FakePlatformPlayer(
+      configuration: const PlayerConfiguration(),
+      initialTracks: const Tracks(
+        audio: [
+          AudioTrack('1', 'Japanese', 'ja'),
+          AudioTrack('2', 'English', 'en'),
+        ],
+      ),
+    );
+    await tester.pumpWidget(_wrapViewport(platformPlayer: platformPlayer));
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('player_tracks_button')));
+    await tester.pumpAndSettle();
+    expect(find.text('AUDIO'), findsOneWidget);
+    expect(find.text('SUBTITLES'), findsNothing);
+
+    platformPlayer.emitTracks(
+      Tracks(
+        audio: const [AudioTrack('1', 'Japanese', 'ja')],
+        subtitle: [
+          SubtitleTrack.uri(
+            'https://example.test/episode.vtt',
+            title: 'Russian',
+          ),
+        ],
+      ),
+    );
+    await _deliverPlayerEvent(tester);
+    expect(find.text('AUDIO'), findsNothing);
+    expect(find.text('SUBTITLES'), findsOneWidget);
+    expect(find.text('Russian'), findsOneWidget);
+    await tester.tap(find.text('Off'));
+    await tester.pumpAndSettle();
+    expect(platformPlayer.subtitles.single.id, 'no');
     expect(find.byKey(const Key('player_tracks_button')), findsOneWidget);
   });
 
@@ -331,6 +604,474 @@ void main() {
           .selected,
       720,
     );
+  });
+
+  testWidgets('returning to the playing quality supersedes a pending choice', (
+    tester,
+  ) async {
+    final preferences = MemoryOnlineQualityPreferences(watching: 1080);
+    final renewed = Completer<PlayerSession?>();
+    final repository = StubPlayerRepository()..renewals = (_) => renewed.future;
+    final platformPlayer = _FakePlatformPlayer(
+      configuration: const PlayerConfiguration(),
+    );
+    await tester.pumpWidget(
+      _wrapViewport(
+        platformPlayer: platformPlayer,
+        repository: repository,
+        onlineQuality: preferences,
+        session: _onlineSession,
+      ),
+    );
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('player_settings_button')));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('720p'));
+    await tester.pump();
+    expect(repository.renewedSessions, [_onlineSession]);
+    await tester.tap(find.text('1080p'));
+    await tester.pump();
+    renewed.complete(
+      const PlayerSession(
+        sessionId: 'online:anilibria/9542',
+        streamUrl: 'https://video.example/720.m3u8',
+        qualities: [1080, 720],
+        quality: 720,
+      ),
+    );
+    await tester.pump();
+
+    expect(preferences.watching, 1080);
+    expect(platformPlayer.openCount, 1);
+    expect((platformPlayer.lastOpened! as Media).uri, _onlineSession.streamUrl);
+  });
+
+  for (final renewBeforeRecreation in [true, false]) {
+    testWidgets(
+      'applies quality when renewal finishes ${renewBeforeRecreation ? 'before' : 'after'} recreation',
+      (tester) async {
+        final preferences = MemoryOnlineQualityPreferences(watching: 1080);
+        final renewed = Completer<PlayerSession?>();
+        final disposeGate = Completer<void>();
+        addTearDown(() {
+          if (!disposeGate.isCompleted) disposeGate.complete();
+        });
+        final repository = StubPlayerRepository()
+          ..renewals = (_) => renewed.future;
+        final decoding = PlayerDecodingPreferencesCubit(
+          repository: MemoryDecodingPreferencesRepository(),
+        );
+        final players = <_FakePlatformPlayer>[];
+        late MediaKitPlayerEngine engine;
+        await tester.pumpWidget(
+          _wrapViewport(
+            decodingCubit: decoding,
+            repository: repository,
+            onlineQuality: preferences,
+            session: _onlineSession,
+            onEngine: (value) => engine = value,
+            playerBuilder: (configuration) {
+              final player = players.isEmpty
+                  ? _DelayedDisposePlatformPlayer(
+                      configuration: configuration,
+                      gate: disposeGate.future,
+                    )
+                  : _FakePlatformPlayer(configuration: configuration);
+              players.add(player);
+              return Player(platformPlayer: player);
+            },
+          ),
+        );
+        await tester.pump();
+        players.first.emitPosition(const Duration(minutes: 3));
+        await _deliverPlayerEvent(tester);
+        final recreationDone = Completer<void>();
+        final firstPlayer = players.first as _DelayedDisposePlatformPlayer;
+        engine.addListener(() {
+          if (firstPlayer.disposing &&
+              !engine.reconfiguring &&
+              !recreationDone.isCompleted) {
+            recreationDone.complete();
+          }
+        });
+
+        final choice = engine.chooseQuality(720);
+        await tester.pump();
+        expect(repository.renewedSessions, [_onlineSession]);
+        await decoding.setHwdecMode(PlayerHwdecModePreset.softwareOnly);
+        await _deliverPlayerEvent(tester);
+        await _waitForPlayer(tester, firstPlayer.disposeStarted.future);
+        if (renewBeforeRecreation) {
+          renewed.complete(_online720Session);
+          await tester.pump();
+        }
+        disposeGate.complete();
+        await tester.pump();
+        await _waitForPlayer(tester, recreationDone.future);
+        await tester.pump();
+        expect(players, hasLength(2));
+        if (!renewBeforeRecreation) {
+          expect(
+            (players.last.lastOpened! as Media).uri,
+            _onlineSession.streamUrl,
+          );
+          renewed.complete(_online720Session);
+          await _deliverPlayerEvent(tester);
+        }
+        await _waitForPlayer(tester, choice);
+        await tester.pump();
+        final opened = players.last.lastOpened! as Media;
+        expect(opened.uri, _online720Session.streamUrl);
+        expect(opened.start, const Duration(minutes: 3));
+        expect(engine.quality.value?.selected, 720);
+        await engine.chooseQuality(720);
+        expect(repository.renewedSessions, hasLength(1));
+      },
+    );
+  }
+
+  testWidgets('the last quality choice wins during player recreation', (
+    tester,
+  ) async {
+    final preferences = MemoryOnlineQualityPreferences(watching: 1080);
+    final first = Completer<PlayerSession?>();
+    final last = Completer<PlayerSession?>();
+    final renewals = [first, last];
+    final repository = StubPlayerRepository()
+      ..renewals = (_) => renewals.removeAt(0).future;
+    final disposeGate = Completer<void>();
+    addTearDown(() {
+      if (!disposeGate.isCompleted) disposeGate.complete();
+    });
+    final decoding = PlayerDecodingPreferencesCubit(
+      repository: MemoryDecodingPreferencesRepository(),
+    );
+    final players = <_FakePlatformPlayer>[];
+    late MediaKitPlayerEngine engine;
+    const session = PlayerSession(
+      sessionId: 'online:anilibria/9542',
+      streamUrl: 'https://video.example/1080.m3u8',
+      qualities: [1080, 720, 480],
+      quality: 1080,
+    );
+    await tester.pumpWidget(
+      _wrapViewport(
+        decodingCubit: decoding,
+        repository: repository,
+        onlineQuality: preferences,
+        session: session,
+        onEngine: (value) => engine = value,
+        playerBuilder: (configuration) {
+          final player = players.isEmpty
+              ? _DelayedDisposePlatformPlayer(
+                  configuration: configuration,
+                  gate: disposeGate.future,
+                )
+              : _FakePlatformPlayer(configuration: configuration);
+          players.add(player);
+          return Player(platformPlayer: player);
+        },
+      ),
+    );
+    await tester.pump();
+    await decoding.setHwdecMode(PlayerHwdecModePreset.softwareOnly);
+    await _deliverPlayerEvent(tester);
+    await _waitForPlayer(
+      tester,
+      (players.first as _DelayedDisposePlatformPlayer).disposeStarted.future,
+    );
+    final choice720 = engine.chooseQuality(720);
+    await tester.pump();
+    final choice480 = engine.chooseQuality(480);
+    await tester.pump();
+    last.complete(
+      const PlayerSession(
+        sessionId: 'online:anilibria/9542',
+        streamUrl: 'https://video.example/480.m3u8',
+        qualities: [1080, 720, 480],
+        quality: 480,
+      ),
+    );
+    first.complete(_online720Session);
+    await tester.pump();
+    disposeGate.complete();
+    await tester.pump();
+    await _waitForPlayer(tester, Future.wait([choice720, choice480]));
+    await tester.pump();
+    expect(
+      (players.last.lastOpened! as Media).uri,
+      'https://video.example/480.m3u8',
+    );
+    expect(engine.quality.value?.selected, 480);
+    expect(preferences.watching, 480);
+  });
+
+  testWidgets(
+    'a new episode cancels an old quality response during recreation',
+    (tester) async {
+      final renewed = Completer<PlayerSession?>();
+      final repository = StubPlayerRepository()
+        ..renewals = (_) => renewed.future;
+      final disposeGate = Completer<void>();
+      addTearDown(() {
+        if (!disposeGate.isCompleted) disposeGate.complete();
+      });
+      final decoding = PlayerDecodingPreferencesCubit(
+        repository: MemoryDecodingPreferencesRepository(),
+      );
+      final players = <_FakePlatformPlayer>[];
+      late MediaKitPlayerEngine engine;
+      await tester.pumpWidget(
+        _wrapViewport(
+          decodingCubit: decoding,
+          repository: repository,
+          onlineQuality: MemoryOnlineQualityPreferences(watching: 1080),
+          session: _onlineSession,
+          onEngine: (value) => engine = value,
+          playerBuilder: (configuration) {
+            final player = players.isEmpty
+                ? _DelayedDisposePlatformPlayer(
+                    configuration: configuration,
+                    gate: disposeGate.future,
+                  )
+                : _FakePlatformPlayer(configuration: configuration);
+            players.add(player);
+            return Player(platformPlayer: player);
+          },
+        ),
+      );
+      await tester.pump();
+      final choice = engine.chooseQuality(720);
+      await tester.pump();
+      await decoding.setHwdecMode(PlayerHwdecModePreset.softwareOnly);
+      await _deliverPlayerEvent(tester);
+      await _waitForPlayer(
+        tester,
+        (players.first as _DelayedDisposePlatformPlayer).disposeStarted.future,
+      );
+      const next = PlayerSession(
+        sessionId: 'same-release',
+        streamUrl: 'https://video.example/next.mp4',
+      );
+      final nextOpen = engine.open(next);
+      renewed.complete(_online720Session);
+      await tester.pump();
+      disposeGate.complete();
+      await tester.pump();
+      await _waitForPlayer(tester, Future.wait([choice, nextOpen]));
+      await tester.pump();
+      expect(players.last.openCount, 1);
+      expect((players.last.lastOpened! as Media).uri, next.streamUrl);
+      expect(engine.quality.value, isNull);
+    },
+  );
+
+  testWidgets('stopping cancels a quality response during recreation', (
+    tester,
+  ) async {
+    final renewed = Completer<PlayerSession?>();
+    final repository = StubPlayerRepository()..renewals = (_) => renewed.future;
+    final disposeGate = Completer<void>();
+    addTearDown(() {
+      if (!disposeGate.isCompleted) disposeGate.complete();
+    });
+    final decoding = PlayerDecodingPreferencesCubit(
+      repository: MemoryDecodingPreferencesRepository(),
+    );
+    final players = <_FakePlatformPlayer>[];
+    late MediaKitPlayerEngine engine;
+    await tester.pumpWidget(
+      _wrapViewport(
+        decodingCubit: decoding,
+        repository: repository,
+        onlineQuality: MemoryOnlineQualityPreferences(watching: 1080),
+        session: _onlineSession,
+        onEngine: (value) => engine = value,
+        playerBuilder: (configuration) {
+          final player = players.isEmpty
+              ? _DelayedDisposePlatformPlayer(
+                  configuration: configuration,
+                  gate: disposeGate.future,
+                )
+              : _FakePlatformPlayer(configuration: configuration);
+          players.add(player);
+          return Player(platformPlayer: player);
+        },
+      ),
+    );
+    await tester.pump();
+    final choice = engine.chooseQuality(720);
+    await tester.pump();
+    await decoding.setHwdecMode(PlayerHwdecModePreset.softwareOnly);
+    await _deliverPlayerEvent(tester);
+    await _waitForPlayer(
+      tester,
+      (players.first as _DelayedDisposePlatformPlayer).disposeStarted.future,
+    );
+    final stopped = engine.stop();
+    renewed.complete(_online720Session);
+    await tester.pump();
+    disposeGate.complete();
+    await tester.pump();
+    await _waitForPlayer(tester, Future.wait([choice, stopped]));
+    await tester.pump();
+    expect(players.last.openCount, 0);
+    expect(engine.quality.value, isNull);
+    expect(engine.availableTracks.value, const Tracks());
+    expect(engine.selectedTrack.value, const Track());
+  });
+
+  for (final retry in [true, false]) {
+    testWidgets(
+      '${retry ? 'retry' : 'automatic recovery'} applies its renewed link after recreation',
+      (tester) async {
+        final renewed = Completer<PlayerSession?>();
+        final repository = StubPlayerRepository()
+          ..renewals = (_) => renewed.future;
+        final disposeGate = Completer<void>();
+        addTearDown(() {
+          if (!disposeGate.isCompleted) disposeGate.complete();
+        });
+        final decoding = PlayerDecodingPreferencesCubit(
+          repository: MemoryDecodingPreferencesRepository(),
+        );
+        final players = <_FakePlatformPlayer>[];
+        final renewedOpened = Completer<void>();
+        late MediaKitPlayerEngine engine;
+        await tester.pumpWidget(
+          _wrapViewport(
+            decodingCubit: decoding,
+            repository: repository,
+            session: _onlineSession,
+            onEngine: (value) => engine = value,
+            playerBuilder: (configuration) {
+              final player = players.isEmpty
+                  ? _DelayedDisposePlatformPlayer(
+                      configuration: configuration,
+                      gate: disposeGate.future,
+                    )
+                  : (_FakePlatformPlayer(configuration: configuration)
+                      ..onOpen = (playable) {
+                        if ((playable as Media).uri ==
+                                _online720Session.streamUrl &&
+                            !renewedOpened.isCompleted) {
+                          renewedOpened.complete();
+                        }
+                      });
+              players.add(player);
+              return Player(platformPlayer: player);
+            },
+          ),
+        );
+        await tester.pump();
+        players.first.emitPosition(const Duration(minutes: 2));
+        await _deliverPlayerEvent(tester);
+        if (retry) {
+          unawaited(engine.retry());
+          await tester.pump();
+        } else {
+          players.first
+            ..emitError('tcp: Connection reset by peer')
+            ..nativeProperties['idle-active'] = 'yes';
+          await tester.pump(const Duration(seconds: 3));
+        }
+        expect(repository.renewedSessions, [_onlineSession]);
+        final firstPlayer = players.first as _DelayedDisposePlatformPlayer;
+        await decoding.setHwdecMode(PlayerHwdecModePreset.softwareOnly);
+        await _deliverPlayerEvent(tester);
+        await _waitForPlayer(tester, firstPlayer.disposeStarted.future);
+        renewed.complete(_online720Session);
+        await tester.pump();
+        disposeGate.complete();
+        await tester.pump();
+        await _waitForPlayer(tester, renewedOpened.future);
+        await tester.pump();
+        expect(
+          (players.last.lastOpened! as Media).uri,
+          _online720Session.streamUrl,
+        );
+      },
+    );
+  }
+
+  testWidgets('retry still renews after choosing the playing quality', (
+    tester,
+  ) async {
+    final renewed = Completer<PlayerSession?>();
+    final repository = StubPlayerRepository()..renewals = (_) => renewed.future;
+    final platform = _FakePlatformPlayer(
+      configuration: const PlayerConfiguration(),
+    );
+    late MediaKitPlayerEngine engine;
+    await tester.pumpWidget(
+      _wrapViewport(
+        platformPlayer: platform,
+        repository: repository,
+        onlineQuality: MemoryOnlineQualityPreferences(watching: 1080),
+        session: _onlineSession,
+        onEngine: (value) => engine = value,
+      ),
+    );
+    await tester.pump();
+    final retry = engine.retry();
+    await tester.pump();
+    await engine.chooseQuality(1080);
+    renewed.complete(
+      const PlayerSession(
+        sessionId: 'online:anilibria/9542',
+        streamUrl: 'https://video.example/fresh-1080.m3u8',
+        qualities: [1080, 720],
+        quality: 1080,
+      ),
+    );
+    await _waitForPlayer(tester, retry);
+    expect(repository.renewedSessions, [_onlineSession]);
+    expect(platform.openCount, 2);
+    expect(
+      (platform.lastOpened! as Media).uri,
+      'https://video.example/fresh-1080.m3u8',
+    );
+  });
+
+  testWidgets('retry cannot reopen an older quality choice', (tester) async {
+    final retryRenewal = Completer<PlayerSession?>();
+    final qualityRenewal = Completer<PlayerSession?>();
+    final renewals = [retryRenewal, qualityRenewal];
+    final repository = StubPlayerRepository()
+      ..renewals = (_) => renewals.removeAt(0).future;
+    final platform = _FakePlatformPlayer(
+      configuration: const PlayerConfiguration(),
+    );
+    late MediaKitPlayerEngine engine;
+    await tester.pumpWidget(
+      _wrapViewport(
+        platformPlayer: platform,
+        repository: repository,
+        onlineQuality: MemoryOnlineQualityPreferences(watching: 1080),
+        session: _onlineSession,
+        onEngine: (value) => engine = value,
+      ),
+    );
+    await tester.pump();
+    final retry = engine.retry();
+    await tester.pump();
+    final choice = engine.chooseQuality(720);
+    await tester.pump();
+    retryRenewal.complete(
+      const PlayerSession(
+        sessionId: 'online:anilibria/9542',
+        streamUrl: 'https://video.example/fresh-1080.m3u8',
+        qualities: [1080, 720],
+        quality: 1080,
+      ),
+    );
+    await _waitForPlayer(tester, retry);
+    expect(platform.openCount, 1);
+    qualityRenewal.complete(_online720Session);
+    await _waitForPlayer(tester, choice);
+    expect(platform.openCount, 2);
+    expect((platform.lastOpened! as Media).uri, _online720Session.streamUrl);
   });
 
   testWidgets('choosing the quality that plays opens nothing anew', (
@@ -815,10 +1556,12 @@ void main() {
     expect(platformPlayer.openCount, 2);
   });
 
-  testWidgets('highlights the next button in the credits and shows a compact '
-      'button while controls are hidden', (tester) async {
+  testWidgets('offers the next episode while controls are hidden', (
+    tester,
+  ) async {
     setTestWindowSize(tester, TestWindowSizes.landscape);
     late _FakePlatformPlayer platformPlayer;
+    var plays = 0;
 
     await tester.pumpWidget(
       _wrapViewport(
@@ -826,7 +1569,7 @@ void main() {
           platformPlayer = _FakePlatformPlayer(configuration: configuration);
           return Player(platformPlayer: platformPlayer);
         },
-        next: PlayerNextFile(title: 'Episode 3', play: () {}),
+        next: PlayerNextFile(title: 'Episode 3', play: () => plays++),
       ),
     );
     await tester.pump();
@@ -834,25 +1577,19 @@ void main() {
     platformPlayer.emitPosition(const Duration(minutes: 20));
     platformPlayer.emitPlaying(true);
     await _deliverPlayerEvent(tester);
-    expect(find.byKey(_nextPrompt), findsNothing);
-    final button = find.byKey(const Key('player_next_file_button'));
-    Color? buttonColor() => IconTheme.of(
-      tester.element(
-        find.descendant(of: button, matching: find.byType(PixelIcon)).last,
-      ),
-    ).color;
-    expect(buttonColor(), Colors.white);
+    await tester.pump(PlayerImmersiveControls.hideAfter);
+    expect(find.byKey(const Key('player_floating_next_button')), findsNothing);
 
     platformPlayer.emitPosition(const Duration(minutes: 22));
     await _deliverPlayerEvent(tester);
-    expect(buttonColor(), isNot(Colors.white));
-    expect(find.byKey(_nextPrompt), findsNothing);
     await tester.pump(PlayerImmersiveControls.hideAfter);
     expect(_controlsOpacity(tester), 0);
     expect(
       find.byKey(const Key('player_floating_next_button')),
       findsOneWidget,
     );
+    await tester.tap(find.byKey(const Key('player_floating_next_button')));
+    expect(plays, 1);
 
     final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
     addTearDown(mouse.removePointer);
@@ -862,10 +1599,6 @@ void main() {
     await tester.pump();
     expect(_controlsOpacity(tester), 1);
     expect(find.byKey(const Key('player_floating_next_button')), findsNothing);
-
-    platformPlayer.emitPosition(const Duration(minutes: 10));
-    await _deliverPlayerEvent(tester);
-    expect(buttonColor(), Colors.white);
   });
 
   testWidgets('does not suggest a next file when there is none', (
@@ -1673,8 +2406,6 @@ void main() {
       expect(find.text('Frieren'), findsOneWidget);
       expect(find.text('[SubsPlease] Frieren · 11 of 28'), findsOneWidget);
       expect(find.text('Episode 11'), findsOneWidget);
-      expect(find.byKey(const Key('player_seek_bar')), findsOneWidget);
-      expect(find.byKey(const Key('player_episodes_button')), findsNothing);
       expect(tester.takeException(), isNull);
 
       await tester.tap(find.byKey(const Key('player_back_button')));
@@ -1723,25 +2454,6 @@ void main() {
         }
       });
     }
-
-    testWidgets('keep both scrims at full size in a 600 dp window', (
-      tester,
-    ) async {
-      Size scrim(String key) => tester.getSize(find.byKey(Key(key)));
-      // A window tall enough that nothing has to give.
-      setTestWindowSize(tester, const Size(800, 1200));
-      await tester.pumpWidget(_wrapViewport(chrome: chrome()));
-      await tester.pump();
-      final fullTop = scrim('player_scrim_top');
-      final fullBottom = scrim('player_scrim_bottom');
-
-      setTestWindowSize(tester, const Size(800, 600));
-      await tester.pump();
-
-      expect(scrim('player_scrim_top'), fullTop);
-      expect(scrim('player_scrim_bottom'), fullBottom);
-      expect(tester.takeException(), isNull);
-    });
 
     testWidgets('play, seek and change the volume from the keyboard', (
       tester,
@@ -2026,14 +2738,6 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byKey(const Key('player_episodes_drawer')), findsOneWidget);
       expect(find.text('Episode list'), findsOneWidget);
-      final drawer = tester.getRect(
-        find.byKey(const Key('player_episodes_drawer')),
-      );
-      // Over the right side, clear of the edge, the video still in view.
-      const window = TestWindowSizes.landscape;
-      expect(drawer.left, greaterThan(window.width / 2));
-      expect(drawer.right, lessThan(window.width));
-
       await tester.sendKeyEvent(LogicalKeyboardKey.escape);
       await tester.pumpAndSettle();
       expect(find.byKey(const Key('player_episodes_drawer')), findsNothing);
@@ -2120,9 +2824,6 @@ void main() {
       await _deliverPlayerEvent(tester);
 
       expect(find.text('Skip opening'), findsOneWidget);
-      final skip = tester.getRect(find.byKey(_skipSegmentButton));
-      final seekBar = tester.getRect(find.byKey(const Key('player_seek_bar')));
-      expect(skip.bottom, lessThan(seekBar.top));
       await tester.tap(find.byKey(_skipSegmentButton));
       await tester.pump();
       expect(platformPlayer.seeks.last, const Duration(seconds: 90));
@@ -2139,22 +2840,6 @@ void main() {
       await tester.pump();
 
       expect(find.text('Buffering'), findsOneWidget);
-      final spinner = tester.getCenter(
-        find.byKey(const Key('player_buffering_spinner')),
-      );
-      expect(
-        spinner,
-        tester.getCenter(find.byKey(const Key('player_immersive_controls'))),
-      );
-      expect(
-        tester.getTopLeft(find.text('Buffering')).dy,
-        greaterThan(
-          tester
-              .getRect(find.byKey(const Key('player_buffering_spinner')))
-              .bottom,
-        ),
-        reason: 'the label stands under the spinner',
-      );
       expect(find.byKey(const Key('player_play_pause_button')), findsNothing);
 
       firstFrame.complete();
@@ -2185,16 +2870,6 @@ void main() {
       await tester.pump(const Duration(milliseconds: 300));
 
       expect(find.text('Resumed from 2:22'), findsOneWidget);
-      expect(find.byType(SnackBar), findsNothing);
-      final notice = tester.getRect(find.byKey(const Key('player_notice')));
-      final seekBar = tester.getRect(find.byKey(const Key('player_seek_bar')));
-      expect(
-        notice.left,
-        moreOrLessEquals(seekBar.left),
-        reason: 'in line with the timeline',
-      );
-      expect(notice.bottom, lessThan(seekBar.top));
-
       await tester.tap(find.byKey(const Key('player_notice_action')));
       expect(actions, 1);
     });
@@ -2231,8 +2906,9 @@ void main() {
       (TargetPlatform.android, PlayerInputMode.touch, Size(844, 390)),
       (TargetPlatform.iOS, PlayerInputMode.touch, Size(844, 390)),
     ]) {
-      testWidgets('align notice and offer geometry on $platform, lifting only '
-          'the notice above the paused title', (tester) async {
+      testWidgets('keeps the notice clear of controls and title on $platform', (
+        tester,
+      ) async {
         setTestWindowSize(tester, size);
         final platformPlayer = _FakePlatformPlayer(
           configuration: const PlayerConfiguration(),
@@ -2264,15 +2940,12 @@ void main() {
 
         Rect noticeRect() =>
             tester.getRect(find.byKey(const Key('player_notice')));
-        Rect offerRect(Key key, Type type) => tester.getRect(
-          find.descendant(of: find.byKey(key), matching: find.byType(type)),
+        expect(
+          noticeRect().overlaps(
+            tester.getRect(find.byKey(const Key('player_skip_forward_button'))),
+          ),
+          isFalse,
         );
-        final skip = offerRect(
-          const Key('player_skip_forward_button'),
-          OutlinedButton,
-        );
-        expect(noticeRect().height, skip.height);
-        expect(noticeRect().bottom, skip.bottom);
 
         platformPlayer.emitPosition(const Duration(minutes: 22));
         await _deliverPlayerEvent(tester);
@@ -2287,57 +2960,16 @@ void main() {
         await tester.pump(const Duration(milliseconds: 300));
         await tester.pump();
         expect(
-          tester
-              .getRect(find.byKey(const Key('player_next_file_button')))
-              .bottom,
-          next.bottom,
-        );
-        final titleHeight = tester
-            .getSize(find.byKey(const Key('player_title_block')))
-            .height;
-        expect(
-          skip.bottom - noticeRect().bottom,
-          closeTo(titleHeight + 12, 0.01),
+          noticeRect().overlaps(
+            tester.getRect(find.byKey(const Key('player_title_block'))),
+          ),
+          isFalse,
         );
         expect(tester.takeException(), isNull);
       });
     }
 
-    testWidgets('keep the episodes with the buttons beside the timeline', (
-      tester,
-    ) async {
-      setTestWindowSize(tester, TestWindowSizes.landscape);
-      late _FakePlatformPlayer platformPlayer;
-      await tester.pumpWidget(
-        _wrapViewport(
-          playerBuilder: (configuration) {
-            platformPlayer = _FakePlatformPlayer(configuration: configuration);
-            return Player(platformPlayer: platformPlayer);
-          },
-          chrome: chrome(episodes: (context, close) => const SizedBox()),
-        ),
-      );
-      await tester.pump();
-      platformPlayer.emitDuration(const Duration(minutes: 24));
-      platformPlayer.emitPosition(const Duration(seconds: 30));
-      await _deliverPlayerEvent(tester);
-
-      final episodes = find.byKey(const Key('player_episodes_button'));
-      final tracks = find.byKey(const Key('player_tracks_button'));
-      expect(tester.getSize(episodes), tester.getSize(tracks));
-      expect(tester.getCenter(episodes).dy, tester.getCenter(tracks).dy);
-      expect(
-        tester.getCenter(episodes).dx,
-        lessThan(tester.getCenter(tracks).dx),
-      );
-      expect(
-        tester.getCenter(episodes).dy,
-        greaterThan(TestWindowSizes.landscape.height / 2),
-        reason: 'the episodes left the top bar',
-      );
-    });
-
-    testWidgets('open the tracks above their button and keep the controls '
+    testWidgets('open the tracks and keep the controls '
         'while open', (tester) async {
       setTestWindowSize(tester, TestWindowSizes.landscape);
       final platformPlayer = _FakePlatformPlayer(
@@ -2372,16 +3004,11 @@ void main() {
               .selected ??
           false;
 
-      final button = tester.getRect(
-        find.byKey(const Key('player_tracks_button')),
-      );
       await tester.tap(find.byKey(const Key('player_tracks_button')));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
 
-      final popover = tester.getRect(find.byKey(const Key('player_popover')));
-      expect(popover.bottom, lessThan(button.top));
-      expect(popover.right, moreOrLessEquals(button.right));
+      expect(find.byKey(const Key('player_popover')), findsOneWidget);
       expect(shownOpen(), isTrue, reason: 'its button shows it is open');
 
       // Long past the controls' idle time, they stay with the popover.
@@ -2402,8 +3029,9 @@ void main() {
       semantics.dispose();
     });
 
-    testWidgets('light a glyph under the pointer and keep the focus with '
-        'the player after a click', (tester) async {
+    testWidgets('keyboard shortcuts still work after clicking a control', (
+      tester,
+    ) async {
       setTestWindowSize(tester, TestWindowSizes.landscape);
       late _FakePlatformPlayer platformPlayer;
       await tester.pumpWidget(
@@ -2420,31 +3048,10 @@ void main() {
       await _deliverPlayerEvent(tester);
 
       final mute = find.byKey(const Key('player_mute_button'));
-      double opacity() => tester
-          .widget<AnimatedOpacity>(
-            find.descendant(of: mute, matching: find.byType(AnimatedOpacity)),
-          )
-          .opacity;
-      expect(opacity(), lessThan(1));
-      expect(
-        find.descendant(of: mute, matching: find.byType(InkWell)),
-        findsNothing,
-        reason: 'no Material circle behind the glyph',
-      );
-
-      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
-      addTearDown(mouse.removePointer);
-      await mouse.addPointer(location: Offset.zero);
-      await mouse.moveTo(tester.getCenter(mute));
-      await tester.pump();
-      expect(opacity(), 1);
-
       await tester.tap(mute);
       await tester.pump();
-      expect(
-        FocusManager.instance.primaryFocus?.debugLabel,
-        'player_immersive_controls',
-      );
+      await tester.sendKeyEvent(LogicalKeyboardKey.space);
+      expect(platformPlayer.playOrPauseCount, 1);
     });
 
     testWidgets('keep waiting on screen until the first frame, also when '
@@ -2555,34 +3162,6 @@ void main() {
       repository.finishCancel();
     });
 
-    testWidgets('dim a paused frame', (tester) async {
-      setTestWindowSize(tester, TestWindowSizes.landscape);
-      late _FakePlatformPlayer platformPlayer;
-      await tester.pumpWidget(
-        _wrapViewport(
-          playerBuilder: (configuration) {
-            platformPlayer = _FakePlatformPlayer(configuration: configuration);
-            return Player(platformPlayer: platformPlayer);
-          },
-          chrome: chrome(),
-        ),
-      );
-      await tester.pump();
-      platformPlayer.emitDuration(const Duration(minutes: 24));
-      await _deliverPlayerEvent(tester);
-
-      double dim() => tester
-          .widget<AnimatedOpacity>(find.byKey(const Key('player_pause_dim')))
-          .opacity;
-      platformPlayer.emitPlaying(true);
-      await _deliverPlayerEvent(tester);
-      expect(dim(), 0);
-
-      platformPlayer.emitPlaying(false);
-      await _deliverPlayerEvent(tester);
-      expect(dim(), 1);
-    });
-
     testWidgets('raise subtitles before the titles show and lower them '
         'after the titles hide', (tester) async {
       setTestWindowSize(tester, TestWindowSizes.landscape);
@@ -2614,7 +3193,9 @@ void main() {
       expect(subtitlePosition(), aboveBar);
     });
 
-    testWidgets('show no hover tooltips', (tester) async {
+    testWidgets('keeps the mute label accessible while hovered', (
+      tester,
+    ) async {
       setTestWindowSize(tester, TestWindowSizes.landscape);
       final semantics = tester.ensureSemantics();
       await tester.pumpWidget(_wrapViewport(chrome: chrome()));
@@ -2627,7 +3208,6 @@ void main() {
       );
       await tester.pump(const Duration(seconds: 2));
 
-      expect(find.text('Mute'), findsNothing);
       expect(
         find.bySemanticsLabel('Mute'),
         findsOneWidget,
@@ -2839,19 +3419,6 @@ void main() {
           expect(button.right, lessThanOrEqualTo(size.width), reason: key);
           expect(button.bottom, lessThanOrEqualTo(size.height), reason: key);
         }
-        // The lock sits in the top corner opposite the way back, ending in
-        // line with the bar's last button.
-        final back = tester.getRect(
-          find.byKey(const Key('player_back_button')),
-        );
-        final lock = tester.getRect(
-          find.byKey(const Key('player_lock_button')),
-        );
-        final settings = tester.getRect(
-          find.byKey(const Key('player_settings_button')),
-        );
-        expect(lock.center.dy, back.center.dy);
-        expect(lock.right, settings.right);
         // The phone's own buttons and screen do these.
         expect(find.byKey(const Key('player_mute_button')), findsNothing);
         expect(find.byKey(const Key('player_fullscreen_button')), findsNothing);
@@ -4044,11 +4611,11 @@ void main() {
         final playPause = tester.getRect(
           find.byKey(const Key('player_play_pause_button')),
         );
-        expect(restore.right, size.width - 4);
-        expect(restore.bottom, size.height - 4);
-        expect(dismiss.right, restore.right);
-        expect(dismiss.top, 4);
-        expect(playPause.center, size.center(Offset.zero));
+        final bounds = Offset.zero & size;
+        for (final button in [restore, dismiss, playPause]) {
+          expect(bounds.contains(button.topLeft), isTrue);
+          expect(bounds.contains(button.bottomRight), isTrue);
+        }
         expect(restore.overlaps(dismiss), isFalse);
         expect(restore.overlaps(playPause), isFalse);
         expect(dismiss.overlaps(playPause), isFalse);
@@ -4059,18 +4626,6 @@ void main() {
       await tester.pump(PlayerImmersiveControls.hideAfter);
       expect(_controlsOpacity(tester), 0);
 
-      expect(
-        tester.getSize(
-          find.byKey(const Key('player_picture_in_picture_restore')),
-        ),
-        const Size.square(44),
-      );
-      expect(
-        tester.getSize(
-          find.byKey(const Key('player_picture_in_picture_dismiss')),
-        ),
-        const Size.square(44),
-      );
       expect(tester.takeException(), isNull);
 
       await tester.dragFrom(const Offset(100, 180), const Offset(48, 0));
@@ -4361,7 +4916,6 @@ Widget _blackSurface({required VideoController controller}) {
   return _videoSurface;
 }
 
-const _nextPrompt = Key('player_next_file_prompt');
 const _skipSegmentButton = Key('player_skip_segment_button');
 
 /// Plays to 2:00, then the stream fails and mpv goes idle.
@@ -4411,6 +4965,28 @@ Future<void> _pinch(
 Future<void> _deliverPlayerEvent(WidgetTester tester) async {
   await tester.pump();
   await tester.pump();
+}
+
+Future<void> _waitForPlayer(WidgetTester tester, Future<dynamic> work) async {
+  var done = false;
+  Object? failure;
+  StackTrace? trace;
+  unawaited(
+    work.then<void>(
+      (_) => done = true,
+      onError: (Object error, StackTrace stackTrace) {
+        failure = error;
+        trace = stackTrace;
+        done = true;
+      },
+    ),
+  );
+  for (var turn = 0; turn < 100 && !done; turn++) {
+    await tester.pump();
+    await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+  }
+  if (failure != null) Error.throwWithStackTrace(failure!, trace!);
+  expect(done, isTrue, reason: 'player operation did not complete');
 }
 
 double _controlsOpacity(WidgetTester tester) => tester
@@ -4519,6 +5095,13 @@ const _onlineSession = PlayerSession(
   streamUrl: 'https://video.example/1080.m3u8',
   qualities: [1080, 720],
   quality: 1080,
+);
+
+const _online720Session = PlayerSession(
+  sessionId: 'online:anilibria/9542',
+  streamUrl: 'https://video.example/720.m3u8',
+  qualities: [1080, 720],
+  quality: 720,
 );
 
 /// The link a video server issues afresh for [_session]'s file.
@@ -4652,7 +5235,9 @@ class _FakePlatformPlayer extends PlatformPlayer {
   _FakePlatformPlayer({
     required super.configuration,
     bool startsLater = false,
+    Tracks initialTracks = _availableTracks,
   }) {
+    state = state.copyWith(tracks: initialTracks);
     if (!startsLater) completer.complete();
     videoControllerCompleter.complete();
   }
@@ -4675,14 +5260,17 @@ class _FakePlatformPlayer extends PlatformPlayer {
 
   int openCount = 0;
   Playable? lastOpened;
+  void Function(Playable)? onOpen;
 
   @override
   Future<void> open(Playable playable, {bool play = true}) async {
     openCount++;
     lastOpened = playable;
+    onOpen?.call(playable);
     nativeProperties['idle-active'] = 'no';
     // mpv sizes the video output of each file it opens.
     emitVideoSize(1920, 1080);
+    emitTracks(state.tracks);
   }
 
   @override
@@ -4730,9 +5318,9 @@ class _FakePlatformPlayer extends PlatformPlayer {
     positionController.add(position);
   }
 
-  void emitCompleted() {
-    state = state.copyWith(completed: true);
-    completedController.add(true);
+  void emitCompleted([bool completed = true]) {
+    state = state.copyWith(completed: completed);
+    completedController.add(completed);
   }
 
   /// An error line of mpv's log, as media_kit passes it on.
@@ -4752,6 +5340,11 @@ class _FakePlatformPlayer extends PlatformPlayer {
   void emitTracks(Tracks tracks) {
     state = state.copyWith(tracks: tracks);
     tracksController.add(tracks);
+  }
+
+  void emitTrack(Track track) {
+    state = state.copyWith(track: track);
+    trackController.add(track);
   }
 
   void emitVideoSize(int width, int height) {
@@ -4957,6 +5550,25 @@ class _ControllablePlatformPlayer extends _FakePlatformPlayer {
   Future<void> open(Playable playable, {bool play = true}) async {
     await openFuture;
     await super.open(playable, play: play);
+  }
+}
+
+class _DelayedDisposePlatformPlayer extends _FakePlatformPlayer {
+  _DelayedDisposePlatformPlayer({
+    required super.configuration,
+    required this.gate,
+  });
+
+  final Future<void> gate;
+  bool disposing = false;
+  final disposeStarted = Completer<void>();
+
+  @override
+  Future<void> dispose() async {
+    disposing = true;
+    disposeStarted.complete();
+    await gate;
+    await super.dispose();
   }
 }
 

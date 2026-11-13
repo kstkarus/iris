@@ -12,7 +12,7 @@ import '../../../../helpers/test_app.dart';
 import '../../player_test_doubles.dart';
 
 void main() {
-  testWidgets('shows the preparation state', (tester) async {
+  testWidgets('shows preparation until the player is ready', (tester) async {
     final cubit = FakePlayerCubit(
       const PlayerPreparing(),
       source: fmaPlayerSource,
@@ -24,23 +24,16 @@ void main() {
     // Nothing reports progress before the player opens: no zero figures.
     expect(find.textContaining('%'), findsNothing);
     expect(find.textContaining('/s'), findsNothing);
-  });
-
-  testWidgets('shows player viewport when playback is ready', (tester) async {
-    final cubit = FakePlayerCubit(
+    cubit.push(
       const PlayerReady(
         PlayerSession(
           sessionId: '42',
           streamUrl: 'http://127.0.0.1:8080/stream/2',
         ),
       ),
-      source: fmaPlayerSource,
     );
-
-    await tester.pumpWidget(
-      _wrap(cubit: cubit, factory: const FakePlayerViewportFactory()),
-    );
-
+    await tester.pump();
+    expect(find.text('Preparing video'), findsNothing);
     expect(find.byKey(const Key('player_video_surface')), findsOneWidget);
   });
 

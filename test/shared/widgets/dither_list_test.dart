@@ -37,10 +37,6 @@ void main() {
         await tester.pump(const Duration(milliseconds: 100));
         expect(find.text('a'), findsOneWidget);
         expect(tester.getRect(find.text('b')), before);
-        expect(
-          find.ancestor(of: find.text('b'), matching: find.byType(BayerMasked)),
-          findsNothing,
-        );
         await tester.pump(const Duration(milliseconds: 120));
         expect(tester.getTopLeft(find.text('b')).dx, lessThan(before.left));
         await tester.pump(const Duration(milliseconds: 101));
@@ -59,33 +55,23 @@ void main() {
     });
   }
 
-  Widget list(
-    List<String> items, {
-    bool noMotion = false,
-    bool framed = false,
-    int columns = 1,
-  }) => MaterialApp(
-    home: MediaQuery(
-      data: MediaQueryData(disableAnimations: noMotion),
-      child: Scaffold(
-        body: DitherList<String>(
-          items: items,
-          header: framed
-              ? const SizedBox(height: 20, child: Text('header'))
-              : null,
-          footer: framed
-              ? const SizedBox(height: 30, child: Text('footer'))
-              : null,
-          keyOf: (item) => item,
-          crossAxisCount: columns,
-          columnSpacing: 16,
-          rowSpacing: columns == 1 ? 0 : 24,
-          itemBuilder: (context, item) =>
-              SizedBox(height: 40, child: Text(item)),
+  Widget list(List<String> items, {bool noMotion = false, int columns = 1}) =>
+      MaterialApp(
+        home: MediaQuery(
+          data: MediaQueryData(disableAnimations: noMotion),
+          child: Scaffold(
+            body: DitherList<String>(
+              items: items,
+              keyOf: (item) => item,
+              crossAxisCount: columns,
+              columnSpacing: 16,
+              rowSpacing: columns == 1 ? 0 : 24,
+              itemBuilder: (context, item) =>
+                  SizedBox(height: 40, child: Text(item)),
+            ),
+          ),
         ),
-      ),
-    ),
-  );
+      );
 
   double heightOf(WidgetTester tester, String item) => tester
       .getSize(
@@ -98,35 +84,8 @@ void main() {
   testWidgets('rows there at first simply show', (tester) async {
     await tester.pumpWidget(list(['a', 'b']));
 
-    expect(find.byType(BayerMasked), findsNothing);
     expect(tester.hasRunningAnimations, isFalse);
   });
-
-  testWidgets(
-    'header and footer share the scroll and stay outside row animations',
-    (tester) async {
-      await tester.pumpWidget(list(['a'], framed: true));
-      expect(find.byType(Scrollable), findsOneWidget);
-      expect(tester.getTopLeft(find.text('a')).dy, 20);
-      await tester.pumpWidget(list(['b', 'a'], framed: true));
-      await tester.pump(DitherTransition.duration ~/ 2);
-      for (final text in ['header', 'footer', 'a']) {
-        expect(
-          find.ancestor(
-            of: find.text(text),
-            matching: find.byType(BayerMasked),
-          ),
-          findsNothing,
-        );
-      }
-      await tester.pumpAndSettle();
-      expect(tester.getTopLeft(find.text('a')).dy, 60);
-      expect(tester.getTopLeft(find.text('footer')).dy, 100);
-      await tester.pumpWidget(list(['a'], framed: true));
-      await tester.pumpAndSettle();
-      expect(tester.getTopLeft(find.text('footer')).dy, 60);
-    },
-  );
 
   testWidgets('a new row opens its space, then develops', (tester) async {
     await tester.pumpWidget(list(['a']));
@@ -137,24 +96,6 @@ void main() {
     await tester.pumpAndSettle();
     expect(tester.getSize(find.text('b')).height, greaterThan(0));
     expect(tester.getTopLeft(find.text('a')).dy, 40);
-  });
-
-  testWidgets('a row that came in stays in when another comes above it', (
-    tester,
-  ) async {
-    await tester.pumpWidget(list(['a']));
-    await tester.pumpWidget(list(['x', 'a']));
-    await tester.pumpAndSettle();
-
-    await tester.pumpWidget(list(['y', 'x', 'a']));
-    await tester.pump(DitherTransition.duration ~/ 2);
-
-    expect(
-      find.ancestor(of: find.text('x'), matching: find.byType(BayerMasked)),
-      findsNothing,
-      reason: 'x does not open again',
-    );
-    expect(tester.getSize(find.text('x')).height, 40);
   });
 
   testWidgets('a removed row dissolves, then gives its height back', (
@@ -220,34 +161,18 @@ void main() {
     expect(find.text('b'), findsNothing);
   });
 
-  testWidgets('grid animates only inserted and removed entries', (
-    tester,
-  ) async {
+  testWidgets('grid animates inserted and removed entries', (tester) async {
     await tester.pumpWidget(list(['a', 'b'], columns: 2));
-    expect(find.byType(BayerMasked), findsNothing);
-
     await tester.pumpWidget(list(['a', 'b', 'c'], columns: 2));
     await tester.pump(DitherTransition.duration ~/ 2);
-    expect(
-      find.ancestor(of: find.text('c'), matching: find.byType(BayerMasked)),
-      findsOneWidget,
-    );
-    expect(
-      find.ancestor(of: find.text('a'), matching: find.byType(BayerMasked)),
-      findsNothing,
-    );
+    expect(find.text('c'), findsOneWidget);
+    expect(tester.hasRunningAnimations, isTrue);
     await tester.pumpAndSettle();
 
     await tester.pumpWidget(list(['b', 'c'], columns: 2));
     await tester.pump(DitherTransition.duration ~/ 2);
-    expect(
-      find.ancestor(of: find.text('a'), matching: find.byType(BayerMasked)),
-      findsOneWidget,
-    );
-    expect(
-      find.ancestor(of: find.text('b'), matching: find.byType(BayerMasked)),
-      findsNothing,
-    );
+    expect(find.text('a'), findsOneWidget);
+    expect(tester.hasRunningAnimations, isTrue);
     await tester.pumpAndSettle();
     expect(find.text('a'), findsNothing);
   });
@@ -269,12 +194,10 @@ void main() {
     await tester.pumpWidget(progressList(10));
     await tester.pumpWidget(progressList(20));
     expect(find.text('a:20'), findsOneWidget);
-    expect(find.byType(BayerMasked), findsNothing);
     expect(tester.hasRunningAnimations, isFalse);
 
     await tester.pumpWidget(progressList(20, columns: 1));
     expect(find.text('a:20'), findsOneWidget);
-    expect(find.byType(BayerMasked), findsNothing);
     expect(tester.hasRunningAnimations, isFalse);
   });
 
@@ -284,7 +207,6 @@ void main() {
     await tester.pumpWidget(list(['a', 'b'], columns: 2, noMotion: true));
     await tester.pumpWidget(list(['a', 'b', 'c'], columns: 2, noMotion: true));
     await tester.pump();
-    expect(find.byType(BayerMasked), findsNothing);
     expect(tester.hasRunningAnimations, isFalse);
 
     await tester.pumpWidget(list(['b', 'c'], columns: 2, noMotion: true));

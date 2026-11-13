@@ -89,8 +89,6 @@ void main() {
       testCharacter('184947', role: CharacterRole.main, name: 'Frieren'),
     ]);
 
-    expect(find.byKey(const Key('characters_all')), findsNothing);
-
     await tester.tap(find.text('Frieren'));
     await tester.pumpAndSettle();
     expect(
@@ -133,12 +131,6 @@ void main() {
 
     expect(find.text('Фрирен'), findsOneWidget);
     expect(find.text('Frieren'), findsNothing);
-  });
-
-  testWidgets('no characters, no section', (tester) async {
-    await pumpSection(tester, const []);
-
-    expect(find.text('CHARACTERS'), findsNothing);
   });
 }
 

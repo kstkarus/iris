@@ -25,6 +25,9 @@ env:
   ANDROID_CERT_SHA256: 00d5eca0bb73210f8b65095ce62ccfd2cc83d5af6b8a2b1b5feb73026dd5e492
 
 jobs:
+  checks:
+    uses: ./.github/workflows/checks.yml
+
   # Checked before anything is built: the tag matches pubspec.yaml, and
   # CHANGELOG.md has the version's section, which becomes the release text.
   notes:
@@ -55,7 +58,7 @@ jobs:
           path: notes.md
 
   android:
-    needs: notes
+    needs: [notes, checks]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -129,7 +132,7 @@ jobs:
           path: dist/*
 
   windows:
-    needs: notes
+    needs: [notes, checks]
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -190,7 +193,7 @@ jobs:
           path: dist/*
 
   ios:
-    needs: notes
+    needs: [notes, checks]
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v4

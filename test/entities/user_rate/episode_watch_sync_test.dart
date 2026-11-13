@@ -10,6 +10,7 @@ import 'package:iris/entities/user_rate/domain/episode_sync_repository.dart';
 import 'package:iris/entities/user_rate/domain/episode_watch_sync.dart';
 import 'package:iris/entities/user_rate/domain/mark_episode_watched.dart';
 import 'package:iris/entities/user_rate/domain/user_rate.dart';
+import 'package:iris/entities/user_rate/presentation/user_rate_cubit.dart';
 import 'package:iris/features/player/presentation/cubit/episode_mark_cubit.dart';
 import 'package:iris/shared/network/network_exceptions.dart';
 
@@ -183,6 +184,33 @@ void main() {
     expect(rates.rates['1']?.episodes, 4);
     expect(rates.writes.single.score, isNull);
     expect(rates.writes.single.status, isNull);
+  });
+
+  test('a score save preserves an episode confirmed while it waited', () async {
+    await rates.seed(4);
+    final cubit = UserRateCubit(repository: rates, animeId: '1');
+    addTearDown(cubit.close);
+    await cubit.accountChanged('42');
+    final scoring = Completer<void>();
+    final saveScore = Completer<void>();
+    rates.beforeSave = () async {
+      if (rates.writes.last.score == null) return;
+      scoring.complete();
+      await saveScore.future;
+    };
+
+    cubit.setScore(8);
+    await scoring.future;
+    try {
+      expect(await watch(5), isA<EpisodeMarked>());
+      expect(sync.state.pending, 0);
+    } finally {
+      saveScore.complete();
+    }
+    await pumpEventQueue();
+
+    expect(rates.rates['1']?.episodes, 5);
+    expect(rates.rates['1']?.score, 8);
   });
 
   test('logout retains work; another account never sends it', () async {
@@ -444,7 +472,7 @@ class _Rates extends MockUserRateRepository {
         ({
           String userId,
           String animeId,
-          int episode,
+          int? episode,
           int? score,
           UserRateStatus? status,
         })
@@ -484,7 +512,7 @@ class _Rates extends MockUserRateRepository {
     required String animeId,
     required String? rateId,
     UserRateStatus? status,
-    required int episodes,
+    int? episodes,
     int? score,
     int? rewatches,
   }) async {

@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:convert';
+
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:iris/shared/storage/shikimori_session_store.dart';
@@ -21,6 +24,49 @@ void main() {
     expect(restored?.refreshToken, 'refresh');
     expect(restored?.expiresAt, tokens.expiresAt);
   });
+
+  test('a late read cannot restore a cleared session', () async {
+    final storage = _DelayedReads();
+    final store = ShikimoriSessionStore(storage);
+    final first = store.read();
+    final second = store.read();
+    final oldValue = jsonEncode(tokens.toJson());
+
+    storage.reads.first.complete(oldValue);
+    expect(await first, isNotNull);
+    await store.clear();
+    storage.reads.last.complete(oldValue);
+
+    expect(await second, isNull);
+    expect(await store.read(), isNull);
+    expect(storage.values, isEmpty);
+  });
+
+  for (final renew in [false, true]) {
+    test(
+      'a late read cannot replace ${renew ? 'renewed' : 'new'} tokens',
+      () async {
+        final storage = _DelayedReads();
+        final store = ShikimoriSessionStore(storage);
+        final initial = store.read();
+        final newTokens = ShikimoriTokens(
+          accessToken: 'new-access',
+          refreshToken: 'new-refresh',
+          expiresAt: DateTime.utc(2027),
+        );
+
+        if (renew) {
+          await store.renew(newTokens);
+        } else {
+          await store.write(newTokens);
+        }
+        storage.reads.single.complete(jsonEncode(tokens.toJson()));
+
+        expect((await initial)?.accessToken, 'new-access');
+        expect((await store.read())?.accessToken, 'new-access');
+      },
+    );
+  }
 
   test('a sign-out clears the session without reporting it expired', () async {
     final storage = FakeSecureStorage();
@@ -75,4 +121,18 @@ void main() {
     final broken = FakeSecureStorage({'shikimori.session': '{not json'});
     expect(await ShikimoriSessionStore(broken).read(), isNull);
   });
+}
+
+class _DelayedReads extends FakeSecureStorage {
+  final reads = <Completer<String?>>[];
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) {
+    if (invocation.memberName == #read) {
+      final result = Completer<String?>();
+      reads.add(result);
+      return result.future;
+    }
+    return super.noSuchMethod(invocation);
+  }
 }

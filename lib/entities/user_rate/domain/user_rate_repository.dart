@@ -15,13 +15,13 @@ abstract interface class UserRateRepository {
 
   /// Adds the anime to [userId]'s list, or changes the entry [rateId].
   /// Returns the entry as Shikimori keeps it (it may finish the anime
-  /// when the last episode is marked). Omitted status/score stay unchanged.
+  /// when the last episode is marked). Omitted fields stay unchanged on update.
   Future<UserRate> save({
     required String userId,
     required String animeId,
     required String? rateId,
     UserRateStatus? status,
-    required int episodes,
+    int? episodes,
     int? score,
     int? rewatches,
   });

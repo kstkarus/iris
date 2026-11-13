@@ -8,12 +8,14 @@ class DownloadManagerState {
     this.downloads = const [],
     this.storageUsage,
     this.hasError = false,
+    this.deletingIds = const {},
   });
 
   final bool isLoading;
   final List<DownloadItem> downloads;
   final DownloadStorageUsage? storageUsage;
   final bool hasError;
+  final Set<String> deletingIds;
 
   List<DownloadItem> get queue => [
     ...downloads.where((item) => item.status == DownloadStatus.downloading),
@@ -25,12 +27,14 @@ class DownloadManagerState {
     List<DownloadItem>? downloads,
     DownloadStorageUsage? storageUsage,
     bool? hasError,
+    Set<String>? deletingIds,
   }) {
     return DownloadManagerState(
       isLoading: isLoading ?? this.isLoading,
       downloads: downloads ?? this.downloads,
       storageUsage: storageUsage ?? this.storageUsage,
       hasError: hasError ?? this.hasError,
+      deletingIds: deletingIds ?? this.deletingIds,
     );
   }
 }

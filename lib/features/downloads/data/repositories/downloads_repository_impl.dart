@@ -4,20 +4,19 @@ import 'dart:io';
 
 import 'package:path/path.dart' as path;
 
-import 'package:iris/features/downloads/data/adapters/app_storage_usage_adapter.dart';
 import 'package:iris/shared/platform/download_foreground_service_adapter.dart';
 import 'package:iris/features/downloads/data/adapters/libtorrent_download_engine_adapter.dart';
 import 'package:iris/features/downloads/data/adapters/online_episode_downloader.dart';
 import 'package:iris/features/downloads/data/datasources/download_registry_data_source.dart';
 import 'package:iris/features/downloads/domain/entities/download_failure.dart';
 import 'package:iris/features/downloads/domain/entities/download_item.dart';
+import 'package:iris/features/downloads/domain/entities/download_queue_order.dart';
 import 'package:iris/features/downloads/domain/entities/download_status.dart';
 import 'package:iris/features/downloads/domain/entities/download_storage_usage.dart';
 import 'package:iris/features/downloads/domain/entities/downloadable_file.dart';
 import 'package:iris/features/downloads/domain/entities/prepared_download_source.dart';
 import 'package:iris/features/downloads/domain/repositories/downloads_repository.dart';
 import 'package:iris/shared/online/online_source_link.dart';
-import 'package:iris/shared/storage/directory_size.dart';
 import 'package:iris/shared/storage/stream_cache_storage.dart';
 import 'package:iris/shared/torrent/preparation_cancelled_exception.dart';
 import 'package:iris/shared/torrent/torrent_activity_registry.dart';
@@ -35,7 +34,6 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
     required DownloadRegistryDataSource registry,
     required Directory downloadsDirectory,
     required DownloadForegroundServiceAdapter foregroundService,
-    required AppStorageUsageAdapter storageUsageAdapter,
     StreamCacheStorage? streamCache,
     TorrentActivityRegistry? activityRegistry,
     OnlineEpisodeDownloader? onlineDownloader,
@@ -50,7 +48,6 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
        _registry = registry,
        _downloadsDirectory = downloadsDirectory,
        _foregroundService = foregroundService,
-       _storageUsageAdapter = storageUsageAdapter,
        _createMetadataFolder = createMetadataFolder ?? _createFolder,
        _now = now;
 
@@ -63,7 +60,6 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
   final DownloadRegistryDataSource _registry;
   final Directory _downloadsDirectory;
   final DownloadForegroundServiceAdapter _foregroundService;
-  final AppStorageUsageAdapter _storageUsageAdapter;
   final StreamCacheStorage? _streamCache;
   final TorrentActivityRegistry _activityRegistry;
   final DateTime Function() _now;
@@ -110,16 +106,10 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
 
   @override
   Future<DownloadStorageUsage> calculateStorageUsage() async {
-    await _downloadsDirectory.create(recursive: true);
-    final downloadsBytes = await directorySize(_downloadsDirectory);
-    // Only the stream folder: it is what clearCache empties. The rest of the
-    // Android app cache, such as posters, still counts in the total.
     final cacheBytes = await _streamCache?.sizeBytes() ?? 0;
-    final appBytes = await _storageUsageAdapter.totalBytes();
     return DownloadStorageUsage(
-      downloadsBytes: downloadsBytes,
       cacheBytes: cacheBytes,
-      totalBytes: appBytes ?? downloadsBytes + cacheBytes,
+      cacheInUse: _activityRegistry.hasActiveStreaming,
     );
   }
 
@@ -138,15 +128,35 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
   }
 
   @override
-  Future<bool> delete({required String id}) async {
-    await restore();
-    final item = _find(id);
-    if (item == null || _deletingIds.contains(id)) return true;
+  Future<bool> delete({required String id}) async =>
+      (await deleteMany(ids: [id])).isEmpty;
 
-    // Set before any await of the removal, so a queued start cannot pick the
-    // item up while its files are going away.
-    _deletingIds.add(id);
-    var deleted = true;
+  @override
+  Future<Set<String>> deleteMany({required Iterable<String> ids}) async {
+    final pending = ids.toSet();
+    if (pending.isEmpty) return {};
+    await restore();
+    final failed = pending.intersection(_deletingIds);
+    pending.removeAll(failed);
+    // Reserve the whole batch before stopping an active transfer can wake
+    // the queue. A later selected episode must never start in between.
+    _deletingIds.addAll(pending);
+    try {
+      for (final id in pending) {
+        final item = _find(id);
+        if (item == null) continue;
+        if (!await _deleteFiles(item)) failed.add(id);
+        await _commit();
+      }
+    } finally {
+      _deletingIds.removeAll(pending);
+      unawaited(_pumpQueue());
+    }
+    return failed;
+  }
+
+  Future<bool> _deleteFiles(DownloadItem item) async {
+    final id = item.id;
     try {
       // The task must let go of its files before they can be removed.
       await _stopOnline(id);
@@ -159,17 +169,17 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
         await directory.delete(recursive: true);
       }
       _downloads = _downloads.where((download) => download.id != id).toList();
-    } on FileSystemException catch (error, stackTrace) {
+      return true;
+    } catch (error, stackTrace) {
       developer.log(
         'Unable to delete downloaded files.',
         name: 'iris.downloads.repository',
         error: error,
         stackTrace: stackTrace,
       );
-      deleted = false;
       final current = _find(id) ?? item;
-      // The torrent is gone, so a file that was loading stops; the record is
-      // kept as it was otherwise, and the person can delete it again.
+      // Keep failed copies available for another attempt, without leaving
+      // a file in a loading state after its transfer was stopped.
       _replace(
         current.stopped(switch (current.status) {
           DownloadStatus.downloading ||
@@ -177,12 +187,8 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
           final status => status,
         }),
       );
-    } finally {
-      _deletingIds.remove(id);
+      return false;
     }
-    await _commit();
-    unawaited(_pumpQueue());
-    return deleted;
   }
 
   @override
@@ -205,6 +211,18 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
       return;
     }
     _downloads = [item, ..._downloads.where((other) => other.id != id)];
+    await _commit();
+    unawaited(_pumpQueue());
+  }
+
+  @override
+  Future<void> reorderQueue({required List<String> ids}) async {
+    await restore();
+    _downloads = reorderQueuedDownloads(
+      _downloads,
+      ids,
+      deletingIds: _deletingIds,
+    );
     await _commit();
     unawaited(_pumpQueue());
   }
@@ -627,8 +645,13 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
   Future<void> resume({required String id}) async {
     await restore();
     final item = _find(id);
-    if (item?.status != DownloadStatus.paused) return;
-    _replace(item!.copyWith(status: DownloadStatus.queued, errorMessage: null));
+    if (item?.status != DownloadStatus.paused || _deletingIds.contains(id)) {
+      return;
+    }
+    _downloads = [
+      ..._downloads.where((other) => other.id != id),
+      item!.copyWith(status: DownloadStatus.queued, errorMessage: null),
+    ];
     await _commit();
     unawaited(_pumpQueue());
   }
@@ -637,14 +660,17 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
   Future<void> retry({required String id}) async {
     await restore();
     final item = _find(id);
-    if (item?.status != DownloadStatus.failed) return;
-    _replace(
+    if (item?.status != DownloadStatus.failed || _deletingIds.contains(id)) {
+      return;
+    }
+    _downloads = [
+      ..._downloads.where((other) => other.id != id),
       item!.copyWith(
         status: DownloadStatus.queued,
         errorMessage: null,
         completedAt: null,
       ),
-    );
+    ];
     await _commit();
     unawaited(_pumpQueue());
   }
@@ -655,10 +681,32 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
     return _watchDownloads();
   }
 
-  Stream<List<DownloadItem>> _watchDownloads() async* {
-    yield await currentDownloads();
-    yield* _downloadsController.stream;
-  }
+  Stream<List<DownloadItem>> _watchDownloads() => Stream.multi((controller) {
+    var receivedUpdate = false;
+    final subscription = _downloadsController.stream.listen(
+      (downloads) {
+        receivedUpdate = true;
+        controller.add(downloads);
+      },
+      onError: controller.addError,
+      onDone: controller.close,
+    );
+    controller.onCancel = subscription.cancel;
+    unawaited(
+      currentDownloads().then(
+        (downloads) {
+          if (!receivedUpdate && !controller.isClosed) {
+            controller.add(downloads);
+          }
+        },
+        onError: (Object error, StackTrace stackTrace) {
+          if (!receivedUpdate && !controller.isClosed) {
+            controller.addError(error, stackTrace);
+          }
+        },
+      ),
+    );
+  });
 
   @override
   Stream<Map<int, DownloadItem>> watchSourceDownloads({
@@ -912,7 +960,7 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
   Future<void> _pumpQueue() async {
     // Closing lets the open pickers' sources go, which would start what
     // waited for them.
-    if (!_restored || _closing) return;
+    if (!_restored || _closing || _deletingIds.isNotEmpty) return;
     if (_pumping) {
       _pumpRequested = true;
       return;
@@ -976,10 +1024,13 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
       }
       return null;
     }
-    // The create above is an await: pause, delete, streaming or a selection
-    // may have changed the item. Skip the start.
+    // The queue or startability may have changed while creating the folder.
     final item = _find(candidate.id);
-    if (item == null || !_isStartable(item)) return null;
+    if (_deletingIds.isNotEmpty ||
+        item == null ||
+        _nextStartableDownload()?.id != item.id) {
+      return null;
+    }
     final int torrentId;
     try {
       // Not metadata-only: that mode makes the native layer zero all file
@@ -1077,7 +1128,8 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
     final item = _find(candidate.id);
     final release = OnlineSourceLink.tryParse(candidate.magnet);
     final downloader = _onlineDownloader;
-    if (item == null ||
+    if (_deletingIds.isNotEmpty ||
+        item == null ||
         !_isStartable(item) ||
         release == null ||
         downloader == null) {

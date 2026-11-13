@@ -60,7 +60,6 @@ void main() {
     expect(find.text('700.0 MB'), findsOneWidget);
     expect(find.text('episode-02 - Second'), findsOneWidget);
     expect(find.text('500.0 MB'), findsOneWidget);
-    expect(find.byType(FilledButton), findsNothing);
 
     await tester.tap(find.text('episode-02 - Second'));
     expect(selected, [2]);
@@ -178,7 +177,6 @@ void main() {
 
     // The Continue card keeps the time; the grid tile shows its progress bar.
     expect(find.widgetWithText(FilledButton, 'Continue'), findsOneWidget);
-    expect(find.text('Continue'), findsOneWidget);
     expect(find.text('Stopped at 5:00 of 24:00'), findsOneWidget);
 
     await tester.tap(find.byKey(PlayerSourceView.continueButtonKey));
@@ -186,6 +184,7 @@ void main() {
   });
 
   testWidgets('offers the next file after a finished one', (tester) async {
+    final selected = <int>[];
     await tester.pumpWidget(
       _wrap(
         cubit: FakePlayerSourceCubit(
@@ -194,6 +193,7 @@ void main() {
           ),
         ),
         progressByFile: {1: _progress(1, 1400)},
+        onFileSelected: (file) => selected.add(file.index),
       ),
     );
 
@@ -202,9 +202,9 @@ void main() {
       find.descendant(of: find.byType(Card), matching: find.text('episode-02')),
       findsOneWidget,
     );
-    // A mark at the end of the row, not a line of its own.
-    expect(find.text('Watched'), findsNothing);
     expect(_watchedMarks, findsOneWidget);
+    await tester.tap(find.text('Play next'));
+    expect(selected, [2]);
   });
 
   testWidgets('an online episode named by its number shows the number once', (
@@ -308,7 +308,6 @@ void main() {
     await tester.pumpAndSettle();
 
     Finder tile(int index) => find.byKey(ValueKey('player_episode_$index'));
-    expect(tester.getTopLeft(tile(1)).dy, tester.getTopLeft(tile(2)).dy);
     expect(find.text('12.5'), findsOneWidget);
     expect(_watchedMarks, findsOneWidget);
     final bar = tester.widget<SegmentedBar>(

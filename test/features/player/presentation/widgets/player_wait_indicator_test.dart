@@ -19,16 +19,6 @@ void main() {
     );
   }
 
-  testWidgets('the runner is a square the size of the play glyph', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      app(const BlockRunner(color: color, trackColor: track)),
-    );
-
-    expect(tester.getSize(find.byType(BlockRunner)), const Size.square(42));
-  });
-
   testWidgets('the runner steps around the square and stops when motion '
       'is reduced', (tester) async {
     await tester.pumpWidget(

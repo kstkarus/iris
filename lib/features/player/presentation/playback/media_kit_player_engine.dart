@@ -29,6 +29,7 @@ import 'package:iris/features/player/presentation/playback/player_buffer_margin.
 import 'package:iris/features/player/presentation/playback/player_video_sized.dart';
 import 'package:iris/features/player/presentation/playback/player_subtitle_preferences_mapper.dart';
 import 'package:iris/features/player/presentation/playback/player_track_matcher.dart';
+import 'package:iris/features/player/presentation/playback/player_track_availability.dart';
 
 typedef MediaKitPlayerBuilder =
     Player Function(PlayerConfiguration configuration);
@@ -217,12 +218,18 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
   double _subtitleLift = 0;
   bool _reconfiguring = false;
   bool _recreateQueued = false;
+  Completer<void>? _recreation;
   bool _closed = false;
 
   PlayerEngineStartupState _startupState =
       const PlayerEngineStartupState.openingSource();
   Timer? _startupTimeoutTimer;
   int _startupGeneration = 0;
+  int _fileGeneration = 0;
+  int _qualityRequest = 0;
+  int? _requestedQuality;
+  bool _ignoreEofTrackReset = false;
+  bool _ignoreEofTracksReset = false;
   Timer? _errorCheckTimer;
 
   /// Reads the decoder state while a file is open, whatever carries it:
@@ -234,7 +241,8 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
   final phase = ValueNotifier<PlayerEnginePhase>(
     PlayerEnginePhase.openingSource,
   );
-  final selectedTrack = ValueNotifier<Track>(const Track());
+  final selectedTrack = PlayerTrackNotifier<Track>(const Track());
+  final availableTracks = PlayerTrackNotifier<Tracks>(const Tracks());
   final buffering = ValueNotifier<bool>(false);
   final bufferMargin = ValueNotifier<PlayerBufferMarginState>(
     PlayerBufferMarginState.insufficient,
@@ -354,7 +362,13 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
     PlayerTrackPreferences? preferredTracks,
   }) {
     if (_closed) return Future<void>.value();
+    final fileGeneration = ++_fileGeneration;
+    _startupGeneration++;
     _session = session;
+    _ignoreEofTrackReset = false;
+    _ignoreEofTracksReset = false;
+    selectedTrack.value = const Track();
+    availableTracks.value = const Tracks();
     _refreshQualityChoice();
     _startPosition = startPosition;
     _preferredTracks = preferredTracks;
@@ -371,10 +385,21 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
     _resetPositionOffers();
     _watchPlaybackStats(session.sessionId);
     _watchDiagnostics();
+    if (_reconfiguring) return _openAfterRecreation(fileGeneration);
     // Synchronous on purpose: the viewport can render the controller as soon
     // as this returns.
     if (_player == null) _createPlayer();
     return _openPlayback();
+  }
+
+  Future<void> _openAfterRecreation(int fileGeneration) async {
+    if (_closed || fileGeneration != _fileGeneration) return;
+    final recreation = _recreation;
+    if (recreation != null) {
+      await recreation.future;
+      return _openAfterRecreation(fileGeneration);
+    }
+    await _openPlayback();
   }
 
   /// Opens the current file again after a failure, on a fresh link when
@@ -382,34 +407,70 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
   Future<void> retry() async {
     final session = _session;
     if (_closed || session == null) return;
-    final startupGeneration = _startupGeneration;
+    final fileGeneration = _fileGeneration;
+    final qualityRequest = _qualityRequest;
     _updateStartupState(const PlayerEngineStartupState.openingSource());
-    await _renewSession(session);
-    // Stopped, or another file opened, while the link was asked for.
-    if (_closed || startupGeneration != _startupGeneration) return;
+    final renewed = await _renewSession(session);
+    await _reopenAfterRenewal(session, renewed, fileGeneration, qualityRequest);
+  }
+
+  Future<void> _reopenAfterRenewal(
+    PlayerSession session,
+    PlayerSession? renewed,
+    int fileGeneration,
+    int qualityRequest, {
+    bool failIfMissing = false,
+  }) async {
+    if (_closed ||
+        fileGeneration != _fileGeneration ||
+        !identical(_session, session)) {
+      return;
+    }
+    if (qualityRequest != _qualityRequest &&
+        closestQuality(session.qualities, _requestedQuality) !=
+            (renewed?.quality ?? session.quality)) {
+      return;
+    }
+    final recreation = _recreation;
+    if (recreation != null) {
+      await recreation.future;
+      return _reopenAfterRenewal(
+        session,
+        renewed,
+        fileGeneration,
+        qualityRequest,
+        failIfMissing: failIfMissing,
+      );
+    }
+    if (renewed == null && failIfMissing) {
+      _fail(PlayerEngineFailure.generic);
+      return;
+    }
+    if (renewed != null) {
+      _session = renewed;
+      _refreshQualityChoice();
+    }
+    if (failIfMissing) {
+      developer.log(
+        'Reopening the file on a renewed link at $_openPosition.',
+        name: 'iris.player.media',
+      );
+    }
     await _openPlayback();
   }
 
-  /// Swaps [session] for a fresh link when its backend gives one; false
-  /// when it gives none or fails, or the file changed meanwhile.
-  Future<bool> _renewSession(PlayerSession session) async {
-    final PlayerSession? renewed;
+  /// Asks for a fresh link; the caller decides whether it is still current.
+  Future<PlayerSession?> _renewSession(PlayerSession session) async {
     try {
-      renewed = await _repository.renewSession(session);
+      return await _repository.renewSession(session);
     } catch (error) {
       developer.log(
         'The stream link could not be renewed.',
         name: 'iris.player.media',
         error: error,
       );
-      return false;
+      return null;
     }
-    if (renewed == null || _closed || !identical(_session, session)) {
-      return false;
-    }
-    _session = renewed;
-    _refreshQualityChoice();
-    return true;
   }
 
   /// Watches online episodes in [height] (null: the best) from now on, and
@@ -424,15 +485,44 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
         session.qualities.isEmpty) {
       return;
     }
+    final request = ++_qualityRequest;
+    _requestedQuality = height;
+    final fileGeneration = _fileGeneration;
     await preferences.setWatching(height);
-    _refreshQualityChoice();
-    if (closestQuality(session.qualities, height) == session.quality) return;
-    final startupGeneration = _startupGeneration;
-    if (!await _renewSession(session) ||
-        _closed ||
-        startupGeneration != _startupGeneration) {
+    if (_closed ||
+        request != _qualityRequest ||
+        fileGeneration != _fileGeneration) {
       return;
     }
+    final currentSession = _session;
+    if (currentSession == null) return;
+    _refreshQualityChoice();
+    if (closestQuality(currentSession.qualities, height) ==
+        currentSession.quality) {
+      return;
+    }
+    final renewed = await _renewSession(currentSession);
+    if (renewed == null) return;
+    await _applyRenewedQuality(renewed, fileGeneration, request);
+  }
+
+  Future<void> _applyRenewedQuality(
+    PlayerSession renewed,
+    int fileGeneration,
+    int request,
+  ) async {
+    if (_closed ||
+        request != _qualityRequest ||
+        fileGeneration != _fileGeneration) {
+      return;
+    }
+    final recreation = _recreation;
+    if (recreation != null) {
+      await recreation.future;
+      return _applyRenewedQuality(renewed, fileGeneration, request);
+    }
+    _session = renewed;
+    _refreshQualityChoice();
     developer.log(
       'Reopening the file in ${_session?.quality}p at $_openPosition.',
       name: 'iris.player.media',
@@ -460,22 +550,21 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
 
   /// A file that played was dropped: reopens it where it was on a fresh
   /// link, or shows the failure when there is none.
-  Future<void> _reopenOnFreshLink(int startupGeneration) async {
+  Future<void> _reopenOnFreshLink() async {
     final session = _session;
     if (session == null) return;
+    final fileGeneration = _fileGeneration;
+    final qualityRequest = _qualityRequest;
     _renewsOnFailure = false;
     _updateStartupState(const PlayerEngineStartupState.openingSource());
     final renewed = await _renewSession(session);
-    if (_closed || startupGeneration != _startupGeneration) return;
-    if (!renewed) {
-      _fail(PlayerEngineFailure.generic);
-      return;
-    }
-    developer.log(
-      'Reopening the file on a renewed link at $_openPosition.',
-      name: 'iris.player.media',
+    await _reopenAfterRenewal(
+      session,
+      renewed,
+      fileGeneration,
+      qualityRequest,
+      failIfMissing: true,
     );
-    await _openPlayback();
   }
 
   @override
@@ -586,8 +675,13 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
   @override
   Future<void> stop() async {
     if (_closed) return;
+    final fileGeneration = ++_fileGeneration;
     _startupGeneration++;
     _session = null;
+    _ignoreEofTrackReset = false;
+    _ignoreEofTracksReset = false;
+    selectedTrack.value = const Track();
+    availableTracks.value = const Tracks();
     _refreshQualityChoice();
     _renewsOnFailure = false;
     completed.value = false;
@@ -597,6 +691,11 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
     _cancelStartupTimeout();
     _cancelErrorCheck();
     _updateStartupState(const PlayerEngineStartupState.openingSource());
+    final recreation = _recreation;
+    if (recreation != null) {
+      await recreation.future;
+      if (_closed || fileGeneration != _fileGeneration) return;
+    }
     final player = _player;
     if (player == null) return;
 
@@ -666,6 +765,7 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
     playbackStats.dispose();
     phase.dispose();
     selectedTrack.dispose();
+    availableTracks.dispose();
     buffering.dispose();
     bufferMargin.dispose();
     diagnostics.dispose();
@@ -781,7 +881,8 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
       player,
       configuration.videoControllerConfiguration,
     );
-    selectedTrack.value = player.state.track;
+    selectedTrack.value = const Track();
+    availableTracks.value = const Tracks();
     buffering.value = player.state.buffering;
     _attachPlayerListeners(player);
   }
@@ -791,6 +892,10 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
     final player = _player;
     if (_closed || session == null || player == null) return;
     final startupGeneration = ++_startupGeneration;
+    _ignoreEofTrackReset = false;
+    _ignoreEofTracksReset = false;
+    selectedTrack.value = const Track();
+    availableTracks.value = const Tracks();
     _externalSubtitleReady = false;
     _reopened = _opened;
     _opened = true;
@@ -907,43 +1012,58 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
   }
 
   Future<void> _recreatePlayer() async {
-    if (_player == null) return;
-    if (_closed || _reconfiguring) {
+    if (_closed) return;
+    if (_reconfiguring) {
       _recreateQueued = true;
       return;
     }
+    if (_player == null) return;
 
-    do {
-      _recreateQueued = false;
-      developer.log(
-        'Recreating media_kit player because native rendering preferences changed. libass=${_subtitlePreferences.libassEnabled} hwdec=${_decodingPreferences.hwdecMode.name}',
-        name: 'iris.player.media',
-      );
-      _reconfiguring = true;
-      _updateStartupState(const PlayerEngineStartupState.openingSource());
-      notifyListeners();
+    final fileGeneration = _fileGeneration;
+    final recreation = _recreation = Completer<void>();
+    _reconfiguring = true;
+    try {
+      do {
+        _recreateQueued = false;
+        _startupGeneration++;
+        developer.log(
+          'Recreating media_kit player because native rendering preferences changed. libass=${_subtitlePreferences.libassEnabled} hwdec=${_decodingPreferences.hwdecMode.name}',
+          name: 'iris.player.media',
+        );
+        _updateStartupState(const PlayerEngineStartupState.openingSource());
+        notifyListeners();
 
-      await _disposePlayer();
-      if (_closed) break;
-      _createPlayer();
-      notifyListeners();
+        await _disposePlayer();
+        if (_closed) break;
+        _createPlayer();
+        notifyListeners();
 
-      await _openPlayback();
-    } while (_recreateQueued && !_closed);
-
-    _reconfiguring = false;
-    notifyListeners();
+        if (fileGeneration == _fileGeneration) await _openPlayback();
+      } while (_recreateQueued && !_closed);
+    } finally {
+      _reconfiguring = false;
+      _recreation = null;
+      recreation.complete();
+      if (!_closed) notifyListeners();
+    }
   }
 
   void _attachPlayerListeners(Player player) {
+    // media_kit 1.2.6 exposes unfiltered metadata only via protected controllers.
+    final platform = player.platform;
+    // ignore: invalid_use_of_protected_member
+    final trackEvents = platform?.trackController.stream ?? player.stream.track;
+    final trackLists =
+        // ignore: invalid_use_of_protected_member
+        platform?.tracksController.stream ?? player.stream.tracks;
     _playerSubscriptions.addAll([
       player.stream.buffering.listen(_onBuffering),
       player.stream.playing.listen(_onPlaying),
       player.stream.completed.listen(_onCompleted),
       player.stream.position.listen(_onPosition),
       player.stream.duration.listen(_onDuration),
-      player.stream.track.listen(_onTrack),
-      player.stream.tracks.listen(_onTracks),
+      trackEvents.listen(_onTrack),
+      trackLists.listen(_onTracks),
       player.stream.error.listen(_onError),
     ]);
   }
@@ -1011,7 +1131,9 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
   }
 
   void _onCompleted(bool completed) {
-    if (_closed) return;
+    if (_closed || _session == null) return;
+    _ignoreEofTrackReset = completed;
+    _ignoreEofTracksReset = completed;
     developer.log(
       'media_kit completed changed: $completed',
       name: 'iris.player.media',
@@ -1166,7 +1288,11 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
   }
 
   void _onTrack(Track track) {
-    if (_closed || selectedTrack.value == track) return;
+    if (_closed || _session == null) return;
+    if (_ignoreEofTrackReset && track == const Track()) {
+      _ignoreEofTrackReset = false;
+      return;
+    }
     developer.log(
       'media_kit selected tracks changed. video=${track.video.codec} audio=${track.audio.codec} subtitle=${track.subtitle.codec}',
       name: 'iris.player.media',
@@ -1175,7 +1301,13 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
   }
 
   void _onTracks(Tracks tracks) {
-    if (_closed) return;
+    // media_kit clears both snapshots on EOF, even with mpv's keep-open.
+    if (_closed || _session == null) return;
+    if (_ignoreEofTracksReset && tracks == const Tracks()) {
+      _ignoreEofTracksReset = false;
+      return;
+    }
+    availableTracks.value = tracks;
     _attachExternalSubtitle(tracks);
     unawaited(_applyPreferredTracks(tracks));
     final hasVideoTrack = _hasRealVideoTrack(tracks);
@@ -1285,7 +1417,7 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
     );
     if (_renewsOnFailure && _renewalsLeft > 0) {
       _renewalsLeft--;
-      await _reopenOnFreshLink(startupGeneration);
+      await _reopenOnFreshLink();
       return;
     }
     _fail(PlayerEngineFailure.generic);

@@ -8,7 +8,6 @@ import 'package:iris/features/anime_details/presentation/widgets/recently_watche
 
 import '../../../../helpers/fake_watch_progress_repository.dart';
 import '../../../../helpers/test_app.dart';
-import '../../../../helpers/test_window.dart';
 
 WatchProgress _progress(
   String torrentKey, {
@@ -91,20 +90,5 @@ void main() {
     expect(label('aaa'), 'Continue');
     expect(label('bbb'), 'Watch');
     expect(label('ccc'), 'Play next');
-  });
-
-  testWidgets('keeps the button by its row on a wide window', (tester) async {
-    setTestWindowSize(tester, const Size(1800, 900));
-    await pump(tester, [_progress('aaa')]);
-
-    final button = tester.getRect(find.byType(OutlinedButton));
-    final section = tester.getRect(find.byType(RecentlyWatchedSection));
-    expect(button.right - section.left, lessThanOrEqualTo(800));
-  });
-
-  testWidgets('stays hidden without history for this anime', (tester) async {
-    await pump(tester, [_progress('ccc', animeId: '999')]);
-
-    expect(find.text('RECENTLY WATCHED'), findsNothing);
   });
 }

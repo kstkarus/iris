@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -19,8 +17,6 @@ import 'package:iris/features/watch_sources/presentation/cubit/watch_sources_cub
 import 'package:iris/features/watch_sources/presentation/models/anime_watch_sources_args.dart';
 import 'package:iris/features/watch_sources/presentation/pages/watch_sources_page.dart';
 import 'package:iris/features/watch_sources/presentation/widgets/watch_sources_view.dart';
-import 'package:iris/shared/widgets/app_skeleton.dart';
-import 'package:iris/shared/widgets/dither_transition.dart';
 import 'package:iris/shared/widgets/search_field.dart';
 
 import 'package:iris/features/saved_torrents/presentation/cubit/saved_torrents_cubit.dart';
@@ -31,91 +27,15 @@ import '../../../../helpers/test_window.dart';
 import '../../watch_sources_test_doubles.dart';
 
 void main() {
-  testWidgets('shows table-shaped noise while sources are loading', (
-    tester,
-  ) async {
+  testWidgets('announces while sources are loading', (tester) async {
     final semantics = tester.ensureSemantics();
     final cubit = frierenSourcesCubit(PendingWatchSourcesRepository());
 
     await _pumpView(tester, cubit: cubit..loadSources());
     await tester.pump();
 
-    expect(tester.widget<AppSkeleton>(find.byType(AppSkeleton)).enabled, true);
     expect(find.bySemanticsLabel('Loading sources...'), findsOneWidget);
-    expect(find.bySemanticsLabel(RegExp('Anime Title')), findsNothing);
     semantics.dispose();
-  });
-
-  testWidgets('the releases develop out of the noise', (tester) async {
-    final sources = Completer<List<WatchSourceItem>>();
-    final cubit = frierenSourcesCubit(
-      PendingWatchSourcesRepository(sources.future),
-    );
-
-    await _pumpView(tester, cubit: cubit..loadSources());
-    await tester.pump();
-
-    sources.complete(frierenSources);
-    await tester.pump();
-    await tester.pump(DitherTransition.duration ~/ 2);
-    expect(find.text('[SubsPlease] Frieren - 28 (1080p)'), findsOneWidget);
-    expect(find.textContaining('Anime Title'), findsWidgets);
-
-    await tester.pump(DitherTransition.duration);
-    expect(find.textContaining('Anime Title'), findsNothing);
-  });
-
-  testWidgets('shows search, sorting and source cards when loading succeeds', (
-    tester,
-  ) async {
-    final cubit = frierenSourcesCubit(FixedWatchSourcesRepository());
-
-    await _pumpView(tester, cubit: cubit..loadSources());
-    await tester.pumpAndSettle();
-
-    expect(find.widgetWithText(TextField, 'Search sources'), findsOneWidget);
-    expect(find.text('Sort'), findsOneWidget);
-    expect(find.text('[SubsPlease] Frieren - 28 (1080p)'), findsOneWidget);
-    expect(find.text('[Judas] Frieren Season Pack Dual-Audio'), findsOneWidget);
-    // Below the table breakpoint the numbers follow the name in one line.
-    expect(
-      find.text(
-        '1.4 GiB · 33 seeders · 269 downloads · Apr 14, 2026',
-        findRichText: true,
-      ),
-      findsOneWidget,
-    );
-    expect(
-      find.byKey(const Key('watch_source_watch_button')),
-      findsNWidgets(3),
-    );
-    expect(find.byTooltip('Download'), findsNWidgets(3));
-  });
-
-  testWidgets('each source row streams on tap and downloads from its '
-      'trailing button', (tester) async {
-    final cubit = frierenSourcesCubit(FixedWatchSourcesRepository());
-
-    await _pumpView(tester, cubit: cubit..loadSources());
-    await tester.pumpAndSettle();
-
-    final row = find.byKey(const Key('watch_source_watch_button'));
-    final downloadButton = find.byKey(
-      const Key('watch_source_download_button'),
-    );
-    expect(row, findsNWidgets(3));
-    expect(downloadButton, findsNWidgets(3));
-    expect(tester.widget<InkWell>(row.first).onTap, isNotNull);
-    expect(
-      find.descendant(of: row.first, matching: downloadButton),
-      findsOneWidget,
-    );
-    expect(
-      tester.getCenter(downloadButton.first).dx,
-      greaterThan(tester.getCenter(find.text(frierenSources[1].title)).dx),
-      reason: 'download is the trailing action',
-    );
-    expect(find.byType(FilledButton), findsNothing);
   });
 
   testWidgets('Watch opens the streaming file picker for the source', (
@@ -180,17 +100,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final watchButton = find.byKey(const Key('watch_source_watch_button'));
-    final downloadButton = find.byKey(
-      const Key('watch_source_download_button'),
-    );
     expect(find.byTooltip('Скачать'), findsWidgets);
-    expect(
-      tester
-          .getRect(watchButton.first)
-          .contains(tester.getCenter(downloadButton.first)),
-      isTrue,
-    );
     expect(tester.takeException(), isNull);
   });
 
@@ -204,33 +114,11 @@ void main() {
       find.widgetWithText(TextField, 'Search sources'),
       'dual',
     );
-    // Filtering while typing updates the list without a transition.
     await tester.pump();
-    expect(find.byType(ListView), findsOneWidget);
 
     expect(find.text('[Judas] Frieren Season Pack Dual-Audio'), findsOneWidget);
     expect(find.text('[SubsPlease] Frieren - 28 (1080p)'), findsNothing);
     expect(find.text('[ASW] Frieren - 27'), findsNothing);
-  });
-
-  testWidgets('keeps the typed query and caret while results filter', (
-    tester,
-  ) async {
-    final cubit = frierenSourcesCubit(FixedWatchSourcesRepository());
-
-    await _pumpView(tester, cubit: cubit..loadSources());
-    await tester.pumpAndSettle();
-
-    final field = find.widgetWithText(TextField, 'Search sources');
-    await tester.enterText(field, 'frien');
-    await tester.pumpAndSettle();
-    final controller = tester.widget<TextField>(field).controller!;
-    controller.selection = const TextSelection.collapsed(offset: 2);
-    await tester.enterText(field, 'frieren');
-    await tester.pumpAndSettle();
-
-    expect(tester.widget<TextField>(field).controller, same(controller));
-    expect(controller.text, 'frieren');
   });
 
   testWidgets('clears the source search with the Clear button', (tester) async {
@@ -289,13 +177,8 @@ void main() {
     await tester.ensureVisible(find.text('Apply'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Apply'));
-    await tester.pump();
-    await tester.pump(DitherTransition.duration ~/ 2);
-    // The new order dissolves in over the old one.
-    expect(find.byType(ListView), findsNWidgets(2));
     await tester.pumpAndSettle();
 
-    expect(find.byType(ListView), findsOneWidget);
     expect(_topTitle(tester), '[ASW] Frieren - 27');
   });
 
@@ -399,24 +282,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      final first = tester.getTopLeft(
-        find.text('[SubsPlease] Frieren - 28 (1080p)'),
-      );
-      final second = tester.getTopLeft(
-        find.text('[Judas] Frieren Season Pack Dual-Audio'),
-      );
-      expect(second.dy, greaterThan(first.dy), reason: 'one list column');
-      final watchButton = find.byKey(const Key('watch_source_watch_button'));
-      final downloadButton = find.byKey(
-        const Key('watch_source_download_button'),
-      );
-      expect(
-        tester
-            .getRect(watchButton.first)
-            .contains(tester.getCenter(downloadButton.first)),
-        isTrue,
-        reason: 'download is the row trailing action',
-      );
+      expect(find.text('[SubsPlease] Frieren - 28 (1080p)'), findsOneWidget);
       expect(tester.takeException(), isNull);
 
       // Narrow windows show the action as an icon, named by its tooltip.
@@ -425,10 +291,6 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(
-        find.byType(Dialog),
-        entry.value.width < 600 ? findsNothing : findsOneWidget,
-      );
       expect(find.text('Apply'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });

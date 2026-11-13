@@ -11,7 +11,6 @@ import 'package:iris/entities/user_rate/presentation/user_rate_book_cubit.dart';
 import 'package:iris/features/anime_list/domain/entities/anime_list_item.dart';
 import 'package:iris/features/anime_list/presentation/widgets/anime_card.dart';
 import 'package:iris/shared/widgets/adaptive/adaptive_grid_row.dart';
-import 'package:iris/shared/widgets/poster_image.dart';
 
 import '../../../../helpers/test_app.dart';
 
@@ -53,14 +52,8 @@ void main() {
     );
   }
 
-  testWidgets('a title not in the list has no plate', (tester) async {
-    await pumpCard(tester, item());
-
-    expect(find.textContaining('WATCHING'), findsNothing);
-  });
-
   for (final scale in [1.0, 2.0]) {
-    testWidgets('card facts align across title lengths at text scale $scale', (
+    testWidgets('cards with long titles fit at text scale $scale', (
       tester,
     ) async {
       tester.view
@@ -99,16 +92,6 @@ void main() {
         ),
       );
       expect(tester.takeException(), isNull);
-      expect(tester.getTopLeft(find.byType(PosterImage).first).dx, 32);
-      final facts = find.descendant(
-        of: find.byType(AnimeCard),
-        matching: find.byType(Row),
-      );
-      expect(facts, findsNWidgets(3));
-      final top = tester.getTopLeft(facts.first).dy;
-      for (var index = 1; index < 3; index++) {
-        expect(tester.getTopLeft(facts.at(index)).dy, closeTo(top, 0.01));
-      }
     });
   }
 

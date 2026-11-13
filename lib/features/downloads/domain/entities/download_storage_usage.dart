@@ -1,15 +1,9 @@
 class DownloadStorageUsage {
-  const DownloadStorageUsage({
-    required this.downloadsBytes,
-    this.cacheBytes,
-    this.totalBytes,
-  });
-
-  final int downloadsBytes;
+  const DownloadStorageUsage({this.cacheBytes, this.cacheInUse = false});
 
   /// The streaming cache: what clearing the cache removes.
   final int? cacheBytes;
-  final int? totalBytes;
+  final bool cacheInUse;
 
   @override
   bool operator ==(Object other) {
@@ -18,11 +12,10 @@ class DownloadStorageUsage {
     }
 
     return other is DownloadStorageUsage &&
-        other.downloadsBytes == downloadsBytes &&
         other.cacheBytes == cacheBytes &&
-        other.totalBytes == totalBytes;
+        other.cacheInUse == cacheInUse;
   }
 
   @override
-  int get hashCode => Object.hash(downloadsBytes, cacheBytes, totalBytes);
+  int get hashCode => Object.hash(cacheBytes, cacheInUse);
 }

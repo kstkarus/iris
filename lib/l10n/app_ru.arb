@@ -1,5 +1,28 @@
 {
   "@@locale": "ru",
+  "downloadFilesButton": "Файлы",
+  "downloadFilesTitle": "Освободить место",
+  "downloadFilesTemporary": "Временные файлы",
+  "downloadFilesTemporaryHint": "Скачанные серии сохранятся.",
+  "downloadFilesTemporaryBusy": "Файлы использует плеер. Очистка станет доступна после просмотра.",
+  "downloadFilesClearTemporary": "Очистить временные файлы",
+  "downloadFilesTemporaryCleared": "Временные файлы удалены",
+  "downloadFilesClearFailed": "Не удалось удалить временные файлы. Попробуйте ещё раз.",
+  "downloadFilesSaved": "Скачанные серии",
+  "downloadFilesEmpty": "Скачанных серий пока нет.",
+  "downloadFilesUnavailable": "Не удалось определить размер временных файлов.",
+  "downloadQueueButton": "Очередь",
+  "downloadQueueCurrent": "Сейчас скачивается",
+  "downloadQueueWaiting": "Далее",
+  "downloadQueueMoveUp": "Поднять выше",
+  "downloadQueueMoveDown": "Опустить ниже",
+  "downloadQueueMove": "Переместить серию",
+  "downloadQueueChanged": "Порядок загрузки изменён",
+  "downloadQueueReorderFailed": "Не удалось изменить порядок загрузки. Попробуйте ещё раз.",
+  "downloadQueuePaused": "На паузе",
+  "downloadQueueAttention": "Требует внимания",
+  "downloadQueueFinished": "Все загрузки завершены. Готовые серии находятся в библиотеке.",
+  "downloadQueueNoWaiting": "Следующих серий пока нет.",
   "appName": "Iris",
   "commonRetry": "Повторить",
   "navigationCatalog": "Каталог",
@@ -200,6 +223,7 @@
   "playerSettingOff": "выкл",
   "playerDecoderAutoShort": "авто",
   "playerRestartHint": "Декодер и рендер ASS применяются перезапуском видео с того же места.",
+  "playerDecoderRestartHint": "Смена декодера перезапустит видео с того же места.",
   "playerSubtitleColorWhite": "Белый",
   "playerSubtitleColorYellow": "Жёлтый",
   "playerSubtitleColorCyan": "Голубой",
@@ -559,6 +583,25 @@
   "animeListResetFilters": "Сбросить фильтры",
   "animeListShowMore": "Ещё {count}",
   "@animeListShowMore": {"placeholders": {"count": {"type": "int"}}},
+  "downloadSelect": "Выбрать",
+  "downloadDeleteSelected": "{count, plural, =0{Удалить} other{Удалить {count}}}",
+  "@downloadDeleteSelected": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "downloadDeleteSelectedTitle": "{count, plural, one{Удалить {count} загрузку?} few{Удалить {count} загрузки?} many{Удалить {count} загрузок?} other{Удалить {count} загрузки?}}",
+  "@downloadDeleteSelectedTitle": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "downloadDeleteSpace": "Освободится около {size}.",
+  "@downloadDeleteSpace": {
+    "placeholders": { "size": { "type": "String" } }
+  },
+  "downloadDeleteUnfinished": "Незавершённые загрузки отменятся.",
+  "downloadDeleting": "Удаляем…",
+  "downloadDeleteSelectionFailed": "{count, plural, one{Не удалось удалить {count} загрузку.} few{Не удалось удалить {count} загрузки.} many{Не удалось удалить {count} загрузок.} other{Не удалось удалить {count} загрузки.}}",
+  "@downloadDeleteSelectionFailed": {
+    "placeholders": { "count": { "type": "int" } }
+  },
   "downloadSelectEpisodes": "Выбрать серии",
   "downloadSelectFiles": "Выбрать файлы",
   "downloadSelectAll": "Выбрать все",

@@ -5,7 +5,6 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as path;
 
-import 'package:iris/features/downloads/data/adapters/app_storage_usage_adapter.dart';
 import 'package:iris/shared/platform/download_foreground_service_adapter.dart';
 import 'package:iris/features/downloads/data/adapters/libtorrent_download_engine_adapter.dart';
 import 'package:iris/features/downloads/data/adapters/online_episode_downloader.dart';
@@ -49,7 +48,7 @@ void main() {
       ),
       downloadsDirectory: downloadsDirectory,
       foregroundService: foregroundService,
-      storageUsageAdapter: const _FakeStorageUsageAdapter(),
+
       onlineDownloader: online,
       now: () => DateTime.utc(2026, 10, 12, 12),
     );
@@ -83,6 +82,78 @@ void main() {
     final downloads = await repository.currentDownloads();
     return downloads.firstWhere((item) => item.id == id);
   }
+
+  test(
+    'keeps the service across queued episodes during unrelated deletion',
+    () async {
+      await repository.close();
+      final registry = _GatedRegistry(
+        registryFile: File(path.join(temporaryDirectory.path, 'registry.json')),
+      );
+      repository = DownloadsRepositoryImpl(
+        engine: _UnusedEngine(),
+        registry: registry,
+        downloadsDirectory: downloadsDirectory,
+        foregroundService: foregroundService,
+
+        onlineDownloader: online,
+      );
+      online.episodeList = Completer<List<DownloadableFile>>()
+        ..complete([
+          ..._episodes,
+          const DownloadableFile(
+            index: 3,
+            name: '03',
+            relativePath: '',
+            size: 0,
+          ),
+        ]);
+      final oldStarted = foregroundService.onNextStart = Completer<void>();
+      final old = await enqueueEpisode(1);
+      await oldStarted.future.timeout(const Duration(seconds: 5));
+      final oldFile = File(
+        path.join(online.tasks.first.directory.path, 'old.ts'),
+      );
+      await oldFile.writeAsString('old');
+      final oldStopped = foregroundService.onNextStop = Completer<void>();
+      online.tasks.first.finish(oldFile);
+      await oldStopped.future.timeout(const Duration(seconds: 5));
+      final activeStarted = foregroundService.onNextStart = Completer<void>();
+      final active = await enqueueEpisode(2);
+      await activeStarted.future.timeout(const Duration(seconds: 5));
+      final queued = await enqueueEpisode(3);
+      final nextStarted = foregroundService.onNextStart = Completer<void>();
+      final gate = Completer<void>();
+      registry.nextWriteGate = gate;
+      foregroundService.calls.clear();
+      final deleting = repository.deleteMany(ids: [old.id]);
+      try {
+        await registry.blocked.future.timeout(const Duration(seconds: 5));
+        final video = File(
+          path.join(online.tasks[1].directory.path, 'active.ts'),
+        );
+        await video.writeAsString('active');
+        final completed = repository.watchDownloads().firstWhere(
+          (downloads) => downloads.any(
+            (item) =>
+                item.id == active.id && item.status == DownloadStatus.completed,
+          ),
+        );
+        online.tasks[1].finish(video);
+        await completed.timeout(const Duration(seconds: 5));
+        expect((await latest(active.id)).status, DownloadStatus.completed);
+        expect((await latest(queued.id)).status, DownloadStatus.queued);
+        expect(online.tasks, hasLength(2));
+        expect(foregroundService.calls, isEmpty);
+      } finally {
+        if (!gate.isCompleted) gate.complete();
+        await deleting;
+      }
+      await nextStarted.future.timeout(const Duration(seconds: 5));
+      expect(online.tasks, hasLength(3));
+      expect(foregroundService.calls, ['start 03']);
+    },
+  );
 
   test('one open picker queues several episodes, the first loading at once, '
       'and shows them by episode', () async {
@@ -150,7 +221,7 @@ void main() {
       ),
       downloadsDirectory: downloadsDirectory,
       foregroundService: foregroundService,
-      storageUsageAdapter: const _FakeStorageUsageAdapter(),
+
       onlineDownloader: online,
     );
     await repository.restore();
@@ -186,7 +257,7 @@ void main() {
         ),
         downloadsDirectory: downloadsDirectory,
         foregroundService: foregroundService,
-        storageUsageAdapter: const _FakeStorageUsageAdapter(),
+
         onlineDownloader: online,
       );
       await repository.restore();
@@ -251,7 +322,7 @@ void main() {
         registry: DownloadRegistryDataSource(registryFile: registryFile),
         downloadsDirectory: downloadsDirectory,
         foregroundService: foregroundService,
-        storageUsageAdapter: const _FakeStorageUsageAdapter(),
+
         onlineDownloader: online,
       );
 
@@ -431,6 +502,42 @@ void main() {
     expect(await repository.currentDownloads(), isEmpty);
   });
 
+  test(
+    'batch deletion reserves queued copies before stopping the active one',
+    () async {
+      online.episodeList = Completer()
+        ..complete([
+          ..._episodes,
+          const DownloadableFile(
+            index: 3,
+            name: '03',
+            relativePath: '',
+            size: 0,
+          ),
+        ]);
+      final first = await enqueueEpisode(1);
+      await _waitFor(() => online.tasks.isNotEmpty);
+      final second = await enqueueEpisode(2);
+      final third = await enqueueEpisode(3);
+      final task = online.tasks.single;
+      task.cancelGate = Completer<void>();
+      final deleting = repository.deleteMany(
+        ids: [first.id, second.id, first.id],
+      );
+      await _waitFor(() => task.cancelled);
+      // A separate queue action during cancellation must not start either
+      // selected files or a new transfer under the service being stopped.
+      await repository.downloadNext(id: third.id);
+      expect(online.tasks, hasLength(1));
+      task.cancelGate!.complete();
+      expect(await deleting, isEmpty);
+      await _waitFor(() => online.tasks.length == 2);
+      expect(online.tasks.last.fileIndex, 3);
+      expect((await repository.currentDownloads()).single.id, third.id);
+      expect(await task.directory.exists(), isFalse);
+    },
+  );
+
   test('a loading episode waits in the queue again after a restart', () async {
     final item = await enqueueEpisode(2);
     await _waitFor(() => online.tasks.isNotEmpty);
@@ -443,7 +550,7 @@ void main() {
       ),
       downloadsDirectory: downloadsDirectory,
       foregroundService: foregroundService,
-      storageUsageAdapter: const _FakeStorageUsageAdapter(),
+
       onlineDownloader: online,
     );
     repository = restarted;
@@ -513,6 +620,7 @@ class _FakeTask implements OnlineDownloadTask {
   final _progress = StreamController<OnlineDownloadProgress>.broadcast();
   final _done = Completer<File?>();
   bool cancelled = false;
+  Completer<void>? cancelGate;
   bool? folderExistedOnCancel;
 
   void report(OnlineDownloadProgress update) => _progress.add(update);
@@ -530,6 +638,7 @@ class _FakeTask implements OnlineDownloadTask {
   @override
   Future<void> cancel() async {
     cancelled = true;
+    await cancelGate?.future;
     folderExistedOnCancel = await directory.exists();
     if (!_done.isCompleted) _done.complete(null);
   }
@@ -551,23 +660,28 @@ class _UnusedEngine implements LibtorrentDownloadEngineAdapter {
 
 class _FakeForegroundService implements DownloadForegroundServiceAdapter {
   final calls = <String>[];
+  Completer<void>? onNextStart;
+  Completer<void>? onNextStop;
 
   @override
-  Future<void> start({required String text}) async => calls.add('start $text');
+  Future<void> start({required String text}) async {
+    calls.add('start $text');
+    final next = onNextStart;
+    onNextStart = null;
+    next?.complete();
+  }
 
   @override
   Future<void> update({required String text}) async =>
       calls.add('update $text');
 
   @override
-  Future<void> stop() async => calls.add('stop');
-}
-
-class _FakeStorageUsageAdapter implements AppStorageUsageAdapter {
-  const _FakeStorageUsageAdapter();
-
-  @override
-  Future<int?> totalBytes() async => null;
+  Future<void> stop() async {
+    calls.add('stop');
+    final next = onNextStop;
+    onNextStop = null;
+    next?.complete();
+  }
 }
 
 Future<void> _waitFor(bool Function() condition) =>
@@ -580,4 +694,20 @@ Future<void> _eventually(Future<bool> Function() condition) async {
     await Future<void>.delayed(const Duration(milliseconds: 5));
   }
   throw TimeoutException('Condition was not met.');
+}
+
+class _GatedRegistry extends DownloadRegistryDataSource {
+  _GatedRegistry({required super.registryFile});
+  Completer<void>? nextWriteGate;
+  final blocked = Completer<void>();
+  @override
+  Future<void> writeDownloads(List<DownloadItem> downloads) async {
+    final gate = nextWriteGate;
+    nextWriteGate = null;
+    await super.writeDownloads(downloads);
+    if (gate != null) {
+      blocked.complete();
+      await gate.future;
+    }
+  }
 }

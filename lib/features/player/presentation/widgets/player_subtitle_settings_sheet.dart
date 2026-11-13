@@ -1,8 +1,10 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:media_kit/media_kit.dart';
 
 import 'package:iris/features/player/presentation/playback/player_quality_choice.dart';
+import 'package:iris/features/player/presentation/playback/player_track_availability.dart';
 import 'package:iris/features/player/domain/entities/player_decoding_preferences.dart';
 import 'package:iris/features/player/domain/entities/subtitle_preferences.dart';
 import 'package:iris/features/player/presentation/cubit/player_decoding_preferences_cubit.dart';
@@ -52,6 +54,8 @@ class PlayerQualitySetting {
 /// with [quality] the quality follows.
 Future<void> showPlayerSubtitleSettingsSheet(
   BuildContext context, {
+  required ValueListenable<Tracks> tracks,
+  required ValueListenable<Track> selectedTrack,
   BuildContext? anchor,
   PlayerSpeedSetting? speed,
   PlayerQualitySetting? quality,
@@ -75,7 +79,18 @@ Future<void> showPlayerSubtitleSettingsSheet(
           value: decodingCubit,
         ),
       ],
-      child: PlayerSubtitleSettingsSheet(speed: speed, quality: quality),
+      child: ValueListenableBuilder<Tracks>(
+        valueListenable: tracks,
+        builder: (context, available, _) => ValueListenableBuilder<Track>(
+          valueListenable: selectedTrack,
+          builder: (context, selected, _) => PlayerSubtitleSettingsSheet(
+            tracks: available,
+            selectedSubtitleTrack: selected.subtitle,
+            speed: speed,
+            quality: quality,
+          ),
+        ),
+      ),
     ),
   );
 }
@@ -84,8 +99,16 @@ Future<void> showPlayerSubtitleSettingsSheet(
 /// change; the decoder, the ASS renderer and the technical overlay folded
 /// under Advanced, for playback problems.
 class PlayerSubtitleSettingsSheet extends StatelessWidget {
-  const PlayerSubtitleSettingsSheet({this.speed, this.quality, super.key});
+  const PlayerSubtitleSettingsSheet({
+    required this.tracks,
+    this.selectedSubtitleTrack = const SubtitleTrack('auto', null, null),
+    this.speed,
+    this.quality,
+    super.key,
+  });
 
+  final Tracks tracks;
+  final SubtitleTrack selectedSubtitleTrack;
   final PlayerSpeedSetting? speed;
   final PlayerQualitySetting? quality;
 
@@ -93,6 +116,7 @@ class PlayerSubtitleSettingsSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     final speed = this.speed;
     final quality = this.quality;
+    final showAppearance = tracks.canStyleSubtitles(selectedSubtitleTrack);
     return PlayerPanel(
       title: AppLocalizations.of(context).playerSettingsTitle,
       child: Column(
@@ -101,10 +125,12 @@ class PlayerSubtitleSettingsSheet extends StatelessWidget {
         children: [
           if (speed != null) _Speed(speed: speed),
           if (quality != null) _Quality(quality: quality),
-          const _Appearance(),
-          const SizedBox(height: 8),
-          const SegmentedRule(),
-          const _Advanced(),
+          if (showAppearance) const _Appearance(),
+          if (speed != null || quality != null || showAppearance) ...[
+            const SizedBox(height: 8),
+            const SegmentedRule(),
+          ],
+          _Advanced(hasSubtitles: tracks.hasSubtitles),
         ],
       ),
     );
@@ -374,7 +400,9 @@ class _Swatch extends StatelessWidget {
 /// playback problem, so folded until asked for. Folded, a line says what
 /// they are set to.
 class _Advanced extends StatefulWidget {
-  const _Advanced();
+  const _Advanced({required this.hasSubtitles});
+
+  final bool hasSubtitles;
 
   @override
   State<_Advanced> createState() => _AdvancedState();
@@ -451,12 +479,15 @@ class _AdvancedState extends State<_Advanced> {
                           visible: !_expanded,
                           duration: duration,
                           child: Text(
-                            l10n.playerAdvancedSummary(
-                              _decoderShortLabel(l10n, decoder),
-                              libass
-                                  ? l10n.playerSettingOn
-                                  : l10n.playerSettingOff,
-                            ),
+                            widget.hasSubtitles
+                                ? l10n.playerAdvancedSummary(
+                                    _decoderShortLabel(l10n, decoder),
+                                    libass
+                                        ? l10n.playerSettingOn
+                                        : l10n.playerSettingOff,
+                                  )
+                                : '${l10n.playerDecoderSettingsTitle}: '
+                                      '${_decoderShortLabel(l10n, decoder)}',
                             style: theme.textTheme.bodySmall?.copyWith(
                               color: theme.colorScheme.onSurfaceVariant,
                             ),
@@ -482,7 +513,11 @@ class _AdvancedState extends State<_Advanced> {
           duration: duration,
           child: KeyedSubtree(
             key: _contentKey,
-            child: _AdvancedContent(decoder: decoder, libass: libass),
+            child: _AdvancedContent(
+              decoder: decoder,
+              libass: libass,
+              hasSubtitles: widget.hasSubtitles,
+            ),
           ),
         ),
       ],
@@ -491,10 +526,15 @@ class _AdvancedState extends State<_Advanced> {
 }
 
 class _AdvancedContent extends StatelessWidget {
-  const _AdvancedContent({required this.decoder, required this.libass});
+  const _AdvancedContent({
+    required this.decoder,
+    required this.libass,
+    required this.hasSubtitles,
+  });
 
   final PlayerHwdecModePreset decoder;
   final bool libass;
+  final bool hasSubtitles;
 
   @override
   Widget build(BuildContext context) {
@@ -520,13 +560,14 @@ class _AdvancedContent extends StatelessWidget {
             onTap: () => decodingCubit.setHwdecMode(preset),
           ),
         const SizedBox(height: 8),
-        SwitchListTile(
-          contentPadding: EdgeInsets.zero,
-          title: Text(l10n.playerSubtitleLibassLabel),
-          subtitle: Text(l10n.playerSubtitleLibassDescription),
-          value: libass,
-          onChanged: subtitleCubit.setLibassEnabled,
-        ),
+        if (hasSubtitles)
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: Text(l10n.playerSubtitleLibassLabel),
+            subtitle: Text(l10n.playerSubtitleLibassDescription),
+            value: libass,
+            onChanged: subtitleCubit.setLibassEnabled,
+          ),
         ValueListenableBuilder<bool>(
           valueListenable: playerDetailedStatsEnabled,
           builder: (context, enabled, _) => SwitchListTile(
@@ -539,7 +580,10 @@ class _AdvancedContent extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 8),
-        Text(l10n.playerRestartHint, style: muted),
+        Text(
+          hasSubtitles ? l10n.playerRestartHint : l10n.playerDecoderRestartHint,
+          style: muted,
+        ),
         const SizedBox(height: 8),
       ],
     );

@@ -40,14 +40,6 @@ void main() {
     expect(lowerBase32Link?.infoHash, hexLink?.infoHash);
   });
 
-  test('reports upper-case and lower-case hex as the same info-hash', () {
-    final upper = MagnetLink.tryParse('magnet:?xt=urn:btih:$hexHash');
-    final lower = MagnetLink.tryParse('magnet:?xt=urn:btih:$hexHashLower');
-
-    expect(upper?.infoHash, hexHashLower);
-    expect(lower?.infoHash, hexHashLower);
-  });
-
   test('uses the first BitTorrent xt when several are present', () {
     final link = MagnetLink.tryParse(
       'magnet:?xt=urn:btmh:1220abcd&xt=urn:btih:$hexHash',

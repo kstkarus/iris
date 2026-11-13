@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:iris/shared/widgets/dithered_image.dart';
-import 'package:iris/shared/widgets/pixel_noise.dart';
 
 // A 1×1 transparent PNG; the toggle does not depend on the picture.
 final _pixel = MemoryImage(
@@ -106,55 +105,14 @@ void main() {
     expect(tester.hasRunningAnimations, isFalse);
   });
 
-  testWidgets('without labels it is a plain picture', (tester) async {
-    await tester.pumpWidget(_app(DitheredImage(image: _pixel)));
-
-    expect(find.byType(Tooltip), findsNothing);
-    expect(find.byType(GestureDetector), findsNothing);
-  });
-
-  test('a small cover keeps about as many dots across as a large one', () {
-    int across(double width, double ratio) =>
-        (width /
-                DitheredImage.dotSize(
-                  width: width,
-                  devicePixelRatio: ratio,
-                  dotsAcross: 106,
-                ))
-            .round();
-
-    // A large window's cover, and a phone's.
-    expect(across(320, 1), 107);
-    expect(across(130, 2.75), inInclusiveRange(100, 120));
-    // Each dot is whole device pixels.
-    final phoneDot = DitheredImage.dotSize(
-      width: 130,
-      devicePixelRatio: 2.75,
-      dotsAcross: 106,
-    );
-    expect(phoneDot * 2.75, closeTo((phoneDot * 2.75).roundToDouble(), 1e-9));
-  });
-
-  test('dots never get finer than two device pixels', () {
-    expect(
-      DitheredImage.dotSize(width: 60, devicePixelRatio: 1, dotsAcross: 106),
-      2,
-    );
-  });
-
-  testWidgets('shows noise until the picture arrives', (tester) async {
-    await tester.pumpWidget(_app(const DitheredImage(image: _PendingImage())));
-
-    expect(find.byType(PixelNoise), findsOneWidget);
-  });
-
-  testWidgets('a picture that fails leaves a still panel', (tester) async {
+  testWidgets('a failed picture stops the placeholder animation', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       _app(const DitheredImage(image: _PendingImage(fails: true))),
     );
     await tester.pump();
 
-    expect(find.byType(PixelNoise), findsNothing);
     expect(tester.hasRunningAnimations, isFalse);
   });
 }

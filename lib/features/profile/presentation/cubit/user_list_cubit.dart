@@ -39,10 +39,6 @@ class UserListCubit extends Cubit<UserListState> {
   /// back again. The set is cleared when the first page is replaced.
   final Set<String> _departed = {};
 
-  /// The first page is read again quietly; a further page now would be
-  /// added to what that read replaces.
-  bool _rereading = false;
-
   /// Shows [userId]'s list, or nobody's.
   void show(String? userId) {
     if (userId == state.userId && state.load != UserListLoad.failed) return;
@@ -69,7 +65,7 @@ class UserListCubit extends Cubit<UserListState> {
         state.load != UserListLoad.loaded ||
         !state.hasMore ||
         state.loadingMore ||
-        _rereading) {
+        state.refreshing) {
       return;
     }
     final request = _request;
@@ -107,7 +103,6 @@ class UserListCubit extends Cubit<UserListState> {
     _request++;
     _stepBack = 0;
     _departed.clear();
-    _rereading = false;
     if (userId == null) {
       emit(UserListState(status: status, load: UserListLoad.loaded));
       return;
@@ -121,7 +116,6 @@ class UserListCubit extends Cubit<UserListState> {
     if (userId == null) return;
     final request = _request;
     final status = state.status;
-    _rereading = quietly;
     try {
       final page = await _repository.page(
         userId: userId,
@@ -145,7 +139,9 @@ class UserListCubit extends Cubit<UserListState> {
       if (isClosed || request != _request || quietly) return;
       emit(state.copyWith(load: UserListLoad.failed));
     } finally {
-      if (request == _request) _rereading = false;
+      if (quietly && !isClosed && request == _request && state.refreshing) {
+        emit(state.copyWith(refreshing: false));
+      }
     }
   }
 
@@ -170,7 +166,7 @@ class UserListCubit extends Cubit<UserListState> {
       return;
     }
     _request++;
-    emit(state.copyWith(loadingMore: false));
+    emit(state.copyWith(loadingMore: false, refreshing: true));
     unawaited(_readFirstPage(quietly: true));
   }
 

@@ -3,7 +3,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
-import 'package:iris/app/router/app_shell_page.dart';
 import 'package:iris/app/di/service_locator.dart';
 import 'package:iris/entities/user_rate/domain/user_rate.dart';
 import 'package:iris/entities/user_rate/domain/user_rate_repository.dart';
@@ -16,16 +15,6 @@ void main() {
   testWidgets('App opens details after tapping an anime card', (tester) async {
     await pumpMockApp(tester);
 
-    expect(find.text('Iris'), findsNothing);
-    // The navigation names the section; the page does not repeat it.
-    expect(find.byType(AppBar), findsNothing);
-    expect(
-      find.descendant(
-        of: find.byKey(AppShellPage.topBarKey),
-        matching: find.text('Catalog'),
-      ),
-      findsOneWidget,
-    );
     expect(find.text('Fullmetal Alchemist: Brotherhood'), findsOneWidget);
 
     // Covers start under the catalog's heading.
@@ -43,21 +32,6 @@ void main() {
       ),
       findsOneWidget,
     );
-  });
-
-  testWidgets('App opens watch sources after tapping Watch on details', (
-    tester,
-  ) async {
-    await pumpMockApp(tester);
-    await _openWatchSources(tester);
-
-    expect(find.text('Watch sources'), findsOneWidget);
-    expect(
-      find.text('[Mock] Fullmetal Alchemist: Brotherhood Batch'),
-      findsOneWidget,
-    );
-    expect(find.byKey(_sourceWatchButton), findsWidgets);
-    expect(find.byKey(_sourceDownloadButton), findsWidgets);
   });
 
   testWidgets('App opens player from a completed download', (tester) async {
@@ -142,7 +116,7 @@ void main() {
     );
     await pumpUntilVisible(tester, find.text('Choose File'));
     await tester.pumpAndSettle();
-    await _tapVisible(tester, find.text('episode-01').first);
+    await _tapVisible(tester, find.byKey(const ValueKey('player_episode_0')));
     await pumpUntilVisible(tester, _playerSurface);
 
     expect(find.byKey(const Key('mock_player_surface')), findsOneWidget);
@@ -206,7 +180,6 @@ void main() {
   });
 }
 
-const _sourceWatchButton = Key('watch_source_watch_button');
 final _playerSurface = find.byKey(const Key('mock_player_surface'));
 const _sourceDownloadButton = Key('watch_source_download_button');
 

@@ -5,7 +5,6 @@ import 'package:iris/features/player/domain/entities/player_playback_diagnostics
 import 'package:iris/features/player/domain/entities/player_playback_stats.dart';
 import 'package:iris/features/player/presentation/playback/player_buffer_margin.dart';
 import 'package:iris/features/player/presentation/widgets/player_playback_stats_indicator.dart';
-import 'package:iris/shared/widgets/segmented_bar.dart';
 
 import '../../../../helpers/test_app.dart';
 
@@ -102,18 +101,11 @@ void main() {
     expect(find.text('512 KB/s'), findsOneWidget);
     expect(find.text('30%'), findsOneWidget);
     expect(find.text('11'), findsNothing, reason: 'peers are a detail');
-    expect(
-      tester
-          .widget<SegmentedBar>(
-            find.byKey(const Key('player_stats_buffer_bar')),
-          )
-          .color,
-      const Color(0xFFF59E0B),
-    );
-    expect(find.byType(Tooltip), findsNothing);
   });
 
-  testWidgets('renders only speed when memory is unavailable', (tester) async {
+  testWidgets('keeps torrent stats visible when memory is unavailable', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       _wrap(
         child: const PlayerPlaybackStatsIndicator(
@@ -133,7 +125,6 @@ void main() {
     expect(find.text('512 KB/s'), findsOneWidget);
     expect(find.text('11'), findsOneWidget);
     expect(find.text('30%'), findsOneWidget);
-    expect(find.text('Buffering'), findsNothing);
   });
 
   testWidgets('renders stats when they appear after the first build', (

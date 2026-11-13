@@ -9,6 +9,80 @@ class AppLocalizationsRu extends AppLocalizations {
   AppLocalizationsRu([String locale = 'ru']) : super(locale);
 
   @override
+  String get downloadFilesButton => 'Файлы';
+
+  @override
+  String get downloadFilesTitle => 'Освободить место';
+
+  @override
+  String get downloadFilesTemporary => 'Временные файлы';
+
+  @override
+  String get downloadFilesTemporaryHint => 'Скачанные серии сохранятся.';
+
+  @override
+  String get downloadFilesTemporaryBusy =>
+      'Файлы использует плеер. Очистка станет доступна после просмотра.';
+
+  @override
+  String get downloadFilesClearTemporary => 'Очистить временные файлы';
+
+  @override
+  String get downloadFilesTemporaryCleared => 'Временные файлы удалены';
+
+  @override
+  String get downloadFilesClearFailed =>
+      'Не удалось удалить временные файлы. Попробуйте ещё раз.';
+
+  @override
+  String get downloadFilesSaved => 'Скачанные серии';
+
+  @override
+  String get downloadFilesEmpty => 'Скачанных серий пока нет.';
+
+  @override
+  String get downloadFilesUnavailable =>
+      'Не удалось определить размер временных файлов.';
+
+  @override
+  String get downloadQueueButton => 'Очередь';
+
+  @override
+  String get downloadQueueCurrent => 'Сейчас скачивается';
+
+  @override
+  String get downloadQueueWaiting => 'Далее';
+
+  @override
+  String get downloadQueueMoveUp => 'Поднять выше';
+
+  @override
+  String get downloadQueueMoveDown => 'Опустить ниже';
+
+  @override
+  String get downloadQueueMove => 'Переместить серию';
+
+  @override
+  String get downloadQueueChanged => 'Порядок загрузки изменён';
+
+  @override
+  String get downloadQueueReorderFailed =>
+      'Не удалось изменить порядок загрузки. Попробуйте ещё раз.';
+
+  @override
+  String get downloadQueuePaused => 'На паузе';
+
+  @override
+  String get downloadQueueAttention => 'Требует внимания';
+
+  @override
+  String get downloadQueueFinished =>
+      'Все загрузки завершены. Готовые серии находятся в библиотеке.';
+
+  @override
+  String get downloadQueueNoWaiting => 'Следующих серий пока нет.';
+
+  @override
   String get appName => 'Iris';
 
   @override
@@ -488,6 +562,10 @@ class AppLocalizationsRu extends AppLocalizations {
   @override
   String get playerRestartHint =>
       'Декодер и рендер ASS применяются перезапуском видео с того же места.';
+
+  @override
+  String get playerDecoderRestartHint =>
+      'Смена декодера перезапустит видео с того же места.';
 
   @override
   String get playerSubtitleColorWhite => 'Белый';
@@ -1681,6 +1759,57 @@ class AppLocalizationsRu extends AppLocalizations {
   @override
   String animeListShowMore(int count) {
     return 'Ещё $count';
+  }
+
+  @override
+  String get downloadSelect => 'Выбрать';
+
+  @override
+  String downloadDeleteSelected(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Удалить $count',
+      zero: 'Удалить',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String downloadDeleteSelectedTitle(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Удалить $count загрузки?',
+      many: 'Удалить $count загрузок?',
+      few: 'Удалить $count загрузки?',
+      one: 'Удалить $count загрузку?',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String downloadDeleteSpace(String size) {
+    return 'Освободится около $size.';
+  }
+
+  @override
+  String get downloadDeleteUnfinished => 'Незавершённые загрузки отменятся.';
+
+  @override
+  String get downloadDeleting => 'Удаляем…';
+
+  @override
+  String downloadDeleteSelectionFailed(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Не удалось удалить $count загрузки.',
+      many: 'Не удалось удалить $count загрузок.',
+      few: 'Не удалось удалить $count загрузки.',
+      one: 'Не удалось удалить $count загрузку.',
+    );
+    return '$_temp0';
   }
 
   @override

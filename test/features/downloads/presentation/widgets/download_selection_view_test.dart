@@ -13,8 +13,6 @@ import 'package:iris/features/downloads/domain/entities/prepared_download_source
 import 'package:iris/features/downloads/presentation/cubit/download_selection_cubit.dart';
 import 'package:iris/features/downloads/presentation/models/download_selection_args.dart';
 import 'package:iris/features/downloads/presentation/pages/download_selection_page.dart';
-import 'package:iris/shared/utils/bayer_mask.dart';
-import 'package:iris/shared/widgets/dither_transition.dart';
 import 'package:iris/shared/widgets/segmented_choice.dart';
 
 import '../../../../helpers/memory_online_quality_preferences.dart';
@@ -69,10 +67,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    expect(find.byKey(const Key('download_select')), findsNothing);
     expect(find.byKey(const Key('download_selected')), findsNothing);
-    final heldFile = find.byKey(const ValueKey('download_selection_file_2'));
-    final heldPosition = tester.getTopLeft(heldFile);
     try {
       expect(
         tester
@@ -88,21 +83,7 @@ void main() {
     }
     await tester.longPress(find.text('02'));
     await tester.pump();
-    for (var frame = 0; frame <= 4; frame++) {
-      if (frame > 0) await tester.pump(const Duration(milliseconds: 50));
-      expect(tester.getTopLeft(heldFile), heldPosition);
-      if (frame == 2) {
-        final opacity = tester.widget<Opacity>(
-          find
-              .ancestor(
-                of: find.byKey(const Key('download_selected')),
-                matching: find.byType(Opacity),
-              )
-              .first,
-        );
-        expect(opacity.opacity, allOf(greaterThan(0), lessThan(1)));
-      }
-    }
+    await tester.pumpAndSettle();
     expect(find.byType(Checkbox), findsNWidgets(2));
     expect(
       tester
@@ -167,12 +148,6 @@ void main() {
     );
     expect(find.byKey(const ValueKey('download_file_watch_1')), findsOneWidget);
     await tester.pump(const Duration(milliseconds: 100));
-    expect(
-      tester
-          .widgetList<BayerMasked>(find.byType(BayerMasked))
-          .any((mask) => mask.open > 0 && mask.open < BayerMask.steps),
-      isTrue,
-    );
     await tester.tap(
       find.byKey(const ValueKey('download_file_watch_1')),
       warnIfMissed: false,

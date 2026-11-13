@@ -61,28 +61,94 @@ void main() {
     );
   });
 
-  test('quick steps add the anime once and send the last count', () async {
+  test(
+    'quick steps and a score add the anime once with the last count',
+    () async {
+      await cubit.accountChanged('42');
+      repository.gate = Completer();
+
+      cubit
+        ..stepEpisodes(1, total: 12)
+        ..stepEpisodes(1, total: 12)
+        ..stepEpisodes(1, total: 12)
+        ..setStatus(UserRateStatus.dropped)
+        ..setScore(8);
+      expect((cubit.state as UserRateLoaded).rate?.episodes, 3);
+
+      repository.gate!.complete();
+      await pumpEventQueue();
+
+      expect(repository.saves.map((save) => save.episodes), [1, 3]);
+      expect(repository.saves.map((save) => save.rateId), [null, '1']);
+      expect(repository.saves.map((save) => save.status), [
+        UserRateStatus.watching,
+        UserRateStatus.dropped,
+      ]);
+      expect(repository.saves.map((save) => save.score), [0, 8]);
+      expect(
+        cubit.state,
+        const UserRateLoaded(
+          UserRate(
+            id: '1',
+            status: UserRateStatus.dropped,
+            episodes: 3,
+            score: 8,
+          ),
+        ),
+      );
+    },
+  );
+
+  test('status changes keep episodes marked while the save waits', () async {
     await cubit.accountChanged('42');
+    await repository.markFromPlayer(2);
+    await pumpEventQueue();
+    repository.saves.clear();
     repository.gate = Completer();
 
-    cubit
-      ..stepEpisodes(1, total: 12)
-      ..stepEpisodes(1, total: 12)
-      ..stepEpisodes(1, total: 12);
-    expect((cubit.state as UserRateLoaded).rate?.episodes, 3);
-
+    cubit.setStatus(UserRateStatus.onHold);
+    await repository.markFromPlayer(5);
     repository.gate!.complete();
     await pumpEventQueue();
 
-    expect(repository.saves.map((save) => save.episodes), [1, 3]);
-    expect(repository.saves.map((save) => save.rateId), [null, '1']);
-    expect(
-      cubit.state,
-      const UserRateLoaded(
-        UserRate(id: '1', status: UserRateStatus.watching, episodes: 3),
-      ),
-    );
+    expect(repository.saves.single.status, UserRateStatus.onHold);
+    expect(repository.saves.single.episodes, isNull);
+    expect(repository.saves.single.score, isNull);
+    expect((cubit.state as UserRateLoaded).rate?.episodes, 5);
   });
+
+  test(
+    'queued edits send each changed field once for an existing rate',
+    () async {
+      await cubit.accountChanged('42');
+      await repository.markFromPlayer(2);
+      await pumpEventQueue();
+      repository.saves.clear();
+      repository.gate = Completer();
+
+      cubit
+        ..setScore(5)
+        ..setStatus(UserRateStatus.onHold)
+        ..stepEpisodes(1, total: 12)
+        ..setScore(8);
+      repository.gate!.complete();
+      await pumpEventQueue();
+
+      expect(repository.saves, [
+        (rateId: '1', status: null, episodes: null, score: 5),
+        (rateId: '1', status: UserRateStatus.onHold, episodes: 3, score: 8),
+      ]);
+      expect(
+        (cubit.state as UserRateLoaded).rate,
+        const UserRate(
+          id: '1',
+          status: UserRateStatus.onHold,
+          episodes: 3,
+          score: 8,
+        ),
+      );
+    },
+  );
 
   test('steps stay within the episodes there are', () async {
     await cubit.accountChanged('42');
@@ -323,7 +389,12 @@ void main() {
 
     cubit.stepEpisodes(1, total: 12);
     await pumpEventQueue();
-    expect(repository.saves.last, (rateId: '1', episodes: 6));
+    expect(repository.saves.last, (
+      rateId: '1',
+      status: null,
+      episodes: 6,
+      score: null,
+    ));
   });
 
   test('another anime\'s changes leave the entry alone', () async {
@@ -350,7 +421,16 @@ class _GatedRepository extends MockUserRateRepository {
   bool failFetch = false;
   bool failSave = false;
   bool failSaveAfterSaving = false;
-  final saves = <({String? rateId, int episodes})>[];
+  final saves =
+      <({String? rateId, UserRateStatus? status, int? episodes, int? score})>[];
+
+  Future<UserRate> markFromPlayer(int episodes) => super.save(
+    userId: '42',
+    animeId: '1',
+    rateId: rates['1']?.id,
+    status: UserRateStatus.watching,
+    episodes: episodes,
+  );
 
   @override
   Future<UserRate?> fetch(String animeId) async {
@@ -365,11 +445,16 @@ class _GatedRepository extends MockUserRateRepository {
     required String animeId,
     required String? rateId,
     UserRateStatus? status,
-    required int episodes,
+    int? episodes,
     int? score,
     int? rewatches,
   }) async {
-    saves.add((rateId: rateId, episodes: episodes));
+    saves.add((
+      rateId: rateId,
+      status: status,
+      episodes: episodes,
+      score: score,
+    ));
     await gate?.future;
     if (failSave) throw Exception('refused');
     final saved = await super.save(

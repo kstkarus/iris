@@ -5,7 +5,6 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as path;
 
-import 'package:iris/features/downloads/data/adapters/app_storage_usage_adapter.dart';
 import 'package:iris/shared/platform/download_foreground_service_adapter.dart';
 import 'package:iris/features/downloads/data/adapters/libtorrent_download_engine_adapter.dart';
 import 'package:iris/features/downloads/data/datasources/download_registry_data_source.dart';
@@ -59,7 +58,7 @@ void main() {
       registry: registry,
       downloadsDirectory: downloadsDirectory,
       foregroundService: foregroundService,
-      storageUsageAdapter: const _FakeStorageUsageAdapter(),
+
       activityRegistry: activityRegistry,
       posterLookup: (animeIds) =>
           posterLookup?.call(animeIds) ?? Future.value({}),
@@ -161,7 +160,7 @@ void main() {
       registry: registry,
       downloadsDirectory: downloadsDirectory,
       foregroundService: foregroundService,
-      storageUsageAdapter: const _FakeStorageUsageAdapter(),
+
       activityRegistry: activityRegistry,
     );
     await repository.restore();
@@ -170,6 +169,143 @@ void main() {
     expect(restored.map((item) => item.id), ['queue-2', 'queue-0', 'queue-1']);
     expect(restored.first.status, DownloadStatus.downloading);
   });
+
+  test(
+    'reorder during folder creation starts the first available item',
+    () async {
+      final items = [
+        for (var index = 0; index < 3; index++)
+          _savedDownload(id: 'reorder-$index', fileIndex: 0).copyWith(
+            magnet: 'magnet:?xt=urn:btih:ABCDEF123456789$index',
+            status: DownloadStatus.queued,
+          ),
+      ];
+      await registry.writeDownloads(items);
+      activityRegistry.acquireStreaming('abcdef1234567892');
+      final requested = Completer<void>();
+      final release = Completer<void>();
+
+      await IOOverrides.runWithIOOverrides(
+        () async {
+          try {
+            await repository.restore();
+            await requested.future.timeout(const Duration(seconds: 5));
+            await repository.reorderQueue(
+              ids: ['reorder-2', 'reorder-1', 'reorder-0'],
+            );
+            expect(engine.addCalls, isEmpty);
+            release.complete();
+            await _waitFor(() => engine.priorityCalls.isNotEmpty);
+
+            expect(engine.addCalls.single.magnet, items[1].magnet);
+            final downloads = await repository.currentDownloads();
+            expect(downloads.map((item) => item.id), [
+              'reorder-2',
+              'reorder-1',
+              'reorder-0',
+            ]);
+            expect(downloads[0].status, DownloadStatus.queued);
+            expect(downloads[1].status, DownloadStatus.downloading);
+            expect(downloads[2].status, DownloadStatus.queued);
+          } finally {
+            if (!release.isCompleted) release.complete();
+          }
+        },
+        _GatedDirectoryOverrides(
+          path.join(downloadsDirectory.path, 'content', 'reorder-0'),
+          requested,
+          release,
+        ),
+      );
+    },
+  );
+
+  test(
+    'manual order is saved, resumes at the tail and survives restarting',
+    () async {
+      final items = [
+        for (var index = 0; index < 6; index++)
+          _savedDownload(id: 'manual-$index').copyWith(
+            magnet: 'magnet:?xt=urn:btih:ABCDEF123456789$index',
+            status: index == 2
+                ? DownloadStatus.paused
+                : index == 4
+                ? DownloadStatus.failed
+                : DownloadStatus.queued,
+          ),
+      ];
+      await registry.writeDownloads(items);
+      await repository.restore();
+      await _waitFor(() => engine.priorityCalls.isNotEmpty);
+      final active = (await repository.currentDownloads()).first;
+      final starts = engine.priorityCalls.length;
+      await repository.reorderQueue(
+        ids: [
+          'manual-5',
+          'manual-1',
+          'missing',
+          'manual-5',
+          'manual-0',
+          'manual-3',
+        ],
+      );
+      final reordered = await repository.currentDownloads();
+      expect(reordered.map((item) => item.id), [
+        'manual-0',
+        'manual-5',
+        'manual-2',
+        'manual-1',
+        'manual-4',
+        'manual-3',
+      ]);
+      expect(reordered.first, same(active));
+      expect(engine.priorityCalls, hasLength(starts));
+      expect(engine.pausedTorrentIds, isEmpty);
+      expect(
+        (await registry.readDownloads()).map((item) => item.id),
+        reordered.map((item) => item.id),
+      );
+      await repository.resume(id: 'manual-2');
+      await repository.retry(id: 'manual-4');
+      List<String> waiting(List<DownloadItem> values) => values
+          .where((item) => item.status == DownloadStatus.queued)
+          .map((item) => item.id)
+          .toList();
+      expect(waiting(await repository.currentDownloads()), [
+        'manual-5',
+        'manual-1',
+        'manual-3',
+        'manual-2',
+        'manual-4',
+      ]);
+      await repository.close();
+      repository = DownloadsRepositoryImpl(
+        engine: engine,
+        registry: registry,
+        downloadsDirectory: downloadsDirectory,
+        foregroundService: foregroundService,
+
+        activityRegistry: activityRegistry,
+      );
+      await repository.restore();
+      await _waitFor(() => engine.priorityCalls.length > starts);
+      expect(waiting(await repository.currentDownloads()), [
+        'manual-5',
+        'manual-1',
+        'manual-3',
+        'manual-2',
+        'manual-4',
+      ]);
+      engine.emit({engine.addCalls.last.id: _torrent(isFinished: true)});
+      await _waitFor(() => engine.priorityCalls.length > starts + 1);
+      expect(
+        (await repository.currentDownloads())
+            .singleWhere((item) => item.status == DownloadStatus.downloading)
+            .id,
+        'manual-5',
+      );
+    },
+  );
 
   test(
     'a repeated enqueue fills a missing poster on the existing record',
@@ -568,7 +704,7 @@ void main() {
         registry: registry,
         downloadsDirectory: downloadsDirectory,
         foregroundService: foregroundService,
-        storageUsageAdapter: const _FakeStorageUsageAdapter(),
+
         activityRegistry: activityRegistry,
       );
       repositoryClosed = false;
@@ -688,7 +824,7 @@ void main() {
         registry: registry,
         downloadsDirectory: downloadsDirectory,
         foregroundService: foregroundService,
-        storageUsageAdapter: const _FakeStorageUsageAdapter(),
+
         activityRegistry: activityRegistry,
       );
       repositoryClosed = false;
@@ -772,43 +908,44 @@ void main() {
     },
   );
 
-  test('reports offline and Android app storage usage', () async {
-    await downloadsDirectory.create(recursive: true);
-    await File(
-      '${downloadsDirectory.path}${Platform.pathSeparator}video.mkv',
-    ).writeAsBytes(List.filled(128, 0));
-    final streamCacheDirectory = Directory(
-      '${temporaryDirectory.path}${Platform.pathSeparator}stream',
-    );
-    final leftover = File(
-      '${streamCacheDirectory.path}${Platform.pathSeparator}episode.mkv',
-    );
-    await leftover.parent.create(recursive: true);
-    await leftover.writeAsBytes(List.filled(16, 0));
-    final androidRepository = DownloadsRepositoryImpl(
-      engine: engine,
-      registry: DownloadRegistryDataSource(
-        registryFile: File(
-          '${temporaryDirectory.path}${Platform.pathSeparator}android.json',
+  test(
+    'inspects and clears cache when the downloads path is inaccessible',
+    () async {
+      final downloadsFile = File(downloadsDirectory.path);
+      await downloadsFile.writeAsBytes(List.filled(128, 1));
+      final streamCacheDirectory = Directory(
+        '${temporaryDirectory.path}${Platform.pathSeparator}stream',
+      );
+      final leftover = File(
+        '${streamCacheDirectory.path}${Platform.pathSeparator}episode.mkv',
+      );
+      await leftover.parent.create(recursive: true);
+      await leftover.writeAsBytes(List.filled(16, 0));
+      final cacheRepository = DownloadsRepositoryImpl(
+        engine: engine,
+        registry: DownloadRegistryDataSource(
+          registryFile: File(
+            '${temporaryDirectory.path}${Platform.pathSeparator}android.json',
+          ),
         ),
-      ),
-      downloadsDirectory: downloadsDirectory,
-      foregroundService: foregroundService,
-      storageUsageAdapter: const _FakeStorageUsageAdapter(),
-      streamCache: StreamCacheStorage(directory: streamCacheDirectory),
-      activityRegistry: activityRegistry,
-    );
-    addTearDown(androidRepository.close);
+        downloadsDirectory: downloadsDirectory,
+        foregroundService: foregroundService,
+        streamCache: StreamCacheStorage(directory: streamCacheDirectory),
+        activityRegistry: activityRegistry,
+      );
+      addTearDown(cacheRepository.close);
 
-    final usage = await androidRepository.calculateStorageUsage();
+      final usage = await cacheRepository.calculateStorageUsage();
 
-    expect(usage.downloadsBytes, 128);
-    // The stream folder Clear empties, not the whole system app cache (25).
-    expect(usage.cacheBytes, 16);
-    expect(usage.totalBytes, 300);
-  });
+      expect(usage.cacheBytes, 16);
+      expect(usage.cacheInUse, isFalse);
+      expect(await cacheRepository.clearCache(), isTrue);
+      expect((await cacheRepository.calculateStorageUsage()).cacheBytes, 0);
+      expect(await downloadsFile.readAsBytes(), List.filled(128, 1));
+    },
+  );
 
-  group('without system storage stats', () {
+  group('stream cache', () {
     late Directory streamCacheDirectory;
     late DownloadsRepositoryImpl desktopRepository;
 
@@ -825,7 +962,7 @@ void main() {
         ),
         downloadsDirectory: downloadsDirectory,
         foregroundService: foregroundService,
-        storageUsageAdapter: const _FakeStorageUsageAdapter(usage: null),
+
         streamCache: StreamCacheStorage(directory: streamCacheDirectory),
         activityRegistry: activityRegistry,
       );
@@ -842,7 +979,7 @@ void main() {
       await file.writeAsBytes(List.filled(64, 0));
     }
 
-    test('counts the stream cache and sums the total', () async {
+    test('counts the stream cache', () async {
       await downloadsDirectory.create(recursive: true);
       await File(
         '${downloadsDirectory.path}${Platform.pathSeparator}video.mkv',
@@ -851,22 +988,28 @@ void main() {
 
       final usage = await desktopRepository.calculateStorageUsage();
 
-      expect(usage.downloadsBytes, 128);
       expect(usage.cacheBytes, 64);
-      expect(usage.totalBytes, 192);
     });
 
     test('clears the stream cache but not while streaming', () async {
       await writeStreamLeftover();
+      await downloadsDirectory.create(recursive: true);
+      final downloadedFile = File(
+        path.join(downloadsDirectory.path, 'video.mkv'),
+      );
+      await downloadedFile.writeAsString('downloaded episode');
       activityRegistry.acquireStreaming('abc');
 
       expect(await desktopRepository.clearCache(), isFalse);
-      expect((await desktopRepository.calculateStorageUsage()).cacheBytes, 64);
+      final busyUsage = await desktopRepository.calculateStorageUsage();
+      expect(busyUsage.cacheBytes, 64);
+      expect(busyUsage.cacheInUse, isTrue);
 
       activityRegistry.releaseStreaming('abc');
       expect(await desktopRepository.clearCache(), isTrue);
       expect((await desktopRepository.calculateStorageUsage()).cacheBytes, 0);
       expect(await streamCacheDirectory.exists(), isTrue);
+      expect(await downloadedFile.readAsString(), 'downloaded episode');
     });
 
     test('reports a cache that could not be fully cleared', () async {
@@ -879,7 +1022,7 @@ void main() {
         ),
         downloadsDirectory: downloadsDirectory,
         foregroundService: foregroundService,
-        storageUsageAdapter: const _FakeStorageUsageAdapter(usage: null),
+
         streamCache: StreamCacheStorage(
           directory: streamCacheDirectory,
           delete: (entity) => Future<void>.error(
@@ -1378,6 +1521,41 @@ void main() {
         : 'Needs a Windows file lock to keep the folder undeletable.',
   );
 
+  test(
+    'batch deletion continues past a locked copy and keeps it for retry',
+    () async {
+      final source = await repository.prepareSource(magnet: _magnet);
+      final items = <DownloadItem>[];
+      for (final file in source.files.take(2)) {
+        final item = await repository.enqueueDownload(
+          source: source,
+          file: file,
+          animeId: '154587',
+          animeTitle: 'Frieren',
+          sourceTitle: 'Release',
+        );
+        await File(item.localPath).parent.create(recursive: true);
+        await File(item.localPath).writeAsString('video');
+        items.add(item);
+      }
+      final lock = await File(items.first.localPath).open(mode: FileMode.write);
+      try {
+        expect(await repository.deleteMany(ids: items.map((item) => item.id)), {
+          items.first.id,
+        });
+        final remaining = await repository.currentDownloads();
+        expect(remaining.single.id, items.first.id);
+        expect(remaining.single.status, DownloadStatus.paused);
+        expect(await File(items.last.localPath).parent.exists(), isFalse);
+      } finally {
+        await lock.close();
+      }
+      expect(await repository.deleteMany(ids: [items.first.id]), isEmpty);
+      expect(await repository.currentDownloads(), isEmpty);
+    },
+    skip: Platform.isWindows ? false : 'Needs a Windows file lock.',
+  );
+
   test('cancelling the metadata wait removes its torrent and folder', () async {
     engine.metadataGate = Completer<void>();
     final cancelled = Completer<void>();
@@ -1480,7 +1658,7 @@ void main() {
       registry: registry,
       downloadsDirectory: downloadsDirectory,
       foregroundService: foregroundService,
-      storageUsageAdapter: const _FakeStorageUsageAdapter(),
+
       activityRegistry: activityRegistry,
     );
     addTearDown(concurrentRepository.close);
@@ -1493,6 +1671,91 @@ void main() {
 
     expect(registry.reads, 1);
   });
+
+  test(
+    'an observer stays subscribed after a failed restore and retry',
+    () async {
+      final saved = _savedDownload();
+      final failingRegistry = _FailFirstReadRegistry(
+        registryFile: File(path.join(temporaryDirectory.path, 'recover.json')),
+      );
+      await failingRegistry.writeDownloads([saved]);
+      final recoveringRepository = DownloadsRepositoryImpl(
+        engine: engine,
+        registry: failingRegistry,
+        downloadsDirectory: downloadsDirectory,
+        foregroundService: foregroundService,
+        activityRegistry: activityRegistry,
+      );
+      var repositoryClosed = false;
+      final failure = Completer<({Object error, StackTrace stackTrace})>();
+      final recovered = Completer<List<DownloadItem>>();
+      final done = Completer<void>();
+      late Future<List<DownloadItem>> retry;
+      final subscription = recoveringRepository.watchDownloads().listen(
+        (downloads) {
+          if (!recovered.isCompleted) recovered.complete(downloads);
+        },
+        onError: (Object error, StackTrace stackTrace) {
+          retry = recoveringRepository.watchDownloads().first;
+          failure.complete((error: error, stackTrace: stackTrace));
+        },
+        onDone: done.complete,
+      );
+      var cancelledEvents = 0;
+      final cancelled = recoveringRepository.watchDownloads().listen(
+        (_) => cancelledEvents++,
+        onError: (Object error, StackTrace stackTrace) => cancelledEvents++,
+        onDone: () => cancelledEvents++,
+      );
+      await cancelled.cancel();
+      addTearDown(() async {
+        if (!failingRegistry.allowFailure.isCompleted) {
+          failingRegistry.allowFailure.complete();
+        }
+        if (!failingRegistry.allowRetry.isCompleted) {
+          failingRegistry.allowRetry.complete();
+        }
+        await subscription.cancel();
+        if (!repositoryClosed) await recoveringRepository.close();
+      });
+
+      await failingRegistry.firstReadStarted.future.timeout(
+        const Duration(seconds: 10),
+      );
+      final oneShot = expectLater(
+        recoveringRepository.watchDownloads().first,
+        throwsA(isA<FileSystemException>()),
+      );
+      await pumpEventQueue();
+      failingRegistry.allowFailure.complete();
+      final firstFailure = await failure.future.timeout(
+        const Duration(seconds: 10),
+      );
+      expect(firstFailure.error, isA<FileSystemException>());
+      expect(
+        firstFailure.stackTrace.toString(),
+        contains('_FailFirstReadRegistry'),
+      );
+      await oneShot.timeout(const Duration(seconds: 10));
+      expect(done.isCompleted, isFalse);
+
+      failingRegistry.allowRetry.complete();
+      final retryDownloads = await retry.timeout(const Duration(seconds: 10));
+      final originalDownloads = await recovered.future.timeout(
+        const Duration(seconds: 10),
+      );
+      expect(retryDownloads.single.id, saved.id);
+      expect(originalDownloads.single.id, saved.id);
+      expect(originalDownloads.single.downloadedBytes, saved.downloadedBytes);
+      expect(failingRegistry.reads, 2);
+      expect(cancelledEvents, 0);
+
+      await recoveringRepository.close();
+      repositoryClosed = true;
+      await done.future.timeout(const Duration(seconds: 10));
+    },
+  );
 
   test('restart flush does not initialize an unavailable engine', () async {
     final saved = _savedDownload();
@@ -1517,7 +1780,7 @@ void main() {
         registry: registry,
         downloadsDirectory: downloadsDirectory,
         foregroundService: foregroundService,
-        storageUsageAdapter: const _FakeStorageUsageAdapter(),
+
         activityRegistry: activityRegistry,
       );
       addTearDown(restartRepository.close);
@@ -1560,7 +1823,7 @@ void main() {
       registry: registry,
       downloadsDirectory: downloadsDirectory,
       foregroundService: foregroundService,
-      storageUsageAdapter: const _FakeStorageUsageAdapter(),
+
       activityRegistry: activityRegistry,
     );
     addTearDown(fullDiskRepository.close);
@@ -1885,6 +2148,40 @@ DownloadItem _savedDownload({
 
 const _magnet = 'magnet:?xt=urn:btih:ABCDEF1234567890';
 
+final class _GatedDirectoryOverrides extends IOOverrides {
+  _GatedDirectoryOverrides(this.target, this.requested, this.release);
+
+  final String target;
+  final Completer<void> requested;
+  final Completer<void> release;
+
+  @override
+  Directory createDirectory(String path) {
+    final directory = super.createDirectory(path);
+    return path == target
+        ? _GatedDirectory(directory, requested, release)
+        : directory;
+  }
+}
+
+class _GatedDirectory extends Fake implements Directory {
+  _GatedDirectory(this.directory, this.requested, this.release);
+
+  final Directory directory;
+  final Completer<void> requested;
+  final Completer<void> release;
+
+  @override
+  String get path => directory.path;
+
+  @override
+  Future<Directory> create({bool recursive = false}) async {
+    if (!requested.isCompleted) requested.complete();
+    await release.future;
+    return directory.create(recursive: recursive);
+  }
+}
+
 class _FakeDownloadEngine implements LibtorrentDownloadEngineAdapter {
   final StreamController<Map<int, DownloadEngineTorrent>> _controller =
       StreamController<Map<int, DownloadEngineTorrent>>.broadcast();
@@ -2037,15 +2334,6 @@ class _FakeForegroundService implements DownloadForegroundServiceAdapter {
   }
 }
 
-class _FakeStorageUsageAdapter implements AppStorageUsageAdapter {
-  const _FakeStorageUsageAdapter({this.usage = 300});
-
-  final int? usage;
-
-  @override
-  Future<int?> totalBytes() async => usage;
-}
-
 /// A registry on a full disk: every write fails.
 class _RefusingRegistry extends DownloadRegistryDataSource {
   _RefusingRegistry({required super.registryFile});
@@ -2067,6 +2355,27 @@ class _CountingRegistry extends DownloadRegistryDataSource {
   @override
   Future<List<DownloadItem>> readDownloads() {
     reads++;
+    return super.readDownloads();
+  }
+}
+
+class _FailFirstReadRegistry extends DownloadRegistryDataSource {
+  _FailFirstReadRegistry({required super.registryFile});
+
+  final firstReadStarted = Completer<void>();
+  final allowFailure = Completer<void>();
+  final allowRetry = Completer<void>();
+  int reads = 0;
+
+  @override
+  Future<List<DownloadItem>> readDownloads() async {
+    reads++;
+    if (reads == 1) {
+      firstReadStarted.complete();
+      await allowFailure.future;
+      throw const FileSystemException('Registry unavailable');
+    }
+    await allowRetry.future;
     return super.readDownloads();
   }
 }

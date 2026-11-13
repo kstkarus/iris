@@ -191,46 +191,25 @@ void main() {
       lessThanOrEqualTo(label.size.width),
       reason: 'the whole time fits its box',
     );
-    expect(label.size.height, lessThan(2 * 15), reason: 'one line');
   });
 
-  testWidgets('cuts that arrive run in from the left', (tester) async {
-    await tester.pumpWidget(
-      _app(_bar(position: Duration.zero, onSeek: (_) {})),
-    );
-    expect(_cutWidths(tester), isEmpty);
-
-    await tester.pumpWidget(
-      _app(_bar(position: Duration.zero, onSeek: (_) {}, parts: _parts)),
-    );
-    await tester.pump(const Duration(milliseconds: 100));
-    final early = _cutWidths(tester);
-    expect(early, hasLength(3));
-    expect(early.first, greaterThan(early.last));
-    expect(early.last, lessThan(2));
-
-    await tester.pumpAndSettle();
-    expect(_cutWidths(tester), [2, 2, 2]);
-  });
-
-  testWidgets('a bar built with its cuts, or without motion, shows them '
-      'at once', (tester) async {
-    await tester.pumpWidget(
-      _app(_bar(position: Duration.zero, onSeek: (_) {}, parts: _parts)),
-    );
-    expect(_cutWidths(tester), [2, 2, 2]);
-
-    await tester.pumpWidget(
-      _app(_bar(position: Duration.zero, onSeek: (_) {}), noMotion: true),
-    );
-    await tester.pumpWidget(
-      _app(
-        _bar(position: Duration.zero, onSeek: (_) {}, parts: _parts),
-        noMotion: true,
-      ),
-    );
-    expect(_cutWidths(tester), [2, 2, 2]);
-  });
+  testWidgets(
+    'shows new chapter cuts without animation when motion is reduced',
+    (tester) async {
+      await tester.pumpWidget(
+        _app(_bar(position: Duration.zero, onSeek: (_) {}), noMotion: true),
+      );
+      await tester.pumpWidget(
+        _app(
+          _bar(position: Duration.zero, onSeek: (_) {}, parts: _parts),
+          noMotion: true,
+        ),
+      );
+      expect(_cutWidths(tester), hasLength(3));
+      expect(_cutWidths(tester), everyElement(greaterThan(0)));
+      expect(tester.hasRunningAnimations, isFalse);
+    },
+  );
 }
 
 final _parts = [

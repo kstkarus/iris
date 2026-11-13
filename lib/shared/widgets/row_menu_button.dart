@@ -13,6 +13,7 @@ class RowMenuButton extends StatelessWidget {
     required this.menuChildren,
     this.semanticLabel,
     this.onOpenChanged,
+    this.focusNode,
     super.key,
   });
 
@@ -30,11 +31,13 @@ class RowMenuButton extends StatelessWidget {
 
   /// Lets the row show which item its open menu acts on.
   final ValueChanged<bool>? onOpenChanged;
+  final FocusNode? focusNode;
 
   @override
   Widget build(BuildContext context) {
     return MenuAnchor(
       controller: controller,
+      childFocusNode: focusNode,
       onOpen: () => onOpenChanged?.call(true),
       onClose: () => onOpenChanged?.call(false),
       alignmentOffset: const Offset(_buttonWidth - width, 0),
@@ -52,6 +55,7 @@ class RowMenuButton extends StatelessWidget {
         excludeSemantics: true,
         onTap: controller.toggle,
         child: IconButton(
+          focusNode: focusNode,
           tooltip: tooltip,
           icon: const PixelIcon(PixelGlyph.more, size: 18),
           onPressed: controller.toggle,

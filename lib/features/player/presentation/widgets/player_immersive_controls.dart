@@ -11,6 +11,7 @@ import 'package:media_kit/media_kit.dart';
 
 import 'package:iris/features/player/domain/player_timeline_parts.dart';
 import 'package:iris/features/player/presentation/playback/media_kit_player_engine.dart';
+import 'package:iris/features/player/presentation/playback/player_track_availability.dart';
 import 'package:iris/features/player/presentation/widgets/player_auto_hiding_offer.dart';
 import 'package:iris/features/player/presentation/widgets/player_countdown.dart';
 import 'package:iris/features/player/presentation/widgets/player_episodes_drawer.dart';
@@ -852,32 +853,39 @@ class _PlayerImmersiveControlsState extends State<PlayerImmersiveControls> {
           child: MouseRegion(
             onEnter: (_) => _setHold(#bottom, true),
             onExit: (_) => _setHold(#bottom, false),
-            child: _BottomSection(
-              chrome: widget.chrome,
-              metrics: metrics,
-              insets: _insets,
-              showTitle: !_playing,
-              onTitleHeight: _onTitleHeight,
-              onBarHeight: _onBarHeight,
-              player: player,
-              timeline: widget.engine.timeline,
-              accent: accent,
-              next: widget.next,
-              finishing: widget.engine.finishing,
-              completed: widget.engine.completed,
-              fullscreen: widget.fullscreen,
-              onSeek: _seekTo,
-              onSeekActive: (active) => _setHold(#seek, active),
-              onToggleMute: _toggleMute,
-              onVolume: (volume) => _setVolume(volume, showHud: false),
-              openPanel: _openPanel,
-              onPictureInPicture: widget.onPictureInPicture,
-              onShowTracks: (anchor) =>
-                  _showPanel(#tracks, widget.onShowTracks, anchor),
-              onShowSettings: (anchor) =>
-                  _showPanel(#settings, widget.onShowSettings, anchor),
-              onToggleFullscreen: widget.onToggleFullscreen,
-              onEpisodes: widget.chrome.episodes == null ? null : _openEpisodes,
+            child: ValueListenableBuilder<Tracks>(
+              valueListenable: widget.engine.availableTracks,
+              builder: (context, tracks, _) => _BottomSection(
+                chrome: widget.chrome,
+                metrics: metrics,
+                insets: _insets,
+                showTitle: !_playing,
+                onTitleHeight: _onTitleHeight,
+                onBarHeight: _onBarHeight,
+                player: player,
+                timeline: widget.engine.timeline,
+                accent: accent,
+                next: widget.next,
+                finishing: widget.engine.finishing,
+                completed: widget.engine.completed,
+                fullscreen: widget.fullscreen,
+                onSeek: _seekTo,
+                onSeekActive: (active) => _setHold(#seek, active),
+                onToggleMute: _toggleMute,
+                onVolume: (volume) => _setVolume(volume, showHud: false),
+                openPanel: _openPanel,
+                onPictureInPicture: widget.onPictureInPicture,
+                onShowTracks: tracks.hasTrackChoice || _openPanel == #tracks
+                    ? (anchor) =>
+                          _showPanel(#tracks, widget.onShowTracks, anchor)
+                    : null,
+                onShowSettings: (anchor) =>
+                    _showPanel(#settings, widget.onShowSettings, anchor),
+                onToggleFullscreen: widget.onToggleFullscreen,
+                onEpisodes: widget.chrome.episodes == null
+                    ? null
+                    : _openEpisodes,
+              ),
             ),
           ),
         ),

@@ -575,6 +575,8 @@ class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
   Future<void> _showSettingsSheet({BuildContext? anchor}) =>
       showPlayerSubtitleSettingsSheet(
         context,
+        tracks: widget.engine.availableTracks,
+        selectedTrack: widget.engine.selectedTrack,
         anchor: anchor,
         speed: PlayerSpeedSetting(
           rate: widget.engine.playbackRate,
@@ -590,30 +592,32 @@ class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
   Future<void> _showTrackSelectorSheet({BuildContext? anchor}) async {
     final engine = widget.engine;
     if (!engine.hasPlayer) return;
-    final tracks = engine.player.state.tracks;
-    final selectedTrack = engine.player.state.track;
 
     await showPlayerAdaptiveSheet<void>(
       context: context,
       anchor: anchor,
       popoverWidth: PlayerTrackSelectorSheet.popoverWidth,
       semanticsLabel: AppLocalizations.of(context).playerAudioAndSubtitles,
-      builder: (sheetContext) {
-        return PlayerTrackSelectorSheet(
-          audioTracks: tracks.audio,
-          selectedAudioTrack: selectedTrack.audio,
-          subtitleTracks: tracks.subtitle,
-          selectedSubtitleTrack: selectedTrack.subtitle,
-          onAudioTrackSelected: (track) async {
-            await engine.selectAudioTrack(track);
-            if (sheetContext.mounted) Navigator.of(sheetContext).pop();
-          },
-          onSubtitleTrackSelected: (track) async {
-            await engine.selectSubtitleTrack(track);
-            if (sheetContext.mounted) Navigator.of(sheetContext).pop();
-          },
-        );
-      },
+      builder: (sheetContext) => ValueListenableBuilder<Tracks>(
+        valueListenable: engine.availableTracks,
+        builder: (context, tracks, _) => ValueListenableBuilder<Track>(
+          valueListenable: engine.selectedTrack,
+          builder: (context, selected, _) => PlayerTrackSelectorSheet(
+            audioTracks: tracks.audio,
+            selectedAudioTrack: selected.audio,
+            subtitleTracks: tracks.subtitle,
+            selectedSubtitleTrack: selected.subtitle,
+            onAudioTrackSelected: (track) async {
+              await engine.selectAudioTrack(track);
+              if (sheetContext.mounted) Navigator.of(sheetContext).pop();
+            },
+            onSubtitleTrackSelected: (track) async {
+              await engine.selectSubtitleTrack(track);
+              if (sheetContext.mounted) Navigator.of(sheetContext).pop();
+            },
+          ),
+        ),
+      ),
     );
   }
 }

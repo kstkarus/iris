@@ -243,7 +243,9 @@ class _Task implements OnlineDownloadTask {
       final stream = await _pickStream(episodeId, state);
       try {
         if (stream.subtitleUrl != null) {
-          final subtitle = await _fetchText(Uri.parse(stream.subtitleUrl!));
+          final (text: subtitle, uri: _) = await _fetchText(
+            Uri.parse(stream.subtitleUrl!),
+          );
           if (!subtitle.trimLeft().startsWith('WEBVTT')) {
             throw const OnlineDownloadException(downloadCouldNotStartMessage);
           }
@@ -400,12 +402,14 @@ class _Task implements OnlineDownloadTask {
   /// The media playlist of [url]; a master playlist gives the variant of
   /// [quality], or its best.
   Future<({HlsPlan plan, int? height})> _playlist(Uri url, int quality) async {
-    final text = await _fetchText(url);
-    final variant = HlsPlaylist.pickVariant(text, url, quality: quality);
-    final plan = HlsPlaylist.parseMedia(
-      variant == null ? text : await _fetchText(variant.uri),
-      variant?.uri ?? url,
+    final playlist = await _fetchText(url);
+    final variant = HlsPlaylist.pickVariant(
+      playlist.text,
+      playlist.uri,
+      quality: quality,
     );
+    final media = variant == null ? playlist : await _fetchText(variant.uri);
+    final plan = HlsPlaylist.parseMedia(media.text, media.uri);
     if (plan == null) {
       throw const OnlineDownloadException(downloadNotDownloadableMessage);
     }
@@ -450,8 +454,7 @@ class _Task implements OnlineDownloadTask {
         }
         break;
       } on _Retryable catch (error) {
-        final length = await output.length();
-        if (length > have) {
+        if (await output.exists() && await output.length() > have) {
           attempt = 0;
           onLoaded();
         }
@@ -546,12 +549,19 @@ class _Task implements OnlineDownloadTask {
     }
   }
 
-  Future<String> _fetchText(Uri url) async {
+  Future<({String text, Uri uri})> _fetchText(Uri url) async {
     for (var attempt = 1; ; attempt++) {
       try {
         final response = await _send<List<int>>(url, ResponseType.bytes);
         _checkStatus(response.statusCode ?? 0);
-        return utf8.decode(response.data ?? const [], allowMalformed: true);
+        return (
+          text: utf8.decode(response.data ?? const [], allowMalformed: true),
+          // A Location header can be relative to the previous redirect.
+          uri: response.redirects.fold(
+            response.requestOptions.uri,
+            (base, redirect) => base.resolveUri(redirect.location),
+          ),
+        );
       } on _Retryable catch (error) {
         if (attempt >= _attempts) throw _LinkRefused(error.reason);
         await _wait(attempt);

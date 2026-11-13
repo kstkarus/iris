@@ -1,17 +1,11 @@
-// Renders the real library and episode widgets with offline fixtures.
-// PNGs are saved under .dart_tool/download-library-renders.
-import 'dart:io';
 import 'dart:async';
-import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
-import 'package:path/path.dart' as path;
 
 import 'package:iris/app/router/app_shell_page.dart';
 import 'package:iris/app/theme/app_theme.dart';
@@ -34,16 +28,10 @@ import 'package:iris/entities/watch_progress/presentation/watch_progress_cubit.d
 import 'package:iris/shared/online/online_source_link.dart';
 import '../../../../helpers/fake_watch_progress_repository.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
-import 'package:iris/shared/widgets/dither_transition.dart';
-import 'package:iris/shared/widgets/poster_image.dart';
-import 'package:iris/features/downloads/presentation/widgets/download_title_widgets.dart';
-import 'package:iris/features/downloads/presentation/widgets/download_queue.dart';
+import 'package:iris/features/downloads/presentation/pages/download_queue_page.dart';
 
 TextScaler _textScaler = TextScaler.noScaling;
 
-const _captureKey = Key('downloads_render_root');
-const _phone = Size(390, 844);
-const _desktop = Size(1440, 900);
 const _mb = 1024 * 1024;
 
 Future<void> _loadFonts() async {
@@ -175,42 +163,11 @@ class _Downloads implements DownloadsRepository {
 
   @override
   Future<DownloadStorageUsage> calculateStorageUsage() async {
-    final bytes = items.fold<int>(0, (sum, item) => sum + item.downloadedBytes);
-    return DownloadStorageUsage(
-      downloadsBytes: bytes,
-      cacheBytes: 2380 * _mb,
-      totalBytes: bytes + 2380 * _mb,
-    );
+    return DownloadStorageUsage(cacheBytes: 2380 * _mb);
   }
 
   @override
   dynamic noSuchMethod(Invocation invocation) => Future<void>.value();
-}
-
-Future<void> _capture(WidgetTester tester, String name) async {
-  await tester.pump();
-  final boundary = tester.renderObject<RenderRepaintBoundary>(
-    find.byKey(_captureKey),
-  );
-  await tester.runAsync(() async {
-    final image = await boundary.toImage(pixelRatio: 1);
-    try {
-      final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
-      final file = File(
-        path.join(
-          Directory.current.path,
-          '.dart_tool',
-          'download-library-renders',
-          '$name.png',
-        ),
-      );
-      file.parent.createSync(recursive: true);
-      file.writeAsBytesSync(bytes!.buffer.asUint8List());
-      debugPrint('RENDER ${file.absolute.path}');
-    } finally {
-      image.dispose();
-    }
-  });
 }
 
 Widget _shell({
@@ -264,6 +221,16 @@ Widget _shell({
           ),
         ],
       ),
+      GoRoute(
+        path: '/downloads/queue',
+        name: 'download-queue',
+        builder: (context, state) => BlocProvider.value(
+          value: cubit,
+          child: DownloadQueuePage(
+            onOpenTitle: (title) => router.pushNamed('title', extra: title),
+          ),
+        ),
+      ),
     ],
   );
   final history = WatchProgressCubit(
@@ -290,21 +257,18 @@ Widget _shell({
       ),
     ]),
   )..load();
-  return RepaintBoundary(
-    key: _captureKey,
-    child: BlocProvider(
-      create: (_) => history,
-      child: MaterialApp.router(
-        debugShowCheckedModeBanner: false,
-        locale: const Locale('ru'),
-        theme: buildAppTheme(brightness: brightness),
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        routerConfig: router,
-        builder: (context, child) => MediaQuery(
-          data: MediaQuery.of(context).copyWith(textScaler: _textScaler),
-          child: child!,
-        ),
+  return BlocProvider(
+    create: (_) => history,
+    child: MaterialApp.router(
+      debugShowCheckedModeBanner: false,
+      locale: const Locale('ru'),
+      theme: buildAppTheme(brightness: brightness),
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      routerConfig: router,
+      builder: (context, child) => MediaQuery(
+        data: MediaQuery.of(context).copyWith(textScaler: _textScaler),
+        child: child!,
       ),
     ),
   );
@@ -312,236 +276,119 @@ Widget _shell({
 
 void main() {
   setUpAll(_loadFonts);
-  tearDown(() => debugDefaultTargetPlatformOverride = null);
 
-  Future<void> render(
-    WidgetTester tester,
-    String name, {
-    required Size size,
-    Brightness brightness = Brightness.dark,
-    List<DownloadItem>? items,
-    bool details = false,
-    double scale = 1,
-    TargetPlatform platform = TargetPlatform.android,
-  }) async {
-    PaintingBinding.instance.imageCache
-      ..clear()
-      ..clearLiveImages();
-    _textScaler = TextScaler.linear(scale);
+  testWidgets('library, title, queue and files stay usable with large text', (
+    tester,
+  ) async {
     tester.view
-      ..physicalSize = size
+      ..physicalSize = const Size(320, 900)
       ..devicePixelRatio = 1;
     addTearDown(tester.view.reset);
-    debugDefaultTargetPlatformOverride = size.width > 900
-        ? TargetPlatform.windows
-        : platform;
-
-    final cubit = DownloadManagerCubit(
-      repository: _Downloads(items ?? _downloads),
-    )..load();
-    await tester.pumpWidget(_shell(cubit: cubit, brightness: brightness));
-    await tester.pumpAndSettle();
-    final queue = find.byType(DownloadQueueSummary);
-    final queueOffset = queue.evaluate().isEmpty
-        ? 0.0
-        : tester.getSize(queue).height + 16;
-    if (!details && scale == 1 && size == _desktop) {
-      final identity = tester.getRect(find.byType(DownloadTitleIdentity));
-      expect(identity.left, 160, reason: 'approved C2 detail position');
-      expect(identity.top, 122 + queueOffset, reason: 'detail header spacing');
-    }
-    if (!details && scale == 1 && size == _phone && items?.isEmpty != true) {
-      final poster = tester.getRect(find.byType(PosterImage).first);
-      expect(poster.left, 16, reason: 'approved B gallery frame');
-      expect(poster.top, 87 + queueOffset, reason: 'gallery header spacing');
-      expect(poster.width, 171, reason: 'approved B gallery columns');
-    }
-    if (details && size.width <= 900) {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    _textScaler = const TextScaler.linear(2);
+    final cubit = DownloadManagerCubit(repository: _Downloads(_downloads))
+      ..load();
+    try {
+      await tester.pumpWidget(
+        _shell(cubit: cubit, brightness: Brightness.dark),
+      );
+      await tester.pumpAndSettle();
       await tester.tap(
         find.byKey(
           const ValueKey('download_title_anime:Sousou no Frieren 2nd Season'),
         ),
       );
       await tester.pumpAndSettle();
-      expect(find.byType(BackButton), findsOneWidget);
-    }
-    expect(tester.takeException(), isNull);
-    await _capture(tester, name);
-    await tester.pumpWidget(const SizedBox.shrink());
-    await tester.runAsync(cubit.close);
-    debugDefaultTargetPlatformOverride = null;
-  }
-
-  testWidgets('library and title episodes render without overflow', (
-    tester,
-  ) async {
-    for (final config in [
-      ('phone', _phone, Brightness.dark, 1.0),
-      ('desktop', _desktop, Brightness.dark, 1.0),
-      ('tablet', const Size(834, 1100), Brightness.light, 1.0),
-      ('large_text', const Size(320, 900), Brightness.dark, 2.0),
-      ('ios_light', _phone, Brightness.light, 1.0),
-    ]) {
-      await render(
-        tester,
-        'library_${config.$1}',
-        size: config.$2,
-        brightness: config.$3,
-        scale: config.$4,
-        platform: config.$1 == 'ios_light'
-            ? TargetPlatform.iOS
-            : TargetPlatform.android,
+      await tester.tap(find.byType(BackButton));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('download_queue_open')));
+      await tester.pumpAndSettle();
+      final queue = find.byKey(const Key('download_queue_page'));
+      expect(queue, findsOneWidget);
+      await tester.tap(
+        find.descendant(of: queue, matching: find.byType(BackButton)),
       );
-      await render(
-        tester,
-        'episodes_${config.$1}',
-        size: config.$2,
-        brightness: config.$3,
-        scale: config.$4,
-        platform: config.$1 == 'ios_light'
-            ? TargetPlatform.iOS
-            : TargetPlatform.android,
-        details: true,
-      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('download_files_open')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('download_files_sheet')), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    } finally {
+      try {
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.runAsync(cubit.close);
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+        _textScaler = TextScaler.noScaling;
+      }
     }
-    await render(tester, 'library_empty', size: _phone, items: []);
   });
-  testWidgets('season download controls render on phone and desktop', (
+
+  testWidgets('season selection can queue a batch with large text', (
     tester,
   ) async {
-    for (final config in [
-      ('phone', _phone, 1.0),
-      ('desktop', _desktop, 1.0),
-      ('large_text', const Size(320, 900), 2.0),
-    ]) {
-      tester.view
-        ..physicalSize = config.$2
-        ..devicePixelRatio = 1;
-      _textScaler = TextScaler.linear(config.$3);
-      debugDefaultTargetPlatformOverride = config.$2.width > 900
-          ? TargetPlatform.windows
-          : TargetPlatform.android;
-      const args = DownloadSelectionArgs(
-        animeId: '52991',
-        animeTitle: 'Frieren',
-        sourceTitle: 'AniLibria · Frieren',
-        magnet: 'online:anilibria/9542?anime=52991',
-      );
-      final repository = _SeasonDownloads();
-      final cubit = DownloadSelectionCubit(args: args, repository: repository)
-        ..load();
+    tester.view
+      ..physicalSize = const Size(320, 900)
+      ..devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    _textScaler = const TextScaler.linear(2);
+    const args = DownloadSelectionArgs(
+      animeId: '52991',
+      animeTitle: 'Frieren',
+      sourceTitle: 'AniLibria · Frieren',
+      magnet: 'online:anilibria/9542?anime=52991',
+    );
+    final repository = _SeasonDownloads();
+    final cubit = DownloadSelectionCubit(args: args, repository: repository)
+      ..load();
+    try {
       await tester.pumpWidget(
-        RepaintBoundary(
-          key: _captureKey,
-          child: MaterialApp(
-            debugShowCheckedModeBanner: false,
-            locale: const Locale('ru'),
-            theme: buildAppTheme(brightness: Brightness.dark),
-            localizationsDelegates: AppLocalizations.localizationsDelegates,
-            supportedLocales: AppLocalizations.supportedLocales,
-            builder: (context, child) => MediaQuery(
-              data: MediaQuery.of(context).copyWith(textScaler: _textScaler),
-              child: child!,
-            ),
-            home: BlocProvider.value(
-              value: cubit,
-              child: DownloadSelectionPage(args: args, onWatch: (_) {}),
-            ),
+        MaterialApp(
+          locale: const Locale('ru'),
+          theme: buildAppTheme(brightness: Brightness.dark),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(context).copyWith(textScaler: _textScaler),
+            child: child!,
+          ),
+          home: BlocProvider.value(
+            value: cubit,
+            child: DownloadSelectionPage(args: args, onWatch: (_) {}),
           ),
         ),
       );
       await tester.pumpAndSettle();
-      expect(find.byKey(const Key('download_select')), findsNothing);
-      expect(tester.takeException(), isNull);
-      await _capture(tester, 'selection_${config.$1}');
       await tester.longPress(find.text('01'));
-      await tester.pump();
+      await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('download_selection_all')));
+      await tester.pumpAndSettle();
+      final download = find.byKey(const Key('download_selected'));
+      await tester.ensureVisible(download);
+      await tester.tap(download);
       await tester.pump();
-      final batch = cubit.downloadSelected();
-      await tester.pump();
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 220));
-      expect(tester.takeException(), isNull);
-      await _capture(tester, 'selection_batch_${config.$1}');
       repository.queueGate.complete();
-      await batch;
-      await tester.pumpWidget(const SizedBox.shrink());
-      await tester.runAsync(cubit.close);
-      tester.view.reset();
-      debugDefaultTargetPlatformOverride = null;
+      await tester.pumpAndSettle();
+
+      expect(repository.queued, [0, 1, 2]);
+      expect(tester.takeException(), isNull);
+    } finally {
+      if (!repository.queueGate.isCompleted) repository.queueGate.complete();
+      try {
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.runAsync(cubit.close);
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+        _textScaler = TextScaler.noScaling;
+      }
     }
   });
-
-  testWidgets(
-    'title insertion and deletion render in the existing dither style',
-    (tester) async {
-      PaintingBinding.instance.imageCache
-        ..clear()
-        ..clearLiveImages();
-      _textScaler = TextScaler.noScaling;
-      tester.view
-        ..physicalSize = _phone
-        ..devicePixelRatio = 1;
-      addTearDown(tester.view.reset);
-      debugDefaultTargetPlatformOverride = TargetPlatform.android;
-      final repository = _LiveDownloads([_downloads.first]);
-      final cubit = DownloadManagerCubit(repository: repository)..load();
-      await tester.pumpWidget(
-        _shell(cubit: cubit, brightness: Brightness.dark),
-      );
-      await tester.pumpAndSettle();
-      await _capture(tester, 'library_motion_initial');
-      repository.push([_downloads.first, _downloads[4]]);
-      await tester.pump();
-      await tester.pump();
-      await tester.pump(DitherTransition.duration * 1.5);
-      expect(
-        tester
-            .widgetList<BayerMasked>(find.byType(BayerMasked))
-            .any((mask) => mask.open > 0 && mask.open < 16),
-        isTrue,
-      );
-      await _capture(tester, 'library_motion_insert');
-      await tester.pumpAndSettle();
-      repository.push([_downloads[4]]);
-      await tester.pump();
-      await tester.pump();
-      await tester.pump(DitherTransition.duration ~/ 2);
-      await _capture(tester, 'library_motion_remove');
-      await tester.pumpAndSettle();
-      repository.push([]);
-      await tester.pumpAndSettle();
-      await _capture(tester, 'library_motion_empty');
-      expect(tester.takeException(), isNull);
-      await tester.pumpWidget(const SizedBox.shrink());
-      await tester.runAsync(cubit.close);
-      await tester.runAsync(repository.changes.close);
-      debugDefaultTargetPlatformOverride = null;
-    },
-  );
-}
-
-class _LiveDownloads extends _Downloads {
-  _LiveDownloads(super.items);
-  late final StreamController<List<DownloadItem>> changes =
-      StreamController<List<DownloadItem>>.broadcast(
-        onListen: () => changes.add(List.of(items)),
-      );
-
-  void push(List<DownloadItem> next) {
-    items
-      ..clear()
-      ..addAll(next);
-    changes.add(List.of(items));
-  }
-
-  @override
-  Stream<List<DownloadItem>> watchDownloads() => changes.stream;
 }
 
 class _SeasonDownloads extends MockDownloadsRepository {
   final queueGate = Completer<void>();
+  final queued = <int>[];
 
   @override
   Future<DownloadItem> enqueueDownload({
@@ -554,6 +401,7 @@ class _SeasonDownloads extends MockDownloadsRepository {
     int? quality,
   }) async {
     await queueGate.future;
+    queued.add(file.index);
     return super.enqueueDownload(
       source: source,
       file: file,

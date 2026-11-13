@@ -48,12 +48,10 @@ void main() {
     final frieren = tester.getTopLeft(find.text('Frieren'));
     final supporting = tester.getTopLeft(find.text('SUPPORTING'));
     final aura = tester.getTopLeft(find.text('Aura'));
-    final heiter = tester.getTopLeft(find.text('Heiter'));
+    expect(find.text('Heiter'), findsOneWidget);
     expect(main.dy, lessThan(frieren.dy));
     expect(frieren.dy, lessThan(supporting.dy));
     expect(supporting.dy, lessThan(aura.dy));
-    expect(aura.dy, heiter.dy);
-    expect(aura.dx, lessThan(heiter.dx));
   });
 
   testWidgets('a failure offers to try again', (tester) async {

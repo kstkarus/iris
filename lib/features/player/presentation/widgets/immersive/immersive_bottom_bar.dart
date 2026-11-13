@@ -62,7 +62,7 @@ class _BottomSection extends StatelessWidget {
   final ValueChanged<double> onVolume;
   final Object? openPanel;
   final VoidCallback? onPictureInPicture;
-  final ValueChanged<BuildContext> onShowTracks;
+  final ValueChanged<BuildContext>? onShowTracks;
   final ValueChanged<BuildContext> onShowSettings;
   final VoidCallback onToggleFullscreen;
   final VoidCallback? onEpisodes;
@@ -405,7 +405,7 @@ class _BarButtons extends StatelessWidget {
   final ValueChanged<double> onVolume;
   final Object? openPanel;
   final VoidCallback? onPictureInPicture;
-  final ValueChanged<BuildContext> onShowTracks;
+  final ValueChanged<BuildContext>? onShowTracks;
   final ValueChanged<BuildContext> onShowSettings;
   final VoidCallback onToggleFullscreen;
   final VoidCallback? onEpisodes;
@@ -415,6 +415,7 @@ class _BarButtons extends StatelessWidget {
     final l10n = AppLocalizations.of(context);
     final next = this.next;
     final onPictureInPicture = this.onPictureInPicture;
+    final onShowTracks = this.onShowTracks;
     final onEpisodes = this.onEpisodes;
     final touch = metrics.touch;
     final playback = [
@@ -436,16 +437,17 @@ class _BarButtons extends StatelessWidget {
     ];
     final view = [
       // The panels open from their buttons, which stay lit meanwhile.
-      Builder(
-        builder: (anchor) => _BarButton(
-          key: const Key('player_tracks_button'),
-          metrics: metrics,
-          glyph: PixelGlyph.subtitles,
-          label: l10n.playerAudioAndSubtitles,
-          selected: openPanel == #tracks,
-          onPressed: () => onShowTracks(anchor),
+      if (onShowTracks != null)
+        Builder(
+          builder: (anchor) => _BarButton(
+            key: const Key('player_tracks_button'),
+            metrics: metrics,
+            glyph: PixelGlyph.subtitles,
+            label: l10n.playerAudioAndSubtitles,
+            selected: openPanel == #tracks,
+            onPressed: () => onShowTracks(anchor),
+          ),
         ),
-      ),
       Builder(
         builder: (anchor) => _BarButton(
           key: const Key('player_settings_button'),

@@ -14,6 +14,7 @@ class UserListState {
     this.hasMore = false,
     this.loadingMore = false,
     this.moreFailed = false,
+    this.refreshing = false,
   });
 
   /// Null while nobody's list is shown (signed out).
@@ -28,6 +29,9 @@ class UserListState {
   final bool loadingMore;
   final bool moreFailed;
 
+  /// The first page is being read again without replacing the visible list.
+  final bool refreshing;
+
   UserListState copyWith({
     List<UserListEntry>? entries,
     UserListLoad? load,
@@ -35,6 +39,7 @@ class UserListState {
     bool? hasMore,
     bool? loadingMore,
     bool? moreFailed,
+    bool? refreshing,
   }) => UserListState(
     userId: userId,
     status: status,
@@ -44,5 +49,6 @@ class UserListState {
     hasMore: hasMore ?? this.hasMore,
     loadingMore: loadingMore ?? this.loadingMore,
     moreFailed: moreFailed ?? this.moreFailed,
+    refreshing: refreshing ?? this.refreshing,
   );
 }

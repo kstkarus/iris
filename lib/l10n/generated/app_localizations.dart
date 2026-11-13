@@ -98,6 +98,144 @@ abstract class AppLocalizations {
     Locale('ru'),
   ];
 
+  /// No description provided for @downloadFilesButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Files'**
+  String get downloadFilesButton;
+
+  /// No description provided for @downloadFilesTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Free up space'**
+  String get downloadFilesTitle;
+
+  /// No description provided for @downloadFilesTemporary.
+  ///
+  /// In en, this message translates to:
+  /// **'Temporary files'**
+  String get downloadFilesTemporary;
+
+  /// No description provided for @downloadFilesTemporaryHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Your downloaded episodes will be kept.'**
+  String get downloadFilesTemporaryHint;
+
+  /// No description provided for @downloadFilesTemporaryBusy.
+  ///
+  /// In en, this message translates to:
+  /// **'The player is using these files. You can clear them after playback.'**
+  String get downloadFilesTemporaryBusy;
+
+  /// No description provided for @downloadFilesClearTemporary.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear temporary files'**
+  String get downloadFilesClearTemporary;
+
+  /// No description provided for @downloadFilesTemporaryCleared.
+  ///
+  /// In en, this message translates to:
+  /// **'Temporary files deleted'**
+  String get downloadFilesTemporaryCleared;
+
+  /// No description provided for @downloadFilesClearFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to delete temporary files. Try again.'**
+  String get downloadFilesClearFailed;
+
+  /// No description provided for @downloadFilesSaved.
+  ///
+  /// In en, this message translates to:
+  /// **'Downloaded episodes'**
+  String get downloadFilesSaved;
+
+  /// No description provided for @downloadFilesEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No downloaded episodes yet.'**
+  String get downloadFilesEmpty;
+
+  /// No description provided for @downloadFilesUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to check temporary file size.'**
+  String get downloadFilesUnavailable;
+
+  /// No description provided for @downloadQueueButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Queue'**
+  String get downloadQueueButton;
+
+  /// No description provided for @downloadQueueCurrent.
+  ///
+  /// In en, this message translates to:
+  /// **'Downloading now'**
+  String get downloadQueueCurrent;
+
+  /// No description provided for @downloadQueueWaiting.
+  ///
+  /// In en, this message translates to:
+  /// **'Up next'**
+  String get downloadQueueWaiting;
+
+  /// No description provided for @downloadQueueMoveUp.
+  ///
+  /// In en, this message translates to:
+  /// **'Move up'**
+  String get downloadQueueMoveUp;
+
+  /// No description provided for @downloadQueueMoveDown.
+  ///
+  /// In en, this message translates to:
+  /// **'Move down'**
+  String get downloadQueueMoveDown;
+
+  /// No description provided for @downloadQueueMove.
+  ///
+  /// In en, this message translates to:
+  /// **'Move episode'**
+  String get downloadQueueMove;
+
+  /// No description provided for @downloadQueueChanged.
+  ///
+  /// In en, this message translates to:
+  /// **'Download order changed'**
+  String get downloadQueueChanged;
+
+  /// No description provided for @downloadQueueReorderFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to change download order. Try again.'**
+  String get downloadQueueReorderFailed;
+
+  /// No description provided for @downloadQueuePaused.
+  ///
+  /// In en, this message translates to:
+  /// **'Paused'**
+  String get downloadQueuePaused;
+
+  /// No description provided for @downloadQueueAttention.
+  ///
+  /// In en, this message translates to:
+  /// **'Needs attention'**
+  String get downloadQueueAttention;
+
+  /// No description provided for @downloadQueueFinished.
+  ///
+  /// In en, this message translates to:
+  /// **'All downloads are complete. Your episodes are in the library.'**
+  String get downloadQueueFinished;
+
+  /// No description provided for @downloadQueueNoWaiting.
+  ///
+  /// In en, this message translates to:
+  /// **'No episodes waiting.'**
+  String get downloadQueueNoWaiting;
+
   /// No description provided for @appName.
   ///
   /// In en, this message translates to:
@@ -925,6 +1063,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'The decoder and ASS rendering apply by restarting the video where it is.'**
   String get playerRestartHint;
+
+  /// No description provided for @playerDecoderRestartHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Changing the decoder restarts the video at the current position.'**
+  String get playerDecoderRestartHint;
 
   /// No description provided for @playerSubtitleColorWhite.
   ///
@@ -2875,6 +3019,48 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'More ({count})'**
   String animeListShowMore(int count);
+
+  /// No description provided for @downloadSelect.
+  ///
+  /// In en, this message translates to:
+  /// **'Select'**
+  String get downloadSelect;
+
+  /// No description provided for @downloadDeleteSelected.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{Delete} other{Delete {count}}}'**
+  String downloadDeleteSelected(int count);
+
+  /// No description provided for @downloadDeleteSelectedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, one{Delete {count} download?} other{Delete {count} downloads?}}'**
+  String downloadDeleteSelectedTitle(int count);
+
+  /// No description provided for @downloadDeleteSpace.
+  ///
+  /// In en, this message translates to:
+  /// **'About {size} will be freed.'**
+  String downloadDeleteSpace(String size);
+
+  /// No description provided for @downloadDeleteUnfinished.
+  ///
+  /// In en, this message translates to:
+  /// **'Unfinished downloads will be cancelled.'**
+  String get downloadDeleteUnfinished;
+
+  /// No description provided for @downloadDeleting.
+  ///
+  /// In en, this message translates to:
+  /// **'Deleting…'**
+  String get downloadDeleting;
+
+  /// No description provided for @downloadDeleteSelectionFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, one{Couldn’t delete {count} download.} other{Couldn’t delete {count} downloads.}}'**
+  String downloadDeleteSelectionFailed(int count);
 
   /// No description provided for @downloadSelectEpisodes.
   ///

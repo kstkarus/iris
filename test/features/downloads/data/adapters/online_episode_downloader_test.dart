@@ -15,6 +15,7 @@ import 'package:iris/features/online_sources/domain/entities/online_release.dart
 import 'package:iris/features/online_sources/domain/entities/online_stream.dart';
 import 'package:iris/features/online_sources/domain/repositories/online_sources_repository.dart';
 import 'package:iris/shared/network/network_exceptions.dart';
+import 'package:iris/shared/network/video_server_dio_factory.dart';
 import 'package:iris/shared/online/online_source_link.dart';
 
 import '../../../../helpers/fake_http_adapter.dart';
@@ -67,6 +68,26 @@ void main() {
       repository: sources,
       dio: fakeDio(respond),
       delay: (delay) async => delays.add(delay),
+    );
+  }
+
+  Future<(Uri, OnlineEpisodeDownloader)> localDownloader(
+    Future<void> Function(HttpRequest) respond,
+  ) async {
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    final dio = createVideoServerDio();
+    server.listen(respond);
+    addTearDown(() async {
+      dio.close(force: true);
+      await server.close(force: true);
+    });
+    return (
+      Uri(scheme: 'http', host: server.address.address, port: server.port),
+      OnlineEpisodeDownloader(
+        repository: sources,
+        dio: dio,
+        delay: (delay) async => delays.add(delay),
+      ),
     );
   }
 
@@ -624,6 +645,72 @@ void main() {
         ),
       ),
     );
+  });
+
+  test('HLS uses the final URL of both master and media playlists', () async {
+    final requests = <String>[];
+    final (base, downloader) = await localDownloader((request) async {
+      final response = request.response;
+      requests.add(request.uri.path);
+      switch (request.uri.path) {
+        case '/episode.m3u8':
+          return response.redirect(Uri(path: '/index/master.m3u8'));
+        case '/index/master.m3u8':
+          response.write(
+            '#EXTM3U\n'
+            '#EXT-X-STREAM-INF:BANDWIDTH=2000000,RESOLUTION=1280x720\n'
+            '720.m3u8',
+          );
+        case '/index/720.m3u8':
+          return response.redirect(Uri(path: '../media/720.m3u8'));
+        case '/media/720.m3u8':
+          response.write(_playlist(1));
+        case '/media/s1.ts':
+          response.write('segment');
+        default:
+          response.statusCode = HttpStatus.notFound;
+      }
+      await response.close();
+    });
+    sources.streams = [_hls(base.resolve('/episode.m3u8').toString())];
+
+    final file = await start(downloader).done;
+
+    expect(await file!.readAsString(), 'segment');
+    expect(requests, [
+      '/episode.m3u8',
+      '/index/master.m3u8',
+      '/index/720.m3u8',
+      '/media/720.m3u8',
+      '/media/s1.ts',
+    ]);
+  });
+
+  test('MP4 retries a 502 before the output file exists', () async {
+    var requests = 0;
+    final (base, downloader) = await localDownloader((request) async {
+      final response = request.response;
+      if (++requests == 1) {
+        response.statusCode = HttpStatus.badGateway;
+        response.write('try again');
+      } else {
+        response.write('video');
+      }
+      await response.close();
+    });
+    sources.streams = [
+      OnlineStream(
+        url: base.resolve('/episode.mp4').toString(),
+        quality: 720,
+        format: OnlineStreamFormat.mp4,
+      ),
+    ];
+
+    final file = await start(downloader).done;
+
+    expect(await file!.readAsString(), 'video');
+    expect(requests, 2);
+    expect(delays, const [Duration(seconds: 1)]);
   });
 
   test('an mp4 whose body broke off goes on with Range', () async {

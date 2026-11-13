@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:iris/features/downloads/domain/entities/download_item.dart';
+import 'package:iris/features/downloads/domain/entities/download_queue_order.dart';
 import 'package:iris/features/downloads/domain/entities/download_status.dart';
 import 'package:iris/features/downloads/domain/entities/download_storage_usage.dart';
 import 'package:iris/features/downloads/domain/entities/downloadable_file.dart';
@@ -14,11 +15,7 @@ class MockDownloadsRepository implements DownloadsRepository {
 
   @override
   Future<DownloadStorageUsage> calculateStorageUsage() async {
-    return const DownloadStorageUsage(
-      downloadsBytes: 0,
-      cacheBytes: 0,
-      totalBytes: 0,
-    );
+    return const DownloadStorageUsage(cacheBytes: 0);
   }
 
   @override
@@ -29,6 +26,15 @@ class MockDownloadsRepository implements DownloadsRepository {
     _items.removeWhere((item) => item.id == id);
     _emit();
     return true;
+  }
+
+  @override
+  Future<Set<String>> deleteMany({required Iterable<String> ids}) async {
+    final failed = <String>{};
+    for (final id in ids.toSet()) {
+      if (!await delete(id: id)) failed.add(id);
+    }
+    return failed;
   }
 
   @override
@@ -113,6 +119,15 @@ class MockDownloadsRepository implements DownloadsRepository {
     );
     if (index < 0) return;
     _items.insert(0, _items.removeAt(index));
+    _emit();
+  }
+
+  @override
+  Future<void> reorderQueue({required List<String> ids}) async {
+    final reordered = reorderQueuedDownloads(_items, ids);
+    _items
+      ..clear()
+      ..addAll(reordered);
     _emit();
   }
 

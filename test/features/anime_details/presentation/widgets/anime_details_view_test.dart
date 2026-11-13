@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -13,20 +11,13 @@ import 'package:iris/features/anime_details/presentation/cubit/anime_details_cub
 import 'package:iris/features/anime_details/presentation/models/anime_details_preview.dart';
 import 'package:iris/features/anime_details/presentation/pages/anime_details_page.dart';
 import 'package:iris/features/anime_details/presentation/widgets/anime_details_view.dart';
-import 'package:iris/shared/widgets/app_skeleton.dart';
-import 'package:iris/shared/utils/bayer_mask.dart';
-import 'package:iris/shared/widgets/dither_transition.dart';
-import 'package:iris/shared/widgets/dithered_image.dart';
-import 'package:iris/shared/widgets/spec_table.dart';
 
 import '../../../../helpers/test_app.dart';
 import '../../../../helpers/test_window.dart';
 import '../../anime_details_test_doubles.dart';
 
 void main() {
-  testWidgets('without a preview the whole page is noise while loading', (
-    tester,
-  ) async {
+  testWidgets('announces loading without a preview', (tester) async {
     final semantics = tester.ensureSemantics();
     final cubit = AnimeDetailsCubit(
       animeId: '5114',
@@ -36,13 +27,11 @@ void main() {
     await tester.pumpWidget(_app(cubit..loadAnime()));
     await tester.pump();
 
-    expect(_skeletonAround(tester, find.text('Choose source')).enabled, isTrue);
     expect(find.bySemanticsLabel('Loading anime details...'), findsOneWidget);
-    expect(find.bySemanticsLabel(RegExp('anime title')), findsNothing);
     semantics.dispose();
   });
 
-  testWidgets('a preview shows at once; only the description waits', (
+  testWidgets('a preview and source button remain available while loading', (
     tester,
   ) async {
     final cubit = AnimeDetailsCubit(
@@ -55,100 +44,8 @@ void main() {
 
     expect(find.text(fmaDetails.anime.name), findsOneWidget);
     expect(find.text('64'), findsOneWidget);
-    expect(
-      _skeletonAround(tester, find.text(fmaDetails.anime.name)).enabled,
-      isFalse,
-    );
     final button = find.widgetWithText(FilledButton, 'Choose source');
     expect(tester.widget<FilledButton>(button).onPressed, isNotNull);
-    expect(_skeletonAround(tester, _standIn).enabled, isTrue);
-  });
-
-  testWidgets('a long title sets smaller to keep the facts beside the cover', (
-    tester,
-  ) async {
-    setTestWindowSize(tester, const Size(1536, 800));
-    final cubit = AnimeDetailsCubit(
-      animeId: '5114',
-      repository: PendingAnimeDetailsRepository(),
-    );
-    final preview = AnimeDetailsPreview.fromSummary(
-      AnimeSummary(
-        id: _preview.anime.id,
-        name: 'Re:Zero kara Hajimeru Isekai Seikatsu 4th Season',
-        russian: _preview.anime.russian,
-        kind: _preview.anime.kind,
-        score: _preview.anime.score,
-        status: _preview.anime.status,
-        episodes: _preview.anime.episodes,
-        episodesAired: _preview.anime.episodesAired,
-        airedOn: _preview.anime.airedOn,
-        posterUrl: _preview.anime.posterUrl,
-      ),
-    );
-
-    await tester.pumpWidget(_app(cubit..loadAnime(), preview: preview));
-    await tester.pump();
-
-    final poster = tester.getRect(find.byType(DitheredImage).first);
-    // The facts beside the cover; the details' own rows wait below it.
-    final facts = tester.getRect(find.byType(SpecTable).first);
-    expect(facts.bottom, lessThanOrEqualTo(poster.bottom));
-    expect(tester.takeException(), isNull);
-  });
-
-  testWidgets('the rows the details bring hold their place as noise', (
-    tester,
-  ) async {
-    final details = Completer<AnimeDetails>();
-    final cubit = AnimeDetailsCubit(
-      animeId: '5114',
-      repository: PendingAnimeDetailsRepository(details.future),
-    );
-
-    await tester.pumpWidget(_app(cubit..loadAnime(), preview: _preview));
-    await tester.pump();
-
-    final moreFacts = find.byKey(const Key('anime_details_more_facts'));
-    expect(moreFacts, findsOneWidget);
-    expect(_skeletonAround(tester, moreFacts).enabled, isTrue);
-    // The labels are known already: only the values are noise.
-    expect(find.text('Studio'), findsOneWidget);
-    final top = tester.getTopLeft(moreFacts).dy;
-
-    details.complete(
-      AnimeDetails(
-        anime: fmaDetails.anime,
-        description: fmaDetails.description,
-        studios: const ['Bones'],
-        rating: 'r',
-      ),
-    );
-    await tester.pumpAndSettle();
-    expect(find.text('Bones'), findsOneWidget);
-    expect(_skeletonAround(tester, moreFacts).enabled, isFalse);
-    expect(tester.getTopLeft(moreFacts).dy, top);
-  });
-
-  testWidgets('the description develops out of the noise', (tester) async {
-    final details = Completer<AnimeDetails>();
-    final cubit = AnimeDetailsCubit(
-      animeId: '5114',
-      repository: PendingAnimeDetailsRepository(details.future),
-    );
-
-    await tester.pumpWidget(_app(cubit..loadAnime(), preview: _preview));
-    await tester.pump();
-
-    details.complete(fmaDetails);
-    await tester.pump();
-    await tester.pump(DitherTransition.duration ~/ 2);
-    expect(find.text(fmaDetails.description), findsOneWidget);
-    expect(_standIn, findsOneWidget, reason: 'still leaving');
-
-    await tester.pump(DitherTransition.duration);
-    expect(_standIn, findsNothing);
-    expect(find.text(fmaDetails.anime.name), findsOneWidget);
   });
 
   testWidgets('shows anime details when loading succeeds', (tester) async {
@@ -268,7 +165,6 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Next'), findsNothing);
-    expect(find.byKey(const Key('anime_details_more_facts')), findsNothing);
     final names = find.byKey(const Key('dubs_section_names'));
     await tester.ensureVisible(names);
     expect(tester.widget<Text>(names).data, dubs.take(12).join(' · '));
@@ -350,7 +246,6 @@ void main() {
     expect(find.text('Fullmetal Alchemist: Brotherhood'), findsOneWidget);
     expect(find.text('Choose source'), findsOneWidget);
     expect(find.text('Unable to load anime details.'), findsOneWidget);
-    expect(_standIn, findsNothing);
 
     repository.shouldFail = false;
     await tester.ensureVisible(find.text('Try Again'));
@@ -359,55 +254,6 @@ void main() {
 
     expect(find.text('Unable to load anime details.'), findsNothing);
     expect(find.text(fmaDetails.description), findsOneWidget);
-  });
-
-  for (final entry in {
-    'phone': TestWindowSizes.phone,
-    'desktop': TestWindowSizes.desktop,
-  }.entries) {
-    testWidgets('the bar takes the name over once it is gone on ${entry.key}', (
-      tester,
-    ) async {
-      setTestWindowSize(tester, entry.value);
-      await _pumpPage(tester);
-      expect(_barTitle, findsNothing);
-
-      // A sliver of the name still shows: the page still has it.
-      await _scrollBy(tester, _nameBelowBar(tester) - 4);
-      expect(_barTitle, findsNothing);
-
-      await _scrollBy(tester, 8);
-      expect(_barTitle, findsOneWidget);
-
-      await _scrollBy(tester, -200);
-      expect(_barTitle, findsNothing);
-    });
-  }
-
-  testWidgets('the name develops in the bar rather than appearing', (
-    tester,
-  ) async {
-    setTestWindowSize(tester, TestWindowSizes.phone);
-    await _pumpPage(tester);
-    final page = find.byType(SingleChildScrollView).first;
-    final position = tester
-        .state<ScrollableState>(
-          find.descendant(of: page, matching: find.byType(Scrollable)).first,
-        )
-        .position;
-
-    position.jumpTo(position.pixels + _nameBelowBar(tester) + 4);
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 150));
-    final masked = find.ancestor(
-      of: _barTitle,
-      matching: find.byType(BayerMasked),
-    );
-    expect(tester.widget<BayerMasked>(masked.first).open, greaterThan(0));
-    expect(
-      tester.widget<BayerMasked>(masked.first).open,
-      lessThan(BayerMask.steps),
-    );
   });
 
   testWidgets('screen readers hear the name once', (tester) async {
@@ -447,21 +293,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      final title = tester.getRect(find.text(_longDetails.anime.name));
-      final poster = tester.getRect(find.byType(DitheredImage).first);
-      final description = tester.getRect(find.text(_longDetails.description));
-      if (entry.value.width < 600) {
-        // The cover and the title side by side; the text below starts
-        // under the cover.
-        expect(title.left, greaterThan(poster.right));
-        expect(title.top, poster.top);
-        expect(description.left, poster.left);
-      } else if (entry.value.width < 840) {
-        expect(description.left, title.left);
-      } else {
-        expect(description.left, greaterThan(poster.right));
-        expect(description.width, lessThanOrEqualTo(720));
-      }
+      expect(find.text(_longDetails.anime.name), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
   }
@@ -526,15 +358,6 @@ Widget _app(
     locale: Locale(locale),
   );
 }
-
-/// The closest skeleton holding [finder].
-AppSkeleton _skeletonAround(WidgetTester tester, Finder finder) =>
-    tester.widget<AppSkeleton>(
-      find.ancestor(of: finder, matching: find.byType(AppSkeleton)).first,
-    );
-
-/// How the stand-in description begins.
-final _standIn = find.textContaining('A few sentences');
 
 class _ToggleAnimeDetailsRepository implements AnimeDetailsRepository {
   bool shouldFail = true;

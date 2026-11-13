@@ -48,6 +48,7 @@ import 'package:iris/features/downloads/presentation/cubit/download_manager_cubi
 import 'package:iris/features/downloads/presentation/cubit/download_selection_cubit.dart';
 import 'package:iris/features/downloads/presentation/models/download_selection_args.dart';
 import 'package:iris/features/downloads/presentation/pages/download_manager_page.dart';
+import 'package:iris/features/downloads/presentation/pages/download_queue_page.dart';
 import 'package:iris/features/downloads/presentation/pages/download_selection_page.dart';
 import 'package:iris/features/online_sources/domain/repositories/online_releases_search.dart';
 import 'package:iris/features/online_sources/presentation/cubit/online_releases_cubit.dart';
@@ -341,6 +342,19 @@ abstract final class AppRouter {
               ],
             ),
           ],
+        ),
+        GoRoute(
+          path: '/downloads/queue',
+          name: 'download-queue',
+          builder: (context, state) => BlocProvider(
+            create: (_) => DownloadManagerCubit(
+              repository: serviceLocator<DownloadsRepository>(),
+            )..load(),
+            child: DownloadQueuePage(
+              onOpenTitle: (title) =>
+                  context.goNamed('download-title', extra: title),
+            ),
+          ),
         ),
         GoRoute(
           path: '/user/:id',

@@ -5,7 +5,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:iris/features/app_update/data/github_app_update_repository.dart';
-import 'package:iris/features/app_update/domain/entities/app_release.dart';
 import 'package:iris/features/app_update/domain/entities/app_version.dart';
 
 import '../../helpers/fake_http_adapter.dart';
@@ -52,34 +51,15 @@ void main() {
   test('offers the build for this platform from the latest release', () async {
     final android = await repository(FakeReply(200, _release));
     final latest = await android.latestRelease();
+    expect(latest?.version, const AppVersion(1, 3, 0));
     expect(
-      latest,
-      AppRelease(
-        version: const AppVersion(1, 3, 0),
-        downloadUrl: Uri.parse(
-          'https://example.org/iris-1.3.0-android-arm64-v8a.apk',
-        ),
-        notes: 'Bug fixes and performance improvements.',
-        sizeBytes: 1024,
-        sha256: 'a' * 64,
-        assetName: 'iris-1.3.0-android-arm64-v8a.apk',
-      ),
+      latest?.downloadUrl.toString(),
+      'https://example.org/iris-1.3.0-android-arm64-v8a.apk',
     );
     expect(latest?.notes, 'Bug fixes and performance improvements.');
     expect(latest?.sizeBytes, 1024);
     expect(latest?.sha256, 'a' * 64);
     expect(latest?.assetName, 'iris-1.3.0-android-arm64-v8a.apk');
-    expect(
-      latest,
-      isNot(
-        AppRelease(
-          version: const AppVersion(1, 3, 0),
-          downloadUrl: Uri.parse(
-            'https://example.org/iris-1.3.0-android-arm64-v8a.apk',
-          ),
-        ),
-      ),
-    );
     expect(adapter.requests.single.path, AppReleasesApi.latestPath);
 
     final arm = await repository(

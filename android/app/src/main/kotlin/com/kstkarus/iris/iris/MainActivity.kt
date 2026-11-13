@@ -2,7 +2,6 @@ package com.kstkarus.iris.iris
 
 import android.Manifest
 import android.app.ActivityManager
-import android.app.usage.StorageStatsManager
 import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
@@ -11,8 +10,6 @@ import android.content.res.Configuration
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
-import android.os.Process
-import android.os.storage.StorageManager
 import android.provider.Settings
 import androidx.core.content.FileProvider
 import androidx.lifecycle.Lifecycle
@@ -125,16 +122,6 @@ class MainActivity : FlutterActivity() {
                         result.error("installer_error", error.message, null)
                     }
                 }
-                else -> result.notImplemented()
-            }
-        }
-
-        MethodChannel(
-            flutterEngine.dartExecutor.binaryMessenger,
-            "iris/app_storage_stats",
-        ).setMethodCallHandler { call, result ->
-            when (call.method) {
-                "getUsage" -> result.success(readAppStorageUsage())
                 else -> result.notImplemented()
             }
         }
@@ -307,41 +294,6 @@ class MainActivity : FlutterActivity() {
                 // is nothing to stop, and Android refuses to start one.
             }
         }
-    }
-
-    private fun readAppStorageUsage(): Map<String, Long> {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            try {
-                val manager = getSystemService(Context.STORAGE_STATS_SERVICE) as StorageStatsManager
-                val stats = manager.queryStatsForUid(StorageManager.UUID_DEFAULT, Process.myUid())
-                return mapOf(
-                    "appBytes" to stats.appBytes,
-                    "dataBytes" to stats.dataBytes,
-                    "cacheBytes" to stats.cacheBytes,
-                    "totalBytes" to stats.appBytes + stats.dataBytes,
-                )
-            } catch (_: Exception) {
-                // Fall back to a direct directory scan below.
-            }
-        }
-
-        val appBytes = File(applicationInfo.sourceDir).length() +
-            (applicationInfo.splitSourceDirs?.sumOf { File(it).length() } ?: 0L)
-        val dataRoot = filesDir.parentFile
-        val dataBytes = dataRoot?.directorySize() ?: 0L
-        val cacheBytes = cacheDir.directorySize()
-        return mapOf(
-            "appBytes" to appBytes,
-            "dataBytes" to dataBytes,
-            "cacheBytes" to cacheBytes,
-            "totalBytes" to appBytes + dataBytes,
-        )
-    }
-
-    private fun File.directorySize(): Long {
-        if (!exists()) return 0L
-        if (isFile) return length()
-        return listFiles()?.sumOf { it.directorySize() } ?: 0L
     }
 
     companion object {

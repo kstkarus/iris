@@ -12,6 +12,7 @@ import '../../helpers/fake_secure_storage.dart';
 
 void main() {
   final now = DateTime.utc(2026, 10, 10, 12);
+  late FakeSecureStorage storage;
   late ShikimoriSessionStore store;
   late _FakeOAuth oauth;
   late FakeHttpAdapter adapter;
@@ -36,7 +37,8 @@ void main() {
   setUp(() {
     valid = 'fresh';
     sent = [];
-    store = ShikimoriSessionStore(FakeSecureStorage());
+    storage = FakeSecureStorage();
+    store = ShikimoriSessionStore(storage);
     oauth = _FakeOAuth(() => tokens('fresh'));
     adapter = FakeHttpAdapter((options) {
       final auth = options.headers['Authorization'];
@@ -221,6 +223,23 @@ void main() {
       expect(expired, hasLength(1));
     },
   );
+
+  test('a failed secure deletion still ends a revoked session', () async {
+    await store.write(tokens('revoked', left: Duration.zero));
+    storage.failDeletes = true;
+    oauth.failure = const InvalidGrantException('revoked');
+    final expired = <void>[];
+    final subscription = store.expired.listen(expired.add);
+    addTearDown(subscription.cancel);
+
+    final response = await dio.get<dynamic>('/api/animes');
+    await Future<void>.delayed(Duration.zero);
+
+    expect(response.statusCode, 200);
+    expect(sentTokens(), [null]);
+    expect(await store.read(), isNull);
+    expect(expired, hasLength(1));
+  });
 
   test('a guest\'s repeat refused again fails, once', () async {
     await store.write(tokens('revoked'));

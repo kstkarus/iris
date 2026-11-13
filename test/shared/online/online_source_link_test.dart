@@ -1,7 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:iris/shared/online/online_source_link.dart';
-import 'package:iris/shared/torrent/torrent_key.dart';
 
 void main() {
   test('spells and reads back a release link', () {
@@ -40,7 +39,10 @@ void main() {
     const magnet =
         'magnet:?xt=urn:btih:0123456789abcdef0123456789abcdef01234567';
 
-    expect(sourceProgressKey(magnet), torrentKeyFromMagnet(magnet));
+    expect(
+      sourceProgressKey(magnet),
+      '0123456789abcdef0123456789abcdef01234567',
+    );
   });
 
   test('reads nothing from a magnet or a malformed link', () {

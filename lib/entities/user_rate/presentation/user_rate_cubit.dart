@@ -33,7 +33,7 @@ class UserRateCubit extends Cubit<UserRateState> {
   UserRate? _saved;
 
   /// What to send next, while a save is out.
-  ({UserRateStatus status, int episodes, int score})? _wish;
+  ({UserRate rate, bool status, bool episodes, bool score})? _wish;
   bool _sending = false;
   bool _removing = false;
 
@@ -81,6 +81,7 @@ class UserRateCubit extends Cubit<UserRateState> {
       status: status,
       episodes: current.rate?.episodes ?? 0,
       score: current.rate?.score ?? 0,
+      statusChanged: true,
     );
   }
 
@@ -94,6 +95,7 @@ class UserRateCubit extends Cubit<UserRateState> {
       status: rate?.status ?? UserRateStatus.completed,
       episodes: rate?.episodes ?? 0,
       score: score,
+      scoreChanged: true,
     );
   }
 
@@ -110,6 +112,7 @@ class UserRateCubit extends Cubit<UserRateState> {
       status: rate?.status ?? UserRateStatus.watching,
       episodes: episodes,
       score: rate?.score ?? 0,
+      episodesChanged: true,
     );
   }
 
@@ -187,22 +190,26 @@ class UserRateCubit extends Cubit<UserRateState> {
     required UserRateStatus status,
     required int episodes,
     required int score,
+    bool statusChanged = false,
+    bool episodesChanged = false,
+    bool scoreChanged = false,
   }) {
     // The entry is on its way out; a change now would go to a rate that
     // is gone, or bring it back unseen.
     if (_removing) return;
-    _wish = (status: status, episodes: episodes, score: score);
-    emit(
-      UserRateLoaded(
-        UserRate(
-          id: _saved?.id ?? '',
-          status: status,
-          episodes: episodes,
-          score: score,
-        ),
-        saving: true,
-      ),
+    final rate = UserRate(
+      id: _saved?.id ?? '',
+      status: status,
+      episodes: episodes,
+      score: score,
     );
+    _wish = (
+      rate: rate,
+      status: statusChanged || (_wish?.status ?? false),
+      episodes: episodesChanged || (_wish?.episodes ?? false),
+      score: scoreChanged || (_wish?.score ?? false),
+    );
+    emit(UserRateLoaded(rate, saving: true));
     if (!_sending) _send();
   }
 
@@ -216,13 +223,14 @@ class UserRateCubit extends Cubit<UserRateState> {
       while (_wish != null) {
         final wish = _wish!;
         _wish = null;
+        final rateId = _saved?.id;
         final saved = await _repository.save(
           userId: userId,
           animeId: _animeId,
-          rateId: _saved?.id,
-          status: wish.status,
-          episodes: wish.episodes,
-          score: wish.score,
+          rateId: rateId,
+          status: rateId == null || wish.status ? wish.rate.status : null,
+          episodes: rateId == null || wish.episodes ? wish.rate.episodes : null,
+          score: rateId == null || wish.score ? wish.rate.score : null,
         );
         if (isClosed || session != _session) return;
         _saved = saved;

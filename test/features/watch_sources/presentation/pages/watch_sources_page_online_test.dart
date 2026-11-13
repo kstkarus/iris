@@ -130,26 +130,6 @@ void main() {
     }
   });
 
-  testWidgets('sets the dubs in columns on a wide window', (tester) async {
-    setTestWindowSize(tester, TestWindowSizes.desktop);
-    await _pumpPage(tester, online: _FakeOnlineSources(_dubs));
-
-    final first = tester.getTopLeft(find.text('AniLibria'));
-    final second = tester.getTopLeft(find.text('AniDUB'));
-    expect(second.dy, first.dy);
-    expect(second.dx, greaterThan(first.dx));
-  });
-
-  testWidgets('keeps the dubs in one column on a phone', (tester) async {
-    setTestWindowSize(tester, TestWindowSizes.phone);
-    await _pumpPage(tester, online: _FakeOnlineSources(_dubs));
-
-    final first = tester.getTopLeft(find.text('AniLibria'));
-    final second = tester.getTopLeft(find.text('AniDUB'));
-    expect(second.dx, first.dx);
-    expect(second.dy, greaterThan(first.dy));
-  });
-
   testWidgets('every tab fits a narrow phone in large text', (tester) async {
     setTestWindowSize(tester, const Size(360, 800));
     tester.platformDispatcher.textScaleFactorTestValue = 2;
@@ -268,8 +248,6 @@ void main() {
     await _pumpPage(tester, online: _FakeOnlineSources(const []));
     await tester.pumpAndSettle();
 
-    expect(find.text('Online'), findsNothing);
-    expect(find.text('Torrents'), findsNothing);
     expect(find.text('[SubsPlease] Frieren'), findsOneWidget);
   });
 
@@ -285,11 +263,10 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Online'), findsNothing);
     expect(find.text('AniLibria'), findsOneWidget);
   });
 
-  testWidgets('dissolves the tabs when nothing is found online', (
+  testWidgets('falls back to torrents when nothing is found online', (
     tester,
   ) async {
     final tabs = MemoryWatchSourcesTabRepository();
@@ -297,13 +274,7 @@ void main() {
     await _pumpPage(tester, online: online, tabs: tabs);
 
     await online.answers.close();
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 200));
-    // Still there, going cell by cell.
-    expect(find.text('Online'), findsOneWidget);
-
     await tester.pumpAndSettle();
-    expect(find.text('Online'), findsNothing);
     expect(find.text('[SubsPlease] Frieren'), findsOneWidget);
     // Shown for want of online releases, not chosen.
     expect(tabs.tab, isNull);
@@ -322,11 +293,10 @@ void main() {
     await online.answers.close();
     await tester.pumpAndSettle();
 
-    expect(find.text('Online'), findsNothing);
     expect(find.text('subs'), findsOneWidget);
   });
 
-  testWidgets('shows noise rows while servers are searched', (tester) async {
+  testWidgets('announces while servers are searched', (tester) async {
     final semantics = tester.ensureSemantics();
     await _pumpPage(tester, online: _FakeOnlineSources.pending());
 
@@ -361,40 +331,6 @@ void main() {
     expect(find.bySemanticsLabel('Looking for online sources'), findsNothing);
     semantics.dispose();
   });
-
-  for (final entry in TestWindowSizes.all.entries) {
-    testWidgets('keeps found rows while providers finish on ${entry.key}', (
-      tester,
-    ) async {
-      setTestWindowSize(tester, entry.value);
-      final online = _FakeOnlineSources.pending();
-      await _pumpPage(tester, online: online);
-
-      online.answers.add([_release]);
-      await tester.pump();
-      await tester.pump(const Duration(seconds: 1));
-      final row = find.byKey(const ValueKey('online_release_anilibria_9542'));
-      final original = tester.element(row);
-      final position = tester.getTopLeft(row);
-
-      online.answers.add(_dubs);
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 100));
-      expect(row, findsOneWidget);
-      expect(tester.element(row), same(original));
-      expect(tester.getTopLeft(row), position);
-
-      // The last provider (e.g. AnimeJoy) found nothing: only noise goes.
-      await online.answers.close();
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 100));
-      expect(row, findsOneWidget);
-      expect(tester.element(row), same(original));
-      expect(tester.getTopLeft(row), position);
-      await tester.pumpAndSettle();
-      expect(tester.element(row), same(original));
-    });
-  }
 
   testWidgets('a failed search offers to retry on its tab', (tester) async {
     final online = _FakeOnlineSources.failing();
@@ -527,9 +463,7 @@ void main() {
       expect(args.magnet, magnet);
     });
 
-    testWidgets('deleting the last one dissolves the row, then the tab', (
-      tester,
-    ) async {
+    testWidgets('deleting the last saved torrent removes it', (tester) async {
       await _pumpPage(
         tester,
         online: _FakeOnlineSources.found(),
@@ -541,10 +475,6 @@ void main() {
       await tester.longPress(find.text('Frieren BD'));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('saved_torrent_delete')));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 100));
-      expect(find.text('Frieren BD'), findsOneWidget, reason: 'dissolving');
-
       await tester.pumpAndSettle();
       expect(find.text('Frieren BD'), findsNothing);
       expect(find.text('Mine'), findsNothing);

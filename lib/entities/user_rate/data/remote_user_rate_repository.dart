@@ -8,6 +8,7 @@ import 'package:iris/shared/network/shikimori_graph_ql_client.dart';
 import 'package:iris/shared/network/shikimori_rest_client.dart';
 import 'package:iris/shared/storage/shikimori_session_store.dart';
 import 'package:iris/shared/utils/json_read.dart';
+import 'package:iris/shared/utils/serial_queue.dart';
 
 /// Reads the entry through GraphQL (`Anime.userRate`) and writes it through
 /// REST: Shikimori's GraphQL API has no mutations.
@@ -28,6 +29,7 @@ class RemoteUserRateRepository implements UserRateRepository {
   final ShikimoriRestClient _rest;
   final ShikimoriSessionStore _session;
   final _changes = StreamController<UserRateChange>.broadcast();
+  final _requests = SerialQueue();
 
   @override
   Stream<UserRateChange> get changes => _changes.stream;
@@ -37,22 +39,23 @@ class RemoteUserRateRepository implements UserRateRepository {
       (await fetchWithTotal(animeId)).rate;
 
   @override
-  Future<({UserRate? rate, int totalEpisodes})> fetchWithTotal(
-    String animeId,
-  ) async {
-    final sessionGeneration = await _sessionGeneration(_session.generation);
-    final data = await _graphQl.query(
-      document: _userRateQuery,
-      variables: {'id': animeId},
-    );
-    final animes = data['animes'];
-    if (animes is! List || animes.isEmpty) {
-      throw ResourceNotFoundException('Anime not found for id: $animeId');
-    }
-    final anime = jsonMap(animes.first);
-    final rate = UserRateDto.tryParse(anime['userRate'])?.toEntity();
-    await _publishIfCurrent(sessionGeneration, UserRateChange(animeId, rate));
-    return (rate: rate, totalEpisodes: jsonInt(anime['episodes']));
+  Future<({UserRate? rate, int totalEpisodes})> fetchWithTotal(String animeId) {
+    final requestGeneration = _session.generation;
+    return _requests.run(() async {
+      final sessionGeneration = await _sessionGeneration(requestGeneration);
+      final data = await _graphQl.query(
+        document: _userRateQuery,
+        variables: {'id': animeId},
+      );
+      final animes = data['animes'];
+      if (animes is! List || animes.isEmpty) {
+        throw ResourceNotFoundException('Anime not found for id: $animeId');
+      }
+      final anime = jsonMap(animes.first);
+      final rate = UserRateDto.tryParse(anime['userRate'])?.toEntity();
+      await _publishIfCurrent(sessionGeneration, UserRateChange(animeId, rate));
+      return (rate: rate, totalEpisodes: jsonInt(anime['episodes']));
+    });
   }
 
   @override
@@ -61,65 +64,70 @@ class RemoteUserRateRepository implements UserRateRepository {
     required String animeId,
     required String? rateId,
     UserRateStatus? status,
-    required int episodes,
+    int? episodes,
     int? score,
     int? rewatches,
-  }) async {
+  }) {
     final requestGeneration = _session.generation;
-    final sessionGeneration = await _sessionGeneration(requestGeneration);
-    final fields = {
-      if (status != null) 'status': UserRateDto.statusToApi(status),
-      'episodes': episodes,
-      'score': ?score,
-      'rewatches': ?rewatches,
-    };
-    final data = rateId == null
-        ? await _rest.post(
-            _ratesPath,
-            sessionGeneration: requestGeneration,
-            data: {
-              'user_rate': {
-                'user_id': userId,
-                'target_id': animeId,
-                'target_type': 'Anime',
-                ...fields,
+    return _requests.run(() async {
+      final sessionGeneration = await _sessionGeneration(requestGeneration);
+      final fields = {
+        if (status != null) 'status': UserRateDto.statusToApi(status),
+        'episodes': ?episodes,
+        'score': ?score,
+        'rewatches': ?rewatches,
+      };
+      final data = rateId == null
+          ? await _rest.post(
+              _ratesPath,
+              sessionGeneration: requestGeneration,
+              data: {
+                'user_rate': {
+                  'user_id': userId,
+                  'target_id': animeId,
+                  'target_type': 'Anime',
+                  ...fields,
+                },
               },
-            },
-          )
-        : await _rest.patch(
-            '$_ratesPath/$rateId',
-            data: {'user_rate': fields},
-            sessionGeneration: requestGeneration,
-          );
-    final saved = UserRateDto.tryParse(data);
-    if (saved == null) {
-      throw const RemoteResponseException('User rate response is invalid.');
-    }
-    final rate = saved.toEntity();
-    await _publishIfCurrent(sessionGeneration, UserRateChange(animeId, rate));
-    return rate;
+            )
+          : await _rest.patch(
+              '$_ratesPath/$rateId',
+              data: {'user_rate': fields},
+              sessionGeneration: requestGeneration,
+            );
+      final saved = UserRateDto.tryParse(data);
+      if (saved == null) {
+        throw const RemoteResponseException('User rate response is invalid.');
+      }
+      final rate = saved.toEntity();
+      await _publishIfCurrent(sessionGeneration, UserRateChange(animeId, rate));
+      return rate;
+    });
   }
 
   @override
-  Future<void> remove({required String animeId, required String rateId}) async {
+  Future<void> remove({required String animeId, required String rateId}) {
     final requestGeneration = _session.generation;
-    final sessionGeneration = await _sessionGeneration(requestGeneration);
-    await _rest.delete(
-      '$_ratesPath/$rateId',
-      sessionGeneration: requestGeneration,
-    );
-    await _publishIfCurrent(sessionGeneration, UserRateChange(animeId, null));
+    return _requests.run(() async {
+      final sessionGeneration = await _sessionGeneration(requestGeneration);
+      await _rest.delete(
+        '$_ratesPath/$rateId',
+        sessionGeneration: requestGeneration,
+      );
+      await _publishIfCurrent(sessionGeneration, UserRateChange(animeId, null));
+    });
   }
 
-  /// A request can outlive the account that authorized it. Its return value
-  /// still belongs to the caller, but it must not update shared UI state.
+  /// A queued request must not start under a different account.
   Future<int> _sessionGeneration(int generation) async {
-    if (await _session.read() == null || _session.generation != generation) {
-      return -1;
+    final tokens = await _session.read();
+    if (_session.generation != generation) {
+      throw const NetworkRequestException('The request was cancelled.');
     }
-    return generation;
+    return tokens == null ? -1 : generation;
   }
 
+  /// An in-flight request may return after its account has changed.
   Future<void> _publishIfCurrent(
     int sessionGeneration,
     UserRateChange change,

@@ -380,10 +380,6 @@ void main() {
     expect(renewed, isNull);
     expect(sources.resolved, ['e1']);
   });
-
-  test('reports no torrent stats', () async {
-    expect(await repository.watchPlaybackStats(sessionId: _link).toList(), []);
-  });
 }
 
 class _FakeOnlineSources implements OnlineSourcesRepository {

@@ -9,6 +9,80 @@ class AppLocalizationsEn extends AppLocalizations {
   AppLocalizationsEn([String locale = 'en']) : super(locale);
 
   @override
+  String get downloadFilesButton => 'Files';
+
+  @override
+  String get downloadFilesTitle => 'Free up space';
+
+  @override
+  String get downloadFilesTemporary => 'Temporary files';
+
+  @override
+  String get downloadFilesTemporaryHint =>
+      'Your downloaded episodes will be kept.';
+
+  @override
+  String get downloadFilesTemporaryBusy =>
+      'The player is using these files. You can clear them after playback.';
+
+  @override
+  String get downloadFilesClearTemporary => 'Clear temporary files';
+
+  @override
+  String get downloadFilesTemporaryCleared => 'Temporary files deleted';
+
+  @override
+  String get downloadFilesClearFailed =>
+      'Unable to delete temporary files. Try again.';
+
+  @override
+  String get downloadFilesSaved => 'Downloaded episodes';
+
+  @override
+  String get downloadFilesEmpty => 'No downloaded episodes yet.';
+
+  @override
+  String get downloadFilesUnavailable => 'Unable to check temporary file size.';
+
+  @override
+  String get downloadQueueButton => 'Queue';
+
+  @override
+  String get downloadQueueCurrent => 'Downloading now';
+
+  @override
+  String get downloadQueueWaiting => 'Up next';
+
+  @override
+  String get downloadQueueMoveUp => 'Move up';
+
+  @override
+  String get downloadQueueMoveDown => 'Move down';
+
+  @override
+  String get downloadQueueMove => 'Move episode';
+
+  @override
+  String get downloadQueueChanged => 'Download order changed';
+
+  @override
+  String get downloadQueueReorderFailed =>
+      'Unable to change download order. Try again.';
+
+  @override
+  String get downloadQueuePaused => 'Paused';
+
+  @override
+  String get downloadQueueAttention => 'Needs attention';
+
+  @override
+  String get downloadQueueFinished =>
+      'All downloads are complete. Your episodes are in the library.';
+
+  @override
+  String get downloadQueueNoWaiting => 'No episodes waiting.';
+
+  @override
   String get appName => 'Iris';
 
   @override
@@ -480,6 +554,10 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get playerRestartHint =>
       'The decoder and ASS rendering apply by restarting the video where it is.';
+
+  @override
+  String get playerDecoderRestartHint =>
+      'Changing the decoder restarts the video at the current position.';
 
   @override
   String get playerSubtitleColorWhite => 'White';
@@ -1657,6 +1735,54 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String animeListShowMore(int count) {
     return 'More ($count)';
+  }
+
+  @override
+  String get downloadSelect => 'Select';
+
+  @override
+  String downloadDeleteSelected(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Delete $count',
+      zero: 'Delete',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String downloadDeleteSelectedTitle(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Delete $count downloads?',
+      one: 'Delete $count download?',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String downloadDeleteSpace(String size) {
+    return 'About $size will be freed.';
+  }
+
+  @override
+  String get downloadDeleteUnfinished =>
+      'Unfinished downloads will be cancelled.';
+
+  @override
+  String get downloadDeleting => 'Deleting…';
+
+  @override
+  String downloadDeleteSelectionFailed(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Couldn’t delete $count downloads.',
+      one: 'Couldn’t delete $count download.',
+    );
+    return '$_temp0';
   }
 
   @override

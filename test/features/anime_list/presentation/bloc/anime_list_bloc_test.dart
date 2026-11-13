@@ -476,6 +476,46 @@ void main() {
     });
 
     test(
+      'signing out replaces an in-flight page filtered by My list',
+      () async {
+        const filters = AnimeListFilters(myList: {UserRateStatus.watching});
+        final filteredPage = Completer<AnimeListPageResult>();
+        final bloc = AnimeListBloc(
+          repository: _FakeAnimeListRepository(
+            handler: ({required query}) async => query.filters == filters
+                ? filteredPage.future
+                : _pageOne(query),
+          ),
+        );
+        addTearDown(bloc.close);
+        bloc
+          ..add(const AnimeListAccountChanged(signedIn: true, reload: false))
+          ..add(const AnimeListStarted());
+        await Future<void>.delayed(Duration.zero);
+
+        bloc.add(const AnimeListCriteriaApplied(filters: filters));
+        await Future<void>.delayed(Duration.zero);
+        expect(bloc.state.isInitialLoading, isTrue);
+
+        bloc.add(const AnimeListAccountChanged(signedIn: false));
+        await Future<void>.delayed(Duration.zero);
+        filteredPage.complete(
+          const AnimeListPageResult(
+            items: _pageTwoItems,
+            page: 1,
+            hasMore: false,
+            query: '',
+          ),
+        );
+        await Future<void>.delayed(Duration.zero);
+
+        expect(bloc.state.signedIn, isFalse);
+        expect(bloc.state.filters, const AnimeListFilters());
+        expect(bloc.state.items, _pageOneItems);
+      },
+    );
+
+    test(
       'signing in or out reloads the list; a restored session does not',
       () async {
         var requests = 0;

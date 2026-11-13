@@ -1,3 +1,8 @@
+// Assertions execute the checks even when this test is built with NDEBUG.
+#ifdef NDEBUG
+#undef NDEBUG
+#endif
+
 #include "app_update_utils.h"
 
 #include <cassert>

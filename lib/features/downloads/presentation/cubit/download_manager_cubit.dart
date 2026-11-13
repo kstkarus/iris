@@ -50,21 +50,65 @@ class DownloadManagerCubit extends Cubit<DownloadManagerState> {
     }
   }
 
-  Future<void> pause(String id) => _run(() => _repository.pause(id: id));
+  Future<void> pause(String id) => state.deletingIds.contains(id)
+      ? Future.value()
+      : _run(() => _repository.pause(id: id));
 
-  Future<void> resume(String id) => _run(() => _repository.resume(id: id));
+  Future<void> resume(String id) => state.deletingIds.contains(id)
+      ? Future.value()
+      : _run(() => _repository.resume(id: id));
 
-  Future<void> retry(String id) => _run(() => _repository.retry(id: id));
+  Future<void> retry(String id) => state.deletingIds.contains(id)
+      ? Future.value()
+      : _run(() => _repository.retry(id: id));
 
-  Future<void> downloadNext(String id) =>
-      _run(() => _repository.downloadNext(id: id));
+  Future<void> downloadNext(String id) => state.deletingIds.contains(id)
+      ? Future.value()
+      : _run(() => _repository.downloadNext(id: id));
+
+  Future<bool> reorderQueue(List<String> ids) async {
+    if (isClosed) return false;
+    try {
+      await _repository.reorderQueue(ids: List.of(ids));
+      return !isClosed;
+    } catch (error, stackTrace) {
+      _report(error, stackTrace);
+      return false;
+    }
+  }
 
   /// Returns false when the files could not be removed.
-  Future<bool> delete(String id) async {
-    var deleted = false;
-    await _run(() async => deleted = await _repository.delete(id: id));
-    await refreshStorage();
-    return deleted;
+  Future<bool> delete(String id) async => (await deleteMany([id])).isEmpty;
+
+  Future<Set<String>> deleteMany(Iterable<String> ids) async {
+    final pending = ids.toSet();
+    if (pending.isEmpty || isClosed) return pending;
+    final busy = pending.intersection(state.deletingIds);
+    pending.removeAll(busy);
+    if (pending.isEmpty) return busy;
+    emit(
+      state.copyWith(
+        deletingIds: Set.unmodifiable({...state.deletingIds, ...pending}),
+      ),
+    );
+    var failed = pending;
+    try {
+      failed = await _repository.deleteMany(ids: pending);
+    } catch (error, stackTrace) {
+      _report(error, stackTrace);
+    } finally {
+      await refreshStorage();
+      if (!isClosed) {
+        emit(
+          state.copyWith(
+            deletingIds: Set.unmodifiable(
+              state.deletingIds.difference(pending),
+            ),
+          ),
+        );
+      }
+    }
+    return {...busy, ...failed};
   }
 
   /// Returns false when the cache is in use by an active stream.

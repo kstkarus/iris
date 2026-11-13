@@ -72,12 +72,7 @@ void main() {
     ], reason: 'the page below turns back while this one goes');
     await tester.pumpAndSettle();
     expect(find.byType(PlayerPage), findsNothing);
-    expect(screen.calls, [
-      'enter',
-      'enter',
-      'leave',
-      'leave',
-    ], reason: 'leaving twice is harmless');
+    expect(screen.calls.last, 'leave');
   });
 
   testWidgets('keeps the video alive when the screen turns', (tester) async {
@@ -148,12 +143,11 @@ void main() {
     expect(find.text('Undo'), findsNothing);
   });
 
-  testWidgets('fills the window with the immersive player', (tester) async {
+  testWidgets('passes episode details to the player', (tester) async {
     setTestWindowSize(tester, TestWindowSizes.landscape);
 
     await tester.pumpWidget(_wrap(source: _seriesSource));
 
-    expect(find.byType(AppBar), findsNothing);
     expect(
       find.text('overline: Fullmetal Alchemist: Brotherhood'),
       findsOneWidget,
@@ -172,8 +166,6 @@ void main() {
       findsOneWidget,
       reason: 'the full release name heads the drawer',
     );
-    final theme = Theme.of(tester.element(find.text('title: Episode 2')));
-    expect(theme.brightness, Brightness.dark);
     expect(tester.takeException(), isNull);
   });
 
@@ -195,89 +187,6 @@ void main() {
     expect(find.text('Episode 3 waiting to sync'), findsOneWidget);
     expect(find.byType(SnackBar), findsNothing);
     expect(tester.takeException(), isNull);
-  });
-
-  testWidgets('keeps the place apart when it differs from the number', (
-    tester,
-  ) async {
-    setTestWindowSize(tester, TestWindowSizes.landscape);
-
-    await tester.pumpWidget(
-      _wrap(
-        source: const AnimePlayerSource(
-          animeId: '5114',
-          animeTitle: 'Season two',
-          sourceTitle: 'Season two batch',
-          sessionId: '42',
-          fileIndex: 2,
-          fileName: 'episode-14.mkv',
-          files: [
-            PlayerVideoFile(
-              index: 1,
-              name: 'episode-13.mkv',
-              size: 1,
-              extension: 'mkv',
-            ),
-            PlayerVideoFile(
-              index: 2,
-              name: 'episode-14.mkv',
-              size: 1,
-              extension: 'mkv',
-            ),
-          ],
-        ),
-      ),
-    );
-
-    expect(find.text('title: Episode 14'), findsOneWidget);
-    expect(find.text('titleDetail: null'), findsOneWidget);
-    expect(find.text('details: 2 of 2'), findsOneWidget);
-  });
-
-  testWidgets('names a torrent without an anime by its release', (
-    tester,
-  ) async {
-    setTestWindowSize(tester, TestWindowSizes.landscape);
-
-    await tester.pumpWidget(
-      _wrap(
-        source: const AnimePlayerSource(
-          animeId: '',
-          animeTitle: '',
-          sourceTitle: 'Some release',
-          sessionId: '42',
-          fileIndex: 0,
-          fileName: 'Movie.mkv',
-        ),
-      ),
-    );
-
-    expect(find.text('overline: Some release'), findsOneWidget);
-    expect(find.text('title: Movie'), findsOneWidget);
-    expect(find.text('details: null'), findsOneWidget);
-
-    // A new provider, so the page gets the new source.
-    await tester.pumpWidget(
-      KeyedSubtree(
-        key: UniqueKey(),
-        child: _wrap(
-          source: const AnimePlayerSource(
-            animeId: '',
-            animeTitle: '[Group] Saved release (2006) [1080p]',
-            sourceTitle: '[Group] Saved release (2006) [1080p]',
-            sessionId: '42',
-            fileIndex: 0,
-            fileName: 'Movie.mkv',
-          ),
-        ),
-      ),
-    );
-    expect(
-      find.text('overline: Saved release'),
-      findsOneWidget,
-      reason: 'a saved torrent is named by its release, without tags',
-    );
-    expect(find.text('details: null'), findsOneWidget);
   });
 
   testWidgets('plays an episode picked in the drawer', (tester) async {

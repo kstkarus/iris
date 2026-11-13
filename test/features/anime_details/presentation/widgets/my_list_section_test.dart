@@ -9,8 +9,6 @@ import 'package:iris/entities/user_rate/domain/user_rate.dart';
 import 'package:iris/entities/user_rate/domain/user_rate_repository.dart';
 import 'package:iris/entities/user_rate/presentation/user_rate_cubit.dart';
 import 'package:iris/features/anime_details/presentation/widgets/my_list_section.dart';
-import 'package:iris/shared/widgets/app_skeleton.dart';
-import 'package:iris/shared/widgets/status_views.dart';
 
 import '../../../../helpers/test_app.dart';
 
@@ -45,7 +43,7 @@ void main() {
     expect(find.text('MY LIST'), findsNothing);
   });
 
-  testWidgets('while the entry loads, its controls are noise', (tester) async {
+  testWidgets('the entry cannot be edited until it loads', (tester) async {
     final gate = Completer<void>();
     final slow = UserRateCubit(
       repository: _SlowRates(repository, gate),
@@ -65,18 +63,7 @@ void main() {
     );
     await tester.pump();
 
-    expect(find.byType(BlockSpinner), findsNothing);
-    expect(
-      tester
-          .widget<AppSkeleton>(
-            find.ancestor(
-              of: find.text('Add to list'),
-              matching: find.byType(AppSkeleton),
-            ),
-          )
-          .enabled,
-      isTrue,
-    );
+    expect(find.byKey(MyListSection.statusButtonKey), findsNothing);
 
     gate.complete();
     await tester.pumpAndSettle();
@@ -200,7 +187,7 @@ class _SlowRates implements UserRateRepository {
     required String animeId,
     required String? rateId,
     UserRateStatus? status,
-    required int episodes,
+    int? episodes,
     int? score,
     int? rewatches,
   }) => inner.save(

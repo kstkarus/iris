@@ -1,5 +1,28 @@
 {
   "@@locale": "en",
+  "downloadFilesButton": "Files",
+  "downloadFilesTitle": "Free up space",
+  "downloadFilesTemporary": "Temporary files",
+  "downloadFilesTemporaryHint": "Your downloaded episodes will be kept.",
+  "downloadFilesTemporaryBusy": "The player is using these files. You can clear them after playback.",
+  "downloadFilesClearTemporary": "Clear temporary files",
+  "downloadFilesTemporaryCleared": "Temporary files deleted",
+  "downloadFilesClearFailed": "Unable to delete temporary files. Try again.",
+  "downloadFilesSaved": "Downloaded episodes",
+  "downloadFilesEmpty": "No downloaded episodes yet.",
+  "downloadFilesUnavailable": "Unable to check temporary file size.",
+  "downloadQueueButton": "Queue",
+  "downloadQueueCurrent": "Downloading now",
+  "downloadQueueWaiting": "Up next",
+  "downloadQueueMoveUp": "Move up",
+  "downloadQueueMoveDown": "Move down",
+  "downloadQueueMove": "Move episode",
+  "downloadQueueChanged": "Download order changed",
+  "downloadQueueReorderFailed": "Unable to change download order. Try again.",
+  "downloadQueuePaused": "Paused",
+  "downloadQueueAttention": "Needs attention",
+  "downloadQueueFinished": "All downloads are complete. Your episodes are in the library.",
+  "downloadQueueNoWaiting": "No episodes waiting.",
   "appName": "Iris",
   "commonRetry": "Try Again",
   "navigationCatalog": "Catalog",
@@ -267,6 +290,7 @@
   "playerSettingOff": "off",
   "playerDecoderAutoShort": "Auto",
   "playerRestartHint": "The decoder and ASS rendering apply by restarting the video where it is.",
+  "playerDecoderRestartHint": "Changing the decoder restarts the video at the current position.",
   "playerSubtitleColorWhite": "White",
   "playerSubtitleColorYellow": "Yellow",
   "playerSubtitleColorCyan": "Cyan",
@@ -1028,6 +1052,25 @@
   "animeListResetFilters": "Reset filters",
   "animeListShowMore": "More ({count})",
   "@animeListShowMore": {"placeholders": {"count": {"type": "int"}}},
+  "downloadSelect": "Select",
+  "downloadDeleteSelected": "{count, plural, =0{Delete} other{Delete {count}}}",
+  "@downloadDeleteSelected": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "downloadDeleteSelectedTitle": "{count, plural, one{Delete {count} download?} other{Delete {count} downloads?}}",
+  "@downloadDeleteSelectedTitle": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "downloadDeleteSpace": "About {size} will be freed.",
+  "@downloadDeleteSpace": {
+    "placeholders": { "size": { "type": "String" } }
+  },
+  "downloadDeleteUnfinished": "Unfinished downloads will be cancelled.",
+  "downloadDeleting": "Deleting…",
+  "downloadDeleteSelectionFailed": "{count, plural, one{Couldn’t delete {count} download.} other{Couldn’t delete {count} downloads.}}",
+  "@downloadDeleteSelectionFailed": {
+    "placeholders": { "count": { "type": "int" } }
+  },
   "downloadSelectEpisodes": "Select episodes",
   "downloadSelectFiles": "Select files",
   "downloadSelectAll": "Select all",

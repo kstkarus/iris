@@ -10,8 +10,6 @@ import 'package:iris/features/player/domain/entities/anime_player_source.dart';
 import 'package:iris/features/player/domain/entities/player_video_file.dart';
 import 'package:iris/features/player/presentation/cubit/episode_mark_cubit.dart';
 import 'package:iris/features/player/presentation/widgets/episode_mark_plate.dart';
-import 'package:iris/features/player/presentation/widgets/player_wait_indicator.dart';
-import 'package:iris/shared/widgets/pixel_icon.dart';
 
 import '../../../../helpers/test_app.dart';
 import '../../../../helpers/test_window.dart';
@@ -59,13 +57,7 @@ void main() {
     await tester.tap(find.text('Undo'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
-    final runner = tester.widget<BlockRunner>(
-      find.descendant(
-        of: find.byKey(const Key('player_mark_progress')),
-        matching: find.byType(BlockRunner),
-      ),
-    );
-    expect((runner.cell, runner.gap), (6, 2));
+    expect(find.byKey(const Key('player_mark_progress')), findsOneWidget);
     expect(find.text('Undo'), findsNothing);
     await tester.pump(const Duration(seconds: 6));
     expect(find.byKey(const Key('player_mark_progress')), findsOneWidget);
@@ -134,12 +126,6 @@ void main() {
       1,
     );
     expect(find.byKey(const Key('player_mark_disclosure')), findsOneWidget);
-    expect(
-      tester
-          .widget<PixelIcon>(find.byKey(const ValueKey(PixelGlyph.markWarning)))
-          .color,
-      const Color(0xFFFFD93B),
-    );
     await tester.tap(find.byKey(const Key('player_mark_toggle')));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));

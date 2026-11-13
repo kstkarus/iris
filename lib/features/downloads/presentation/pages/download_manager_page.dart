@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 import 'package:iris/features/downloads/domain/entities/download_item.dart';
 import 'package:iris/features/downloads/domain/entities/download_title.dart';
@@ -13,6 +14,7 @@ class DownloadManagerPage extends StatelessWidget {
     this.onOpenAnime,
     this.onDownloadMore,
     this.titleKey,
+    this.onOpenQueue,
     super.key,
   });
 
@@ -22,6 +24,7 @@ class DownloadManagerPage extends StatelessWidget {
   final ValueChanged<DownloadTitle>? onOpenAnime;
   final ValueChanged<DownloadItem>? onDownloadMore;
   final String? titleKey;
+  final VoidCallback? onOpenQueue;
 
   @override
   Widget build(BuildContext context) {
@@ -29,6 +32,8 @@ class DownloadManagerPage extends StatelessWidget {
       body: SafeArea(
         child: PageFrame(
           child: DownloadManagerView(
+            onOpenQueue:
+                onOpenQueue ?? () => context.pushNamed('download-queue'),
             onWatch: onWatch,
             onBrowseCatalog: onBrowseCatalog,
             onOpenTitle: onOpenTitle,

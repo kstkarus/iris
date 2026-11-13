@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:developer' as developer;
 
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
@@ -58,8 +59,10 @@ class ShikimoriSessionStore {
     } catch (_) {
       // A keystore that cannot be read is a signed-out app, not a crash.
     }
-    _tokens = _decode(value);
-    _loaded = true;
+    if (!_loaded) {
+      _tokens = _decode(value);
+      _loaded = true;
+    }
     return _tokens;
   }
 
@@ -84,8 +87,19 @@ class ShikimoriSessionStore {
 
   /// Drops a session Shikimori refused to renew and tells whoever shows it.
   Future<void> expire() async {
-    await clear();
-    _expired.add(null);
+    final clearing = clear();
+    final generation = _generation;
+    try {
+      await clearing;
+    } on Exception catch (error, stackTrace) {
+      developer.log(
+        'Unable to delete an expired Shikimori session.',
+        name: 'iris.auth',
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
+    if (_generation == generation) _expired.add(null);
   }
 
   static ShikimoriTokens? _decode(String? value) {

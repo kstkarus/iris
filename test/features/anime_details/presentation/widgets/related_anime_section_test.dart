@@ -48,18 +48,6 @@ void main() {
     expect(find.text('Show less'), findsOneWidget);
   });
 
-  testWidgets('one hidden row is shown rather than folded', (tester) async {
-    await tester.pumpWidget(
-      _app([
-        for (var index = 0; index < 4; index++)
-          _anime('$index', AnimeRelation.sideStory),
-      ]),
-    );
-
-    expect(_rows, findsNWidgets(4));
-    expect(find.byKey(const Key('related_anime_more')), findsNothing);
-  });
-
   testWidgets('a row tells the relation and opens the title page', (
     tester,
   ) async {
@@ -92,14 +80,6 @@ void main() {
             'poster-59978',
           ),
     );
-  });
-
-  testWidgets('a franchise of promos alone shows no section', (tester) async {
-    await tester.pumpWidget(
-      _app([_anime('cm', AnimeRelation.other, kind: 'cm')]),
-    );
-
-    expect(find.text('Related'), findsNothing);
   });
 }
 

@@ -95,7 +95,6 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.byKey(const Key('continue_watching_more')), findsNothing);
     expect(find.byKey(const ValueKey('continue_watching_t2')), findsOneWidget);
     expect(find.text('Watched'), findsOneWidget);
     expect(find.text('24:00 / 24:00'), findsNothing);

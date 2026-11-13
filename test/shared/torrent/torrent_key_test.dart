@@ -42,10 +42,11 @@ void main() {
       );
     });
 
-    test('falls back to a stable hash without btih', () {
+    test('distinguishes links without btih', () {
       const magnet = 'magnet:?dn=only-a-name';
-      expect(torrentKeyFromMagnet(magnet), torrentKeyFromMagnet(magnet));
-      expect(torrentKeyFromMagnet(magnet), isNotEmpty);
+      final key = torrentKeyFromMagnet(magnet);
+      expect(key, isNotEmpty);
+      expect(torrentKeyFromMagnet('magnet:?dn=another'), isNot(key));
     });
 
     test('matches the xt parameter name in any case, like MagnetLink', () {
@@ -66,7 +67,7 @@ void main() {
     test('falls back to the whole-link hash for a malformed xt', () {
       const magnet = 'magnet:?xt=urn:btih:%FF';
 
-      expect(torrentKeyFromMagnet(magnet), torrentKeyFromMagnet(magnet));
+      expect(torrentKeyFromMagnet(magnet), isNotEmpty);
       expect(torrentKeyFromMagnet(magnet), isNot(hexKey));
     });
 

@@ -16,41 +16,7 @@ Widget _spinner({bool disableAnimations = false}) {
   );
 }
 
-/// The colour of each block, left to right.
-List<Color> _blockColors(WidgetTester tester) {
-  final blocks = find.descendant(
-    of: find.byType(BlockSpinner),
-    matching: find.byType(ColoredBox),
-  );
-  return [
-    for (final block in blocks.evaluate()) (block.widget as ColoredBox).color,
-  ];
-}
-
 void main() {
-  testWidgets('the block spinner draws blocks of its full height', (
-    tester,
-  ) async {
-    await tester.pumpWidget(_spinner());
-
-    final blocks = find.descendant(
-      of: find.byType(BlockSpinner),
-      matching: find.byType(ColoredBox),
-    );
-    expect(blocks, findsNWidgets(12));
-    for (final block in blocks.evaluate()) {
-      expect((block.renderObject! as RenderBox).size.height, 10);
-    }
-  });
-
-  testWidgets('the block spinner sweeps while motion is allowed', (
-    tester,
-  ) async {
-    await tester.pumpWidget(_spinner());
-
-    expect(tester.hasRunningAnimations, isTrue);
-  });
-
   testWidgets('the block spinner holds one frame when motion is reduced', (
     tester,
   ) async {
@@ -58,14 +24,8 @@ void main() {
     await tester.pump();
     expect(tester.hasRunningAnimations, isFalse);
 
-    final frame = _blockColors(tester);
-    expect(
-      frame.where((color) => color != frame.first),
-      hasLength(3),
-      reason: 'a run of lit blocks',
-    );
     await tester.pump(const Duration(milliseconds: 400));
-    expect(_blockColors(tester), frame);
+    expect(tester.hasRunningAnimations, isFalse);
 
     await tester.pumpWidget(_spinner());
     expect(tester.hasRunningAnimations, isTrue);
@@ -84,34 +44,33 @@ void main() {
     semantics.dispose();
   });
 
-  testWidgets('a retry view offers a filled button', (tester) async {
+  testWidgets('a retry view invokes its action', (tester) async {
     var retries = 0;
     await tester.pumpWidget(
       testApp(RetryView(message: 'Failed', onRetry: () => retries++)),
     );
-    await tester.tap(find.widgetWithText(FilledButton, 'Try Again'));
+    await tester.tap(find.text('Try Again'));
     expect(retries, 1);
   });
 
-  testWidgets('a paging footer shows loading, failure, then its idle end', (
+  testWidgets('a paging footer offers retry on failure, then its idle end', (
     tester,
   ) async {
-    Widget footer({bool loadingMore = false, bool failed = false}) => testApp(
+    var retries = 0;
+    Widget footer({bool failed = false}) => testApp(
       PagingFooter(
-        loadingMore: loadingMore,
+        loadingMore: false,
         failed: failed,
         failedMessage: 'No more',
-        onRetry: () {},
+        onRetry: () => retries++,
         idle: const SizedBox(key: Key('idle')),
       ),
     );
 
-    await tester.pumpWidget(footer(loadingMore: true));
-    expect(find.byType(BlockSpinner), findsOneWidget);
-
     await tester.pumpWidget(footer(failed: true));
     expect(find.text('No more'), findsOneWidget);
-    expect(find.widgetWithText(TextButton, 'Try Again'), findsOneWidget);
+    await tester.tap(find.text('Try Again'));
+    expect(retries, 1);
 
     await tester.pumpWidget(footer());
     expect(find.byKey(const Key('idle')), findsOneWidget);

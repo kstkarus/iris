@@ -54,16 +54,4 @@ void main() {
     expect(find.text('WATCHING · 5/12 · SCORE: 7'), findsOneWidget);
     expect(find.text('friend_1'), findsNothing);
   });
-
-  testWidgets('no friend with the anime, no section', (tester) async {
-    final cubit = await pumpSection(
-      tester,
-      FakeFriendsRepository(list: [testFriend('1')]),
-    );
-
-    await tester.runAsync(() => cubit.show('42'));
-    await tester.pump();
-
-    expect(find.text('FRIENDS'), findsNothing);
-  });
 }

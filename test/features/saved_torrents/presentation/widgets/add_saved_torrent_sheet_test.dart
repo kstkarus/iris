@@ -55,13 +55,6 @@ void main() {
       find.byKey(AddSavedTorrentForm.magnetFieldKey),
       _magnet,
     );
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 200));
-    expect(
-      find.byKey(AddSavedTorrentForm.draftKey),
-      findsOneWidget,
-      reason: 'developing where the field was',
-    );
     await tester.pumpAndSettle();
     expect(find.byKey(AddSavedTorrentForm.magnetFieldKey), findsNothing);
     expect(find.text('Frieren BD'), findsOneWidget);

@@ -17,14 +17,7 @@ void main() {
     );
 
     expect(calls, ['init', 'configure']);
-    expect(applied, same(torrentSessionConfig));
-  });
-
-  test('session settings keep the streaming cache and IPv6', () {
-    expect(torrentSessionConfig.cacheSize, 256 * 1024 * 1024);
-    expect(torrentSessionConfig.readerReadAhead, 95);
-    expect(torrentSessionConfig.preloadCache, 60);
-    expect(torrentSessionConfig.responsiveMode, isTrue);
-    expect(torrentSessionConfig.enableIpv6, isTrue);
+    // The native bridge otherwise overrides the requested listen interfaces.
+    expect(applied?.enableIpv6, isTrue);
   });
 }

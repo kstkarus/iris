@@ -10,7 +10,7 @@ The interface is in English and Russian, with bundled Medeo Mono and Medeo Sans 
 - **Title pages.** Details, description, dubs, related titles, characters with their own pages, and the Shikimori friends who have the title in their lists.
 - **Sources.** Online releases from AniLibria, yummy_anime and AnimeJoy, and torrents from Nyaa through a public API mirror. AnimeJoy uses its own player and AllVideo, with Alloha and then Kodik as subtitle fallbacks; access to animejoy.ru may require a VPN. You can add your own torrent to an anime, as a magnet link or a `.torrent` file.
 - **Player.** mpv through `media_kit`, with the same full-screen controls on every platform:
-  - audio and subtitle tracks, subtitle styling, playback speed and decoder choice;
+  - audio selection when multiple tracks are available, controls for separate subtitle tracks, playback speed and decoder choice;
   - a timeline divided by the file's chapters or by the opening and ending;
   - opening skip, based on chapters or [AniSkip](https://api.aniskip.com);
   - next-episode prompt and resume from the last position;
@@ -19,7 +19,7 @@ The interface is in English and Russian, with bundled Medeo Mono and Medeo Sans 
   - on Windows, a resizable picture-in-picture window above other apps, without restarting playback.
 
   Torrents stream piece by piece, without downloading the whole file first.
-- **Downloads.** A compact poster gallery on phones and a selectable poster rail beside episodes on desktop (above them in narrow windows). An empty library explains offline viewing and opens the catalog. A title keeps its name available while scrolling, and episode rows show playback position and total duration. Release headings carry the source and known video quality; Download status shows live transfer details and failure guidance. Open the anime page from the title menu, select episodes individually or in a batch, manage queue priority, download more from the same release, watch completed files or remove downloads. Torrent and online downloads resume after a pause, an error or an app restart. Open Storage from the library's More menu to inspect or clear the stream cache.
+- **Downloads.** A compact poster gallery on phones and a selectable poster rail beside episodes on desktop (above them in narrow windows). An empty library explains offline viewing and opens the catalog. A title keeps its name available while scrolling, and episode rows show playback position and total duration. Release headings carry the source and known video quality; Download status shows live transfer details and failure guidance. Open the anime page from the title menu, select episodes individually or in a batch, reorder waiting downloads by dragging or using the menu, download more from the same release, watch completed files or select downloads for one confirmed deletion. Torrent and online downloads resume after a pause, an error or an app restart. The shared Downloads header opens a full queue page and Files. Files lists titles by downloaded size and clears leftover torrent playback files without deleting downloaded episodes.
 - **Shikimori account.** Status, score and episode count for any title. Finishing an episode updates the count in your list, and episodes counted there show as watched on every device. Offline marks stay on the device and retry while Iris is open or when you return to it; the player shows marks waiting to sync and lets you retry them. A confirmed reset or new rewatch on Shikimori takes priority over older queued marks.
 - **Updates.** On Android and Windows the app checks this repository's latest release. Android shows release notes, downloads and verifies the APK inside Iris, then opens the system installer. Windows installed through the per-user installer downloads and verifies updates inside Iris, then saves progress and the download queue before an explicit restart and install. Portable Windows builds open the ZIP in the browser.
 
@@ -90,7 +90,7 @@ Copy `config/shikimori.example.json` to `config/shikimori.json` (git-ignored) an
 
 ## Contributing
 
-Issues and pull requests are welcome. Before opening one, run `dart format .`, `flutter analyze` and `flutter test`, and `flutter gen-l10n` after editing `lib/l10n/*.arb`. Conventions and architecture are in [AGENTS.md](AGENTS.md), written mainly for coding agents but valid for everyone. Versioning and releases are in [docs/releasing.md](docs/releasing.md).
+Issues and pull requests are welcome. Before opening one, run `dart format .`, `flutter analyze` and `flutter test`, and `flutter gen-l10n` after editing `lib/l10n/*.arb`. Pull requests and pushes to `main` run analysis and tests in CI; release builds wait for these checks too. Conventions and architecture are in [AGENTS.md](AGENTS.md), written mainly for coding agents but valid for everyone. Versioning and releases are in [docs/releasing.md](docs/releasing.md).
 
 ## License
 

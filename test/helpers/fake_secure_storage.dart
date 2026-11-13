@@ -6,6 +6,7 @@ class FakeSecureStorage implements FlutterSecureStorage {
 
   final Map<String, String> values;
   bool failReads = false;
+  bool failDeletes = false;
 
   @override
   dynamic noSuchMethod(Invocation invocation) {
@@ -23,6 +24,7 @@ class FakeSecureStorage implements FlutterSecureStorage {
         }
         return Future<void>.value();
       case #delete:
+        if (failDeletes) return Future<void>.error(Exception('keystore'));
         values.remove(key);
         return Future<void>.value();
     }

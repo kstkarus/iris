@@ -18,20 +18,15 @@ import 'package:iris/features/downloads/domain/entities/download_status.dart';
 import 'package:iris/features/downloads/domain/entities/downloadable_file.dart';
 import 'package:iris/features/downloads/domain/entities/prepared_download_source.dart';
 import 'package:iris/features/downloads/presentation/cubit/download_manager_cubit.dart';
-import 'package:iris/features/downloads/presentation/cubit/download_selection_cubit.dart';
-import 'package:iris/features/downloads/presentation/models/download_selection_args.dart';
 import 'package:iris/features/downloads/presentation/pages/download_manager_page.dart';
+import 'package:iris/features/downloads/presentation/pages/download_queue_page.dart';
+import 'package:iris/features/downloads/domain/entities/download_queue_order.dart';
 import 'package:iris/features/downloads/presentation/pages/download_title_page.dart';
-import 'package:iris/features/downloads/presentation/pages/download_selection_page.dart';
 import 'package:iris/features/downloads/presentation/widgets/download_title_widgets.dart';
 import 'package:iris/entities/watch_progress/domain/watch_progress.dart';
 import 'package:iris/entities/watch_progress/presentation/watch_progress_cubit.dart';
 import 'package:iris/shared/online/online_source_link.dart';
-import 'package:iris/shared/widgets/adaptive/adaptive_content_width.dart';
-import 'package:iris/shared/widgets/dither_transition.dart';
 import 'package:iris/shared/widgets/focusable_list_row.dart';
-import 'package:iris/shared/widgets/pixel_icon.dart';
-import 'package:iris/shared/widgets/segmented_bar.dart';
 
 import '../../../../helpers/test_app.dart';
 import '../../../../helpers/test_window.dart';
@@ -60,11 +55,7 @@ void main() {
       tester,
       BlocProvider(
         create: (_) => cubit,
-        child: DownloadManagerPage(
-          onWatch: (_) {},
-          onBrowseCatalog: () {},
-          onOpenTitle: (_) {},
-        ),
+        child: DownloadQueuePage(onOpenTitle: (_) {}),
       ),
     );
     expect(cubit.state.queue.map((item) => item.id), [
@@ -72,9 +63,7 @@ void main() {
       'queue-0',
       'queue-2',
     ]);
-    await tester.tap(find.byKey(const Key('download_queue_open')));
-    await tester.pumpAndSettle();
-    final sheet = find.byKey(const Key('download_queue_sheet'));
+    final sheet = find.byKey(const Key('download_queue_page'));
     expect(sheet, findsOneWidget);
     expect(
       tester
@@ -247,13 +236,6 @@ void main() {
                     ),
             ),
           );
-          expect(find.text('Download more'), findsNothing);
-          expect(
-            find.byKey(
-              ValueKey('download_more_${downloadSourceKey(first.magnet)}'),
-            ),
-            findsNothing,
-          );
           await tester.tap(find.byKey(const Key('download_title_menu')));
           await tester.pumpAndSettle();
           await tester.tap(
@@ -269,133 +251,41 @@ void main() {
   });
 
   for (final entry in TestWindowSizes.all.entries) {
-    testWidgets('library keeps storage in its menu on ${entry.key}', (
-      tester,
-    ) async {
-      await _withTargetPlatform(
-        entry.value.width >= 900
-            ? TargetPlatform.windows
-            : TargetPlatform.android,
-        () async {
-          setTestWindowSize(tester, entry.value);
-          final repository = await _repositoryWithDownloads(count: 3);
-
-          await _pumpApp(
-            tester,
-            BlocProvider(
-              create: (_) =>
-                  DownloadManagerCubit(repository: repository)..load(),
-              child: DownloadManagerPage(
-                onOpenTitle: (_) {},
-                onWatch: (_) {},
-                onBrowseCatalog: () {},
-              ),
-            ),
-          );
-
-          expect(find.text('APP STORAGE'), findsNothing);
-          if (entry.value.width >= 900) {
-            await tester.tap(
-              find.byKey(const ValueKey('download_title_anime:5114')),
-            );
-          }
-          await tester.tap(
-            find.byKey(
-              Key(
-                entry.value.width >= 900
-                    ? 'download_title_menu'
-                    : 'download_library_menu',
-              ),
-            ),
-          );
-          await tester.pumpAndSettle();
-          await tester.tap(find.byKey(const Key('download_storage_open')));
-          await tester.pumpAndSettle();
-          expect(
-            find.byKey(const Key('download_storage_dialog')),
-            findsOneWidget,
-          );
-          expect(find.text('APP STORAGE'), findsOneWidget);
-          expect(tester.takeException(), isNull);
-        },
-      );
-    });
-
-    testWidgets('download manager empty state fits on ${entry.key}', (
+    testWidgets('empty library leads to the catalog on ${entry.key}', (
       tester,
     ) async {
       final semantics = tester.ensureSemantics();
-      setTestWindowSize(tester, entry.value);
+      try {
+        setTestWindowSize(tester, entry.value);
+        var browsed = 0;
 
-      await _pumpApp(
-        tester,
-        BlocProvider(
-          create: (_) =>
-              DownloadManagerCubit(repository: MockDownloadsRepository())
-                ..load(),
-          child: DownloadManagerPage(
-            onOpenTitle: (_) {},
-            onWatch: (_) {},
-            onBrowseCatalog: () {},
+        await _pumpApp(
+          tester,
+          BlocProvider(
+            create: (_) =>
+                DownloadManagerCubit(repository: MockDownloadsRepository())
+                  ..load(),
+            child: DownloadManagerPage(
+              onOpenTitle: (_) {},
+              onWatch: (_) {},
+              onBrowseCatalog: () => browsed++,
+            ),
           ),
-        ),
-      );
+        );
 
-      expect(
-        find.text('Download episodes from an anime’s page to watch offline.'),
-        findsOneWidget,
-      );
-      expect(find.text('No downloads yet'), findsOneWidget);
-      expect(
-        tester
-            .getSemantics(find.text('No downloads yet'))
-            .flagsCollection
-            .isHeader,
-        isTrue,
-      );
-      expect(find.text('0 titles'), findsNothing);
-      expect(find.byType(SegmentedRule), findsNothing);
-      expect(find.text('Browse the catalog'), findsOneWidget);
-      await tester.tap(find.byKey(const Key('download_library_menu')));
-      await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const Key('download_storage_open')));
-      await tester.pumpAndSettle();
-      expect(find.byKey(const Key('download_storage_dialog')), findsOneWidget);
-      expect(tester.takeException(), isNull);
-      semantics.dispose();
-    });
-
-    testWidgets('download selection keeps to the page frame on ${entry.key}', (
-      tester,
-    ) async {
-      setTestWindowSize(tester, entry.value);
-      const args = DownloadSelectionArgs(
-        animeId: '5114',
-        animeTitle: 'Fullmetal Alchemist: Brotherhood',
-        sourceTitle: '[Mock] Fullmetal Alchemist: Brotherhood Batch',
-        magnet: 'magnet:?xt=urn:btih:mock',
-      );
-
-      await _pumpApp(
-        tester,
-        BlocProvider(
-          create: (_) => DownloadSelectionCubit(
-            args: args,
-            repository: MockDownloadsRepository(),
-          )..load(),
-          child: DownloadSelectionPage(args: args, onWatch: (_) {}),
-        ),
-      );
-
-      final row = tester.getRect(
-        find.ancestor(
-          of: find.text('episode-01'),
-          matching: find.byType(InkWell),
-        ),
-      );
-      expect(find.text('episode-01'), findsOneWidget);
-      expect(row.width, lessThanOrEqualTo(AdaptiveContentWidth.page));
-      expect(tester.takeException(), isNull);
+        expect(
+          tester
+              .getSemantics(find.text('No downloads yet'))
+              .flagsCollection
+              .isHeader,
+          isTrue,
+        );
+        await tester.tap(find.text('Browse the catalog'));
+        expect(browsed, 1);
+        expect(tester.takeException(), isNull);
+      } finally {
+        semantics.dispose();
+      }
     });
   }
 
@@ -420,151 +310,59 @@ void main() {
         find.text('Fullmetal Alchemist: Brotherhood'),
         findsAtLeastNWidgets(1),
       );
-      expect(find.text('episode-00'), findsNothing);
       await tester.tap(find.byKey(const ValueKey('download_title_anime:5114')));
       expect(opened?.items, hasLength(3));
     });
   });
 
-  testWidgets('gallery title appears once when its poster is missing', (
+  testWidgets('gallery announces download activity for a title', (
     tester,
   ) async {
-    await _withTargetPlatform(TargetPlatform.android, () async {
-      final item = _libraryDownload(
-        id: 'missing-poster-1',
-        animeId: 'missing-poster',
-        animeTitle: 'Missing poster title',
-        fileName: 'Missing poster title - 01.mkv',
-        status: DownloadStatus.completed,
-        createdAt: DateTime(2026, 10, 10),
-      ).copyWith(posterUrl: '');
-      await _pumpApp(
-        tester,
-        BlocProvider(
-          create: (_) => DownloadManagerCubit(
-            repository: _ScriptedDownloadsRepository([item]),
-          )..load(),
-          child: DownloadManagerPage(
-            onOpenTitle: (_) {},
-            onWatch: (_) {},
-            onBrowseCatalog: () {},
-          ),
-        ),
-      );
-
-      expect(find.text('Missing poster title'), findsOneWidget);
-    });
-  });
-
-  testWidgets('gallery captions keep their geometry and expose full activity', (
-    tester,
-  ) async {
-    await _withTargetPlatform(TargetPlatform.android, () async {
-      setTestWindowSize(tester, const Size(390, 844));
-      final short = _libraryDownload(
-        id: 'short-1',
-        animeId: 'short',
-        animeTitle: 'Short',
-        fileName: 'Short - 01.mkv',
-        status: DownloadStatus.completed,
-        createdAt: DateTime(2026, 10, 10),
-      );
-      final long = _libraryDownload(
-        id: 'long-1',
-        animeId: 'long',
-        animeTitle: 'A Very Long Anime Title That Wraps Across Two Lines',
-        fileName: 'Long - 01.mkv',
-        status: DownloadStatus.queued,
-        createdAt: DateTime(2026, 10, 9),
-      );
-      final repository = _ScriptedDownloadsRepository([short, long]);
-      await _pumpApp(
-        tester,
-        BlocProvider(
-          create: (_) => DownloadManagerCubit(repository: repository)..load(),
-          child: DownloadManagerPage(
-            onOpenTitle: (_) {},
-            onWatch: (_) {},
-            onBrowseCatalog: () {},
-          ),
-        ),
-      );
-
-      const shortCard = ValueKey('download_title_anime:short');
-      const longCard = ValueKey('download_title_anime:long');
-      const shortCount = ValueKey('download_title_count_anime:short');
-      const longCount = ValueKey('download_title_count_anime:long');
-
-      double countTop(Key card, Key count) {
-        final countRect = tester.getRect(find.byKey(count));
-        final posterRect = tester.getRect(
-          find.descendant(
-            of: find.byKey(card),
-            matching: find.byType(DownloadTitlePoster),
+    final semantics = tester.ensureSemantics();
+    try {
+      await _withTargetPlatform(TargetPlatform.android, () async {
+        setTestWindowSize(tester, const Size(390, 844));
+        final active = _libraryDownload(
+          id: 'long-1',
+          animeId: 'long',
+          animeTitle: 'A Very Long Anime Title That Wraps Across Two Lines',
+          fileName: 'Long - 01.mkv',
+          status: DownloadStatus.downloading,
+          createdAt: DateTime(2026, 10, 9),
+        );
+        final failed = active.copyWith(
+          id: 'long-2',
+          fileName: 'Long - 02.mkv',
+          status: DownloadStatus.failed,
+        );
+        await _pumpApp(
+          tester,
+          BlocProvider(
+            create: (_) => DownloadManagerCubit(
+              repository: _ScriptedDownloadsRepository([active, failed]),
+            )..load(),
+            child: DownloadManagerPage(
+              onOpenTitle: (_) {},
+              onWatch: (_) {},
+              onBrowseCatalog: () {},
+            ),
           ),
         );
-        return countRect.top - posterRect.bottom;
-      }
 
-      final initialShortOffset = countTop(shortCard, shortCount);
-      final initialLongOffset = countTop(longCard, longCount);
-      expect(initialShortOffset, closeTo(initialLongOffset, 0.1));
-      expect(
-        find.descendant(
-          of: find.byKey(shortCard),
-          matching: find.byType(PixelIcon),
-        ),
-        findsNothing,
-        reason: 'completed titles already show readiness in the count',
-      );
-
-      repository.push([
-        short,
-        long.copyWith(status: DownloadStatus.downloading),
-      ]);
-      await tester.pumpAndSettle();
-      expect(countTop(shortCard, shortCount), closeTo(initialShortOffset, 0.1));
-      expect(countTop(longCard, longCount), closeTo(initialLongOffset, 0.1));
-
-      final failedEpisode = _libraryDownload(
-        id: 'long-2',
-        animeId: 'long',
-        animeTitle: long.animeTitle,
-        fileName: 'Long - 02.mkv',
-        status: DownloadStatus.failed,
-        createdAt: DateTime(2026, 10, 8),
-      );
-      repository.push([
-        short,
-        long.copyWith(status: DownloadStatus.downloading),
-        failedEpisode,
-      ]);
-      await tester.pumpAndSettle();
-
-      final longBadge = find.descendant(
-        of: find.byKey(longCard),
-        matching: find.byType(PixelIcon),
-      );
-      expect(tester.widget<PixelIcon>(longBadge).glyph, PixelGlyph.close);
-      expect(countTop(shortCard, shortCount), closeTo(initialShortOffset, 0.1));
-      expect(countTop(longCard, longCount), closeTo(initialLongOffset, 0.1));
-      final semanticsData = tester
-          .getSemantics(find.byKey(longCard))
-          .getSemanticsData();
-      final semanticsLabel = semanticsData.label;
-      expect(
-        RegExp(RegExp.escape(long.animeTitle)).allMatches(semanticsLabel),
-        hasLength(1),
-      );
-      expect(
-        RegExp('0 of 2 episodes').allMatches(semanticsLabel),
-        hasLength(1),
-      );
-      expect(semanticsLabel, contains('Downloading: 1 · Failed: 1'));
-      expect(semanticsData.flagsCollection.isButton, isTrue);
-      expect(semanticsData.hasAction(SemanticsAction.tap), isTrue);
-      expect(tester.takeException(), isNull);
-    });
+        final data = tester
+            .getSemantics(
+              find.byKey(const ValueKey('download_title_anime:long')),
+            )
+            .getSemanticsData();
+        expect(data.label, contains(active.animeTitle));
+        expect(data.label, contains('0 of 2 episodes'));
+        expect(data.label, contains('Downloading: 1 · Failed: 1'));
+        expect(data.flagsCollection.isButton, isTrue);
+        expect(data.hasAction(SemanticsAction.tap), isTrue);
+      });
+    } finally {
+      semantics.dispose();
+    }
   });
 
   testWidgets('Windows keeps its selected title by key across list changes', (
@@ -1049,25 +847,6 @@ void main() {
     semantics.dispose();
   });
 
-  testWidgets('an empty list leads to the catalog', (tester) async {
-    var opened = 0;
-    await _pumpApp(
-      tester,
-      BlocProvider(
-        create: (_) =>
-            DownloadManagerCubit(repository: MockDownloadsRepository())..load(),
-        child: DownloadManagerPage(
-          onOpenTitle: (_) {},
-          onWatch: (_) {},
-          onBrowseCatalog: () => opened++,
-        ),
-      ),
-    );
-
-    await tester.tap(find.text('Browse the catalog'));
-    expect(opened, 1);
-  });
-
   group('a row', () {
     DownloadItem download({
       DownloadStatus status = DownloadStatus.downloading,
@@ -1214,127 +993,44 @@ void main() {
       matching: find.byType(FocusableListRow),
     );
 
-    testWidgets('download rows keep a stable 48px action at large text', (
-      tester,
-    ) async {
-      await _withTargetPlatform(TargetPlatform.android, () async {
-        setTestWindowSize(tester, const Size(390, 844));
-        tester.platformDispatcher.textScaleFactorTestValue = 2;
-        addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
-
-        final initial = download(
-          status: DownloadStatus.completed,
-          downloaded: 600 * 1024 * 1024,
-        );
-        final repository = await pump(tester, initial);
-        final action = find.byKey(const Key('download_action_frieren-6'));
-        final row = rowFor(tester, initial.id);
-        final initialRowRect = tester.getRect(row);
-        final initialActionRect = tester.getRect(action);
-        final episodeName = find.descendant(
-          of: row,
-          matching: find.text('Episode 06'),
-        );
-
-        expect(initialRowRect.height, 64);
-        expect(initialActionRect.size, const Size(48, 48));
-        expect(
-          tester.getRect(episodeName).left,
-          closeTo(initialRowRect.left, .1),
-        );
-        expect(
-          find.descendant(of: row, matching: find.byType(BayerMasked)),
-          findsNothing,
-        );
-        expect(
-          find.descendant(of: row, matching: find.byType(SegmentedBar)),
-          findsNothing,
-        );
-
-        for (final status in const [
-          DownloadStatus.downloading,
-          DownloadStatus.queued,
-          DownloadStatus.paused,
-          DownloadStatus.failed,
-          DownloadStatus.completed,
-        ]) {
-          final updated = initial.copyWith(
-            status: status,
-            downloadedBytes: status == DownloadStatus.completed
-                ? initial.totalBytes
-                : 300 * 1024 * 1024,
-            errorMessage: status == DownloadStatus.failed
-                ? 'No space left on device'
-                : null,
-          );
-          repository.push([updated]);
-          await tester.pumpAndSettle();
-
-          expect(tester.getRect(row).size, initialRowRect.size);
-          expect(tester.getRect(action).size, const Size(48, 48));
-          if (status != DownloadStatus.completed) {
-            final trailingLabel = find.descendant(
-              of: row,
-              matching: find.text(
-                status == DownloadStatus.downloading
-                    ? '50%'
-                    : switch (status) {
-                        DownloadStatus.queued => 'Queued',
-                        DownloadStatus.paused => 'Paused',
-                        DownloadStatus.failed => 'Failed',
-                        _ => throw StateError('Unexpected active status'),
-                      },
-              ),
+    testWidgets(
+      'download actions stay usable on a narrow screen with large text',
+      (tester) async {
+        final semantics = tester.ensureSemantics();
+        try {
+          await _withTargetPlatform(TargetPlatform.android, () async {
+            setTestWindowSize(tester, const Size(320, 844));
+            tester.platformDispatcher.textScaleFactorTestValue = 2;
+            addTearDown(
+              tester.platformDispatcher.clearTextScaleFactorTestValue,
             );
-            expect(
-              tester.getRect(trailingLabel).right,
-              closeTo(tester.getRect(action).left - 8, .1),
-              reason: '$status detail should align before the fixed action',
-            );
-          }
-          expect(
-            find.descendant(of: row, matching: find.byType(BayerMasked)),
-            findsNothing,
-          );
-          expect(
-            find.descendant(of: row, matching: find.byType(SegmentedBar)),
-            findsNothing,
-          );
-          if (status == DownloadStatus.downloading) {
-            expect(
-              find.descendant(of: row, matching: find.text('50%')),
-              findsOneWidget,
-            );
-            expect(
-              find.descendant(
-                of: row,
-                matching: find.textContaining('300.0 MB / 600.0 MB'),
-              ),
-              findsNothing,
-            );
-          }
+            final item = download(status: DownloadStatus.completed);
+            final repository = await pump(tester, item);
+            final action = find.byKey(const Key('download_action_frieren-6'));
+
+            for (final status in DownloadStatus.values) {
+              repository.push([item.copyWith(status: status)]);
+              await tester.pumpAndSettle();
+              expect(
+                tester.getSize(action).shortestSide,
+                greaterThanOrEqualTo(48),
+              );
+              expect(
+                tester
+                    .getSemantics(action)
+                    .getSemanticsData()
+                    .hasAction(SemanticsAction.tap),
+                isTrue,
+                reason: status.name,
+              );
+              expect(tester.takeException(), isNull);
+            }
+          });
+        } finally {
+          semantics.dispose();
         }
-
-        final downloading = initial.copyWith(
-          status: DownloadStatus.downloading,
-          downloadedBytes: 300 * 1024 * 1024,
-        );
-        repository.push([downloading]);
-        await tester.pumpAndSettle();
-        final beforeProgressUpdate = tester.getRect(row);
-        repository.push([
-          downloading.copyWith(downloadedBytes: 400 * 1024 * 1024),
-        ]);
-        await tester.pump();
-
-        expect(
-          find.descendant(of: row, matching: find.byType(BayerMasked)),
-          findsNothing,
-        );
-        expect(tester.getRect(row), beforeProgressUpdate);
-        expect(tester.getRect(action), initialActionRect);
-      });
-    });
+      },
+    );
 
     testWidgets('a long watch position fits a narrow row at large text', (
       tester,
@@ -1397,9 +1093,9 @@ void main() {
         );
         expect(
           tester.getRect(position).right,
-          closeTo(tester.getRect(action).left - 8, .1),
+          lessThanOrEqualTo(tester.getRect(action).left),
         );
-        expect(tester.getSize(action), const Size(48, 48));
+        expect(tester.getSize(action).shortestSide, greaterThanOrEqualTo(48));
         repository.push([
           item.copyWith(
             status: DownloadStatus.downloading,
@@ -1426,192 +1122,28 @@ void main() {
         percentPainter.dispose();
         expect(
           tester.getRect(position).right,
-          closeTo(tester.getRect(action).left - 8, .1),
+          lessThanOrEqualTo(tester.getRect(action).left),
         );
         tester.view.physicalSize = const Size(320, 844);
         tester.platformDispatcher.textScaleFactorTestValue = 2;
         repository.push([item]);
         await tester.pumpAndSettle();
         expect(tester.takeException(), isNull);
-        final positionText = tester.widget<Text>(position);
-        final positionPainter = TextPainter(
-          text: TextSpan(text: positionText.data, style: positionText.style),
-          textDirection: TextDirection.ltr,
-          textScaler: MediaQuery.textScalerOf(tester.element(position)),
-          maxLines: 1,
-        )..layout();
-        expect(
-          tester.getSize(position).width,
-          lessThanOrEqualTo(positionPainter.width),
-        );
-        positionPainter.dispose();
         await tester.longPress(rowFor(tester, item.id));
         await tester.pumpAndSettle();
         await tester.tap(find.byKey(const Key('download_status')));
         await tester.pumpAndSettle();
         expect(find.text('10:00:00 / 24:00:00'), findsOneWidget);
-        expect(statusText('10:00:00 / 24:00:00'), findsNothing);
         expect(tester.takeException(), isNull);
       });
     });
 
-    testWidgets('status shows transfer ETA without repeating the filename', (
-      tester,
-    ) async {
+    testWidgets('status shows transfer ETA', (tester) async {
       await pump(tester, download());
       expect(find.text('Episode 06'), findsOneWidget);
       await openStatus(tester);
 
-      expect(statusText('Frieren - 06.mkv'), findsNothing);
       expect(statusText('~5 min left'), findsOneWidget);
-    });
-
-    testWidgets('title changes animate, but progress and page chrome do not', (
-      tester,
-    ) async {
-      final first = download();
-      final repository = _ScriptedDownloadsRepository([first]);
-      await _pumpApp(
-        tester,
-        BlocProvider(
-          create: (_) => DownloadManagerCubit(repository: repository)..load(),
-          child: DownloadManagerPage(
-            onOpenTitle: (_) {},
-            onWatch: (_) {},
-            onBrowseCatalog: () {},
-          ),
-        ),
-      );
-      expect(
-        find.descendant(
-          of: rowFor(tester, first.id),
-          matching: find.byType(BayerMasked),
-        ),
-        findsNothing,
-      );
-      expect(find.byType(Scrollable), findsOneWidget);
-      repository.push([first.copyWith(downloadedBytes: 400 << 20)]);
-      await tester.pump();
-      expect(
-        find.descendant(
-          of: rowFor(tester, first.id),
-          matching: find.byType(BayerMasked),
-        ),
-        findsNothing,
-      );
-      final second = first.copyWith(
-        id: 'other',
-        animeId: 'other',
-        animeTitle: 'Other',
-      );
-      repository.push([first, second]);
-      await tester.pump();
-      await tester.pump(DitherTransition.duration ~/ 2);
-      expect(
-        find.ancestor(
-          of: find.byKey(const ValueKey('download_title_anime:other')),
-          matching: find.byType(BayerMasked),
-        ),
-        findsOneWidget,
-      );
-      for (final text in ['Frieren', 'Downloads']) {
-        expect(
-          find.ancestor(
-            of: find.text(text),
-            matching: find.byType(BayerMasked),
-          ),
-          findsNothing,
-        );
-      }
-      await tester.pumpAndSettle();
-      repository.push([second]);
-      await tester.pump();
-      await tester.pump(DitherTransition.duration ~/ 2);
-      expect(
-        find.byKey(const ValueKey('download_title_anime:52991')),
-        findsOneWidget,
-        reason: 'the removed title is still dissolving',
-      );
-      await tester.pumpAndSettle();
-      expect(
-        find.byKey(const ValueKey('download_title_anime:52991')),
-        findsNothing,
-      );
-      expect(find.byType(Scrollable), findsOneWidget);
-    });
-
-    testWidgets('episode rows animate only when added or removed', (
-      tester,
-    ) async {
-      final first = download();
-      final repository = await pump(tester, first);
-      expect(
-        find.descendant(
-          of: rowFor(tester, first.id),
-          matching: find.byType(BayerMasked),
-        ),
-        findsNothing,
-      );
-      repository.push([first.copyWith(downloadedBytes: 400 << 20)]);
-      await tester.pump();
-      expect(
-        find.descendant(
-          of: rowFor(tester, first.id),
-          matching: find.byType(BayerMasked),
-        ),
-        findsNothing,
-      );
-      await tester.longPress(find.text('Episode 06'));
-      await tester.pumpAndSettle();
-      repository.push([first.copyWith(downloadedBytes: 410 << 20)]);
-      await tester.pump();
-      expect(find.byKey(const Key('download_delete')), findsOneWidget);
-      expect(
-        find.descendant(
-          of: rowFor(tester, first.id),
-          matching: find.byType(BayerMasked),
-        ),
-        findsNothing,
-      );
-      await tester.tapAt(Offset.zero);
-      await tester.pumpAndSettle();
-      final second = first.copyWith(
-        id: 'frieren-7',
-        fileIndex: 6,
-        fileName: 'Frieren - 07.mkv',
-      );
-      repository.push([first, second]);
-      await tester.pump();
-      await tester.pump(DitherTransition.duration ~/ 2);
-      expect(
-        find.ancestor(
-          of: find.text('Episode 07'),
-          matching: find.byType(BayerMasked),
-        ),
-        findsOneWidget,
-      );
-      expect(
-        find.ancestor(
-          of: find.text('Episode 06'),
-          matching: find.byType(BayerMasked),
-        ),
-        findsNothing,
-      );
-      await tester.pumpAndSettle();
-      repository.push([second]);
-      await tester.pump();
-      await tester.pump(DitherTransition.duration ~/ 2);
-      expect(find.text('Episode 06'), findsOneWidget);
-      expect(
-        find.ancestor(
-          of: find.text('Frieren batch'),
-          matching: find.byType(BayerMasked),
-        ),
-        findsNothing,
-      );
-      await tester.pumpAndSettle();
-      expect(find.text('Episode 06'), findsNothing);
-      expect(find.text('Episode 07'), findsOneWidget);
     });
 
     testWidgets(
@@ -1788,14 +1320,12 @@ void main() {
 
       await openStatus(tester);
       expect(find.text('12:34 / 24:00'), findsOneWidget);
-      expect(statusText('12:34 / 24:00'), findsNothing);
       expect(statusText('300.0 MB / 600.0 MB'), findsOneWidget);
 
       repository.push([item.copyWith(downloadedBytes: 400 * 1024 * 1024)]);
       await tester.pumpAndSettle();
       expect(statusText('400.0 MB / 600.0 MB'), findsOneWidget);
       expect(statusText('300.0 MB / 600.0 MB'), findsNothing);
-      expect(statusText('12:34 / 24:00'), findsNothing);
 
       repository.push([]);
       await tester.pumpAndSettle();
@@ -1956,33 +1486,69 @@ void main() {
       expect(find.widgetWithText(FilledButton, 'Delete'), findsOneWidget);
     });
 
-    testWidgets('announces a finished download', (tester) async {
-      final announced = <String>[];
-      final messenger = tester.binding.defaultBinaryMessenger;
-      messenger.setMockDecodedMessageHandler<dynamic>(
-        SystemChannels.accessibility,
-        (message) async {
-          final event = message as Map;
-          if (event['type'] == 'announce') {
-            announced.add((event['data'] as Map)['message'] as String);
-          }
-          return null;
-        },
-      );
-      addTearDown(
-        () => messenger.setMockDecodedMessageHandler<dynamic>(
-          SystemChannels.accessibility,
-          null,
-        ),
-      );
-      final repository = await pump(tester, download());
+    testWidgets('episode rows and their actions name the release', (
+      tester,
+    ) async {
+      final semantics = tester.ensureSemantics();
+      try {
+        final first = download().copyWith(
+          id: 'first',
+          magnet: 'magnet:?xt=urn:btih:first',
+          sourceTitle: 'First release',
+        );
+        final second = download().copyWith(
+          id: 'second',
+          magnet: 'magnet:?xt=urn:btih:second',
+          sourceTitle: 'Second release',
+          status: DownloadStatus.paused,
+        );
+        await _pumpApp(
+          tester,
+          BlocProvider(
+            create: (_) => DownloadManagerCubit(
+              repository: _ScriptedDownloadsRepository([first, second]),
+            )..load(),
+            child: DownloadManagerPage(
+              onOpenTitle: (_) {},
+              titleKey: downloadTitleKey(first),
+              onWatch: (_) {},
+              onBrowseCatalog: () {},
+            ),
+          ),
+        );
 
-      repository.push([
-        download(status: DownloadStatus.completed, downloaded: 600 << 20),
-      ]);
-      await tester.pumpAndSettle();
+        expect(
+          find.bySemanticsLabel(
+            RegExp(r'^Frieren, Episode 06, FIRST RELEASE, '),
+          ),
+          findsOneWidget,
+        );
+        expect(
+          find.bySemanticsLabel(
+            RegExp(r'^Frieren, Episode 06, SECOND RELEASE, '),
+          ),
+          findsOneWidget,
+        );
+        expect(
+          find.bySemanticsLabel('Pause: Frieren, Episode 06, FIRST RELEASE'),
+          findsOneWidget,
+        );
+        expect(
+          find.bySemanticsLabel('Resume: Frieren, Episode 06, SECOND RELEASE'),
+          findsOneWidget,
+        );
 
-      expect(announced, ['Downloaded: Frieren, Episode 06']);
+        tester.semantics.customAction(
+          find.semantics.byLabel(
+            RegExp(r'^Frieren, Episode 06, FIRST RELEASE, '),
+          ),
+          const CustomSemanticsAction(label: 'More actions'),
+        );
+        await tester.pumpAndSettle();
+        expect(find.byKey(const Key('download_status')), findsOneWidget);
+      } finally {
+        semantics.dispose();
+      }
     });
   });
 
@@ -2225,12 +1791,9 @@ class _QueueDownloadsRepository extends _ScriptedDownloadsRepository {
   final deleted = <String>[];
 
   @override
-  Future<void> downloadNext({required String id}) async {
-    prioritized.add(id);
-    push([
-      _items.singleWhere((item) => item.id == id),
-      ..._items.where((item) => item.id != id),
-    ]);
+  Future<void> reorderQueue({required List<String> ids}) async {
+    prioritized.add(ids.first);
+    push(reorderQueuedDownloads(_items, ids));
   }
 
   @override

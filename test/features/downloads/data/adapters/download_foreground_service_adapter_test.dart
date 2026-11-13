@@ -17,13 +17,14 @@ void main() {
 
   test('sends the notification texts in the app language', () async {
     final calls = <MethodCall>[];
+    final localizations = lookupAppLocalizations(const Locale('ru'));
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(channel, (call) async {
           calls.add(call);
           return null;
         });
     final adapter = MethodChannelDownloadForegroundServiceAdapter(
-      localizations: () => lookupAppLocalizations(const Locale('en')),
+      localizations: () => localizations,
     );
 
     await adapter.start(text: 'Episode 1.mkv');
@@ -31,10 +32,11 @@ void main() {
     expect(calls.single.method, 'start');
     expect(calls.single.arguments, {
       'owner': 'downloads',
-      'title': 'Downloading',
+      'title': localizations.downloadNotificationTitle,
       'text': 'Episode 1.mkv',
-      'channelName': 'Downloads',
-      'channelDescription': 'Download progress for episodes and app updates',
+      'channelName': localizations.downloadNotificationChannelName,
+      'channelDescription':
+          localizations.downloadNotificationChannelDescription,
     });
   });
 
@@ -42,6 +44,7 @@ void main() {
     'update owner is preserved and service errors reach the downloader',
     () async {
       final calls = <MethodCall>[];
+      final localizations = lookupAppLocalizations(const Locale('en'));
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
           .setMockMethodCallHandler(channel, (call) async {
             calls.add(call);
@@ -52,7 +55,7 @@ void main() {
           });
       final adapter = MethodChannelDownloadForegroundServiceAdapter(
         owner: 'app_update',
-        localizations: () => lookupAppLocalizations(const Locale('en')),
+        localizations: () => localizations,
       );
       await expectLater(
         adapter.start(text: '1.4.5'),
@@ -63,7 +66,10 @@ void main() {
         calls.map((call) => call.arguments['owner']),
         everyElement('app_update'),
       );
-      expect(calls.first.arguments['title'], 'Iris update');
+      expect(
+        calls.first.arguments['title'],
+        localizations.appUpdateNotificationTitle,
+      );
     },
   );
 }

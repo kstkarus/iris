@@ -8,18 +8,17 @@ import 'package:iris/features/downloads/domain/entities/download_status.dart';
 import 'package:iris/features/downloads/domain/entities/downloadable_file.dart';
 import 'package:iris/features/downloads/presentation/cubit/download_selection_cubit.dart';
 import 'package:iris/features/downloads/presentation/cubit/download_selection_state.dart';
+import 'package:iris/features/downloads/presentation/widgets/download_selection_footer.dart';
 import 'package:iris/features/downloads/presentation/widgets/download_status_label.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/utils/byte_size_formatter.dart';
 import 'package:iris/shared/utils/file_display_name.dart';
-import 'package:iris/shared/utils/motion_duration.dart';
 import 'package:iris/shared/widgets/dither_switcher.dart';
 import 'package:iris/shared/widgets/pixel_icon.dart';
 import 'package:iris/shared/widgets/segmented_bar.dart';
 import 'package:iris/shared/widgets/segmented_choice.dart';
 import 'package:iris/shared/widgets/status_views.dart';
 import 'package:iris/shared/widgets/tap_row.dart';
-import 'package:iris/shared/widgets/adaptive/window_size_class.dart';
 
 class DownloadSelectionView extends StatelessWidget {
   const DownloadSelectionView({required this.onWatch, super.key});
@@ -107,55 +106,19 @@ class _FileList extends StatelessWidget {
               enabled: !state.addingBatch,
             ),
           Expanded(key: const Key('download_selection_list'), child: list),
-          IgnorePointer(
-            ignoring: !state.selecting,
-            child: ExcludeSemantics(
-              excluding: !state.selecting,
-              child: TweenAnimationBuilder<double>(
-                tween: Tween(begin: 0, end: state.selecting ? 1 : 0),
-                duration: motionDuration(
-                  context,
-                  const Duration(milliseconds: 200),
-                ),
-                curve: Curves.easeOutCubic,
-                builder: (context, value, child) => Offstage(
-                  offstage: value == 0,
-                  child: ClipRect(
-                    child: Align(
-                      alignment: Alignment.bottomCenter,
-                      heightFactor: value,
-                      child: Opacity(opacity: value, child: child),
-                    ),
-                  ),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  child: Align(
-                    alignment: Alignment.centerRight,
-                    child: SizedBox(
-                      width: WindowSizeClass.of(context).isCompact
-                          ? double.infinity
-                          : null,
-                      child: FilledButton(
-                        key: const Key('download_selected'),
-                        onPressed: state.addingBatch || state.selected.isEmpty
-                            ? null
-                            : cubit.downloadSelected,
-                        child: Text(
-                          state.addingBatch
-                              ? l10n.downloadAddingToQueue
-                              : cubit.args.isOnlineRelease
-                              ? l10n.downloadSelectedEpisodes(
-                                  state.selected.length,
-                                )
-                              : l10n.downloadSelectedFiles(
-                                  state.selected.length,
-                                ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
+          DownloadSelectionFooter(
+            visible: state.selecting,
+            child: FilledButton(
+              key: const Key('download_selected'),
+              onPressed: state.addingBatch || state.selected.isEmpty
+                  ? null
+                  : cubit.downloadSelected,
+              child: Text(
+                state.addingBatch
+                    ? l10n.downloadAddingToQueue
+                    : cubit.args.isOnlineRelease
+                    ? l10n.downloadSelectedEpisodes(state.selected.length)
+                    : l10n.downloadSelectedFiles(state.selected.length),
               ),
             ),
           ),

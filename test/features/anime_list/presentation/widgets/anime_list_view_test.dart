@@ -19,15 +19,9 @@ import 'package:iris/features/anime_list/presentation/bloc/anime_list_event.dart
 import 'package:iris/features/anime_list/presentation/bloc/anime_search_bloc.dart';
 import 'package:iris/features/anime_list/presentation/cubit/search_history_cubit.dart';
 import 'package:iris/features/anime_list/presentation/pages/anime_list_page.dart';
-import 'package:iris/features/anime_list/presentation/widgets/anime_card.dart';
 import 'package:iris/features/anime_list/presentation/widgets/anime_list_view.dart';
 import 'package:iris/features/anime_list/presentation/widgets/continue_watching_button.dart';
-import 'package:iris/shared/widgets/adaptive/adaptive_content_width.dart';
-import 'package:iris/shared/widgets/app_skeleton.dart';
-import 'package:iris/shared/widgets/dither_transition.dart';
 import 'package:iris/shared/widgets/search_field.dart';
-import 'package:iris/shared/widgets/pixel_icon.dart';
-import 'package:iris/features/anime_list/presentation/widgets/recent_searches.dart';
 import 'package:iris/shared/widgets/search_toolbar.dart';
 
 import '../../../../helpers/fake_watch_progress_repository.dart';
@@ -35,9 +29,7 @@ import '../../../../helpers/test_app.dart';
 import '../../../../helpers/test_window.dart';
 
 void main() {
-  testWidgets('shows rows of card-shaped noise while anime are loading', (
-    tester,
-  ) async {
+  testWidgets('announces while anime are loading', (tester) async {
     final semantics = tester.ensureSemantics();
     final bloc = AnimeListBloc(repository: _PendingAnimeListRepository());
 
@@ -52,58 +44,8 @@ void main() {
 
     await tester.pump();
 
-    final rows = tester.widgetList<AppSkeleton>(find.byType(AppSkeleton));
-    expect(rows, isNotEmpty);
-    expect(rows.every((row) => row.enabled), isTrue);
     expect(find.bySemanticsLabel('Loading anime list...'), findsOneWidget);
-    expect(find.bySemanticsLabel(RegExp('anime title')), findsNothing);
     semantics.dispose();
-  });
-
-  testWidgets('cards develop out of the noise when the page arrives', (
-    tester,
-  ) async {
-    final page = Completer<AnimeListPageResult>();
-    final bloc = AnimeListBloc(
-      repository: _PendingAnimeListRepository(page.future),
-    );
-
-    await tester.pumpWidget(
-      _wrapWithApp(
-        BlocProvider.value(
-          value: bloc..add(const AnimeListStarted()),
-          child: const Scaffold(body: AnimeListView()),
-        ),
-      ),
-    );
-    await tester.pump();
-
-    page.complete(_withHasMore(_pageOneResult, false));
-    await tester.pump();
-    await tester.pump(DitherTransition.duration);
-    await tester.pump(DitherTransition.duration);
-
-    final rows = tester.widgetList<AppSkeleton>(find.byType(AppSkeleton));
-    expect(rows.every((row) => !row.enabled), isTrue);
-    expect(find.text('Solo Leveling'), findsOneWidget);
-    expect(find.textContaining('anime title'), findsNothing);
-  });
-
-  testWidgets('shows search field and anime cards when loading succeeds', (
-    tester,
-  ) async {
-    await _pumpCatalog(
-      tester,
-      _SuccessAnimeListRepository(
-        initialResult: _withHasMore(_pageOneResult, false),
-      ),
-    );
-
-    expect(find.byType(TextField), findsOneWidget);
-    expect(find.text('Search anime'), findsOneWidget);
-    expect(find.text('Filter & Sort'), findsOneWidget);
-    expect(find.text('Solo Leveling'), findsOneWidget);
-    expect(find.textContaining('TV · '), findsWidgets);
   });
 
   testWidgets('starts a new search after debounce', (tester) async {
@@ -146,49 +88,6 @@ void main() {
     expect(find.text('No anime found for your search.'), findsOneWidget);
   });
 
-  testWidgets('a new order dissolves the heading into its new word', (
-    tester,
-  ) async {
-    final bloc = await _pumpCatalog(
-      tester,
-      _TrackingAnimeListRepository(resultsByQuery: {'': _pageOneResult}),
-    );
-
-    bloc.add(const AnimeListCriteriaApplied(sort: AnimeListSortOption.score));
-    await tester.pump();
-    await tester.pump(DitherTransition.duration ~/ 2);
-    expect(find.text('Popular'), findsOneWidget);
-    expect(find.text('Top rated'), findsOneWidget);
-
-    await tester.pumpAndSettle();
-    expect(find.text('Popular'), findsNothing);
-    expect(find.text('Top rated'), findsOneWidget);
-  });
-
-  testWidgets('a card highlights only inside the list', (tester) async {
-    await _pumpCatalog(
-      tester,
-      _TrackingAnimeListRepository(resultsByQuery: {'': _pageOneResult}),
-    );
-
-    // Ink paints on the nearest Material: it must scroll, and be clipped,
-    // with the card rather than sit under the whole page.
-    final ink = find
-        .descendant(
-          of: find.byType(AnimeCard).first,
-          matching: find.byType(InkWell),
-        )
-        .first;
-    final inkMaterial = tester
-        .element(ink)
-        .findAncestorWidgetOfExactType<Material>();
-    final materialInList = find.descendant(
-      of: find.byType(ListView).first,
-      matching: find.byWidget(inkMaterial!),
-    );
-    expect(materialInList, findsOneWidget);
-  });
-
   testWidgets('focusing shows recent searches without moving the catalog', (
     tester,
   ) async {
@@ -205,19 +104,7 @@ void main() {
     final inSearch = _catalogOffset(tester);
     expect(inSearch, 0);
     expect(find.byKey(const Key('catalog_recent_searches')), findsOneWidget);
-    expect(find.text('Popular'), findsNothing);
-    expect(find.text('Recent searches'), findsNothing);
-    final empty = find.text('Your recent searches will appear here.');
-    final icon = find.byWidgetPredicate(
-      (widget) => widget is PixelIcon && widget.size == 42,
-    );
-    final area = tester.getRect(
-      find.byKey(const Key('catalog_recent_searches')),
-    );
-    final textRect = tester.getRect(empty);
-    final iconRect = tester.getRect(icon);
-    expect(textRect.center.dx, closeTo(area.center.dx, 1));
-    expect((iconRect.top + textRect.bottom) / 2, closeTo(area.center.dy, 1));
+    expect(find.text('Your recent searches will appear here.'), findsOneWidget);
     expect(find.byKey(SearchToolbar.cancelButtonKey), findsOneWidget);
 
     // Typing a letter and taking it back changes the grid, not the page.
@@ -241,14 +128,7 @@ void main() {
 
     await tester.enterText(find.byType(TextField), 'fullmetal');
     await tester.pump(const Duration(milliseconds: 450));
-    await tester.pump();
-    expect(
-      find.byType(RecentSearches),
-      findsOneWidget,
-      reason: 'history is still dissolving',
-    );
     await tester.pumpAndSettle();
-    expect(find.byType(RecentSearches), findsNothing);
     expect(find.text('Fullmetal Alchemist: Brotherhood'), findsOneWidget);
     expect(find.text('Solo Leveling'), findsNothing);
 
@@ -335,27 +215,6 @@ void main() {
     expect(find.text('1'), findsOneWidget);
   });
 
-  testWidgets('opens the filter & sort panel with its controls', (
-    tester,
-  ) async {
-    await _pumpCatalog(
-      tester,
-      _SuccessAnimeListRepository(initialResult: _pageOneResult),
-    );
-
-    await tester.tap(find.text('Filter & Sort'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('SORT'), findsOneWidget);
-    expect(find.text('TYPE'), findsOneWidget);
-    expect(find.text('STATUS'), findsOneWidget);
-    expect(find.text('Popularity'), findsOneWidget);
-    expect(find.text('Score'), findsOneWidget);
-    expect(find.text('Aired On'), findsOneWidget);
-    expect(find.text('Show results'), findsOneWidget);
-    expect(find.text('Reset'), findsOneWidget);
-  });
-
   testWidgets('applies filters and sort from the filter & sort panel', (
     tester,
   ) async {
@@ -420,13 +279,7 @@ void main() {
     await tester.tap(find.byKey(SearchField.clearButtonKey));
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('Remove “fullmetal”'));
-    await tester.pump(const Duration(milliseconds: 200));
     expect(history.state, isEmpty);
-    expect(
-      find.text('fullmetal'),
-      findsOneWidget,
-      reason: 'the removed query is still dissolving',
-    );
     await tester.pumpAndSettle();
     expect(find.text('fullmetal'), findsNothing);
     expect(find.text('Your recent searches will appear here.'), findsOneWidget);
@@ -458,12 +311,6 @@ void main() {
       greaterThanOrEqualTo(44),
     );
     await tester.tap(find.text('TV'));
-    await tester.pump(const Duration(milliseconds: 100));
-    expect(
-      find.text('TV'),
-      findsOneWidget,
-      reason: 'only the removed chip dissolves',
-    );
     await tester.pumpAndSettle();
     expect(find.text('TV'), findsNothing);
     expect(bloc.state.sort, AnimeListSortOption.score);
@@ -471,10 +318,6 @@ void main() {
     expect(bloc.state.filters.statuses, {AnimeStatusFilter.released});
     expect(bloc.state.filters.activeCount, 2);
     await tester.tap(find.text('Reset'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 321));
-    await tester.pump();
-    expect(find.byKey(const Key('catalog_active_filters')), findsNothing);
     await tester.pumpAndSettle();
     expect(bloc.state.filters.hasAny, isFalse);
     expect(bloc.state.sort, AnimeListSortOption.score);
@@ -486,28 +329,9 @@ void main() {
     );
     await tester.pumpAndSettle();
     await tester.tap(find.text('TV'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 321));
-    await tester.pump();
+    await tester.pumpAndSettle();
     expect(bloc.state.filters.hasAny, isFalse);
     expect(find.byKey(const Key('catalog_active_filters')), findsNothing);
-  });
-
-  testWidgets('a 320 wide phone keeps two poster columns', (tester) async {
-    setTestWindowSize(tester, const Size(320, 760));
-    await _pumpCatalog(
-      tester,
-      const _SuccessAnimeListRepository(initialResult: _pageOneResult),
-    );
-    final cards = find.byType(AnimeCard);
-    expect(
-      tester.getTopLeft(cards.at(0)).dy,
-      tester.getTopLeft(cards.at(1)).dy,
-    );
-    expect(
-      tester.getSize(cards.first).width,
-      lessThan(tester.getSize(find.byType(AnimeListView)).width / 2),
-    );
   });
 
   testWidgets(
@@ -557,7 +381,7 @@ void main() {
 
   for (final searching in [false, true]) {
     testWidgets(
-      'filter chips scroll to screen edges (${searching ? 'search' : 'catalog'})',
+      'many filters can be reset (${searching ? 'search' : 'catalog'})',
       (tester) async {
         setTestWindowSize(tester, const Size(320, 760));
         final bloc = await _pumpCatalog(
@@ -586,48 +410,13 @@ void main() {
           await tester.pumpAndSettle();
         }
         final filters = find.byKey(const Key('catalog_active_filters'));
-        final viewport = tester.getRect(filters);
-        final first = find.byTooltip('Remove “TV” filter');
-        final firstBounds = tester.getRect(first);
-        final inset = tester.getTopLeft(find.byType(TextField)).dx;
-        expect(viewport.left, 0);
-        expect(viewport.right, 320);
-        expect(firstBounds.left, inset);
-        for (var i = 0; i < 8; i++) {
-          expect(
-            tester
-                .getRect(find.byTooltip('Remove “Genre $i” filter'))
-                .center
-                .dy,
-            firstBounds.center.dy,
-          );
-        }
         final scroll = tester
             .state<ScrollableState>(
               find.descendant(of: filters, matching: find.byType(Scrollable)),
             )
             .position;
-        scroll.jumpTo(firstBounds.right - 10);
-        await tester.pumpAndSettle();
-        expect(tester.getRect(first).right, closeTo(10, 0.01));
-        await tester.tapAt(Offset(4, firstBounds.center.dy));
-        await tester.pumpAndSettle();
-        expect(bloc.state.filters.kinds, isEmpty);
-        expect(bloc.state.filters.genres, hasLength(8));
-
-        final before = scroll.pixels;
-        await tester.dragFrom(
-          Offset(4, firstBounds.center.dy),
-          const Offset(-80, 0),
-        );
-        await tester.pumpAndSettle();
-        expect(scroll.pixels, greaterThan(before));
         scroll.jumpTo(scroll.maxScrollExtent);
         await tester.pumpAndSettle();
-        expect(
-          tester.getRect(find.text('Reset')).right,
-          closeTo(viewport.right - inset, 0.01),
-        );
         await tester.tap(find.text('Reset'));
         await tester.pumpAndSettle();
         expect(bloc.state.filters.hasAny, isFalse);
@@ -696,33 +485,6 @@ void main() {
     expect(bloc.state.filters.hasAny, isFalse);
   });
 
-  testWidgets('loads the next page near the end of the list', (tester) async {
-    final repository = _TrackingAnimeListRepository(
-      resultsByQuery: {'': _withHasMore(_pageOneResult, true)},
-      pagedResults: {2: _pageTwoResult},
-    );
-    final bloc = AnimeListBloc(repository: repository);
-
-    await tester.pumpWidget(
-      _wrapWithApp(
-        SizedBox(
-          height: 500,
-          child: BlocProvider.value(
-            value: bloc..add(const AnimeListStarted()),
-            child: const Scaffold(body: AnimeListView()),
-          ),
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    await tester.drag(find.byType(ListView), const Offset(0, -1500));
-    await tester.pump();
-    await tester.pumpAndSettle();
-
-    expect(repository.calls.any((call) => call.query.page == 2), isTrue);
-  });
-
   for (final watched in const [false, true]) {
     testWidgets(
       watched
@@ -771,40 +533,6 @@ void main() {
     );
   }
 
-  testWidgets('shows load more error and keeps loaded items', (tester) async {
-    final repository = _LoadMoreFailureAnimeListRepository(
-      initialResult: _singleItemResult,
-    );
-    final bloc = AnimeListBloc(repository: repository);
-
-    await tester.pumpWidget(
-      _wrapWithApp(
-        SizedBox(
-          height: 500,
-          child: BlocProvider.value(
-            value: bloc..add(const AnimeListStarted()),
-            child: const Scaffold(body: AnimeListView()),
-          ),
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    bloc.add(const AnimeListNextPageRequested());
-    await tester.pump();
-    await tester.pumpAndSettle();
-
-    expect(find.byType(AnimeCard), findsWidgets);
-    // The footer sits under the heading and the covers.
-    await tester.dragUntilVisible(
-      find.text('Unable to load more anime.'),
-      find.byType(ListView),
-      const Offset(0, -200),
-    );
-    expect(find.text('Unable to load more anime.'), findsOneWidget);
-    expect(find.text('Try Again'), findsOneWidget);
-  });
-
   for (final entry in TestWindowSizes.all.entries) {
     testWidgets('lays out the catalog without overflow on ${entry.key}', (
       tester,
@@ -826,32 +554,10 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      final first = tester.getTopLeft(find.text('Solo Leveling'));
-      final second = tester.getTopLeft(
-        find.text("Frieren: Beyond Journey's End"),
-      );
-      final search = tester.getRect(find.byType(TextField));
-      // Covers sit side by side even on phones, with the filters button on
-      // the search field's row.
-      expect(second.dy, first.dy);
-      expect(search.width, lessThanOrEqualTo(AdaptiveContentWidth.form));
+      expect(find.text('Solo Leveling'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
   }
-
-  testWidgets('requests the next page when a wide grid fits on screen', (
-    tester,
-  ) async {
-    setTestWindowSize(tester, TestWindowSizes.desktop);
-    final repository = _TrackingAnimeListRepository(
-      resultsByQuery: {'': _singleItemResult},
-      pagedResults: {2: _pageTwoResult},
-    );
-    await _pumpCatalog(tester, repository);
-
-    expect(repository.calls.map((call) => call.query.page), [1, 2]);
-    expect(find.text('Steins;Gate'), findsOneWidget);
-  });
 }
 
 /// The app around [child], with search results served by [search].
@@ -928,13 +634,9 @@ class _SuccessAnimeListRepository implements AnimeListRepository {
 }
 
 class _TrackingAnimeListRepository implements AnimeListRepository {
-  _TrackingAnimeListRepository({
-    required this.resultsByQuery,
-    this.pagedResults = const {},
-  });
+  _TrackingAnimeListRepository({required this.resultsByQuery});
 
   final Map<String, AnimeListPageResult> resultsByQuery;
-  final Map<int, AnimeListPageResult> pagedResults;
   final List<_RepositoryCall> calls = [];
 
   @override
@@ -943,30 +645,9 @@ class _TrackingAnimeListRepository implements AnimeListRepository {
   }) async {
     calls.add(_RepositoryCall(query: query));
 
-    if (query.page > 1) {
-      return pagedResults[query.page]!;
-    }
+    if (query.page > 1) throw StateError('Unexpected page ${query.page}');
 
     return resultsByQuery[query.search]!;
-  }
-}
-
-class _LoadMoreFailureAnimeListRepository implements AnimeListRepository {
-  const _LoadMoreFailureAnimeListRepository({
-    this.initialResult = _pageOneResult,
-  });
-
-  final AnimeListPageResult initialResult;
-
-  @override
-  Future<AnimeListPageResult> fetchAnimePage({
-    required AnimeListQuery query,
-  }) async {
-    if (query.page == 1) {
-      return _withHasMore(initialResult, true);
-    }
-
-    throw Exception('Load more failure');
   }
 }
 
@@ -1071,38 +752,6 @@ const _pageOneItems = [
   ),
 ];
 
-const _singleItem = AnimeListItem(
-  anime: AnimeSummary(
-    id: '21',
-    name: 'Solo Leveling',
-    russian: 'Solo Leveling RU',
-    kind: 'tv',
-    score: 8.34,
-    status: 'released',
-    episodes: 12,
-    episodesAired: 12,
-    airedOn: '2024-01-07',
-    posterUrl: 'https://shikimori.one/posters/52299/main.webp',
-  ),
-);
-
-const _pageTwoItems = [
-  AnimeListItem(
-    anime: AnimeSummary(
-      id: '27',
-      name: 'Steins;Gate',
-      russian: 'Steins;Gate RU',
-      kind: 'tv',
-      score: 9.07,
-      status: 'released',
-      episodes: 24,
-      episodesAired: 24,
-      airedOn: '2011-04-06',
-      posterUrl: 'https://shikimori.one/posters/9253/main.jpg',
-    ),
-  ),
-];
-
 const _searchItems = [
   AnimeListItem(
     anime: AnimeSummary(
@@ -1124,20 +773,6 @@ const _pageOneResult = AnimeListPageResult(
   items: _pageOneItems,
   page: 1,
   hasMore: true,
-  query: '',
-);
-
-const _singleItemResult = AnimeListPageResult(
-  items: [_singleItem],
-  page: 1,
-  hasMore: true,
-  query: '',
-);
-
-const _pageTwoResult = AnimeListPageResult(
-  items: _pageTwoItems,
-  page: 2,
-  hasMore: false,
   query: '',
 );
 

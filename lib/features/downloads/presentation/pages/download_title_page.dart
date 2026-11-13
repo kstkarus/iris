@@ -30,7 +30,10 @@ class DownloadTitlePage extends StatelessWidget {
           onDownloadMore: onDownloadMore,
           onBrowseCatalog: () {},
           onTitleDeleted: () {
-            if (context.mounted) Navigator.of(context).maybePop();
+            if (!context.mounted || ModalRoute.of(context)?.isCurrent != true) {
+              return false;
+            }
+            return Navigator.of(context).maybePop();
           },
         ),
       ),

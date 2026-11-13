@@ -42,9 +42,18 @@ abstract interface class DownloadsRepository {
   /// interrupting the current download. The order survives a restart.
   Future<void> downloadNext({required String id});
 
+  /// Orders the waiting files without interrupting the active download.
+  /// Missing or no longer queued ids are ignored; new arrivals follow them.
+  /// The order is saved in the existing download registry.
+  Future<void> reorderQueue({required List<String> ids});
+
   /// Returns false when the files could not be removed; the record is then
   /// kept, stopped if it was loading.
   Future<bool> delete({required String id});
+
+  /// Removes these copies, keeping all of them out of the download queue
+  /// until the operation finishes. Returns the ids that could not be removed.
+  Future<Set<String>> deleteMany({required Iterable<String> ids});
 
   Future<DownloadItem?> findCompletedById({required String id});
 

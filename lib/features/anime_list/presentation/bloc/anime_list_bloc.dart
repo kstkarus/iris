@@ -160,7 +160,7 @@ class AnimeListBloc extends Bloc<AnimeListEvent, AnimeListState> {
         : state.filters.withoutMyList();
     final reload = event.reload || filters != state.filters;
     emit(state.copyWith(signedIn: event.signedIn, filters: filters));
-    if (!reload || !state.hasLoadedOnce) return;
+    if (!reload || (!state.hasLoadedOnce && !state.isInitialLoading)) return;
     _restartList(emit, query: state.query, sort: state.sort, filters: filters);
   }
 

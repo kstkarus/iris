@@ -232,6 +232,19 @@ This contract is binding for the in-app player.
 - Add comments only when intent is not obvious from code.
 - Do not introduce new dependencies unless they solve a real repeated problem.
 
+## Testing rules
+- Each test should name observable behavior or a concrete failure it prevents.
+  Prefer actions and outcomes over checking widget types or private fields.
+- Do not add tests solely to assert that removed text, widgets, or old code stay
+  absent. Negative assertions are useful for security, cancellation, state
+  transitions, and preventing data loss.
+- Avoid fixing decorative colors, spacing, animation steps, or widget hierarchy
+  in tests. Keep checks for accessibility, reachable controls, overflow, and
+  documented playback or platform contracts.
+- Reuse an existing scenario before adding a duplicate at another layer. Add a
+  second test when it catches a different failure, such as broken wiring.
+- Keep manual screenshot capture outside `test/`; CI should not write previews.
+
 ## Commands
 Run these before calling work done when relevant:
 

@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -38,7 +40,10 @@ void main() {
     await numbers.write([4, 5]);
 
     final preferences = await SharedPreferences.getInstance();
-    expect(preferences.getString('numbers'), '[{"n":4},{"n":5}]');
+    expect(jsonDecode(preferences.getString('numbers')!), [
+      {'n': 4},
+      {'n': 5},
+    ]);
     expect(numbers.read(), [4, 5]);
   });
 

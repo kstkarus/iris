@@ -8,39 +8,6 @@ import '../../../../helpers/test_app.dart';
 import '../../../../helpers/test_window.dart';
 
 void main() {
-  testWidgets('shows audio and subtitle track sections', (tester) async {
-    await tester.pumpWidget(
-      _wrap(
-        child: PlayerTrackSelectorSheet(
-          audioTracks: const [
-            AudioTrack('auto', null, null),
-            AudioTrack('1', 'Japanese', 'ja'),
-            AudioTrack('2', 'English Dub', 'en'),
-          ],
-          selectedAudioTrack: const AudioTrack('1', 'Japanese', 'ja'),
-          subtitleTracks: const [
-            SubtitleTrack('auto', null, null),
-            SubtitleTrack('10', 'English Signs', 'en'),
-          ],
-          selectedSubtitleTrack: const SubtitleTrack(
-            '10',
-            'English Signs',
-            'en',
-          ),
-          onAudioTrackSelected: (_) {},
-          onSubtitleTrackSelected: (_) {},
-        ),
-      ),
-    );
-
-    expect(find.text('AUDIO'), findsOneWidget);
-    expect(find.text('SUBTITLES'), findsOneWidget);
-    expect(find.text('Japanese'), findsOneWidget);
-    expect(find.text('English Signs'), findsOneWidget);
-    expect(find.text('Auto'), findsNWidgets(2));
-    expect(find.text('Off'), findsOneWidget);
-  });
-
   testWidgets('names untitled tracks in the app language', (tester) async {
     await tester.pumpWidget(
       testApp(
@@ -82,6 +49,7 @@ void main() {
           audioTracks: const [
             AudioTrack('auto', null, null),
             AudioTrack('1', 'Japanese', 'ja'),
+            AudioTrack('2', 'English Dub', 'en'),
           ],
           selectedAudioTrack: const AudioTrack('1', 'Japanese', 'ja'),
           subtitleTracks: const [
@@ -148,14 +116,46 @@ void main() {
     expect(selectedSubtitle, SubtitleTrack.no());
   });
 
-  testWidgets('holds only the tracks, the settings live elsewhere', (
+  testWidgets('hides a single audio track while subtitles remain selectable', (
     tester,
   ) async {
-    await tester.pumpWidget(_wrap(child: _sheet()));
+    await tester.pumpWidget(
+      _wrap(
+        child: _sheet(
+          audioTracks: const [
+            AudioTrack('auto', null, null),
+            AudioTrack('no', null, null),
+            AudioTrack('1', 'Japanese', 'ja'),
+          ],
+        ),
+      ),
+    );
 
-    expect(find.text('Audio & subtitles'), findsOneWidget);
-    expect(find.text('Subtitle Appearance'), findsNothing);
-    expect(find.byKey(const Key('player_detailed_stats_switch')), findsNothing);
+    expect(find.text('AUDIO'), findsNothing);
+    expect(find.text('Japanese'), findsNothing);
+    expect(find.text('SUBTITLES'), findsOneWidget);
+    expect(find.text('Off'), findsOneWidget);
+    expect(find.text('English Signs'), findsOneWidget);
+  });
+
+  testWidgets('hides subtitle options when only Auto and Off exist', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _wrap(
+        child: _sheet(
+          subtitleTracks: const [
+            SubtitleTrack('auto', null, null),
+            SubtitleTrack('no', null, null),
+          ],
+        ),
+      ),
+    );
+
+    expect(find.text('AUDIO'), findsOneWidget);
+    expect(find.text('SUBTITLES'), findsNothing);
+    expect(find.text('Off'), findsNothing);
+    expect(find.text('Auto'), findsOneWidget);
   });
 
   testWidgets('tells apart two tracks of one language by their format', (
@@ -178,67 +178,50 @@ void main() {
     expect(find.text('ASS'), findsNWidgets(2));
   });
 
-  for (final (width, sideBySide) in const [(1280.0, true), (400.0, false)]) {
-    testWidgets(
-      sideBySide
-          ? 'sets the lists side by side in a wide window'
-          : 'stacks the lists in a phone sheet',
-      (tester) async {
-        setTestWindowSize(tester, Size(width, 800));
+  for (final width in [400.0, 1280.0]) {
+    testWidgets('can select a track at the end of a long list at $width dp', (
+      tester,
+    ) async {
+      setTestWindowSize(tester, Size(width, 800));
+      SubtitleTrack? selected;
+      final audioTracks = List.generate(
+        20,
+        (index) => AudioTrack('$index', 'Audio $index', 'en'),
+      );
+      final subtitleTracks = List.generate(
+        20,
+        (index) => SubtitleTrack('$index', 'Subtitle $index', 'en'),
+      );
 
-        await tester.pumpWidget(_wrap(child: _sheet()));
-
-        final audio = tester.getRect(find.text('AUDIO'));
-        final subtitles = tester.getRect(find.text('SUBTITLES'));
-        if (sideBySide) {
-          expect(subtitles.top, audio.top);
-          expect(subtitles.left, greaterThan(audio.right));
-        } else {
-          expect(subtitles.top, greaterThan(audio.bottom));
-          expect(subtitles.left, audio.left);
-        }
-        expect(tester.takeException(), isNull);
-      },
-    );
-  }
-
-  testWidgets('supports scrolling for long track lists', (tester) async {
-    final audioTracks = List.generate(
-      20,
-      (index) => AudioTrack('$index', 'Audio $index', 'en'),
-    );
-    final subtitleTracks = List.generate(
-      20,
-      (index) => SubtitleTrack('$index', 'Subtitle $index', 'en'),
-    );
-
-    await tester.pumpWidget(
-      _wrap(
-        child: SizedBox(
-          height: 320,
-          child: PlayerTrackSelectorSheet(
-            audioTracks: audioTracks,
-            selectedAudioTrack: audioTracks.first,
-            subtitleTracks: subtitleTracks,
-            selectedSubtitleTrack: subtitleTracks.first,
-            onAudioTrackSelected: (_) {},
-            onSubtitleTrackSelected: (_) {},
+      await tester.pumpWidget(
+        _wrap(
+          child: SizedBox(
+            height: 320,
+            child: PlayerTrackSelectorSheet(
+              audioTracks: audioTracks,
+              selectedAudioTrack: audioTracks.first,
+              subtitleTracks: subtitleTracks,
+              selectedSubtitleTrack: subtitleTracks.first,
+              onAudioTrackSelected: (_) {},
+              onSubtitleTrackSelected: (track) => selected = track,
+            ),
           ),
         ),
-      ),
-    );
+      );
 
-    expect(find.byType(SingleChildScrollView), findsOneWidget);
-    expect(tester.takeException(), isNull);
-
-    await tester.drag(
-      find.byType(SingleChildScrollView),
-      const Offset(0, -600),
-    );
-    await tester.pumpAndSettle();
-
-    expect(tester.takeException(), isNull);
-  });
+      await tester.scrollUntilVisible(
+        find.text('Subtitle 19'),
+        200,
+        scrollable: find.descendant(
+          of: find.byType(PlayerTrackSelectorSheet),
+          matching: find.byType(Scrollable),
+        ),
+      );
+      await tester.tap(find.text('Subtitle 19'));
+      expect(selected, subtitleTracks.last);
+      expect(tester.takeException(), isNull);
+    });
+  }
 }
 
 Widget _wrap({required Widget child}) {
@@ -246,12 +229,16 @@ Widget _wrap({required Widget child}) {
 }
 
 PlayerTrackSelectorSheet _sheet({
+  List<AudioTrack> audioTracks = const [
+    AudioTrack('1', 'Japanese', 'ja'),
+    AudioTrack('2', 'English Dub', 'en'),
+  ],
   List<SubtitleTrack> subtitleTracks = const [
     SubtitleTrack('10', 'English Signs', 'en'),
   ],
 }) {
   return PlayerTrackSelectorSheet(
-    audioTracks: const [AudioTrack('1', 'Japanese', 'ja')],
+    audioTracks: audioTracks,
     selectedAudioTrack: const AudioTrack('1', 'Japanese', 'ja'),
     subtitleTracks: subtitleTracks,
     selectedSubtitleTrack: SubtitleTrack.auto(),
