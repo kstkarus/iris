@@ -20,6 +20,8 @@ import 'package:iris/features/downloads/presentation/pages/download_manager_page
 import 'package:iris/features/downloads/presentation/pages/download_queue_page.dart';
 import 'package:iris/features/downloads/presentation/pages/download_title_page.dart';
 import 'package:iris/features/downloads/presentation/widgets/download_manager_view.dart';
+import 'package:iris/features/downloads/presentation/widgets/download_labels.dart';
+import 'package:iris/l10n/generated/app_localizations_en.dart';
 
 import '../../../../helpers/test_window.dart';
 
@@ -135,6 +137,9 @@ class _Downloads extends MockDownloadsRepository {
   }
 
   @override
+  Future<void> retry({required String id}) => resume(id: id);
+
+  @override
   Future<DownloadStorageUsage> calculateStorageUsage() async =>
       DownloadStorageUsage(cacheBytes: temporary, cacheInUse: busy);
   @override
@@ -240,6 +245,41 @@ Future<void> _move(
 }
 
 void main() {
+  test('source facts preserve labels and use only reported file heights', () {
+    final l10n = AppLocalizationsEn();
+    for (final (source, reported, label, height)
+        in <(String, int?, String, int?)>[
+          ('SubsPlease · 1080p', null, 'SUBSPLEASE · 1080P', null),
+          ('SubsPlease (720P) HEVC', null, 'SUBSPLEASE 720P HEVC', null),
+          ('SubsPlease · 1080p · HEVC', 720, 'SUBSPLEASE · 1080P · HEVC', 720),
+          ('Dub · 1080p/720p', null, 'DUB · 1080P/720P', null),
+          ('Dub · 1080p/720p', 720, 'DUB · 1080P/720P', 720),
+          ('Dub 1080', null, 'DUB 1080', null),
+          ('Local release', null, 'LOCAL RELEASE', null),
+          ('Local release 1080p', 0, 'LOCAL RELEASE 1080P', null),
+        ]) {
+      final item = _item(
+        'metadata',
+        DownloadStatus.paused,
+      ).copyWith(sourceTitle: source, videoHeight: reported, quality: 2160);
+      expect(downloadSourceFacts(item), (
+        source: label,
+        videoHeight: height,
+      ), reason: source);
+    }
+    expect(
+      downloadSemanticName(
+        l10n,
+        _item('metadata', DownloadStatus.paused).copyWith(
+          fileName: 'episode-01.mkv',
+          sourceTitle: 'SubsPlease · 1080p',
+          videoHeight: 720,
+        ),
+      ),
+      'Frieren, Episode 01, SUBSPLEASE · 1080P, 720p',
+    );
+  });
+
   testWidgets('announcements have one owner across library, title and queue', (
     tester,
   ) async {
@@ -436,6 +476,81 @@ void main() {
       semantics.dispose();
     }
   });
+
+  testWidgets(
+    'partial sizes stay clear and stopped files return to the queue',
+    (tester) async {
+      final repository = _Downloads(count: 1);
+      repository.items.addAll([
+        _item('known', DownloadStatus.paused),
+        _item(
+          'unknown',
+          DownloadStatus.paused,
+        ).copyWith(totalBytes: 0, downloadedBytes: 270),
+        _item(
+          'estimated',
+          DownloadStatus.paused,
+        ).copyWith(magnet: 'online:anilibria/9542'),
+        _item(
+          'failed',
+          DownloadStatus.failed,
+        ).copyWith(errorMessage: 'ENOSPC', downloadedBytes: 0),
+      ]);
+      final harness = await _mount(tester, repository);
+      await tester.tap(find.byKey(const Key('download_queue_open')));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey('known')),
+          matching: find.text('43 B of 100 B'),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey('unknown')),
+          matching: find.text('270 B downloaded'),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey('estimated')),
+          matching: find.text('43 B of ~100 B'),
+        ),
+        findsOneWidget,
+      );
+      final resume = find.byKey(const ValueKey('queue_pause_unknown'));
+      await tester.ensureVisible(resume);
+      await tester.tap(resume);
+      await tester.pumpAndSettle();
+      expect(repository.waiting, ['1', 'unknown']);
+      expect(
+        repository.items
+            .singleWhere((item) => item.id == 'unknown')
+            .downloadedBytes,
+        270,
+      );
+
+      final errorMenu = find.byKey(const ValueKey('queue_menu_failed'));
+      await tester.ensureVisible(errorMenu);
+      await tester.tap(errorMenu);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('queue_files_failed')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('download_files_sheet')), findsOneWidget);
+      await tester.tap(find.byTooltip('Close'));
+      await tester.pumpAndSettle();
+
+      final retry = find.byKey(const ValueKey('queue_pause_failed'));
+      await tester.ensureVisible(retry);
+      await tester.tap(retry);
+      await tester.pumpAndSettle();
+      expect(repository.waiting, ['1', 'unknown', 'failed']);
+      await _close(tester, repository, harness);
+    },
+  );
 
   for (final kind in [PointerDeviceKind.touch, PointerDeviceKind.mouse]) {
     testWidgets('$kind reorders both directions and keeps active progress', (

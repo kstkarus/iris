@@ -100,15 +100,15 @@ void main() {
       animeId: '1',
       rateId: null,
       status: UserRateStatus.watching,
-      episodes: 1,
+      episodes: 1180,
       score: 0,
     );
     await cubit.accountChanged('42');
-    await pumpSection(tester, total: 2);
+    await pumpSection(tester, total: 1181);
 
     await tester.tap(find.byKey(MyListSection.episodeMoreKey));
     await tester.pumpAndSettle();
-    expect(find.text('2 / 2'), findsOneWidget);
+    expect(find.text('1181 / 1181'), findsOneWidget);
     expect(
       tester
           .widget<IconButton>(find.byKey(MyListSection.episodeMoreKey))
@@ -118,8 +118,11 @@ void main() {
 
     await tester.tap(find.byKey(MyListSection.episodeLessKey));
     await tester.pumpAndSettle();
-    expect(find.text('1 / 2'), findsOneWidget);
-    expect(find.bySemanticsLabel('Episodes watched: 1 / 2'), findsOneWidget);
+    expect(find.text('1180 / 1181'), findsOneWidget);
+    expect(
+      find.bySemanticsLabel('Episodes watched: 1180 / 1181'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('takes the anime out of the list', (tester) async {

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:intl/intl.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 
 import 'package:iris/entities/user_rate/domain/user_rate.dart';
@@ -225,10 +224,9 @@ class _EpisodeStepper extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final numbers = NumberFormat.decimalPattern(l10n.localeName);
     final cubit = context.read<UserRateCubit>();
-    final watched = numbers.format(rate.episodes);
-    final shown = total > 0 ? '$watched / ${numbers.format(total)}' : watched;
+    final watched = rate.episodes.toString();
+    final shown = total > 0 ? '$watched / $total' : watched;
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [

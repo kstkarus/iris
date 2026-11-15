@@ -23,6 +23,19 @@
   "downloadQueueAttention": "Needs attention",
   "downloadQueueFinished": "All downloads are complete. Your episodes are in the library.",
   "downloadQueueNoWaiting": "No episodes waiting.",
+  "downloadBytesProgress": "{downloaded} of {total}",
+  "@downloadBytesProgress": {
+    "placeholders": {
+      "downloaded": { "type": "String" },
+      "total": { "type": "String" }
+    }
+  },
+  "downloadBytesDownloaded": "{size} downloaded",
+  "@downloadBytesDownloaded": {
+    "placeholders": {
+      "size": { "type": "String" }
+    }
+  },
   "appName": "Iris",
   "commonRetry": "Try Again",
   "navigationCatalog": "Catalog",

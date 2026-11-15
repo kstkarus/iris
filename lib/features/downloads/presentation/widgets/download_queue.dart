@@ -9,9 +9,9 @@ import 'package:iris/features/downloads/presentation/cubit/download_manager_cubi
 import 'package:iris/features/downloads/presentation/cubit/download_manager_state.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/utils/byte_size_formatter.dart';
+import 'package:iris/shared/utils/episode_number.dart';
 import 'package:iris/shared/widgets/pixel_icon.dart';
-import 'package:iris/shared/widgets/section_label.dart';
-import 'package:iris/shared/widgets/segmented_bar.dart';
+import 'package:iris/shared/widgets/quality_badge.dart';
 
 import 'package:iris/features/downloads/presentation/widgets/download_labels.dart';
 import 'package:iris/features/downloads/presentation/widgets/download_deletion_dialog.dart';
@@ -108,22 +108,35 @@ class _DownloadQueueViewState extends State<DownloadQueueView> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     if (active != null) ...[
-                      SectionLabel(l10n.downloadQueueCurrent),
-                      const SizedBox(height: 12),
+                      _QueueSectionHeading(l10n.downloadQueueCurrent, count: 1),
                       _StatusRow(
                         key: ValueKey(active.id),
                         item: active,
                         onFiles: widget.onFiles,
                       ),
-                      const SizedBox(height: 28),
+                      const SizedBox(height: 16),
                     ],
-                    SectionLabel(
-                      '${l10n.downloadQueueWaiting} · ${waiting.length}',
+                    if (failed.isNotEmpty) ...[
+                      _QueueSectionHeading(
+                        l10n.downloadQueueAttention,
+                        count: failed.length,
+                        attention: true,
+                      ),
+                      for (final item in failed)
+                        _StatusRow(
+                          key: ValueKey(item.id),
+                          item: item,
+                          onFiles: widget.onFiles,
+                        ),
+                      const SizedBox(height: 16),
+                    ],
+                    _QueueSectionHeading(
+                      l10n.downloadQueueWaiting,
+                      count: waiting.length,
                     ),
-                    const SizedBox(height: 8),
                     if (waiting.isEmpty)
                       Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        padding: const EdgeInsets.all(12),
                         child: Text(
                           active == null && paused.isEmpty && failed.isEmpty
                               ? l10n.downloadQueueFinished
@@ -174,23 +187,12 @@ class _DownloadQueueViewState extends State<DownloadQueueView> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     if (paused.isNotEmpty) ...[
-                      const SizedBox(height: 28),
-                      SectionLabel(
-                        '${l10n.downloadQueuePaused} · ${paused.length}',
+                      const SizedBox(height: 16),
+                      _QueueSectionHeading(
+                        l10n.downloadQueuePaused,
+                        count: paused.length,
                       ),
                       for (final item in paused)
-                        _StatusRow(
-                          key: ValueKey(item.id),
-                          item: item,
-                          onFiles: widget.onFiles,
-                        ),
-                    ],
-                    if (failed.isNotEmpty) ...[
-                      const SizedBox(height: 28),
-                      SectionLabel(
-                        '${l10n.downloadQueueAttention} · ${failed.length}',
-                      ),
-                      for (final item in failed)
                         _StatusRow(
                           key: ValueKey(item.id),
                           item: item,
@@ -207,6 +209,52 @@ class _DownloadQueueViewState extends State<DownloadQueueView> {
       );
     },
   );
+}
+
+class _QueueSectionHeading extends StatelessWidget {
+  const _QueueSectionHeading(
+    this.title, {
+    required this.count,
+    this.attention = false,
+  });
+
+  final String title;
+  final int count;
+  final bool attention;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      child: Semantics(
+        header: true,
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                title,
+                style: theme.textTheme.titleSmall?.copyWith(
+                  color: attention ? theme.colorScheme.error : null,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Text(
+              '$count',
+              style: theme.textTheme.labelMedium?.copyWith(
+                color: attention
+                    ? theme.colorScheme.error
+                    : theme.colorScheme.onSurfaceVariant,
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _WaitingRow extends StatefulWidget {
@@ -250,7 +298,6 @@ class _WaitingRowState extends State<_WaitingRow> {
     final first = index == 0 || deleting;
     final last = index == widget.count - 1 || deleting;
     final scheme = Theme.of(context).colorScheme;
-    final largeText = MediaQuery.textScalerOf(context).scale(16) > 23;
     final actions = <CustomSemanticsAction, VoidCallback>{
       if (!first)
         CustomSemanticsAction(label: l10n.downloadQueueMoveUp): () =>
@@ -338,7 +385,7 @@ class _WaitingRowState extends State<_WaitingRow> {
     );
     final controls = Row(
       mainAxisSize: MainAxisSize.min,
-      children: [menu, handle],
+      children: [handle, menu],
     );
     return Semantics(
       container: true,
@@ -350,49 +397,13 @@ class _WaitingRowState extends State<_WaitingRow> {
         child: Focus(
           key: ValueKey('queue_focus_${item.id}'),
           onFocusChange: (focused) => setState(() => _focused = focused),
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              border: Border.all(
-                color: _focused ? scheme.onSurface : Colors.transparent,
-              ),
-            ),
-            child: Column(
-              children: [
-                if (index > 0) const SegmentedRule(),
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  child: Column(
-                    children: [
-                      Row(
-                        children: [
-                          SizedBox(
-                            width: 28,
-                            child: ExcludeSemantics(
-                              child: Text(
-                                '${index + 1}',
-                                key: ValueKey('queue_position_${item.id}'),
-                                style: Theme.of(context).textTheme.bodySmall,
-                              ),
-                            ),
-                          ),
-                          Expanded(
-                            child: ExcludeSemantics(
-                              child: _EpisodeIdentity(item: item),
-                            ),
-                          ),
-                          if (!largeText) controls,
-                        ],
-                      ),
-                      if (largeText)
-                        Align(
-                          alignment: Alignment.centerRight,
-                          child: controls,
-                        ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
+          child: _QueueRow(
+            item: item,
+            controls: controls,
+            focused: _focused,
+            footer: item.downloadedBytes > 0
+                ? _QueueProgress(item: item)
+                : null,
           ),
         ),
       ),
@@ -405,33 +416,227 @@ class _EpisodeIdentity extends StatelessWidget {
   final DownloadItem item;
 
   @override
-  Widget build(BuildContext context) => Tooltip(
-    message: [
-      if (item.animeTitle.isNotEmpty)
-        item.animeTitle
-      else if (item.sourceTitle.isNotEmpty)
-        item.sourceTitle,
-      item.fileName,
-    ].join('\n'),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          item.animeTitle.isEmpty ? item.sourceTitle : item.animeTitle,
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-          style: Theme.of(context).textTheme.titleSmall,
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context);
+    final number = episodeNumberFromFileName(item.fileName);
+    final episode = downloadEpisode(l10n, item);
+    final title = item.animeTitle.isNotEmpty
+        ? item.animeTitle
+        : item.sourceTitle.isNotEmpty
+        ? item.sourceTitle
+        : episode;
+    final facts = downloadSourceFacts(item);
+    final showSource =
+        facts.source.isNotEmpty &&
+        facts.source.toLowerCase() != title.toLowerCase();
+    return Tooltip(
+      message: [
+        title,
+        item.fileName,
+        if (showSource) facts.source,
+        if (facts.videoHeight case final height?)
+          l10n.onlineQualityHeight(height),
+      ].join('\n'),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox.square(
+            dimension: 44,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surfaceContainer,
+                border: Border.all(color: theme.colorScheme.outlineVariant),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(4),
+                child: Center(
+                  child: number == null
+                      ? const PixelIcon(PixelGlyph.file, size: 18)
+                      : FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            number.toString().padLeft(2, '0'),
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.w600,
+                              color: item.status == DownloadStatus.failed
+                                  ? theme.colorScheme.error
+                                  : null,
+                              fontFeatures: const [
+                                FontFeature.tabularFigures(),
+                              ],
+                            ),
+                          ),
+                        ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.titleSmall,
+                ),
+                if (number == null && episode != title) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    episode,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodySmall,
+                  ),
+                ],
+                if (showSource || facts.videoHeight != null) ...[
+                  const SizedBox(height: 6),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (showSource)
+                        Flexible(
+                          child: Text(
+                            facts.source,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.bodySmall,
+                          ),
+                        ),
+                      if (showSource && facts.videoHeight != null)
+                        const SizedBox(width: 8),
+                      if (facts.videoHeight case final height?)
+                        QualityBadge(l10n.onlineQualityHeight(height)),
+                    ],
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _QueueRow extends StatelessWidget {
+  const _QueueRow({
+    required this.item,
+    required this.controls,
+    this.footer,
+    this.focused = false,
+  });
+
+  final DownloadItem item;
+  final Widget controls;
+  final Widget? footer;
+  final bool focused;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final failed = item.status == DownloadStatus.failed;
+    final actionsBelow = MediaQuery.textScalerOf(context).scale(16) > 23;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: failed ? scheme.error.withValues(alpha: 0.07) : null,
+          border: Border.all(
+            color: focused
+                ? scheme.onSurface
+                : failed
+                ? scheme.error.withValues(alpha: 0.55)
+                : Colors.transparent,
+          ),
         ),
-        const SizedBox(height: 4),
-        Text(
-          '${downloadEpisode(AppLocalizations.of(context), item)} · ${downloadSourceLabel(AppLocalizations.of(context), item)}',
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-          style: Theme.of(context).textTheme.bodySmall,
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: ExcludeSemantics(
+                      child: _EpisodeIdentity(item: item),
+                    ),
+                  ),
+                  if (!actionsBelow) controls,
+                ],
+              ),
+              if (actionsBelow)
+                Align(
+                  alignment: AlignmentDirectional.centerEnd,
+                  child: controls,
+                ),
+              if (footer case final footer?) ...[
+                const SizedBox(height: 12),
+                footer,
+              ],
+            ],
+          ),
         ),
-      ],
-    ),
-  );
+      ),
+    );
+  }
+}
+
+class _QueueProgress extends StatelessWidget {
+  const _QueueProgress({required this.item});
+  final DownloadItem item;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context);
+    final active = item.status == DownloadStatus.downloading;
+    final knownTotal = item.totalBytes > 0;
+    final loaded = formatByteSize(l10n, item.downloadedBytes);
+    final total =
+        '${item.isOnline ? '~' : ''}${formatByteSize(l10n, item.totalBytes)}';
+    final details = knownTotal
+        ? l10n.downloadBytesProgress(loaded, total)
+        : l10n.downloadBytesDownloaded(loaded);
+    final style = theme.textTheme.bodySmall?.copyWith(
+      color: active ? theme.colorScheme.tertiary : null,
+      fontFeatures: const [FontFeature.tabularFigures()],
+    );
+    return Padding(
+      padding: const EdgeInsetsDirectional.only(start: 56),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Wrap(
+            spacing: 12,
+            runSpacing: 4,
+            children: [
+              Text(details, style: style),
+              if (active)
+                Text(
+                  formatTransferRate(l10n, item.downloadRateBytesPerSecond),
+                  style: style,
+                ),
+            ],
+          ),
+          if (active || knownTotal) ...[
+            const SizedBox(height: 8),
+            LinearProgressIndicator(
+              value: knownTotal ? item.progress : null,
+              color: active
+                  ? theme.colorScheme.tertiary
+                  : theme.colorScheme.onSurfaceVariant,
+              semanticsLabel: downloadSemanticName(l10n, item),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
 }
 
 class _StatusRow extends StatefulWidget {
@@ -451,6 +656,7 @@ class _StatusRowState extends State<_StatusRow> {
     final item = widget.item;
     final active = item.status == DownloadStatus.downloading;
     final paused = item.status == DownloadStatus.paused;
+    final failed = item.status == DownloadStatus.failed;
     final noSpace = item.failure == DownloadFailure.noSpace;
     final cubit = context.read<DownloadManagerCubit>();
     final l10n = AppLocalizations.of(context);
@@ -458,12 +664,6 @@ class _StatusRowState extends State<_StatusRow> {
     final deleting = context.select<DownloadManagerCubit, bool>(
       (cubit) => cubit.state.deletingIds.contains(item.id),
     );
-    final status = active
-        ? '${item.totalBytes > 0 ? '${(item.progress * 100).round()}% · ' : ''}${formatTransferRate(l10n, item.downloadRateBytesPerSecond)}'
-        : paused
-        ? formatByteSize(l10n, item.downloadedBytes)
-        : downloadFailureMessage(l10n, item.failure ?? DownloadFailure.other);
-    final largeText = MediaQuery.textScalerOf(context).scale(16) > 23;
     final actionLabel = active
         ? l10n.downloadPauseButton
         : paused
@@ -476,31 +676,42 @@ class _StatusRowState extends State<_StatusRow> {
         : paused
         ? () => cubit.resume(item.id)
         : () => cubit.retry(item.id);
+    final action = Semantics(
+      label: '$actionLabel: $semanticName',
+      button: true,
+      enabled: !deleting,
+      excludeSemantics: true,
+      onTap: onAction,
+      child: IconButton(
+        key: ValueKey('queue_pause_${item.id}'),
+        tooltip: actionLabel,
+        onPressed: onAction,
+        icon: PixelIcon(
+          active
+              ? PixelGlyph.pause
+              : paused
+              ? PixelGlyph.play
+              : PixelGlyph.refresh,
+          size: 18,
+        ),
+      ),
+    );
     final controls = Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Semantics(
-          label: '$actionLabel: $semanticName',
-          button: true,
-          enabled: !deleting,
-          excludeSemantics: true,
-          onTap: onAction,
-          child: IconButton(
-            key: ValueKey('queue_pause_${item.id}'),
-            tooltip: actionLabel,
-            onPressed: onAction,
-            icon: PixelIcon(
-              active ? PixelGlyph.pause : PixelGlyph.download,
-              size: 18,
-            ),
-          ),
-        ),
+        SizedBox.square(dimension: 48, child: action),
         RowMenuButton(
           key: ValueKey('queue_menu_${item.id}'),
           controller: _menu,
           tooltip: l10n.commonMoreActions,
           semanticLabel: '$semanticName, ${l10n.commonMoreActions}',
           menuChildren: [
+            if (noSpace)
+              MenuItemButton(
+                key: ValueKey('queue_files_${item.id}'),
+                onPressed: widget.onFiles,
+                child: Text(l10n.downloadFilesTitle),
+              ),
             MenuItemButton(
               key: ValueKey('queue_delete_${item.id}'),
               onPressed: deleting
@@ -514,53 +725,32 @@ class _StatusRowState extends State<_StatusRow> {
         ),
       ],
     );
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Semantics(
-                  label: semanticName,
-                  child: ExcludeSemantics(child: _EpisodeIdentity(item: item)),
+    return Semantics(
+      container: true,
+      explicitChildNodes: true,
+      label: semanticName,
+      child: _QueueRow(
+        item: item,
+        controls: controls,
+        footer: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (active || paused || item.downloadedBytes > 0)
+              _QueueProgress(item: item),
+            if (failed) ...[
+              if (item.downloadedBytes > 0) const SizedBox(height: 12),
+              Text(
+                downloadFailureMessage(
+                  l10n,
+                  item.failure ?? DownloadFailure.other,
+                ),
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: Theme.of(context).colorScheme.error,
                 ),
               ),
-              if (!largeText) controls,
             ],
-          ),
-          if (largeText)
-            Align(alignment: Alignment.centerRight, child: controls),
-          const SizedBox(height: 12),
-          if (active) ...[
-            LinearProgressIndicator(
-              value: item.totalBytes > 0 ? item.progress : null,
-              color: Theme.of(context).colorScheme.tertiary,
-              semanticsLabel: semanticName,
-            ),
-            const SizedBox(height: 8),
           ],
-          Text(
-            status,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: active
-                  ? Theme.of(context).colorScheme.tertiary
-                  : paused
-                  ? null
-                  : Theme.of(context).colorScheme.error,
-            ),
-          ),
-          if (noSpace)
-            Align(
-              alignment: Alignment.centerLeft,
-              child: TextButton(
-                key: const Key('free_space'),
-                onPressed: widget.onFiles,
-                child: Text(l10n.downloadFilesTitle),
-              ),
-            ),
-        ],
+        ),
       ),
     );
   }

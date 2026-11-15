@@ -16,6 +16,7 @@ import 'package:iris/shared/widgets/adaptive/adaptive_grid_row.dart';
 import 'package:iris/shared/widgets/app_skeleton.dart';
 import 'package:iris/shared/widgets/dither_switcher.dart';
 import 'package:iris/shared/widgets/pixel_icon.dart';
+import 'package:iris/shared/widgets/quality_badge.dart';
 import 'package:iris/shared/widgets/segmented_bar.dart';
 import 'package:iris/shared/widgets/source_facts_line.dart';
 import 'package:iris/shared/widgets/status_views.dart';
@@ -221,11 +222,6 @@ class _ReleaseRow extends StatelessWidget {
     final l10n = AppLocalizations.of(context);
     final count = release.episodes.length;
     final quality = release.bestQuality;
-    final facts = [
-      // The stand-in has no episodes to count.
-      if (count > 0) l10n.animeEpisodeCount('$count', count),
-      if (quality != null) l10n.watchSourcesOnlineBestQuality(quality),
-    ].join(' · ');
 
     return TapRow(
       inkKey: ValueKey('online_release_${release.provider.name}_${release.id}'),
@@ -240,9 +236,23 @@ class _ReleaseRow extends StatelessWidget {
                 children: [
                   Text(release.dub, style: theme.textTheme.bodyMedium),
                   const SizedBox(height: 4),
-                  SourceFactsLine(
-                    watched: watched,
-                    facts: facts.isEmpty ? null : facts,
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 4,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      if (watched || count > 0)
+                        SourceFactsLine(
+                          watched: watched,
+                          facts: count > 0
+                              ? l10n.animeEpisodeCount('$count', count)
+                              : null,
+                        ),
+                      if (quality != null && quality > 0)
+                        QualityBadge(
+                          l10n.watchSourcesOnlineBestQuality(quality),
+                        ),
+                    ],
                   ),
                 ],
               ),

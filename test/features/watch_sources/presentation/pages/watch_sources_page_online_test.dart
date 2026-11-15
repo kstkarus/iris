@@ -73,10 +73,8 @@ void main() {
     expect(find.text('Online'), findsOneWidget);
     expect(find.text('Torrents'), findsOneWidget);
     expect(find.text('AniLibria'), findsOneWidget);
-    expect(
-      find.text('28 episodes · up to 1080p', findRichText: true),
-      findsOneWidget,
-    );
+    expect(find.text('28 episodes', findRichText: true), findsOneWidget);
+    expect(find.text('UP TO 1080P'), findsOneWidget);
     expect(find.text('[SubsPlease] Frieren'), findsNothing);
   });
 
@@ -206,7 +204,7 @@ void main() {
     );
 
     expect(
-      find.textContaining('· 28 episodes · up to 1080p', findRichText: true),
+      find.textContaining('· 28 episodes', findRichText: true),
       findsOneWidget,
     );
   });

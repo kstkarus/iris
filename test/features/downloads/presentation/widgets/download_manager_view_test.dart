@@ -948,7 +948,10 @@ void main() {
       tester,
     ) async {
       await _withTargetPlatform(TargetPlatform.android, () async {
-        final first = download(quality: 1440, videoHeight: 1080);
+        final first = download(quality: 1440, videoHeight: 1080).copyWith(
+          fileName:
+              'A very long special featurette with release details [1080p].mkv',
+        );
         final second = first.copyWith(
           id: 'frieren-7',
           fileIndex: 6,
@@ -981,9 +984,9 @@ void main() {
           ),
         );
 
-        expect(find.text('1080p'), findsOneWidget);
-        expect(find.text('720p'), findsOneWidget);
-        expect(find.text('1440p'), findsNothing);
+        expect(find.text('1080P'), findsOneWidget);
+        expect(find.text('720P'), findsOneWidget);
+        expect(find.text('1440P'), findsNothing);
         expect(tester.takeException(), isNull);
       });
     });

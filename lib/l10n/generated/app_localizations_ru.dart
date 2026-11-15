@@ -83,6 +83,16 @@ class AppLocalizationsRu extends AppLocalizations {
   String get downloadQueueNoWaiting => 'Следующих серий пока нет.';
 
   @override
+  String downloadBytesProgress(String downloaded, String total) {
+    return '$downloaded из $total';
+  }
+
+  @override
+  String downloadBytesDownloaded(String size) {
+    return 'Скачано $size';
+  }
+
+  @override
   String get appName => 'Iris';
 
   @override

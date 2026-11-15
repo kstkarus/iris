@@ -236,6 +236,18 @@ abstract class AppLocalizations {
   /// **'No episodes waiting.'**
   String get downloadQueueNoWaiting;
 
+  /// No description provided for @downloadBytesProgress.
+  ///
+  /// In en, this message translates to:
+  /// **'{downloaded} of {total}'**
+  String downloadBytesProgress(String downloaded, String total);
+
+  /// No description provided for @downloadBytesDownloaded.
+  ///
+  /// In en, this message translates to:
+  /// **'{size} downloaded'**
+  String downloadBytesDownloaded(String size);
+
   /// No description provided for @appName.
   ///
   /// In en, this message translates to:

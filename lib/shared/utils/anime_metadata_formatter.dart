@@ -51,11 +51,9 @@ String formatEpisodeProgress(
   int airedEpisodes,
   int totalEpisodes,
 ) {
-  final numberFormat = NumberFormat.decimalPattern(l10n.localeName);
-
   return l10n.animeEpisodeProgress(
-    numberFormat.format(airedEpisodes),
-    numberFormat.format(totalEpisodes),
+    airedEpisodes.toString(),
+    totalEpisodes.toString(),
     totalEpisodes,
   );
 }
@@ -68,18 +66,14 @@ String? formatEpisodes(
   int episodes,
   int episodesAired,
 ) {
-  final numberFormat = NumberFormat.decimalPattern(l10n.localeName);
   if (episodes > 0 && (status == 'released' || episodesAired >= episodes)) {
-    return l10n.animeEpisodeCount(numberFormat.format(episodes), episodes);
+    return l10n.animeEpisodeCount(episodes.toString(), episodes);
   }
   if (episodes > 0) {
     return formatEpisodeProgress(l10n, episodesAired, episodes);
   }
   if (episodesAired > 0) {
-    return l10n.animeEpisodeCount(
-      numberFormat.format(episodesAired),
-      episodesAired,
-    );
+    return l10n.animeEpisodeCount(episodesAired.toString(), episodesAired);
   }
   return null;
 }

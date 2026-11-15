@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:intl/intl.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 
 import 'package:iris/entities/anime/domain/anime_summary.dart';
@@ -553,19 +552,15 @@ String _genreName(AppLocalizations l10n, AnimeGenreName genre) =>
 
 /// The total for finished titles, aired of total while a title is airing.
 String? _episodesValue(AppLocalizations l10n, AnimeDetailsPreview head) {
-  final numbers = NumberFormat.decimalPattern(l10n.localeName);
   final total = head.anime.episodes;
   final aired = head.anime.episodesAired;
   if (total > 0 && (head.anime.status == 'released' || aired >= total)) {
-    return numbers.format(total);
+    return total.toString();
   }
   if (total > 0) {
-    return l10n.animeDetailsEpisodesAired(
-      numbers.format(aired),
-      numbers.format(total),
-    );
+    return l10n.animeDetailsEpisodesAired(aired.toString(), total.toString());
   }
-  if (aired > 0) return numbers.format(aired);
+  if (aired > 0) return aired.toString();
   return null;
 }
 

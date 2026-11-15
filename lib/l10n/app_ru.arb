@@ -23,6 +23,8 @@
   "downloadQueueAttention": "Требует внимания",
   "downloadQueueFinished": "Все загрузки завершены. Готовые серии находятся в библиотеке.",
   "downloadQueueNoWaiting": "Следующих серий пока нет.",
+  "downloadBytesProgress": "{downloaded} из {total}",
+  "downloadBytesDownloaded": "Скачано {size}",
   "appName": "Iris",
   "commonRetry": "Повторить",
   "navigationCatalog": "Каталог",

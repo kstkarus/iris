@@ -29,6 +29,7 @@ import 'package:iris/shared/widgets/dither_switcher.dart';
 import 'package:iris/features/downloads/presentation/widgets/download_title_widgets.dart';
 import 'package:iris/shared/widgets/focusable_list_row.dart';
 import 'package:iris/shared/widgets/pixel_icon.dart';
+import 'package:iris/shared/widgets/quality_badge.dart';
 import 'package:iris/shared/widgets/row_menu_button.dart';
 import 'package:iris/shared/widgets/segmented_bar.dart';
 import 'package:iris/shared/widgets/status_views.dart';
@@ -700,7 +701,6 @@ class _EpisodesState extends State<_Episodes> {
                                     ? null
                                     : false,
                                 semanticLabel: downloadSourceLabel(
-                                  l10n,
                                   release.first,
                                 ),
                                 onChanged: _busy
@@ -865,15 +865,26 @@ class _ReleaseFacts extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
+    final label = downloadSourceLabel(item);
     return Tooltip(
       message: item.sourceTitle,
       child: Semantics(
         header: true,
-        child: Text(
-          downloadSourceLabel(l10n, item, videoHeight: videoHeight),
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-          style: Theme.of(context).textTheme.bodySmall,
+        child: Row(
+          children: [
+            Flexible(
+              child: Text(
+                label,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ),
+            if (videoHeight case final height?) ...[
+              const SizedBox(width: 8),
+              QualityBadge(l10n.onlineQualityHeight(height)),
+            ],
+          ],
         ),
       ),
     );
@@ -883,7 +894,9 @@ class _ReleaseFacts extends StatelessWidget {
 int? _sharedReleaseHeight(List<DownloadItem> release) {
   if (release.isEmpty) return null;
   final height = release.first.videoHeight;
-  return height != null && release.every((item) => item.videoHeight == height)
+  return height != null &&
+          height > 0 &&
+          release.every((item) => item.videoHeight == height)
       ? height
       : null;
 }
@@ -942,7 +955,9 @@ class _DownloadRowState extends State<_DownloadRow> {
     final completed = status == DownloadStatus.completed;
     final name = downloadName(l10n, item);
     final semanticName = downloadSemanticName(l10n, item);
-    final episodeVideoHeight = widget.videoHeight == null
+    final episodeLabel = downloadEpisode(l10n, item);
+    final episodeVideoHeight =
+        widget.videoHeight == null || widget.videoHeight! <= 0
         ? null
         : l10n.onlineQualityHeight(widget.videoHeight!);
     final progress = item.progress;
@@ -1078,7 +1093,7 @@ class _DownloadRowState extends State<_DownloadRow> {
                                       triggerMode: TooltipTriggerMode.manual,
                                       message: name,
                                       child: Text(
-                                        downloadEpisode(l10n, item),
+                                        episodeLabel,
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
                                         style: titleStyle,
@@ -1087,16 +1102,7 @@ class _DownloadRowState extends State<_DownloadRow> {
                                   ),
                                   if (episodeVideoHeight != null) ...[
                                     const SizedBox(width: 8),
-                                    Text(
-                                      episodeVideoHeight,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: detailStyle?.copyWith(
-                                        color: Theme.of(
-                                          context,
-                                        ).colorScheme.onSurfaceVariant,
-                                      ),
-                                    ),
+                                    QualityBadge(episodeVideoHeight),
                                   ],
                                 ],
                               ),

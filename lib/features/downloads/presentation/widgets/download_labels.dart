@@ -17,14 +17,15 @@ String downloadName(AppLocalizations l10n, DownloadItem item) {
 
 String downloadSemanticName(AppLocalizations l10n, DownloadItem item) {
   final name = downloadName(l10n, item);
-  final release =
-      item.animeTitle.trim().isNotEmpty && item.sourceTitle.trim().isNotEmpty
-      ? downloadSourceLabel(l10n, item)
-      : '';
+  final facts = downloadSourceFacts(item);
+  final separateRelease =
+      item.animeTitle.trim().isNotEmpty && item.sourceTitle.trim().isNotEmpty;
   return [
     name,
-    if (release.isNotEmpty) release,
-    if (item.videoHeight case final height?) l10n.onlineQualityHeight(height),
+    if (separateRelease && facts.source.isNotEmpty) facts.source,
+    if (separateRelease || item.videoHeight != null)
+      if (facts.videoHeight case final height?)
+        l10n.onlineQualityHeight(height),
   ].join(', ');
 }
 
@@ -36,11 +37,7 @@ String downloadEpisode(AppLocalizations l10n, DownloadItem item) {
       : l10n.downloadEpisodeLabel(number.toString().padLeft(2, '0'));
 }
 
-String downloadSourceLabel(
-  AppLocalizations l10n,
-  DownloadItem item, {
-  int? videoHeight,
-}) {
+String downloadSourceLabel(DownloadItem item) {
   final name = item.animeTitle;
   var label = name.isEmpty
       ? item.sourceTitle
@@ -61,8 +58,14 @@ String downloadSourceLabel(
         '',
       )
       .trim();
-  return [
-    label.toUpperCase(),
-    if (videoHeight != null) l10n.onlineQualityHeight(videoHeight),
-  ].join(' · ');
+  return label.toUpperCase();
+}
+
+/// A title's text is not a measurement of the file's resolution.
+({String source, int? videoHeight}) downloadSourceFacts(DownloadItem item) {
+  final reported = item.videoHeight;
+  return (
+    source: downloadSourceLabel(item),
+    videoHeight: reported != null && reported > 0 ? reported : null,
+  );
 }
