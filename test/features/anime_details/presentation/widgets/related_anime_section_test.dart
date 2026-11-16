@@ -64,7 +64,10 @@ void main() {
       ], onOpen: (extra) => opened = extra),
     );
 
-    expect(find.text('SEQUEL · TV · 2026'), findsOneWidget);
+    expect(
+      find.textContaining(RegExp(r'Sequel.*TV.*2026'), findRichText: true),
+      findsOneWidget,
+    );
     expect(find.text('Провожающая в последний путь Фрирен 2'), findsOneWidget);
 
     await tester.tap(find.text('Sousou no Frieren 2nd Season'));

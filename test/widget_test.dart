@@ -128,7 +128,10 @@ void main() {
     expect(
       find.descendant(
         of: find.byKey(const Key('saved_torrent_watch_button')),
-        matching: find.text('Episode 1 · 5:00 / 24:00'),
+        matching: find.textContaining(
+          RegExp(r'Episode 1.*5:00 / 24:00'),
+          findRichText: true,
+        ),
       ),
       findsOneWidget,
     );

@@ -28,6 +28,7 @@ import 'package:iris/shared/utils/episode_number.dart';
 import 'package:iris/shared/widgets/dither_switcher.dart';
 import 'package:iris/features/downloads/presentation/widgets/download_title_widgets.dart';
 import 'package:iris/shared/widgets/focusable_list_row.dart';
+import 'package:iris/shared/widgets/pixel_separated_text.dart';
 import 'package:iris/shared/widgets/pixel_icon.dart';
 import 'package:iris/shared/widgets/quality_badge.dart';
 import 'package:iris/shared/widgets/row_menu_button.dart';
@@ -444,7 +445,7 @@ class _DownloadStatusDialog extends StatelessWidget {
                   style: Theme.of(context).textTheme.labelLarge,
                 ),
                 const SizedBox(height: 4),
-                Text(
+                PixelSeparatedText(
                   _facts(l10n, item),
                   style: Theme.of(context).textTheme.bodySmall,
                 ),

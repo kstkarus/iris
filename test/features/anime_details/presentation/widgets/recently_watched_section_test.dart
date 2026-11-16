@@ -61,7 +61,7 @@ void main() {
       _progress('ccc', animeId: '999', minute: 4),
     ]);
 
-    expect(find.text('RECENTLY WATCHED'), findsOneWidget);
+    expect(find.text('Recently watched'), findsOneWidget);
     expect(find.text('Release aaa'), findsOneWidget);
     expect(find.text('Last watched: ep-02'), findsOneWidget);
     expect(find.text('Release bbb'), findsOneWidget);

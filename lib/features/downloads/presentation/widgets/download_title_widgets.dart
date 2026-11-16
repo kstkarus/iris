@@ -11,6 +11,7 @@ import 'package:iris/shared/widgets/dither_list.dart';
 import 'package:iris/shared/widgets/headline_anchor.dart';
 import 'package:iris/shared/widgets/page_title.dart';
 import 'package:iris/shared/widgets/pixel_icon.dart';
+import 'package:iris/shared/widgets/pixel_separated_text.dart';
 import 'package:iris/shared/widgets/poster_image.dart';
 import 'package:iris/shared/widgets/tap_row.dart';
 
@@ -43,8 +44,14 @@ class DownloadTitleIdentity extends StatelessWidget {
             children: [
               Text(title.name, style: theme.textTheme.headlineSmall),
               const SizedBox(height: 8),
-              Text(
-                '${l10n.downloadTitleReady(title.count(DownloadStatus.completed), title.items.length)} · ${_titleBytes(l10n, title)}',
+              PixelSeparatedText.parts(
+                [
+                  l10n.downloadTitleReady(
+                    title.count(DownloadStatus.completed),
+                    title.items.length,
+                  ),
+                  _titleBytes(l10n, title),
+                ],
                 style: theme.textTheme.bodySmall,
               ),
             ],

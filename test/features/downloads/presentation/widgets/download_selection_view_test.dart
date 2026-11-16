@@ -306,15 +306,27 @@ void main() {
     // is not done.
     repository.load(1, 0.42);
     await tester.pumpAndSettle();
-    expect(find.text('~100.0 MB · Downloading · 42%'), findsOneWidget);
+    expect(
+      find.textContaining(
+        RegExp(r'~100\.0 MB.*Downloading.*42%'),
+        findRichText: true,
+      ),
+      findsOneWidget,
+    );
     repository.load(1, 1.2, done: false);
     await tester.pumpAndSettle();
-    expect(find.textContaining('Downloading · 99%'), findsOneWidget);
+    expect(
+      find.textContaining(RegExp(r'Downloading.*99%'), findRichText: true),
+      findsOneWidget,
+    );
 
     repository.load(1, 1);
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('download_file_watch_1')), findsOneWidget);
-    expect(find.text('100.0 MB · Done'), findsOneWidget);
+    expect(
+      find.textContaining(RegExp(r'100\.0 MB.*Done'), findRichText: true),
+      findsOneWidget,
+    );
     expect(tester.takeException(), isNull);
   });
 

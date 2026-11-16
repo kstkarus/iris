@@ -24,7 +24,6 @@ AnimeDetails mapShikimoriAnimeDetailsToDomain(ShikimoriAnimeDetailsDto dto) {
         if (genre.kind != 'theme' && genre.name.isNotEmpty)
           AnimeGenreName(name: genre.name, russian: genre.russian),
     ],
-    fandubbers: dto.fandubbers,
     related: [
       for (final item in dto.related)
         RelatedAnime(

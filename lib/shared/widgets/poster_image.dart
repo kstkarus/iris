@@ -8,12 +8,18 @@ import 'package:iris/shared/widgets/pixel_noise.dart';
 /// keep their edge on a light background. A cover on its way is
 /// [PixelNoise] and develops out of it; a missing one is an empty frame.
 class PosterImage extends StatelessWidget {
-  const PosterImage({required this.url, this.fallback, super.key});
+  const PosterImage({
+    required this.url,
+    this.fallback,
+    this.borderColor,
+    super.key,
+  });
 
   static const aspectRatio = 2 / 3;
 
   final String url;
   final Widget? fallback;
+  final Color? borderColor;
 
   @override
   Widget build(BuildContext context) {
@@ -23,7 +29,7 @@ class PosterImage extends StatelessWidget {
       child: DecoratedBox(
         position: DecorationPosition.foreground,
         decoration: BoxDecoration(
-          border: Border.all(color: scheme.outlineVariant),
+          border: Border.all(color: borderColor ?? scheme.outlineVariant),
         ),
         child: url.isEmpty
             ? fallback ?? ColoredBox(color: scheme.surfaceContainer)

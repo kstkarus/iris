@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/widgets/pixel_icon.dart';
+import 'package:iris/shared/widgets/pixel_separated_text.dart';
 
 class DownloadLibraryHeader extends StatelessWidget {
   const DownloadLibraryHeader({
@@ -65,7 +66,7 @@ class DownloadLibraryHeader extends StatelessWidget {
                             ),
                           ),
                         )
-                      : Text(queueLabel),
+                      : PixelSeparatedText(queueLabel),
                 ),
               if (compact)
                 IconButton(

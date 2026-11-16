@@ -12,6 +12,7 @@ import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/utils/motion_duration.dart';
 import 'package:iris/shared/widgets/dither_switcher.dart';
 import 'package:iris/shared/widgets/pixel_icon.dart';
+import 'package:iris/shared/widgets/pixel_separated_text.dart';
 
 const _background = Color(0xE60B0C0E);
 const _border = Color(0xFF3A3D42);
@@ -304,7 +305,7 @@ class _EpisodeMarkPlateState extends State<EpisodeMarkPlate> {
                                   mainAxisSize: MainAxisSize.min,
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text(
+                                    PixelSeparatedText(
                                       displayLabel,
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,

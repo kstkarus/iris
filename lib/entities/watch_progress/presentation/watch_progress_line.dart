@@ -14,6 +14,7 @@ class WatchProgressLine extends StatelessWidget {
     required this.progress,
     this.showBar = true,
     this.timesOnly = false,
+    this.style,
     super.key,
   });
 
@@ -30,11 +31,14 @@ class WatchProgressLine extends StatelessWidget {
   /// says what the times are.
   final bool timesOnly;
 
+  /// Optional override for the progress text style.
+  final TextStyle? style;
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final theme = Theme.of(context);
-    final style = theme.textTheme.bodySmall;
+    final style = this.style ?? theme.textTheme.bodySmall;
 
     if (progress.isFinished) {
       return Wrap(

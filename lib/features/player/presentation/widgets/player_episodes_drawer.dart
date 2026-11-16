@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:iris/features/player/presentation/widgets/player_viewport_factory.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/widgets/pixel_icon.dart';
+import 'package:iris/shared/widgets/pixel_separated_text.dart';
 
 /// The episodes over the right side of the immersive player; a click beside
 /// it closes it. While open it is modal: focus moves into it, Tab stays in
@@ -132,7 +133,7 @@ class _Panel extends StatelessWidget {
                               ),
                             ),
                             if (caption != null && caption.isNotEmpty)
-                              Text(
+                              PixelSeparatedText(
                                 caption,
                                 key: const Key('player_episodes_caption'),
                                 maxLines: 2,

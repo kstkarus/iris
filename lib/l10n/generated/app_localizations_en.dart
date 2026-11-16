@@ -1360,6 +1360,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get characterAnimeTitle => 'Anime';
 
   @override
+  String get characterFactJapanese => 'Japanese';
+
+  @override
+  String get characterFactAltNames => 'Other names';
+
+  @override
   String get characterRoleMain => 'Main role';
 
   @override
@@ -1376,9 +1382,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get animeDetailsFactRating => 'Rated';
-
-  @override
-  String get animeDetailsDubsTitle => 'Dubs';
 
   @override
   String playerMarked(int episode) {

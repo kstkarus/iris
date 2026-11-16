@@ -2432,6 +2432,18 @@ abstract class AppLocalizations {
   /// **'Anime'**
   String get characterAnimeTitle;
 
+  /// No description provided for @characterFactJapanese.
+  ///
+  /// In en, this message translates to:
+  /// **'Japanese'**
+  String get characterFactJapanese;
+
+  /// No description provided for @characterFactAltNames.
+  ///
+  /// In en, this message translates to:
+  /// **'Other names'**
+  String get characterFactAltNames;
+
   /// No description provided for @characterRoleMain.
   ///
   /// In en, this message translates to:
@@ -2467,12 +2479,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Rated'**
   String get animeDetailsFactRating;
-
-  /// No description provided for @animeDetailsDubsTitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Dubs'**
-  String get animeDetailsDubsTitle;
 
   /// No description provided for @playerMarked.
   ///

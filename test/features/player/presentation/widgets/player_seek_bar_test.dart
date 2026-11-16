@@ -36,7 +36,13 @@ void main() {
     await mouse.addPointer(location: Offset.zero);
     await mouse.moveTo(middle);
     await tester.pump();
-    expect(tester.widget<Text>(time).data, '10:00');
+    expect(
+      find.descendant(
+        of: time,
+        matching: find.text('10:00', findRichText: true),
+      ),
+      findsOneWidget,
+    );
 
     await tester.tapAt(middle);
     expect(seeked, const Duration(minutes: 10));
@@ -144,34 +150,45 @@ void main() {
     await mouse.moveTo(Offset(bar.center.dx, bar.bottom - 20));
     await tester.pump();
     expect(
-      tester.widget<Text>(find.byKey(const Key('player_seek_bar_time'))).data,
-      'Part A · 10:00',
+      find.descendant(
+        of: find.byKey(const Key('player_seek_bar_time')),
+        matching: find.textContaining(
+          RegExp(r'Part A.*10:00'),
+          findRichText: true,
+        ),
+      ),
+      findsOneWidget,
       reason: 'a chapter goes by its own name',
     );
 
     await mouse.moveTo(Offset(bar.left + bar.width * 0.02, bar.bottom - 20));
     await tester.pump();
     expect(
-      tester.widget<Text>(find.byKey(const Key('player_seek_bar_time'))).data,
-      '0:24',
+      find.descendant(
+        of: find.byKey(const Key('player_seek_bar_time')),
+        matching: find.text('0:24', findRichText: true),
+      ),
+      findsOneWidget,
       reason: 'a stretch without a name shows the time alone',
     );
 
     semantics.dispose();
   });
 
-  testWidgets('the time is measured in the font the theme draws it in', (
+  testWidgets('chapter labels fit with inherited style and enlarged text', (
     tester,
   ) async {
     await tester.pumpWidget(
       _app(
-        // A theme font wider than the engine's default.
-        DefaultTextStyle(
-          style: const TextStyle(letterSpacing: 6),
-          child: _bar(
-            position: const Duration(minutes: 1),
-            onSeek: (_) {},
-            parts: _parts,
+        MediaQuery(
+          data: const MediaQueryData(textScaler: TextScaler.linear(2)),
+          child: DefaultTextStyle(
+            style: const TextStyle(letterSpacing: 1),
+            child: _bar(
+              position: const Duration(minutes: 1),
+              onSeek: (_) {},
+              parts: _parts,
+            ),
           ),
         ),
       ),
@@ -184,12 +201,22 @@ void main() {
     await tester.pump();
 
     final label = tester.renderObject<RenderParagraph>(
-      find.byKey(const Key('player_seek_bar_time')),
+      find.descendant(
+        of: find.byKey(const Key('player_seek_bar_time')),
+        matching: find.byType(RichText),
+      ),
     );
     expect(
       label.getMaxIntrinsicWidth(double.infinity),
       lessThanOrEqualTo(label.size.width),
       reason: 'the whole time fits its box',
+    );
+    expect(
+      tester.getRect(find.byKey(const Key('player_seek_bar_time'))).bottom,
+      lessThanOrEqualTo(
+        tester.getRect(find.byKey(const Key('player_seek_bar_track'))).top,
+      ),
+      reason: 'the preview stays above the seek track',
     );
   });
 

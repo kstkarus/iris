@@ -134,10 +134,7 @@ void main() {
     }
   });
 
-  testWidgets('a released title has no next episode; the dubs fold', (
-    tester,
-  ) async {
-    final dubs = [for (var i = 1; i <= 16; i++) 'Team $i'];
+  testWidgets('a released title has no next episode', (tester) async {
     final cubit = AnimeDetailsCubit(
       animeId: '5114',
       repository: FixedAnimeDetailsRepository(
@@ -156,7 +153,6 @@ void main() {
             nextEpisodeAt: DateTime.now().add(const Duration(days: 3)),
           ),
           description: 'About it.',
-          fandubbers: dubs,
         ),
       ),
     );
@@ -165,16 +161,6 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Next'), findsNothing);
-    final names = find.byKey(const Key('dubs_section_names'));
-    await tester.ensureVisible(names);
-    expect(tester.widget<Text>(names).data, dubs.take(12).join(' · '));
-
-    final more = find.byKey(const Key('dubs_section_more'));
-    await tester.ensureVisible(more);
-    expect(find.text('4 more'), findsOneWidget);
-    await tester.tap(more);
-    await tester.pumpAndSettle();
-    expect(tester.widget<Text>(names).data, dubs.join(' · '));
   });
 
   testWidgets('shows localized details metadata for Russian locale', (
@@ -202,7 +188,7 @@ void main() {
       'Вышло',
       'Оценка',
       '9,12',
-      '5 апр. 2009 г.',
+      '5 апр. 2009\u00A0г.',
     ]) {
       expect(find.text(fact), findsOneWidget, reason: fact);
     }

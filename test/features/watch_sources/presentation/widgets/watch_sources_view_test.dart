@@ -217,7 +217,10 @@ void main() {
 
     expect(_topTitle(tester), '[ASW] Frieren - 27');
     expect(find.byKey(const Key('watch_source_used_badge')), findsOneWidget);
-    expect(find.textContaining('You watched this · '), findsOneWidget);
+    expect(
+      find.textContaining('You watched this', findRichText: true),
+      findsOneWidget,
+    );
   });
 
   testWidgets('shows empty state when there are no results from repository', (

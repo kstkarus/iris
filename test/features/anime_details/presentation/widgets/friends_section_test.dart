@@ -44,14 +44,20 @@ void main() {
         },
       ),
     );
-    expect(find.text('FRIENDS'), findsNothing);
+    expect(find.text('Friends'), findsNothing);
 
     await tester.runAsync(() => cubit.show('42'));
     await tester.pump();
 
-    expect(find.text('FRIENDS'), findsOneWidget);
+    expect(find.text('Friends'), findsOneWidget);
     expect(find.text('friend_2'), findsOneWidget);
-    expect(find.text('WATCHING · 5/12 · SCORE: 7'), findsOneWidget);
+    expect(
+      find.textContaining(
+        RegExp(r'Watching.*5/12.*Score: 7'),
+        findRichText: true,
+      ),
+      findsOneWidget,
+    );
     expect(find.text('friend_1'), findsNothing);
   });
 }

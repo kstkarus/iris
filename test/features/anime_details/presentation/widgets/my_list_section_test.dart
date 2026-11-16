@@ -37,10 +37,21 @@ void main() {
     await tester.pump();
   }
 
-  testWidgets('signed out, there is no section', (tester) async {
+  testWidgets('list controls follow sign-in and sign-out', (tester) async {
     await pumpSection(tester);
 
-    expect(find.text('MY LIST'), findsNothing);
+    expect(find.byKey(MyListSection.statusButtonKey), findsNothing);
+    expect(find.byKey(MyListSection.scoreButtonKey), findsNothing);
+
+    await cubit.accountChanged('42');
+    await tester.pumpAndSettle();
+    expect(find.byKey(MyListSection.statusButtonKey), findsOneWidget);
+    expect(find.byKey(MyListSection.scoreButtonKey), findsOneWidget);
+
+    await cubit.accountChanged(null);
+    await tester.pumpAndSettle();
+    expect(find.byKey(MyListSection.statusButtonKey), findsNothing);
+    expect(find.byKey(MyListSection.scoreButtonKey), findsNothing);
   });
 
   testWidgets('the entry cannot be edited until it loads', (tester) async {
@@ -71,12 +82,27 @@ void main() {
   });
 
   testWidgets('adds the anime with a status from the menu', (tester) async {
+    final semantics = tester.ensureSemantics();
+    addTearDown(semantics.dispose);
     await cubit.accountChanged('42');
     await pumpSection(tester);
 
-    expect(find.text('MY LIST'), findsOneWidget);
+    expect(find.text('My list'), findsOneWidget);
     expect(find.text('Add to list'), findsOneWidget);
     expect(find.byKey(MyListSection.episodeMoreKey), findsNothing);
+    for (final key in [
+      MyListSection.statusButtonKey,
+      MyListSection.scoreButtonKey,
+    ]) {
+      expect(
+        tester
+            .getSemantics(find.byKey(key))
+            .getSemanticsData()
+            .flagsCollection
+            .isButton,
+        isTrue,
+      );
+    }
 
     await tester.tap(find.byKey(MyListSection.statusButtonKey));
     await tester.pumpAndSettle();

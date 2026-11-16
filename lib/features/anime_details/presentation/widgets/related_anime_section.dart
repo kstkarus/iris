@@ -5,14 +5,14 @@ import 'package:iris/entities/anime/domain/anime_kind.dart';
 import 'package:iris/features/anime_details/domain/entities/related_anime.dart';
 import 'package:iris/features/anime_details/presentation/models/anime_details_preview.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
+import 'package:iris/shared/widgets/detail_layout.dart';
 import 'package:iris/shared/utils/anime_metadata_formatter.dart';
 import 'package:iris/shared/utils/incomplete_date.dart';
-import 'package:iris/shared/widgets/adaptive/adaptive_content_width.dart';
-import 'package:iris/shared/widgets/fold_row.dart';
-import 'package:iris/shared/widgets/labeled_section.dart';
-import 'package:iris/shared/widgets/pixel_icon.dart';
-import 'package:iris/shared/widgets/segmented_bar.dart';
 import 'package:iris/shared/widgets/dither_switcher.dart';
+import 'package:iris/shared/widgets/fold_row.dart';
+import 'package:iris/shared/widgets/pixel_icon.dart';
+import 'package:iris/shared/widgets/pixel_separated_text.dart';
+import 'package:iris/shared/widgets/poster_image.dart';
 import 'package:iris/shared/widgets/tap_row.dart';
 
 /// What comes before and after first, then the rest of the franchise from
@@ -66,11 +66,7 @@ String formatAnimeRelation(AppLocalizations l10n, AnimeRelation relation) =>
 
 /// The rest of the franchise, each title a row that opens its page.
 class RelatedAnimeSection extends StatelessWidget {
-  const RelatedAnimeSection({
-    required this.related,
-    this.labelWidth,
-    super.key,
-  });
+  const RelatedAnimeSection({required this.related, super.key});
 
   /// Rows shown before the rest folds away: long franchises list dozens
   /// of specials and recaps.
@@ -81,41 +77,41 @@ class RelatedAnimeSection extends StatelessWidget {
 
   final List<RelatedAnime> related;
 
-  /// Width of the label column; null puts the label above the rows.
-  final double? labelWidth;
-
   @override
   Widget build(BuildContext context) {
     final related = relatedToShow(this.related);
-    // It may well be empty, so no noise for it: it develops in when
-    // it arrives, below everything it could push.
     if (related.isEmpty) return const DitherSwitcher(child: SizedBox.shrink());
 
     final l10n = AppLocalizations.of(context);
+    final scheme = Theme.of(context).colorScheme;
+    final ruleColor = DetailLayout.ruleColor(scheme);
     return DitherSwitcher(
       child: Padding(
-        padding: const EdgeInsets.only(top: 40),
-        child: LabeledSection(
+        padding: const EdgeInsets.only(top: 32),
+        child: DetailSection(
           label: l10n.animeDetailsRelatedTitle,
-          labelWidth: labelWidth,
-          child: Align(
-            alignment: AlignmentDirectional.topStart,
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(
-                maxWidth: AdaptiveContentWidth.reading,
-              ),
+          child: Container(
+            color: scheme.surfaceContainerLow,
+            foregroundDecoration: DetailLayout.cardDecoration(
+              scheme,
+              background: Colors.transparent,
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14),
               child: FoldingList(
                 key: const Key('related_anime_section'),
                 items: related,
                 visible: visibleRows,
                 minFolded: _minFolded,
                 toggleKey: const Key('related_anime_more'),
+                divider: Divider(height: 1, thickness: 1, color: ruleColor),
                 builder: (context, shown) => Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     for (final (index, item) in shown.indexed) ...[
-                      if (index > 0) const SegmentedRule(),
-                      _RelatedRow(related: item, first: index == 0),
+                      if (index > 0)
+                        Divider(height: 1, thickness: 1, color: ruleColor),
+                      _RelatedRow(related: item),
                     ],
                   ],
                 ),
@@ -128,15 +124,12 @@ class RelatedAnimeSection extends StatelessWidget {
   }
 }
 
-/// The relation, kind and year over the title, as the row's caption;
-/// the Russian title under it when it says something else.
+/// Poster thumbnail, relation/kind/year caption, title, optional Russian title,
+/// and navigation arrow.
 class _RelatedRow extends StatelessWidget {
-  const _RelatedRow({required this.related, required this.first});
+  const _RelatedRow({required this.related});
 
   final RelatedAnime related;
-
-  /// The first row starts level with the section label.
-  final bool first;
 
   @override
   Widget build(BuildContext context) {
@@ -145,11 +138,11 @@ class _RelatedRow extends StatelessWidget {
     final muted = theme.colorScheme.onSurfaceVariant;
     final anime = related.anime;
     final year = yearOfIsoDate(anime.airedOn)?.toString() ?? '';
-    final caption = [
+    final captionParts = [
       formatAnimeRelation(l10n, related.relation),
       if (anime.kind.isNotEmpty) formatAnimeKind(l10n, anime.kind),
       if (year.isNotEmpty) year,
-    ].join(' · ');
+    ];
     final russian = anime.russian.trim();
     return TapRow(
       inkKey: ValueKey('related_anime_${anime.id}'),
@@ -159,25 +152,37 @@ class _RelatedRow extends StatelessWidget {
         extra: AnimeDetailsPreview.fromSummary(anime),
       ),
       child: Padding(
-        padding: EdgeInsets.only(top: first ? 0 : 12, bottom: 12),
+        padding: const EdgeInsets.symmetric(vertical: 12),
         child: Row(
           children: [
+            SizedBox(width: 40, child: PosterImage(url: anime.posterUrl)),
+            const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    caption.toUpperCase(),
+                  PixelSeparatedText.parts(
+                    captionParts,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.labelSmall?.copyWith(color: muted),
+                    sansStyle: theme.textTheme.bodySmall?.copyWith(
+                      fontFamily: DetailLayout.sansFont,
+                      color: muted,
+                    ),
+                    monoStyle: theme.textTheme.bodySmall?.copyWith(
+                      fontFamily: DetailLayout.monoFont,
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                      color: muted,
+                    ),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     anime.name,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.titleSmall,
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontFamily: DetailLayout.sansFont,
+                    ),
                   ),
                   if (russian.isNotEmpty &&
                       russian.toLowerCase() != anime.name.toLowerCase()) ...[
@@ -186,14 +191,17 @@ class _RelatedRow extends StatelessWidget {
                       russian,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodySmall?.copyWith(color: muted),
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        fontFamily: DetailLayout.sansFont,
+                        color: muted,
+                      ),
                     ),
                   ],
                 ],
               ),
             ),
             const Padding(
-              padding: EdgeInsets.only(left: 16, right: 8),
+              padding: EdgeInsets.only(left: 12, right: 4),
               child: PixelIcon(PixelGlyph.arrowRight, size: 16),
             ),
           ],

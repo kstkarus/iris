@@ -204,7 +204,7 @@ void main() {
     );
 
     expect(
-      find.textContaining('· 28 episodes', findRichText: true),
+      find.textContaining('28 episodes', findRichText: true),
       findsOneWidget,
     );
   });
@@ -403,7 +403,13 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(AddSavedTorrentForm.fileButtonKey));
       await tester.pumpAndSettle();
-      expect(find.text('1 file · 1 KB · from a file'), findsOneWidget);
+      expect(
+        find.textContaining(
+          RegExp(r'1 file.*1 KB.*from a file'),
+          findRichText: true,
+        ),
+        findsOneWidget,
+      );
       await tester.tap(find.byKey(AddSavedTorrentForm.saveButtonKey));
       await tester.pumpAndSettle();
 

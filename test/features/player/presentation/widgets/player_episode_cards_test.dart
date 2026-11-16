@@ -209,10 +209,14 @@ void main() {
 
     expect(find.text('Episodes'), findsOneWidget);
     expect(
-      tester
-          .widget<Text>(find.byKey(const Key('player_episodes_caption')))
-          .data,
-      'Release · 3 episodes',
+      find.descendant(
+        of: find.byKey(const Key('player_episodes_caption')),
+        matching: find.textContaining(
+          RegExp(r'Release.*3 episodes'),
+          findRichText: true,
+        ),
+      ),
+      findsOneWidget,
     );
 
     await tester.tap(find.byKey(const Key('player_episodes_close_button')));

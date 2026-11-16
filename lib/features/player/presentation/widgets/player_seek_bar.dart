@@ -7,6 +7,7 @@ import 'package:iris/features/player/domain/player_timeline_parts.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/utils/duration_formatter.dart';
 import 'package:iris/shared/utils/equality.dart';
+import 'package:iris/shared/widgets/pixel_separated_text.dart';
 
 /// Times over the video: beside the timeline and above its thumb.
 const playerTimeStyle = TextStyle(
@@ -16,6 +17,9 @@ const playerTimeStyle = TextStyle(
   fontFeatures: [FontFeature.tabularFigures()],
   shadows: [Shadow(color: Colors.black54, blurRadius: 4)],
 );
+
+/// Lines up with the centre of 40 px buttons aligned to the bar's bottom.
+const _trackTop = 32.0;
 
 /// The immersive player's timeline: played and buffered parts, a thumb,
 /// and the time under the pointer while hovering or dragging. Seeks on tap
@@ -70,9 +74,6 @@ class _PlayerSeekBarState extends State<PlayerSeekBar>
   /// Visible over a bright frame, still apart from the buffered part.
   static const _unplayedColor = Color(0x52FFFFFF);
   static const _bufferedColor = Color(0x80FFFFFF);
-
-  /// Lines up with the centre of 40 px buttons aligned to the bar's bottom.
-  static const _trackTop = 32.0;
 
   double? _hoverFraction;
   double? _dragFraction;
@@ -256,7 +257,6 @@ class _PlayerSeekBarState extends State<PlayerSeekBar>
                     // at rest the readout beside the bar has it.
                     if (_active)
                       _timeLabel(
-                        width: width,
                         fraction: hover ?? played,
                         text: _pointText(hover ?? played, l10n),
                         key: const Key('player_seek_bar_time'),
@@ -324,43 +324,51 @@ class _PlayerSeekBarState extends State<PlayerSeekBar>
   }
 
   Widget _timeLabel({
-    required double width,
     required double fraction,
     required String text,
     Key? key,
   }) {
-    // Measured in the style it is drawn in: the theme brings the font.
-    final style = DefaultTextStyle.of(context).style.merge(playerTimeStyle);
-    final painter = TextPainter(
-      text: TextSpan(text: text, style: style),
-      textDirection: Directionality.of(context),
-      textScaler: MediaQuery.textScalerOf(context),
-      maxLines: 1,
-    )..layout();
-    final labelWidth = math.min(painter.width + 2, width);
-    painter.dispose();
-    final left = (fraction * width - labelWidth / 2).clamp(
-      0.0,
-      (width - labelWidth).clamp(0.0, double.infinity),
-    );
-    return Positioned(
-      left: left,
-      top: 0,
-      width: labelWidth,
-      // A pointer preview; the slider's value is where playback is.
-      child: ExcludeSemantics(
-        child: Text(
-          text,
-          key: key,
-          textAlign: TextAlign.center,
-          style: playerTimeStyle,
-          maxLines: 1,
-          softWrap: false,
-          overflow: TextOverflow.visible,
+    return Positioned.fill(
+      child: CustomSingleChildLayout(
+        delegate: _TimeLabelPosition(fraction),
+        // A pointer preview; the slider's value is where playback is.
+        child: ExcludeSemantics(
+          child: PixelSeparatedText(
+            text,
+            key: key,
+            textAlign: TextAlign.center,
+            style: playerTimeStyle,
+            maxLines: 1,
+            softWrap: false,
+            overflow: TextOverflow.ellipsis,
+          ),
         ),
       ),
     );
   }
+}
+
+class _TimeLabelPosition extends SingleChildLayoutDelegate {
+  const _TimeLabelPosition(this.fraction);
+
+  final double fraction;
+
+  @override
+  BoxConstraints getConstraintsForChild(BoxConstraints constraints) =>
+      BoxConstraints(maxWidth: constraints.maxWidth);
+
+  @override
+  Offset getPositionForChild(Size size, Size childSize) => Offset(
+    (fraction * size.width - childSize.width / 2).clamp(
+      0.0,
+      math.max(0.0, size.width - childSize.width),
+    ),
+    math.min(0.0, _trackTop - childSize.height - 4),
+  );
+
+  @override
+  bool shouldRelayout(_TimeLabelPosition oldDelegate) =>
+      oldDelegate.fraction != fraction;
 }
 
 /// The track with a gap at each cut, where the video shows through.

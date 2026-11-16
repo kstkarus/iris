@@ -58,7 +58,10 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byKey(AddSavedTorrentForm.magnetFieldKey), findsNothing);
     expect(find.text('Frieren BD'), findsOneWidget);
-    expect(find.text('2 KB · from a link'), findsOneWidget);
+    expect(
+      find.textContaining(RegExp(r'2 KB.*from a link'), findRichText: true),
+      findsOneWidget,
+    );
     expect(canAdd(tester), isTrue);
 
     await tester.tap(find.byKey(AddSavedTorrentForm.clearDraftKey));
@@ -123,7 +126,13 @@ void main() {
     await tester.tap(find.byKey(AddSavedTorrentForm.fileButtonKey));
     await tester.pumpAndSettle();
     expect(find.text('Frieren [BD]'), findsOneWidget);
-    expect(find.text('1 file · 3.0 MB · from a file'), findsOneWidget);
+    expect(
+      find.textContaining(
+        RegExp(r'1 file.*3\.0 MB.*from a file'),
+        findRichText: true,
+      ),
+      findsOneWidget,
+    );
 
     await tester.tap(find.byKey(AddSavedTorrentForm.saveButtonKey));
     await tester.pumpAndSettle();

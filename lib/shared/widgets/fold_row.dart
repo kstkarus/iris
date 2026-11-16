@@ -38,6 +38,7 @@ class FoldingList<T> extends StatefulWidget {
     required this.toggleKey,
     required this.builder,
     this.gapBeforeToggle = 0,
+    this.divider,
     super.key,
   });
 
@@ -46,6 +47,7 @@ class FoldingList<T> extends StatefulWidget {
   final int minFolded;
   final Key toggleKey;
   final double gapBeforeToggle;
+  final Widget? divider;
   final Widget Function(BuildContext context, List<T> shown) builder;
 
   @override
@@ -78,7 +80,7 @@ class _FoldingListState<T> extends State<FoldingList<T>> {
         if (folds) ...[
           if (widget.gapBeforeToggle > 0)
             SizedBox(height: widget.gapBeforeToggle),
-          const SegmentedRule(),
+          widget.divider ?? const SegmentedRule(),
           FoldRow(
             key: widget.toggleKey,
             label: _expanded

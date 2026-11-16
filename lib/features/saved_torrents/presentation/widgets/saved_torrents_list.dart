@@ -19,6 +19,7 @@ import 'package:iris/shared/widgets/adaptive/window_size_class.dart';
 import 'package:iris/shared/widgets/dither_list.dart';
 import 'package:iris/shared/widgets/focusable_list_row.dart';
 import 'package:iris/shared/widgets/pixel_icon.dart';
+import 'package:iris/shared/widgets/pixel_separated_text.dart';
 import 'package:iris/shared/widgets/row_menu_button.dart';
 import 'package:iris/shared/widgets/segmented_bar.dart';
 
@@ -229,9 +230,8 @@ class _Status extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          '${episode == null ? file : l10n.playerEpisodeNumber(episode)}'
-          ' · $times',
+        PixelSeparatedText.parts(
+          [episode == null ? file : l10n.playerEpisodeNumber(episode), times],
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: style?.copyWith(

@@ -55,7 +55,6 @@ query AnimeDetails($id: String!) {
       russian
       kind
     }
-    fandubbers
     related {
       relationKind
       anime {

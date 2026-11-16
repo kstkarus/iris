@@ -461,7 +461,10 @@ void main() {
     expect(
       find.descendant(
         of: find.byKey(UpdateNotice.sheetKey),
-        matching: find.text('42 B / 100 B · 42%', findRichText: true),
+        matching: find.textContaining(
+          RegExp(r'42 B / 100 B.*42%'),
+          findRichText: true,
+        ),
       ),
       findsOneWidget,
     );
@@ -472,7 +475,10 @@ void main() {
     expect(
       find.descendant(
         of: find.byKey(UpdateNotice.sheetKey),
-        matching: find.text('60 B / 100 B · 60%', findRichText: true),
+        matching: find.textContaining(
+          RegExp(r'60 B / 100 B.*60%'),
+          findRichText: true,
+        ),
       ),
       findsOneWidget,
     );
@@ -484,7 +490,10 @@ void main() {
 
     await tester.tap(find.byKey(UpdateNotice.noticeKey));
     await tester.pumpAndSettle();
-    expect(find.text('Updating · 60%', findRichText: true), findsOneWidget);
+    expect(
+      find.textContaining(RegExp(r'Updating.*60%'), findRichText: true),
+      findsOneWidget,
+    );
 
     downloads.emitProgress(100, 100);
     await tester.pumpAndSettle();

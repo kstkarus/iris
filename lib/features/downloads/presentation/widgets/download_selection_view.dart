@@ -15,6 +15,7 @@ import 'package:iris/shared/utils/byte_size_formatter.dart';
 import 'package:iris/shared/utils/file_display_name.dart';
 import 'package:iris/shared/widgets/dither_switcher.dart';
 import 'package:iris/shared/widgets/pixel_icon.dart';
+import 'package:iris/shared/widgets/pixel_separated_text.dart';
 import 'package:iris/shared/widgets/segmented_bar.dart';
 import 'package:iris/shared/widgets/segmented_choice.dart';
 import 'package:iris/shared/widgets/status_views.dart';
@@ -222,7 +223,7 @@ class _FileRow extends StatelessWidget {
                     ),
                     if (details.isNotEmpty) ...[
                       const SizedBox(height: 2),
-                      Text(
+                      PixelSeparatedText(
                         details,
                         style: theme.textTheme.bodySmall?.copyWith(
                           color:

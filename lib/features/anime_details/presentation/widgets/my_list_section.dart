@@ -7,19 +7,16 @@ import 'package:iris/entities/user_rate/presentation/user_rate_cubit.dart';
 import 'package:iris/entities/user_rate/presentation/user_rate_state.dart';
 import 'package:iris/entities/user_rate/presentation/user_rate_status_label.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
-import 'package:iris/shared/widgets/checked_menu_item.dart';
-import 'package:iris/shared/widgets/labeled_section.dart';
-import 'package:iris/shared/widgets/pixel_icon.dart';
+import 'package:iris/shared/widgets/detail_layout.dart';
 import 'package:iris/shared/widgets/app_skeleton.dart';
+import 'package:iris/shared/widgets/checked_menu_item.dart';
+import 'package:iris/shared/widgets/pixel_icon.dart';
 
-/// The anime's place in the signed-in user's Shikimori list: its status,
-/// and the episodes watched once it is in the list. Signed out, nothing.
+/// The anime's place in the signed-in user's Shikimori list: grouped into
+/// status/score menu rows above a paired episode counter and split stepper.
+/// Signed out, nothing.
 class MyListSection extends StatelessWidget {
-  const MyListSection({
-    required this.totalEpisodes,
-    this.labelWidth,
-    super.key,
-  });
+  const MyListSection({required this.totalEpisodes, super.key});
 
   static const statusButtonKey = Key('my_list_status_button');
   static const scoreButtonKey = Key('my_list_score_button');
@@ -29,13 +26,10 @@ class MyListSection extends StatelessWidget {
   /// The anime's episode count; 0 when Shikimori does not know it yet.
   final int totalEpisodes;
 
-  /// Width of the label column; null puts the label above.
-  final double? labelWidth;
-
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    // Pages built without the list (as in tests) show no section.
+    final scheme = Theme.of(context).colorScheme;
     final state =
         context.watch<UserRateCubit?>()?.state ?? const UserRateSignedOut();
     final Widget content;
@@ -43,23 +37,25 @@ class MyListSection extends StatelessWidget {
       case UserRateSignedOut():
         return const SizedBox.shrink();
       case UserRateLoading():
-        // Noise in the shape most titles show: not in the list yet.
         content = AppSkeleton(
           enabled: true,
           semanticLabel: l10n.userRateLoading,
           child: const _StandInControls(),
         );
       case UserRateLoadFailure():
-        content = Wrap(
-          spacing: 12,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: [
-            Text(l10n.userRateLoadError),
-            TextButton(
-              onPressed: context.read<UserRateCubit>().load,
-              child: Text(l10n.commonRetry),
-            ),
-          ],
+        content = Padding(
+          padding: const EdgeInsets.all(14),
+          child: Wrap(
+            spacing: 12,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              Text(l10n.userRateLoadError),
+              TextButton(
+                onPressed: context.read<UserRateCubit>().load,
+                child: Text(l10n.commonRetry),
+              ),
+            ],
+          ),
         );
       case UserRateLoaded():
         content = AppSkeleton(
@@ -68,34 +64,38 @@ class MyListSection extends StatelessWidget {
         );
     }
     return Padding(
-      padding: const EdgeInsets.only(top: 40),
-      child: LabeledSection(
+      padding: const EdgeInsets.only(top: 28),
+      child: DetailSection(
         label: l10n.userRateTitle,
-        labelWidth: labelWidth,
-        child: content,
+        child: Container(
+          color: scheme.surfaceContainerLow,
+          foregroundDecoration: DetailLayout.cardDecoration(
+            scheme,
+            background: Colors.transparent,
+          ),
+          child: content,
+        ),
       ),
     );
   }
 }
 
-/// The controls of an anime not in the list yet, to give the noise its
-/// shape.
+/// Stand-in grouped picker row matching the loaded container geometry.
 class _StandInControls extends StatelessWidget {
   const _StandInControls();
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    return Wrap(
-      spacing: 16,
-      runSpacing: 8,
-      crossAxisAlignment: WrapCrossAlignment.center,
-      children: [
-        Skeleton.unite(
-          child: OutlinedButton(onPressed: null, child: Text(l10n.userRateAdd)),
+    return _PickerBand(
+      left: _PickerCell(
+        onTap: null,
+        leading: const Skeleton.keep(
+          child: PixelIcon(PixelGlyph.plus, size: 10),
         ),
-        TextButton(onPressed: null, child: Text(l10n.userRateRate)),
-      ],
+        label: l10n.userRateAdd,
+      ),
+      right: _PickerCell(onTap: null, label: l10n.userRateRate),
     );
   }
 }
@@ -109,30 +109,149 @@ class _Controls extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final ruleColor = DetailLayout.ruleColor(scheme);
     final rate = state.rate;
+
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Wrap(
-          spacing: 16,
-          runSpacing: 8,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: [
-            _StatusMenu(rate: rate, saving: state.saving),
-            if (rate != null) _EpisodeStepper(rate: rate, total: total),
-            _ScoreMenu(score: rate?.score ?? 0),
-          ],
+        _PickerBand(
+          left: _StatusMenu(rate: rate, saving: state.saving),
+          right: _ScoreMenu(score: rate?.score ?? 0),
         ),
+        if (rate != null) ...[
+          Divider(height: 1, thickness: 1, color: ruleColor),
+          _ProgressBand(rate: rate, total: total),
+        ],
         if (state.saveFailed) ...[
-          const SizedBox(height: 8),
-          Text(
-            AppLocalizations.of(context).userRateSaveError,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
+          Divider(height: 1, thickness: 1, color: ruleColor),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            child: Text(
+              AppLocalizations.of(context).userRateSaveError,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: scheme.onSurfaceVariant,
+              ),
             ),
           ),
         ],
       ],
+    );
+  }
+}
+
+/// Hairline-divided band holding the status and score menu triggers. Stacks on
+/// narrow widths or large text scales so long status labels never wrap tightly.
+class _PickerBand extends StatelessWidget {
+  const _PickerBand({required this.left, required this.right});
+
+  final Widget left;
+  final Widget right;
+
+  @override
+  Widget build(BuildContext context) {
+    final ruleColor = DetailLayout.ruleColor(Theme.of(context).colorScheme);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final stack =
+            DetailLayout.isLargeText(context) || constraints.maxWidth < 330;
+        if (stack) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              left,
+              Divider(height: 1, thickness: 1, color: ruleColor),
+              right,
+            ],
+          );
+        }
+        return IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(child: left),
+              VerticalDivider(width: 1, thickness: 1, color: ruleColor),
+              Expanded(child: right),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// Interactive grouped-form cell with full-area hit target and menu chevron.
+class _PickerCell extends StatelessWidget {
+  const _PickerCell({
+    required this.onTap,
+    required this.label,
+    this.leading,
+    this.emphasize = false,
+    this.highlighted = false,
+    this.isData = false,
+    this.cellKey,
+  });
+
+  final VoidCallback? onTap;
+  final String label;
+  final Widget? leading;
+  final bool emphasize;
+  final bool highlighted;
+  final bool isData;
+  final Key? cellKey;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final sansStyle = theme.textTheme.titleSmall?.copyWith(
+      fontFamily: DetailLayout.sansFont,
+      fontWeight: FontWeight.w500,
+    );
+    final monoStyle = theme.textTheme.titleSmall?.copyWith(
+      fontFamily: DetailLayout.monoFont,
+      fontWeight: emphasize ? FontWeight.w600 : FontWeight.w500,
+      fontFeatures: const [FontFeature.tabularFigures()],
+    );
+
+    return TextButton(
+      key: cellKey,
+      onPressed: onTap,
+      style: TextButton.styleFrom(
+        minimumSize: const Size(0, 48),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        backgroundColor: highlighted
+            ? scheme.surfaceContainer
+            : Colors.transparent,
+      ),
+      child: Row(
+        children: [
+          if (leading != null) ...[leading!, const SizedBox(width: 9)],
+          Expanded(
+            child: isData
+                ? MixedDataText(
+                    label,
+                    sansStyle: sansStyle,
+                    monoStyle: monoStyle,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  )
+                : Text(
+                    label,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: sansStyle,
+                  ),
+          ),
+          const SizedBox(width: 8),
+          PixelIcon(
+            PixelGlyph.expand,
+            size: 10,
+            color: scheme.onSurfaceVariant,
+          ),
+        ],
+      ),
     );
   }
 }
@@ -148,8 +267,13 @@ class _StatusMenu extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
+    final scheme = Theme.of(context).colorScheme;
     final cubit = context.read<UserRateCubit>();
     final rate = this.rate;
+    final isLive =
+        rate?.status == UserRateStatus.watching ||
+        rate?.status == UserRateStatus.rewatching;
+
     return MenuAnchor(
       menuChildren: [
         for (final status in UserRateStatus.values)
@@ -167,14 +291,19 @@ class _StatusMenu extends StatelessWidget {
             child: Text(l10n.userRateRemove),
           ),
       ],
-      builder: (context, controller, _) => OutlinedButton(
-        key: MyListSection.statusButtonKey,
-        onPressed: controller.toggle,
-        child: Text(
-          rate == null
-              ? l10n.userRateAdd
-              : userRateStatusLabel(l10n, rate.status),
-        ),
+      builder: (context, controller, _) => _PickerCell(
+        cellKey: MyListSection.statusButtonKey,
+        onTap: controller.toggle,
+        emphasize: true,
+        highlighted: rate == null,
+        leading: isLive
+            ? Container(width: 7, height: 7, color: scheme.tertiary)
+            : rate == null
+            ? PixelIcon(PixelGlyph.plus, size: 10, color: scheme.onSurface)
+            : null,
+        label: rate == null
+            ? l10n.userRateAdd
+            : userRateStatusLabel(l10n, rate.status),
       ),
     );
   }
@@ -192,7 +321,7 @@ class _ScoreMenu extends StatelessWidget {
     final cubit = context.read<UserRateCubit>();
     return MenuAnchor(
       menuChildren: [
-        for (var value = UserRate.maxScore; value > 0; value--)
+        for (var value = UserRate.maxScore; value >= 1; value--)
           CheckedMenuItem(
             checked: value == score,
             onPressed: value == score ? null : () => cubit.setScore(value),
@@ -205,18 +334,21 @@ class _ScoreMenu extends StatelessWidget {
             child: Text(l10n.userRateNoScore),
           ),
       ],
-      builder: (context, controller, _) => TextButton(
-        key: MyListSection.scoreButtonKey,
-        onPressed: controller.toggle,
-        child: Text(score > 0 ? l10n.userRateScore(score) : l10n.userRateRate),
+      builder: (context, controller, _) => _PickerCell(
+        cellKey: MyListSection.scoreButtonKey,
+        onTap: controller.toggle,
+        emphasize: score > 0,
+        isData: score > 0,
+        label: score > 0 ? l10n.userRateScore(score) : l10n.userRateRate,
       ),
     );
   }
 }
 
-/// `− 3 / 12 +`: the episodes watched, a step at a time.
-class _EpisodeStepper extends StatelessWidget {
-  const _EpisodeStepper({required this.rate, required this.total});
+/// Lower band pairing the current episode count with a connected split stepper
+/// (`[ − | + ]`), keeping the value outside per HIG without a redundant bar.
+class _ProgressBand extends StatelessWidget {
+  const _ProgressBand({required this.rate, required this.total});
 
   final UserRate rate;
   final int total;
@@ -224,40 +356,118 @@ class _EpisodeStepper extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final cubit = context.read<UserRateCubit>();
+    final theme = Theme.of(context);
     final watched = rate.episodes.toString();
     final shown = total > 0 ? '$watched / $total' : watched;
-    return Row(
+
+    final counter = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        IconButton(
-          key: MyListSection.episodeLessKey,
-          tooltip: l10n.userRateEpisodeLess,
-          onPressed: rate.episodes > 0
-              ? () => cubit.stepEpisodes(-1, total: total)
-              : null,
-          icon: const PixelIcon(PixelGlyph.minus, size: 14),
+        Text(
+          l10n.animeDetailsFactEpisodes,
+          style: theme.textTheme.bodySmall?.copyWith(
+            fontFamily: DetailLayout.sansFont,
+          ),
         ),
+        const SizedBox(height: 2),
         Semantics(
           label: l10n.userRateEpisodesWatched(shown),
           child: ExcludeSemantics(
             child: Text(
               shown,
-              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+              style: theme.textTheme.titleMedium?.copyWith(
                 fontFeatures: const [FontFeature.tabularFigures()],
+                fontWeight: FontWeight.w600,
               ),
             ),
           ),
         ),
-        IconButton(
-          key: MyListSection.episodeMoreKey,
-          tooltip: l10n.userRateEpisodeMore,
-          onPressed: total <= 0 || rate.episodes < total
-              ? () => cubit.stepEpisodes(1, total: total)
-              : null,
-          icon: const PixelIcon(PixelGlyph.plus, size: 14),
-        ),
       ],
+    );
+
+    final stepper = _SplitStepper(rate: rate, total: total);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final stack =
+              DetailLayout.isLargeText(context) || constraints.maxWidth < 250;
+          if (stack) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [counter, const SizedBox(height: 10), stepper],
+            );
+          }
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(child: counter),
+              const SizedBox(width: 12),
+              stepper,
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+/// Connected `[ − | + ]` stepper pairing two [IconButton]s behind one border
+/// and a vertical hairline divider, keeping the value outside per HIG.
+class _SplitStepper extends StatelessWidget {
+  const _SplitStepper({required this.rate, required this.total});
+
+  final UserRate rate;
+  final int total;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final scheme = Theme.of(context).colorScheme;
+    final cubit = context.read<UserRateCubit>();
+    final ruleColor = DetailLayout.ruleColor(scheme);
+
+    return Container(
+      color: scheme.surfaceContainer,
+      foregroundDecoration: DetailLayout.cardDecoration(
+        scheme,
+        background: Colors.transparent,
+      ),
+      child: IntrinsicHeight(
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            IconButton(
+              key: MyListSection.episodeLessKey,
+              tooltip: l10n.userRateEpisodeLess,
+              style: IconButton.styleFrom(
+                minimumSize: const Size(44, 40),
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+              ),
+              onPressed: rate.episodes > 0
+                  ? () => cubit.stepEpisodes(-1, total: total)
+                  : null,
+              icon: const PixelIcon(PixelGlyph.minus, size: 13),
+            ),
+            VerticalDivider(width: 1, thickness: 1, color: ruleColor),
+            IconButton(
+              key: MyListSection.episodeMoreKey,
+              tooltip: l10n.userRateEpisodeMore,
+              style: IconButton.styleFrom(
+                minimumSize: const Size(44, 40),
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+              ),
+              onPressed: total <= 0 || rate.episodes < total
+                  ? () => cubit.stepEpisodes(1, total: total)
+                  : null,
+              icon: const PixelIcon(PixelGlyph.plus, size: 13),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

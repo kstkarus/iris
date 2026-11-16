@@ -164,7 +164,13 @@ void main() {
 
     expect(lists.requests.single.userId, testAccount.id);
     expect(find.text('Anime 1'), findsOneWidget);
-    expect(find.text('5 OF 12 EP. · SCORE: 8'), findsOneWidget);
+    expect(
+      find.textContaining(
+        RegExp(r'5 OF 12 EP\..*SCORE: 8'),
+        findRichText: true,
+      ),
+      findsOneWidget,
+    );
     expect(find.text('Anime 3'), findsNothing);
 
     await chooseStatus(tester, 'planned');
@@ -197,7 +203,13 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('6 OF 12 EP. · SCORE: 8'), findsOneWidget);
+    expect(
+      find.textContaining(
+        RegExp(r'6 OF 12 EP\..*SCORE: 8'),
+        findRichText: true,
+      ),
+      findsOneWidget,
+    );
     expect(find.text('Anime 2'), findsNothing);
   });
 

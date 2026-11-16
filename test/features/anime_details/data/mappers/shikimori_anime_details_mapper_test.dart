@@ -55,7 +55,7 @@ void main() {
     expect(ShikimoriAnimeDetailsDto.tryParse({'name': 'Frieren'}), isNull);
   });
 
-  test('maps the studio, genres, rating, next episode and dubs', () {
+  test('maps the studio, genres, rating and next episode', () {
     final dto = ShikimoriAnimeDetailsDto.tryParse({
       'id': 1,
       'nextEpisodeAt': '2026-10-12T15:00:00+03:00',
@@ -68,7 +68,6 @@ void main() {
         {'name': 'Shounen', 'russian': 'Сёнен', 'kind': 'demographic'},
         {'name': 'Military', 'russian': 'Военное', 'kind': 'theme'},
       ],
-      'fandubbers': ['AniLibria', ' ', 'Studio Band '],
     })!;
 
     final details = mapShikimoriAnimeDetailsToDomain(dto);
@@ -80,7 +79,6 @@ void main() {
       AnimeGenreName(name: 'Action', russian: 'Экшен'),
       AnimeGenreName(name: 'Shounen', russian: 'Сёнен'),
     ]);
-    expect(details.fandubbers, ['AniLibria', 'Studio Band']);
   });
 
   test('an unknown rating and no next episode map to nothing', () {

@@ -10,20 +10,32 @@ class LabeledSection extends StatelessWidget {
     required this.label,
     required this.child,
     this.labelWidth,
+    this.labelStyle,
+    this.uppercase = true,
+    this.showPrefix = true,
     super.key,
   });
 
   final String label;
   final Widget child;
   final double? labelWidth;
+  final TextStyle? labelStyle;
+  final bool uppercase;
+  final bool showPrefix;
 
   @override
   Widget build(BuildContext context) {
     final labelWidth = this.labelWidth;
+    final heading = SectionLabel(
+      label,
+      style: labelStyle,
+      uppercase: uppercase,
+      showPrefix: showPrefix,
+    );
     if (labelWidth == null) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [SectionLabel(label), const SizedBox(height: 12), child],
+        children: [heading, const SizedBox(height: 12), child],
       );
     }
     return Row(
@@ -33,7 +45,7 @@ class LabeledSection extends StatelessWidget {
           width: labelWidth,
           child: Padding(
             padding: const EdgeInsets.only(top: 3, right: 24),
-            child: SectionLabel(label),
+            child: heading,
           ),
         ),
         Expanded(child: child),

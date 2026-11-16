@@ -16,6 +16,7 @@ import 'package:iris/features/player/presentation/widgets/player_panel.dart';
 import 'package:iris/features/player/presentation/playback/player_subtitle_preferences_mapper.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/widgets/pixel_icon.dart';
+import 'package:iris/shared/widgets/pixel_separated_text.dart';
 import 'package:iris/shared/widgets/section_label.dart';
 import 'package:iris/shared/widgets/segmented_bar.dart';
 import 'package:iris/shared/widgets/segmented_choice.dart';
@@ -478,7 +479,7 @@ class _AdvancedState extends State<_Advanced> {
                         _Reveal(
                           visible: !_expanded,
                           duration: duration,
-                          child: Text(
+                          child: PixelSeparatedText(
                             widget.hasSubtitles
                                 ? l10n.playerAdvancedSummary(
                                     _decoderShortLabel(l10n, decoder),

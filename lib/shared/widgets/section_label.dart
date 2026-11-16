@@ -5,27 +5,41 @@ import 'package:flutter/material.dart';
 ///
 /// It carries no rule of its own: the rows below it bring theirs.
 class SectionLabel extends StatelessWidget {
-  const SectionLabel(this.text, {this.trailing, super.key});
+  const SectionLabel(
+    this.text, {
+    this.trailing,
+    this.style,
+    this.uppercase = true,
+    this.showPrefix = true,
+    super.key,
+  });
 
   final String text;
   final Widget? trailing;
+  final TextStyle? style;
+  final bool uppercase;
+  final bool showPrefix;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final style = theme.textTheme.labelSmall;
+    final style = this.style ?? theme.textTheme.labelSmall;
     final trailing = this.trailing;
+    final labelText = uppercase ? text.toUpperCase() : text;
     return Semantics(
       header: true,
       child: Row(
         children: [
-          ExcludeSemantics(
-            child: Text(
-              '>> ',
-              style: style?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+          if (showPrefix)
+            ExcludeSemantics(
+              child: Text(
+                '>> ',
+                style: style?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
             ),
-          ),
-          Expanded(child: Text(text.toUpperCase(), style: style)),
+          Expanded(child: Text(labelText, style: style)),
           ?trailing,
         ],
       ),

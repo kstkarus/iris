@@ -265,7 +265,12 @@ void main() {
     await tester.tap(find.text('Advanced'));
     await tester.pumpAndSettle();
     expect(
-      find.text('Decoder: Auto · ASS rendering: on').hitTestable(),
+      find
+          .textContaining(
+            RegExp(r'Decoder: Auto.*ASS rendering: on'),
+            findRichText: true,
+          )
+          .hitTestable(),
       findsNothing,
     );
 
@@ -288,7 +293,10 @@ void main() {
     await tester.tap(find.text('Advanced'));
     await tester.pumpAndSettle();
     expect(
-      find.text('Decoder: Software only · ASS rendering: on'),
+      find.textContaining(
+        RegExp(r'Decoder: Software only.*ASS rendering: on'),
+        findRichText: true,
+      ),
       findsOneWidget,
     );
     expect(find.text('Software only').hitTestable(), findsNothing);
@@ -399,7 +407,13 @@ void main() {
         ),
       );
       expect(autoRow.selected, isTrue);
-      expect(find.text('Decoder: Auto · ASS rendering: on'), findsOneWidget);
+      expect(
+        find.textContaining(
+          RegExp(r'Decoder: Auto.*ASS rendering: on'),
+          findRichText: true,
+        ),
+        findsOneWidget,
+      );
     },
     variant: TargetPlatformVariant.only(TargetPlatform.windows),
   );

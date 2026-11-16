@@ -823,13 +823,14 @@
   "characterLoadError": "Unable to load the character.",
   "characterDescriptionTitle": "About",
   "characterAnimeTitle": "Anime",
+  "characterFactJapanese": "Japanese",
+  "characterFactAltNames": "Other names",
   "characterRoleMain": "Main role",
   "characterRoleSupporting": "Supporting role",
   "animeDetailsFactNextEpisode": "Next",
   "animeDetailsFactStudio": "Studio",
   "animeDetailsFactGenres": "Genres",
   "animeDetailsFactRating": "Rated",
-  "animeDetailsDubsTitle": "Dubs",
   "playerMarked": "Episode {episode} marked",
   "@playerMarked": {
     "placeholders": {

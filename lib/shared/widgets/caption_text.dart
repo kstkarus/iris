@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'package:iris/shared/widgets/pixel_separated_text.dart';
+
 /// A small upper-case caption: `labelSmall`, muted unless given a [color].
 class CaptionText extends StatelessWidget {
   const CaptionText(this.text, {this.color, this.tabular = false, super.key});
@@ -13,7 +15,7 @@ class CaptionText extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Text(
+    return PixelSeparatedText(
       text.toUpperCase(),
       style: theme.textTheme.labelSmall?.copyWith(
         color: color ?? theme.colorScheme.onSurfaceVariant,

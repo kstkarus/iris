@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 /// [maxSize] at which [text] wraps into at most [maxLines] lines without
 /// breaking a word, and never below [minSize]. A bounded height from the
 /// parent is a limit too.
+/// With [snapStep], [maxSize] is rounded to the nearest grid multiple.
 ///
 /// This is the one big voice of a page. Everything around it stays small,
 /// so the contrast in scale carries the hierarchy.
@@ -12,16 +13,24 @@ class DisplayTitle extends StatelessWidget {
     this.text, {
     required this.maxSize,
     this.minSize = 28,
+    this.preferredMinSize,
     this.maxLines = 3,
     this.fontFamily,
+    this.respectTextScale = true,
+    this.snapStep,
+    this.fallbackStyleAt,
     super.key,
   });
 
   final String text;
   final double maxSize;
   final double minSize;
+  final double? preferredMinSize;
   final int maxLines;
   final String? fontFamily;
+  final bool respectTextScale;
+  final double? snapStep;
+  final TextStyle Function(TextStyle base, double size)? fallbackStyleAt;
 
   /// The display style at [size]: tight lines and tracking that tightens
   /// with size, as large type needs.
@@ -32,40 +41,78 @@ class DisplayTitle extends StatelessWidget {
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
     final base = textTheme.displayLarge!.copyWith(fontFamily: fontFamily);
-    final textScaler = MediaQuery.textScalerOf(context);
+    final textScaler = respectTextScale
+        ? MediaQuery.textScalerOf(context)
+        : TextScaler.noScaling;
     return Semantics(
       header: true,
       child: LayoutBuilder(
         builder: (context, constraints) {
+          final primaryMin = fallbackStyleAt == null
+              ? minSize
+              : (preferredMinSize ?? minSize)
+                    .clamp(minSize, maxSize)
+                    .toDouble();
           final size = fitDisplaySize(
             text,
             base: base,
             width: constraints.maxWidth,
             maxSize: maxSize,
-            minSize: minSize,
+            minSize: primaryMin,
+            preferredMinSize: preferredMinSize,
             maxLines: maxLines,
             maxHeight: constraints.maxHeight,
             textScaler: textScaler,
+            snapStep: snapStep,
           );
-          return Text(text, style: styleAt(base, size));
+          if (fallbackStyleAt != null && size == null) {
+            final fallbackMax = (preferredMinSize ?? maxSize)
+                .clamp(minSize, maxSize)
+                .toDouble();
+            final fallbackSize = fitDisplaySize(
+              text,
+              base: base,
+              width: constraints.maxWidth,
+              maxSize: fallbackMax,
+              minSize: minSize,
+              maxLines: maxLines,
+              maxHeight: constraints.maxHeight,
+              textScaler: textScaler,
+              styleBuilder: fallbackStyleAt,
+            );
+            return Text(
+              text,
+              style: fallbackStyleAt!(base, fallbackSize ?? minSize),
+              textScaler: textScaler,
+            );
+          }
+          return Text(
+            text,
+            style: styleAt(base, size ?? minSize),
+            textScaler: textScaler,
+          );
         },
       ),
     );
   }
 }
 
-/// See [DisplayTitle].
-double fitDisplaySize(
+/// See [DisplayTitle]. Returns null when even the smallest text cannot fit.
+double? fitDisplaySize(
   String text, {
   required TextStyle base,
   required double width,
   required double maxSize,
   required double minSize,
+  double? preferredMinSize,
   required int maxLines,
   double maxHeight = double.infinity,
   TextScaler textScaler = TextScaler.noScaling,
+  double? snapStep,
+  TextStyle Function(TextStyle base, double size)? styleBuilder,
 }) {
-  if (!width.isFinite || width <= 0) return minSize;
+  if (!width.isFinite || width <= 0) return null;
+  final resolveStyle = styleBuilder ?? DisplayTitle.styleAt;
   final longestWord = text
       .split(RegExp(r'\s+'))
       .fold(
@@ -74,7 +121,7 @@ double fitDisplaySize(
       );
 
   bool fits(double size) {
-    final style = DisplayTitle.styleAt(base, size);
+    final style = resolveStyle(base, size);
     final whole = TextPainter(
       text: TextSpan(text: text, style: style),
       textDirection: TextDirection.ltr,
@@ -96,11 +143,44 @@ double fitDisplaySize(
     return result;
   }
 
-  var size = maxSize;
-  while (size > minSize && !fits(size)) {
-    size *= 0.92;
+  final rawMin = preferredMinSize != null && preferredMinSize > minSize
+      ? preferredMinSize
+      : minSize;
+  final effectiveMin = rawMin > maxSize && maxSize > minSize ? maxSize : rawMin;
+
+  double? fitContinuous(double floor, {double? startSize}) {
+    var size = startSize ?? maxSize;
+    while (size >= floor) {
+      if (fits(size)) {
+        final floored = size.floorToDouble();
+        return floored >= floor ? floored : size;
+      }
+      size *= 0.92;
+    }
+    return fits(floor) ? floor : null;
   }
-  return size < minSize ? minSize : size.floorToDouble();
+
+  if (snapStep != null && snapStep > 0) {
+    for (var k = (maxSize / snapStep).round(); k >= 1; k--) {
+      final candidate = k * snapStep;
+      if (candidate < effectiveMin) break;
+      if (fits(candidate)) return candidate;
+    }
+    if (effectiveMin > minSize) {
+      final below = effectiveMin - 0.01;
+      return fitContinuous(
+        minSize,
+        startSize: below < maxSize ? below : maxSize,
+      );
+    }
+    return null;
+  }
+
+  if (effectiveMin > minSize) {
+    final preferred = fitContinuous(effectiveMin);
+    if (preferred != null) return preferred;
+  }
+  return fitContinuous(minSize);
 }
 
 /// How tall [text] is set at [size] in [width], every line counted: what a
@@ -111,9 +191,13 @@ double displayTitleHeight(
   required double size,
   required double width,
   TextScaler textScaler = TextScaler.noScaling,
+  TextStyle Function(TextStyle base, double size)? styleBuilder,
 }) {
   final painter = TextPainter(
-    text: TextSpan(text: text, style: DisplayTitle.styleAt(base, size)),
+    text: TextSpan(
+      text: text,
+      style: (styleBuilder ?? DisplayTitle.styleAt)(base, size),
+    ),
     textDirection: TextDirection.ltr,
     textScaler: textScaler,
   )..layout(maxWidth: width);

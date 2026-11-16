@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -69,7 +70,7 @@ void main() {
 
     expect(find.text('Frieren'), findsOneWidget);
     expect(find.text('Фрирен'), findsOneWidget);
-    expect(find.text('ABOUT'), findsOneWidget);
+    expect(find.text('About'), findsOneWidget);
     expect(find.text('An elf mage.'), findsNothing);
   });
 
@@ -93,12 +94,20 @@ void main() {
         size: size,
       );
 
+      expect(find.text('Japanese'), findsOneWidget);
       expect(find.text('フリーレン'), findsOneWidget);
+      expect(find.text('Other names'), findsOneWidget);
       expect(find.text('Frieren the Slayer'), findsOneWidget);
       expect(find.text('An elf mage.'), findsOneWidget);
-      expect(find.text('ANIME'), findsOneWidget);
+      expect(find.text('Anime'), findsOneWidget);
       expect(find.text('Anime clip'), findsNothing);
-      expect(find.text('TV · 2023 · SUPPORTING ROLE'), findsOneWidget);
+      expect(
+        find.textContaining(
+          RegExp(r'TV.*2023.*Supporting role'),
+          findRichText: true,
+        ),
+        findsOneWidget,
+      );
       expect(
         tester.getTopLeft(find.text('Anime early')).dy,
         lessThan(tester.getTopLeft(find.text('Anime late')).dy),
@@ -145,6 +154,10 @@ void main() {
 
     expect(find.text('Frieren'), findsOneWidget);
     expect(find.text('Unable to load the character.'), findsOneWidget);
+    repository.failing = false;
+    await tester.tap(find.text('Try Again'));
+    await tester.pumpAndSettle();
+    expect(find.text('An elf mage.'), findsOneWidget);
   });
 
   testWidgets('a failure with nothing known is the whole page', (tester) async {
@@ -156,5 +169,40 @@ void main() {
 
     expect(find.text('Unable to load the character.'), findsOneWidget);
     expect(find.text('Try Again'), findsOneWidget);
+  });
+
+  testWidgets('long names stay fully visible on a narrow screen', (
+    tester,
+  ) async {
+    const longCharacter = CharacterSummary(
+      id: '999',
+      name: 'Jugemu-jugemu Gokounosurikire Kaijarisuigyo-no-suigyomatsu',
+      russian: 'Дзюгэму-дзюгэму Гоконосурикирэ Кайдзярисуйгё',
+      posterUrl: '',
+    );
+    await pumpView(
+      tester,
+      FakeCharactersRepository(
+        details: CharacterDetails(
+          character: longCharacter,
+          japanese: '寿限無',
+          altName: 'Jugemu',
+          description: 'An elf mage.',
+          appearances: const [],
+        ),
+      ),
+      preview: longCharacter,
+      size: const Size(320, 844),
+    );
+
+    for (final name in [longCharacter.name, longCharacter.russian]) {
+      final paragraph = tester.renderObject<RenderParagraph>(find.text(name));
+      expect(
+        paragraph.size.height,
+        greaterThanOrEqualTo(
+          paragraph.getMaxIntrinsicHeight(paragraph.size.width) - 0.01,
+        ),
+      );
+    }
   });
 }

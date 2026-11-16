@@ -8,7 +8,6 @@ class ShikimoriAnimeDetailsDto {
     this.rating = '',
     this.studios = const [],
     this.genres = const [],
-    this.fandubbers = const [],
     this.related = const [],
   });
 
@@ -20,9 +19,6 @@ class ShikimoriAnimeDetailsDto {
   final String rating;
   final List<String> studios;
   final List<ShikimoriDetailsGenreDto> genres;
-
-  /// The dub teams.
-  final List<String> fandubbers;
   final List<ShikimoriRelatedAnimeDto> related;
 
   /// Null when [json] has no anime; see [parseShikimoriAnimeSummary].
@@ -44,10 +40,6 @@ class ShikimoriAnimeDetailsDto {
         for (final genre in json['genres'] as List<dynamic>? ?? const [])
           if (genre is Map<String, dynamic>)
             ShikimoriDetailsGenreDto.fromJson(genre),
-      ],
-      fandubbers: [
-        for (final name in json['fandubbers'] as List<dynamic>? ?? const [])
-          if (name is String && name.trim().isNotEmpty) name.trim(),
       ],
       related: [
         // Relations to manga and ranobe come without an anime.

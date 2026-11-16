@@ -2,49 +2,65 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:iris/entities/friend/domain/friend.dart';
+import 'package:iris/entities/user_rate/domain/user_rate.dart';
 import 'package:iris/entities/user_rate/presentation/user_rate_badge.dart';
 import 'package:iris/entities/user_rate/presentation/user_rate_status_label.dart';
 import 'package:iris/features/anime_details/presentation/cubit/friend_rates_cubit.dart';
+import 'package:iris/features/anime_details/presentation/widgets/anime_details_layout.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
-import 'package:iris/shared/widgets/caption_text.dart';
-import 'package:iris/shared/widgets/labeled_section.dart';
-import 'package:iris/shared/widgets/square_avatar.dart';
+import 'package:iris/shared/widgets/detail_layout.dart';
 import 'package:iris/shared/widgets/dither_switcher.dart';
+import 'package:iris/shared/widgets/pixel_separated_text.dart';
+import 'package:iris/shared/widgets/square_avatar.dart';
 
 /// Friends who have the anime in their lists: who, the status, how far
 /// along and the score. Nothing while they are read, or if none has it.
 class FriendsSection extends StatelessWidget {
-  const FriendsSection({
-    required this.totalEpisodes,
-    this.labelWidth,
-    super.key,
-  });
+  const FriendsSection({required this.totalEpisodes, super.key});
 
   /// The anime's episode count; 0 when Shikimori does not know it yet.
   final int totalEpisodes;
 
-  /// Width of the label column; null puts the label above.
-  final double? labelWidth;
-
   @override
   Widget build(BuildContext context) {
-    // Pages built without friends (as in tests) show no section.
     final rates = context.watch<FriendRatesCubit?>()?.state ?? const [];
-    // It may well be empty, so no noise for it: it develops in when
-    // it arrives, below everything it could push.
     if (rates.isEmpty) return const DitherSwitcher(child: SizedBox.shrink());
     return DitherSwitcher(
       child: Padding(
-        padding: const EdgeInsets.only(top: 40),
-        child: LabeledSection(
+        padding: const EdgeInsets.only(top: 32),
+        child: DetailSection(
           label: AppLocalizations.of(context).animeDetailsFriendsTitle,
-          labelWidth: labelWidth,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              for (final (index, rate) in rates.indexed)
-                _FriendRow(rate: rate, total: totalEpisodes, first: index == 0),
-            ],
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final twoColumns = AnimeDetailsLayout.useFriendGrid(
+                context,
+                constraints.maxWidth,
+              );
+              if (!twoColumns) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    for (final (index, rate) in rates.indexed) ...[
+                      if (index > 0) const SizedBox(height: 8),
+                      _FriendCard(rate: rate, total: totalEpisodes),
+                    ],
+                  ],
+                );
+              }
+              const gap = 10.0;
+              final itemWidth = (constraints.maxWidth - gap) / 2;
+              return Wrap(
+                spacing: gap,
+                runSpacing: gap,
+                children: [
+                  for (final rate in rates)
+                    SizedBox(
+                      width: itemWidth,
+                      child: _FriendCard(rate: rate, total: totalEpisodes),
+                    ),
+                ],
+              );
+            },
           ),
         ),
       ),
@@ -52,50 +68,80 @@ class FriendsSection extends StatelessWidget {
   }
 }
 
-class _FriendRow extends StatelessWidget {
-  const _FriendRow({
-    required this.rate,
-    required this.total,
-    required this.first,
-  });
+class _FriendCard extends StatelessWidget {
+  const _FriendCard({required this.rate, required this.total});
 
-  static const _avatarSize = 32.0;
+  static const _avatarSize = 38.0;
 
   final FriendRate rate;
   final int total;
-  final bool first;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     final l10n = AppLocalizations.of(context);
     final entry = rate.rate;
+    final isLive =
+        entry.status == UserRateStatus.watching ||
+        entry.status == UserRateStatus.rewatching;
     final facts = [
       userRateStatusLabel(l10n, entry.status),
       ?userRateProgress(entry, total),
       if (entry.score > 0) l10n.userRateScore(entry.score),
-    ].join(' · ');
-    return Padding(
-      padding: EdgeInsets.only(top: first ? 0 : 12),
-      child: Row(
-        children: [
-          SquareAvatar(url: rate.friend.avatarUrl, size: _avatarSize),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  rate.friend.nickname,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodyMedium,
-                ),
-                CaptionText(facts, tabular: true),
-              ],
+    ];
+
+    return DecoratedBox(
+      decoration: DetailLayout.cardDecoration(scheme),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Row(
+          children: [
+            SquareAvatar(url: rate.friend.avatarUrl, size: _avatarSize),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      if (isLive)
+                        Container(
+                          width: 6,
+                          height: 6,
+                          margin: const EdgeInsets.only(right: 6),
+                          color: scheme.tertiary,
+                        ),
+                      Expanded(
+                        child: Text(
+                          rate.friend.nickname,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            fontFamily: DetailLayout.sansFont,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 2),
+                  PixelSeparatedText.parts(
+                    facts,
+                    sansStyle: theme.textTheme.bodySmall?.copyWith(
+                      fontFamily: DetailLayout.sansFont,
+                      color: scheme.onSurfaceVariant,
+                    ),
+                    monoStyle: theme.textTheme.bodySmall?.copyWith(
+                      fontFamily: DetailLayout.monoFont,
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

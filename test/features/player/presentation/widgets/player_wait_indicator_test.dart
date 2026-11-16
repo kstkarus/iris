@@ -48,11 +48,17 @@ void main() {
     expect(find.byKey(const Key('player_wait_stats')), findsNothing);
 
     await tester.pump(PlayerWaitLabel.statsDelay);
-    expect(find.text('2.4 MB/s · 12 peers'), findsOneWidget);
+    expect(
+      find.textContaining(RegExp(r'2\.4 MB/s.*12 peers'), findRichText: true),
+      findsOneWidget,
+    );
 
     stats.value = _stats(rate: 1024, peers: 1);
     await tester.pump();
-    expect(find.text('1 KB/s · 1 peer'), findsOneWidget);
+    expect(
+      find.textContaining(RegExp(r'1 KB/s.*1 peer'), findRichText: true),
+      findsOneWidget,
+    );
   });
 
   testWidgets('the wait label says nothing about a source that moves no '

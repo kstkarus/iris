@@ -15,6 +15,7 @@ import 'package:iris/shared/widgets/adaptive/window_size_class.dart';
 import 'package:iris/shared/widgets/dither_switcher.dart';
 import 'package:iris/shared/widgets/dither_transition.dart';
 import 'package:iris/shared/widgets/pixel_icon.dart';
+import 'package:iris/shared/widgets/pixel_separated_text.dart';
 import 'package:iris/shared/widgets/segmented_bar.dart';
 import 'package:iris/shared/widgets/tap_row.dart';
 
@@ -306,19 +307,16 @@ class _NoticeLabel extends StatelessWidget {
     final l10n = AppLocalizations.of(context);
     final color = Theme.of(context).colorScheme.tertiary;
     if (state.phase == AppUpdatePhase.downloading) {
-      return Text.rich(
-        TextSpan(
-          children: [
-            TextSpan(text: l10n.appUpdateNoticeDownloading),
-            if (state.totalBytes > 0) ...[
-              const TextSpan(text: ' · '),
-              TextSpan(
-                text: '${(state.progress * 100).round()}%',
-                style: TextStyle(color: color),
-              ),
-            ],
-          ],
-        ),
+      final percent = '${(state.progress * 100).round()}%';
+      return PixelSeparatedText.spans(
+        [
+          TextSpan(text: l10n.appUpdateNoticeDownloading),
+          if (state.totalBytes > 0)
+            TextSpan(
+              text: percent,
+              style: TextStyle(color: color),
+            ),
+        ],
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         style: Theme.of(context).textTheme.bodyMedium,
@@ -571,7 +569,7 @@ class _UpdateFooter extends StatelessWidget {
               key: UpdateNotice.downloadActionKey,
               onPressed: () => context.read<AppUpdateCubit>().download(),
               style: _updateFilledButtonStyle(largeText),
-              child: Text(
+              child: PixelSeparatedText(
                 state.phase == AppUpdatePhase.failed
                     ? l10n.appUpdateRetry
                     : _downloadLabel(l10n, release),
@@ -780,7 +778,7 @@ class _WindowsUpdateFooter extends StatelessWidget {
                 key: UpdateNotice.downloadActionKey,
                 onPressed: cubit.download,
                 style: _updateFilledButtonStyle(largeText),
-                child: Text(
+                child: PixelSeparatedText(
                   state.phase == AppUpdatePhase.failed
                       ? l10n.appUpdateRetry
                       : _downloadLabel(l10n, release),
@@ -990,32 +988,25 @@ class _DownloadProgress extends StatelessWidget {
     final percent = state.totalBytes > 0
         ? '${(state.progress * 100).round()}%'
         : null;
+    final progressText = state.totalBytes > 0
+        ? l10n.appUpdateProgress(
+            formatByteSize(l10n, state.receivedBytes),
+            formatByteSize(l10n, state.totalBytes, compact: true),
+          )
+        : formatByteSize(l10n, state.receivedBytes);
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text.rich(
-          TextSpan(
-            children: [
+        PixelSeparatedText.spans(
+          [
+            TextSpan(text: progressText),
+            if (percent != null)
               TextSpan(
-                text: state.totalBytes > 0
-                    ? l10n.appUpdateProgress(
-                        formatByteSize(l10n, state.receivedBytes),
-                        formatByteSize(l10n, state.totalBytes, compact: true),
-                      )
-                    : formatByteSize(l10n, state.receivedBytes),
+                text: percent,
+                style: TextStyle(color: Theme.of(context).colorScheme.tertiary),
               ),
-              if (percent != null) ...[
-                const TextSpan(text: ' · '),
-                TextSpan(
-                  text: percent,
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.tertiary,
-                  ),
-                ),
-              ],
-            ],
-          ),
+          ],
           maxLines: largeText ? 2 : 1,
           overflow: TextOverflow.ellipsis,
           style: Theme.of(context).textTheme.bodySmall,

@@ -24,7 +24,10 @@ class CharactersSection extends StatelessWidget {
   const CharactersSection({
     required this.animeId,
     required this.animeName,
-    this.labelWidth,
+    this.labelStyle,
+    this.uppercase = true,
+    this.showPrefix = true,
+    this.hairlineDivider = false,
     super.key,
   });
 
@@ -36,8 +39,17 @@ class CharactersSection extends StatelessWidget {
   /// The subtitle of the page of all the characters.
   final String animeName;
 
-  /// Width of the label column; null puts the label above.
-  final double? labelWidth;
+  /// Optional override for the section heading style.
+  final TextStyle? labelStyle;
+
+  /// Whether to uppercase the section heading.
+  final bool uppercase;
+
+  /// Whether to draw the leading `>> ` marker.
+  final bool showPrefix;
+
+  /// Uses a solid 1 px divider instead of the dashed [SegmentedRule].
+  final bool hairlineDivider;
 
   @override
   Widget build(BuildContext context) {
@@ -66,7 +78,9 @@ class CharactersSection extends StatelessWidget {
         padding: const EdgeInsets.only(top: 40),
         child: LabeledSection(
           label: l10n.charactersTitle,
-          labelWidth: labelWidth,
+          labelStyle: labelStyle,
+          uppercase: uppercase,
+          showPrefix: showPrefix,
           child: Align(
             alignment: AlignmentDirectional.topStart,
             child: ConstrainedBox(
@@ -91,7 +105,18 @@ class CharactersSection extends StatelessWidget {
                       CharacterTileRow(characters: shown, columns: columns),
                       if (characters.length > shown.length) ...[
                         const SizedBox(height: 16),
-                        const SegmentedRule(),
+                        if (hairlineDivider)
+                          Divider(
+                            height: 1,
+                            thickness: 1,
+                            color: Color.lerp(
+                              Theme.of(context).colorScheme.outlineVariant,
+                              Theme.of(context).colorScheme.outline,
+                              0.45,
+                            )!,
+                          )
+                        else
+                          const SegmentedRule(),
                         _AllRow(
                           count: characters.length,
                           onTap: () => context.pushNamed(

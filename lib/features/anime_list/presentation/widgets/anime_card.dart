@@ -6,6 +6,7 @@ import 'package:iris/features/anime_list/domain/entities/anime_list_item.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/utils/anime_metadata_formatter.dart';
 import 'package:iris/shared/utils/incomplete_date.dart';
+import 'package:iris/shared/widgets/pixel_separated_text.dart';
 import 'package:iris/shared/widgets/poster_image.dart';
 import 'package:iris/shared/widgets/tap_row.dart';
 
@@ -33,7 +34,7 @@ class AnimeCard extends StatelessWidget {
         formatAnimeStatus(l10n, anime.status)
       else if (year != null)
         '$year',
-    ].join(' · ');
+    ];
     final factStyle = theme.textTheme.labelMedium?.copyWith(
       color: scheme.onSurfaceVariant,
       fontWeight: FontWeight.w400,
@@ -106,7 +107,7 @@ class AnimeCard extends StatelessWidget {
                   const SizedBox(width: 6),
                 ],
                 Expanded(
-                  child: Text(
+                  child: PixelSeparatedText.parts(
                     facts,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,

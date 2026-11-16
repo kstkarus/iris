@@ -86,7 +86,7 @@ String formatAiredOn(AppLocalizations l10n, String rawDate) {
     return rawDate;
   }
   final [year!, ...rest] = parts;
-  return switch (rest) {
+  final formatted = switch (rest) {
     [] => '$year',
     [final month!] => DateFormat.yMMMM(
       l10n.localeName,
@@ -96,6 +96,7 @@ String formatAiredOn(AppLocalizations l10n, String rawDate) {
     ).format(DateTime(year, month, day)),
     _ => rawDate,
   };
+  return formatted.replaceAll('\u202F', '\u00A0');
 }
 
 /// When the next episode airs, seen from [now]: today or tomorrow with the
@@ -117,7 +118,9 @@ String? formatNextEpisodeTime(
         local.day,
       ).difference(DateTime(now.year, now.month, now.day)).inHours /
       24;
-  final time = DateFormat.Hm(l10n.localeName).format(local);
+  final time = DateFormat.Hm(
+    l10n.localeName,
+  ).format(local).replaceAll('\u202F', '\u00A0');
   return switch (days.round()) {
     0 => l10n.animeNextEpisodeToday(time),
     1 => l10n.animeNextEpisodeTomorrow(time),

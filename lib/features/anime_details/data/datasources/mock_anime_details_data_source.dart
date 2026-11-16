@@ -44,23 +44,6 @@ const _animeDetails = {
         kind: 'theme',
       ),
     ],
-    fandubbers: [
-      'AniLibria',
-      'AniDUB',
-      'AniMedia',
-      'SHIZA Project',
-      'Studio Band',
-      'Persona99',
-      'Ancord',
-      'JAM',
-      'Cuba77',
-      'Trina_D',
-      'Absurd',
-      'Eladiel',
-      'Zendos',
-      'Say',
-      'Lupin',
-    ],
   ),
   '52991': ShikimoriAnimeDetailsDto(
     anime: AnimeSummary(

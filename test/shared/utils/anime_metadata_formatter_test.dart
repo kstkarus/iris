@@ -31,6 +31,15 @@ void main() {
       expect(formatAiredOn(en, '2028-03-15'), 'Mar 15, 2028');
     });
 
+    test('formats full and partial Russian dates', () {
+      final ru = AppLocalizationsRu();
+      final monthYear = formatAiredOn(ru, '2028-03');
+      final fullDate = formatAiredOn(ru, '2028-03-15');
+
+      expect(monthYear, 'март 2028\u00A0г.');
+      expect(fullDate, '15 мар. 2028\u00A0г.');
+    });
+
     test('leaves text that is not a date as it is', () {
       expect(formatAiredOn(en, 'soon'), 'soon');
       expect(formatAiredOn(en, ''), '');
