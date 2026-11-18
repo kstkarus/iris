@@ -16,6 +16,7 @@ import 'package:iris/features/player/presentation/playback/media_kit_player_engi
 import 'package:iris/features/player/presentation/playback/player_engine.dart';
 import 'package:iris/features/player/presentation/widgets/player_adaptive_layout.dart';
 import 'package:iris/features/player/presentation/playback/player_buffer_margin.dart';
+import 'package:iris/features/player/presentation/widgets/player_colors.dart';
 import 'package:iris/features/player/presentation/widgets/player_immersive_controls.dart';
 import 'package:iris/features/player/presentation/widgets/player_overlay_preferences.dart';
 import 'package:iris/features/player/presentation/widgets/player_playback_stats_indicator.dart';
@@ -24,6 +25,7 @@ import 'package:iris/features/player/presentation/widgets/player_track_selector_
 import 'package:iris/features/player/presentation/widgets/player_viewport_factory.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/utils/motion_duration.dart';
+import 'package:iris/shared/widgets/detail_layout.dart';
 import 'package:iris/shared/window/picture_in_picture.dart';
 import 'package:iris/shared/window/ios_picture_in_picture.dart';
 import 'package:iris/shared/window/screen_brightness_control.dart';
@@ -533,16 +535,43 @@ class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(errorMessage, textAlign: TextAlign.center),
-            const SizedBox(height: 16),
-            FilledButton(
-              onPressed: () => unawaited(engine.retry()),
-              child: Text(l10n.commonRetry),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 420),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: playerPlateBackground,
+              border: Border.all(color: playerPlateBorder),
             ),
-          ],
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    errorMessage,
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      fontFamily: DetailLayout.sansFont,
+                      fontSize: 15,
+                      color: playerPlateText,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  FilledButton(
+                    style: FilledButton.styleFrom(
+                      textStyle: const TextStyle(
+                        fontFamily: DetailLayout.sansFont,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    onPressed: () => unawaited(engine.retry()),
+                    child: Text(l10n.commonRetry),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ),
       ),
     );

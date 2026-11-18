@@ -50,6 +50,7 @@ class RowMenuButton extends StatelessWidget {
       ),
       menuChildren: menuChildren,
       builder: (context, controller, _) => Semantics(
+        container: true,
         label: semanticLabel ?? tooltip,
         button: true,
         excludeSemantics: true,

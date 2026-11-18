@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'package:iris/shared/utils/motion_duration.dart';
+
 /// A list row with an ink splash that also works from a keyboard: focus
 /// shows as an outline, and the Delete key runs [onDelete].
 class FocusableListRow extends StatefulWidget {
@@ -37,34 +39,41 @@ class _FocusableListRowState extends State<FocusableListRow> {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final anim = motionDuration(context, const Duration(milliseconds: 160));
     return CallbackShortcuts(
       bindings: {
         const SingleActivator(LogicalKeyboardKey.delete): widget.onDelete,
       },
-      child: DecoratedBox(
+      child: AnimatedContainer(
+        duration: anim,
+        curve: Curves.easeOutCubic,
         // Keyboard focus as an outline: a fill this faint would not show.
-        position: DecorationPosition.foreground,
-        decoration: BoxDecoration(
+        foregroundDecoration: BoxDecoration(
           border: _focused
               ? Border.all(color: scheme.onSurface, width: 2)
               : null,
         ),
-        child: Material(
-          // Ink paints on the nearest Material: this one scrolls with the
-          // row, so the list's edge clips the highlight.
+        child: AnimatedContainer(
+          duration: anim,
+          curve: Curves.easeOutCubic,
           color: widget.filled ? scheme.surfaceContainer : Colors.transparent,
-          child: InkWell(
-            key: widget.inkKey,
-            onTap: widget.onTap,
-            onLongPress: widget.onLongPress,
-            onSecondaryTap: widget.onSecondaryTap,
-            onFocusChange: (focused) => setState(
-              () => _focused =
-                  focused &&
-                  FocusManager.instance.highlightMode ==
-                      FocusHighlightMode.traditional,
+          child: Material(
+            // Ink paints on the nearest Material: this one scrolls with the
+            // row, so the list's edge clips the highlight.
+            type: MaterialType.transparency,
+            child: InkWell(
+              key: widget.inkKey,
+              onTap: widget.onTap,
+              onLongPress: widget.onLongPress,
+              onSecondaryTap: widget.onSecondaryTap,
+              onFocusChange: (focused) => setState(
+                () => _focused =
+                    focused &&
+                    FocusManager.instance.highlightMode ==
+                        FocusHighlightMode.traditional,
+              ),
+              child: widget.child,
             ),
-            child: widget.child,
           ),
         ),
       ),

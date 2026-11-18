@@ -24,7 +24,7 @@ import 'package:iris/features/downloads/presentation/widgets/download_selection_
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/utils/byte_size_formatter.dart';
 import 'package:iris/shared/utils/desktop_platform.dart';
-import 'package:iris/shared/utils/episode_number.dart';
+import 'package:iris/shared/utils/motion_duration.dart';
 import 'package:iris/shared/widgets/dither_switcher.dart';
 import 'package:iris/features/downloads/presentation/widgets/download_title_widgets.dart';
 import 'package:iris/shared/widgets/focusable_list_row.dart';
@@ -68,19 +68,32 @@ class DownloadManagerView extends StatefulWidget {
 }
 
 class _DownloadManagerViewState extends State<DownloadManagerView> {
+  bool _hadGalleryTitles = false;
+
+  void _galleryEmptied() {
+    if (!mounted || !_hadGalleryTitles) return;
+    setState(() => _hadGalleryTitles = false);
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<DownloadManagerCubit, DownloadManagerState>(
       builder: (context, state) {
         final l10n = AppLocalizations.of(context);
-        final Widget? placeholder = state.downloads.isEmpty && state.isLoading
-            ? LoadingView(semanticsLabel: l10n.downloadsLoading)
+        final (
+          Object? placeholderKey,
+          Widget? placeholder,
+        ) = state.downloads.isEmpty && state.isLoading
+            ? ('loading', LoadingView(semanticsLabel: l10n.downloadsLoading))
             : state.downloads.isEmpty && state.hasError
-            ? RetryView(
-                message: l10n.downloadManagerUnableToLoad,
-                onRetry: context.read<DownloadManagerCubit>().load,
+            ? (
+                'error',
+                RetryView(
+                  message: l10n.downloadManagerUnableToLoad,
+                  onRetry: context.read<DownloadManagerCubit>().load,
+                ),
               )
-            : null;
+            : (null, null);
         final titles = downloadTitles(state.downloads);
         if (widget.titleKey case final key?) {
           if (placeholder != null) return placeholder;
@@ -95,22 +108,39 @@ class _DownloadManagerViewState extends State<DownloadManagerView> {
             onTitleDeleted: widget.onTitleDeleted,
           );
         }
-        final library =
-            placeholder ??
-            (isDesktopPlatform
-                ? _DesktopLibrary(
-                    titles: titles,
-                    onWatch: widget.onWatch,
-                    onOpenAnime: widget.onOpenAnime,
-                    onDownloadMore: widget.onDownloadMore,
-                    onBrowseCatalog: widget.onBrowseCatalog,
-                  )
-                : titles.isEmpty
-                ? _EmptyLibrary(onBrowseCatalog: widget.onBrowseCatalog)
-                : DownloadLibraryGallery(
-                    titles: titles,
-                    onOpenTitle: widget.onOpenTitle,
-                  ));
+        if (placeholder != null) {
+          _hadGalleryTitles = false;
+        } else if (!isDesktopPlatform && titles.isNotEmpty) {
+          _hadGalleryTitles = true;
+        }
+        final holdGallery =
+            !isDesktopPlatform &&
+            titles.isEmpty &&
+            _hadGalleryTitles &&
+            !MediaQuery.disableAnimationsOf(context);
+        final (Object libraryKey, Widget library) = placeholder != null
+            ? (placeholderKey!, placeholder)
+            : isDesktopPlatform
+            ? (
+                'desktop',
+                _DesktopLibrary(
+                  titles: titles,
+                  onWatch: widget.onWatch,
+                  onOpenAnime: widget.onOpenAnime,
+                  onDownloadMore: widget.onDownloadMore,
+                  onBrowseCatalog: widget.onBrowseCatalog,
+                ),
+              )
+            : titles.isEmpty && !holdGallery
+            ? ('empty', _EmptyLibrary(onBrowseCatalog: widget.onBrowseCatalog))
+            : (
+                'gallery',
+                DownloadLibraryGallery(
+                  titles: titles,
+                  onOpenTitle: widget.onOpenTitle,
+                  onEmptied: _galleryEmptied,
+                ),
+              );
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -126,7 +156,13 @@ class _DownloadManagerViewState extends State<DownloadManagerView> {
               },
             ),
             const SizedBox(height: 16),
-            Expanded(child: library),
+            Expanded(
+              child: DitherSwitcher(
+                expand: true,
+                duration: const Duration(milliseconds: 220),
+                child: KeyedSubtree(key: ValueKey(libraryKey), child: library),
+              ),
+            ),
           ],
         );
       },
@@ -247,6 +283,7 @@ class _DesktopLibraryState extends State<_DesktopLibrary> {
         );
         final details = DitherSwitcher(
           expand: true,
+          duration: const Duration(milliseconds: 240),
           child: _Episodes(
             key: ValueKey('download_episodes_$selectedKey'),
             titleKey: selectedKey,
@@ -270,12 +307,15 @@ class _DesktopLibraryState extends State<_DesktopLibrary> {
             if (narrow) ...[
               SizedBox(
                 height: 124,
-                child: ListView.separated(
+                child: SingleChildScrollView(
                   key: const Key('download_poster_list'),
                   scrollDirection: Axis.horizontal,
-                  itemCount: widget.titles.length,
-                  separatorBuilder: (_, _) => const SizedBox(width: 12),
-                  itemBuilder: (context, index) => option(widget.titles[index]),
+                  child: DitherList<DownloadTitle>.horizontal(
+                    items: widget.titles,
+                    keyOf: (title) => title.key,
+                    spacing: 12,
+                    itemBuilder: (context, title) => option(title),
+                  ),
                 ),
               ),
               const SizedBox(height: 20),
@@ -427,7 +467,7 @@ class _DownloadStatusDialog extends StatelessWidget {
                 .where((item) => item.id == itemId)
                 .firstOrNull;
             if (item == null) return Text(l10n.downloadTitleEmpty);
-            final number = episodeNumberFromFileName(item.fileName);
+            final number = downloadEpisodeNumber(item);
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -825,17 +865,33 @@ class _EpisodesState extends State<_Episodes> {
                   buildList: (header) => episodesList(header: header),
                 ),
               ),
-              if (_selecting && _failureCount > 0)
-                Semantics(
-                  liveRegion: true,
-                  child: Text(
-                    l10n.downloadDeleteSelectionFailed(_failureCount),
-                    textAlign: TextAlign.end,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.error,
-                    ),
-                  ),
-                ),
+              Builder(
+                builder: (context) {
+                  final duration = motionDuration(
+                    context,
+                    const Duration(milliseconds: 180),
+                  );
+                  final banner = _selecting && _failureCount > 0
+                      ? Semantics(
+                          liveRegion: true,
+                          child: Text(
+                            l10n.downloadDeleteSelectionFailed(_failureCount),
+                            textAlign: TextAlign.end,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.error,
+                            ),
+                          ),
+                        )
+                      : const SizedBox.shrink();
+                  if (duration == Duration.zero) return banner;
+                  return AnimatedSize(
+                    duration: duration,
+                    curve: Curves.easeOutCubic,
+                    alignment: Alignment.topCenter,
+                    child: banner,
+                  );
+                },
+              ),
               DownloadSelectionFooter(
                 visible: _selecting,
                 child: FilledButton(
@@ -961,7 +1017,7 @@ class _DownloadRowState extends State<_DownloadRow> {
         widget.videoHeight == null || widget.videoHeight! <= 0
         ? null
         : l10n.onlineQualityHeight(widget.videoHeight!);
-    final progress = item.progress;
+    final progress = downloadDisplayProgress(item);
     final failure = item.failure;
     final watchProgress = context
         .watchWatchProgress()
@@ -1227,7 +1283,12 @@ class _DownloadRowState extends State<_DownloadRow> {
                                 : (_) => widget.onSelect(),
                           )
                         : Semantics(
-                            key: const ValueKey('action'),
+                            key: ValueKey(
+                              'action_${switch (status) {
+                                DownloadStatus.queued || DownloadStatus.downloading => 'active',
+                                _ => status.name,
+                              }}',
+                            ),
                             label: '$actionLabel: $semanticName',
                             button: true,
                             excludeSemantics: true,
@@ -1321,7 +1382,8 @@ String _facts(AppLocalizations l10n, DownloadItem item) {
     // Nothing of it is here yet: only how big it will be.
     DownloadStatus.queued when item.downloadedBytes == 0 => total ?? '',
     DownloadStatus.downloading => [
-      if (item.totalBytes > 0) '${(item.progress * 100).round()}%',
+      if (item.totalBytes > 0)
+        '${(downloadDisplayProgress(item) * 100).round()}%',
       if (item.totalBytes > 0)
         loaded.join(' / ')
       else if (item.downloadedBytes > 0)
@@ -1351,8 +1413,10 @@ String? _timeLeft(AppLocalizations l10n, DownloadItem item) {
 }
 
 int _byEpisode(DownloadItem left, DownloadItem right) {
-  final a = episodeNumberFromFileName(left.fileName);
-  final b = episodeNumberFromFileName(right.fileName);
-  if (a != null && b != null && a != b) return a.compareTo(b);
-  return left.fileName.compareTo(right.fileName);
+  final a = downloadEpisodeNumber(left) ?? double.infinity;
+  final b = downloadEpisodeNumber(right) ?? double.infinity;
+  final byNumber = a.compareTo(b);
+  if (byNumber != 0) return byNumber;
+  final byName = left.fileName.compareTo(right.fileName);
+  return byName == 0 ? left.fileIndex.compareTo(right.fileIndex) : byName;
 }

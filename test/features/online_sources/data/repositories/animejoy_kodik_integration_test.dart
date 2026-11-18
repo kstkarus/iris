@@ -262,11 +262,11 @@ class _FakeSite {
   FakeReply reply(RequestOptions request) {
     requests.add(request);
     final uri = request.uri;
-    if (uri.host == 'animejoy.ru' && uri.path == '/index.php') {
+    if (uri.host == 'otakujoy.fun' && uri.path == '/index.php') {
       if (uri.queryParameters.containsKey('story')) {
         return const FakeReply.text(
           200,
-          '<div id="dle-content"><article class="shortstory"><h2><a href="https://animejoy.ru/2927-title.html">Cyberpunk</a></h2></article></div>',
+          '<div id="dle-content"><article class="shortstory"><h2><a href="https://otakujoy.fun/2927-title.html">Cyberpunk</a></h2></article></div>',
         );
       }
       return const FakeReply.text(
@@ -274,7 +274,7 @@ class _FakeSite {
         '<div class="abasel"><a href="https://shikimori.io/animes/y42310-cyberpunk">Shikimori</a></div>',
       );
     }
-    if (uri.host == 'animejoy.ru' && uri.path == '/engine/ajax/playlists.php') {
+    if (uri.host == 'otakujoy.fun' && uri.path == '/engine/ajax/playlists.php') {
       return FakeReply(200, {'success': true, 'response': _playlist()});
     }
     if (uri.host == 'fsst.online') {

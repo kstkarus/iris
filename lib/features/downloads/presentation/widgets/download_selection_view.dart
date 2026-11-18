@@ -10,13 +10,15 @@ import 'package:iris/features/downloads/presentation/cubit/download_selection_cu
 import 'package:iris/features/downloads/presentation/cubit/download_selection_state.dart';
 import 'package:iris/features/downloads/presentation/widgets/download_selection_footer.dart';
 import 'package:iris/features/downloads/presentation/widgets/download_status_label.dart';
+import 'package:iris/features/online_sources/domain/online_episode_files.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/utils/byte_size_formatter.dart';
+import 'package:iris/shared/utils/episode_number.dart';
 import 'package:iris/shared/utils/file_display_name.dart';
+import 'package:iris/shared/widgets/detail_layout.dart';
 import 'package:iris/shared/widgets/dither_switcher.dart';
 import 'package:iris/shared/widgets/pixel_icon.dart';
 import 'package:iris/shared/widgets/pixel_separated_text.dart';
-import 'package:iris/shared/widgets/segmented_bar.dart';
 import 'package:iris/shared/widgets/segmented_choice.dart';
 import 'package:iris/shared/widgets/status_views.dart';
 import 'package:iris/shared/widgets/tap_row.dart';
@@ -34,19 +36,29 @@ class DownloadSelectionView extends StatelessWidget {
         .isOnlineRelease;
     return BlocBuilder<DownloadSelectionCubit, DownloadSelectionState>(
       builder: (context, state) {
-        return switch (state) {
-          DownloadSelectionInitial() ||
-          DownloadSelectionLoading() => LoadingView(
-            label: episodes
-                ? l10n.downloadSelectionPreparingEpisodes
-                : l10n.downloadSelectionPreparing,
+        final (Object key, Widget view) = switch (state) {
+          DownloadSelectionInitial() || DownloadSelectionLoading() => (
+            'loading',
+            LoadingView(
+              label: episodes
+                  ? l10n.downloadSelectionPreparingEpisodes
+                  : l10n.downloadSelectionPreparing,
+            ),
           ),
-          final DownloadSelectionReady ready => _FileList(
-            state: ready,
-            onWatch: onWatch,
+          final DownloadSelectionReady ready => (
+            'ready',
+            _FileList(state: ready, onWatch: onWatch),
           ),
-          DownloadSelectionFailure(:final type) => _FailureState(type: type),
+          DownloadSelectionFailure(:final type) => (
+            'failure',
+            _FailureState(type: type),
+          ),
         };
+        return DitherSwitcher(
+          expand: true,
+          duration: const Duration(milliseconds: 220),
+          child: KeyedSubtree(key: ValueKey(key), child: view),
+        );
       },
     );
   }
@@ -61,31 +73,43 @@ class _FileList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final files = state.source.files;
-    final list = ListView.separated(
+    final scheme = Theme.of(context).colorScheme;
+    final rule = DetailLayout.ruleColor(scheme);
+    final list = ListView.builder(
+      padding: EdgeInsets.only(bottom: state.selecting ? 12 : 24),
       itemCount: files.length,
-      separatorBuilder: (_, _) => const SegmentedRule(),
       itemBuilder: (context, index) {
         final file = files[index];
-        return _FileRow(
-          file: file,
-          download: state.downloads[file.index],
-          adding: state.adding.contains(file.index),
-          addingBatch: state.addingBatch,
-          notAdded: state.notAdded.contains(file.index),
-          selecting: state.selecting,
-          selected: state.selected.contains(file.index),
-          selectable: state.canSelect(file.index),
-          onSelect: !state.addingBatch && state.canSelect(file.index)
-              ? () => context.read<DownloadSelectionCubit>().toggleSelection(
-                  file.index,
-                )
-              : null,
-          onStartSelection: state.canStartSelection
-              ? () => context.read<DownloadSelectionCubit>().startSelection(
-                  index: state.canSelect(file.index) ? file.index : null,
-                )
-              : null,
-          onWatch: onWatch,
+        final isFirst = index == 0;
+        return Material(
+          color: scheme.surfaceContainerLow,
+          shape: Border(
+            top: isFirst ? BorderSide(color: rule) : BorderSide.none,
+            left: BorderSide(color: rule),
+            right: BorderSide(color: rule),
+            bottom: BorderSide(color: rule),
+          ),
+          child: _FileRow(
+            file: file,
+            download: state.downloads[file.index],
+            adding: state.adding.contains(file.index),
+            addingBatch: state.addingBatch,
+            notAdded: state.notAdded.contains(file.index),
+            selecting: state.selecting,
+            selected: state.selected.contains(file.index),
+            selectable: state.canSelect(file.index),
+            onSelect: !state.addingBatch && state.canSelect(file.index)
+                ? () => context.read<DownloadSelectionCubit>().toggleSelection(
+                    file.index,
+                  )
+                : null,
+            onStartSelection: state.canStartSelection
+                ? () => context.read<DownloadSelectionCubit>().startSelection(
+                    index: state.canSelect(file.index) ? file.index : null,
+                  )
+                : null,
+            onWatch: onWatch,
+          ),
         );
       },
     );
@@ -158,6 +182,8 @@ class _FileRow extends StatelessWidget {
   final VoidCallback? onStartSelection;
   final ValueChanged<DownloadItem> onWatch;
 
+  static final _plainNumber = RegExp(r'^\d+(?:\.\d+)?$');
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
@@ -181,7 +207,9 @@ class _FileRow extends StatelessWidget {
       null => null,
       // How far, once there is a size to measure it by.
       DownloadStatus.downloading when download!.totalBytes > 0 =>
-        l10n.downloadSelectionLoading((_loaded(download) * 100).floor()),
+        l10n.downloadSelectionLoading(
+          (download.progressUntilCompleted * 100).floor(),
+        ),
       final status => downloadStatusLabel(l10n, status),
     };
     final size = download?.totalBytes ?? file.size;
@@ -195,6 +223,66 @@ class _FileRow extends StatelessWidget {
       if (size > 0) '${estimated ? '~' : ''}${formatByteSize(l10n, size)}',
       ?note,
     ].join(' · ');
+    final isOnline = cubit.args.isOnlineRelease;
+    final onlineEpisode = isOnline
+        ? parseOnlineEpisodeFileName(file.name)
+        : null;
+    final rawName = isOnline ? file.name : fileDisplayName(file.name);
+    final justNumber =
+        onlineEpisode?.title.isEmpty ?? _plainNumber.hasMatch(rawName);
+    final number = isOnline
+        ? onlineEpisode?.number
+        : episodeNumberFromFileName(file.name);
+    final badgeText =
+        number?.toString().padLeft(2, '0') ?? (justNumber ? rawName : null);
+    final displayTitle = onlineEpisode?.title ?? rawName;
+    final active = status == DownloadStatus.downloading;
+    final statusColor = notAdded && !adding || status == DownloadStatus.failed
+        ? scheme.error
+        : active
+        ? scheme.tertiary
+        : scheme.onSurfaceVariant;
+    final badge = SizedBox.square(
+      dimension: 36,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: scheme.surfaceContainer,
+          border: Border.all(
+            color: active
+                ? scheme.tertiary
+                : status == DownloadStatus.failed
+                ? scheme.error
+                : DetailLayout.ruleColor(scheme),
+          ),
+        ),
+        child: Center(
+          child: badgeText == null
+              ? PixelIcon(
+                  PixelGlyph.file,
+                  size: 16,
+                  color: scheme.onSurfaceVariant,
+                )
+              : FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    child: Text(
+                      badgeText,
+                      style: DetailLayout.monoTelemetryStyle(
+                        theme.textTheme.bodyMedium,
+                        fontWeight: FontWeight.w600,
+                        color: active
+                            ? scheme.tertiary
+                            : status == DownloadStatus.completed
+                            ? scheme.onSurfaceVariant
+                            : scheme.onSurface,
+                      ),
+                    ),
+                  ),
+                ),
+        ),
+      ),
+    );
     return Semantics(
       key: ValueKey('download_selection_file_${file.index}'),
       checked: selecting && selectable ? selected : null,
@@ -208,29 +296,41 @@ class _FileRow extends StatelessWidget {
         onTap: onTap,
         onLongPress: onStartSelection,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(12, 8, 0, 8),
+          padding: const EdgeInsets.fromLTRB(12, 10, 4, 10),
           child: Row(
             children: [
+              badge,
+              const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      fileDisplayName(file.name),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodyMedium,
-                    ),
+                    if (!justNumber)
+                      Text(
+                        displayTitle,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          fontFamily: DetailLayout.sansFont,
+                          fontWeight: status == DownloadStatus.completed
+                              ? FontWeight.w400
+                              : FontWeight.w500,
+                          color: status == DownloadStatus.completed
+                              ? scheme.onSurfaceVariant
+                              : scheme.onSurface,
+                        ),
+                      ),
                     if (details.isNotEmpty) ...[
-                      const SizedBox(height: 2),
+                      if (!justNumber) const SizedBox(height: 3),
                       PixelSeparatedText(
                         details,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color:
-                              notAdded && !adding ||
-                                  status == DownloadStatus.failed
-                              ? scheme.error
-                              : null,
+                        sansStyle: theme.textTheme.bodySmall?.copyWith(
+                          fontFamily: DetailLayout.sansFont,
+                          color: statusColor,
+                        ),
+                        monoStyle: DetailLayout.monoTelemetryStyle(
+                          theme.textTheme.bodySmall,
+                          color: statusColor,
                         ),
                       ),
                     ],
@@ -262,7 +362,15 @@ class _FileRow extends StatelessWidget {
                                   key: ValueKey('unavailable'),
                                 )
                         : KeyedSubtree(
-                            key: const ValueKey('action'),
+                            key: ValueKey(
+                              'action_${adding ? 'adding' : switch (status) {
+                                      null => 'idle',
+                                      DownloadStatus.paused => 'paused',
+                                      DownloadStatus.failed => 'failed',
+                                      DownloadStatus.completed => 'completed',
+                                      DownloadStatus.queued || DownloadStatus.downloading => 'active',
+                                    }}',
+                            ),
                             child: switch (status) {
                               _ when adding => const SizedBox(
                                 width: 28,
@@ -290,7 +398,7 @@ class _FileRow extends StatelessWidget {
                                 icon: PixelIcon(
                                   PixelGlyph.download,
                                   size: 18,
-                                  fill: _loaded(download!),
+                                  fill: download!.progressUntilCompleted,
                                   color: status == DownloadStatus.failed
                                       ? scheme.error
                                       : scheme.onSurface,
@@ -315,7 +423,7 @@ class _FileRow extends StatelessWidget {
                                   'download_file_progress_${file.index}',
                                 ),
                                 size: 18,
-                                fill: _loaded(download!),
+                                fill: download!.progressUntilCompleted,
                                 color: scheme.tertiary,
                                 trackColor: scheme.onSurfaceVariant.withValues(
                                   alpha: 0.4,
@@ -333,13 +441,6 @@ class _FileRow extends StatelessWidget {
     );
   }
 }
-
-/// How much of [download] is here: all of it once done, and short of all
-/// until then, as an online episode's size is a guess it may outgrow.
-double _loaded(DownloadItem download) =>
-    download.status == DownloadStatus.completed
-    ? 1
-    : download.progress.clamp(0.0, 0.99);
 
 /// The quality the next episodes load in, over the episodes.
 class _QualityChoice extends StatelessWidget {
@@ -359,13 +460,15 @@ class _QualityChoice extends StatelessWidget {
     final theme = Theme.of(context);
     final cubit = context.read<DownloadSelectionCubit>();
     return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 8, 12, 16),
+      padding: const EdgeInsets.only(top: 4, bottom: 14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
             l10n.onlineQualityTitle,
-            style: theme.textTheme.bodySmall?.copyWith(
+            style: theme.textTheme.labelMedium?.copyWith(
+              fontFamily: DetailLayout.sansFont,
+              fontWeight: FontWeight.w500,
               color: theme.colorScheme.onSurfaceVariant,
             ),
           ),

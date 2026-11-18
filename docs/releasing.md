@@ -28,7 +28,7 @@ The tag runs `.github/workflows/release.yml`:
 - It first checks that the tag matches `pubspec.yaml` and that `CHANGELOG.md` has the version's section, and stops otherwise.
 - Before any platform build, the reusable `.github/workflows/checks.yml` workflow runs `flutter analyze --no-pub` and `flutter test --no-pub` on Windows with the pinned Flutter version. A failed check stops the release builds. The same checks run on pull requests and pushes to `main`.
 - It builds the APKs, the Windows archive and per-user installer, and an unsigned iOS IPA on macOS. The tag becomes the version name and the run number the build number.
-- It publishes them as a GitHub release, with the changelog section as the release text.
+- It uploads every file to a draft release and publishes it after all uploads succeed. A retry can finish uploading to the draft. The changelog section becomes the release text.
 
 Windows provides both `iris-X.Y.Z-windows-x64.zip` and `iris-X.Y.Z-windows-x64-setup.exe`. The per-user installer uses Inno Setup 6.7.3, whose official release asset is verified before the CI job runs its compiler. It installs under the current user's Programs folder without requesting administrator privileges. Install and uninstall leave the existing app-support data intact. The installer is not Authenticode-signed.
 

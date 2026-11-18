@@ -4,26 +4,37 @@ import 'package:dio/dio.dart';
 import 'package:html/dom.dart' as dom;
 import 'package:html/parser.dart' show parse;
 
+import 'package:iris/features/online_sources/data/datasources/animejoy_session.dart';
 import 'package:iris/features/online_sources/data/datasources/kodik_data_source.dart';
 import 'package:iris/features/online_sources/data/datasources/alloha_data_source.dart';
 import 'package:iris/features/online_sources/data/models/animejoy_dto.dart';
 import 'package:iris/features/online_sources/data/models/video_link_dto.dart';
+import 'package:iris/features/online_sources/domain/repositories/animejoy_account_repository.dart';
 import 'package:iris/shared/network/dio_exception_mapper.dart';
 import 'package:iris/shared/network/network_exceptions.dart';
 
 class AnimejoyDataSource {
   AnimejoyDataSource({
     required Dio dio,
-    String baseUrl = 'https://animejoy.ru/',
+    AnimejoySession? session,
+    String baseUrl = animejoyBaseUrl,
   }) : _dio = dio,
+       _session = session,
        _kodik = KodikDataSource(dio: dio),
        _alloha = AllohaDataSource(dio: dio),
-       _baseUri = Uri.parse(baseUrl);
+       _baseUri = session?.baseUri ?? Uri.parse(baseUrl);
 
   final Dio _dio;
+  final AnimejoySession? _session;
   final KodikDataSource _kodik;
   final AllohaDataSource _alloha;
   final Uri _baseUri;
+
+  int get sessionGeneration => _session?.generation ?? 0;
+
+  void requireSessionGeneration(int generation) {
+    if (sessionGeneration != generation) throw const AnimejoySessionChanged();
+  }
 
   Future<List<int>> search(String title) async => [
     for (final page in await searchPages(title).toList()) ...page,
@@ -189,15 +200,18 @@ class AnimejoyDataSource {
   }) async {
     final Response<String> response;
     try {
-      response = await _dio.getUri<String>(
-        uri,
-        options: Options(
-          headers: {
-            'Accept': 'text/html,application/json;q=0.9,*/*;q=0.8',
-            'Referer': ?referer,
-          },
-        ),
-      );
+      final session = _session;
+      response = session != null && uri.origin == _baseUri.origin
+          ? await session.get(uri)
+          : await _dio.getUri<String>(
+              uri,
+              options: Options(
+                headers: {
+                  'Accept': 'text/html,application/json;q=0.9,*/*;q=0.8',
+                  'Referer': ?referer,
+                },
+              ),
+            );
     } on DioException catch (error) {
       throw mapDioException(error);
     }

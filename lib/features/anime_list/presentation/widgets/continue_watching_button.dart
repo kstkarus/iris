@@ -16,6 +16,7 @@ import 'package:iris/shared/widgets/adaptive/show_adaptive_sheet.dart';
 import 'package:iris/shared/theme/inverse_theme.dart';
 import 'package:iris/shared/widgets/adaptive/window_size_class.dart';
 import 'package:iris/shared/widgets/checked_menu_item.dart';
+import 'package:iris/shared/widgets/detail_layout.dart';
 import 'package:iris/shared/widgets/pixel_icon.dart';
 import 'package:iris/shared/widgets/search_field.dart';
 
@@ -113,18 +114,23 @@ class _ContinueWatchingButtonState extends State<ContinueWatchingButton> {
   @override
   Widget build(BuildContext context) {
     final compact = WindowSizeClass.of(context).isCompact;
+    final scheme = Theme.of(context).colorScheme;
+    final rule = DetailLayout.ruleColor(scheme);
     final label = AppLocalizations.of(context).continueWatchingTitle;
-    const icon = PixelIcon(PixelGlyph.play, size: 18);
+    final icon = PixelIcon(
+      PixelGlyph.play,
+      size: 16,
+      color: scheme.onSurface.withValues(alpha: 0.85),
+    );
     Widget button(VoidCallback onPressed) => compact
-        ? IconButton.filledTonal(
+        ? IconButton.outlined(
             key: ContinueWatchingButton.buttonKey,
             tooltip: label,
             onPressed: onPressed,
             style: IconButton.styleFrom(
               minimumSize: const Size.square(SearchField.height),
-              backgroundColor: Theme.of(
-                context,
-              ).colorScheme.surfaceContainerHigh,
+              backgroundColor: scheme.surfaceContainerLow,
+              side: BorderSide(color: rule),
             ),
             icon: icon,
           )
@@ -133,6 +139,8 @@ class _ContinueWatchingButtonState extends State<ContinueWatchingButton> {
             onPressed: onPressed,
             style: OutlinedButton.styleFrom(
               minimumSize: const Size(0, SearchField.height),
+              backgroundColor: scheme.surfaceContainerLow,
+              side: BorderSide(color: rule),
             ),
             icon: icon,
             label: Text(label),

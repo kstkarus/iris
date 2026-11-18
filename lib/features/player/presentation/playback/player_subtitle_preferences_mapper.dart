@@ -106,8 +106,7 @@ SubtitleViewConfiguration buildSubtitleViewConfiguration(
   );
 }
 
-/// mpv's buffering and decoding options, set for every opened file; the
-/// playback contract in AGENTS.md fixes these values.
+/// mpv's buffering and decoding options, set for every opened file.
 const playbackMpvProperties = <String, String>{
   'cache': 'yes',
   'cache-pause': 'yes',

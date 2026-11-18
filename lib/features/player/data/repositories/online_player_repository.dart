@@ -5,6 +5,7 @@ import 'package:iris/features/online_sources/domain/entities/online_provider.dar
 import 'package:iris/features/online_sources/domain/entities/online_release.dart';
 import 'package:iris/features/online_sources/domain/online_episode_files.dart';
 import 'package:iris/features/online_sources/domain/online_stream_choice.dart';
+import 'package:iris/features/online_sources/domain/repositories/animejoy_account_repository.dart';
 import 'package:iris/features/online_sources/domain/repositories/online_quality_preferences.dart';
 import 'package:iris/shared/online/online_source_link.dart';
 import 'package:iris/features/online_sources/domain/repositories/online_sources_repository.dart';
@@ -27,14 +28,17 @@ class OnlinePlayerRepository implements PlayerRepository {
   OnlinePlayerRepository({
     required OnlineSourcesRepository repository,
     OnlineQualityPreferences? qualityPreferences,
+    AnimejoyAccountRepository? animejoyAccount,
   }) : _repository = repository,
-       _qualityPreferences = qualityPreferences;
+       _qualityPreferences = qualityPreferences,
+       _animejoyAccount = animejoyAccount;
 
   final OnlineSourcesRepository _repository;
   final OnlineQualityPreferences? _qualityPreferences;
+  final AnimejoyAccountRepository? _animejoyAccount;
 
   /// The releases of the sessions in use: "next episode" needs no request.
-  final _releases = <String, OnlineRelease>{};
+  final _releases = <String, ({OnlineRelease release, int? generation})>{};
 
   /// Only the current load may publish metadata into a live session.
   final _releaseLoads = <String, Object>{};
@@ -191,7 +195,12 @@ class OnlinePlayerRepository implements PlayerRepository {
 
   Future<OnlineRelease> _release(String link, {Future<void>? cancelled}) async {
     final known = _releases[link];
-    if (known != null) return known;
+    if (known != null) {
+      if (known.generation == _sessionGeneration(known.release.provider)) {
+        return known.release;
+      }
+      _releases.remove(link);
+    }
     final parsed = OnlineSourceLink.tryParse(link);
     final provider = parsed == null
         ? null
@@ -200,16 +209,25 @@ class OnlinePlayerRepository implements PlayerRepository {
       throw ArgumentError.value(link, 'link');
     }
     final load = Object();
+    final generation = _sessionGeneration(provider);
     _releaseLoads[link] = load;
     try {
       final release = await unlessCancelled(
         _repository.fetchRelease(provider: provider, id: parsed.releaseId),
         cancelled,
       );
-      if (identical(_releaseLoads[link], load)) _releases[link] = release;
+      if (generation != _sessionGeneration(provider)) {
+        throw const AnimejoySessionChanged();
+      }
+      if (identical(_releaseLoads[link], load)) {
+        _releases[link] = (release: release, generation: generation);
+      }
       return release;
     } finally {
       if (identical(_releaseLoads[link], load)) _releaseLoads.remove(link);
     }
   }
+
+  int? _sessionGeneration(OnlineProvider provider) =>
+      provider == OnlineProvider.animejoy ? _animejoyAccount?.generation : null;
 }

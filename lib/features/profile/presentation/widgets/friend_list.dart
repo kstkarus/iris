@@ -7,6 +7,8 @@ import 'package:iris/features/profile/presentation/widgets/list_grid.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/widgets/adaptive/adaptive_grid_row.dart';
 import 'package:iris/shared/widgets/app_skeleton.dart';
+import 'package:iris/shared/widgets/detail_layout.dart';
+import 'package:iris/shared/widgets/pixel_icon.dart';
 import 'package:iris/shared/widgets/square_avatar.dart';
 import 'package:iris/shared/widgets/status_views.dart';
 
@@ -87,24 +89,47 @@ class _FriendRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      key: ValueKey('friend_${friend.id}'),
-      onTap: onOpen,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        child: Row(
-          children: [
-            SquareAvatar(url: friend.avatarUrl, size: _avatarSize),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Text(
-                friend.nickname,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.titleSmall,
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(
+            color: DetailLayout.ruleColor(scheme).withValues(alpha: 0.65),
+          ),
+        ),
+      ),
+      child: InkWell(
+        key: ValueKey('friend_${friend.id}'),
+        onTap: onOpen,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          child: Row(
+            children: [
+              SquareAvatar(url: friend.avatarUrl, size: _avatarSize),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Text(
+                  friend.nickname,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontFamily: DetailLayout.sansFont,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
               ),
-            ),
-          ],
+              if (onOpen != null) ...[
+                const SizedBox(width: 8),
+                PixelIcon(
+                  PixelGlyph.arrowRight,
+                  size: 16,
+                  color: scheme.onSurfaceVariant,
+                ),
+              ],
+            ],
+          ),
         ),
       ),
     );

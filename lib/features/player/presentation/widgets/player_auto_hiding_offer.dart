@@ -60,7 +60,10 @@ class _PlayerAutoHidingOfferState extends State<PlayerAutoHidingOffer> {
             ignoring: !visible,
             child: AnimatedOpacity(
               opacity: visible ? 1 : 0,
-              duration: const Duration(milliseconds: 200),
+              duration: motionDuration(
+                context,
+                const Duration(milliseconds: 200),
+              ),
               child: child,
             ),
           );

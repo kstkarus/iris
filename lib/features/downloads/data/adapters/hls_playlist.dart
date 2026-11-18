@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import 'package:crypto/crypto.dart';
 
+import 'package:iris/features/online_sources/domain/online_stream_choice.dart';
+
 /// One piece of an HLS episode to load: a media segment, or the init
 /// segment of fragmented MP4.
 class HlsPiece {
@@ -33,8 +35,8 @@ class HlsPlan {
 abstract final class HlsPlaylist {
   static const _variantTag = '#EXT-X-STREAM-INF:';
 
-  /// The variant of a master playlist to load: the one [quality] high, or
-  /// the best. Null for a media playlist.
+  /// The closest variant within [quality], or the lowest above it.
+  /// Null for a media playlist.
   static ({Uri uri, int height})? pickVariant(
     String text,
     Uri base, {
@@ -64,7 +66,7 @@ abstract final class HlsPlaylist {
     }
     if (variants.isEmpty) return null;
     for (final variant in variants) {
-      if (variant.height == quality) {
+      if (quality > 0 && variant.height == quality) {
         return (uri: variant.uri, height: variant.height);
       }
     }
@@ -72,13 +74,20 @@ abstract final class HlsPlaylist {
       final height = right.height.compareTo(left.height);
       return height != 0 ? height : right.bandwidth.compareTo(left.bandwidth);
     });
-    final variant = variants.first;
+    final height = closestQuality([
+      for (final variant in variants)
+        if (variant.height > 0) variant.height,
+    ], quality > 0 ? quality : null);
+    final variant = variants.firstWhere(
+      (variant) => variant.height == height,
+      orElse: () => variants.first,
+    );
     return (uri: variant.uri, height: variant.height);
   }
 
   /// The pieces of a media playlist; null when it cannot be loaded as
   /// plain pieces (encrypted, byte ranges) or has none.
-  static HlsPlan? parseMedia(String text, Uri base) {
+  static HlsPlan? parseMedia(String text, Uri base, {int? variantHeight}) {
     HlsPiece? init;
     final segments = <HlsPiece>[];
     var seconds = 0.0;
@@ -105,10 +114,14 @@ abstract final class HlsPlaylist {
       }
     }
     if (segments.isEmpty) return null;
+    final fingerprintInput = [
+      if (variantHeight != null) '$variantHeight',
+      ...lines,
+    ].join('\n');
     return HlsPlan(
       init: init,
       segments: List.unmodifiable(segments),
-      fingerprint: sha256.convert(utf8.encode(lines.join('\n'))).toString(),
+      fingerprint: sha256.convert(utf8.encode(fingerprintInput)).toString(),
     );
   }
 

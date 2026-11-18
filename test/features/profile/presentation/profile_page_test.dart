@@ -15,10 +15,13 @@ import 'package:iris/features/profile/domain/entities/user_list_entry.dart';
 import 'package:iris/features/profile/presentation/cubit/friends_cubit.dart';
 import 'package:iris/features/profile/presentation/cubit/user_list_cubit.dart';
 import 'package:iris/features/profile/presentation/pages/profile_page.dart';
+import 'package:iris/features/profile/presentation/pages/user_profile_page.dart';
 import 'package:iris/features/profile/presentation/widgets/user_list_view.dart';
+import 'package:iris/shared/widgets/page_title.dart';
 
 import '../../../entities/friend/friend_test_doubles.dart';
 import '../../../helpers/test_app.dart';
+import '../../../helpers/test_window.dart';
 import '../../auth/presentation/auth_test_doubles.dart';
 import 'user_list_test_doubles.dart';
 
@@ -47,8 +50,9 @@ void main() {
 
   Future<AuthCubit> pumpPage(
     WidgetTester tester,
-    FakeAuthRepository repository,
-  ) async {
+    FakeAuthRepository repository, {
+    Locale locale = const Locale('en'),
+  }) async {
     final cubit = AuthCubit(repository: repository);
     await cubit.restore();
     final userList = UserListCubit(repository: lists)
@@ -79,6 +83,7 @@ void main() {
             ),
           ),
         ),
+        locale: locale,
       ),
     );
     await tester.pump();
@@ -158,21 +163,29 @@ void main() {
     );
   });
 
-  testWidgets('signed in, it lists the anime by status', (tester) async {
-    await pumpPage(tester, FakeAuthRepository(restored: testAccount));
+  testWidgets('a narrow profile lists the anime by status', (tester) async {
+    setTestWindowSize(tester, const Size(320, 800));
+    await pumpPage(
+      tester,
+      FakeAuthRepository(restored: testAccount),
+      locale: const Locale('ru'),
+    );
     await tester.pumpAndSettle();
 
     expect(lists.requests.single.userId, testAccount.id);
     expect(find.text('Anime 1'), findsOneWidget);
     expect(
-      find.textContaining(
-        RegExp(r'5 OF 12 EP\..*SCORE: 8'),
-        findRichText: true,
-      ),
+      find.textContaining('5 из 12 эп.', findRichText: true),
       findsOneWidget,
     );
+    expect(find.text('8'), findsOneWidget);
+    expect(find.bySemanticsLabel(RegExp('Оценка: 8')), findsOneWidget);
     expect(find.text('Anime 3'), findsNothing);
 
+    final statusButton = tester.getSemantics(
+      find.byKey(UserListView.statusButtonKey),
+    );
+    expect(statusButton.flagsCollection.isButton, isTrue);
     await chooseStatus(tester, 'planned');
     expect(find.text('Anime 1'), findsNothing);
     expect(find.text('Anime 3'), findsOneWidget);
@@ -191,7 +204,7 @@ void main() {
       rateId: 'r1',
       status: UserRateStatus.watching,
       episodes: 6,
-      score: 8,
+      score: 9,
     );
     await rates.save(
       userId: testAccount.id,
@@ -204,12 +217,11 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(
-      find.textContaining(
-        RegExp(r'6 OF 12 EP\..*SCORE: 8'),
-        findRichText: true,
-      ),
+      find.textContaining('6 of 12 ep.', findRichText: true),
       findsOneWidget,
     );
+    expect(find.text('9'), findsOneWidget);
+    expect(find.bySemanticsLabel(RegExp('Score: 9')), findsOneWidget);
     expect(find.text('Anime 2'), findsNothing);
   });
 
@@ -262,6 +274,35 @@ void main() {
     expect(find.text('Anime 1'), findsOneWidget);
   });
 
+  testWidgets('switching profile tabs shows the first row of the new section', (
+    tester,
+  ) async {
+    setTestWindowSize(tester, TestWindowSizes.phone);
+    lists = FakeUserListRepository({
+      UserRateStatus.watching: [for (var i = 1; i <= 24; i++) listEntry('$i')],
+    });
+    friends.list = [for (var i = 1; i <= 30; i++) testFriend('$i')];
+    await pumpPage(tester, FakeAuthRepository(restored: testAccount));
+    await tester.pumpAndSettle();
+    final position = tester
+        .state<ScrollableState>(find.byType(Scrollable))
+        .position;
+
+    position.jumpTo(1600);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(UserListView.friendsTabKey));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('friend_1').hitTestable());
+    expect(openedFriends.single.id, '1');
+
+    position.jumpTo(900);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(UserListView.listTabKey));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Anime 1').hitTestable());
+    expect(opened.single.anime.id, '1');
+  });
+
   testWidgets('friends that did not load can be tried again', (tester) async {
     friends.friendsFailure = Exception('offline');
     await pumpPage(tester, FakeAuthRepository(restored: testAccount));
@@ -276,6 +317,120 @@ void main() {
 
     expect(find.text('friend_7'), findsOneWidget);
   });
+
+  testWidgets('friend page shows the name in the bar after scrolling', (
+    tester,
+  ) async {
+    final longLists = FakeUserListRepository({
+      UserRateStatus.watching: [
+        for (var i = 1; i <= 20; i++) listEntry('$i', episodes: 5, score: 8),
+      ],
+    });
+    final userList = UserListCubit(repository: longLists)..show('7');
+    final book = UserRateBookCubit(repository: rates);
+    addTearDown(() async {
+      await userList.close();
+      await book.close();
+    });
+
+    await tester.pumpWidget(
+      testApp(
+        MultiBlocProvider(
+          providers: [
+            BlocProvider.value(value: userList),
+            BlocProvider.value(value: book),
+          ],
+          child: Navigator(
+            pages: [
+              const MaterialPage<void>(child: SizedBox.shrink()),
+              MaterialPage<void>(
+                child: UserProfilePage(
+                  friend: testFriend('7'),
+                  onOpenAnime: opened.add,
+                ),
+              ),
+            ],
+            onDidRemovePage: (_) {},
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byType(BackButton), findsOneWidget);
+    expect(find.byType(PageTitle), findsNothing);
+
+    await tester.drag(find.byType(CustomScrollView), const Offset(0, -300));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(PageTitle), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byType(PageTitle),
+        matching: find.text('friend_7'),
+      ),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets(
+    'List <-> Friends and rate removals transition cleanly and honor reduced motion',
+    (tester) async {
+      await pumpPage(tester, FakeAuthRepository(restored: testAccount));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(UserListView.statusButtonKey), findsOneWidget);
+      await tester.tap(find.byKey(UserListView.friendsTabKey));
+      await tester.pump(const Duration(milliseconds: 90));
+      expect(find.byKey(UserListView.statusButtonKey), findsOneWidget);
+      await tester.pumpAndSettle();
+      expect(find.byKey(UserListView.statusButtonKey), findsNothing);
+      expect(find.text('friend_7'), findsOneWidget);
+
+      await tester.tap(find.byKey(UserListView.listTabKey));
+      await tester.pumpAndSettle();
+      expect(find.byKey(UserListView.statusButtonKey), findsOneWidget);
+      expect(find.text('Anime 1'), findsOneWidget);
+
+      // Removing the remaining items collapses them before showing empty state.
+      await rates.save(
+        userId: testAccount.id,
+        animeId: '1',
+        rateId: 'r1',
+        status: UserRateStatus.completed,
+        episodes: 12,
+        score: 0,
+      );
+      await rates.save(
+        userId: testAccount.id,
+        animeId: '2',
+        rateId: 'r2',
+        status: UserRateStatus.completed,
+        episodes: 12,
+        score: 0,
+      );
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(find.text('Nothing in “Watching”'), findsNothing);
+      await tester.pumpAndSettle();
+      expect(find.text('Anime 1'), findsNothing);
+      expect(find.text('Nothing in “Watching”'), findsOneWidget);
+
+      // With reduced motion, tab and status menu switches complete at once.
+      tester.platformDispatcher.accessibilityFeaturesTestValue =
+          const FakeAccessibilityFeatures(disableAnimations: true);
+      addTearDown(
+        tester.platformDispatcher.clearAccessibilityFeaturesTestValue,
+      );
+      await tester.pump();
+      await tester.tap(find.byKey(UserListView.friendsTabKey));
+      await tester.pump();
+      expect(find.byKey(UserListView.statusButtonKey), findsNothing);
+      final sliverFade = tester.widget<SliverFadeTransition>(
+        find.byType(SliverFadeTransition),
+      );
+      expect(sliverFade.opacity.value, 1.0);
+    },
+  );
 }
 
 Future<void> chooseStatus(WidgetTester tester, String status) async {

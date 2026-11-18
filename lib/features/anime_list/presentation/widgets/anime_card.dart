@@ -6,6 +6,7 @@ import 'package:iris/features/anime_list/domain/entities/anime_list_item.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/utils/anime_metadata_formatter.dart';
 import 'package:iris/shared/utils/incomplete_date.dart';
+import 'package:iris/shared/widgets/detail_layout.dart';
 import 'package:iris/shared/widgets/pixel_separated_text.dart';
 import 'package:iris/shared/widgets/poster_image.dart';
 import 'package:iris/shared/widgets/tap_row.dart';
@@ -36,11 +37,23 @@ class AnimeCard extends StatelessWidget {
         '$year',
     ];
     final factStyle = theme.textTheme.labelMedium?.copyWith(
+      fontFamily: DetailLayout.sansFont,
       color: scheme.onSurfaceVariant,
       fontWeight: FontWeight.w400,
     );
-    final titleStyle = theme.textTheme.titleSmall!;
-    final alternateStyle = theme.textTheme.bodySmall!;
+    final scoreStyle = DetailLayout.monoTelemetryStyle(
+      theme.textTheme.labelMedium,
+      color: scheme.onSurface,
+    );
+    final titleStyle = theme.textTheme.titleSmall!.copyWith(
+      fontFamily: DetailLayout.sansFont,
+      fontWeight: FontWeight.w500,
+      height: 1.2,
+    );
+    final alternateStyle = theme.textTheme.bodySmall!.copyWith(
+      fontFamily: DetailLayout.sansFont,
+      color: scheme.onSurfaceVariant,
+    );
     final textScaler = MediaQuery.textScalerOf(context);
     // Paragraphs round line heights; reserve whole lines before multiplying.
     double lineHeight(TextStyle style) =>
@@ -54,23 +67,32 @@ class AnimeCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Stack(
-              children: [
-                PosterImage(url: anime.posterUrl),
-                if (rate != null)
-                  PositionedDirectional(
-                    start: 0,
-                    bottom: 0,
-                    end: 0,
-                    child: Align(
-                      alignment: AlignmentDirectional.bottomStart,
-                      child: UserRateBadge(
-                        rate: rate,
-                        totalEpisodes: anime.episodes,
+            DecoratedBox(
+              position: DecorationPosition.foreground,
+              decoration: BoxDecoration(
+                border: Border.all(color: DetailLayout.ruleColor(scheme)),
+              ),
+              child: Stack(
+                children: [
+                  PosterImage(
+                    url: anime.posterUrl,
+                    borderColor: Colors.transparent,
+                  ),
+                  if (rate != null)
+                    PositionedDirectional(
+                      start: 0,
+                      bottom: 0,
+                      end: 0,
+                      child: Align(
+                        alignment: AlignmentDirectional.bottomStart,
+                        child: UserRateBadge(
+                          rate: rate,
+                          totalEpisodes: anime.episodes,
+                        ),
                       ),
                     ),
-                  ),
-              ],
+                ],
+              ),
             ),
             const SizedBox(height: 10),
             ConstrainedBox(
@@ -118,7 +140,7 @@ class AnimeCard extends StatelessWidget {
                   Text(
                     formatAnimeScoreValue(l10n, anime.score),
                     semanticsLabel: formatAnimeScore(l10n, anime.score),
-                    style: factStyle?.copyWith(color: scheme.onSurface),
+                    style: scoreStyle,
                   ),
               ],
             ),

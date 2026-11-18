@@ -5,10 +5,13 @@ import 'package:skeletonizer/skeletonizer.dart';
 import 'package:iris/features/anime_details/presentation/models/anime_details_preview.dart';
 import 'package:iris/features/watch_sources/presentation/models/anime_watch_sources_args.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
+import 'package:iris/shared/utils/motion_duration.dart';
 import 'package:iris/shared/widgets/app_skeleton.dart';
 import 'package:iris/shared/widgets/detail_layout.dart';
+import 'package:iris/shared/widgets/dither_switcher.dart';
 import 'package:iris/shared/widgets/dithered_image.dart';
 import 'package:iris/shared/widgets/network_image.dart';
+import 'package:iris/shared/widgets/status_views.dart';
 
 /// Stand-in body used to give skeleton noise the shape of a typical synopsis.
 final standInDescription = List.filled(
@@ -124,25 +127,38 @@ class AnimeDetailsDescription extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final trimmed = description?.trim();
-    if (trimmed != null && trimmed.isEmpty) {
-      return const SizedBox.shrink();
-    }
     final l10n = AppLocalizations.of(context);
-    return Padding(
-      padding: const EdgeInsets.only(top: 32),
-      child: DetailSection(
-        label: l10n.animeDetailsDescriptionTitle,
-        child: AppSkeleton(
-          enabled: trimmed == null,
-          semanticLabel: l10n.animeDetailsLoading,
-          child: Text(
-            trimmed ?? standInDescription,
-            style: Theme.of(
-              context,
-            ).textTheme.bodyLarge?.copyWith(fontFamily: DetailLayout.sansFont),
-          ),
-        ),
-      ),
+    final Widget child = trimmed != null && trimmed.isEmpty
+        ? const SizedBox.shrink(key: ValueKey('empty_description'))
+        : Padding(
+            key: const ValueKey('description'),
+            padding: const EdgeInsets.only(top: 32),
+            child: DetailSection(
+              label: l10n.animeDetailsDescriptionTitle,
+              child: AppSkeleton(
+                enabled: trimmed == null,
+                semanticLabel: l10n.animeDetailsLoading,
+                child: Text(
+                  trimmed ?? standInDescription,
+                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                    fontFamily: DetailLayout.sansFont,
+                  ),
+                ),
+              ),
+            ),
+          );
+    final switcher = DitherSwitcher(
+      collapse: true,
+      duration: const Duration(milliseconds: 220),
+      child: child,
+    );
+    final duration = motionDuration(context, const Duration(milliseconds: 200));
+    if (duration == Duration.zero) return switcher;
+    return AnimatedSize(
+      duration: duration,
+      curve: Curves.easeOutCubic,
+      alignment: Alignment.topCenter,
+      child: switcher,
     );
   }
 }

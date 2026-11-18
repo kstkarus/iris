@@ -14,7 +14,4 @@ abstract final class AnimeDetailsLayout {
   static bool useFriendGrid(BuildContext context, double availableWidth) =>
       availableWidth >= _twoColumnCardsWidth &&
       MediaQuery.textScalerOf(context).scale(1) < _maxFriendGridScale;
-
-  static Color progressTrackColor(ColorScheme scheme) =>
-      Color.lerp(scheme.surfaceContainerHighest, scheme.outline, 0.45)!;
 }

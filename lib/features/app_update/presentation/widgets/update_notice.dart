@@ -9,6 +9,7 @@ import 'package:iris/features/app_update/presentation/cubit/app_update_state.dar
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/utils/bayer_mask.dart';
 import 'package:iris/shared/utils/byte_size_formatter.dart';
+import 'package:iris/shared/utils/motion_duration.dart';
 import 'package:iris/shared/widgets/adaptive/adaptive_content_width.dart';
 import 'package:iris/shared/widgets/adaptive/show_adaptive_sheet.dart';
 import 'package:iris/shared/widgets/adaptive/window_size_class.dart';
@@ -113,10 +114,20 @@ class _DevelopingNoticeState extends State<_DevelopingNotice>
     if (release != null) _shown = widget.state;
     if ((release == null) == (oldWidget.state.release == null)) return;
     final target = release == null ? 0.0 : 1.0;
-    if (MediaQuery.disableAnimationsOf(context)) {
+    final duration = motionDuration(
+      context,
+      release == null
+          ? const Duration(milliseconds: 240)
+          : DitherTransition.duration * 2,
+    );
+    if (duration == Duration.zero) {
       _controller.value = target;
     } else {
-      _controller.animateTo(target);
+      _controller.animateTo(
+        target,
+        duration: duration,
+        curve: release == null ? Curves.easeOutCubic : Curves.linear,
+      );
     }
   }
 
@@ -388,15 +399,7 @@ class _UpdateSheet extends StatelessWidget {
                                     fontSize: 18,
                                   ),
                                 ),
-                                if (failure != null) ...[
-                                  const SizedBox(height: 16),
-                                  Text(
-                                    failure,
-                                    style: theme.textTheme.bodySmall?.copyWith(
-                                      color: theme.colorScheme.error,
-                                    ),
-                                  ),
-                                ],
+                                _FailureBanner(failure: failure),
                                 const SizedBox(height: 24),
                                 _ReleaseNotes(notes: release.notes),
                               ],
@@ -444,8 +447,20 @@ class _WindowsUpdateContentState extends State<_WindowsUpdateContent> {
       listenWhen: (_, state) => state.failure != null,
       listener: (_, _) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted && _notesScroll.hasClients) {
-            _notesScroll.jumpTo(_notesScroll.position.minScrollExtent);
+          if (!mounted || !_notesScroll.hasClients) return;
+          final duration = motionDuration(
+            context,
+            const Duration(milliseconds: 200),
+          );
+          final target = _notesScroll.position.minScrollExtent;
+          if (duration == Duration.zero) {
+            _notesScroll.jumpTo(target);
+          } else {
+            _notesScroll.animateTo(
+              target,
+              duration: duration,
+              curve: Curves.easeOutCubic,
+            );
           }
         });
       },
@@ -487,16 +502,10 @@ class _WindowsUpdateContentState extends State<_WindowsUpdateContent> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      if (widget.failure != null) ...[
-                        const SizedBox(height: 16),
-                        Text(
-                          widget.failure!,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.error,
-                          ),
-                        ),
-                        const SizedBox(height: 24),
-                      ],
+                      _FailureBanner(
+                        failure: widget.failure,
+                        bottomSpacing: 24,
+                      ),
                       _ReleaseNotes(
                         notes: widget.release.notes,
                         sectionRules: false,
@@ -538,6 +547,7 @@ class _UpdateFooter extends StatelessWidget {
           child: SizedBox(
             height: largeText ? 120 : 48,
             child: DitherSwitcher(
+              duration: const Duration(milliseconds: 220),
               expand: true,
               child: _footerContent(context, state, release),
             ),
@@ -741,8 +751,8 @@ class _WindowsUpdateFooter extends StatelessWidget {
           child: SizedBox(
             height: height,
             child: DitherSwitcher(
+              duration: const Duration(milliseconds: 220),
               expand: true,
-              collapse: true,
               child: _footerContent(
                 context,
                 state,
@@ -1159,3 +1169,40 @@ String? _failureMessage(AppLocalizations l10n, AppUpdateFailureKind? failure) =>
       AppUpdateFailureKind.permission => l10n.appUpdateFailurePermission,
       AppUpdateFailureKind.cancelled || null => null,
     };
+
+class _FailureBanner extends StatelessWidget {
+  const _FailureBanner({required this.failure, this.bottomSpacing = 0});
+
+  final String? failure;
+  final double bottomSpacing;
+
+  @override
+  Widget build(BuildContext context) {
+    final anim = motionDuration(context, const Duration(milliseconds: 180));
+    final message = failure;
+    final content = message == null
+        ? const SizedBox.shrink(key: ValueKey('no_failure'))
+        : Padding(
+            key: ValueKey(message),
+            padding: EdgeInsets.only(top: 16, bottom: bottomSpacing),
+            child: Text(
+              message,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.error,
+              ),
+            ),
+          );
+    if (anim == Duration.zero) return content;
+    return AnimatedSize(
+      duration: anim,
+      curve: Curves.easeOutCubic,
+      alignment: Alignment.topCenter,
+      child: AnimatedSwitcher(
+        duration: anim,
+        switchInCurve: Curves.easeOutCubic,
+        switchOutCurve: Curves.easeOutCubic,
+        child: content,
+      ),
+    );
+  }
+}

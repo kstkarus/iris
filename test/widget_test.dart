@@ -167,7 +167,7 @@ void main() {
     await tester.pumpAndSettle();
     final current = find.byKey(const ValueKey('player_episode_card_0'));
     expect(
-      find.descendant(of: current, matching: find.text('NOW PLAYING')),
+      find.descendant(of: current, matching: find.text('Now playing')),
       findsOneWidget,
     );
     await _tapVisible(

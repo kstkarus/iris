@@ -10,9 +10,11 @@ import 'package:iris/features/characters/presentation/cubit/character_state.dart
 import 'package:iris/features/characters/presentation/widgets/character_desktop_layout.dart';
 import 'package:iris/features/characters/presentation/widgets/character_sections.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
+import 'package:iris/shared/utils/motion_duration.dart';
 import 'package:iris/shared/widgets/adaptive/window_size_class.dart';
 import 'package:iris/shared/widgets/app_skeleton.dart';
 import 'package:iris/shared/widgets/detail_layout.dart';
+import 'package:iris/shared/widgets/dither_switcher.dart';
 import 'package:iris/shared/widgets/poster_image.dart';
 import 'package:iris/shared/widgets/status_views.dart';
 
@@ -33,27 +35,35 @@ class CharacterView extends StatelessWidget {
       builder: (context, state) {
         final preview = this.preview;
         void retry() => context.read<CharacterCubit>().load();
-        return switch (state) {
-          CharacterLoading() => _Content(
-            head: preview,
-            onOpenAnime: onOpenAnime,
-          ),
-          CharacterLoaded(:final details) => _Content(
-            head: _head(details.character),
-            details: details,
-            onOpenAnime: onOpenAnime,
-          ),
-          // What the list already knew stays.
-          CharacterFailure() when preview != null => _Content(
-            head: preview,
-            onOpenAnime: onOpenAnime,
-            onRetry: retry,
-          ),
-          CharacterFailure() => RetryView(
-            message: AppLocalizations.of(context).characterLoadError,
-            onRetry: retry,
-          ),
-        };
+        return DitherSwitcher(
+          expand: true,
+          duration: const Duration(milliseconds: 240),
+          child: switch (state) {
+            CharacterLoading() => _Content(
+              key: const ValueKey('content'),
+              head: preview,
+              onOpenAnime: onOpenAnime,
+            ),
+            CharacterLoaded(:final details) => _Content(
+              key: const ValueKey('content'),
+              head: _head(details.character),
+              details: details,
+              onOpenAnime: onOpenAnime,
+            ),
+            // What the list already knew stays.
+            CharacterFailure() when preview != null => _Content(
+              key: const ValueKey('content'),
+              head: preview,
+              onOpenAnime: onOpenAnime,
+              onRetry: retry,
+            ),
+            CharacterFailure() => RetryView(
+              key: const ValueKey('failure'),
+              message: AppLocalizations.of(context).characterLoadError,
+              onRetry: retry,
+            ),
+          },
+        );
       },
     );
   }
@@ -88,6 +98,7 @@ class _Content extends StatelessWidget {
     required this.onOpenAnime,
     this.details,
     this.onRetry,
+    super.key,
   });
 
   final CharacterSummary? head;
@@ -189,16 +200,37 @@ class _StackedLayout extends StatelessWidget {
               );
             },
           ),
-          if (onRetry != null) ...[
-            const SizedBox(height: 16),
-            DetailRetryBanner(
-              message: l10n.characterLoadError,
-              onRetry: onRetry!,
+          _animatedSlot(
+            context,
+            DitherSwitcher(
+              collapse: true,
+              duration: const Duration(milliseconds: 220),
+              child: onRetry == null
+                  ? const SizedBox.shrink(key: ValueKey('no_retry'))
+                  : Padding(
+                      key: const ValueKey('retry'),
+                      padding: const EdgeInsets.only(top: 16),
+                      child: DetailRetryBanner(
+                        message: l10n.characterLoadError,
+                        onRetry: onRetry!,
+                      ),
+                    ),
             ),
-          ],
+          ),
           CharacterNamesCard(details: details, topSpacing: 16),
-          if (onRetry == null)
-            CharacterDescriptionSection(description: details?.description),
+          _animatedSlot(
+            context,
+            DitherSwitcher(
+              collapse: true,
+              duration: const Duration(milliseconds: 220),
+              child: onRetry == null
+                  ? CharacterDescriptionSection(
+                      key: const ValueKey('description'),
+                      description: details?.description,
+                    )
+                  : const SizedBox.shrink(key: ValueKey('no_description')),
+            ),
+          ),
           CharacterAppearancesSection(
             appearances: details?.appearances ?? const [],
             onOpenAnime: onOpenAnime,
@@ -207,4 +239,15 @@ class _StackedLayout extends StatelessWidget {
       ),
     );
   }
+}
+
+Widget _animatedSlot(BuildContext context, Widget child) {
+  final duration = motionDuration(context, const Duration(milliseconds: 200));
+  if (duration == Duration.zero) return child;
+  return AnimatedSize(
+    duration: duration,
+    curve: Curves.easeOutCubic,
+    alignment: Alignment.topCenter,
+    child: child,
+  );
 }

@@ -262,6 +262,7 @@
   "playerDecoderMediacodec": "MediaCodec",
   "playerDecoderMediacodecCopy": "MediaCodec (copy-back)",
   "playerDecoderSoftwareOnly": "Software only",
+  "playerPlaybackSectionTitle": "Playback",
   "playerPlaybackSpeedTitle": "Playback speed",
   "playerPlaybackRate": "{rate}×",
   "@playerPlaybackRate": {
@@ -909,6 +910,7 @@
   },
   "commonBrowseCatalog": "Browse the catalog",
   "savedTorrentsAddConfirm": "Add",
+  "savedTorrentsSaveFailed": "Couldn't save the torrent. Try again.",
   "savedTorrentsDeleted": "Torrent deleted",
   "savedTorrentsEpisodeWatched": "Episode {number} watched",
   "@savedTorrentsEpisodeWatched": {

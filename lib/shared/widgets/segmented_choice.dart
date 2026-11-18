@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'package:iris/shared/widgets/detail_layout.dart';
+
 /// One option of a [SegmentedChoice].
 class SegmentedOption<T> {
   const SegmentedOption({
@@ -47,7 +49,11 @@ class SegmentedChoice<T> extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final textStyle = Theme.of(context).textTheme.labelLarge;
+    final textStyle = Theme.of(context).textTheme.labelLarge?.copyWith(
+      fontFamily: DetailLayout.sansFont,
+      fontSize: 13,
+      fontFeatures: const [FontFeature.tabularFigures()],
+    );
     final duration = MediaQuery.disableAnimationsOf(context)
         ? Duration.zero
         : _slide;
@@ -145,7 +151,7 @@ class _Cell<T> extends StatelessWidget {
         child: ConstrainedBox(
           constraints: BoxConstraints(minHeight: height),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
             child: Center(
               child: AnimatedDefaultTextStyle(
                 duration: duration,

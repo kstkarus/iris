@@ -4,7 +4,6 @@ import 'package:iris/shared/widgets/display_title.dart';
 import 'package:iris/shared/widgets/headline_anchor.dart';
 import 'package:iris/shared/widgets/headline_column.dart';
 import 'package:iris/shared/widgets/labeled_section.dart';
-import 'package:iris/shared/widgets/status_views.dart';
 
 /// Shared surface styling and typographic contract for editorial detail pages
 /// (anime details, character details).
@@ -33,12 +32,44 @@ abstract final class DetailLayout {
   static Color ruleColor(ColorScheme scheme) =>
       Color.lerp(scheme.outlineVariant, scheme.outline, 0.45)!;
 
+  /// Track color for unfilled progress segments so they stay distinct against
+  /// both [ColorScheme.surface] and [ColorScheme.surfaceContainerLow] cards.
+  static Color progressTrackColor(ColorScheme scheme) =>
+      Color.lerp(scheme.surfaceContainerHighest, scheme.outline, 0.45)!;
+
   static BoxDecoration cardDecoration(
     ColorScheme scheme, {
     Color? background,
   }) => BoxDecoration(
     color: background ?? scheme.surfaceContainerLow,
     border: Border.all(color: ruleColor(scheme)),
+  );
+
+  /// Compact queue/list section heading style in Mono with tightened
+  /// word-spacing so Mono's `0.6 em` spaces don't gap wide between words.
+  static TextStyle queueHeadingStyle(ThemeData theme, {Color? color}) {
+    final base = theme.textTheme.titleMedium ?? const TextStyle();
+    return base.copyWith(
+      fontFamily: monoFont,
+      fontSize: 15,
+      height: 1.25,
+      fontWeight: FontWeight.w500,
+      letterSpacing: -0.1,
+      wordSpacing: -3.2,
+      color: color ?? theme.colorScheme.onSurface,
+    );
+  }
+
+  static TextStyle? monoTelemetryStyle(
+    TextStyle? base, {
+    Color? color,
+    FontWeight? fontWeight,
+  }) => base?.copyWith(
+    fontFamily: monoFont,
+    color: color,
+    fontWeight: fontWeight,
+    wordSpacing: -2.0,
+    fontFeatures: const [FontFeature.tabularFigures()],
   );
 
   /// Section title style in solid SemiBold Mono (`18 px`), compensating Mono's
@@ -112,6 +143,7 @@ class MixedDataText extends StatelessWidget {
     this.monoStyle,
     this.maxLines,
     this.overflow = TextOverflow.clip,
+    this.textAlign,
     super.key,
   });
 
@@ -120,6 +152,7 @@ class MixedDataText extends StatelessWidget {
   final TextStyle? monoStyle;
   final int? maxLines;
   final TextOverflow overflow;
+  final TextAlign? textAlign;
 
   @override
   Widget build(BuildContext context) {
@@ -131,12 +164,12 @@ class MixedDataText extends StatelessWidget {
       ),
       maxLines: maxLines,
       overflow: overflow,
+      textAlign: textAlign,
     );
   }
 }
 
-/// Section wrapper applying [DetailLayout.sectionTitleStyle] without uppercase
-/// or `>>` prefixes.
+/// Section wrapper applying [DetailLayout.sectionTitleStyle] in sentence case.
 class DetailSection extends StatelessWidget {
   const DetailSection({required this.label, required this.child, super.key});
 
@@ -148,7 +181,6 @@ class DetailSection extends StatelessWidget {
     label: label,
     labelStyle: DetailLayout.sectionTitleStyle(Theme.of(context)),
     uppercase: false,
-    showPrefix: false,
     child: child,
   );
 }
@@ -228,37 +260,6 @@ class DetailHeroTitles extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [headline, if (sub.isNotEmpty) subtitleWidget],
-    );
-  }
-}
-
-/// Visible above-the-fold retry card when full details fail to load on top of
-/// a preview.
-class DetailRetryBanner extends StatelessWidget {
-  const DetailRetryBanner({
-    required this.message,
-    required this.onRetry,
-    super.key,
-  });
-
-  final String message;
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return DecoratedBox(
-      decoration: DetailLayout.cardDecoration(theme.colorScheme),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        child: InlineRetry(
-          message: message,
-          onRetry: onRetry,
-          style: theme.textTheme.bodyMedium?.copyWith(
-            fontFamily: DetailLayout.sansFont,
-          ),
-        ),
-      ),
     );
   }
 }

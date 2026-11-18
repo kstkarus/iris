@@ -154,7 +154,6 @@ class _AnimeDetailsDesktopLayoutState extends State<AnimeDetailsDesktopLayout> {
                         Theme.of(context),
                       ),
                       uppercase: false,
-                      showPrefix: false,
                       hairlineDivider: true,
                     ),
                     FriendsSection(totalEpisodes: widget.head.anime.episodes),

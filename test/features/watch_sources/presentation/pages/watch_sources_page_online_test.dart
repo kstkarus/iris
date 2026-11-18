@@ -120,6 +120,69 @@ void main() {
     expect(find.text('subs'), findsOneWidget);
   });
 
+  testWidgets('Page Down scrolls the active tab without losing its position', (
+    tester,
+  ) async {
+    setTestWindowSize(tester, TestWindowSizes.phone);
+    await _pumpPage(
+      tester,
+      online: _FakeOnlineSources([
+        for (var i = 0; i < 24; i++)
+          _dub(OnlineProvider.yummyAnime, 'dub-$i', 'Dub $i'),
+      ]),
+    );
+    await tester.pumpAndSettle();
+
+    double offset() =>
+        tester.state<ScrollableState>(find.byType(Scrollable)).position.pixels;
+
+    Focus.of(tester.element(find.text('Online'))).requestFocus();
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.pageDown);
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    final onlineOffset = offset();
+    expect(onlineOffset, greaterThan(0));
+
+    await tester.tap(find.text('Torrents'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Online'));
+    await tester.pumpAndSettle();
+    expect(offset(), closeTo(onlineOffset, 0.5));
+  }, variant: const TargetPlatformVariant({TargetPlatform.android}));
+
+  testWidgets('cross-fades tab switches and honors reduced motion', (
+    tester,
+  ) async {
+    await _pumpPage(tester, online: _FakeOnlineSources.found());
+
+    await tester.tap(find.text('Torrents'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 90));
+
+    // Mid-transition, the incoming pane is visible and fading in rather than
+    // snapped to full opacity.
+    final transitions = tester
+        .widgetList<FadeTransition>(find.byType(FadeTransition))
+        .map((widget) => widget.opacity.value)
+        .toList();
+    expect(transitions.any((value) => value > 0 && value < 1), isTrue);
+
+    await tester.pumpAndSettle();
+    expect(find.text('[SubsPlease] Frieren'), findsOneWidget);
+    expect(find.text('AniLibria'), findsNothing);
+
+    // With reduced motion, switching back completes on the first frame.
+    tester.platformDispatcher.accessibilityFeaturesTestValue =
+        const FakeAccessibilityFeatures(disableAnimations: true);
+    addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
+
+    await tester.tap(find.text('Online'));
+    await tester.pump();
+    expect(find.text('AniLibria'), findsOneWidget);
+    expect(find.text('[SubsPlease] Frieren'), findsNothing);
+  });
+
   testWidgets('lists every dub on the online tab', (tester) async {
     await _pumpPage(tester, online: _FakeOnlineSources(_dubs));
 

@@ -109,7 +109,11 @@ void main() {
 
     tester.view.physicalSize = const Size(1600, 1000);
     await tester.pumpAndSettle();
-    await tester.ensureVisible(find.byType(InlineRetry));
+    await tester.scrollUntilVisible(
+      find.byType(InlineRetry),
+      200,
+      scrollable: find.byType(Scrollable),
+    );
     await tester.pumpAndSettle();
     expect(repository.requests.map((request) => request.page), [1, 2]);
 
@@ -160,7 +164,10 @@ void main() {
     expect(find.byType(InlineRetry), findsOneWidget);
 
     repository.failure = null;
-    await tester.tap(find.widgetWithText(TextButton, 'Try Again'));
+    final tryAgain = find.widgetWithText(TextButton, 'Try Again');
+    await tester.ensureVisible(tryAgain);
+    await tester.pumpAndSettle();
+    await tester.tap(tryAgain);
     await tester.pumpAndSettle();
     expect(repository.requests.map((request) => request.page), [1, 1, 2, 2]);
     expect(find.text('Anime 31'), findsOneWidget);

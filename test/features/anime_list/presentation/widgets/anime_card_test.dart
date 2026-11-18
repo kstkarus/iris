@@ -109,7 +109,7 @@ void main() {
       ),
     );
 
-    expect(find.text('WATCHING 5/28'), findsOneWidget);
+    expect(find.text('Watching 5/28'), findsOneWidget);
   });
 
   testWidgets('a change made elsewhere shows over the loaded page', (
@@ -129,7 +129,7 @@ void main() {
       ),
       book: book,
     );
-    expect(find.text('PLANNED'), findsOneWidget);
+    expect(find.text('Planned'), findsOneWidget);
 
     await tester.runAsync(
       () => repository.save(
@@ -143,6 +143,6 @@ void main() {
     );
     await tester.pump();
 
-    expect(find.text('COMPLETED'), findsOneWidget);
+    expect(find.text('Completed'), findsOneWidget);
   });
 }

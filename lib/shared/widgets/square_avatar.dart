@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'package:iris/shared/utils/motion_duration.dart';
 import 'package:iris/shared/widgets/network_image.dart';
 
 /// A user's picture: square, framed by a hairline like the covers; a
@@ -27,6 +28,19 @@ class SquareAvatar extends StatelessWidget {
               : Image(
                   image: networkImage(url),
                   fit: BoxFit.cover,
+                  frameBuilder:
+                      (context, child, frame, wasSynchronouslyLoaded) {
+                        if (wasSynchronouslyLoaded) return child;
+                        return AnimatedOpacity(
+                          opacity: frame == null ? 0 : 1,
+                          duration: motionDuration(
+                            context,
+                            const Duration(milliseconds: 160),
+                          ),
+                          curve: Curves.easeOutCubic,
+                          child: child,
+                        );
+                      },
                   errorBuilder: (context, error, stackTrace) => empty,
                 ),
         ),

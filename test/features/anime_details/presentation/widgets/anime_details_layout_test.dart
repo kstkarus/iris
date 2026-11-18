@@ -88,6 +88,7 @@ void main() {
 
       for (final text in [head.anime.name, head.anime.russian]) {
         final paragraph = tester.renderObject<RenderParagraph>(find.text(text));
+        expect(paragraph.didExceedMaxLines, isFalse);
         expect(
           paragraph.size.height,
           greaterThanOrEqualTo(

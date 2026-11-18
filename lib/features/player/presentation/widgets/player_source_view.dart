@@ -12,6 +12,8 @@ import 'package:iris/features/player/presentation/widgets/player_episodes_list.d
 import 'package:iris/features/player/presentation/widgets/player_episode_grid.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/entities/watch_progress/presentation/watch_progress_line.dart';
+import 'package:iris/shared/widgets/detail_layout.dart';
+import 'package:iris/shared/widgets/dither_switcher.dart';
 import 'package:iris/shared/widgets/status_views.dart';
 
 class PlayerSourceView extends StatelessWidget {
@@ -40,20 +42,34 @@ class PlayerSourceView extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocBuilder<PlayerSourceCubit, PlayerSourceState>(
       builder: (context, state) {
-        return switch (state) {
-          PlayerSourceInitial() || PlayerSourceLoading() => LoadingView(
-            label: isOnline
-                ? AppLocalizations.of(context).playerSourceEpisodesPreparing
-                : AppLocalizations.of(context).playerSourcePreparing,
+        final (Object key, Widget view) = switch (state) {
+          PlayerSourceInitial() || PlayerSourceLoading() => (
+            'loading',
+            LoadingView(
+              label: isOnline
+                  ? AppLocalizations.of(context).playerSourceEpisodesPreparing
+                  : AppLocalizations.of(context).playerSourcePreparing,
+            ),
           ),
-          PlayerSourceReady(:final preparedSource) => _SuccessState(
-            files: preparedSource.files,
-            progressByFile: progressByFile,
-            listed: filesCountedInList(preparedSource.files, listedEpisodes),
-            onFileSelected: onFileSelected,
+          PlayerSourceReady(:final preparedSource) => (
+            'ready',
+            _SuccessState(
+              files: preparedSource.files,
+              progressByFile: progressByFile,
+              listed: filesCountedInList(preparedSource.files, listedEpisodes),
+              onFileSelected: onFileSelected,
+            ),
           ),
-          PlayerSourceFailure(:final type) => _FailureState(type: type),
+          PlayerSourceFailure(:final type) => (
+            'failure',
+            _FailureState(type: type),
+          ),
         };
+        return DitherSwitcher(
+          expand: true,
+          duration: const Duration(milliseconds: 320),
+          child: KeyedSubtree(key: ValueKey(key), child: view),
+        );
       },
     );
   }
@@ -138,6 +154,7 @@ class _ContinueCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     final progress = this.progress;
     final showName = !nameIsJustNumber(file.displayName, this.number);
     final details = Column(
@@ -148,11 +165,16 @@ class _ContinueCard extends StatelessWidget {
             file.displayName,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
-            style: theme.textTheme.bodyMedium,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              fontFamily: DetailLayout.sansFont,
+              fontWeight: FontWeight.w500,
+              fontSize: 15,
+              height: 1.3,
+            ),
           ),
         // The file's own row below carries the bar.
         if (progress != null) ...[
-          if (showName) const SizedBox(height: 4),
+          if (showName) const SizedBox(height: 5),
           WatchProgressLine(progress: progress, showBar: false),
         ],
       ],
@@ -167,12 +189,40 @@ class _ContinueCard extends StatelessWidget {
       ),
     );
     final number = SizedBox(
-      width: 44,
-      child: Text(this.number, style: theme.textTheme.titleMedium),
+      width: 42,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: scheme.surfaceContainer,
+          border: Border.all(
+            color: progress != null
+                ? scheme.tertiary
+                : DetailLayout.ruleColor(scheme),
+          ),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Center(
+            child: Text(
+              this.number,
+              style: DetailLayout.monoTelemetryStyle(
+                theme.textTheme.titleMedium,
+                fontWeight: FontWeight.w600,
+                color: progress != null ? scheme.tertiary : scheme.onSurface,
+              ),
+            ),
+          ),
+        ),
+      ),
     );
     return Card(
+      margin: EdgeInsets.zero,
+      color: scheme.surfaceContainerLow,
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        side: BorderSide(color: DetailLayout.ruleColor(scheme)),
+      ),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 14, 12, 14),
+        padding: const EdgeInsets.all(14),
         child: LayoutBuilder(
           // Narrow cards put the button under the text, so neither the
           // name nor the position gets cut short.
@@ -181,9 +231,10 @@ class _ContinueCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                      crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
                         number,
+                        const SizedBox(width: 12),
                         Expanded(child: details),
                       ],
                     ),
@@ -194,6 +245,7 @@ class _ContinueCard extends StatelessWidget {
               : Row(
                   children: [
                     number,
+                    const SizedBox(width: 12),
                     Expanded(child: details),
                     const SizedBox(width: 16),
                     button,

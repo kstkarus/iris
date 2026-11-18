@@ -12,10 +12,13 @@ import 'package:iris/features/anime_list/presentation/bloc/anime_search_bloc.dar
 import 'package:iris/features/anime_list/presentation/cubit/anime_genres_cubit.dart';
 import 'package:iris/features/anime_list/presentation/cubit/anime_list_preview_cubit.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
+import 'package:iris/shared/utils/motion_duration.dart';
 import 'package:iris/shared/widgets/adaptive/show_adaptive_sheet.dart';
 import 'package:iris/shared/widgets/app_skeleton.dart';
-import 'package:iris/shared/widgets/section_label.dart';
+import 'package:iris/shared/widgets/detail_layout.dart';
+import 'package:iris/shared/widgets/dither_switcher.dart';
 import 'package:iris/shared/widgets/pixel_icon.dart';
+import 'package:iris/shared/widgets/section_label.dart';
 import 'package:iris/shared/widgets/segmented_choice.dart';
 import 'package:iris/shared/widgets/status_views.dart';
 
@@ -164,7 +167,13 @@ class _AnimeListCriteriaSheetState extends State<_AnimeListCriteriaSheet> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final textTheme = Theme.of(context).textTheme;
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final textTheme = theme.textTheme;
+    final preview = widget.preview;
+    final countStyle = DetailLayout.monoTelemetryStyle(
+      const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+    );
 
     return ConstrainedBox(
       constraints: BoxConstraints(
@@ -177,14 +186,25 @@ class _AnimeListCriteriaSheetState extends State<_AnimeListCriteriaSheet> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(l10n.animeListFiltersTitle, style: textTheme.titleLarge),
-              const SizedBox(height: 24),
+              Text(
+                l10n.animeListFiltersTitle,
+                style: textTheme.titleLarge?.copyWith(
+                  fontFamily: DetailLayout.sansFont,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 20),
               Flexible(
                 child: SingleChildScrollView(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      SectionLabel(l10n.animeListSortSectionTitle),
+                      SectionLabel(
+                        l10n.animeListSortSectionTitle,
+                        style: _criteriaSectionTitleStyle(theme),
+                        uppercase: false,
+                      ),
                       const SizedBox(height: 8),
                       SegmentedChoice<AnimeListSortOption>(
                         key: const Key('catalog_sort_choice'),
@@ -296,39 +316,61 @@ class _AnimeListCriteriaSheetState extends State<_AnimeListCriteriaSheet> {
                 ),
               ),
               const SizedBox(height: 16),
-              const Divider(height: 1),
+              Divider(
+                height: 1,
+                thickness: 1,
+                color: DetailLayout.ruleColor(scheme),
+              ),
               const SizedBox(height: 12),
               Row(
                 children: [
                   TextButton(
+                    style: TextButton.styleFrom(
+                      textStyle: const TextStyle(
+                        fontFamily: DetailLayout.sansFont,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
                     onPressed: _reset,
                     child: Text(l10n.animeListResetButton),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: widget.preview != null
-                        ? BlocBuilder<AnimeListPreviewCubit, AnimeListPreview>(
-                            bloc: widget.preview,
-                            builder: (context, state) => FilledButton(
-                              onPressed: _apply,
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(l10n.animeListShowCount('').trim()),
-                                  const SizedBox(width: 8),
-                                  Stack(
+                    child: FilledButton(
+                      style: FilledButton.styleFrom(
+                        textStyle: const TextStyle(
+                          fontFamily: DetailLayout.sansFont,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      onPressed: _apply,
+                      child: preview == null
+                          ? Text(l10n.animeListShowResults)
+                          : Wrap(
+                              alignment: WrapAlignment.center,
+                              crossAxisAlignment: WrapCrossAlignment.center,
+                              spacing: 8,
+                              runSpacing: 4,
+                              children: [
+                                Text(l10n.animeListShowCount('').trim()),
+                                BlocBuilder<
+                                  AnimeListPreviewCubit,
+                                  AnimeListPreview
+                                >(
+                                  bloc: preview,
+                                  builder: (context, state) => Stack(
                                     children: [
-                                      const ExcludeSemantics(
+                                      ExcludeSemantics(
                                         child: Opacity(
                                           opacity: 0,
-                                          child: Text('50+'),
+                                          child: Text('50+', style: countStyle),
                                         ),
                                       ),
                                       AppSkeleton(
                                         enabled: state.loading,
-                                        color: Theme.of(
-                                          context,
-                                        ).colorScheme.onPrimary,
+                                        color: scheme.onPrimary,
                                         semanticLabel: l10n.animeListLoading,
                                         child: Text(
                                           state.loading
@@ -336,18 +378,15 @@ class _AnimeListCriteriaSheetState extends State<_AnimeListCriteriaSheet> {
                                               : state.count == null
                                               ? ''
                                               : '${state.count}${state.hasMore ? '+' : ''}',
+                                          style: countStyle,
                                         ),
                                       ),
                                     ],
                                   ),
-                                ],
-                              ),
+                                ),
+                              ],
                             ),
-                          )
-                        : FilledButton(
-                            onPressed: _apply,
-                            child: Text(l10n.animeListShowResults),
-                          ),
+                    ),
                   ),
                 ],
               ),
@@ -382,31 +421,36 @@ class _GenresSectionState extends State<_GenresSection> {
     return BlocBuilder<AnimeGenresCubit, AnimeGenresState>(
       bloc: widget.cubit,
       builder: (context, state) {
-        if (state is AnimeGenresUnavailable) return const SizedBox.shrink();
-        if (state is! AnimeGenresLoaded) {
-          return const Padding(
+        final Widget child;
+        if (state is AnimeGenresUnavailable) {
+          child = const SizedBox.shrink(key: ValueKey('unavailable'));
+        } else if (state is! AnimeGenresLoaded) {
+          child = const Padding(
+            key: ValueKey('loading'),
             padding: EdgeInsets.only(top: 20),
             child: SizedBox(width: 80, child: BlockSpinner()),
           );
-        }
-        final sections = <Widget>[];
-        for (final kind in AnimeGenreKind.values) {
-          final all = state.genres
-              .where((genre) => genre.kind == kind)
-              .toList();
-          if (all.isEmpty) continue;
-          final expanded = _expanded.contains(kind);
-          final visible = [
-            for (final (index, genre) in all.indexed)
-              if (expanded ||
-                  kind == AnimeGenreKind.demographic ||
-                  index < 10 ||
-                  widget.selected.contains(genre))
-                genre,
-          ];
-          sections.addAll([
-            const SizedBox(height: 20),
-            _CriteriaSection(
+        } else {
+          final sizeDuration = motionDuration(
+            context,
+            const Duration(milliseconds: 200),
+          );
+          final sections = <Widget>[];
+          for (final kind in AnimeGenreKind.values) {
+            final all = state.genres
+                .where((genre) => genre.kind == kind)
+                .toList();
+            if (all.isEmpty) continue;
+            final expanded = _expanded.contains(kind);
+            final visible = [
+              for (final (index, genre) in all.indexed)
+                if (expanded ||
+                    kind == AnimeGenreKind.demographic ||
+                    index < 10 ||
+                    widget.selected.contains(genre))
+                  genre,
+            ];
+            final section = _CriteriaSection(
               title: switch (kind) {
                 AnimeGenreKind.genre => l10n.animeListGenresSectionTitle,
                 AnimeGenreKind.demographic =>
@@ -422,13 +466,25 @@ class _GenresSectionState extends State<_GenresSection> {
                   ),
                 if (visible.length < all.length || expanded)
                   TextButton.icon(
+                    style: TextButton.styleFrom(
+                      textStyle: const TextStyle(
+                        fontFamily: DetailLayout.sansFont,
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
                     onPressed: () => setState(
                       () => expanded
                           ? _expanded.remove(kind)
                           : _expanded.add(kind),
                     ),
-                    icon: RotatedBox(
-                      quarterTurns: expanded ? 2 : 0,
+                    icon: AnimatedRotation(
+                      turns: expanded ? 0.5 : 0,
+                      duration: motionDuration(
+                        context,
+                        const Duration(milliseconds: 180),
+                      ),
+                      curve: Curves.easeOutCubic,
                       child: const PixelIcon(PixelGlyph.expand, size: 12),
                     ),
                     label: Text(
@@ -438,12 +494,30 @@ class _GenresSectionState extends State<_GenresSection> {
                     ),
                   ),
               ],
-            ),
-          ]);
+            );
+            sections.addAll([
+              const SizedBox(height: 20),
+              if (sizeDuration == Duration.zero)
+                section
+              else
+                AnimatedSize(
+                  duration: sizeDuration,
+                  curve: Curves.easeOutCubic,
+                  alignment: AlignmentDirectional.topStart,
+                  child: section,
+                ),
+            ]);
+          }
+          child = Column(
+            key: const ValueKey('loaded'),
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: sections,
+          );
         }
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: sections,
+        return DitherSwitcher(
+          collapse: true,
+          duration: const Duration(milliseconds: 220),
+          child: child,
         );
       },
     );
@@ -463,23 +537,47 @@ class _FilterTag extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final unselectedBorder = DetailLayout.ruleColor(scheme);
     return Semantics(
       selected: selected,
-      child: OutlinedButton(
-        onPressed: () => onChanged(!selected),
-        style: OutlinedButton.styleFrom(
-          minimumSize: const Size(48, 44),
-          padding: const EdgeInsets.symmetric(horizontal: 10),
-          backgroundColor: selected ? scheme.onSurface : scheme.surface,
-          foregroundColor: selected ? scheme.surface : scheme.onSurface,
-          overlayColor: selected ? scheme.surface : scheme.onSurface,
-          side: BorderSide(color: selected ? scheme.onSurface : scheme.outline),
-        ),
-        child: Text(label),
+      child: TweenAnimationBuilder<double>(
+        tween: Tween<double>(end: selected ? 1 : 0),
+        duration: motionDuration(context, const Duration(milliseconds: 160)),
+        curve: Curves.easeOutCubic,
+        builder: (context, t, _) {
+          final background = Color.lerp(scheme.surface, scheme.onSurface, t)!;
+          final foreground = Color.lerp(scheme.onSurface, scheme.surface, t)!;
+          final border = Color.lerp(unselectedBorder, scheme.onSurface, t)!;
+          return OutlinedButton(
+            onPressed: () => onChanged(!selected),
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size(48, 44),
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              textStyle: TextStyle(
+                fontFamily: DetailLayout.sansFont,
+                fontSize: 13.5,
+                fontWeight: t >= 0.5 ? FontWeight.w500 : FontWeight.w400,
+              ),
+              backgroundColor: background,
+              foregroundColor: foreground,
+              overlayColor: foreground,
+              side: BorderSide(color: border),
+            ),
+            child: Text(label),
+          );
+        },
       ),
     );
   }
 }
+
+TextStyle? _criteriaSectionTitleStyle(ThemeData theme) =>
+    theme.textTheme.titleSmall?.copyWith(
+      fontFamily: DetailLayout.sansFont,
+      fontSize: 14,
+      fontWeight: FontWeight.w600,
+      color: theme.colorScheme.onSurface,
+    );
 
 class _CriteriaSection extends StatelessWidget {
   const _CriteriaSection({required this.title, required this.options});
@@ -489,11 +587,16 @@ class _CriteriaSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SectionLabel(title),
-        const SizedBox(height: 4),
+        SectionLabel(
+          title,
+          style: _criteriaSectionTitleStyle(theme),
+          uppercase: false,
+        ),
+        const SizedBox(height: 8),
         Wrap(spacing: 8, runSpacing: 8, children: options),
       ],
     );

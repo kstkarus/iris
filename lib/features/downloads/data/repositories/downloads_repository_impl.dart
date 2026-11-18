@@ -74,6 +74,7 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
 
   /// The active download when it is an online episode.
   OnlineDownloadTask? _onlineTask;
+  Future<void>? _stoppingOnline;
   final Map<String, int> _torrentIdByDownloadId = {};
   // Downloads whose files are being removed; a queued start must skip them.
   final Set<String> _deletingIds = {};
@@ -374,17 +375,23 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
     await restore();
     final item = _find(id);
     if (item == null ||
+        _deletingIds.contains(id) ||
         item.status == DownloadStatus.completed ||
         item.status == DownloadStatus.failed ||
         item.status == DownloadStatus.paused) {
       return;
     }
 
-    await _stopOnline(id);
-    if (_releaseTorrent(id, deleteFiles: false, pauseFirst: true)) {
-      await _foregroundService.stop();
+    if (item.status != DownloadStatus.queued) {
+      await _stopOnline(id);
+      if (_deletingIds.contains(id)) return;
+      if (_releaseTorrent(id, deleteFiles: false, pauseFirst: true)) {
+        await _foregroundService.stop();
+      }
     }
-    _replace((_find(id) ?? item).stopped(DownloadStatus.paused));
+    final current = _find(id);
+    if (current == null || current.status == DownloadStatus.completed) return;
+    _replace(current.stopped(DownloadStatus.paused));
     await _commit();
     unawaited(_pumpQueue());
   }
@@ -402,6 +409,7 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
         'source-${++_sourceSequence}-${_now().microsecondsSinceEpoch}';
     final release = OnlineSourceLink.tryParse(magnet);
     if (release != null) return _prepareRelease(token, release, cancelled);
+    await unlessCancelled(_ensureTorrentInitialized(), cancelled);
     final torrentKey = torrentKeyFromMagnet(magnet);
     // A player of the same torrent, also one that is still closing, owns the
     // native torrent and removes it with its files when it ends; an add now
@@ -508,7 +516,7 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
     if (downloader == null) {
       throw UnsupportedError('Online episodes cannot be downloaded here.');
     }
-    final (:files, :qualities) = await _unlessCancelled(
+    final (:files, :qualities) = await unlessCancelled(
       downloader.episodes(release),
       cancelled,
     );
@@ -526,11 +534,9 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
   Future<void> restore() {
     if (_restored) return Future<void>.value();
     // Concurrent first calls share one read of the registry.
-    return _restoration ??= _ensureInitialized()
-        .then((_) => _restoreDownloads())
-        .whenComplete(() {
-          _restoration = null;
-        });
+    return _restoration ??= _restoreDownloads().whenComplete(() {
+      _restoration = null;
+    });
   }
 
   Future<void> _restoreDownloads() async {
@@ -552,6 +558,13 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
           await File(current.localPath).exists();
       reconciled.add(_reconcileOnRestore(current, fileExists: fileExists));
     }
+    if (_closing) return;
+    _streamingStartedSubscription = _activityRegistry.streamingStarted.listen(
+      _yieldToStreaming,
+    );
+    _streamingStoppedSubscription = _activityRegistry.streamingStopped.listen(
+      (_) => unawaited(_pumpQueue()),
+    );
     _downloads = reconciled;
     _restored = true;
     await _commit();
@@ -768,8 +781,8 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
 
   /// Once; a start that failed (the engine, the folder) is tried again
   /// by the next caller rather than handed back to everyone.
-  Future<void> _ensureInitialized() {
-    return _initialization ??= _initialize().catchError((
+  Future<void> _ensureTorrentInitialized() {
+    return _initialization ??= _initializeTorrent().catchError((
       Object error,
       StackTrace stackTrace,
     ) {
@@ -778,15 +791,9 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
     });
   }
 
-  Future<void> _initialize() async {
-    await _downloadsDirectory.create(recursive: true);
+  Future<void> _initializeTorrent() async {
     await _engine.initialize();
-    _streamingStartedSubscription = _activityRegistry.streamingStarted.listen(
-      _yieldToStreaming,
-    );
-    _streamingStoppedSubscription = _activityRegistry.streamingStopped.listen(
-      (_) => unawaited(_pumpQueue()),
-    );
+    if (_closing) throw const PreparationCancelledException();
     _engineSubscription = _engine.torrentUpdates.listen((torrents) {
       unawaited(_engineUpdates.run(() => _handleEngineUpdates(torrents)));
     });
@@ -1003,9 +1010,11 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
     final directory = _downloadDirectory(candidate.id);
     try {
       await directory.create(recursive: true);
-    } on FileSystemException catch (error, stackTrace) {
+      await _ensureTorrentInitialized();
+    } on Object catch (error, stackTrace) {
+      if (_closing) return null;
       developer.log(
-        'Unable to create the folder of a queued download.',
+        'Unable to prepare a queued download.',
         name: 'iris.downloads.repository',
         error: error,
         stackTrace: stackTrace,
@@ -1026,7 +1035,8 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
     }
     // The queue or startability may have changed while creating the folder.
     final item = _find(candidate.id);
-    if (_deletingIds.isNotEmpty ||
+    if (_closing ||
+        _deletingIds.isNotEmpty ||
         item == null ||
         _nextStartableDownload()?.id != item.id) {
       return null;
@@ -1185,7 +1195,7 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
     _replace(updated);
     _emit();
     _schedulePersist();
-    final percent = (updated.progress * 100).round();
+    final percent = (updated.progressUntilCompleted * 100).round();
     if (_lastNotificationPercent != percent) {
       _lastNotificationPercent = percent;
       await _foregroundService.update(text: '${item.fileName}: $percent%');
@@ -1236,12 +1246,21 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
   /// Stops the online task of [id], if it is the active one, and waits
   /// until it has let go of its files.
   Future<void> _stopOnline(String id) async {
+    if (_activeDownloadId != id) return;
+    if (_stoppingOnline case final stopping?) return stopping;
     final task = _onlineTask;
-    if (task == null || _activeDownloadId != id) return;
+    if (task == null) return;
     _onlineTask = null;
-    _clearActiveDownload();
-    await task.cancel();
-    await _foregroundService.stop();
+    // Keep the slot until the old task has stopped using the shared service.
+    final stopping = _stoppingOnline = task.cancel().then(
+      (_) => _foregroundService.stop(),
+    );
+    try {
+      await stopping;
+    } finally {
+      _stoppingOnline = null;
+      _clearActiveDownload();
+    }
   }
 
   DownloadItem? _nextStartableDownload() {
@@ -1290,7 +1309,7 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
   /// Waits for the metadata of [torrentId], or gives up when [cancelled]
   /// completes first.
   Future<void> _waitForMetadata(int torrentId, Future<void>? cancelled) {
-    return _unlessCancelled(_engine.waitForMetadata(torrentId), cancelled);
+    return unlessCancelled(_engine.waitForMetadata(torrentId), cancelled);
   }
 
   /// Waits while [torrentKey] is streamed, or gives up when [cancelled]
@@ -1300,15 +1319,7 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
     final stopped = _activityRegistry.streamingStopped
         .firstWhere((key) => key == torrentKey)
         .then<void>((_) {});
-    return _unlessCancelled(stopped, cancelled);
-  }
-
-  Future<T> _unlessCancelled<T>(Future<T> work, Future<void>? cancelled) {
-    if (cancelled == null) return work;
-    return Future.any<T>([
-      work,
-      cancelled.then<T>((_) => throw const PreparationCancelledException()),
-    ]);
+    return unlessCancelled(stopped, cancelled);
   }
 
   List<DownloadableFile> _downloadableFiles(int torrentId) {

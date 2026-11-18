@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:iris/features/player/presentation/widgets/player_popover.dart';
+import 'package:iris/shared/widgets/detail_layout.dart';
 
 /// The frame of a player panel (sheet, dialog or popover): [title] above
 /// [child], scrolling within [maxHeightFactor] of the window's height.
@@ -48,7 +49,9 @@ class PlayerPanel extends StatelessWidget {
                   Text(
                     title,
                     style: theme.textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w500,
+                      fontFamily: DetailLayout.sansFont,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                   const SizedBox(height: 16),

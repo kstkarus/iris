@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-/// A section heading in terminal shorthand: `>> LABEL`, small and upper
-/// case, with an optional [trailing] action at the end of the row.
+/// A section heading, small and upper case by default, with an optional
+/// [trailing] action at the end of the row.
 ///
 /// It carries no rule of its own: the rows below it bring theirs.
 class SectionLabel extends StatelessWidget {
@@ -10,7 +10,6 @@ class SectionLabel extends StatelessWidget {
     this.trailing,
     this.style,
     this.uppercase = true,
-    this.showPrefix = true,
     super.key,
   });
 
@@ -18,7 +17,6 @@ class SectionLabel extends StatelessWidget {
   final Widget? trailing;
   final TextStyle? style;
   final bool uppercase;
-  final bool showPrefix;
 
   @override
   Widget build(BuildContext context) {
@@ -30,15 +28,6 @@ class SectionLabel extends StatelessWidget {
       header: true,
       child: Row(
         children: [
-          if (showPrefix)
-            ExcludeSemantics(
-              child: Text(
-                '>> ',
-                style: style?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ),
           Expanded(child: Text(labelText, style: style)),
           ?trailing,
         ],

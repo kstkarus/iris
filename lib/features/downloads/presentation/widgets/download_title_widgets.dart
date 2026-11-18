@@ -44,16 +44,13 @@ class DownloadTitleIdentity extends StatelessWidget {
             children: [
               Text(title.name, style: theme.textTheme.headlineSmall),
               const SizedBox(height: 8),
-              PixelSeparatedText.parts(
-                [
-                  l10n.downloadTitleReady(
-                    title.count(DownloadStatus.completed),
-                    title.items.length,
-                  ),
-                  _titleBytes(l10n, title),
-                ],
-                style: theme.textTheme.bodySmall,
-              ),
+              PixelSeparatedText.parts([
+                l10n.downloadTitleReady(
+                  title.count(DownloadStatus.completed),
+                  title.items.length,
+                ),
+                _titleBytes(l10n, title),
+              ], style: theme.textTheme.bodySmall),
             ],
           ),
         ),
@@ -433,7 +430,12 @@ class DownloadPosterOption extends StatelessWidget {
                 ),
                 Positioned.fill(
                   child: IgnorePointer(
-                    child: DecoratedBox(
+                    child: AnimatedContainer(
+                      duration: motionDuration(
+                        context,
+                        const Duration(milliseconds: 150),
+                      ),
+                      curve: Curves.easeOutCubic,
                       decoration: BoxDecoration(
                         border: Border.all(
                           color: selected
@@ -448,13 +450,24 @@ class DownloadPosterOption extends StatelessWidget {
                 Positioned(
                   right: 5,
                   bottom: 5,
-                  child: _downloadStatusBadge(
-                    context,
-                    status,
-                    statusColor,
-                    fill: status == DownloadStatus.downloading
-                        ? _titleProgress(title)
-                        : null,
+                  child: AnimatedSwitcher(
+                    duration: motionDuration(
+                      context,
+                      const Duration(milliseconds: 180),
+                    ),
+                    switchInCurve: Curves.easeOutCubic,
+                    switchOutCurve: Curves.easeOutCubic,
+                    child: KeyedSubtree(
+                      key: ValueKey(status),
+                      child: _downloadStatusBadge(
+                        context,
+                        status,
+                        statusColor,
+                        fill: status == DownloadStatus.downloading
+                            ? _titleProgress(title)
+                            : null,
+                      ),
+                    ),
                   ),
                 ),
               ],
@@ -470,11 +483,13 @@ class DownloadLibraryGallery extends StatelessWidget {
   const DownloadLibraryGallery({
     required this.titles,
     required this.onOpenTitle,
+    this.onEmptied,
     super.key,
   });
 
   final List<DownloadTitle> titles;
   final ValueChanged<DownloadTitle> onOpenTitle;
+  final VoidCallback? onEmptied;
 
   @override
   Widget build(BuildContext context) {
@@ -491,6 +506,8 @@ class DownloadLibraryGallery extends StatelessWidget {
           crossAxisCount: columns,
           columnSpacing: gap,
           rowSpacing: constraints.maxWidth < 600 ? 24 : 32,
+          removalDuration: const Duration(milliseconds: 320),
+          onEmptied: onEmptied,
           itemBuilder: (context, title) => _GalleryTitle(
             title: title,
             horizontal: horizontal,
@@ -619,14 +636,24 @@ class _GalleryTitle extends StatelessWidget {
     child: Stack(
       children: [
         DownloadTitlePoster(title: title, width: width),
-        if (status != null)
-          Positioned(
-            right: 5,
-            bottom: 5,
-            child: ExcludeSemantics(
-              child: _downloadStatusBadge(context, status, color),
+        Positioned(
+          right: 5,
+          bottom: 5,
+          child: AnimatedSwitcher(
+            duration: motionDuration(
+              context,
+              const Duration(milliseconds: 180),
             ),
+            switchInCurve: Curves.easeOutCubic,
+            switchOutCurve: Curves.easeOutCubic,
+            child: status == null
+                ? const SizedBox.shrink(key: ValueKey('no_status'))
+                : ExcludeSemantics(
+                    key: ValueKey(status),
+                    child: _downloadStatusBadge(context, status, color),
+                  ),
           ),
+        ),
       ],
     ),
   );

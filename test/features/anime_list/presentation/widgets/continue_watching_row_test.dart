@@ -99,6 +99,56 @@ void main() {
     expect(find.text('Watched'), findsOneWidget);
     expect(find.text('24:00 / 24:00'), findsNothing);
   });
+
+  testWidgets('dissolves removed entry before removing it from layout', (
+    tester,
+  ) async {
+    setTestWindowSize(tester, const Size(1280, 1200));
+    final initial = [
+      _progress('a', seconds: 600, minute: 20),
+      _progress('b', seconds: 600, minute: 10),
+    ];
+
+    Widget buildRow(
+      List<WatchProgress> items, {
+      bool disableAnimations = false,
+    }) {
+      final app = _app(
+        ContinueWatchingRow(
+          items: items,
+          onOpen: (_) {},
+          onOpenAnime: (_) {},
+          onRemove: (_) {},
+        ),
+      );
+      return disableAnimations
+          ? MediaQuery(
+              data: const MediaQueryData(disableAnimations: true),
+              child: app,
+            )
+          : app;
+    }
+
+    await tester.pumpWidget(buildRow(initial));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('continue_watching_a')), findsOneWidget);
+    expect(find.byKey(const ValueKey('continue_watching_b')), findsOneWidget);
+
+    await tester.pumpWidget(buildRow([initial[1]]));
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(find.byKey(const ValueKey('continue_watching_a')), findsOneWidget);
+
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('continue_watching_a')), findsNothing);
+    expect(find.byKey(const ValueKey('continue_watching_b')), findsOneWidget);
+
+    // With reduced motion, removal finishes after a single post-frame step.
+    await tester.pumpWidget(buildRow(initial, disableAnimations: true));
+    await tester.pump();
+    await tester.pumpWidget(buildRow([initial[1]], disableAnimations: true));
+    await tester.pump();
+    expect(find.byKey(const ValueKey('continue_watching_a')), findsNothing);
+  });
 }
 
 Widget _app(Widget child) {

@@ -568,6 +568,56 @@ void main() {
       expect(cubit.state.phase, AppUpdatePhase.available);
     },
   );
+
+  testWidgets('Later dismisses the update notice snappily within 240ms', (
+    tester,
+  ) async {
+    await pumpNotice(tester);
+
+    await tester.tap(find.byKey(UpdateNotice.laterKey));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 240));
+    await tester.pump(const Duration(milliseconds: 1));
+
+    expect(find.text('Version 1.3.0 is out'), findsNothing);
+    expect(tester.hasRunningAnimations, isFalse);
+  });
+
+  testWidgets(
+    'Windows sheet smooths failure appearance and footer transitions',
+    (tester) async {
+      _useDesktopSize(tester);
+      final downloads = _AndroidDownloads();
+      final cubit = await _pumpInAppNotice(
+        tester,
+        downloads,
+        platform: TargetPlatform.windows,
+      );
+
+      await tester.tap(find.byKey(UpdateNotice.noticeKey));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(UpdateNotice.downloadActionKey));
+      await tester.pump(const Duration(milliseconds: 220));
+      await tester.pump();
+      expect(cubit.state.phase, AppUpdatePhase.downloading);
+      expect(find.byKey(UpdateNotice.cancelDownloadKey), findsOneWidget);
+
+      downloads.failDownload();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 90));
+      expect(tester.hasRunningAnimations, isTrue);
+
+      await tester.pumpAndSettle();
+      expect(
+        find.text(
+          "Couldn't download the update. Check your connection and try again.",
+        ),
+        findsOneWidget,
+      );
+      expect(tester.hasRunningAnimations, isFalse);
+    },
+  );
 }
 
 void _usePhoneSize(WidgetTester tester, {Size size = const Size(390, 844)}) {

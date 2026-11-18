@@ -22,6 +22,7 @@ import 'package:iris/features/downloads/presentation/pages/download_title_page.d
 import 'package:iris/features/downloads/presentation/widgets/download_manager_view.dart';
 import 'package:iris/features/downloads/presentation/widgets/download_labels.dart';
 import 'package:iris/l10n/generated/app_localizations_en.dart';
+import 'package:iris/shared/widgets/status_views.dart';
 
 import '../../../../helpers/test_window.dart';
 
@@ -54,6 +55,7 @@ class _Downloads extends MockDownloadsRepository {
   List<DownloadItem> items;
   final changes = StreamController<List<DownloadItem>>.broadcast();
   final bool busy;
+  Completer<void>? clearGate;
   int activeSubscriptions = 0;
   bool failReorder = false;
   int temporary = 1024;
@@ -145,6 +147,7 @@ class _Downloads extends MockDownloadsRepository {
   @override
   Future<bool> clearCache() async {
     cleared++;
+    await clearGate?.future;
     if (busy) return false;
     temporary = 0;
     return true;
@@ -223,16 +226,15 @@ Future<void> _move(
   WidgetTester tester,
   String from,
   String target, {
-  required bool down,
   required PointerDeviceKind kind,
 }) async {
   final handle = find.byKey(ValueKey('queue_handle_$from'));
-  final destination = tester.getRect(find.byKey(ValueKey(target)));
+  final destination = tester.getCenter(find.byKey(ValueKey(target)));
   final point = tester.getCenter(handle);
   final gesture = await tester.startGesture(point, kind: kind);
   await gesture.moveBy(const Offset(0, 12));
   await tester.pump(const Duration(milliseconds: 16));
-  final end = down ? destination.bottom - 4 : destination.top + 4;
+  final end = destination.dy;
   for (var step = 1; step <= 16; step++) {
     await gesture.moveTo(
       Offset(point.dx, point.dy + (end - point.dy) * step / 16),
@@ -481,6 +483,10 @@ void main() {
     'partial sizes stay clear and stopped files return to the queue',
     (tester) async {
       final repository = _Downloads(count: 1);
+      repository.items[0] = repository.items[0].copyWith(
+        magnet: 'online:anilibria/9542',
+        downloadedBytes: 120,
+      );
       repository.items.addAll([
         _item('known', DownloadStatus.paused),
         _item(
@@ -499,6 +505,12 @@ void main() {
       final harness = await _mount(tester, repository);
       await tester.tap(find.byKey(const Key('download_queue_open')));
       await tester.pumpAndSettle();
+
+      final activeProgress = find.descendant(
+        of: find.byKey(const ValueKey('0')),
+        matching: find.byType(LinearProgressIndicator),
+      );
+      expect(tester.widget<LinearProgressIndicator>(activeProgress).value, .99);
 
       expect(
         find.descendant(
@@ -523,6 +535,7 @@ void main() {
       );
       final resume = find.byKey(const ValueKey('queue_pause_unknown'));
       await tester.ensureVisible(resume);
+      await tester.pumpAndSettle();
       await tester.tap(resume);
       await tester.pumpAndSettle();
       expect(repository.waiting, ['1', 'unknown']);
@@ -535,6 +548,7 @@ void main() {
 
       final errorMenu = find.byKey(const ValueKey('queue_menu_failed'));
       await tester.ensureVisible(errorMenu);
+      await tester.pumpAndSettle();
       await tester.tap(errorMenu);
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('queue_files_failed')));
@@ -545,6 +559,7 @@ void main() {
 
       final retry = find.byKey(const ValueKey('queue_pause_failed'));
       await tester.ensureVisible(retry);
+      await tester.pumpAndSettle();
       await tester.tap(retry);
       await tester.pumpAndSettle();
       expect(repository.waiting, ['1', 'unknown', 'failed']);
@@ -568,13 +583,13 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byKey(const Key('queue_handle_0')), findsNothing);
       final active = repository.items.first;
-      await _move(tester, '1', '3', down: true, kind: kind);
+      await _move(tester, '1', '3', kind: kind);
       expect(repository.waiting, ['2', '3', '1', '4']);
       expect(repository.items.first, same(active));
       await tester.tap(find.text('Undo'));
       await tester.pumpAndSettle();
       expect(repository.waiting, ['1', '2', '3', '4']);
-      await _move(tester, '3', '1', down: false, kind: kind);
+      await _move(tester, '3', '1', kind: kind);
       expect(repository.waiting, ['3', '1', '2', '4']);
       await tester.tap(find.byType(BackButton));
       await tester.pumpAndSettle();
@@ -744,6 +759,54 @@ void main() {
       } finally {
         semantics.dispose();
       }
+    },
+  );
+
+  testWidgets(
+    'files clear button keeps stable width with BlockSpinner and honors reduced motion',
+    (tester) async {
+      final gate = Completer<void>();
+      final repository = _Downloads()..clearGate = gate;
+      final harness = await _mount(tester, repository);
+      await tester.tap(find.byKey(const Key('download_files_open')));
+      await tester.pumpAndSettle();
+
+      final buttonFinder = find.byKey(
+        const Key('download_files_clear_temporary'),
+      );
+      final idleSize = tester.getSize(buttonFinder);
+
+      await tester.tap(buttonFinder);
+      await tester.pump();
+      expect(find.byType(CircularProgressIndicator), findsNothing);
+      expect(
+        find.descendant(of: buttonFinder, matching: find.byType(BlockSpinner)),
+        findsOneWidget,
+      );
+      expect(tester.getSize(buttonFinder), idleSize);
+
+      gate.complete();
+      await tester.pumpAndSettle();
+      expect(find.text('Temporary files deleted'), findsOneWidget);
+      expect(buttonFinder, findsNothing);
+
+      // Reduced motion disables indeterminate bar animation on active item.
+      await tester.tap(find.byTooltip('Close'));
+      await tester.pumpAndSettle();
+      tester.platformDispatcher.accessibilityFeaturesTestValue =
+          const FakeAccessibilityFeatures(disableAnimations: true);
+      addTearDown(
+        tester.platformDispatcher.clearAccessibilityFeaturesTestValue,
+      );
+      repository.items = [
+        repository.items.first.copyWith(totalBytes: 0, downloadedBytes: 10),
+      ];
+      repository.emit();
+      await tester.tap(find.byKey(const Key('download_queue_open')));
+      await tester.pumpAndSettle();
+      expect(tester.hasRunningAnimations, isFalse);
+
+      await _close(tester, repository, harness);
     },
   );
 }

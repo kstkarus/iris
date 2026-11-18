@@ -35,3 +35,17 @@ String onlineEpisodeFileName(num number, String title) {
       : '$number';
   return title.isEmpty ? digits : '$digits $title';
 }
+
+/// Reads the supplied number and title from [onlineEpisodeFileName].
+/// Only use for known online sources; torrent names may begin with a title's number.
+({num number, String title})? parseOnlineEpisodeFileName(String fileName) {
+  final separator = fileName.indexOf(' ');
+  final number = num.tryParse(
+    separator < 0 ? fileName : fileName.substring(0, separator),
+  );
+  if (number == null || !number.isFinite || number < 0) return null;
+  return (
+    number: number,
+    title: separator < 0 ? '' : fileName.substring(separator + 1),
+  );
+}

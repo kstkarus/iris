@@ -7,9 +7,11 @@ import 'package:iris/entities/user_rate/presentation/user_rate_cubit.dart';
 import 'package:iris/entities/user_rate/presentation/user_rate_state.dart';
 import 'package:iris/entities/user_rate/presentation/user_rate_status_label.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
-import 'package:iris/shared/widgets/detail_layout.dart';
+import 'package:iris/shared/utils/motion_duration.dart';
 import 'package:iris/shared/widgets/app_skeleton.dart';
 import 'package:iris/shared/widgets/checked_menu_item.dart';
+import 'package:iris/shared/widgets/detail_layout.dart';
+import 'package:iris/shared/widgets/dither_switcher.dart';
 import 'package:iris/shared/widgets/pixel_icon.dart';
 
 /// The anime's place in the signed-in user's Shikimori list: grouped into
@@ -32,37 +34,34 @@ class MyListSection extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final state =
         context.watch<UserRateCubit?>()?.state ?? const UserRateSignedOut();
-    final Widget content;
-    switch (state) {
-      case UserRateSignedOut():
-        return const SizedBox.shrink();
-      case UserRateLoading():
-        content = AppSkeleton(
-          enabled: true,
-          semanticLabel: l10n.userRateLoading,
-          child: const _StandInControls(),
-        );
-      case UserRateLoadFailure():
-        content = Padding(
-          padding: const EdgeInsets.all(14),
-          child: Wrap(
-            spacing: 12,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              Text(l10n.userRateLoadError),
-              TextButton(
-                onPressed: context.read<UserRateCubit>().load,
-                child: Text(l10n.commonRetry),
-              ),
-            ],
-          ),
-        );
-      case UserRateLoaded():
-        content = AppSkeleton(
-          enabled: false,
-          child: _Controls(state: state, total: totalEpisodes),
-        );
-    }
+    if (state is UserRateSignedOut) return const SizedBox.shrink();
+
+    final Widget content = switch (state) {
+      UserRateSignedOut() => const SizedBox.shrink(),
+      UserRateLoadFailure() => Padding(
+        key: const ValueKey('failure'),
+        padding: const EdgeInsets.all(14),
+        child: Wrap(
+          spacing: 12,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            Text(l10n.userRateLoadError),
+            TextButton(
+              onPressed: context.read<UserRateCubit>().load,
+              child: Text(l10n.commonRetry),
+            ),
+          ],
+        ),
+      ),
+      UserRateLoading() || UserRateLoaded() => AppSkeleton(
+        key: const ValueKey('controls'),
+        enabled: state is UserRateLoading,
+        semanticLabel: l10n.userRateLoading,
+        child: state is UserRateLoaded
+            ? _Controls(state: state, total: totalEpisodes)
+            : const _StandInControls(),
+      ),
+    };
     return Padding(
       padding: const EdgeInsets.only(top: 28),
       child: DetailSection(
@@ -73,7 +72,11 @@ class MyListSection extends StatelessWidget {
             scheme,
             background: Colors.transparent,
           ),
-          child: content,
+          child: DitherSwitcher(
+            collapse: true,
+            duration: const Duration(milliseconds: 220),
+            child: content,
+          ),
         ),
       ),
     );
@@ -113,7 +116,7 @@ class _Controls extends StatelessWidget {
     final ruleColor = DetailLayout.ruleColor(scheme);
     final rate = state.rate;
 
-    return Column(
+    final column = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _PickerBand(
@@ -137,6 +140,17 @@ class _Controls extends StatelessWidget {
           ),
         ],
       ],
+    );
+    final sizeDuration = motionDuration(
+      context,
+      const Duration(milliseconds: 200),
+    );
+    if (sizeDuration == Duration.zero) return column;
+    return AnimatedSize(
+      duration: sizeDuration,
+      curve: Curves.easeOutCubic,
+      alignment: Alignment.topCenter,
+      child: column,
     );
   }
 }
@@ -187,6 +201,7 @@ class _PickerCell extends StatelessWidget {
     required this.onTap,
     required this.label,
     this.leading,
+    this.leadingKey,
     this.emphasize = false,
     this.highlighted = false,
     this.isData = false,
@@ -196,6 +211,7 @@ class _PickerCell extends StatelessWidget {
   final VoidCallback? onTap;
   final String label;
   final Widget? leading;
+  final Key? leadingKey;
   final bool emphasize;
   final bool highlighted;
   final bool isData;
@@ -205,6 +221,7 @@ class _PickerCell extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    final duration = motionDuration(context, const Duration(milliseconds: 160));
     final sansStyle = theme.textTheme.titleSmall?.copyWith(
       fontFamily: DetailLayout.sansFont,
       fontWeight: FontWeight.w500,
@@ -215,42 +232,78 @@ class _PickerCell extends StatelessWidget {
       fontFeatures: const [FontFeature.tabularFigures()],
     );
 
-    return TextButton(
-      key: cellKey,
-      onPressed: onTap,
-      style: TextButton.styleFrom(
-        minimumSize: const Size(0, 48),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        backgroundColor: highlighted
-            ? scheme.surfaceContainer
-            : Colors.transparent,
-      ),
-      child: Row(
-        children: [
-          if (leading != null) ...[leading!, const SizedBox(width: 9)],
-          Expanded(
-            child: isData
-                ? MixedDataText(
-                    label,
-                    sansStyle: sansStyle,
-                    monoStyle: monoStyle,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  )
-                : Text(
-                    label,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: sansStyle,
-                  ),
-          ),
-          const SizedBox(width: 8),
-          PixelIcon(
-            PixelGlyph.expand,
-            size: 10,
-            color: scheme.onSurfaceVariant,
-          ),
-        ],
+    final labelWidget = isData
+        ? MixedDataText(
+            label,
+            key: ValueKey(label),
+            sansStyle: sansStyle,
+            monoStyle: monoStyle,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          )
+        : Text(
+            label,
+            key: ValueKey(label),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: sansStyle,
+          );
+
+    return AnimatedContainer(
+      duration: duration,
+      curve: Curves.easeOutCubic,
+      color: highlighted ? scheme.surfaceContainer : Colors.transparent,
+      child: TextButton(
+        key: cellKey,
+        onPressed: onTap,
+        style: TextButton.styleFrom(
+          minimumSize: const Size(0, 48),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          backgroundColor: Colors.transparent,
+        ),
+        child: Row(
+          children: [
+            AnimatedSwitcher(
+              duration: duration,
+              switchInCurve: Curves.easeOutCubic,
+              switchOutCurve: Curves.easeOutCubic,
+              transitionBuilder: (child, animation) => FadeTransition(
+                opacity: animation,
+                child: SizeTransition(
+                  sizeFactor: animation,
+                  axis: Axis.horizontal,
+                  alignment: AlignmentDirectional.centerStart,
+                  child: child,
+                ),
+              ),
+              child: leading == null
+                  ? const SizedBox.shrink(key: ValueKey('no_leading'))
+                  : Padding(
+                      key: leadingKey ?? const ValueKey('leading'),
+                      padding: const EdgeInsetsDirectional.only(end: 9),
+                      child: leading,
+                    ),
+            ),
+            Expanded(
+              child: AnimatedSwitcher(
+                duration: duration,
+                switchInCurve: Curves.easeOutCubic,
+                switchOutCurve: Curves.easeOutCubic,
+                layoutBuilder: (currentChild, previousChildren) => Stack(
+                  alignment: AlignmentDirectional.centerStart,
+                  children: [...previousChildren, ?currentChild],
+                ),
+                child: labelWidget,
+              ),
+            ),
+            const SizedBox(width: 8),
+            PixelIcon(
+              PixelGlyph.expand,
+              size: 10,
+              color: scheme.onSurfaceVariant,
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -296,6 +349,11 @@ class _StatusMenu extends StatelessWidget {
         onTap: controller.toggle,
         emphasize: true,
         highlighted: rate == null,
+        leadingKey: isLive
+            ? const ValueKey('live')
+            : rate == null
+            ? const ValueKey('add')
+            : null,
         leading: isLive
             ? Container(width: 7, height: 7, color: scheme.tertiary)
             : rate == null
@@ -374,11 +432,24 @@ class _ProgressBand extends StatelessWidget {
         Semantics(
           label: l10n.userRateEpisodesWatched(shown),
           child: ExcludeSemantics(
-            child: Text(
-              shown,
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontFeatures: const [FontFeature.tabularFigures()],
-                fontWeight: FontWeight.w600,
+            child: AnimatedSwitcher(
+              duration: motionDuration(
+                context,
+                const Duration(milliseconds: 160),
+              ),
+              switchInCurve: Curves.easeOutCubic,
+              switchOutCurve: Curves.easeOutCubic,
+              layoutBuilder: (currentChild, previousChildren) => Stack(
+                alignment: AlignmentDirectional.centerStart,
+                children: [...previousChildren, ?currentChild],
+              ),
+              child: Text(
+                shown,
+                key: ValueKey(shown),
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
           ),

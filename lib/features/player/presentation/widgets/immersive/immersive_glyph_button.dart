@@ -120,7 +120,10 @@ class _PlayPauseButtonState extends State<_PlayPauseButton> {
             onTap: widget.onPressed,
             child: AnimatedScale(
               scale: _hovered ? 1.08 : 1,
-              duration: const Duration(milliseconds: 150),
+              duration: motionDuration(
+                context,
+                const Duration(milliseconds: 150),
+              ),
               child: Container(
                 width: widget.size,
                 height: widget.size,
@@ -199,6 +202,7 @@ class _GlyphButtonState extends State<_GlyphButton> {
   Widget build(BuildContext context) {
     final selected = widget.selected;
     final active = _hovered || _focused || selected;
+    final animation = motionDuration(context, _GlyphButtonState._animation);
     return FocusableActionDetector(
       mouseCursor: SystemMouseCursors.click,
       onFocusChange: (focused) {
@@ -225,7 +229,7 @@ class _GlyphButtonState extends State<_GlyphButton> {
             behavior: HitTestBehavior.opaque,
             onTap: widget.onPressed,
             child: AnimatedContainer(
-              duration: _animation,
+              duration: animation,
               width: widget.size.width,
               height: widget.size.height,
               decoration: BoxDecoration(
@@ -238,10 +242,10 @@ class _GlyphButtonState extends State<_GlyphButton> {
               child: Center(
                 child: AnimatedScale(
                   scale: _hovered && !selected ? 1.12 : 1,
-                  duration: _animation,
+                  duration: animation,
                   child: AnimatedOpacity(
                     opacity: active ? 1 : _GlyphButton.restOpacity,
-                    duration: _animation,
+                    duration: animation,
                     child: IconTheme.merge(
                       data: IconThemeData(
                         size: widget.iconSize,

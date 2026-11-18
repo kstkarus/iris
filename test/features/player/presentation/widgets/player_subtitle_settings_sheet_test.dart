@@ -41,7 +41,7 @@ void main() {
       ),
     );
 
-    expect(find.text('SUBTITLE APPEARANCE'), findsNothing);
+    expect(find.text('Subtitle Appearance'), findsNothing);
     expect(find.text('Decoder: Auto'), findsOneWidget);
     await tester.tap(find.text('Advanced'));
     await tester.pumpAndSettle();
@@ -82,7 +82,7 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(
-        find.text('SUBTITLE APPEARANCE'),
+        find.text('Subtitle Appearance'),
         showAppearance ? findsOneWidget : findsNothing,
       );
     }
@@ -103,6 +103,7 @@ void main() {
       ),
     );
 
+    expect(find.text('Playback'), findsOneWidget);
     expect(find.text('Playback speed'), findsOneWidget);
     for (final label in ['0.5×', '0.75×', '1×', '1.25×', '1.5×', '2×']) {
       expect(find.text(label), findsOneWidget, reason: label);
@@ -126,6 +127,7 @@ void main() {
       _wrap(child: const PlayerSubtitleSettingsSheet(tracks: _textTracks)),
     );
 
+    expect(find.text('Playback'), findsNothing);
     expect(find.text('Playback speed'), findsNothing);
   });
 

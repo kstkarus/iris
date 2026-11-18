@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 /// [maxSize] at which [text] wraps into at most [maxLines] lines without
 /// breaking a word, and never below [minSize]. A bounded height from the
 /// parent is a limit too.
+/// At [minSize], multi-line titles can wrap further. Single-line titles use
+/// an ellipsis when they do not fit.
 /// With [snapStep], [maxSize] is rounded to the nearest grid multiple.
 ///
 /// This is the one big voice of a page. Everything around it stays small,
@@ -48,7 +50,8 @@ class DisplayTitle extends StatelessWidget {
       header: true,
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final primaryMin = fallbackStyleAt == null
+          final fallback = fallbackStyleAt;
+          final primaryMin = fallback == null
               ? minSize
               : (preferredMinSize ?? minSize)
                     .clamp(minSize, maxSize)
@@ -65,7 +68,8 @@ class DisplayTitle extends StatelessWidget {
             textScaler: textScaler,
             snapStep: snapStep,
           );
-          if (fallbackStyleAt != null && size == null) {
+          final TextStyle style;
+          if (fallback != null && size == null) {
             final fallbackMax = (preferredMinSize ?? maxSize)
                 .clamp(minSize, maxSize)
                 .toDouble();
@@ -78,17 +82,18 @@ class DisplayTitle extends StatelessWidget {
               maxLines: maxLines,
               maxHeight: constraints.maxHeight,
               textScaler: textScaler,
-              styleBuilder: fallbackStyleAt,
+              styleBuilder: fallback,
             );
-            return Text(
-              text,
-              style: fallbackStyleAt!(base, fallbackSize ?? minSize),
-              textScaler: textScaler,
-            );
+            style = fallback(base, fallbackSize ?? minSize);
+          } else {
+            style = styleAt(base, size ?? minSize);
           }
+          final singleLine = maxLines == 1;
           return Text(
             text,
-            style: styleAt(base, size ?? minSize),
+            maxLines: singleLine ? 1 : null,
+            overflow: singleLine ? TextOverflow.ellipsis : TextOverflow.clip,
+            style: style,
             textScaler: textScaler,
           );
         },

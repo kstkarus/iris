@@ -1,3 +1,5 @@
+import 'dart:developer' as developer;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -7,7 +9,10 @@ import 'package:iris/shared/torrent/magnet_link.dart';
 import 'package:iris/shared/torrent/torrent_file.dart';
 import 'package:iris/shared/torrent/torrent_file_picker.dart';
 import 'package:iris/shared/utils/byte_size_formatter.dart';
+import 'package:iris/shared/utils/motion_duration.dart';
 import 'package:iris/shared/widgets/adaptive/show_adaptive_sheet.dart';
+import 'package:iris/shared/widgets/adaptive/window_size_class.dart';
+import 'package:iris/shared/widgets/detail_layout.dart';
 import 'package:iris/shared/widgets/dither_switcher.dart';
 import 'package:iris/shared/widgets/pixel_icon.dart';
 import 'package:iris/shared/widgets/source_facts_line.dart';
@@ -91,7 +96,7 @@ final class _FileDraft extends _Draft {
   String get name => torrent.name.isEmpty ? torrent.infoHash : torrent.name;
 }
 
-enum _Problem { invalidLink, notTorrent }
+enum _Problem { invalidLink, notTorrent, saveFailed }
 
 class _AddSavedTorrentFormState extends State<AddSavedTorrentForm> {
   final _magnetController = TextEditingController();
@@ -162,9 +167,33 @@ class _AddSavedTorrentFormState extends State<AddSavedTorrentForm> {
   Future<void> _save() async {
     final draft = _draft;
     if (_saving || draft == null) return;
-    setState(() => _saving = true);
-    final result = await widget.onSave(draft.magnet);
+    final route = ModalRoute.of(context);
+    setState(() {
+      _saving = true;
+      _problem = null;
+    });
+    final SaveTorrentResult result;
+    try {
+      result = await widget.onSave(draft.magnet);
+    } on Object catch (error, stackTrace) {
+      developer.log(
+        'Unable to save a torrent.',
+        name: 'iris.saved_torrents.form',
+        error: error.runtimeType,
+        stackTrace: stackTrace,
+      );
+      if (!mounted) return;
+      setState(() {
+        _saving = false;
+        _problem = _Problem.saveFailed;
+      });
+      return;
+    }
     if (!mounted) return;
+    if (route?.isCurrent == false) {
+      setState(() => _saving = false);
+      return;
+    }
     Navigator.of(context).pop(result);
   }
 
@@ -173,6 +202,12 @@ class _AddSavedTorrentFormState extends State<AddSavedTorrentForm> {
     final l10n = AppLocalizations.of(context);
     final theme = Theme.of(context);
     final draft = _draft;
+    final compact = WindowSizeClass.of(context).isCompact;
+    final saveButton = FilledButton(
+      key: AddSavedTorrentForm.saveButtonKey,
+      onPressed: draft != null && !_saving ? _save : null,
+      child: Text(l10n.savedTorrentsAddConfirm),
+    );
 
     return Padding(
       padding: EdgeInsets.fromLTRB(
@@ -185,25 +220,38 @@ class _AddSavedTorrentFormState extends State<AddSavedTorrentForm> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(l10n.savedTorrentsAddTitle, style: theme.textTheme.titleLarge),
-          const SizedBox(height: 20),
+          Text(
+            l10n.savedTorrentsAddTitle,
+            style: theme.textTheme.titleLarge?.copyWith(wordSpacing: -3.6),
+          ),
+          const SizedBox(height: 18),
           Flexible(
             child: SingleChildScrollView(
               // The same place shows the torrent instead of the input.
-              child: DitherSwitcher(
-                child: draft == null
-                    ? KeyedSubtree(
-                        key: const ValueKey('input'),
-                        child: _input(l10n, theme),
-                      )
-                    : _DraftCard(
-                        key: ValueKey(draft.magnet),
-                        draft: draft,
-                        onClear: _clear,
-                      ),
+              child: _AnimatedSizeIfEnabled(
+                duration: motionDuration(
+                  context,
+                  const Duration(milliseconds: 200),
+                ),
+                alignment: AlignmentDirectional.topStart,
+                child: DitherSwitcher(
+                  duration: const Duration(milliseconds: 220),
+                  child: draft == null
+                      ? KeyedSubtree(
+                          key: const ValueKey('input'),
+                          child: _input(l10n, theme),
+                        )
+                      : _DraftCard(
+                          key: ValueKey(draft.magnet),
+                          draft: draft,
+                          onClear: _clear,
+                        ),
+                ),
               ),
             ),
           ),
+          if (_problem == _Problem.saveFailed)
+            _problemNotice(l10n.savedTorrentsSaveFailed, theme),
           const SizedBox(height: 24),
           Row(
             mainAxisAlignment: MainAxisAlignment.end,
@@ -214,12 +262,8 @@ class _AddSavedTorrentFormState extends State<AddSavedTorrentForm> {
                   MaterialLocalizations.of(context).cancelButtonLabel,
                 ),
               ),
-              const SizedBox(width: 8),
-              FilledButton(
-                key: AddSavedTorrentForm.saveButtonKey,
-                onPressed: draft != null && !_saving ? _save : null,
-                child: Text(l10n.savedTorrentsAddConfirm),
-              ),
+              SizedBox(width: compact ? 12 : 8),
+              if (compact) Expanded(child: saveButton) else saveButton,
             ],
           ),
         ],
@@ -228,6 +272,11 @@ class _AddSavedTorrentFormState extends State<AddSavedTorrentForm> {
   }
 
   Widget _input(AppLocalizations l10n, ThemeData theme) {
+    final scheme = theme.colorScheme;
+    final rule = DetailLayout.ruleColor(scheme);
+    final sans = theme.textTheme.bodyMedium?.copyWith(
+      fontFamily: DetailLayout.sansFont,
+    );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -241,12 +290,18 @@ class _AddSavedTorrentFormState extends State<AddSavedTorrentForm> {
           textInputAction: TextInputAction.done,
           onSubmitted: (_) => _checkLink(),
           onTapOutside: (_) => _checkLink(),
+          style: sans,
           decoration: InputDecoration(
             labelText: l10n.savedTorrentsMagnetLabel,
+            labelStyle: sans?.copyWith(color: scheme.onSurfaceVariant),
             hintText: 'magnet:?xt=urn:btih:…',
             errorText: _problem == _Problem.invalidLink
                 ? l10n.savedTorrentsInvalidMagnet
                 : null,
+            errorStyle: theme.textTheme.bodySmall?.copyWith(
+              fontFamily: DetailLayout.sansFont,
+              color: scheme.error,
+            ),
             errorMaxLines: 3,
             suffixIcon: IconButton(
               tooltip: l10n.savedTorrentsPasteTooltip,
@@ -257,29 +312,108 @@ class _AddSavedTorrentFormState extends State<AddSavedTorrentForm> {
         ),
         const SizedBox(height: 16),
         Row(
-          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text(l10n.savedTorrentsOr, style: theme.textTheme.bodySmall),
-            const SizedBox(width: 8),
-            OutlinedButton.icon(
-              key: AddSavedTorrentForm.fileButtonKey,
-              onPressed: _chooseFile,
-              icon: const PixelIcon(PixelGlyph.file, size: 16),
-              label: Text(l10n.savedTorrentsChooseFile),
+            Expanded(child: Divider(height: 1, thickness: 1, color: rule)),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: Text(
+                l10n.savedTorrentsOr,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  fontFamily: DetailLayout.sansFont,
+                  color: scheme.onSurfaceVariant,
+                ),
+              ),
             ),
+            Expanded(child: Divider(height: 1, thickness: 1, color: rule)),
           ],
         ),
-        if (_problem == _Problem.notTorrent) ...[
-          const SizedBox(height: 8),
-          Text(
-            l10n.savedTorrentsNotTorrentFile,
-            textAlign: TextAlign.center,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.error,
+        const SizedBox(height: 16),
+        OutlinedButton.icon(
+          key: AddSavedTorrentForm.fileButtonKey,
+          onPressed: _chooseFile,
+          style: OutlinedButton.styleFrom(
+            minimumSize: const Size(0, 48),
+            backgroundColor: scheme.surfaceContainerLow,
+            side: BorderSide(color: rule),
+          ),
+          icon: const PixelIcon(PixelGlyph.file, size: 16),
+          label: Text(
+            l10n.savedTorrentsChooseFile,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              fontFamily: DetailLayout.sansFont,
+              fontWeight: FontWeight.w500,
+              color: scheme.onSurface,
             ),
           ),
-        ],
+        ),
+        _buildProblemNotice(context, l10n, theme),
       ],
+    );
+  }
+
+  Widget _buildProblemNotice(
+    BuildContext context,
+    AppLocalizations l10n,
+    ThemeData theme,
+  ) {
+    final duration = motionDuration(context, const Duration(milliseconds: 160));
+    final notice = _problem == _Problem.notTorrent
+        ? KeyedSubtree(
+            key: const ValueKey('not_torrent_error'),
+            child: _problemNotice(l10n.savedTorrentsNotTorrentFile, theme),
+          )
+        : const SizedBox.shrink(key: ValueKey('no_problem'));
+    if (duration == Duration.zero) return notice;
+    return _AnimatedSizeIfEnabled(
+      duration: duration,
+      alignment: Alignment.topCenter,
+      child: AnimatedSwitcher(
+        duration: duration,
+        switchInCurve: Curves.easeOutCubic,
+        switchOutCurve: Curves.easeOutCubic,
+        child: notice,
+      ),
+    );
+  }
+
+  Widget _problemNotice(String message, ThemeData theme) => SizedBox(
+    width: double.infinity,
+    child: Padding(
+      padding: const EdgeInsets.only(top: 10),
+      child: Semantics(
+        liveRegion: true,
+        child: Text(
+          message,
+          textAlign: TextAlign.center,
+          style: theme.textTheme.bodySmall?.copyWith(
+            fontFamily: DetailLayout.sansFont,
+            color: theme.colorScheme.error,
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
+class _AnimatedSizeIfEnabled extends StatelessWidget {
+  const _AnimatedSizeIfEnabled({
+    required this.duration,
+    required this.alignment,
+    required this.child,
+  });
+
+  final Duration duration;
+  final AlignmentGeometry alignment;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    if (duration == Duration.zero) return child;
+    return AnimatedSize(
+      duration: duration,
+      curve: Curves.easeOutCubic,
+      alignment: alignment,
+      child: child,
     );
   }
 }
@@ -308,30 +442,30 @@ class _DraftCard extends StatelessWidget {
     };
     return DecoratedBox(
       key: AddSavedTorrentForm.draftKey,
-      decoration: BoxDecoration(
-        border: Border.all(color: theme.colorScheme.outlineVariant),
-      ),
+      decoration: DetailLayout.cardDecoration(theme.colorScheme),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 12, 4, 12),
+        padding: const EdgeInsets.fromLTRB(14, 12, 4, 12),
         child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             Expanded(
-              child: Padding(
-                padding: const EdgeInsets.only(top: 4),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      draft.name,
-                      maxLines: 3,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.titleSmall,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    draft.name,
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontFamily: DetailLayout.sansFont,
+                      fontWeight: FontWeight.w500,
+                      fontSize: 15,
+                      height: 1.3,
                     ),
-                    const SizedBox(height: 4),
-                    SourceFactsLine(watched: false, facts: facts.join(' · ')),
-                  ],
-                ),
+                  ),
+                  const SizedBox(height: 5),
+                  SourceFactsLine(watched: false, facts: facts.join(' · ')),
+                ],
               ),
             ),
             IconButton(

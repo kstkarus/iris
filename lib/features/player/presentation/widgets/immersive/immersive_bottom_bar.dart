@@ -80,6 +80,10 @@ class _BottomSection extends StatelessWidget {
       child: LayoutBuilder(
         builder: (context, constraints) {
           final singleRow = constraints.maxWidth >= _singleRowMinWidth;
+          final compactTitle =
+              chrome.notice != null &&
+              constraints.maxHeight <
+                  (DetailLayout.isLargeText(context) ? 400 : 320);
           final timeline = _Timeline(
             player: player,
             parts: this.timeline,
@@ -109,7 +113,7 @@ class _BottomSection extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               AnimatedSize(
-                duration: titleAnimation,
+                duration: motionDuration(context, titleAnimation),
                 alignment: Alignment.bottomLeft,
                 child: showTitle
                     ? _HeightReporter(
@@ -124,6 +128,7 @@ class _BottomSection extends StatelessWidget {
                             child: _TitleBlock(
                               chrome: chrome,
                               touch: metrics.touch,
+                              compact: compactTitle,
                             ),
                           ),
                         ),
@@ -164,12 +169,17 @@ class _BottomSection extends StatelessWidget {
 }
 
 class _TitleBlock extends StatelessWidget {
-  const _TitleBlock({required this.chrome, required this.touch});
+  const _TitleBlock({
+    required this.chrome,
+    required this.touch,
+    required this.compact,
+  });
 
   final PlayerChrome chrome;
 
   /// A phone's screen gives the titles less room.
   final bool touch;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
@@ -180,10 +190,14 @@ class _TitleBlock extends StatelessWidget {
     final titleDetail = chrome.titleDetail;
     // File names can be long; episode labels get the full display size.
     final long = title.length > 32;
-    final titleStyle = touch
+    final titleStyle = compact
+        ? theme.textTheme.titleMedium
+        : touch
         ? (long ? theme.textTheme.titleLarge : theme.textTheme.headlineSmall)
         : (long ? theme.textTheme.headlineSmall : theme.textTheme.displaySmall);
-    final detailStyle = touch
+    final detailStyle = compact
+        ? titleStyle
+        : touch
         ? theme.textTheme.titleLarge
         : theme.textTheme.headlineSmall;
 
@@ -192,12 +206,13 @@ class _TitleBlock extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        if (overline != null && overline.isNotEmpty) ...[
+        if (!compact && overline != null && overline.isNotEmpty) ...[
           Text(
             overline,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: theme.textTheme.titleMedium?.copyWith(
+              fontFamily: DetailLayout.sansFont,
               color: Colors.white70,
               fontWeight: FontWeight.w500,
             ),
@@ -212,29 +227,44 @@ class _TitleBlock extends StatelessWidget {
                 TextSpan(
                   text: ' $titleDetail',
                   style: TextStyle(
+                    fontFamily: DetailLayout.sansFont,
                     color: Colors.white54,
                     fontWeight: FontWeight.w400,
                     fontSize: detailStyle?.fontSize,
                   ),
                 ),
+              if (compact && overline != null && overline.isNotEmpty)
+                TextSpan(text: ' · $overline'),
             ],
           ),
           key: const Key('player_title'),
-          maxLines: 2,
+          maxLines: compact ? 1 : 2,
+          semanticsLabel: compact
+              ? [
+                  title,
+                  titleDetail,
+                  overline,
+                  details,
+                ].nonNulls.where((part) => part.isNotEmpty).join(', ')
+              : null,
           overflow: TextOverflow.ellipsis,
           style: titleStyle?.copyWith(
+            fontFamily: DetailLayout.sansFont,
             color: Colors.white,
-            fontWeight: FontWeight.w500,
+            fontWeight: FontWeight.w600,
             height: 1.1,
           ),
         ),
-        if (details != null && details.isNotEmpty) ...[
+        if (!compact && details != null && details.isNotEmpty) ...[
           const SizedBox(height: 6),
           Text(
             details,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: theme.textTheme.bodyMedium?.copyWith(color: Colors.white60),
+            style: theme.textTheme.bodyMedium?.copyWith(
+              fontFamily: DetailLayout.sansFont,
+              color: Colors.white60,
+            ),
           ),
         ],
       ],
@@ -548,13 +578,15 @@ class _NextHint extends StatelessWidget {
             return DecoratedBox(
               decoration: BoxDecoration(
                 color: floating
-                    ? Colors.black.withValues(alpha: .72)
+                    ? playerPlateBackground
                     : active
                     ? accent.withValues(alpha: .13 + .27 * wave * value)
                     : Colors.transparent,
                 border: Border.all(
                   color: active
                       ? accent.withValues(alpha: .9)
+                      : floating
+                      ? playerPlateBorder
                       : Colors.transparent,
                 ),
               ),
@@ -655,7 +687,10 @@ class _VolumeControlState extends State<_VolumeControl> {
             mainAxisSize: MainAxisSize.min,
             children: [
               AnimatedSize(
-                duration: const Duration(milliseconds: 150),
+                duration: motionDuration(
+                  context,
+                  const Duration(milliseconds: 150),
+                ),
                 child: _expanded
                     ? SizedBox(
                         width: 104,

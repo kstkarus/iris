@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:iris/shared/widgets/adaptive/show_app_dialog.dart';
+import 'package:iris/shared/widgets/detail_layout.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 
 /// Asks for a new name; resolves to null when cancelled or left blank.
@@ -41,13 +42,24 @@ class _RenameDialogState extends State<_RenameDialog> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final materialL10n = MaterialLocalizations.of(context);
+    final theme = Theme.of(context);
+    final sans = theme.textTheme.bodyMedium?.copyWith(
+      fontFamily: DetailLayout.sansFont,
+    );
     return AlertDialog(
-      title: Text(l10n.savedTorrentsRename),
+      title: Text(
+        l10n.savedTorrentsRename,
+        style: theme.textTheme.titleLarge?.copyWith(wordSpacing: -3.6),
+      ),
       content: TextField(
         controller: _controller,
         autofocus: true,
         onSubmitted: (_) => _submit(),
-        decoration: InputDecoration(labelText: l10n.savedTorrentsNameLabel),
+        style: sans,
+        decoration: InputDecoration(
+          labelText: l10n.savedTorrentsNameLabel,
+          labelStyle: sans?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+        ),
       ),
       actions: [
         TextButton(

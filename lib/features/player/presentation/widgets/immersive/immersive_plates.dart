@@ -33,11 +33,26 @@ class _BufferingSpinner extends StatelessWidget {
             fit: StackFit.expand,
             children: [
               Center(
-                child: BlockRunner(
-                  key: const Key('player_buffering_spinner'),
-                  color: color,
-                  trackColor: Colors.white24,
-                ),
+                child: label == null
+                    ? TweenAnimationBuilder<double>(
+                        tween: Tween(begin: 0, end: 1),
+                        duration: motionDuration(
+                          context,
+                          const Duration(milliseconds: 180),
+                        ),
+                        builder: (context, value, child) =>
+                            Opacity(opacity: value, child: child),
+                        child: BlockRunner(
+                          key: const Key('player_buffering_spinner'),
+                          color: color,
+                          trackColor: Colors.white24,
+                        ),
+                      )
+                    : BlockRunner(
+                        key: const Key('player_buffering_spinner'),
+                        color: color,
+                        trackColor: Colors.white24,
+                      ),
               ),
               if (label != null)
                 Center(
@@ -61,27 +76,25 @@ class _BufferingSpinner extends StatelessWidget {
   }
 }
 
-const _overVideoOutlineWidth = 1.5;
-
-/// Notices and offers keep the same height, with room for two text lines.
-const _plateMinHeight = 64.0;
-const _offerPadding = EdgeInsets.symmetric(horizontal: 20, vertical: 8);
+const _plateMinHeight = 48.0;
+const _offerPadding = EdgeInsets.symmetric(horizontal: 14, vertical: 8);
 
 const _offerShape = RoundedRectangleBorder();
 
-/// Secondary buttons over the video: a dark glass with a light outline.
+/// Secondary buttons over the video: dense dark plate with a crisp 1 px border.
 ButtonStyle _overVideoButtonStyle(ThemeData theme) {
   return OutlinedButton.styleFrom(
     minimumSize: const Size(64, _plateMinHeight),
     padding: _offerPadding,
     shape: _offerShape,
-    foregroundColor: Colors.white,
-    backgroundColor: Colors.black54,
-    side: const BorderSide(
-      color: Colors.white70,
-      width: _overVideoOutlineWidth,
+    foregroundColor: playerPlateText,
+    backgroundColor: playerPlateBackground,
+    side: const BorderSide(color: playerPlateActionBorder, width: 1),
+    textStyle: theme.textTheme.titleSmall?.copyWith(
+      fontFamily: DetailLayout.sansFont,
+      fontSize: 14,
+      fontWeight: FontWeight.w500,
     ),
-    textStyle: theme.textTheme.titleSmall,
   );
 }
 
@@ -97,48 +110,71 @@ class _NoticeCard extends StatelessWidget {
     final theme = Theme.of(context);
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0, end: 1),
-      duration: motionDuration(context, const Duration(milliseconds: 200)),
-      builder: (context, value, child) => Opacity(opacity: value, child: child),
+      duration: motionDuration(context, const Duration(milliseconds: 300)),
+      builder: (context, value, child) =>
+          DitherTransition.transition(child!, AlwaysStoppedAnimation(value)),
       child: PlayerCountdown(
         duration: notice.timeout,
         onElapsed: notice.onTimeout,
         child: PlayerCountdownBar(
-          color: Colors.white70,
-          inset: const EdgeInsets.all(_overVideoOutlineWidth),
+          color: playerPlateSecondary,
           child: DecoratedBox(
             key: const Key('player_notice'),
             decoration: BoxDecoration(
-              color: Colors.black54,
-              border: Border.all(
-                color: Colors.white24,
-                width: _overVideoOutlineWidth,
-              ),
+              color: playerPlateBackground,
+              border: Border.all(color: playerPlateBorder),
             ),
             child: ConstrainedBox(
               constraints: const BoxConstraints(minHeight: _plateMinHeight),
-              child: Padding(
-                padding: _offerPadding,
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      notice.message,
-                      style: theme.textTheme.titleSmall?.copyWith(
-                        color: Colors.white,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Flexible(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
+                      child: Text(
+                        notice.message,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontFamily: DetailLayout.sansFont,
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.w500,
+                          color: playerPlateText,
+                        ),
                       ),
                     ),
-                    const SizedBox(width: 16),
-                    TextButton(
+                  ),
+                  const SizedBox(
+                    height: 24,
+                    child: VerticalDivider(width: 1, color: playerPlateBorder),
+                  ),
+                  Flexible(
+                    child: TextButton(
                       key: const Key('player_notice_action'),
                       onPressed: notice.onAction,
                       style: TextButton.styleFrom(
                         foregroundColor: accent,
-                        textStyle: theme.textTheme.titleSmall,
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        minimumSize: const Size(48, 48),
+                        textStyle: theme.textTheme.titleSmall?.copyWith(
+                          fontFamily: DetailLayout.sansFont,
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
-                      child: Text(notice.actionLabel),
+                      child: Text(
+                        notice.actionLabel,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.center,
+                      ),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -202,13 +238,19 @@ class _OfferButton extends StatelessWidget {
     final content = PlayerOfferLabel(label: label, maxWidth: 240);
     return Padding(
       padding: const EdgeInsets.only(top: 12),
-      child: PlayerCountdownBar(
-        color: Colors.white,
-        inset: const EdgeInsets.all(_overVideoOutlineWidth),
-        child: OutlinedButton(
-          onPressed: onPressed,
-          style: _overVideoButtonStyle(theme),
-          child: content,
+      child: TweenAnimationBuilder<double>(
+        tween: Tween(begin: 0, end: 1),
+        duration: motionDuration(context, const Duration(milliseconds: 300)),
+        builder: (context, value, child) =>
+            DitherTransition.transition(child!, AlwaysStoppedAnimation(value)),
+        child: PlayerCountdownBar(
+          color: Colors.white70,
+          inset: const EdgeInsets.all(1),
+          child: OutlinedButton(
+            onPressed: onPressed,
+            style: _overVideoButtonStyle(theme),
+            child: content,
+          ),
         ),
       ),
     );
@@ -223,13 +265,14 @@ class _VolumeHud extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return _HudPlate(
+      mono: true,
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           PixelIcon(
             volume <= 0 ? PixelGlyph.volumeOff : PixelGlyph.volumeUp,
             size: 21,
-            color: Colors.white,
+            color: playerPlateText,
           ),
           const SizedBox(width: 10),
           Text('${volume.round()}%'),
@@ -246,6 +289,7 @@ class _FastForwardHud extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return _HudPlate(
+      mono: true,
       child: Text(
         AppLocalizations.of(
           context,
@@ -260,30 +304,49 @@ class _FastForwardHud extends StatelessWidget {
 class _HudPlate extends StatelessWidget {
   const _HudPlate({
     required this.child,
-    this.alignment = const Alignment(0, -0.6),
+    this.alignment = const Alignment(0, -0.45),
+    this.mono = false,
     super.key,
   });
 
   final Widget child;
   final Alignment alignment;
+  final bool mono;
 
   @override
   Widget build(BuildContext context) {
     return IgnorePointer(
       child: Align(
         alignment: alignment,
-        child: DecoratedBox(
-          decoration: const BoxDecoration(color: Colors.black54),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-            child: DefaultTextStyle.merge(
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-                fontFeatures: [FontFeature.tabularFigures()],
+        child: TweenAnimationBuilder<double>(
+          tween: Tween(begin: 0, end: 1),
+          duration: motionDuration(context, const Duration(milliseconds: 120)),
+          builder: (context, value, child) =>
+              Opacity(opacity: value, child: child),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: playerPlateBackground,
+              border: Border.all(color: playerPlateBorder),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              child: DefaultTextStyle.merge(
+                style: mono
+                    ? DetailLayout.monoTelemetryStyle(
+                        const TextStyle(
+                          color: playerPlateText,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      )
+                    : const TextStyle(
+                        fontFamily: DetailLayout.sansFont,
+                        color: playerPlateText,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w500,
+                      ),
+                child: child,
               ),
-              child: child,
             ),
           ),
         ),

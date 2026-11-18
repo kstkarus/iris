@@ -75,4 +75,43 @@ void main() {
     await tester.pumpWidget(footer());
     expect(find.byKey(const Key('idle')), findsOneWidget);
   });
+
+  testWidgets('a paging footer eases between loading, failure, and idle', (
+    tester,
+  ) async {
+    Widget footer({
+      bool loadingMore = false,
+      bool failed = false,
+      bool disableAnimations = false,
+    }) => testApp(
+      MediaQuery(
+        data: MediaQueryData(disableAnimations: disableAnimations),
+        child: PagingFooter(
+          loadingMore: loadingMore,
+          failed: failed,
+          failedMessage: 'Failed to load',
+          onRetry: () {},
+          idle: const SizedBox(key: Key('idle')),
+        ),
+      ),
+    );
+
+    await tester.pumpWidget(footer(loadingMore: true));
+    await tester.pumpWidget(footer(failed: true));
+    await tester.pump(const Duration(milliseconds: 90));
+    expect(tester.hasRunningAnimations, isTrue);
+    await tester.pumpAndSettle();
+    expect(find.text('Failed to load'), findsOneWidget);
+
+    await tester.pumpWidget(footer());
+    await tester.pump(const Duration(milliseconds: 90));
+    expect(tester.hasRunningAnimations, isTrue);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('idle')), findsOneWidget);
+
+    await tester.pumpWidget(footer(loadingMore: true, disableAnimations: true));
+    await tester.pumpWidget(footer(failed: true, disableAnimations: true));
+    await tester.pump();
+    expect(find.text('Failed to load'), findsOneWidget);
+  });
 }

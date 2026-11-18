@@ -5,6 +5,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:iris/entities/user_rate/data/remote_user_rate_repository.dart';
+import 'package:iris/entities/user_rate/domain/mark_episode_watched.dart';
 import 'package:iris/entities/user_rate/domain/user_rate.dart';
 import 'package:iris/shared/network/network_exceptions.dart';
 import 'package:iris/shared/network/shikimori_auth_interceptor.dart';
@@ -319,6 +320,59 @@ void main() {
     expect(changes.map((change) => change.rate?.episodes), [2, 5, null]);
     await subscription.cancel();
   });
+
+  test(
+    'a manual episode edit queued during a mark has the last word',
+    () async {
+      final reading = Completer<void>();
+      final readReply = Completer<FakeReply>();
+      final writes = <int>[];
+      server = (request) {
+        if (request.path.contains('graphql')) {
+          reading.complete();
+          return readReply.future;
+        }
+        final episodes = (body(request)['user_rate'] as Map)['episodes'] as int;
+        writes.add(episodes);
+        return FakeReply(200, {
+          'id': 77,
+          'status': 'watching',
+          'episodes': episodes,
+        });
+      };
+      final repo = repository();
+      await session.write(tokens('a'));
+      final marking = MarkEpisodeWatched(repo)(
+        userId: '42',
+        animeId: '1',
+        episode: 6,
+      );
+      await reading.future;
+      final manual = repo.save(
+        userId: '42',
+        animeId: '1',
+        rateId: '77',
+        episodes: 8,
+      );
+      readReply.complete(
+        const FakeReply(200, {
+          'data': {
+            'animes': [
+              {
+                'id': '1',
+                'episodes': 12,
+                'userRate': {'id': 77, 'status': 'watching', 'episodes': 5},
+              },
+            ],
+          },
+        }),
+      );
+      await marking;
+      await manual;
+
+      expect(writes, [6, 8]);
+    },
+  );
 
   test('a failed queued request does not block the next mutation', () async {
     final firstResponse = Completer<FakeReply>();

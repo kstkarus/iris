@@ -8,7 +8,7 @@ The interface is in English and Russian, with bundled Medeo Mono and Medeo Sans 
 
 - **Catalog.** Popular titles, search, and filters by type, status, genre, season, rating and episode length. Results fill the available window and load more as you scroll. When signed in, covers show the title's status in your list. Applied filters can be removed individually, and search keeps a local history of recent queries.
 - **Title pages.** Details, description, dubs, related titles, characters with their own pages, and the Shikimori friends who have the title in their lists.
-- **Sources.** Online releases from AniLibria, yummy_anime and AnimeJoy, and torrents from Nyaa through a public API mirror. AnimeJoy uses its own player and AllVideo, with Alloha and then Kodik as subtitle fallbacks; access to animejoy.ru may require a VPN. You can add your own torrent to an anime, as a magnet link or a `.torrent` file.
+- **Sources.** Online releases from AniLibria, yummy_anime and AnimeJoy, and torrents from Nyaa through a public API mirror. AnimeJoy uses its own player and AllVideo, with Alloha and then Kodik as subtitle fallbacks; access to otakujoy.fun may require a VPN. You can add your own torrent to an anime, as a magnet link or a `.torrent` file.
 - **Player.** mpv through `media_kit`, with the same full-screen controls on every platform:
   - audio selection when multiple tracks are available, controls for separate subtitle tracks, playback speed and decoder choice;
   - a timeline divided by the file's chapters or by the opening and ending;
@@ -23,10 +23,8 @@ The interface is in English and Russian, with bundled Medeo Mono and Medeo Sans 
 - **Shikimori account.** Status, score and episode count for any title. Finishing an episode updates the count in your list, and episodes counted there show as watched on every device. Offline marks stay on the device and retry while Iris is open or when you return to it; the player shows marks waiting to sync and lets you retry them. A confirmed reset or new rewatch on Shikimori takes priority over older queued marks.
 - **Updates.** On Android and Windows the app checks this repository's latest release. Android shows release notes, downloads and verifies the APK inside Iris, then opens the system installer. Windows installed through the per-user installer downloads and verifies updates inside Iris, then saves progress and the download queue before an explicit restart and install. Portable Windows builds open the ZIP in the browser.
 
-How each feature behaves, and which services it calls, is described in [docs/behaviour.md](docs/behaviour.md).
-
 `media_kit_video` 2.0.1 is included locally with an iOS AVKit PiP bridge;
-its other platforms are unchanged. See [the patch notes](packages/media_kit_video/IRIS_PATCHES.md).
+its other platforms are unchanged.
 
 ## Screenshots
 
@@ -90,7 +88,7 @@ Copy `config/shikimori.example.json` to `config/shikimori.json` (git-ignored) an
 
 ## Contributing
 
-Issues and pull requests are welcome. Before opening one, run `dart format .`, `flutter analyze` and `flutter test`, and `flutter gen-l10n` after editing `lib/l10n/*.arb`. Pull requests and pushes to `main` run analysis and tests in CI; release builds wait for these checks too. Conventions and architecture are in [AGENTS.md](AGENTS.md), written mainly for coding agents but valid for everyone. Versioning and releases are in [docs/releasing.md](docs/releasing.md).
+Issues and pull requests are welcome. Before opening one, run `dart format .`, `flutter analyze` and `flutter test`, and `flutter gen-l10n` after editing `lib/l10n/*.arb`. Pull requests and pushes to `main` run analysis and tests in CI; release builds wait for these checks too.
 
 ## License
 

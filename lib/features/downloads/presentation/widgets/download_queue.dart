@@ -9,7 +9,9 @@ import 'package:iris/features/downloads/presentation/cubit/download_manager_cubi
 import 'package:iris/features/downloads/presentation/cubit/download_manager_state.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/utils/byte_size_formatter.dart';
-import 'package:iris/shared/utils/episode_number.dart';
+import 'package:iris/shared/utils/motion_duration.dart';
+import 'package:iris/shared/widgets/detail_layout.dart';
+import 'package:iris/shared/widgets/dither_switcher.dart';
 import 'package:iris/shared/widgets/pixel_icon.dart';
 import 'package:iris/shared/widgets/quality_badge.dart';
 
@@ -234,9 +236,9 @@ class _QueueSectionHeading extends StatelessWidget {
             Expanded(
               child: Text(
                 title,
-                style: theme.textTheme.titleSmall?.copyWith(
+                style: DetailLayout.queueHeadingStyle(
+                  theme,
                   color: attention ? theme.colorScheme.error : null,
-                  fontWeight: FontWeight.w600,
                 ),
               ),
             ),
@@ -419,7 +421,7 @@ class _EpisodeIdentity extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final l10n = AppLocalizations.of(context);
-    final number = episodeNumberFromFileName(item.fileName);
+    final number = downloadEpisodeNumber(item);
     final episode = downloadEpisode(l10n, item);
     final title = item.animeTitle.isNotEmpty
         ? item.animeTitle
@@ -481,7 +483,11 @@ class _EpisodeIdentity extends StatelessWidget {
                   title,
                   maxLines: 3,
                   overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.titleSmall,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontFamily: DetailLayout.sansFont,
+                    fontWeight: FontWeight.w500,
+                    fontSize: 15,
+                  ),
                 ),
                 if (number == null && episode != title) ...[
                   const SizedBox(height: 4),
@@ -489,7 +495,10 @@ class _EpisodeIdentity extends StatelessWidget {
                     episode,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.bodySmall,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      fontFamily: DetailLayout.sansFont,
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
                   ),
                 ],
                 if (showSource || facts.videoHeight != null) ...[
@@ -503,7 +512,11 @@ class _EpisodeIdentity extends StatelessWidget {
                             facts.source,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.bodySmall,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              fontFamily: DetailLayout.monoFont,
+                              color: theme.colorScheme.onSurfaceVariant,
+                              wordSpacing: -2.0,
+                            ),
                           ),
                         ),
                       if (showSource && facts.videoHeight != null)
@@ -542,7 +555,9 @@ class _QueueRow extends StatelessWidget {
     final actionsBelow = MediaQuery.textScalerOf(context).scale(16) > 23;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
-      child: DecoratedBox(
+      child: AnimatedContainer(
+        duration: motionDuration(context, const Duration(milliseconds: 150)),
+        curve: Curves.easeOutCubic,
         decoration: BoxDecoration(
           color: failed ? scheme.error.withValues(alpha: 0.07) : null,
           border: Border.all(
@@ -603,9 +618,12 @@ class _QueueProgress extends StatelessWidget {
         ? l10n.downloadBytesProgress(loaded, total)
         : l10n.downloadBytesDownloaded(loaded);
     final style = theme.textTheme.bodySmall?.copyWith(
+      fontFamily: DetailLayout.sansFont,
       color: active ? theme.colorScheme.tertiary : null,
       fontFeatures: const [FontFeature.tabularFigures()],
     );
+    final disableAnimations = MediaQuery.disableAnimationsOf(context);
+    final progress = downloadDisplayProgress(item);
     return Padding(
       padding: const EdgeInsetsDirectional.only(start: 56),
       child: Column(
@@ -625,12 +643,44 @@ class _QueueProgress extends StatelessWidget {
           ),
           if (active || knownTotal) ...[
             const SizedBox(height: 8),
-            LinearProgressIndicator(
-              value: knownTotal ? item.progress : null,
-              color: active
-                  ? theme.colorScheme.tertiary
-                  : theme.colorScheme.onSurfaceVariant,
-              semanticsLabel: downloadSemanticName(l10n, item),
+            AnimatedSwitcher(
+              duration: motionDuration(
+                context,
+                const Duration(milliseconds: 180),
+              ),
+              switchInCurve: Curves.easeOutCubic,
+              switchOutCurve: Curves.easeOutCubic,
+              child: knownTotal
+                  ? TweenAnimationBuilder<double>(
+                      key: const ValueKey('determinate'),
+                      tween: Tween<double>(begin: progress, end: progress),
+                      duration: motionDuration(
+                        context,
+                        const Duration(milliseconds: 240),
+                      ),
+                      curve: Curves.easeOutCubic,
+                      builder: (context, value, _) => LinearProgressIndicator(
+                        value: value,
+                        backgroundColor: DetailLayout.progressTrackColor(
+                          theme.colorScheme,
+                        ),
+                        color: active
+                            ? theme.colorScheme.tertiary
+                            : theme.colorScheme.onSurfaceVariant,
+                        semanticsLabel: downloadSemanticName(l10n, item),
+                      ),
+                    )
+                  : LinearProgressIndicator(
+                      key: const ValueKey('indeterminate'),
+                      value: disableAnimations ? 0.5 : null,
+                      backgroundColor: DetailLayout.progressTrackColor(
+                        theme.colorScheme,
+                      ),
+                      color: active
+                          ? theme.colorScheme.tertiary
+                          : theme.colorScheme.onSurfaceVariant,
+                      semanticsLabel: downloadSemanticName(l10n, item),
+                    ),
             ),
           ],
         ],
@@ -686,13 +736,17 @@ class _StatusRowState extends State<_StatusRow> {
         key: ValueKey('queue_pause_${item.id}'),
         tooltip: actionLabel,
         onPressed: onAction,
-        icon: PixelIcon(
-          active
-              ? PixelGlyph.pause
-              : paused
-              ? PixelGlyph.play
-              : PixelGlyph.refresh,
-          size: 18,
+        icon: DitherSwitcher(
+          duration: const Duration(milliseconds: 180),
+          child: PixelIcon(
+            active
+                ? PixelGlyph.pause
+                : paused
+                ? PixelGlyph.play
+                : PixelGlyph.refresh,
+            key: ValueKey(item.status),
+            size: 18,
+          ),
         ),
       ),
     );

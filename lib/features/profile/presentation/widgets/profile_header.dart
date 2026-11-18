@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
 import 'package:iris/shared/widgets/adaptive/window_size_class.dart';
+import 'package:iris/shared/widgets/detail_layout.dart';
 import 'package:iris/shared/widgets/display_title.dart';
+import 'package:iris/shared/widgets/headline_anchor.dart';
 import 'package:iris/shared/widgets/square_avatar.dart';
 
 /// Whose list the page shows: the picture beside the name, which is the
@@ -27,7 +29,7 @@ class ProfileHeader extends StatelessWidget {
     final avatarSize = compact ? 56.0 : 72.0;
     final trailing = this.trailing;
     return Padding(
-      padding: EdgeInsets.only(bottom: compact ? 12 : 20),
+      padding: EdgeInsets.only(bottom: compact ? 14 : 20),
       child: Row(
         children: [
           if (avatarUrl.isNotEmpty) ...[
@@ -35,11 +37,15 @@ class ProfileHeader extends StatelessWidget {
             SizedBox(width: compact ? 16 : 24),
           ],
           Expanded(
-            child: DisplayTitle(
-              nickname,
-              maxSize: compact ? 40 : 64,
-              minSize: 24,
-              maxLines: 1,
+            child: HeadlineAnchor(
+              child: DisplayTitle(
+                nickname,
+                maxSize: compact ? 40 : 64,
+                preferredMinSize: 22,
+                minSize: 16,
+                maxLines: 1,
+                fallbackStyleAt: DetailLayout.fallbackTitleStyle,
+              ),
             ),
           ),
           if (trailing != null) ...[const SizedBox(width: 12), trailing],

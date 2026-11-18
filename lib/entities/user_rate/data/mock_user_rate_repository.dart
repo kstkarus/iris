@@ -5,6 +5,10 @@ import 'package:iris/entities/user_rate/domain/user_rate_repository.dart';
 
 /// An in-memory list, for the mock app and tests.
 class MockUserRateRepository implements UserRateRepository {
+  @override
+  Future<T> editRate<T>(Future<T> Function(UserRateRepository) edit) =>
+      edit(this);
+
   final _rates = <String, UserRate>{};
 
   /// Episode counts by anime id; an anime left out has none known.

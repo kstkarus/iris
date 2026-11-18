@@ -43,10 +43,62 @@ void main() {
     expect(outline(), isNull);
 
     Focus.of(tester.element(find.text('Row'))).requestFocus();
-    await tester.pump();
+    await tester.pumpAndSettle();
     expect(outline(), isNotNull);
 
     await tester.sendKeyEvent(LogicalKeyboardKey.delete);
     expect(deletes, 1);
+  });
+
+  testWidgets('animates filled state and honors reduced motion', (
+    tester,
+  ) async {
+    FocusManager.instance.highlightStrategy =
+        FocusHighlightStrategy.alwaysTraditional;
+    addTearDown(
+      () => FocusManager.instance.highlightStrategy =
+          FocusHighlightStrategy.automatic,
+    );
+
+    Widget buildRow({required bool filled, bool disableAnimations = false}) =>
+        testApp(
+          MediaQuery(
+            data: MediaQueryData(disableAnimations: disableAnimations),
+            child: Material(
+              child: FocusableListRow(
+                filled: filled,
+                onDelete: () {},
+                onTap: () {},
+                child: const Text('Row'),
+              ),
+            ),
+          ),
+        );
+
+    await tester.pumpWidget(buildRow(filled: false));
+    await tester.pumpWidget(buildRow(filled: true));
+    await tester.pump(const Duration(milliseconds: 80));
+    expect(tester.hasRunningAnimations, isTrue);
+
+    await tester.pumpAndSettle();
+    expect(tester.hasRunningAnimations, isFalse);
+
+    await tester.pumpWidget(buildRow(filled: false, disableAnimations: true));
+    await tester.pumpWidget(buildRow(filled: true, disableAnimations: true));
+    await tester.pump();
+    expect(tester.hasRunningAnimations, isFalse);
+
+    Focus.of(tester.element(find.text('Row'))).requestFocus();
+    await tester.pump();
+    await tester.pump();
+    final box = tester.widget<DecoratedBox>(
+      find
+          .descendant(
+            of: find.byType(FocusableListRow),
+            matching: find.byType(DecoratedBox),
+          )
+          .first,
+    );
+    expect((box.decoration as BoxDecoration).border, isNotNull);
   });
 }

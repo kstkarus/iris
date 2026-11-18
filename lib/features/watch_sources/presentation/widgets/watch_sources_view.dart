@@ -17,11 +17,11 @@ import 'package:iris/shared/utils/watched_first.dart';
 import 'package:iris/shared/widgets/adaptive/show_adaptive_sheet.dart';
 import 'package:iris/shared/widgets/adaptive/window_size_class.dart';
 import 'package:iris/shared/widgets/app_skeleton.dart';
+import 'package:iris/shared/widgets/detail_layout.dart';
 import 'package:iris/shared/widgets/dither_switcher.dart';
 import 'package:iris/shared/widgets/option_toggle.dart';
 import 'package:iris/shared/widgets/search_field.dart';
 import 'package:iris/shared/widgets/search_toolbar.dart';
-import 'package:iris/shared/widgets/segmented_bar.dart';
 import 'package:iris/shared/widgets/source_facts_line.dart';
 import 'package:iris/shared/widgets/status_views.dart';
 import 'package:iris/shared/widgets/tap_row.dart';
@@ -46,30 +46,46 @@ class WatchSourcesView extends StatelessWidget {
     return BlocBuilder<WatchSourcesCubit, WatchSourcesState>(
       builder: (context, state) {
         final l10n = AppLocalizations.of(context);
-        return switch (state) {
+        final (Object key, Widget view) = switch (state) {
           // One skeleton in both states, so the switch develops the page.
-          WatchSourcesInitial() || WatchSourcesLoading() => AppSkeleton(
-            enabled: true,
-            semanticLabel: l10n.watchSourcesLoading,
-            child: _LoadedState(state: _standInState, posterUrl: posterUrl),
-          ),
-          WatchSourcesLoaded() => AppSkeleton(
-            enabled: false,
-            child: _LoadedState(state: state, posterUrl: posterUrl),
-          ),
-          WatchSourcesEmpty() => MessageView(
-            message: l10n.watchSourcesEmpty,
-            action: OutlinedButton(
-              key: addTorrentKey,
-              onPressed: onAddTorrent,
-              child: Text(l10n.watchSourcesAddOwnTorrent),
+          WatchSourcesInitial() || WatchSourcesLoading() => (
+            'searching',
+            AppSkeleton(
+              enabled: true,
+              semanticLabel: l10n.watchSourcesLoading,
+              child: _LoadedState(state: _standInState, posterUrl: posterUrl),
             ),
           ),
-          WatchSourcesFailure() => RetryView(
-            message: l10n.watchSourcesLoadError,
-            onRetry: () => context.read<WatchSourcesCubit>().loadSources(),
+          WatchSourcesLoaded() => (
+            'loaded',
+            AppSkeleton(
+              enabled: false,
+              child: _LoadedState(state: state, posterUrl: posterUrl),
+            ),
+          ),
+          WatchSourcesEmpty() => (
+            'empty',
+            MessageView(
+              message: l10n.watchSourcesEmpty,
+              action: OutlinedButton(
+                key: addTorrentKey,
+                onPressed: onAddTorrent,
+                child: Text(l10n.watchSourcesAddOwnTorrent),
+              ),
+            ),
+          ),
+          WatchSourcesFailure() => (
+            'failure',
+            RetryView(
+              message: l10n.watchSourcesLoadError,
+              onRetry: () => context.read<WatchSourcesCubit>().loadSources(),
+            ),
           ),
         };
+        return DitherSwitcher(
+          expand: true,
+          child: KeyedSubtree(key: ValueKey(key), child: view),
+        );
       },
     );
   }
@@ -105,12 +121,13 @@ class _LoadedState extends StatelessWidget {
             ),
             const SizedBox(height: 24),
             Expanded(
-              // A new order replaces the whole list in place, so it
-              // dissolves in; filtering as one types just updates it.
+              // A new order or empty-search swap dissolves in briskly;
+              // filtering within non-empty results updates immediately.
               child: DitherSwitcher(
                 expand: true,
+                duration: const Duration(milliseconds: 220),
                 child: KeyedSubtree(
-                  key: ValueKey(state.sortOption),
+                  key: ValueKey((state.sortOption, items.isEmpty)),
                   child: items.isEmpty
                       ? MessageView(
                           message: AppLocalizations.of(
@@ -209,37 +226,59 @@ class _SortSheetState extends State<_SortSheet> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final rule = DetailLayout.ruleColor(scheme);
+    final applyButton = FilledButton(
+      onPressed: () {
+        widget.onApply(_selectedOption);
+        Navigator.of(context).pop();
+      },
+      child: Text(l10n.watchSourcesSortApplyButton),
+    );
 
     return SafeArea(
       child: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(24, 24, 24, 20),
         child: Column(
           mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
               l10n.watchSourcesSortSheetTitle,
-              style: Theme.of(context).textTheme.titleLarge,
+              style: theme.textTheme.titleLarge?.copyWith(wordSpacing: -3.6),
             ),
             const SizedBox(height: 16),
-            for (final option in WatchSourcesSortOption.values)
-              OptionToggle(
-                label: _formatSortLabel(l10n, option),
-                selected: option == _selectedOption,
-                exclusive: true,
-                onChanged: (_) => setState(() => _selectedOption = option),
-              ),
-            const SizedBox(height: 24),
-            Align(
-              alignment: AlignmentDirectional.centerEnd,
-              child: FilledButton(
-                onPressed: () {
-                  widget.onApply(_selectedOption);
-                  Navigator.of(context).pop();
-                },
-                child: Text(l10n.watchSourcesSortApplyButton),
+            Material(
+              color: scheme.surfaceContainerLow,
+              shape: RoundedRectangleBorder(side: BorderSide(color: rule)),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  for (final (index, option)
+                      in WatchSourcesSortOption.values.indexed) ...[
+                    if (index > 0)
+                      Divider(height: 1, thickness: 1, color: rule),
+                    OptionToggle(
+                      label: _formatSortLabel(l10n, option),
+                      selected: option == _selectedOption,
+                      exclusive: true,
+                      onChanged: (_) =>
+                          setState(() => _selectedOption = option),
+                    ),
+                  ],
+                ],
               ),
             ),
+            const SizedBox(height: 20),
+            if (WindowSizeClass.of(context).isCompact)
+              applyButton
+            else
+              Align(
+                alignment: AlignmentDirectional.centerEnd,
+                child: applyButton,
+              ),
           ],
         ),
       ),
@@ -305,25 +344,53 @@ class _SourcesTable extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cubit = context.read<WatchSourcesCubit>();
+    final scheme = Theme.of(context).colorScheme;
+    final rule = DetailLayout.ruleColor(scheme);
     return ListView.builder(
       padding: const EdgeInsets.only(bottom: 24),
       itemCount: items.length + (tabular ? 1 : 0),
       itemBuilder: (context, index) {
-        if (tabular && index == 0) return const _TableHeader();
-        final item = items[index - (tabular ? 1 : 0)];
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const SegmentedRule(),
-            _WatchSourceRow(
-              item: item,
-              tabular: tabular,
-              watched: watchedKeys.contains(torrentKeyFromMagnet(item.magnet)),
-              animeId: cubit.animeId,
-              animeTitle: cubit.animeTitle,
-              posterUrl: posterUrl,
+        if (tabular && index == 0) {
+          return DecoratedBox(
+            decoration: BoxDecoration(
+              color: scheme.surfaceContainerLow,
+              border: Border(
+                top: BorderSide(color: rule),
+                left: BorderSide(color: rule),
+                right: BorderSide(color: rule),
+                bottom: BorderSide(color: rule),
+              ),
             ),
-          ],
+            child: const _TableHeader(),
+          );
+        }
+        final item = items[index - (tabular ? 1 : 0)];
+        final row = _WatchSourceRow(
+          item: item,
+          tabular: tabular,
+          watched: watchedKeys.contains(torrentKeyFromMagnet(item.magnet)),
+          animeId: cubit.animeId,
+          animeTitle: cubit.animeTitle,
+          posterUrl: posterUrl,
+        );
+        if (!tabular) {
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: Material(
+              color: scheme.surfaceContainerLow,
+              shape: RoundedRectangleBorder(side: BorderSide(color: rule)),
+              child: row,
+            ),
+          );
+        }
+        return Material(
+          color: scheme.surfaceContainerLow,
+          shape: Border(
+            left: BorderSide(color: rule),
+            right: BorderSide(color: rule),
+            bottom: BorderSide(color: rule),
+          ),
+          child: row,
         );
       },
     );
@@ -337,24 +404,21 @@ class _TableHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final theme = Theme.of(context);
-    final style = theme.textTheme.labelSmall?.copyWith(
+    final style = theme.textTheme.labelMedium?.copyWith(
+      fontFamily: DetailLayout.sansFont,
+      fontWeight: FontWeight.w500,
       color: theme.colorScheme.onSurfaceVariant,
     );
     Widget cell(String text, double width) => SizedBox(
       width: width,
-      child: Text(text.toUpperCase(), textAlign: TextAlign.end, style: style),
+      child: Text(text, textAlign: TextAlign.end, style: style),
     );
     return ExcludeSemantics(
       child: Padding(
-        padding: const EdgeInsets.only(left: 12, bottom: 8),
+        padding: const EdgeInsets.fromLTRB(14, 10, 4, 10),
         child: Row(
           children: [
-            Expanded(
-              child: Text(
-                l10n.watchSourcesColumnRelease.toUpperCase(),
-                style: style,
-              ),
-            ),
+            Expanded(child: Text(l10n.watchSourcesColumnRelease, style: style)),
             cell(l10n.watchSourcesColumnSize, _Columns.size),
             cell(l10n.watchSourcesColumnSeeders, _Columns.seeders),
             cell(l10n.watchSourcesColumnDownloads, _Columns.downloads),
@@ -399,7 +463,9 @@ class _WatchSourceRow extends StatelessWidget {
                   ? DateFormat.yMd(l10n.localeName)
                   : DateFormat.yMMMd(l10n.localeName))
               .format(published);
-    final cellStyle = theme.textTheme.bodyMedium;
+    final cellStyle = DetailLayout.monoTelemetryStyle(
+      theme.textTheme.bodyMedium,
+    );
 
     final title = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -408,26 +474,35 @@ class _WatchSourceRow extends StatelessWidget {
           item.title,
           maxLines: 3,
           overflow: TextOverflow.ellipsis,
-          style: theme.textTheme.bodyMedium,
+          style: theme.textTheme.bodyMedium?.copyWith(
+            fontFamily: DetailLayout.sansFont,
+            fontWeight: FontWeight.w500,
+            height: 1.32,
+          ),
         ),
         if (watched || !tabular) ...[
-          const SizedBox(height: 4),
+          const SizedBox(height: 5),
           SourceFactsLine(
             key: watched ? const Key('watch_source_used_badge') : null,
             watched: watched,
+            cleanLineWrap: !tabular,
             facts: tabular
                 ? null
                 : [
-                    if (item.size.isNotEmpty) item.size,
-                    l10n.watchSourceSeeders(
-                      numbers.format(item.seeders),
-                      item.seeders,
+                    if (item.size.isNotEmpty) _unbreakable(item.size),
+                    _unbreakable(
+                      l10n.watchSourceSeeders(
+                        numbers.format(item.seeders),
+                        item.seeders,
+                      ),
                     ),
-                    l10n.watchSourceDownloads(
-                      numbers.format(item.downloads),
-                      item.downloads,
+                    _unbreakable(
+                      l10n.watchSourceDownloads(
+                        numbers.format(item.downloads),
+                        item.downloads,
+                      ),
                     ),
-                    if (date.isNotEmpty) date,
+                    if (date.isNotEmpty) _unbreakable(date),
                   ].join(' · '),
           ),
         ],
@@ -443,7 +518,7 @@ class _WatchSourceRow extends StatelessWidget {
       inkKey: const Key('watch_source_watch_button'),
       onTap: () => _openStreaming(context),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 12, 0, 12),
+        padding: const EdgeInsets.fromLTRB(14, 12, 4, 12),
         child: Row(
           children: [
             Expanded(child: title),
@@ -492,6 +567,8 @@ class _WatchSourceRow extends StatelessWidget {
     );
   }
 }
+
+String _unbreakable(String value) => value.replaceAll(' ', '\u00A0');
 
 String _formatSortLabel(AppLocalizations l10n, WatchSourcesSortOption option) {
   switch (option) {

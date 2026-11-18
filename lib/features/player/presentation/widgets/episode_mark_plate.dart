@@ -10,15 +10,16 @@ import 'package:iris/features/player/presentation/widgets/player_countdown.dart'
 import 'package:iris/features/player/presentation/widgets/player_wait_indicator.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/utils/motion_duration.dart';
+import 'package:iris/shared/widgets/detail_layout.dart';
 import 'package:iris/shared/widgets/dither_switcher.dart';
 import 'package:iris/shared/widgets/pixel_icon.dart';
 import 'package:iris/shared/widgets/pixel_separated_text.dart';
 
-const _background = Color(0xE60B0C0E);
-const _border = Color(0xFF3A3D42);
-const _text = Color(0xFFF2F2F0);
-const _secondary = Color(0xFFA8AAB0);
-const _warning = Color(0xFFFFD93B);
+const _background = playerPlateBackground;
+const _border = playerPlateBorder;
+const _text = playerPlateText;
+const _secondary = playerPlateSecondary;
+const _warning = playerPlateWarning;
 
 class EpisodeMarkPlate extends StatefulWidget {
   const EpisodeMarkPlate({
@@ -310,8 +311,10 @@ class _EpisodeMarkPlateState extends State<EpisodeMarkPlate> {
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                       style: const TextStyle(
+                                        fontFamily: DetailLayout.sansFont,
                                         color: _text,
-                                        fontSize: 13,
+                                        fontSize: 13.5,
+                                        fontWeight: FontWeight.w500,
                                       ),
                                     ),
                                     if (previous != null && !short)
@@ -320,8 +323,9 @@ class _EpisodeMarkPlateState extends State<EpisodeMarkPlate> {
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
                                         style: const TextStyle(
+                                          fontFamily: DetailLayout.sansFont,
                                           color: _secondary,
-                                          fontSize: 11,
+                                          fontSize: 11.5,
                                         ),
                                       ),
                                   ],
@@ -376,6 +380,11 @@ class _EpisodeMarkPlateState extends State<EpisodeMarkPlate> {
                               : marked
                               ? accent
                               : _text,
+                          textStyle: const TextStyle(
+                            fontFamily: DetailLayout.sansFont,
+                            fontSize: 13.5,
+                            fontWeight: FontWeight.w500,
+                          ),
                           padding: EdgeInsets.symmetric(
                             horizontal: short ? 4 : 12,
                           ),
@@ -402,6 +411,9 @@ class _EpisodeMarkPlateState extends State<EpisodeMarkPlate> {
                     onPressed: widget.cubit.showNextPending,
                     style: TextButton.styleFrom(
                       foregroundColor: _secondary,
+                      textStyle: DetailLayout.monoTelemetryStyle(
+                        const TextStyle(fontSize: 13),
+                      ),
                       minimumSize: const Size(48, 48),
                       padding: const EdgeInsets.symmetric(horizontal: 4),
                     ),

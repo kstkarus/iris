@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 
-import 'package:iris/shared/widgets/pixel_icon.dart';
 import 'package:iris/shared/utils/motion_duration.dart';
+import 'package:iris/shared/widgets/detail_layout.dart';
+import 'package:iris/shared/widgets/pixel_icon.dart';
 
 /// A row of a list to choose one from, such as a track or a decoder: the
 /// chosen row carries a check mark, which fades in where the choice moves.
@@ -30,18 +31,27 @@ class PlayerChoiceRow extends StatelessWidget {
     final detail = this.detail;
     return ListTile(
       contentPadding: EdgeInsets.zero,
+      visualDensity: const VisualDensity(vertical: -1),
       // For assistive technology; the check mark shows it on screen, so the
       // title keeps its colour.
       selected: selected,
       selectedColor: scheme.onSurface,
-      title: Text(label),
+      title: Text(
+        label,
+        style: theme.textTheme.bodyLarge?.copyWith(
+          fontFamily: DetailLayout.sansFont,
+          fontSize: 15,
+          fontWeight: selected ? FontWeight.w500 : FontWeight.w400,
+        ),
+      ),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           if (detail != null) ...[
             Text(
               detail,
-              style: theme.textTheme.bodySmall?.copyWith(
+              style: DetailLayout.monoTelemetryStyle(
+                theme.textTheme.bodySmall,
                 color: scheme.onSurfaceVariant,
               ),
             ),

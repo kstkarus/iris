@@ -7,7 +7,6 @@ import 'package:iris/features/player/domain/entities/player_video_file.dart';
 import 'package:iris/features/player/presentation/widgets/player_episode_cards.dart';
 import 'package:iris/features/player/presentation/widgets/player_episodes_drawer.dart';
 import 'package:iris/shared/widgets/pixel_icon.dart';
-import 'package:iris/shared/widgets/segmented_bar.dart';
 
 import '../../../../helpers/test_app.dart';
 
@@ -34,69 +33,129 @@ void main() {
   testWidgets('marks the playing card and the progress of the others', (
     tester,
   ) async {
-    PlayerVideoFile? selected;
-    await tester.pumpWidget(
-      _wrap(
-        PlayerEpisodeCards(
-          files: [
-            _file(0, 'Show - 01.mkv'),
-            _file(1, 'Show - 02.mkv'),
-            _file(2, 'Show - 03.mkv'),
-          ],
-          currentFileIndex: 1,
-          progressByFile: {
-            0: _progress(0, const Duration(minutes: 24)),
-            2: _progress(2, const Duration(minutes: 4)),
-          },
-          onSelected: (file) => selected = file,
+    final semantics = tester.ensureSemantics();
+    try {
+      PlayerVideoFile? selected;
+      await tester.pumpWidget(
+        _wrap(
+          PlayerEpisodeCards(
+            files: [
+              _file(0, 'Show - 01.mkv'),
+              _file(1, 'Show - 02.mkv'),
+              _file(2, 'Show - 03.mkv'),
+            ],
+            currentFileIndex: 1,
+            progressByFile: {
+              0: _progress(0, const Duration(minutes: 24)),
+              2: _progress(2, const Duration(minutes: 4)),
+            },
+            onSelected: (file) => selected = file,
+          ),
         ),
-      ),
-    );
-    await tester.pump();
+      );
+      await tester.pump();
 
-    expect(find.text('NOW PLAYING'), findsOneWidget);
-    expect(
-      find.byWidgetPredicate(
-        (widget) => widget is PixelIcon && widget.glyph == PixelGlyph.check,
-      ),
-      findsOneWidget,
-    );
-    expect(find.text('20:00 left'), findsOneWidget);
-    expect(find.byType(SegmentedBar), findsOneWidget);
+      expect(find.text('Now playing'), findsOneWidget);
+      expect(
+        find.byWidgetPredicate(
+          (widget) => widget is PixelIcon && widget.glyph == PixelGlyph.check,
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('\u221220:00'), findsOneWidget);
+      expect(find.bySemanticsLabel(RegExp('20:00 left')), findsOneWidget);
+      final track = find.byKey(const ValueKey('player_episode_progress_2'));
+      final fill = find.byKey(const ValueKey('player_episode_progress_fill_2'));
+      expect(track, findsOneWidget);
+      expect(fill, findsOneWidget);
+      final trackRect = tester.getRect(track);
+      final fillRect = tester.getRect(fill);
+      expect(fillRect.height, moreOrLessEquals(trackRect.height));
+      expect(fillRect.height, greaterThan(0));
+      expect(fillRect.width, moreOrLessEquals(trackRect.width * (4 / 24)));
 
-    await tester.tap(find.byKey(const ValueKey('player_episode_card_1')));
-    expect(selected, isNull, reason: 'the playing file is not picked again');
-    await tester.tap(find.byKey(const ValueKey('player_episode_card_2')));
-    expect(selected?.index, 2);
+      await tester.tap(find.byKey(const ValueKey('player_episode_card_1')));
+      expect(selected, isNull, reason: 'the playing file is not picked again');
+      await tester.tap(find.byKey(const ValueKey('player_episode_card_2')));
+      expect(selected?.index, 2);
+    } finally {
+      semantics.dispose();
+    }
   });
 
   testWidgets('marks what the Shikimori list counts, unless watched here', (
     tester,
   ) async {
-    await tester.pumpWidget(
-      _wrap(
-        PlayerEpisodeCards(
-          files: [
-            _file(0, 'Show - 01.mkv'),
-            _file(1, 'Show - 02.mkv'),
-            _file(2, 'Show - 03.mkv'),
-          ],
-          currentFileIndex: 2,
-          progressByFile: {1: _progress(1, const Duration(minutes: 4))},
-          listed: const {0, 1},
-          onSelected: (_) {},
+    final semantics = tester.ensureSemantics();
+    try {
+      await tester.pumpWidget(
+        _wrap(
+          PlayerEpisodeCards(
+            files: [
+              _file(0, 'Show - 01.mkv'),
+              _file(1, 'Show - 02.mkv'),
+              _file(2, 'Show - 03.mkv'),
+            ],
+            currentFileIndex: 2,
+            progressByFile: {1: _progress(1, const Duration(minutes: 4))},
+            listed: const {0, 1},
+            onSelected: (_) {},
+          ),
         ),
-      ),
-    );
-    await tester.pump();
+      );
+      await tester.pump();
 
-    expect(
-      find.byWidgetPredicate(
-        (widget) => widget is PixelIcon && widget.glyph == PixelGlyph.check,
+      expect(
+        find.byWidgetPredicate(
+          (widget) => widget is PixelIcon && widget.glyph == PixelGlyph.check,
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('\u221220:00'), findsOneWidget);
+      expect(find.bySemanticsLabel(RegExp('20:00 left')), findsOneWidget);
+    } finally {
+      semantics.dispose();
+    }
+  });
+
+  testWidgets('closes cleanly once when reduced motion is enabled', (
+    tester,
+  ) async {
+    var mounted = true;
+    var open = true;
+    var exits = 0;
+
+    await tester.pumpWidget(
+      testApp(
+        MediaQuery(
+          data: const MediaQueryData(disableAnimations: true),
+          child: StatefulBuilder(
+            builder: (context, setState) => Scaffold(
+              body: mounted
+                  ? PlayerEpisodesDrawer(
+                      open: open,
+                      onClose: () => setState(() => open = false),
+                      onExited: () {
+                        exits++;
+                        setState(() => mounted = false);
+                      },
+                      builder: (context, close) => const SizedBox.shrink(),
+                    )
+                  : const SizedBox.shrink(),
+            ),
+          ),
+        ),
+        theme: ThemeData(brightness: Brightness.dark),
       ),
-      findsOneWidget,
     );
-    expect(find.text('20:00 left'), findsOneWidget);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('player_episodes_close_button')));
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    expect(exits, 1);
+    expect(find.byKey(const Key('player_episodes_drawer')), findsNothing);
   });
 
   testWidgets('lets the keyboard pick a card in the drawer and leaves '

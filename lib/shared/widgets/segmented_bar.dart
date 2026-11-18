@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:skeletonizer/skeletonizer.dart';
 
 import 'package:iris/shared/utils/motion_duration.dart';
 import 'package:iris/shared/utils/ordered_dither.dart';
@@ -52,26 +53,30 @@ class SegmentedBar extends StatelessWidget {
     final clamped = value.isNaN ? 0.0 : value.clamp(0.0, 1.0);
     return Semantics(
       value: '${(clamped * 100).round()}%',
-      child: SizedBox(
+      child: Skeleton.replace(
         height: height,
         width: double.infinity,
-        child: TweenAnimationBuilder<double>(
-          tween: Tween(begin: animateIn ? 0 : clamped, end: clamped),
-          duration: motionDuration(context, _duration),
-          curve: Curves.easeOutCubic,
-          builder: (context, filled, _) => CustomPaint(
-            painter: _SegmentsPainter(
-              filled: filled,
-              segment: segment,
-              gap: gap,
-              color: color ?? scheme.tertiary,
-              trackColor:
-                  trackColor ??
-                  (ditherTrack
-                      ? scheme.onSurface.withValues(alpha: 0.3)
-                      : scheme.surfaceContainerHighest),
-              devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
-              ditherPixel: ditherTrack ? _ditherPixel : null,
+        child: SizedBox(
+          height: height,
+          width: double.infinity,
+          child: TweenAnimationBuilder<double>(
+            tween: Tween(begin: animateIn ? 0 : clamped, end: clamped),
+            duration: motionDuration(context, _duration),
+            curve: Curves.easeOutCubic,
+            builder: (context, filled, _) => CustomPaint(
+              painter: _SegmentsPainter(
+                filled: filled,
+                segment: segment,
+                gap: gap,
+                color: color ?? scheme.tertiary,
+                trackColor:
+                    trackColor ??
+                    (ditherTrack
+                        ? scheme.onSurface.withValues(alpha: 0.3)
+                        : scheme.surfaceContainerHighest),
+                devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
+                ditherPixel: ditherTrack ? _ditherPixel : null,
+              ),
             ),
           ),
         ),

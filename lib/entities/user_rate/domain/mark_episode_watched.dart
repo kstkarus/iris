@@ -116,38 +116,40 @@ class MarkEpisodeWatched implements EpisodeMarker {
     if (episode < 1 || episode > 9999) {
       throw ArgumentError.value(episode, 'episode');
     }
-    final (rate: current, :totalEpisodes) = await _repository.fetchWithTotal(
-      animeId,
-    );
-    if (isCurrent != null && !isCurrent()) {
-      throw StateError('Account session changed');
-    }
-    if (baselineKnown && _superseded(baseline, current)) {
-      return EpisodeMarkObsolete(current);
-    }
-    if (current != null && current.episodes >= episode) {
-      return EpisodeAlreadyMarked(current: current);
-    }
-    await beforeSave?.call(current);
-    if (isCurrent != null && !isCurrent()) {
-      throw StateError('Account session changed');
-    }
-    final last = totalEpisodes > 0 && episode >= totalEpisodes;
-    final status = switch (current?.status) {
-      // Shikimori ends a rewatch itself and counts it.
-      UserRateStatus.rewatching => UserRateStatus.rewatching,
-      UserRateStatus.completed => UserRateStatus.completed,
-      _ when last => UserRateStatus.completed,
-      _ => UserRateStatus.watching,
-    };
-    final saved = await _repository.save(
-      userId: userId,
-      animeId: animeId,
-      rateId: current?.id,
-      status: status == current?.status ? null : status,
-      episodes: episode,
-    );
-    return EpisodeMarked(previous: current, saved: saved);
+    return _repository.editRate((rates) async {
+      final (rate: current, :totalEpisodes) = await rates.fetchWithTotal(
+        animeId,
+      );
+      if (isCurrent != null && !isCurrent()) {
+        throw StateError('Account session changed');
+      }
+      if (baselineKnown && _superseded(baseline, current)) {
+        return EpisodeMarkObsolete(current);
+      }
+      if (current != null && current.episodes >= episode) {
+        return EpisodeAlreadyMarked(current: current);
+      }
+      await beforeSave?.call(current);
+      if (isCurrent != null && !isCurrent()) {
+        throw StateError('Account session changed');
+      }
+      final last = totalEpisodes > 0 && episode >= totalEpisodes;
+      final status = switch (current?.status) {
+        // Shikimori ends a rewatch itself and counts it.
+        UserRateStatus.rewatching => UserRateStatus.rewatching,
+        UserRateStatus.completed => UserRateStatus.completed,
+        _ when last => UserRateStatus.completed,
+        _ => UserRateStatus.watching,
+      };
+      final saved = await rates.save(
+        userId: userId,
+        animeId: animeId,
+        rateId: current?.id,
+        status: status == current?.status ? null : status,
+        episodes: episode,
+      );
+      return EpisodeMarked(previous: current, saved: saved);
+    });
   }
 
   /// Puts the list back as it was before [mark].
@@ -157,9 +159,9 @@ class MarkEpisodeWatched implements EpisodeMarker {
     required String animeId,
     required EpisodeMarked mark,
     bool Function()? isCurrent,
-  }) async {
+  }) => _repository.editRate((rates) async {
     if (isCurrent != null && !isCurrent()) return false;
-    final current = await _repository.fetch(animeId);
+    final current = await rates.fetch(animeId);
     if (isCurrent != null && !isCurrent()) return false;
     // Undo only our own change, keeping later edits and progress intact.
     if (current == null ||
@@ -172,10 +174,10 @@ class MarkEpisodeWatched implements EpisodeMarker {
     final previous = mark.previous;
     if (previous == null) {
       if (current.score != mark.saved.score) return false;
-      await _repository.remove(animeId: animeId, rateId: mark.saved.id);
+      await rates.remove(animeId: animeId, rateId: mark.saved.id);
       return true;
     }
-    await _repository.save(
+    await rates.save(
       userId: userId,
       animeId: animeId,
       rateId: mark.saved.id,
@@ -184,7 +186,7 @@ class MarkEpisodeWatched implements EpisodeMarker {
       rewatches: previous.rewatches,
     );
     return true;
-  }
+  });
 
   bool _superseded(UserRate? baseline, UserRate? current) {
     if (current?.status == UserRateStatus.rewatching &&

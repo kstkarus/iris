@@ -8,6 +8,7 @@ import 'package:iris/features/characters/presentation/cubit/anime_characters_cub
 import 'package:iris/features/characters/presentation/cubit/anime_characters_state.dart';
 import 'package:iris/features/characters/presentation/widgets/character_tile.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
+import 'package:iris/shared/utils/motion_duration.dart';
 import 'package:iris/shared/widgets/adaptive/adaptive_content_width.dart';
 import 'package:iris/shared/widgets/adaptive/adaptive_grid_row.dart';
 import 'package:iris/shared/widgets/adaptive/window_size_class.dart';
@@ -26,7 +27,6 @@ class CharactersSection extends StatelessWidget {
     required this.animeName,
     this.labelStyle,
     this.uppercase = true,
-    this.showPrefix = true,
     this.hairlineDivider = false,
     super.key,
   });
@@ -45,9 +45,6 @@ class CharactersSection extends StatelessWidget {
   /// Whether to uppercase the section heading.
   final bool uppercase;
 
-  /// Whether to draw the leading `>> ` marker.
-  final bool showPrefix;
-
   /// Uses a solid 1 px divider instead of the dashed [SegmentedRule].
   final bool hairlineDivider;
 
@@ -58,29 +55,29 @@ class CharactersSection extends StatelessWidget {
     final characters = state is AnimeCharactersLoaded
         ? state.characters
         : const <AnimeCharacter>[];
+    final Widget child;
     // It may well be empty, so no noise for it: it develops in when
     // it arrives, below everything it could push.
     if (characters.isEmpty) {
-      return const DitherSwitcher(child: SizedBox.shrink());
-    }
-    final l10n = AppLocalizations.of(context);
-    final ordered = charactersInOrder(l10n, characters);
-    final leads = [
-      for (final item in ordered)
-        if (item.role == CharacterRole.main) item.character,
-    ];
-    // Without main characters, the first of the rest.
-    final candidates = leads.isNotEmpty
-        ? leads
-        : [for (final item in ordered) item.character];
-    return DitherSwitcher(
-      child: Padding(
+      child = const SizedBox.shrink(key: ValueKey('empty'));
+    } else {
+      final l10n = AppLocalizations.of(context);
+      final ordered = charactersInOrder(l10n, characters);
+      final leads = [
+        for (final item in ordered)
+          if (item.role == CharacterRole.main) item.character,
+      ];
+      // Without main characters, the first of the rest.
+      final candidates = leads.isNotEmpty
+          ? leads
+          : [for (final item in ordered) item.character];
+      child = Padding(
+        key: const ValueKey('content'),
         padding: const EdgeInsets.only(top: 40),
         child: LabeledSection(
           label: l10n.charactersTitle,
           labelStyle: labelStyle,
           uppercase: uppercase,
-          showPrefix: showPrefix,
           child: Align(
             alignment: AlignmentDirectional.topStart,
             child: ConstrainedBox(
@@ -133,7 +130,20 @@ class CharactersSection extends StatelessWidget {
             ),
           ),
         ),
-      ),
+      );
+    }
+    final switcher = DitherSwitcher(
+      collapse: true,
+      duration: const Duration(milliseconds: 240),
+      child: child,
+    );
+    final duration = motionDuration(context, const Duration(milliseconds: 200));
+    if (duration == Duration.zero) return switcher;
+    return AnimatedSize(
+      duration: duration,
+      curve: Curves.easeOutCubic,
+      alignment: Alignment.topCenter,
+      child: switcher,
     );
   }
 }

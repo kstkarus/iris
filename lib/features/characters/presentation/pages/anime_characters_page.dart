@@ -13,6 +13,8 @@ import 'package:iris/shared/widgets/adaptive/framed_app_bar.dart';
 import 'package:iris/shared/widgets/adaptive/page_frame.dart';
 import 'package:iris/shared/widgets/adaptive/window_size_class.dart';
 import 'package:iris/shared/widgets/app_skeleton.dart';
+import 'package:iris/shared/widgets/detail_layout.dart';
+import 'package:iris/shared/widgets/dither_switcher.dart';
 import 'package:iris/shared/widgets/page_title.dart';
 import 'package:iris/shared/widgets/section_label.dart';
 import 'package:iris/shared/widgets/status_views.dart';
@@ -39,19 +41,31 @@ class AnimeCharactersPage extends StatelessWidget {
         top: false,
         child: PageFrame.subPage(
           child: BlocBuilder<AnimeCharactersCubit, AnimeCharactersState>(
-            builder: (context, state) => switch (state) {
-              AnimeCharactersLoading() => const _Grid(characters: null),
-              AnimeCharactersLoaded(:final characters)
-                  when characters.isEmpty =>
-                MessageView(message: l10n.charactersEmpty),
-              AnimeCharactersLoaded(:final characters) => _Grid(
-                characters: characters,
-              ),
-              AnimeCharactersFailure() => RetryView(
-                message: l10n.charactersLoadError,
-                onRetry: () => context.read<AnimeCharactersCubit>().load(),
-              ),
-            },
+            builder: (context, state) => DitherSwitcher(
+              expand: true,
+              duration: const Duration(milliseconds: 240),
+              child: switch (state) {
+                AnimeCharactersLoading() => const _Grid(
+                  key: ValueKey('grid'),
+                  characters: null,
+                ),
+                AnimeCharactersLoaded(:final characters)
+                    when characters.isEmpty =>
+                  MessageView(
+                    key: const ValueKey('empty'),
+                    message: l10n.charactersEmpty,
+                  ),
+                AnimeCharactersLoaded(:final characters) => _Grid(
+                  key: const ValueKey('grid'),
+                  characters: characters,
+                ),
+                AnimeCharactersFailure() => RetryView(
+                  key: const ValueKey('failure'),
+                  message: l10n.charactersLoadError,
+                  onRetry: () => context.read<AnimeCharactersCubit>().load(),
+                ),
+              },
+            ),
           ),
         ),
       ),
@@ -59,24 +73,18 @@ class AnimeCharactersPage extends StatelessWidget {
   }
 }
 
-/// Stand-ins that give the noise the shape of a row of portraits.
-final _standIns = List.filled(
-  24,
-  const AnimeCharacter(
-    character: CharacterSummary(
-      id: '',
-      name: 'A name',
-      russian: '',
-      posterUrl: '',
-    ),
-    role: CharacterRole.supporting,
-  ),
+/// Stand-in portrait used to give skeleton noise the shape of a row.
+const _standInCharacter = CharacterSummary(
+  id: '',
+  name: 'A name',
+  russian: '',
+  posterUrl: '',
 );
 
 /// The characters under a label per role, built row by row as they
 /// scroll in; null [characters] are noise while they load.
 class _Grid extends StatelessWidget {
-  const _Grid({required this.characters});
+  const _Grid({required this.characters, super.key});
 
   final List<AnimeCharacter>? characters;
 
@@ -84,7 +92,9 @@ class _Grid extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final loading = characters == null;
-    final ordered = charactersInOrder(l10n, characters ?? _standIns);
+    final ordered = loading
+        ? const <AnimeCharacter>[]
+        : charactersInOrder(l10n, characters!);
     return AppSkeleton(
       enabled: loading,
       semanticLabel: l10n.charactersLoading,
@@ -99,15 +109,24 @@ class _Grid extends StatelessWidget {
             maxColumns: 1 << 20,
           );
           final items = <_Item>[];
-          for (final role in CharacterRole.values) {
-            final group = [
-              for (final item in ordered)
-                if (item.role == role) item.character,
-            ];
-            if (group.isEmpty) continue;
-            if (!loading) items.add(_Label(role));
-            for (var start = 0; start < group.length; start += columns) {
-              items.add(_Row(group.skip(start).take(columns).toList()));
+          if (loading) {
+            items
+              ..add(const _Label(CharacterRole.main))
+              ..add(_Row(List.filled(columns, _standInCharacter)))
+              ..add(const _Label(CharacterRole.supporting))
+              ..add(_Row(List.filled(columns, _standInCharacter)))
+              ..add(_Row(List.filled(columns, _standInCharacter)));
+          } else {
+            for (final role in CharacterRole.values) {
+              final group = [
+                for (final item in ordered)
+                  if (item.role == role) item.character,
+              ];
+              if (group.isEmpty) continue;
+              items.add(_Label(role));
+              for (var start = 0; start < group.length; start += columns) {
+                items.add(_Row(group.skip(start).take(columns).toList()));
+              }
             }
           }
           return ListView.builder(
@@ -117,10 +136,14 @@ class _Grid extends StatelessWidget {
             itemBuilder: (context, index) => switch (items[index]) {
               _Label(:final role) => Padding(
                 padding: EdgeInsets.only(top: index == 0 ? 0 : 16, bottom: 12),
-                child: SectionLabel(switch (role) {
-                  CharacterRole.main => l10n.charactersMainTitle,
-                  CharacterRole.supporting => l10n.charactersSupportingTitle,
-                }),
+                child: SectionLabel(
+                  switch (role) {
+                    CharacterRole.main => l10n.charactersMainTitle,
+                    CharacterRole.supporting => l10n.charactersSupportingTitle,
+                  },
+                  style: DetailLayout.sectionTitleStyle(Theme.of(context)),
+                  uppercase: false,
+                ),
               ),
               _Row(:final characters) => Padding(
                 padding: const EdgeInsets.only(bottom: 20),

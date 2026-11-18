@@ -15,12 +15,12 @@ import 'package:iris/features/player/presentation/widgets/player_overlay_prefere
 import 'package:iris/features/player/presentation/widgets/player_panel.dart';
 import 'package:iris/features/player/presentation/playback/player_subtitle_preferences_mapper.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
+import 'package:iris/shared/utils/motion_duration.dart';
+import 'package:iris/shared/widgets/detail_layout.dart';
 import 'package:iris/shared/widgets/pixel_icon.dart';
 import 'package:iris/shared/widgets/pixel_separated_text.dart';
 import 'package:iris/shared/widgets/section_label.dart';
-import 'package:iris/shared/widgets/segmented_bar.dart';
 import 'package:iris/shared/widgets/segmented_choice.dart';
-import 'package:iris/shared/utils/motion_duration.dart';
 
 /// The video stays in view behind the settings, lightly dimmed, so a change
 /// to the subtitles shows on them at once.
@@ -115,25 +115,93 @@ class PlayerSubtitleSettingsSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final speed = this.speed;
-    final quality = this.quality;
+    final l10n = AppLocalizations.of(context);
+    final theme = Theme.of(context);
+    final rule = DetailLayout.ruleColor(theme.colorScheme);
     final showAppearance = tracks.canStyleSubtitles(selectedSubtitleTrack);
+    final hasPlaybackControls = speed != null || quality != null;
     return PlayerPanel(
-      title: AppLocalizations.of(context).playerSettingsTitle,
+      title: l10n.playerSettingsTitle,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (speed != null) _Speed(speed: speed),
-          if (quality != null) _Quality(quality: quality),
+          if (hasPlaybackControls)
+            _PlaybackSection(
+              speed: speed,
+              quality: quality,
+              showBottomDivider: showAppearance,
+            ),
           if (showAppearance) const _Appearance(),
-          if (speed != null || quality != null || showAppearance) ...[
+          if (hasPlaybackControls || showAppearance) ...[
             const SizedBox(height: 8),
-            const SegmentedRule(),
+            Divider(height: 1, thickness: 1, color: rule),
+            const SizedBox(height: 4),
           ],
           _Advanced(hasSubtitles: tracks.hasSubtitles),
         ],
       ),
+    );
+  }
+}
+
+TextStyle _sectionTitleStyle(ThemeData theme) => DetailLayout.queueHeadingStyle(
+  theme,
+).copyWith(fontSize: 16, fontWeight: FontWeight.w600);
+
+class _PlaybackSection extends StatelessWidget {
+  const _PlaybackSection({
+    required this.speed,
+    required this.quality,
+    required this.showBottomDivider,
+  });
+
+  final PlayerSpeedSetting? speed;
+  final PlayerQualitySetting? quality;
+  final bool showBottomDivider;
+
+  @override
+  Widget build(BuildContext context) {
+    final quality = this.quality;
+    if (quality == null) {
+      return _buildContent(context, choice: null);
+    }
+    return ValueListenableBuilder<PlayerQualityChoice?>(
+      valueListenable: quality.choice,
+      builder: (context, choice, _) => _buildContent(context, choice: choice),
+    );
+  }
+
+  Widget _buildContent(BuildContext context, {PlayerQualityChoice? choice}) {
+    final speed = this.speed;
+    if (speed == null && choice == null) {
+      return const SizedBox.shrink();
+    }
+    final l10n = AppLocalizations.of(context);
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SectionLabel(
+          l10n.playerPlaybackSectionTitle,
+          style: _sectionTitleStyle(theme),
+          uppercase: false,
+        ),
+        const SizedBox(height: 10),
+        if (speed != null) _Speed(speed: speed),
+        if (choice != null)
+          _Quality(choice: choice, onSelected: quality!.onSelected),
+        if (showBottomDivider) ...[
+          const SizedBox(height: 4),
+          Divider(
+            height: 1,
+            thickness: 1,
+            color: DetailLayout.ruleColor(theme.colorScheme),
+          ),
+          const SizedBox(height: 12),
+        ],
+      ],
     );
   }
 }
@@ -168,35 +236,29 @@ class _Speed extends StatelessWidget {
 }
 
 class _Quality extends StatelessWidget {
-  const _Quality({required this.quality});
+  const _Quality({required this.choice, required this.onSelected});
 
-  final PlayerQualitySetting quality;
+  final PlayerQualityChoice choice;
+  final ValueChanged<int?> onSelected;
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    return ValueListenableBuilder<PlayerQualityChoice?>(
-      valueListenable: quality.choice,
-      builder: (context, choice, _) {
-        // A torrent or a download comes in one quality only.
-        if (choice == null) return const SizedBox.shrink();
-        return _Labelled(
-          label: l10n.onlineQualityTitle,
-          child: SegmentedChoice<int?>(
-            key: const Key('player_quality_choice'),
-            selected: choice.selected,
-            onSelected: quality.onSelected,
-            options: [
-              SegmentedOption(value: null, label: l10n.onlineQualityAuto),
-              for (final height in choice.offered)
-                SegmentedOption(
-                  value: height,
-                  label: l10n.onlineQualityHeight(height),
-                ),
-            ],
-          ),
-        );
-      },
+    return _Labelled(
+      label: l10n.onlineQualityTitle,
+      child: SegmentedChoice<int?>(
+        key: const Key('player_quality_choice'),
+        selected: choice.selected,
+        onSelected: onSelected,
+        options: [
+          SegmentedOption(value: null, label: l10n.onlineQualityAuto),
+          for (final height in choice.offered)
+            SegmentedOption(
+              value: height,
+              label: l10n.onlineQualityHeight(height),
+            ),
+        ],
+      ),
     );
   }
 }
@@ -224,12 +286,21 @@ class _Appearance extends StatelessWidget {
       children: [
         SectionLabel(
           l10n.playerSubtitleAppearanceTitle,
+          style: _sectionTitleStyle(theme),
+          uppercase: false,
           trailing: TextButton(
+            style: TextButton.styleFrom(
+              textStyle: const TextStyle(
+                fontFamily: DetailLayout.sansFont,
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
             onPressed: isDefault ? null : cubit.resetAppearance,
             child: Text(l10n.playerSubtitleResetAction),
           ),
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: 8),
         _Labelled(
           label: l10n.playerSubtitleSizeLabel,
           child: SegmentedChoice<SubtitleTextScalePreset>(
@@ -340,6 +411,8 @@ class _Appearance extends StatelessWidget {
             child: Text(
               l10n.playerSubtitleOverrideHint,
               style: theme.textTheme.bodySmall?.copyWith(
+                fontFamily: DetailLayout.sansFont,
+                fontSize: 12.5,
                 color: theme.colorScheme.onSurfaceVariant,
               ),
             ),
@@ -361,13 +434,16 @@ class _Labelled extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.only(bottom: 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
             label,
             style: theme.textTheme.bodySmall?.copyWith(
+              fontFamily: DetailLayout.sansFont,
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
               color: theme.colorScheme.onSurfaceVariant,
             ),
           ),
@@ -474,8 +550,13 @@ class _AdvancedState extends State<_Advanced> {
                       children: [
                         Text(
                           l10n.playerAdvancedTitle,
-                          style: theme.textTheme.bodyMedium,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            fontFamily: DetailLayout.sansFont,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
+                        const SizedBox(height: 2),
                         _Reveal(
                           visible: !_expanded,
                           duration: duration,
@@ -489,7 +570,15 @@ class _AdvancedState extends State<_Advanced> {
                                   )
                                 : '${l10n.playerDecoderSettingsTitle}: '
                                       '${_decoderShortLabel(l10n, decoder)}',
-                            style: theme.textTheme.bodySmall?.copyWith(
+                            sansStyle: theme.textTheme.bodySmall?.copyWith(
+                              fontFamily: DetailLayout.sansFont,
+                              fontSize: 12.5,
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                            monoStyle: DetailLayout.monoTelemetryStyle(
+                              theme.textTheme.bodySmall?.copyWith(
+                                fontSize: 12.5,
+                              ),
                               color: theme.colorScheme.onSurfaceVariant,
                             ),
                           ),
@@ -542,7 +631,13 @@ class _AdvancedContent extends StatelessWidget {
     final l10n = AppLocalizations.of(context);
     final theme = Theme.of(context);
     final muted = theme.textTheme.bodySmall?.copyWith(
+      fontFamily: DetailLayout.sansFont,
+      fontSize: 12.5,
       color: theme.colorScheme.onSurfaceVariant,
+    );
+    final switchTitle = theme.textTheme.bodyLarge?.copyWith(
+      fontFamily: DetailLayout.sansFont,
+      fontSize: 15,
     );
     final decodingCubit = context.read<PlayerDecodingPreferencesCubit>();
     final subtitleCubit = context.read<PlayerSubtitlePreferencesCubit>();
@@ -550,7 +645,10 @@ class _AdvancedContent extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(l10n.playerDecoderSettingsTitle, style: muted),
+        Text(
+          l10n.playerDecoderSettingsTitle,
+          style: muted?.copyWith(fontWeight: FontWeight.w500),
+        ),
         const SizedBox(height: 2),
         Text(l10n.playerDecoderSettingsDescription, style: muted),
         const SizedBox(height: 4),
@@ -564,8 +662,8 @@ class _AdvancedContent extends StatelessWidget {
         if (hasSubtitles)
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
-            title: Text(l10n.playerSubtitleLibassLabel),
-            subtitle: Text(l10n.playerSubtitleLibassDescription),
+            title: Text(l10n.playerSubtitleLibassLabel, style: switchTitle),
+            subtitle: Text(l10n.playerSubtitleLibassDescription, style: muted),
             value: libass,
             onChanged: subtitleCubit.setLibassEnabled,
           ),
@@ -574,8 +672,8 @@ class _AdvancedContent extends StatelessWidget {
           builder: (context, enabled, _) => SwitchListTile(
             key: const Key('player_detailed_stats_switch'),
             contentPadding: EdgeInsets.zero,
-            title: Text(l10n.playerDetailedStats),
-            subtitle: Text(l10n.playerDetailedStatsHint),
+            title: Text(l10n.playerDetailedStats, style: switchTitle),
+            subtitle: Text(l10n.playerDetailedStatsHint, style: muted),
             value: enabled,
             onChanged: (value) => playerDetailedStatsEnabled.value = value,
           ),

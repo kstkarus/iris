@@ -9,6 +9,7 @@ import 'package:iris/entities/user_rate/domain/user_rate.dart';
 import 'package:iris/entities/user_rate/domain/user_rate_repository.dart';
 import 'package:iris/entities/user_rate/presentation/user_rate_cubit.dart';
 import 'package:iris/features/anime_details/presentation/widgets/my_list_section.dart';
+import 'package:iris/shared/widgets/app_skeleton.dart';
 
 import '../../../../helpers/test_app.dart';
 
@@ -43,13 +44,13 @@ void main() {
     expect(find.byKey(MyListSection.statusButtonKey), findsNothing);
     expect(find.byKey(MyListSection.scoreButtonKey), findsNothing);
 
-    await cubit.accountChanged('42');
-    await tester.pumpAndSettle();
+    await tester.runAsync(() => cubit.accountChanged('42'));
+    await tester.pump();
     expect(find.byKey(MyListSection.statusButtonKey), findsOneWidget);
     expect(find.byKey(MyListSection.scoreButtonKey), findsOneWidget);
 
-    await cubit.accountChanged(null);
-    await tester.pumpAndSettle();
+    await tester.runAsync(() => cubit.accountChanged(null));
+    await tester.pump();
     expect(find.byKey(MyListSection.statusButtonKey), findsNothing);
     expect(find.byKey(MyListSection.scoreButtonKey), findsNothing);
   });
@@ -82,8 +83,6 @@ void main() {
   });
 
   testWidgets('adds the anime with a status from the menu', (tester) async {
-    final semantics = tester.ensureSemantics();
-    addTearDown(semantics.dispose);
     await cubit.accountChanged('42');
     await pumpSection(tester);
 
@@ -184,10 +183,85 @@ void main() {
     expect(find.text('Score: 9'), findsOneWidget);
     expect((await repository.fetch('1'))?.score, 9);
   });
+
+  testWidgets('keeps one AppSkeleton across loading to loaded transition', (
+    tester,
+  ) async {
+    final gate = Completer<void>();
+    final slow = UserRateCubit(
+      repository: _SlowRates(repository, gate),
+      animeId: '1',
+    );
+    addTearDown(slow.close);
+    unawaited(slow.accountChanged('42'));
+    await tester.pumpWidget(
+      testApp(
+        Scaffold(
+          body: BlocProvider.value(
+            value: slow,
+            child: const MyListSection(totalEpisodes: 12),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    final loadingSkeleton = tester.element(find.byType(AppSkeleton));
+    expect(
+      tester.widget<AppSkeleton>(find.byType(AppSkeleton)).enabled,
+      isTrue,
+    );
+
+    gate.complete();
+    await tester.pump();
+    expect(tester.element(find.byType(AppSkeleton)), same(loadingSkeleton));
+    expect(
+      tester.widget<AppSkeleton>(find.byType(AppSkeleton)).enabled,
+      isFalse,
+    );
+    await tester.pumpAndSettle();
+    expect(find.byKey(MyListSection.statusButtonKey), findsOneWidget);
+  });
+
+  testWidgets('honors disableAnimations when stepping and adding', (
+    tester,
+  ) async {
+    await cubit.accountChanged('42');
+    await tester.pumpWidget(
+      MediaQuery(
+        data: const MediaQueryData(disableAnimations: true),
+        child: testApp(
+          Scaffold(
+            body: BlocProvider.value(
+              value: cubit,
+              child: const MyListSection(totalEpisodes: 12),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    await tester.tap(find.byKey(MyListSection.statusButtonKey));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Watching'));
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.text('0 / 12'), findsOneWidget);
+    await tester.tap(find.byKey(MyListSection.episodeMoreKey));
+    await tester.pump();
+    await tester.pump();
+    expect(find.text('1 / 12'), findsOneWidget);
+  });
 }
 
 /// [inner], with the entry held back until [gate] opens.
 class _SlowRates implements UserRateRepository {
+  @override
+  Future<T> editRate<T>(Future<T> Function(UserRateRepository) edit) =>
+      edit(this);
+
   _SlowRates(this.inner, this.gate);
 
   final UserRateRepository inner;

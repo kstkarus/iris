@@ -301,6 +301,7 @@ class _TouchGesturesState extends State<_TouchGestures> {
         if (streak != null)
           _HudPlate(
             key: const Key('player_seek_streak_plate'),
+            mono: true,
             alignment: Alignment(
               streak.side == _SeekSide.forward ? 0.6 : -0.6,
               0,
@@ -314,6 +315,7 @@ class _TouchGesturesState extends State<_TouchGestures> {
         if (_fastForward)
           _HudPlate(
             key: const Key('player_fast_forward_plate'),
+            mono: true,
             child: Text(
               l10n.playerPlaybackRate(MediaKitPlayerEngine.fastForwardRate),
             ),

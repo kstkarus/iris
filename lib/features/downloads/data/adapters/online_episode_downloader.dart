@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:developer' as developer;
 import 'dart:io';
 
+import 'package:crypto/crypto.dart';
 import 'package:dio/dio.dart';
 import 'package:path/path.dart' as path;
 
@@ -314,7 +315,7 @@ class _Task implements OnlineDownloadTask {
     _State? state,
     void Function() onLoaded,
   ) async {
-    final playlist = await _playlist(Uri.parse(stream.url), stream.quality);
+    final playlist = await _playlist(stream);
     final plan = playlist.plan;
     final videoHeight = playlist.height;
     final pieces = [?plan.init, ...plan.segments];
@@ -399,21 +400,27 @@ class _Task implements OnlineDownloadTask {
     return (bytes * plan.segments.length / segmentsDone).round();
   }
 
-  /// The media playlist of [url]; a master playlist gives the variant of
-  /// [quality], or its best.
-  Future<({HlsPlan plan, int? height})> _playlist(Uri url, int quality) async {
-    final playlist = await _fetchText(url);
+  /// A master playlist chooses a variant using the requested quality.
+  Future<({HlsPlan plan, int? height})> _playlist(OnlineStream stream) async {
+    final playlist = await _fetchText(Uri.parse(stream.url));
     final variant = HlsPlaylist.pickVariant(
       playlist.text,
       playlist.uri,
-      quality: quality,
+      quality: maxQuality ?? stream.quality,
     );
     final media = variant == null ? playlist : await _fetchText(variant.uri);
-    final plan = HlsPlaylist.parseMedia(media.text, media.uri);
+    final plan = HlsPlaylist.parseMedia(
+      media.text,
+      media.uri,
+      variantHeight: variant?.height,
+    );
     if (plan == null) {
       throw const OnlineDownloadException(downloadNotDownloadableMessage);
     }
-    return (plan: plan, height: _positiveHeight(variant?.height ?? quality));
+    return (
+      plan: plan,
+      height: _positiveHeight(variant?.height ?? stream.quality),
+    );
   }
 
   Future<File> _loadMp4(
@@ -422,39 +429,33 @@ class _Task implements OnlineDownloadTask {
     void Function() onLoaded,
   ) async {
     final output = File(path.join(directory.path, 'episode.mp4'));
-    final resumable =
-        state != null &&
-        state.format == stream.format.name &&
-        state.quality == stream.quality &&
-        await output.exists();
-    if (!resumable && await output.exists()) await output.delete();
-    await _writeState(
-      _State(
-        format: stream.format.name,
-        quality: stream.quality,
-        pieces: 1,
-        done: 0,
-        bytes: 0,
-      ),
-    );
-
+    if (state != null &&
+        (state.format != stream.format.name ||
+            state.quality != stream.quality)) {
+      await _deleteState();
+      state = null;
+    }
+    var validator = state?.mp4;
+    final url = Uri.parse(stream.url);
+    var bestBytes = validator != null && await output.exists()
+        ? await output.length()
+        : 0;
     var attempt = 0;
     while (true) {
       _checkCancelled();
-      final have = await output.exists() ? await output.length() : 0;
+      final have = validator != null && await output.exists()
+          ? await output.length()
+          : 0;
       try {
-        final total = await _fetchToFile(
-          Uri.parse(stream.url),
-          output,
-          have,
-          videoHeight: _positiveHeight(stream.quality),
-        );
-        if (total > 0 && await output.length() < total) {
-          throw const _Retryable('the body ended early');
-        }
+        await _fetchToFile(url, output, have, stream, validator);
         break;
       } on _Retryable catch (error) {
-        if (await output.exists() && await output.length() > have) {
+        validator = (await _readState())?.mp4;
+        final saved = validator != null && await output.exists()
+            ? await output.length()
+            : 0;
+        if (saved > bestBytes) {
+          bestBytes = saved;
           attempt = 0;
           onLoaded();
         }
@@ -468,52 +469,100 @@ class _Task implements OnlineDownloadTask {
     return output;
   }
 
-  /// Appends [url] from byte [have] on to [output]; the whole size, or 0
-  /// when the server does not say.
-  Future<int> _fetchToFile(
+  /// Writes one response, appending only a verified range of the same file.
+  Future<void> _fetchToFile(
     Uri url,
     File output,
-    int have, {
-    int? videoHeight,
-  }) async {
+    int have,
+    OnlineStream stream,
+    _Mp4Validator? validator,
+  ) async {
     final response = await _send<ResponseBody>(
       url,
       ResponseType.stream,
-      headers: {if (have > 0) 'Range': 'bytes=$have-'},
+      headers: {
+        'Accept-Encoding': 'identity',
+        if (have > 0) ...{'Range': 'bytes=$have-', 'If-Range': validator!.etag},
+      },
     );
     final status = response.statusCode ?? 0;
     final body = response.data!;
+    final contentRange = response.headers.value('content-range')?.trim();
+    final etag = response.headers.value('etag')?.trim();
+    final received = _isStrongEtag(etag)
+        ? (
+            etag: etag!,
+            // Tags identify versions of one resource, not across URLs.
+            uriHash: sha256
+                .convert(
+                  utf8.encode(
+                    _responseUri(response).removeFragment().toString(),
+                  ),
+                )
+                .toString(),
+          )
+        : null;
     if (status == 416 && have > 0) {
       await body.stream.drain<void>();
-      final range = response.headers
-          .value('content-range')
-          ?.trim()
-          .toLowerCase();
-      if (range != null &&
-          range.startsWith('bytes */') &&
-          _totalFromRange(range) == have) {
-        return have;
+      if (received == validator &&
+          contentRange?.toLowerCase() == 'bytes */$have') {
+        return;
       }
-      // A changed or unknown remote size cannot confirm the partial file.
-      await output.writeAsBytes(const <int>[]);
-      throw const _Retryable('the remote file length changed');
+      await _deleteState();
+      throw const _Retryable('the server could not confirm the local file');
     }
-    _checkStatus(status);
-    final partial = status == 206;
-    final total = partial
-        ? _totalFromRange(response.headers.value('content-range'))
-        : int.tryParse(response.headers.value('content-length') ?? '') ?? 0;
+    if (status != 200 && status != 206) {
+      await body.stream.drain<void>();
+      _checkStatus(status);
+      throw _Retryable('HTTP $status did not include a video');
+    }
+    final range = status == 206 ? _mp4Range(contentRange) : null;
+    final encoding = response.headers.value('content-encoding')?.toLowerCase();
+    if ((encoding != null && encoding != 'identity') ||
+        (status == 206 &&
+            (range == null ||
+                range.start != have ||
+                (have > 0 && received != validator)))) {
+      await body.stream.drain<void>();
+      await _deleteState();
+      throw const _Retryable('the server returned an incompatible range');
+    }
+    final total =
+        range?.total ??
+        int.tryParse(response.headers.value('content-length') ?? '') ??
+        0;
+    final end = range?.end ?? total;
     final sink = await output.open(mode: FileMode.append);
-    var bytes = partial ? have : 0;
+    var bytes = range?.start ?? 0;
     try {
       // A server that ignores Range sends the whole file again.
       await sink.truncate(bytes);
       await sink.setPosition(bytes);
+      if (bytes == 0) {
+        await _writeState(
+          _State(
+            format: stream.format.name,
+            quality: stream.quality,
+            pieces: 1,
+            done: 0,
+            bytes: 0,
+            mp4: received,
+          ),
+        );
+      }
       await for (final chunk in body.stream) {
         _checkCancelled();
+        if (end > 0 && bytes + chunk.length > end) {
+          throw const _Retryable('the body exceeded the declared length');
+        }
         await sink.writeFrom(chunk);
         bytes += chunk.length;
-        _report(bytes, total, chunk: true, videoHeight: videoHeight);
+        _report(
+          bytes,
+          total,
+          chunk: true,
+          videoHeight: _positiveHeight(stream.quality),
+        );
       }
     } on DioException catch (error) {
       if (CancelToken.isCancel(error) || _cancelled) throw const _Cancelled();
@@ -531,7 +580,9 @@ class _Task implements OnlineDownloadTask {
     } finally {
       await sink.close();
     }
-    return total;
+    if (bytes == 0 || (total > 0 && bytes < total)) {
+      throw const _Retryable('the body ended early');
+    }
   }
 
   /// A segment or init piece, tried [_attempts] times; a link the server
@@ -556,11 +607,7 @@ class _Task implements OnlineDownloadTask {
         _checkStatus(response.statusCode ?? 0);
         return (
           text: utf8.decode(response.data ?? const [], allowMalformed: true),
-          // A Location header can be relative to the previous redirect.
-          uri: response.redirects.fold(
-            response.requestOptions.uri,
-            (base, redirect) => base.resolveUri(redirect.location),
-          ),
+          uri: _responseUri(response),
         );
       } on _Retryable catch (error) {
         if (attempt >= _attempts) throw _LinkRefused(error.reason);
@@ -680,11 +727,33 @@ class _Task implements OnlineDownloadTask {
 
 int? _positiveHeight(int height) => height > 0 ? height : null;
 
-/// `bytes 100-999/1000` gives 1000; 0 when it says nothing usable.
-int _totalFromRange(String? header) {
-  final slash = header?.lastIndexOf('/') ?? -1;
-  if (header == null || slash < 0) return 0;
-  return int.tryParse(header.substring(slash + 1).trim()) ?? 0;
+// A Location header can be relative to the previous redirect.
+Uri _responseUri(Response<dynamic> response) => response.redirects.fold(
+  response.requestOptions.uri,
+  (base, redirect) => base.resolveUri(redirect.location),
+);
+
+typedef _Mp4Validator = ({String etag, String uriHash});
+
+final _strongEtag = RegExp(r'^"[^"\x00-\x20\x7f]*"$');
+final _rangeHeader = RegExp(r'^bytes (\d+)-(\d+)/(\d+)$', caseSensitive: false);
+
+bool _isStrongEtag(String? etag) => etag != null && _strongEtag.hasMatch(etag);
+
+({int start, int end, int total})? _mp4Range(String? header) {
+  final match = _rangeHeader.firstMatch(header ?? '');
+  if (match == null) return null;
+  final start = int.tryParse(match[1]!);
+  final last = int.tryParse(match[2]!);
+  final total = int.tryParse(match[3]!);
+  if (start == null ||
+      last == null ||
+      total == null ||
+      start > last ||
+      last >= total) {
+    return null;
+  }
+  return (start: start, end: last + 1, total: total);
 }
 
 /// Where the last run stopped.
@@ -696,6 +765,7 @@ class _State {
     required this.done,
     required this.bytes,
     this.playlistHash,
+    this.mp4,
   });
 
   static _State? fromJson(Map<String, Object?> json) {
@@ -704,6 +774,8 @@ class _State {
     final pieces = json['pieces'];
     final done = json['done'];
     final bytes = json['bytes'];
+    final etag = json['mp4Etag'];
+    final uriHash = json['mp4UriHash'];
     if (format is! String ||
         quality is! int ||
         pieces is! int ||
@@ -722,6 +794,9 @@ class _State {
       done: done,
       bytes: bytes,
       playlistHash: json['playlistHash'] as String?,
+      mp4: etag is String && _isStrongEtag(etag) && uriHash is String
+          ? (etag: etag, uriHash: uriHash)
+          : null,
     );
   }
 
@@ -733,6 +808,7 @@ class _State {
   final int done;
   final int bytes;
   final String? playlistHash;
+  final _Mp4Validator? mp4;
 
   Map<String, Object?> toJson() => {
     'format': format,
@@ -741,6 +817,10 @@ class _State {
     'done': done,
     'bytes': bytes,
     if (playlistHash != null) 'playlistHash': playlistHash,
+    if (mp4 case final validator?) ...{
+      'mp4Etag': validator.etag,
+      'mp4UriHash': validator.uriHash,
+    },
   };
 }
 

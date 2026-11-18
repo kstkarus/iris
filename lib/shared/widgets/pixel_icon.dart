@@ -385,6 +385,20 @@ class PixelGlyph {
     '.##....',
     '..#....',
   ]);
+
+  /// A star: a user's score or rating.
+  static const star = PixelGlyph._([
+    '.....#.....',
+    '....###....',
+    '....###....',
+    '###########',
+    '.#########.',
+    '..#######..',
+    '...#####...',
+    '..###.###..',
+    '.###...###.',
+    '.#.......#.',
+  ]);
 }
 
 /// An icon drawn from a [PixelGlyph], sized and coloured by the ambient

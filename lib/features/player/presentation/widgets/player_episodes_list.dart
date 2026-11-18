@@ -9,8 +9,8 @@ import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/utils/byte_size_formatter.dart';
 import 'package:iris/shared/utils/file_display_name.dart';
 import 'package:iris/shared/widgets/caption_text.dart';
+import 'package:iris/shared/widgets/detail_layout.dart';
 import 'package:iris/shared/widgets/pixel_icon.dart';
-import 'package:iris/shared/widgets/segmented_bar.dart';
 
 /// The torrent's video files as numbered rows with watch progress; the
 /// playing one stays marked and scrolled into view so the list and the
@@ -74,28 +74,36 @@ class _PlayerEpisodesListState extends State<PlayerEpisodesList> {
   @override
   Widget build(BuildContext context) {
     final names = distinctEpisodeNames(widget.files);
+    final scheme = Theme.of(context).colorScheme;
+    final rule = DetailLayout.ruleColor(scheme);
     // Episode lists are short enough to build eagerly, which lets the
     // current item be scrolled to directly.
     return SingleChildScrollView(
-      padding: widget.padding,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          for (final (position, file) in widget.files.indexed) ...[
-            if (position > 0) const SegmentedRule(),
-            _EpisodeRow(
-              key: file.index == widget.currentFileIndex ? _currentKey : null,
-              file: file,
-              number: episodeNumberLabel(file, position),
-              ownName: names[file.index],
-              isCurrent: file.index == widget.currentFileIndex,
-              progress: widget.progressByFile[file.index],
-              listed: widget.listed.contains(file.index),
-              showSize: widget.showSizes,
-              onTap: () => widget.onSelected(file),
-            ),
+      padding: widget.padding == EdgeInsets.zero
+          ? const EdgeInsets.only(bottom: 24)
+          : widget.padding,
+      child: Material(
+        color: scheme.surfaceContainerLow,
+        shape: RoundedRectangleBorder(side: BorderSide(color: rule)),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            for (final (position, file) in widget.files.indexed) ...[
+              if (position > 0) Divider(height: 1, thickness: 1, color: rule),
+              _EpisodeRow(
+                key: file.index == widget.currentFileIndex ? _currentKey : null,
+                file: file,
+                number: episodeNumberLabel(file, position),
+                ownName: names[file.index],
+                isCurrent: file.index == widget.currentFileIndex,
+                progress: widget.progressByFile[file.index],
+                listed: widget.listed.contains(file.index),
+                showSize: widget.showSizes,
+                onTap: () => widget.onSelected(file),
+              ),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }
@@ -152,15 +160,17 @@ class _EpisodeRow extends StatelessWidget {
         // The current file is already playing.
         onTap: isCurrent ? null : onTap,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(12, 14, 12, 14),
+          padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               SizedBox(
-                width: 44,
+                width: 42,
                 child: Text(
                   number,
-                  style: theme.textTheme.titleMedium?.copyWith(
+                  style: DetailLayout.monoTelemetryStyle(
+                    theme.textTheme.titleMedium,
+                    fontWeight: FontWeight.w600,
                     color: isCurrent
                         ? scheme.tertiary
                         : finished
@@ -179,6 +189,10 @@ class _EpisodeRow extends StatelessWidget {
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: theme.textTheme.bodyMedium?.copyWith(
+                          fontFamily: DetailLayout.sansFont,
+                          fontWeight: finished && !isCurrent
+                              ? FontWeight.w400
+                              : FontWeight.w500,
                           color: finished && !isCurrent
                               ? scheme.onSurfaceVariant
                               : scheme.onSurface,
@@ -190,7 +204,10 @@ class _EpisodeRow extends StatelessWidget {
                         fileName,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.bodySmall,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          fontFamily: DetailLayout.sansFont,
+                          color: scheme.onSurfaceVariant,
+                        ),
                       ),
                     if (isCurrent) ...[
                       if (showName) const SizedBox(height: 6),
@@ -206,7 +223,7 @@ class _EpisodeRow extends StatelessWidget {
                 ),
               ),
               if (finished && !isCurrent) ...[
-                const SizedBox(width: 16),
+                const SizedBox(width: 12),
                 Padding(
                   // Level with the size's first line.
                   padding: const EdgeInsets.only(top: 1),
@@ -219,8 +236,14 @@ class _EpisodeRow extends StatelessWidget {
                 ),
               ],
               if (size != null) ...[
-                SizedBox(width: finished && !isCurrent ? 8 : 16),
-                Text(size, style: theme.textTheme.bodySmall),
+                SizedBox(width: finished && !isCurrent ? 8 : 12),
+                Text(
+                  size,
+                  style: DetailLayout.monoTelemetryStyle(
+                    theme.textTheme.bodySmall,
+                    color: scheme.onSurfaceVariant,
+                  ),
+                ),
               ],
             ],
           ),

@@ -13,6 +13,10 @@ abstract interface class UserRateRepository {
   /// unknown, as for many airing anime.
   Future<({UserRate? rate, int totalEpisodes})> fetchWithTotal(String animeId);
 
+  /// Keeps a read and its dependent edit together in the request queue and
+  /// in the original account session. Use the supplied repository in [edit].
+  Future<T> editRate<T>(Future<T> Function(UserRateRepository) edit);
+
   /// Adds the anime to [userId]'s list, or changes the entry [rateId].
   /// Returns the entry as Shikimori keeps it (it may finish the anime
   /// when the last episode is marked). Omitted fields stay unchanged on update.

@@ -30,7 +30,7 @@ class AllohaDataSource {
     if (uri == null || !isAllohaPlayer(uri)) {
       throw const ResourceNotFoundException('Unsupported Alloha player URL.');
     }
-    final html = await _getText(uri, referer: 'https://animejoy.ru/');
+    final html = await _getText(uri, referer: 'https://otakujoy.fun/');
     return _episodesFromHtml(html);
   }
 
@@ -104,7 +104,7 @@ class AllohaDataSource {
     if (player == null || !isAllohaPlayer(player)) {
       throw const ResourceNotFoundException('Unsupported Alloha player URL.');
     }
-    final html = await _getText(player, referer: 'https://animejoy.ru/');
+    final html = await _getText(player, referer: 'https://otakujoy.fun/');
     if (!(_episodesFromHtml(html)?.videoIds.values.contains(videoId) ??
         false)) {
       throw const ResourceNotFoundException('Alloha episode is unavailable.');

@@ -22,6 +22,8 @@ import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/utils/duration_formatter.dart';
 import 'package:iris/shared/utils/motion_duration.dart';
 import 'package:iris/shared/window/screen_brightness_control.dart';
+import 'package:iris/shared/widgets/detail_layout.dart';
+import 'package:iris/shared/widgets/dither_transition.dart';
 import 'package:iris/shared/widgets/pixel_icon.dart';
 import 'package:iris/features/player/presentation/widgets/player_glyph_switcher.dart';
 import 'package:iris/features/player/presentation/widgets/player_offers.dart';
@@ -170,6 +172,7 @@ class _PlayerImmersiveControlsState extends State<PlayerImmersiveControls> {
   set _controlsVisible(bool visible) => _visibility.value = visible;
 
   bool _episodesOpen = false;
+  bool _episodesMounted = false;
 
   _ScreenLock _lock = _ScreenLock.unlocked;
   Timer? _unlockPlateTimer;
@@ -225,8 +228,9 @@ class _PlayerImmersiveControlsState extends State<PlayerImmersiveControls> {
       _holds.clear();
       widget.pictureInPicture ? _enterPictureInPicture() : _showControls();
     }
-    if (widget.chrome.episodes == null && _episodesOpen) {
+    if (widget.chrome.episodes == null && (_episodesOpen || _episodesMounted)) {
       _episodesOpen = false;
+      _episodesMounted = false;
     }
   }
 
@@ -277,6 +281,7 @@ class _PlayerImmersiveControlsState extends State<PlayerImmersiveControls> {
     _controlsVisible = widget.windowsPictureInPicture;
     if (widget.windowsPictureInPicture) _restartHideTimer();
     _episodesOpen = false;
+    _episodesMounted = false;
     _volumeHud = null;
   }
 
@@ -366,6 +371,7 @@ class _PlayerImmersiveControlsState extends State<PlayerImmersiveControls> {
       _lock = _ScreenLock.locked;
       _controlsVisible = false;
       _episodesOpen = false;
+      _episodesMounted = false;
     });
   }
 
@@ -486,6 +492,7 @@ class _PlayerImmersiveControlsState extends State<PlayerImmersiveControls> {
   void _openEpisodes() {
     if (widget.chrome.episodes == null || _locked) return;
     setState(() {
+      _episodesMounted = true;
       _episodesOpen = true;
       _controlsVisible = true;
     });
@@ -693,9 +700,14 @@ class _PlayerImmersiveControlsState extends State<PlayerImmersiveControls> {
         // Above the controls: the message and its retry take the taps
         // where they are, and the controls keep the rest of the screen.
         ?widget.failure,
-        _buildOffers(context),
+        _buildOffers(
+          pictureInPicture ? null : widget.chrome.notice,
+          accent,
+          metrics,
+        ),
         if (widget.chrome.mark case final mark?)
           Positioned(
+            key: const ValueKey('player_mark_slot'),
             top: _insets.top + metrics.backButton + 12,
             left: _insets.left + (_touch && widget.brightness != null ? 40 : 0),
             right: _insets.right + (widget.next == null ? 0 : 60),
@@ -717,27 +729,20 @@ class _PlayerImmersiveControlsState extends State<PlayerImmersiveControls> {
                 !pictureInPicture &&
                 !widget.windowsPictureInPicture)
           Positioned(
+            key: const ValueKey('player_floating_next_slot'),
             top: _insets.top + metrics.backButton + 12,
             right: _insets.right,
-            child: _NextHint(
-              next: next,
-              finishing: widget.engine.finishing,
-              completed: widget.engine.completed,
-              metrics: metrics,
-              floating: true,
-            ),
-          ),
-        if (widget.chrome.notice case final notice? when !pictureInPicture)
-          Positioned(
-            left: _insets.left,
-            bottom: _offerClearance + (_playing ? 0 : _titleHeight),
-            child: Offstage(
-              offstage: _locked,
-              // The mark notice after the resume one counts afresh.
-              child: _NoticeCard(
-                key: ValueKey((notice.onTimeout, notice.id)),
-                notice: notice,
-                accent: accent,
+            child: TweenAnimationBuilder<double>(
+              tween: Tween(begin: 0, end: 1),
+              duration: motionDuration(context, _controlsFade),
+              builder: (context, value, child) =>
+                  Opacity(opacity: value, child: child),
+              child: _NextHint(
+                next: next,
+                finishing: widget.engine.finishing,
+                completed: widget.engine.completed,
+                metrics: metrics,
+                floating: true,
               ),
             ),
           ),
@@ -748,10 +753,17 @@ class _PlayerImmersiveControlsState extends State<PlayerImmersiveControls> {
             const _FastForwardHud(key: Key('player_fast_forward_plate')),
         ],
         if (!widget.windowsPictureInPicture &&
-            _episodesOpen &&
+            _episodesMounted &&
             widget.chrome.episodes != null)
           PlayerEpisodesDrawer(
+            key: const ValueKey('player_episodes_drawer_slot'),
+            open: _episodesOpen,
             onClose: _closeEpisodes,
+            onExited: () {
+              if (mounted && !_episodesOpen) {
+                setState(() => _episodesMounted = false);
+              }
+            },
             builder: widget.chrome.episodes!,
             caption: widget.chrome.episodesCaption,
           ),
@@ -980,36 +992,83 @@ class _PlayerImmersiveControlsState extends State<PlayerImmersiveControls> {
     }
   }
 
-  /// Skip offers sit above the timeline on the right. A
-  /// pointer resting on them keeps the controls, and so the offers, up.
-  Widget _buildOffers(BuildContext context) {
+  /// The notice and skip offer divide the width above the timeline.
+  Widget _buildOffers(
+    PlayerNotice? notice,
+    Color accent,
+    _ControlsMetrics metrics,
+  ) {
     final engine = widget.engine;
+    final left = _insets.left + (_touch && widget.brightness != null ? 40 : 0);
     return Positioned(
+      left: left,
       right: _insets.right,
       bottom: _offerClearance,
       child: Offstage(
-        offstage: _locked || widget.windowsPictureInPicture,
-        child: MouseRegion(
-          onEnter: (_) => _setHold(#offers, true),
-          onExit: (_) => _setHold(#offers, false),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
+        offstage: _locked,
+        child: LayoutBuilder(
+          builder: (context, constraints) => Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              PlayerSkipSegmentOffer(
-                segment: engine.skipSegment,
-                controlsVisible: _visibility,
-                running: engine.advancing,
-                fallback: _SkipForwardOffer(
-                  engine: engine,
-                  controlsVisible: _visibility,
-                ),
-                plate: (label, _) => _OfferButton.outlined(
-                  key: const Key('player_skip_segment_button'),
-                  label: label,
-                  onPressed: () => unawaited(engine.skipCurrentSegment()),
-                ),
+              Expanded(
+                child: notice == null
+                    ? const SizedBox.shrink()
+                    : Padding(
+                        padding: EdgeInsets.only(
+                          bottom: _playing ? 0 : math.max(0, _titleHeight - 12),
+                        ),
+                        child: Align(
+                          key: const ValueKey('player_notice_slot'),
+                          alignment: Alignment.bottomLeft,
+                          child: ConstrainedBox(
+                            // Leave the centered play target clear even in a
+                            // short landscape viewport with large text.
+                            constraints: BoxConstraints(
+                              maxWidth: math.max(
+                                0,
+                                (constraints.maxWidth +
+                                            _insets.right -
+                                            left -
+                                            metrics.playBox) /
+                                        2 -
+                                    8,
+                              ),
+                            ),
+                            child: _NoticeCard(
+                              key: ValueKey((notice.onTimeout, notice.id)),
+                              notice: notice,
+                              accent: accent,
+                            ),
+                          ),
+                        ),
+                      ),
               ),
+              if (!widget.windowsPictureInPicture)
+                ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxWidth: notice == null
+                        ? constraints.maxWidth
+                        : constraints.maxWidth * .4,
+                  ),
+                  child: MouseRegion(
+                    onEnter: (_) => _setHold(#offers, true),
+                    onExit: (_) => _setHold(#offers, false),
+                    child: PlayerSkipSegmentOffer(
+                      segment: engine.skipSegment,
+                      controlsVisible: _visibility,
+                      running: engine.advancing,
+                      fallback: _SkipForwardOffer(
+                        engine: engine,
+                        controlsVisible: _visibility,
+                      ),
+                      plate: (label, _) => _OfferButton.outlined(
+                        key: const Key('player_skip_segment_button'),
+                        label: label,
+                        onPressed: () => unawaited(engine.skipCurrentSegment()),
+                      ),
+                    ),
+                  ),
+                ),
             ],
           ),
         ),

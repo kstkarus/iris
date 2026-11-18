@@ -496,6 +496,9 @@ class AppLocalizationsRu extends AppLocalizations {
   String get playerDecoderSoftwareOnly => 'Только программный';
 
   @override
+  String get playerPlaybackSectionTitle => 'Воспроизведение';
+
+  @override
   String get playerPlaybackSpeedTitle => 'Скорость воспроизведения';
 
   @override
@@ -1520,6 +1523,10 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get savedTorrentsAddConfirm => 'Добавить';
+
+  @override
+  String get savedTorrentsSaveFailed =>
+      'Не удалось сохранить торрент. Попробуйте ещё раз.';
 
   @override
   String get savedTorrentsDeleted => 'Раздача удалена';

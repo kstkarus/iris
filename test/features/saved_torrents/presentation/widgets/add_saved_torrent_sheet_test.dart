@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -10,6 +11,7 @@ import 'package:iris/shared/torrent/torrent_file_picker.dart';
 
 import '../../../../helpers/bencode.dart';
 import '../../../../helpers/test_app.dart';
+import '../../../../helpers/test_window.dart';
 
 const _magnet =
     'magnet:?xt=urn:btih:065c4691de84f964e143103b3bd0de17be5bfd0a'
@@ -22,16 +24,19 @@ void main() {
     WidgetTester tester, {
     String? initialMagnet,
     TorrentFilePicker? pickFile,
+    SaveTorrentCallback? onSave,
   }) async {
     saved = [];
     await tester.pumpWidget(
       testApp(
         Scaffold(
           body: AddSavedTorrentForm(
-            onSave: (magnet) async {
-              saved.add(magnet);
-              return const SaveTorrentInvalidMagnet();
-            },
+            onSave:
+                onSave ??
+                (magnet) async {
+                  saved.add(magnet);
+                  return const SaveTorrentInvalidMagnet();
+                },
             initialMagnet: initialMagnet,
             pickFile: pickFile ?? () async => null,
           ),
@@ -87,6 +92,78 @@ void main() {
     expect(saved, [_magnet]);
   });
 
+  testWidgets('a failed save keeps the draft and can be retried', (
+    tester,
+  ) async {
+    await pumpForm(
+      tester,
+      initialMagnet: _magnet,
+      onSave: (magnet) async {
+        saved.add(magnet);
+        if (saved.length == 1) throw StateError('write failed');
+        return const SaveTorrentInvalidMagnet();
+      },
+    );
+
+    final add = find.byKey(AddSavedTorrentForm.saveButtonKey);
+    await tester.tap(add);
+    await tester.pumpAndSettle();
+    expect(find.text("Couldn't save the torrent. Try again."), findsOneWidget);
+    expect(find.text('Frieren BD'), findsOneWidget);
+    expect(canAdd(tester), isTrue);
+
+    await tester.tap(add);
+    await tester.pumpAndSettle();
+    expect(saved, [_magnet, _magnet]);
+  });
+
+  testWidgets('closing a saving sheet keeps the page beneath it open', (
+    tester,
+  ) async {
+    setTestWindowSize(tester, TestWindowSizes.phone);
+    final save = Completer<SaveTorrentResult>();
+    await tester.pumpWidget(
+      testApp(
+        Scaffold(
+          body: Builder(
+            builder: (context) => TextButton(
+              onPressed: () => Navigator.of(context).push<void>(
+                MaterialPageRoute(
+                  builder: (context) => Scaffold(
+                    body: TextButton(
+                      onPressed: () => showAddSavedTorrentSheet(
+                        context: context,
+                        initialMagnet: _magnet,
+                        onSave: (_) => save.future,
+                      ),
+                      child: const Text('Sources page'),
+                    ),
+                  ),
+                ),
+              ),
+              child: const Text('Open sources'),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Open sources'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Sources page'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(AddSavedTorrentForm.saveButtonKey));
+    await tester.pump();
+    expect(canAdd(tester), isFalse);
+
+    await tester.tap(find.text('Cancel'));
+    await tester.pump();
+    expect(find.text('Frieren BD'), findsOneWidget);
+    save.complete(const SaveTorrentInvalidMagnet());
+    await tester.pumpAndSettle();
+    expect(find.text('Sources page').hitTestable(), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('says a text is not a link once the user is done with it', (
     tester,
   ) async {
@@ -138,5 +215,53 @@ void main() {
     await tester.pumpAndSettle();
     expect(saved.single, startsWith('magnet:?xt=urn:btih:'));
     expect(saved.single, contains('dn=Frieren+%5BBD%5D'));
+  });
+
+  testWidgets('smoothly resizes when switching between input and draft', (
+    tester,
+  ) async {
+    await pumpForm(tester);
+    final inputHeight = tester.getSize(find.byType(AddSavedTorrentForm)).height;
+
+    await tester.enterText(
+      find.byKey(AddSavedTorrentForm.magnetFieldKey),
+      _magnet,
+    );
+    await tester.pumpAndSettle();
+
+    final draftHeight = tester.getSize(find.byType(AddSavedTorrentForm)).height;
+    expect(draftHeight, lessThan(inputHeight));
+
+    await tester.tap(find.byKey(AddSavedTorrentForm.clearDraftKey));
+    await tester.pumpAndSettle();
+
+    expect(
+      tester.getSize(find.byType(AddSavedTorrentForm)).height,
+      closeTo(inputHeight, 1.0),
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('reveals and clears file error immediately with reduced motion', (
+    tester,
+  ) async {
+    tester.platformDispatcher.accessibilityFeaturesTestValue =
+        const FakeAccessibilityFeatures(disableAnimations: true);
+    addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
+
+    var bytes = Uint8List.fromList(utf8.encode('not a torrent'));
+    await pumpForm(tester, pickFile: () async => bytes);
+
+    await tester.tap(find.byKey(AddSavedTorrentForm.fileButtonKey));
+    await tester.pump();
+    await tester.pump();
+    expect(find.text('This file is not a torrent.'), findsOneWidget);
+
+    bytes = torrentFileBytes('Frieren [BD]', length: 3 * 1024 * 1024);
+    await tester.tap(find.byKey(AddSavedTorrentForm.fileButtonKey));
+    await tester.pump();
+    await tester.pump();
+    expect(find.text('This file is not a torrent.'), findsNothing);
+    expect(find.text('Frieren [BD]'), findsOneWidget);
   });
 }

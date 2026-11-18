@@ -94,6 +94,7 @@ import 'package:iris/features/online_sources/domain/repositories/online_quality_
 import 'package:iris/features/online_sources/data/datasources/aksor_data_source.dart';
 import 'package:iris/features/online_sources/data/datasources/anilibria_data_source.dart';
 import 'package:iris/features/online_sources/data/datasources/animejoy_data_source.dart';
+import 'package:iris/features/online_sources/data/datasources/animejoy_session.dart';
 import 'package:iris/features/online_sources/data/datasources/kodik_data_source.dart';
 import 'package:iris/features/online_sources/data/datasources/yummy_anime_data_source.dart';
 import 'package:iris/features/online_sources/data/repositories/anilibria_online_sources_repository.dart';
@@ -102,6 +103,7 @@ import 'package:iris/features/online_sources/data/repositories/combined_online_s
 import 'package:iris/features/online_sources/data/repositories/yummy_anime_online_sources_repository.dart';
 import 'package:iris/features/online_sources/domain/entities/online_provider.dart';
 import 'package:iris/features/online_sources/data/repositories/mock_online_sources_repository.dart';
+import 'package:iris/features/online_sources/domain/repositories/animejoy_account_repository.dart';
 import 'package:iris/features/online_sources/domain/repositories/online_releases_search.dart';
 import 'package:iris/features/online_sources/domain/repositories/online_sources_repository.dart';
 import 'package:iris/features/watch_sources/data/datasources/mock_watch_sources_data_source.dart';
@@ -453,6 +455,16 @@ Future<void> _registerReal() async {
         dataSource: serviceLocator<RemoteWatchSourcesDataSource>(),
       ),
     )
+    ..registerLazySingleton<AnimejoySession>(
+      () => AnimejoySession(
+        dio: createVideoServerDio(),
+        storage: const FlutterSecureStorage(),
+      ),
+      dispose: (session) => session.dispose(),
+    )
+    ..registerLazySingleton<AnimejoyAccountRepository>(
+      () => serviceLocator<AnimejoySession>(),
+    )
     ..registerLazySingleton<CombinedOnlineSourcesRepository>(() {
       final videoServers = createVideoServerDio();
       return CombinedOnlineSourcesRepository(
@@ -471,7 +483,10 @@ Future<void> _registerReal() async {
             aksor: AksorDataSource(dio: videoServers),
           ),
           OnlineProvider.animejoy: AnimejoyOnlineSourcesRepository(
-            dataSource: AnimejoyDataSource(dio: videoServers),
+            dataSource: AnimejoyDataSource(
+              dio: videoServers,
+              session: serviceLocator<AnimejoySession>(),
+            ),
           ),
         },
       );
@@ -492,6 +507,7 @@ Future<void> _registerReal() async {
         online: OnlinePlayerRepository(
           repository: serviceLocator<OnlineSourcesRepository>(),
           qualityPreferences: serviceLocator<OnlineQualityPreferences>(),
+          animejoyAccount: serviceLocator<AnimejoyAccountRepository>(),
         ),
         local: LocalPlayerRepository(
           downloadsRepository: serviceLocator<DownloadsRepository>(),

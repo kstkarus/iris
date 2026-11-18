@@ -6,6 +6,7 @@ import 'package:iris/features/player/presentation/widgets/player_choice_row.dart
 import 'package:iris/features/player/presentation/widgets/player_panel.dart';
 import 'package:iris/features/player/presentation/widgets/player_track_option_formatter.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
+import 'package:iris/shared/widgets/detail_layout.dart';
 import 'package:iris/shared/widgets/section_label.dart';
 
 /// Audio and subtitle tracks and nothing else: the look of subtitles and
@@ -81,7 +82,7 @@ class PlayerTrackSelectorSheet extends StatelessWidget {
           if (constraints.maxWidth < _sideBySideMinWidth) {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: [audio, const SizedBox(height: 20), subtitles],
+              children: [audio, const SizedBox(height: 18), subtitles],
             );
           }
           return Row(
@@ -117,10 +118,20 @@ class _TrackSection<T> extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SectionLabel(title),
+        SectionLabel(
+          title,
+          style: DetailLayout.queueHeadingStyle(
+            theme,
+          ).copyWith(fontSize: 16, fontWeight: FontWeight.w600),
+          uppercase: false,
+        ),
+        const SizedBox(height: 8),
+        Divider(height: 1, thickness: 1, color: DetailLayout.ruleColor(scheme)),
         const SizedBox(height: 4),
         for (final track in tracks)
           PlayerChoiceRow(

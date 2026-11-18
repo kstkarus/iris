@@ -488,6 +488,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get playerDecoderSoftwareOnly => 'Software only';
 
   @override
+  String get playerPlaybackSectionTitle => 'Playback';
+
+  @override
   String get playerPlaybackSpeedTitle => 'Playback speed';
 
   @override
@@ -1506,6 +1509,10 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get savedTorrentsAddConfirm => 'Add';
+
+  @override
+  String get savedTorrentsSaveFailed =>
+      'Couldn\'t save the torrent. Try again.';
 
   @override
   String get savedTorrentsDeleted => 'Torrent deleted';

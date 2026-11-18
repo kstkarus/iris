@@ -158,7 +158,36 @@ void main() {
 
     expect(find.text('No sources match your search.'), findsOneWidget);
     expect(find.text('No sources found.'), findsNothing);
+
+    // Clearing search returns to the results list cleanly.
+    await tester.tap(find.byKey(SearchField.clearButtonKey));
+    await tester.pumpAndSettle();
+    expect(find.text('[SubsPlease] Frieren - 28 (1080p)'), findsOneWidget);
   });
+
+  testWidgets(
+    'empty-search transition completes immediately with reduced motion',
+    (tester) async {
+      tester.platformDispatcher.accessibilityFeaturesTestValue =
+          const FakeAccessibilityFeatures(disableAnimations: true);
+      addTearDown(
+        tester.platformDispatcher.clearAccessibilityFeaturesTestValue,
+      );
+
+      final cubit = frierenSourcesCubit(FixedWatchSourcesRepository());
+      await _pumpView(tester, cubit: cubit..loadSources());
+      await tester.pump();
+
+      await tester.enterText(
+        find.widgetWithText(TextField, 'Search sources'),
+        'nothing',
+      );
+      await tester.pump();
+      await tester.pump();
+
+      expect(find.text('No sources match your search.'), findsOneWidget);
+    },
+  );
 
   testWidgets('changes card order after selecting another sort option', (
     tester,

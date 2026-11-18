@@ -12,7 +12,6 @@ class LabeledSection extends StatelessWidget {
     this.labelWidth,
     this.labelStyle,
     this.uppercase = true,
-    this.showPrefix = true,
     super.key,
   });
 
@@ -21,7 +20,6 @@ class LabeledSection extends StatelessWidget {
   final double? labelWidth;
   final TextStyle? labelStyle;
   final bool uppercase;
-  final bool showPrefix;
 
   @override
   Widget build(BuildContext context) {
@@ -30,7 +28,6 @@ class LabeledSection extends StatelessWidget {
       label,
       style: labelStyle,
       uppercase: uppercase,
-      showPrefix: showPrefix,
     );
     if (labelWidth == null) {
       return Column(

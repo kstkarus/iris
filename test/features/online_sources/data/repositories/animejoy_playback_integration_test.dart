@@ -88,7 +88,7 @@ void main() {
       expect(releases.single.dub, 'AnimeJoy');
       expect(releases.single.bestQuality, 1080);
       expect(
-        requests.every((request) => request.uri.host == 'animejoy.ru'),
+        requests.every((request) => request.uri.host == 'otakujoy.fun'),
         isTrue,
       );
       expect(_link.progressKey, 'online:anime/63181');
@@ -134,7 +134,7 @@ void main() {
     );
     expect(releases.single.bestQuality, isNull);
     expect(
-      requests.every((request) => request.uri.host == 'animejoy.ru'),
+      requests.every((request) => request.uri.host == 'otakujoy.fun'),
       isTrue,
     );
     final player = OnlinePlayerRepository(repository: repository);

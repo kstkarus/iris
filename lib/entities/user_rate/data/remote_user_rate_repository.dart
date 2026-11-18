@@ -19,44 +19,79 @@ class RemoteUserRateRepository implements UserRateRepository {
     required ShikimoriGraphQlClient graphQl,
     required ShikimoriRestClient rest,
     required ShikimoriSessionStore session,
-  }) : _graphQl = graphQl,
-       _rest = rest,
-       _session = session;
+  }) : this._(
+         graphQl,
+         rest,
+         session,
+         StreamController<UserRateChange>.broadcast(),
+         SerialQueue(),
+         null,
+       );
+
+  RemoteUserRateRepository._(
+    this._graphQl,
+    this._rest,
+    this._session,
+    this._changes,
+    this._requests,
+    this._editGeneration,
+  );
 
   static const _ratesPath = '/api/v2/user_rates';
 
   final ShikimoriGraphQlClient _graphQl;
   final ShikimoriRestClient _rest;
   final ShikimoriSessionStore _session;
-  final _changes = StreamController<UserRateChange>.broadcast();
-  final _requests = SerialQueue();
+  final StreamController<UserRateChange> _changes;
+  final SerialQueue _requests;
+  final int? _editGeneration;
 
   @override
   Stream<UserRateChange> get changes => _changes.stream;
+
+  @override
+  Future<T> editRate<T>(Future<T> Function(UserRateRepository) edit) => _run(
+    (generation) => edit(
+      RemoteUserRateRepository._(
+        _graphQl,
+        _rest,
+        _session,
+        _changes,
+        _requests,
+        generation,
+      ),
+    ),
+  );
+
+  Future<T> _run<T>(Future<T> Function(int generation) request) {
+    // Calls inside editRate already hold the queue and use its session.
+    if (_editGeneration case final generation?) return request(generation);
+    final generation = _session.generation;
+    return _requests.run(() => request(generation));
+  }
 
   @override
   Future<UserRate?> fetch(String animeId) async =>
       (await fetchWithTotal(animeId)).rate;
 
   @override
-  Future<({UserRate? rate, int totalEpisodes})> fetchWithTotal(String animeId) {
-    final requestGeneration = _session.generation;
-    return _requests.run(() async {
-      final sessionGeneration = await _sessionGeneration(requestGeneration);
-      final data = await _graphQl.query(
-        document: _userRateQuery,
-        variables: {'id': animeId},
-      );
-      final animes = data['animes'];
-      if (animes is! List || animes.isEmpty) {
-        throw ResourceNotFoundException('Anime not found for id: $animeId');
-      }
-      final anime = jsonMap(animes.first);
-      final rate = UserRateDto.tryParse(anime['userRate'])?.toEntity();
-      await _publishIfCurrent(sessionGeneration, UserRateChange(animeId, rate));
-      return (rate: rate, totalEpisodes: jsonInt(anime['episodes']));
-    });
-  }
+  Future<({UserRate? rate, int totalEpisodes})> fetchWithTotal(
+    String animeId,
+  ) => _run((requestGeneration) async {
+    final sessionGeneration = await _sessionGeneration(requestGeneration);
+    final data = await _graphQl.query(
+      document: _userRateQuery,
+      variables: {'id': animeId},
+    );
+    final animes = data['animes'];
+    if (animes is! List || animes.isEmpty) {
+      throw ResourceNotFoundException('Anime not found for id: $animeId');
+    }
+    final anime = jsonMap(animes.first);
+    final rate = UserRateDto.tryParse(anime['userRate'])?.toEntity();
+    await _publishIfCurrent(sessionGeneration, UserRateChange(animeId, rate));
+    return (rate: rate, totalEpisodes: jsonInt(anime['episodes']));
+  });
 
   @override
   Future<UserRate> save({
@@ -67,56 +102,54 @@ class RemoteUserRateRepository implements UserRateRepository {
     int? episodes,
     int? score,
     int? rewatches,
-  }) {
-    final requestGeneration = _session.generation;
-    return _requests.run(() async {
-      final sessionGeneration = await _sessionGeneration(requestGeneration);
-      final fields = {
-        if (status != null) 'status': UserRateDto.statusToApi(status),
-        'episodes': ?episodes,
-        'score': ?score,
-        'rewatches': ?rewatches,
-      };
-      final data = rateId == null
-          ? await _rest.post(
-              _ratesPath,
-              sessionGeneration: requestGeneration,
-              data: {
-                'user_rate': {
-                  'user_id': userId,
-                  'target_id': animeId,
-                  'target_type': 'Anime',
-                  ...fields,
-                },
+  }) => _run((requestGeneration) async {
+    final sessionGeneration = await _sessionGeneration(requestGeneration);
+    final fields = {
+      if (status != null) 'status': UserRateDto.statusToApi(status),
+      'episodes': ?episodes,
+      'score': ?score,
+      'rewatches': ?rewatches,
+    };
+    final data = rateId == null
+        ? await _rest.post(
+            _ratesPath,
+            sessionGeneration: requestGeneration,
+            data: {
+              'user_rate': {
+                'user_id': userId,
+                'target_id': animeId,
+                'target_type': 'Anime',
+                ...fields,
               },
-            )
-          : await _rest.patch(
-              '$_ratesPath/$rateId',
-              data: {'user_rate': fields},
-              sessionGeneration: requestGeneration,
-            );
-      final saved = UserRateDto.tryParse(data);
-      if (saved == null) {
-        throw const RemoteResponseException('User rate response is invalid.');
-      }
-      final rate = saved.toEntity();
-      await _publishIfCurrent(sessionGeneration, UserRateChange(animeId, rate));
-      return rate;
-    });
-  }
+            },
+          )
+        : await _rest.patch(
+            '$_ratesPath/$rateId',
+            data: {'user_rate': fields},
+            sessionGeneration: requestGeneration,
+          );
+    final saved = UserRateDto.tryParse(data);
+    if (saved == null) {
+      throw const RemoteResponseException('User rate response is invalid.');
+    }
+    final rate = saved.toEntity();
+    await _publishIfCurrent(sessionGeneration, UserRateChange(animeId, rate));
+    return rate;
+  });
 
   @override
-  Future<void> remove({required String animeId, required String rateId}) {
-    final requestGeneration = _session.generation;
-    return _requests.run(() async {
-      final sessionGeneration = await _sessionGeneration(requestGeneration);
-      await _rest.delete(
-        '$_ratesPath/$rateId',
-        sessionGeneration: requestGeneration,
-      );
-      await _publishIfCurrent(sessionGeneration, UserRateChange(animeId, null));
-    });
-  }
+  Future<void> remove({required String animeId, required String rateId}) =>
+      _run((requestGeneration) async {
+        final sessionGeneration = await _sessionGeneration(requestGeneration);
+        await _rest.delete(
+          '$_ratesPath/$rateId',
+          sessionGeneration: requestGeneration,
+        );
+        await _publishIfCurrent(
+          sessionGeneration,
+          UserRateChange(animeId, null),
+        );
+      });
 
   /// A queued request must not start under a different account.
   Future<int> _sessionGeneration(int generation) async {

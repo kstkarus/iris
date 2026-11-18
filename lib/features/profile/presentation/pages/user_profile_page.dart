@@ -4,8 +4,9 @@ import 'package:iris/entities/friend/domain/friend.dart';
 import 'package:iris/features/profile/domain/entities/user_list_entry.dart';
 import 'package:iris/features/profile/presentation/widgets/profile_header.dart';
 import 'package:iris/features/profile/presentation/widgets/user_list_view.dart';
-import 'package:iris/shared/widgets/adaptive/framed_app_bar.dart';
-import 'package:iris/shared/widgets/adaptive/page_frame.dart';
+import 'package:iris/shared/widgets/adaptive/adaptive_content_width.dart';
+import 'package:iris/shared/widgets/adaptive/window_size_class.dart';
+import 'package:iris/shared/widgets/headline_page.dart';
 
 /// A friend's list by status, to look at: it needs a `UserListCubit`
 /// showing [friend]'s list.
@@ -21,16 +22,25 @@ class UserProfilePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: const FramedAppBar(),
-      // The same gap above the header as on the Profile tab.
-      body: PageFrame(
-        child: UserListView(
-          header: ProfileHeader(
-            nickname: friend.nickname,
-            avatarUrl: friend.avatarUrl,
+    final sizeClass = WindowSizeClass.of(context);
+    return HeadlinePage(
+      title: friend.nickname,
+      body: Padding(
+        padding: EdgeInsets.fromLTRB(
+          sizeClass.pageMargin,
+          sizeClass.isCompact ? 4 : 12,
+          sizeClass.pageMargin,
+          0,
+        ),
+        child: MaxWidthBox(
+          maxWidth: AdaptiveContentWidth.page,
+          child: UserListView(
+            header: ProfileHeader(
+              nickname: friend.nickname,
+              avatarUrl: friend.avatarUrl,
+            ),
+            onOpen: onOpenAnime,
           ),
-          onOpen: onOpenAnime,
         ),
       ),
     );

@@ -6,6 +6,7 @@ import 'package:iris/features/player/domain/player_episode_names.dart';
 import 'package:iris/features/player/presentation/widgets/reveal_after_layout.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/widgets/adaptive/adaptive_grid_row.dart';
+import 'package:iris/shared/widgets/detail_layout.dart';
 import 'package:iris/shared/widgets/pixel_icon.dart';
 import 'package:iris/shared/widgets/segmented_bar.dart';
 import 'package:iris/shared/widgets/tap_row.dart';
@@ -124,12 +125,18 @@ class _EpisodeTile extends StatelessWidget {
         child: Ink(
           padding: const EdgeInsets.all(6),
           decoration: BoxDecoration(
+            color: highlighted
+                ? scheme.surfaceContainerHigh
+                : finished
+                ? scheme.surfaceContainerLowest
+                : scheme.surfaceContainerLow,
             border: Border.all(
+              width: highlighted ? 1.5 : 1,
               color: highlighted
                   ? scheme.onSurface
                   : finished
-                  ? scheme.outlineVariant
-                  : scheme.outline,
+                  ? DetailLayout.ruleColor(scheme).withValues(alpha: 0.7)
+                  : DetailLayout.ruleColor(scheme),
             ),
           ),
           child: Stack(
@@ -139,7 +146,8 @@ class _EpisodeTile extends StatelessWidget {
                 child: Text(
                   number,
                   maxLines: 1,
-                  style: theme.textTheme.titleSmall?.copyWith(
+                  style: DetailLayout.monoTelemetryStyle(
+                    theme.textTheme.titleSmall,
                     color: finished && !highlighted
                         ? scheme.onSurfaceVariant
                         : scheme.onSurface,
@@ -170,7 +178,7 @@ class _EpisodeTile extends StatelessWidget {
                     height: 3,
                     gap: 0,
                     color: scheme.tertiary,
-                    trackColor: Colors.transparent,
+                    trackColor: DetailLayout.progressTrackColor(scheme),
                   ),
                 ),
             ],

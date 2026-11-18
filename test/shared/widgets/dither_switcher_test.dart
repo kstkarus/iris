@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:iris/shared/widgets/dither_switcher.dart';
@@ -78,6 +79,59 @@ void main() {
       await tester.pumpAndSettle();
     });
   }
+
+  testWidgets('a leaving control loses keyboard and screen reader access', (
+    tester,
+  ) async {
+    final current = ValueNotifier(false);
+    final oldFocus = FocusNode();
+    final newFocus = FocusNode();
+    addTearDown(current.dispose);
+    addTearDown(oldFocus.dispose);
+    addTearDown(newFocus.dispose);
+    var oldPresses = 0;
+    var newPresses = 0;
+    final semantics = tester.ensureSemantics();
+    try {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: ValueListenableBuilder<bool>(
+              valueListenable: current,
+              builder: (context, changed, _) => DitherSwitcher(
+                child: FilledButton(
+                  key: ValueKey(changed),
+                  focusNode: changed ? newFocus : oldFocus,
+                  onPressed: changed ? () => newPresses++ : () => oldPresses++,
+                  child: Text(changed ? 'New action' : 'Old action'),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      oldFocus.requestFocus();
+      await tester.pump();
+      expect(oldFocus.hasPrimaryFocus, isTrue);
+      expect(find.semantics.byLabel('Old action'), findsOne);
+
+      current.value = true;
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 80));
+      expect(find.text('Old action'), findsOneWidget);
+      expect(find.semantics.byLabel('Old action'), findsNothing);
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      expect(oldPresses, 0);
+
+      newFocus.requestFocus();
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      expect(newPresses, 1);
+      await tester.pumpAndSettle();
+    } finally {
+      semantics.dispose();
+    }
+  });
 
   testWidgets('a leaving child dissolves, then gives its height back', (
     tester,

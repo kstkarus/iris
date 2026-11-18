@@ -159,7 +159,7 @@ void main() {
       await _deliverPlayerEvent(tester);
       await tester.tap(find.byKey(const Key('player_settings_button')));
       await tester.pumpAndSettle();
-      expect(find.text('SUBTITLE APPEARANCE'), findsOneWidget);
+      expect(find.text('Subtitle Appearance'), findsOneWidget);
       platform.emitTracks(after);
       await _deliverPlayerEvent(tester);
       final retained = engine.availableTracks.value.subtitle.single;
@@ -167,7 +167,7 @@ void main() {
       expect(retained.codec, 'hdmv_pgs_subtitle');
       expect(retained.title, 'Russian PGS');
       expect(retained.language, 'ru');
-      expect(find.text('SUBTITLE APPEARANCE'), findsNothing);
+      expect(find.text('Subtitle Appearance'), findsNothing);
       platform.emitTrack(
         const Track(subtitle: SubtitleTrack('1', 'Old', 'en')),
       );
@@ -261,7 +261,7 @@ void main() {
       await tester.tap(find.byKey(const Key('player_settings_button')));
       await tester.pumpAndSettle();
 
-      expect(find.text('SUBTITLE APPEARANCE'), findsNothing);
+      expect(find.text('Subtitle Appearance'), findsNothing);
       expect(find.text('Playback speed'), findsOneWidget);
       platformPlayer.emitTracks(
         const Tracks(
@@ -272,21 +272,21 @@ void main() {
         ),
       );
       await _deliverPlayerEvent(tester);
-      expect(find.text('SUBTITLE APPEARANCE'), findsOneWidget);
+      expect(find.text('Subtitle Appearance'), findsOneWidget);
 
       platformPlayer.emitTrack(
         const Track(subtitle: SubtitleTrack('2', 'English', 'en')),
       );
       await _deliverPlayerEvent(tester);
-      expect(find.text('SUBTITLE APPEARANCE'), findsNothing);
+      expect(find.text('Subtitle Appearance'), findsNothing);
 
       platformPlayer.emitTrack(Track(subtitle: SubtitleTrack.no()));
       await _deliverPlayerEvent(tester);
-      expect(find.text('SUBTITLE APPEARANCE'), findsOneWidget);
+      expect(find.text('Subtitle Appearance'), findsOneWidget);
 
       platformPlayer.emitTracks(const Tracks());
       await _deliverPlayerEvent(tester);
-      expect(find.text('SUBTITLE APPEARANCE'), findsNothing);
+      expect(find.text('Subtitle Appearance'), findsNothing);
       expect(find.text('Playback speed'), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
@@ -309,8 +309,8 @@ void main() {
     await tester.pump();
     await tester.tap(find.byKey(const Key('player_tracks_button')));
     await tester.pumpAndSettle();
-    expect(find.text('AUDIO'), findsOneWidget);
-    expect(find.text('SUBTITLES'), findsNothing);
+    expect(find.text('Audio'), findsOneWidget);
+    expect(find.text('Subtitles'), findsNothing);
 
     platformPlayer.emitTracks(
       Tracks(
@@ -324,8 +324,8 @@ void main() {
       ),
     );
     await _deliverPlayerEvent(tester);
-    expect(find.text('AUDIO'), findsNothing);
-    expect(find.text('SUBTITLES'), findsOneWidget);
+    expect(find.text('Audio'), findsNothing);
+    expect(find.text('Subtitles'), findsOneWidget);
     expect(find.text('Russian'), findsOneWidget);
     await tester.tap(find.text('Off'));
     await tester.pumpAndSettle();
@@ -2901,72 +2901,97 @@ void main() {
       expect(timedOut, ['Resumed from 2:22', 'Episode 11 marked']);
     });
 
-    for (final (platform, input, size) in const [
-      (TargetPlatform.windows, PlayerInputMode.pointer, Size(1280, 720)),
-      (TargetPlatform.android, PlayerInputMode.touch, Size(844, 390)),
-      (TargetPlatform.iOS, PlayerInputMode.touch, Size(844, 390)),
+    for (final (platform, input, size, textScale) in const [
+      (TargetPlatform.windows, PlayerInputMode.pointer, Size(1280, 720), 1.0),
+      (TargetPlatform.android, PlayerInputMode.touch, Size(844, 390), 1.0),
+      (TargetPlatform.iOS, PlayerInputMode.touch, Size(844, 390), 1.0),
+      (TargetPlatform.iOS, PlayerInputMode.touch, Size(480, 320), 2.0),
     ]) {
-      testWidgets('keeps the notice clear of controls and title on $platform', (
-        tester,
-      ) async {
-        setTestWindowSize(tester, size);
-        final platformPlayer = _FakePlatformPlayer(
-          configuration: const PlayerConfiguration(),
-        );
-        await tester.pumpWidget(
-          _wrapViewport(
-            platformPlayer: platformPlayer,
-            input: input,
-            theme: buildAppTheme(
-              brightness: Brightness.dark,
-            ).copyWith(platform: platform),
-            chrome: chrome(
-              notice: PlayerNotice(
-                message: 'Episode 11 marked',
-                actionLabel: 'Undo',
-                onAction: () {},
-                onTimeout: () {},
+      testWidgets(
+        'keeps the notice clear of controls and title on $platform at $textScale',
+        (tester) async {
+          setTestWindowSize(tester, size);
+          tester.platformDispatcher.textScaleFactorTestValue = textScale;
+          addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+          final platformPlayer = _FakePlatformPlayer(
+            configuration: const PlayerConfiguration(),
+          );
+          await tester.pumpWidget(
+            _wrapViewport(
+              platformPlayer: platformPlayer,
+              input: input,
+              theme: buildAppTheme(
+                brightness: Brightness.dark,
+              ).copyWith(platform: platform),
+              chrome: chrome(
+                notice: PlayerNotice(
+                  message: 'Resumed from 2:22',
+                  actionLabel: 'Start over',
+                  onAction: () {},
+                  onTimeout: () {},
+                ),
+              ),
+              next: PlayerNextFile(title: 'Episode 12', play: () {}),
+            ),
+          );
+          await tester.pump();
+          platformPlayer.emitDuration(const Duration(minutes: 24));
+          platformPlayer.emitPosition(const Duration(seconds: 40));
+          platformPlayer.emitPlaying(true);
+          await _deliverPlayerEvent(tester);
+          await tester.pump(const Duration(milliseconds: 300));
+
+          Rect noticeRect() =>
+              tester.getRect(find.byKey(const Key('player_notice')));
+          Rect playRect() =>
+              tester.getRect(find.byKey(const Key('player_play_pause_button')));
+          expect(
+            noticeRect().overlaps(
+              tester.getRect(
+                find.byKey(const Key('player_skip_forward_button')),
               ),
             ),
-            next: PlayerNextFile(title: 'Episode 12', play: () {}),
-          ),
-        );
-        await tester.pump();
-        platformPlayer.emitDuration(const Duration(minutes: 24));
-        platformPlayer.emitPosition(const Duration(seconds: 40));
-        platformPlayer.emitPlaying(true);
-        await _deliverPlayerEvent(tester);
-        await tester.pump(const Duration(milliseconds: 300));
+            isFalse,
+          );
 
-        Rect noticeRect() =>
-            tester.getRect(find.byKey(const Key('player_notice')));
-        expect(
-          noticeRect().overlaps(
-            tester.getRect(find.byKey(const Key('player_skip_forward_button'))),
-          ),
-          isFalse,
-        );
+          platformPlayer.emitPosition(const Duration(minutes: 22));
+          await _deliverPlayerEvent(tester);
+          await tester.pump(const Duration(milliseconds: 300));
+          final next = tester.getRect(
+            find.byKey(const Key('player_next_file_button')),
+          );
+          expect(noticeRect().overlaps(next), isFalse);
+          expect(
+            noticeRect().overlaps(playRect()),
+            isFalse,
+            reason: 'Playing: notice ${noticeRect()}, play ${playRect()}',
+          );
 
-        platformPlayer.emitPosition(const Duration(minutes: 22));
-        await _deliverPlayerEvent(tester);
-        await tester.pump(const Duration(milliseconds: 300));
-        final next = tester.getRect(
-          find.byKey(const Key('player_next_file_button')),
-        );
-        expect(noticeRect().overlaps(next), isFalse);
-
-        platformPlayer.emitPlaying(false);
-        await _deliverPlayerEvent(tester);
-        await tester.pump(const Duration(milliseconds: 300));
-        await tester.pump();
-        expect(
-          noticeRect().overlaps(
-            tester.getRect(find.byKey(const Key('player_title_block'))),
-          ),
-          isFalse,
-        );
-        expect(tester.takeException(), isNull);
-      });
+          platformPlayer.emitPlaying(false);
+          await _deliverPlayerEvent(tester);
+          await tester.pump(const Duration(milliseconds: 300));
+          await tester.pump();
+          expect(
+            noticeRect().overlaps(
+              tester.getRect(find.byKey(const Key('player_title_block'))),
+            ),
+            isFalse,
+          );
+          expect(
+            noticeRect().overlaps(playRect()),
+            isFalse,
+            reason: 'Paused: notice ${noticeRect()}, play ${playRect()}',
+          );
+          final action = find.byKey(const Key('player_notice_action'));
+          expect(
+            action.hitTestable(),
+            findsOneWidget,
+            reason:
+                'Paused: notice ${noticeRect()}, action ${tester.getRect(action)}',
+          );
+          expect(tester.takeException(), isNull);
+        },
+      );
     }
 
     testWidgets('open the tracks and keep the controls '
@@ -3601,7 +3626,7 @@ void main() {
       await tester.tap(find.byKey(const Key('player_settings_button')));
       await tester.pumpAndSettle();
       expect(find.text('Playback speed'), findsOneWidget);
-      expect(find.text('SUBTITLE APPEARANCE'), findsOneWidget);
+      expect(find.text('Subtitle Appearance'), findsOneWidget);
 
       await tester.tap(find.text('1.5×'));
       await tester.pump();

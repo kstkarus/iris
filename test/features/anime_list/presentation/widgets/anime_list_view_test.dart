@@ -19,6 +19,7 @@ import 'package:iris/features/anime_list/presentation/bloc/anime_list_event.dart
 import 'package:iris/features/anime_list/presentation/bloc/anime_search_bloc.dart';
 import 'package:iris/features/anime_list/presentation/cubit/search_history_cubit.dart';
 import 'package:iris/features/anime_list/presentation/pages/anime_list_page.dart';
+import 'package:iris/features/anime_list/presentation/widgets/anime_card.dart';
 import 'package:iris/features/anime_list/presentation/widgets/anime_list_view.dart';
 import 'package:iris/features/anime_list/presentation/widgets/continue_watching_button.dart';
 import 'package:iris/shared/widgets/search_field.dart';
@@ -139,6 +140,57 @@ void main() {
     expect(find.text('Fullmetal Alchemist: Brotherhood'), findsNothing);
     // The catalog was never fetched again.
     expect(_firstPages(repository, ''), 1);
+  });
+
+  testWidgets('Tab stays out of the hidden catalog while search is open', (
+    tester,
+  ) async {
+    setTestWindowSize(tester, TestWindowSizes.desktop);
+    await _pumpCatalog(
+      tester,
+      _TrackingAnimeListRepository(resultsByQuery: {'': _pageOneResult}),
+    );
+    await tester.tap(find.byType(TextField));
+    await tester.pumpAndSettle();
+
+    for (var step = 0; step < 12; step++) {
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pump();
+      final focus = FocusManager.instance.primaryFocus?.context;
+      expect(focus?.findAncestorWidgetOfExactType<AnimeCard>(), isNull);
+    }
+    expect(find.byKey(SearchToolbar.cancelButtonKey), findsOneWidget);
+  });
+
+  testWidgets('reopening a search can load more while the old grid leaves', (
+    tester,
+  ) async {
+    final repository = _TrackingAnimeListRepository(
+      resultsByQuery: {
+        '': _withHasMore(_pageOneResult, false),
+        'fullmetal': _withHasMore(_searchResult, true),
+      },
+    );
+    await _pumpCatalog(tester, repository);
+    final field = find.byType(TextField);
+    await tester.enterText(field, 'fullmetal');
+    await tester.pump(const Duration(milliseconds: 401));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(field, '');
+    await tester.pump();
+    await tester.enterText(field, 'fullmetal');
+    await tester.pump(const Duration(milliseconds: 401));
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    expect(_firstPages(repository, 'fullmetal'), 2);
+    expect(
+      repository.calls.where(
+        (call) => call.query.search == 'fullmetal' && call.query.page == 2,
+      ),
+      hasLength(2),
+    );
   });
 
   testWidgets('Cancel leaves search and brings the header back', (
@@ -558,6 +610,53 @@ void main() {
       expect(tester.takeException(), isNull);
     });
   }
+
+  testWidgets('retry after the catalog fails can immediately load more', (
+    tester,
+  ) async {
+    final repository = _FailingAnimeListRepository();
+    await _pumpCatalog(tester, repository);
+    expect(find.text('Unable to load anime list.'), findsOneWidget);
+
+    repository.recover = true;
+    await tester.tap(find.text('Try Again'));
+    await tester.pump();
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    expect(find.text('Solo Leveling'), findsOneWidget);
+    expect(repository.fetchedPageTwo, isTrue);
+  });
+
+  testWidgets('transitions smoothly from loading to empty search state', (
+    tester,
+  ) async {
+    final gate = Completer<AnimeListPageResult>();
+    final repository = _PendingSearchRepository(
+      initial: _pageOneResult,
+      searchFuture: gate.future,
+    );
+    await _pumpCatalog(tester, repository);
+
+    await tester.enterText(find.byType(TextField), 'missing');
+    await tester.pump(const Duration(milliseconds: 450));
+    await tester.pump();
+
+    gate.complete(
+      const AnimeListPageResult(
+        items: [],
+        page: 1,
+        hasMore: false,
+        query: 'missing',
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 120));
+    expect(find.text('No anime found for your search.'), findsOneWidget);
+
+    await tester.pumpAndSettle();
+    expect(find.text('No anime found for your search.'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 }
 
 /// The app around [child], with search results served by [search].
@@ -784,11 +883,22 @@ const _searchResult = AnimeListPageResult(
 );
 
 class _FailingAnimeListRepository implements AnimeListRepository {
+  bool recover = false;
+  bool fetchedPageTwo = false;
+
   @override
   Future<AnimeListPageResult> fetchAnimePage({
     required AnimeListQuery query,
   }) async {
-    throw Exception('offline');
+    if (!recover) throw Exception('offline');
+    if (query.page == 1) return _pageOneResult;
+    fetchedPageTwo = true;
+    return AnimeListPageResult(
+      items: _searchItems,
+      page: query.page,
+      hasMore: false,
+      query: query.search,
+    );
   }
 }
 
@@ -810,4 +920,19 @@ class _HistoryRepository implements SearchHistoryRepository {
   List<String> read() => const [];
   @override
   Future<void> save(List<String> queries) async {}
+}
+
+class _PendingSearchRepository implements AnimeListRepository {
+  _PendingSearchRepository({required this.initial, required this.searchFuture});
+
+  final AnimeListPageResult initial;
+  final Future<AnimeListPageResult> searchFuture;
+
+  @override
+  Future<AnimeListPageResult> fetchAnimePage({
+    required AnimeListQuery query,
+  }) async {
+    if (query.search.isEmpty) return initial;
+    return searchFuture;
+  }
 }

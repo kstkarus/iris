@@ -53,6 +53,30 @@ void main() {
     expect((await repository.watchTorrents(_anime).first).single.title, _hashB);
   });
 
+  test(
+    'a failed platform write can be retried without a false duplicate',
+    () async {
+      final storage = _OptimisticPreferences();
+      await repository.close();
+      preferences = storage;
+      repository = create();
+
+      await add(_magnetA);
+      storage.rejectNextWrite = true;
+      await expectLater(add(_magnetB), throwsStateError);
+      expect(
+        (await repository.watchTorrents(_anime).first).map((t) => t.infoHash),
+        [_hashA],
+      );
+
+      expect(await add(_magnetB), isA<SaveTorrentAdded>());
+      expect(
+        (await repository.watchTorrents(_anime).first).map((t) => t.infoHash),
+        unorderedEquals([_hashA, _hashB]),
+      );
+    },
+  );
+
   test('each anime has its own torrents, the same one in several', () async {
     await add(_magnetA);
     await add(_magnetB, anime: _other);
@@ -228,4 +252,23 @@ void main() {
       expect(torrents.single.title, 'Saved 1');
     });
   });
+}
+
+class _OptimisticPreferences implements SharedPreferences {
+  final _cache = <String, String>{};
+  bool rejectNextWrite = false;
+
+  @override
+  String? getString(String key) => _cache[key];
+
+  @override
+  Future<bool> setString(String key, String value) async {
+    _cache[key] = value;
+    final accepted = !rejectNextWrite;
+    rejectNextWrite = false;
+    return accepted;
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }

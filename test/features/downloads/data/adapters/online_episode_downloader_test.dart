@@ -209,39 +209,39 @@ void main() {
     expect(asked.first, '720.m3u8');
   });
 
-  test(
-    'reports the HLS master variant height selected below the provider height',
-    () async {
+  for (final (master, expectedHeight) in [(true, 720), (false, 1080)]) {
+    test('reports the actual HLS height ($expectedHeight)', () async {
       sources.streams = [
         _hls('https://cdn.test/e2/master.m3u8', quality: 1080),
       ];
-      final task =
-          downloader((options) {
-            if (options.uri.path.endsWith('master.m3u8')) {
-              return FakeReply.text(200, '''
+      final task = downloader(
+        (options) {
+          if (master && options.uri.path.endsWith('master.m3u8')) {
+            return FakeReply.text(200, '''
 #EXTM3U
+#EXT-X-STREAM-INF:BANDWIDTH=4500000,RESOLUTION=1920x1080
+1080/index.m3u8
 #EXT-X-STREAM-INF:BANDWIDTH=2500000,RESOLUTION=1280x720
 720/index.m3u8
 ''');
-            }
-            return options.uri.path.endsWith('.m3u8')
-                ? FakeReply.text(200, _playlist(1))
-                : FakeReply.text(200, '[$options.uri]');
-          }).start(
-            link: _link,
-            fileIndex: 2,
-            directory: directory,
-            maxQuality: 1080,
-          );
+          }
+          return options.uri.path.endsWith('.m3u8')
+              ? FakeReply.text(200, _playlist(1))
+              : FakeReply.text(200, '[$options.uri]');
+        },
+      ).start(link: _link, fileIndex: 2, directory: directory, maxQuality: 900);
       final updates = <OnlineDownloadProgress>[];
       task.progress.listen(updates.add);
 
       await task.done;
 
       expect(updates, isNotEmpty);
-      expect(updates.map((update) => update.videoHeight), everyElement(720));
-    },
-  );
+      expect(
+        updates.map((update) => update.videoHeight),
+        everyElement(expectedHeight),
+      );
+    });
+  }
 
   test(
     'glues an HLS episode into one file and reports how far it is',
@@ -726,18 +726,19 @@ void main() {
         format: OnlineStreamFormat.hls,
       ),
     ];
-    final ranges = <Object?>[];
+    final ranges = <(Object?, Object?)>[];
     final updates = <OnlineDownloadProgress>[];
     final task = start(
       downloader((options) {
         final range = options.headers['Range'];
-        ranges.add(range);
+        ranges.add((range, options.headers['If-Range']));
         if (range == null) {
           return const FakeReply.text(
             200,
             'abcd',
             headers: {
               'content-length': ['10'],
+              'etag': ['"episode-v1"'],
             },
           );
         }
@@ -746,6 +747,7 @@ void main() {
           'efghij',
           headers: {
             'content-range': ['bytes 4-9/10'],
+            'etag': ['"episode-v1"'],
           },
         );
       }),
@@ -756,13 +758,79 @@ void main() {
 
     expect(path.basename(file!.path), 'episode.mp4');
     expect(await file.readAsString(), 'abcdefghij');
-    expect(ranges, [null, 'bytes=4-']);
+    expect(ranges, [(null, null), ('bytes=4-', '"episode-v1"')]);
     expect(updates.map((update) => update.videoHeight), everyElement(720));
     expect(stateLeft(), isFalse);
   });
 
-  for (final total in [2, 8, null, 4]) {
-    test('MP4 validates the total on a 416 response ($total)', () async {
+  for (final (total, tag) in [
+    (2, '"episode-v1"'),
+    (8, '"episode-v1"'),
+    (null, '"episode-v1"'),
+    (4, '"episode-v2"'),
+    (4, null),
+    (4, '"episode-v1"'),
+  ]) {
+    test(
+      'MP4 checks the file identity and size on a 416 ($total, $tag)',
+      () async {
+        sources.streams = const [
+          OnlineStream(
+            url: 'https://cdn.test/e2/720.mp4',
+            quality: 720,
+            format: OnlineStreamFormat.mp4,
+          ),
+        ];
+        final ranges = <Object?>[];
+        final task = start(
+          downloader((options) {
+            final range = options.headers['Range'];
+            ranges.add(range);
+            if (ranges.length == 1) {
+              return const FakeReply.text(
+                200,
+                'OLD!',
+                headers: {
+                  'content-length': ['4'],
+                  'etag': ['"episode-v1"'],
+                },
+                breakOff: SocketException('Connection reset by peer'),
+              );
+            }
+            if (range != null) {
+              return FakeReply.text(
+                416,
+                '',
+                headers: {
+                  if (total != null) 'content-range': ['bytes */$total'],
+                  if (tag != null) 'etag': [tag],
+                },
+              );
+            }
+            return const FakeReply.text(
+              200,
+              'NEW',
+              headers: {
+                'content-length': ['3'],
+              },
+            );
+          }),
+        );
+
+        final file = (await task.done)!;
+        final confirmed = total == 4 && tag == '"episode-v1"';
+        expect(await file.readAsString(), confirmed ? 'OLD!' : 'NEW');
+        expect(ranges, [null, 'bytes=4-', if (!confirmed) null]);
+        expect(stateLeft(), isFalse);
+      },
+    );
+  }
+
+  for (final (range, tag) in [
+    ('bytes 4-9/10', '"episode-v2"'),
+    ('bytes 3-8/10', '"episode-v1"'),
+  ]) {
+    test('MP4 restarts after an incompatible range ($range, $tag)', () async {
       sources.streams = const [
         OnlineStream(
           url: 'https://cdn.test/e2/720.mp4',
@@ -770,50 +838,79 @@ void main() {
           format: OnlineStreamFormat.mp4,
         ),
       ];
-      await File(
-        path.join(directory.path, 'episode.mp4'),
-      ).writeAsString('OLD!');
-      await File(
-        path.join(directory.path, 'online_download.json'),
-      ).writeAsString(
-        jsonEncode({
-          'format': 'mp4',
-          'quality': 720,
-          'pieces': 1,
-          'done': 0,
-          'bytes': 0,
-        }),
-      );
-      final ranges = <Object?>[];
+      final requests = <Object?>[];
       final task = start(
         downloader((options) {
-          final range = options.headers['Range'];
-          ranges.add(range);
-          if (range != null) {
-            return FakeReply.text(
-              416,
-              '',
+          requests.add(options.headers['Range']);
+          if (requests.length == 1) {
+            return const FakeReply.text(
+              200,
+              'OLD!',
               headers: {
-                if (total != null) 'content-range': ['bytes */$total'],
+                'content-length': ['10'],
+                'etag': ['"episode-v1"'],
+              },
+            );
+          }
+          if (options.headers['Range'] != null) {
+            return FakeReply.text(
+              206,
+              'suffix',
+              headers: {
+                'content-range': [range],
+                'etag': [tag],
               },
             );
           }
           return const FakeReply.text(
             200,
-            'NEW',
+            'NEW!suffix',
             headers: {
-              'content-length': ['3'],
+              'content-length': ['10'],
+              'etag': ['"episode-v2"'],
             },
           );
         }),
       );
 
-      final file = (await task.done)!;
-      expect(await file.readAsString(), total == 4 ? 'OLD!' : 'NEW');
-      expect(ranges, ['bytes=4-', if (total != 4) null]);
-      expect(stateLeft(), isFalse);
+      expect(await (await task.done)!.readAsString(), 'NEW!suffix');
+      expect(requests, [null, 'bytes=4-', null]);
     });
   }
+
+  test('an older MP4 partial without a validator starts from zero', () async {
+    sources.streams = const [
+      OnlineStream(
+        url: 'https://cdn.test/e2/720.mp4',
+        quality: 720,
+        format: OnlineStreamFormat.mp4,
+      ),
+    ];
+    await File(path.join(directory.path, 'episode.mp4')).writeAsString('OLD!');
+    await File(path.join(directory.path, 'online_download.json')).writeAsString(
+      jsonEncode({
+        'format': 'mp4',
+        'quality': 720,
+        'pieces': 1,
+        'done': 0,
+        'bytes': 0,
+      }),
+    );
+    final task = start(
+      downloader((options) {
+        expect(options.headers['Range'], isNull);
+        return const FakeReply.text(
+          200,
+          'NEW!suffix',
+          headers: {
+            'content-length': ['10'],
+          },
+        );
+      }),
+    );
+
+    expect(await (await task.done)!.readAsString(), 'NEW!suffix');
+  });
 
   test('an mp4 whose connection drops mid-body goes on with Range', () async {
     sources.streams = const [
@@ -834,6 +931,7 @@ void main() {
             'abcd',
             headers: {
               'content-length': ['10'],
+              'etag': ['"episode-v1"'],
             },
             breakOff: SocketException('Connection reset by peer'),
           );
@@ -843,6 +941,7 @@ void main() {
           'efghij',
           headers: {
             'content-range': ['bytes 4-9/10'],
+            'etag': ['"episode-v1"'],
           },
         );
       }),

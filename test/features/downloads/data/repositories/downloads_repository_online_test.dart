@@ -418,6 +418,18 @@ void main() {
     expect(loading.peers, 0);
     expect(loading.videoHeight, isNull);
 
+    task.report(
+      const OnlineDownloadProgress(
+        downloadedBytes: 160,
+        totalBytes: 160,
+        rateBytesPerSecond: 20,
+      ),
+    );
+    await _waitFor(
+      () => foregroundService.calls.contains('update 02 «Title»: 99%'),
+    );
+    expect((await latest(item.id)).status, DownloadStatus.downloading);
+
     final video = File(path.join(task.directory.path, 'episode.ts'));
     await video.writeAsString('0123456789');
     task.finish(video);
@@ -487,6 +499,28 @@ void main() {
     await _waitFor(() => online.tasks.length == 2);
     expect((await latest(item.id)).status, DownloadStatus.downloading);
   });
+
+  test(
+    'a new episode waits until pause has stopped the old transfer',
+    () async {
+      final first = await enqueueEpisode(1);
+      await _waitFor(() => foregroundService.calls.contains('start 01'));
+      final task = online.tasks.single;
+      final cancel = task.cancelGate = Completer<void>();
+      final pausing = repository.pause(id: first.id);
+      try {
+        await _waitFor(() => task.cancelled);
+        final next = await enqueueEpisode(2);
+        expect((await latest(next.id)).status, DownloadStatus.queued);
+        expect(online.tasks, hasLength(1));
+      } finally {
+        cancel.complete();
+        await pausing;
+      }
+      await _waitFor(() => foregroundService.calls.length == 3);
+      expect(foregroundService.calls, ['start 01', 'stop', 'start 02 «Title»']);
+    },
+  );
 
   test('delete stops the task before its folder goes', () async {
     final item = await enqueueEpisode(2);

@@ -37,17 +37,26 @@ class _LockLayer extends StatelessWidget {
         onTap: onReveal,
         child: revealed
             ? Center(
-                child: OutlinedButton(
-                  key: const Key('player_unlock_button'),
-                  onPressed: onUnlock,
-                  style: _overVideoButtonStyle(Theme.of(context)),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const PixelIcon(PixelGlyph.lockOpen, size: 21),
-                      const SizedBox(width: 10),
-                      Text(l10n.playerUnlockScreen),
-                    ],
+                child: TweenAnimationBuilder<double>(
+                  tween: Tween(begin: 0, end: 1),
+                  duration: motionDuration(
+                    context,
+                    const Duration(milliseconds: 160),
+                  ),
+                  builder: (context, value, child) =>
+                      Opacity(opacity: value, child: child),
+                  child: OutlinedButton(
+                    key: const Key('player_unlock_button'),
+                    onPressed: onUnlock,
+                    style: _overVideoButtonStyle(Theme.of(context)),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const PixelIcon(PixelGlyph.lockOpen, size: 21),
+                        const SizedBox(width: 10),
+                        Text(l10n.playerUnlockScreen),
+                      ],
+                    ),
                   ),
                 ),
               )

@@ -15,7 +15,9 @@ import 'package:iris/shared/utils/desktop_platform.dart';
 import 'package:iris/shared/utils/duration_formatter.dart';
 import 'package:iris/shared/utils/episode_number.dart';
 import 'package:iris/shared/utils/file_display_name.dart';
+import 'package:iris/shared/utils/motion_duration.dart';
 import 'package:iris/shared/widgets/adaptive/window_size_class.dart';
+import 'package:iris/shared/widgets/detail_layout.dart';
 import 'package:iris/shared/widgets/dither_list.dart';
 import 'package:iris/shared/widgets/focusable_list_row.dart';
 import 'package:iris/shared/widgets/pixel_icon.dart';
@@ -49,6 +51,8 @@ class SavedTorrentsList extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final wide = constraints.maxWidth >= WindowSizeClass.mediumMinWidth;
+        final scheme = Theme.of(context).colorScheme;
+        final rule = DetailLayout.ruleColor(scheme);
         return DitherList<SavedTorrent>(
           padding: const EdgeInsets.only(bottom: 24),
           items: state.torrents,
@@ -56,12 +60,12 @@ class SavedTorrentsList extends StatelessWidget {
           itemBuilder: (context, torrent) {
             final progress =
                 latestProgress[torrentKeyFromMagnet(torrent.magnet)];
-            // The rule above each row goes with it.
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const SegmentedRule(),
-                _TorrentRow(
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: Material(
+                color: scheme.surfaceContainerLow,
+                shape: RoundedRectangleBorder(side: BorderSide(color: rule)),
+                child: _TorrentRow(
                   torrent: torrent,
                   progress: progress,
                   highlighted: torrent.infoHash == state.highlightedInfoHash,
@@ -76,7 +80,7 @@ class SavedTorrentsList extends StatelessWidget {
                   ),
                   onDownload: () => onDownload(torrent),
                 ),
-              ],
+              ),
             );
           },
         );
@@ -134,7 +138,7 @@ class _TorrentRowState extends State<_TorrentRow> {
       onLongPress: _menu.open,
       onSecondaryTap: _menu.open,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 14, 0, 14),
+        padding: const EdgeInsets.fromLTRB(14, 14, 4, 14),
         child: Row(
           children: [
             Expanded(
@@ -145,9 +149,14 @@ class _TorrentRowState extends State<_TorrentRow> {
                     widget.torrent.title,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.titleSmall,
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontFamily: DetailLayout.sansFont,
+                      fontWeight: FontWeight.w500,
+                      fontSize: 15,
+                      height: 1.3,
+                    ),
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 5),
                   _Status(torrent: widget.torrent, progress: widget.progress),
                 ],
               ),
@@ -178,13 +187,50 @@ class _TorrentRowState extends State<_TorrentRow> {
 class _Status extends StatelessWidget {
   const _Status({required this.torrent, required this.progress});
 
+  static const _duration = Duration(milliseconds: 180);
+
   final SavedTorrent torrent;
   final WatchProgress? progress;
 
   @override
   Widget build(BuildContext context) {
+    final duration = motionDuration(context, _duration);
+    final (Object key, Widget content) = _buildMode(context);
+    if (duration == Duration.zero) {
+      return SizedBox(width: double.infinity, child: content);
+    }
+    return SizedBox(
+      width: double.infinity,
+      child: AnimatedSize(
+        duration: duration,
+        curve: Curves.easeOutCubic,
+        alignment: AlignmentDirectional.topStart,
+        child: AnimatedSwitcher(
+          duration: duration,
+          switchInCurve: Curves.easeOutCubic,
+          switchOutCurve: Curves.easeOutCubic,
+          layoutBuilder: (currentChild, previousChildren) => Stack(
+            alignment: AlignmentDirectional.topStart,
+            children: [...previousChildren, ?currentChild],
+          ),
+          child: KeyedSubtree(key: ValueKey(key), child: content),
+        ),
+      ),
+    );
+  }
+
+  (Object, Widget) _buildMode(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final style = Theme.of(context).textTheme.bodySmall;
+    final theme = Theme.of(context);
+    final style = theme.textTheme.bodySmall;
+    final sansStyle = style?.copyWith(
+      fontFamily: DetailLayout.sansFont,
+      color: theme.colorScheme.onSurfaceVariant,
+    );
+    final monoStyle = DetailLayout.monoTelemetryStyle(
+      style,
+      color: theme.colorScheme.onSurfaceVariant,
+    );
     final progress = this.progress;
     if (progress == null) {
       final used = torrent.lastUsedAt.toLocal();
@@ -192,66 +238,77 @@ class _Status extends StatelessWidget {
           ? DateFormat.MMMd(l10n.localeName)
           : DateFormat.yMMMd(l10n.localeName);
       final date = format.format(used);
-      return Text(
-        torrent.lastOpenedAt == null
-            ? l10n.savedTorrentsAddedOn(date)
-            : l10n.savedTorrentsOpenedOn(date),
-        style: style,
+      return (
+        'unwatched',
+        MixedDataText(
+          torrent.lastOpenedAt == null
+              ? l10n.savedTorrentsAddedOn(date)
+              : l10n.savedTorrentsOpenedOn(date),
+          sansStyle: sansStyle,
+          monoStyle: monoStyle,
+        ),
       );
     }
     final episode = episodeNumberFromFileName(progress.fileName);
     final file = fileDisplayName(progress.fileName);
     if (progress.isFinished) {
       // Which episode is done, not the torrent: a batch goes on.
-      return Row(
-        children: [
-          PixelIcon(
-            PixelGlyph.check,
-            size: 14,
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-          ),
-          const SizedBox(width: 6),
-          Expanded(
-            child: Text(
-              episode == null
-                  ? l10n.savedTorrentsFileWatched(file)
-                  : l10n.savedTorrentsEpisodeWatched(episode),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: style,
+      return (
+        'finished',
+        Row(
+          children: [
+            PixelIcon(
+              PixelGlyph.check,
+              size: 14,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
-          ),
-        ],
+            const SizedBox(width: 6),
+            Expanded(
+              child: MixedDataText(
+                episode == null
+                    ? l10n.savedTorrentsFileWatched(file)
+                    : l10n.savedTorrentsEpisodeWatched(episode),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                sansStyle: sansStyle,
+                monoStyle: monoStyle,
+              ),
+            ),
+          ],
+        ),
       );
     }
     final times =
         '${formatPlaybackPosition(progress.position)} / '
         '${formatPlaybackPosition(progress.duration)}';
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        PixelSeparatedText.parts(
-          [episode == null ? file : l10n.playerEpisodeNumber(episode), times],
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: style?.copyWith(
-            fontFeatures: const [FontFeature.tabularFigures()],
+    return (
+      'in_progress',
+      Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          PixelSeparatedText.parts(
+            [episode == null ? file : l10n.playerEpisodeNumber(episode), times],
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            sansStyle: sansStyle,
+            monoStyle: monoStyle,
           ),
-        ),
-        const SizedBox(height: 6),
-        ConstrainedBox(
-          constraints: const BoxConstraints(
-            maxWidth: WatchProgressLine.maxWidth,
-          ),
-          child: ExcludeSemantics(
-            child: SegmentedBar(
-              value: progress.fraction,
-              height: 4,
-              segment: 6,
+          const SizedBox(height: 6),
+          ConstrainedBox(
+            constraints: const BoxConstraints(
+              maxWidth: WatchProgressLine.maxWidth,
+            ),
+            child: ExcludeSemantics(
+              child: SegmentedBar(
+                value: progress.fraction,
+                height: 4,
+                segment: 6,
+                trackColor: DetailLayout.progressTrackColor(theme.colorScheme),
+              ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

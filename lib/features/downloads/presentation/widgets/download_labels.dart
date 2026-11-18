@@ -1,4 +1,5 @@
 import 'package:iris/features/downloads/domain/entities/download_item.dart';
+import 'package:iris/features/online_sources/domain/online_episode_files.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/utils/episode_number.dart';
 import 'package:iris/shared/utils/file_display_name.dart';
@@ -29,11 +30,21 @@ String downloadSemanticName(AppLocalizations l10n, DownloadItem item) {
   ].join(', ');
 }
 
-/// The episode read from the file name, or the file's own name.
+num? downloadEpisodeNumber(DownloadItem item) => item.isOnline
+    ? parseOnlineEpisodeFileName(item.fileName)?.number
+    : episodeNumberFromFileName(item.fileName);
+
+// Online sizes are estimates until the file is complete.
+double downloadDisplayProgress(DownloadItem item) =>
+    item.isOnline ? item.progressUntilCompleted : item.progress;
+
+/// The supplied online number, a torrent's recognised episode, or the file name.
 String downloadEpisode(AppLocalizations l10n, DownloadItem item) {
-  final number = episodeNumberFromFileName(item.fileName);
+  final number = downloadEpisodeNumber(item);
   return number == null
-      ? fileDisplayName(item.fileName)
+      ? item.isOnline
+            ? item.fileName
+            : fileDisplayName(item.fileName)
       : l10n.downloadEpisodeLabel(number.toString().padLeft(2, '0'));
 }
 

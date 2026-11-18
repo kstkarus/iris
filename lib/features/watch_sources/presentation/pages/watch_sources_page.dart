@@ -25,8 +25,11 @@ import 'package:iris/features/watch_sources/presentation/widgets/watch_sources_v
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/torrent/torrent_file_picker.dart';
 import 'package:iris/shared/utils/desktop_platform.dart';
+import 'package:iris/shared/utils/motion_duration.dart';
+import 'package:iris/shared/widgets/active_layer.dart';
 import 'package:iris/shared/widgets/adaptive/framed_app_bar.dart';
 import 'package:iris/shared/widgets/adaptive/page_frame.dart';
+import 'package:iris/shared/widgets/detail_layout.dart';
 import 'package:iris/shared/widgets/dither_switcher.dart';
 import 'package:iris/shared/widgets/dither_transition.dart';
 import 'package:iris/shared/widgets/page_title.dart';
@@ -144,12 +147,11 @@ class WatchSourcesPage extends StatelessWidget {
                   // All stay built, so each keeps its scroll and the torrent
                   // search while another is shown.
                   Expanded(
-                    child: IndexedStack(
-                      index: tab.index,
-                      sizing: StackFit.expand,
+                    child: Stack(
+                      fit: StackFit.expand,
                       children: [
-                        TickerMode(
-                          enabled: tab == WatchSourcesTab.online,
+                        _TabPane(
+                          active: tab == WatchSourcesTab.online,
                           child: hasOnline
                               ? OnlineReleasesList(
                                   animeId: args.animeId,
@@ -158,15 +160,15 @@ class WatchSourcesPage extends StatelessWidget {
                                 )
                               : const SizedBox.shrink(),
                         ),
-                        TickerMode(
-                          enabled: tab == WatchSourcesTab.torrents,
+                        _TabPane(
+                          active: tab == WatchSourcesTab.torrents,
                           child: WatchSourcesView(
                             onAddTorrent: () => _add(context),
                             posterUrl: args.posterUrl,
                           ),
                         ),
-                        TickerMode(
-                          enabled: tab == WatchSourcesTab.mine,
+                        _TabPane(
+                          active: tab == WatchSourcesTab.mine,
                           child: SavedTorrentsList(
                             onWatch: (torrent, {autoOpenFileIndex}) =>
                                 _watch(context, torrent, autoOpenFileIndex),
@@ -245,6 +247,87 @@ class WatchSourcesPage extends StatelessWidget {
         posterUrl: args.posterUrl,
         sourceTitle: torrent.title,
         magnet: torrent.magnet,
+      ),
+    );
+  }
+}
+
+/// Keeps its child mounted like an [IndexedStack] slot while cross-fading
+/// briskly between tabs.
+class _TabPane extends StatefulWidget {
+  const _TabPane({required this.active, required this.child});
+
+  static const _duration = Duration(milliseconds: 180);
+
+  final bool active;
+  final Widget child;
+
+  @override
+  State<_TabPane> createState() => _TabPaneState();
+}
+
+class _TabPaneState extends State<_TabPane>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: _TabPane._duration,
+    value: widget.active ? 1 : 0,
+  )..addStatusListener(_onStatus);
+
+  late bool _visible = widget.active;
+
+  void _onStatus(AnimationStatus status) {
+    if ((status == AnimationStatus.completed ||
+            status == AnimationStatus.dismissed) &&
+        !widget.active &&
+        _controller.value == 0 &&
+        mounted) {
+      setState(() => _visible = false);
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant _TabPane oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.active == oldWidget.active) return;
+    final duration = motionDuration(context, _TabPane._duration);
+    if (widget.active) {
+      _visible = true;
+      if (duration == Duration.zero) {
+        _controller.value = 1;
+      } else {
+        _controller.animateTo(
+          1,
+          duration: duration,
+          curve: Curves.easeOutCubic,
+        );
+      }
+    } else if (duration == Duration.zero) {
+      _controller.value = 0;
+      _visible = false;
+    } else {
+      _controller.animateTo(0, duration: duration, curve: Curves.easeOutCubic);
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller
+      ..removeStatusListener(_onStatus)
+      ..dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Offstage(
+      offstage: !_visible,
+      child: TickerMode(
+        enabled: widget.active,
+        child: ActiveLayer(
+          active: widget.active,
+          child: FadeTransition(opacity: _controller, child: widget.child),
+        ),
       ),
     );
   }
@@ -333,23 +416,38 @@ class _Tabs extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final cubit = context.read<WatchSourcesTabCubit>();
-    return Transform.translate(
-      offset: const Offset(-_inset, 0),
-      // Large text on a narrow phone puts the last tab on a line of its own
-      // rather than past the edge.
-      child: Wrap(
-        children: [
-          for (final tab in tabs)
-            MarkedTab(
-              label: switch (tab) {
-                WatchSourcesTab.online => l10n.watchSourcesOnlineSection,
-                WatchSourcesTab.torrents => l10n.watchSourcesTorrentsSection,
-                WatchSourcesTab.mine => l10n.watchSourcesMineSection,
-              },
-              selected: tab == selected,
-              onTap: () => cubit.select(tab),
+    final scheme = Theme.of(context).colorScheme;
+    return SizedBox(
+      width: double.infinity,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          border: Border(
+            bottom: BorderSide(color: DetailLayout.ruleColor(scheme)),
+          ),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.only(bottom: 4),
+          child: Transform.translate(
+            offset: const Offset(-_inset, 0),
+            // Large text on a narrow phone puts the last tab on a line of its own
+            // rather than past the edge.
+            child: Wrap(
+              children: [
+                for (final tab in tabs)
+                  MarkedTab(
+                    label: switch (tab) {
+                      WatchSourcesTab.online => l10n.watchSourcesOnlineSection,
+                      WatchSourcesTab.torrents =>
+                        l10n.watchSourcesTorrentsSection,
+                      WatchSourcesTab.mine => l10n.watchSourcesMineSection,
+                    },
+                    selected: tab == selected,
+                    onTap: () => cubit.select(tab),
+                  ),
+              ],
             ),
-        ],
+          ),
+        ),
       ),
     );
   }

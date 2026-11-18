@@ -1168,10 +1168,15 @@ void main() {
     () async {
       engine.failedInitializations = 1;
 
-      await expectLater(repository.restore(), throwsA(isA<StateError>()));
-      await repository.restore();
+      await expectLater(
+        repository.prepareSource(magnet: _magnet),
+        throwsStateError,
+      );
+      final source = await repository.prepareSource(magnet: _magnet);
 
-      expect(await repository.currentDownloads(), isEmpty);
+      expect(source.files, isNotEmpty);
+      expect(engine.initializations, 2);
+      await repository.disposePreparedSource(sourceToken: source.sourceToken);
     },
   );
 
@@ -1757,17 +1762,38 @@ void main() {
     },
   );
 
-  test('restart flush does not initialize an unavailable engine', () async {
-    final saved = _savedDownload();
-    await registry.writeDownloads([saved]);
-    engine.failedInitializations = 1;
+  test(
+    'completed files stay accessible when the torrent engine fails',
+    () async {
+      final saved = _savedDownload(
+        id: 'finished-1',
+      ).copyWith(status: DownloadStatus.completed, downloadedBytes: 100);
+      final file = File(
+        path.join(
+          downloadsDirectory.path,
+          'content',
+          saved.id,
+          saved.relativePath,
+        ),
+      );
+      await file.create(recursive: true);
+      await registry.writeDownloads([saved]);
+      engine.failedInitializations = 2;
 
-    await expectLater(repository.restore(), throwsA(isA<StateError>()));
-    await repository.flushForRestart();
+      await repository.restore();
+      expect(engine.initializations, 0);
+      await expectLater(
+        repository.prepareSource(magnet: _magnet),
+        throwsStateError,
+      );
+      final completed = await repository.findCompletedById(id: saved.id);
+      expect(completed?.localPath, file.path);
+      await repository.flushForRestart();
 
-    expect(engine.initializations, 1);
-    expect((await registry.readDownloads()).single.id, saved.id);
-  });
+      expect(engine.initializations, 1);
+      expect((await registry.readDownloads()).single.id, saved.id);
+    },
+  );
 
   test(
     'restart flush waits for registry writes, propagates, and retries',

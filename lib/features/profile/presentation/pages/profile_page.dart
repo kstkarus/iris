@@ -11,6 +11,8 @@ import 'package:iris/features/profile/presentation/widgets/profile_header.dart';
 import 'package:iris/features/profile/presentation/widgets/user_list_view.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/widgets/adaptive/page_frame.dart';
+import 'package:iris/shared/widgets/detail_layout.dart';
+import 'package:iris/shared/widgets/dither_switcher.dart';
 import 'package:iris/shared/widgets/pixel_icon.dart';
 import 'package:iris/shared/widgets/status_views.dart';
 
@@ -37,24 +39,35 @@ class ProfilePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final state = context.watch<AuthCubit>().state;
+    final (Object key, Widget view) = switch (state) {
+      AuthRestoring() => ('restoring', const LoadingView()),
+      AuthSigningIn() => (
+        'signing_in',
+        LoadingView(
+          label: AppLocalizations.of(context).profileSigningIn,
+          details: [AppLocalizations.of(context).profileSigningInHint],
+        ),
+      ),
+      AuthSignedOut() => ('signed_out', _SignedOut(state: state)),
+      AuthSignedIn(:final account) => (
+        'signed_in_${account.id}',
+        UserListView(
+          header: _Account(account: account),
+          onOpen: onOpenAnime,
+          onOpenFriend: onOpenFriend,
+          onBrowseCatalog: onBrowseCatalog,
+          mine: true,
+        ),
+      ),
+    };
     return Scaffold(
       body: SafeArea(
         child: PageFrame(
-          child: switch (state) {
-            AuthRestoring() => const LoadingView(),
-            AuthSigningIn() => LoadingView(
-              label: AppLocalizations.of(context).profileSigningIn,
-              details: [AppLocalizations.of(context).profileSigningInHint],
-            ),
-            AuthSignedOut() => _SignedOut(state: state),
-            AuthSignedIn(:final account) => UserListView(
-              header: _Account(account: account),
-              onOpen: onOpenAnime,
-              onOpenFriend: onOpenFriend,
-              onBrowseCatalog: onBrowseCatalog,
-              mine: true,
-            ),
-          },
+          child: DitherSwitcher(
+            expand: true,
+            duration: const Duration(milliseconds: 300),
+            child: KeyedSubtree(key: ValueKey(key), child: view),
+          ),
         ),
       ),
     );
@@ -116,6 +129,11 @@ class _Account extends StatelessWidget {
         key: ProfilePage.signOutButtonKey,
         style: TextButton.styleFrom(
           foregroundColor: Theme.of(context).colorScheme.onSurfaceVariant,
+          textStyle: const TextStyle(
+            fontFamily: DetailLayout.sansFont,
+            fontSize: 13,
+            fontWeight: FontWeight.w500,
+          ),
         ),
         onPressed: context.read<AuthCubit>().signOut,
         child: Text(l10n.profileSignOut),

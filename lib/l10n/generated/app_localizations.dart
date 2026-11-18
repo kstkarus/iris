@@ -944,6 +944,12 @@ abstract class AppLocalizations {
   /// **'Software only'**
   String get playerDecoderSoftwareOnly;
 
+  /// No description provided for @playerPlaybackSectionTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Playback'**
+  String get playerPlaybackSectionTitle;
+
   /// No description provided for @playerPlaybackSpeedTitle.
   ///
   /// In en, this message translates to:
@@ -2683,6 +2689,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Add'**
   String get savedTorrentsAddConfirm;
+
+  /// No description provided for @savedTorrentsSaveFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t save the torrent. Try again.'**
+  String get savedTorrentsSaveFailed;
 
   /// No description provided for @savedTorrentsDeleted.
   ///

@@ -1,7 +1,40 @@
 import 'package:flutter/material.dart';
 
 import 'package:iris/l10n/generated/app_localizations.dart';
+import 'package:iris/shared/utils/motion_duration.dart';
+import 'package:iris/shared/widgets/active_layer.dart';
+import 'package:iris/shared/widgets/detail_layout.dart';
 import 'package:iris/shared/widgets/segmented_bar.dart';
+
+/// Retry card when full details fail to load on top of a preview.
+class DetailRetryBanner extends StatelessWidget {
+  const DetailRetryBanner({
+    required this.message,
+    required this.onRetry,
+    super.key,
+  });
+
+  final String message;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return DecoratedBox(
+      decoration: DetailLayout.cardDecoration(theme.colorScheme),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        child: InlineRetry(
+          message: message,
+          onRetry: onRetry,
+          style: theme.textTheme.bodyMedium?.copyWith(
+            fontFamily: DetailLayout.sansFont,
+          ),
+        ),
+      ),
+    );
+  }
+}
 
 /// A centred loading state: a short run of blocks sweeping across a bar and
 /// what is being waited for.
@@ -38,15 +71,24 @@ class LoadingView extends StatelessWidget {
               Text(
                 label,
                 textAlign: TextAlign.center,
-                style: theme.textTheme.bodyMedium,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  fontFamily: DetailLayout.sansFont,
+                ),
               ),
             ],
             for (final line in details) ...[
               const SizedBox(height: 4),
-              Text(
+              MixedDataText(
                 line,
                 textAlign: TextAlign.center,
-                style: theme.textTheme.bodySmall,
+                sansStyle: theme.textTheme.bodySmall?.copyWith(
+                  fontFamily: DetailLayout.sansFont,
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+                monoStyle: DetailLayout.monoTelemetryStyle(
+                  theme.textTheme.bodySmall,
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
               ),
             ],
           ],
@@ -167,18 +209,25 @@ class MessageView extends StatelessWidget {
                 Text(
                   title,
                   textAlign: TextAlign.center,
-                  style: theme.textTheme.headlineSmall,
+                  style: theme.textTheme.headlineSmall?.copyWith(
+                    wordSpacing: -3.6,
+                  ),
                 ),
                 const SizedBox(height: 12),
               ],
               Text(
                 message,
                 textAlign: TextAlign.center,
-                style: title == null
-                    ? theme.textTheme.bodyLarge
-                    : theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
+                style:
+                    (title == null
+                            ? theme.textTheme.bodyLarge
+                            : theme.textTheme.bodyMedium?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ))
+                        ?.copyWith(
+                          fontFamily: DetailLayout.sansFont,
+                          height: 1.4,
+                        ),
               ),
               if (action != null) ...[const SizedBox(height: 24), action],
             ],
@@ -236,6 +285,8 @@ class InlineRetry extends StatelessWidget {
   }
 }
 
+enum _PagingFooterSlot { loading, failed, idle }
+
 /// The end of a paged list: a spinner while the next page loads, or why
 /// it did not, with a way to try again; [idle] otherwise.
 class PagingFooter extends StatelessWidget {
@@ -256,14 +307,17 @@ class PagingFooter extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final anim = motionDuration(context, const Duration(milliseconds: 180));
+    final Widget content;
     if (loadingMore) {
-      return const Padding(
+      content = const Padding(
+        key: ValueKey(_PagingFooterSlot.loading),
         padding: EdgeInsets.symmetric(vertical: 8),
         child: Center(child: SizedBox(width: 120, child: BlockSpinner())),
       );
-    }
-    if (failed) {
-      return Column(
+    } else if (failed) {
+      content = Column(
+        key: const ValueKey(_PagingFooterSlot.failed),
         children: [
           const SegmentedRule(),
           Padding(
@@ -272,7 +326,30 @@ class PagingFooter extends StatelessWidget {
           ),
         ],
       );
+    } else {
+      content = KeyedSubtree(
+        key: const ValueKey(_PagingFooterSlot.idle),
+        child: idle,
+      );
     }
-    return idle;
+    if (anim == Duration.zero) return content;
+    return AnimatedSize(
+      duration: anim,
+      curve: Curves.easeOutCubic,
+      alignment: Alignment.topCenter,
+      child: AnimatedSwitcher(
+        duration: anim,
+        switchInCurve: Curves.easeOutCubic,
+        switchOutCurve: Curves.easeOutCubic,
+        layoutBuilder: (currentChild, previousChildren) => Stack(
+          alignment: Alignment.topCenter,
+          children: ActiveLayer.switcherChildren(
+            currentChild,
+            previousChildren,
+          ),
+        ),
+        child: content,
+      ),
+    );
   }
 }

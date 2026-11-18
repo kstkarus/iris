@@ -66,6 +66,10 @@ class DownloadItem {
       ? 0
       : (downloadedBytes / totalBytes).clamp(0.0, 1.0).toDouble();
 
+  /// For indicators where a full bar means the episode is ready.
+  double get progressUntilCompleted =>
+      status == DownloadStatus.completed ? 1 : progress.clamp(0.0, 0.99);
+
   /// An episode loaded from a video server rather than a torrent: it has
   /// no peers, and its size is an estimate until it is done.
   bool get isOnline => OnlineSourceLink.tryParse(magnet) != null;

@@ -11,6 +11,7 @@ void main() {
     '[Group] Title [03][BDRip 1080p].mkv': 3,
     'Frieren Episode 9.mp4': 9,
     'Фрирен серия 4.mkv': 4,
+    '91 Days 01.mkv': 1,
     '[千夏字幕组][葬送的芙莉莲][第28話][1080p].mp4': 28,
     '08.mkv': 8,
     'One Piece - 1100 (1080p).mkv': 1100,
@@ -31,6 +32,8 @@ void main() {
     '[Group] Movie [BD 1080p x265 10bit].mkv',
     'Frieren Batch.mkv',
     'Kimi no Na wa - 2016 [BD 1080p].mkv',
+    '86 Eighty Six.mkv',
+    '5 Centimeters per Second.mkv',
   ];
   for (final name in noEpisode) {
     test('finds no episode in "$name"', () {

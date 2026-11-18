@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:iris/entities/watch_progress/domain/watch_progress.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/utils/duration_formatter.dart';
+import 'package:iris/shared/widgets/detail_layout.dart';
 import 'package:iris/shared/widgets/pixel_icon.dart';
 import 'package:iris/shared/widgets/segmented_bar.dart';
 
@@ -38,7 +39,9 @@ class WatchProgressLine extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final theme = Theme.of(context);
-    final style = this.style ?? theme.textTheme.bodySmall;
+    final style = (this.style ?? theme.textTheme.bodySmall)?.copyWith(
+      fontFamily: DetailLayout.sansFont,
+    );
 
     if (progress.isFinished) {
       return Wrap(
@@ -68,6 +71,7 @@ class WatchProgressLine extends StatelessWidget {
                 value: progress.fraction,
                 height: 4,
                 segment: 6,
+                trackColor: DetailLayout.progressTrackColor(theme.colorScheme),
               ),
             ),
             const SizedBox(height: 6),

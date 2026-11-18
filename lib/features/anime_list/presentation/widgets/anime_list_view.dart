@@ -21,6 +21,7 @@ import 'package:iris/features/anime_list/presentation/widgets/continue_watching_
 import 'package:iris/features/anime_list/presentation/widgets/recent_searches.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/utils/bayer_mask.dart';
+import 'package:iris/shared/widgets/active_layer.dart';
 import 'package:iris/shared/widgets/adaptive/adaptive_grid_row.dart';
 import 'package:iris/shared/widgets/adaptive/adaptive_content_width.dart';
 import 'package:iris/shared/widgets/adaptive/window_size_class.dart';
@@ -60,7 +61,7 @@ class _AnimeListViewState extends State<AnimeListView>
   /// 0 shows the catalog, 1 the search results.
   late final AnimationController _results = AnimationController(
     vsync: this,
-    duration: DitherTransition.duration,
+    duration: const Duration(milliseconds: 260),
   );
   Timer? _searchDebounceTimer;
   bool _searching = false;
@@ -227,6 +228,7 @@ class _AnimeListViewState extends State<AnimeListView>
                 Expanded(
                   child: _Layers(
                     results: _results,
+                    searching: _searching,
                     catalog: _CatalogPane(
                       columns: columns,
                       controller: _catalogScroll,
@@ -249,7 +251,7 @@ class _AnimeListViewState extends State<AnimeListView>
   }
 }
 
-class _SearchControls extends StatelessWidget {
+class _SearchControls extends StatefulWidget {
   const _SearchControls({
     required this.controller,
     required this.focusNode,
@@ -269,6 +271,54 @@ class _SearchControls extends StatelessWidget {
   final AnimeDetailsRepository? detailsRepository;
 
   @override
+  State<_SearchControls> createState() => _SearchControlsState();
+}
+
+class _SearchControlsState extends State<_SearchControls>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _historyController = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 180),
+  );
+  late final CurvedAnimation _historyCurve = CurvedAnimation(
+    parent: _historyController,
+    curve: Curves.easeOutCubic,
+  );
+  bool _initialized = false;
+  bool _hasHistory = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final hasHistory = continueWatchingItems(
+      context.watchWatchProgress(),
+    ).isNotEmpty;
+    final animate = !MediaQuery.disableAnimationsOf(context);
+    if (!_initialized) {
+      _initialized = true;
+      _hasHistory = hasHistory;
+      _historyController.value = hasHistory ? 1 : 0;
+      return;
+    }
+    if (hasHistory == _hasHistory) return;
+    _hasHistory = hasHistory;
+    if (!animate) {
+      _historyController.value = hasHistory ? 1 : 0;
+    } else if (hasHistory) {
+      _historyController.forward();
+    } else {
+      _historyController.reverse();
+    }
+  }
+
+  @override
+  void dispose() {
+    _historyCurve.dispose();
+    _historyController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final narrowed = context.select<AnimeListBloc, bool>(
@@ -279,27 +329,50 @@ class _SearchControls extends StatelessWidget {
     final count = context.select<AnimeListBloc, int>(
       (bloc) => bloc.state.filters.activeCount,
     );
-    final continueItems = continueWatchingItems(context.watchWatchProgress());
-    final history = continueItems.isEmpty
-        ? null
-        : ContinueWatchingButton(repository: detailsRepository);
-    return SearchToolbar(
-      searchField: SearchField(
-        controller: controller,
-        focusNode: focusNode,
-        hintText: l10n.animeListSearchHint,
-        onChanged: onChanged,
-        onSubmitted: onSubmitted,
-        onCancel: onCancel,
-      ),
-      actionIcon: PixelGlyph.tune,
-      actionLabel: l10n.animeListFilterSortButton,
-      actionActive: narrowed,
-      actionCount: count,
-      onAction: () =>
-          showAnimeListCriteriaSheet(context, search: controller.text.trim()),
-      isWide: isWide,
-      trailingAction: history,
+    return AnimatedBuilder(
+      animation: _historyController,
+      builder: (context, _) {
+        final showHistory = _hasHistory || !_historyController.isDismissed;
+        final history = !showHistory
+            ? null
+            : FadeTransition(
+                opacity: _historyCurve,
+                child: SizeTransition(
+                  sizeFactor: _historyCurve,
+                  axis: Axis.horizontal,
+                  alignment: AlignmentDirectional.centerEnd,
+                  child: IgnorePointer(
+                    ignoring: !_hasHistory,
+                    child: ExcludeSemantics(
+                      excluding: !_hasHistory,
+                      child: ContinueWatchingButton(
+                        repository: widget.detailsRepository,
+                      ),
+                    ),
+                  ),
+                ),
+              );
+        return SearchToolbar(
+          searchField: SearchField(
+            controller: widget.controller,
+            focusNode: widget.focusNode,
+            hintText: l10n.animeListSearchHint,
+            onChanged: widget.onChanged,
+            onSubmitted: widget.onSubmitted,
+            onCancel: widget.onCancel,
+          ),
+          actionIcon: PixelGlyph.tune,
+          actionLabel: l10n.animeListFilterSortButton,
+          actionActive: narrowed,
+          actionCount: count,
+          onAction: () => showAnimeListCriteriaSheet(
+            context,
+            search: widget.controller.text.trim(),
+          ),
+          isWide: widget.isWide,
+          trailingAction: history,
+        );
+      },
     );
   }
 }
@@ -310,11 +383,13 @@ class _SearchControls extends StatelessWidget {
 class _Layers extends StatelessWidget {
   const _Layers({
     required this.results,
+    required this.searching,
     required this.catalog,
     required this.search,
   });
 
   final Animation<double> results;
+  final bool searching;
   final Widget catalog;
   final Widget search;
 
@@ -332,10 +407,17 @@ class _Layers extends StatelessWidget {
               offstage: covered,
               child: TickerMode(
                 enabled: !covered,
-                child: BayerMasked(open: open, inverse: true, child: catalog),
+                child: ActiveLayer(
+                  active: !searching,
+                  child: BayerMasked(open: open, inverse: true, child: catalog),
+                ),
               ),
             ),
-            if (open > 0) BayerMasked(open: open, child: search),
+            if (open > 0)
+              ActiveLayer(
+                active: searching,
+                child: BayerMasked(open: open, child: search),
+              ),
           ],
         );
       },
@@ -375,9 +457,13 @@ class _CatalogPane extends StatelessWidget {
             );
           }
         }
+        final Widget child;
         if (message != null) {
-          return CustomScrollView(
-            controller: controller,
+          child = CustomScrollView(
+            key: ValueKey(
+              'catalog_message_${state.errorType}_${state.filters.hasAny}',
+            ),
+            primary: false,
             slivers: [
               SliverToBoxAdapter(child: heading),
               const SliverToBoxAdapter(
@@ -389,15 +475,22 @@ class _CatalogPane extends StatelessWidget {
               ),
             ],
           );
+        } else {
+          child = AnimeGrid(
+            key: const ValueKey('catalog_grid'),
+            bloc: bloc,
+            state: state,
+            columns: columns,
+            controller: controller,
+            header: heading,
+            contentPadding: padding,
+          );
         }
 
-        return AnimeGrid(
-          bloc: bloc,
-          state: state,
-          columns: columns,
-          controller: controller,
-          header: heading,
-          contentPadding: padding,
+        return DitherSwitcher(
+          expand: true,
+          duration: const Duration(milliseconds: 240),
+          child: child,
         );
       },
     );
@@ -474,30 +567,39 @@ class _SearchResults extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bloc = context.read<AnimeSearchBloc>();
-    if (!state.isInitialLoading) {
-      if (state.errorType == AnimeListErrorType.initial &&
-          !state.hasLoadedOnce) {
-        return _FailureState(bloc: bloc);
-      }
-      if (state.hasLoadedOnce && state.items.isEmpty) {
-        return MessageView(
-          message: AppLocalizations.of(context).animeListSearchEmpty,
-          icon: PixelIcon(
-            PixelGlyph.search,
-            size: 42,
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-          ),
-          action: state.filters.hasAny ? _ResetFiltersButton() : null,
-        );
-      }
+    final Widget child;
+    if (!state.isInitialLoading &&
+        state.errorType == AnimeListErrorType.initial &&
+        !state.hasLoadedOnce) {
+      child = _FailureState(key: const ValueKey('search_failure'), bloc: bloc);
+    } else if (!state.isInitialLoading &&
+        state.hasLoadedOnce &&
+        state.items.isEmpty) {
+      child = MessageView(
+        key: ValueKey('search_empty_${state.filters.hasAny}'),
+        message: AppLocalizations.of(context).animeListSearchEmpty,
+        icon: PixelIcon(
+          PixelGlyph.search,
+          size: 42,
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+        ),
+        action: state.filters.hasAny ? _ResetFiltersButton() : null,
+      );
+    } else {
+      child = AnimeGrid(
+        key: const ValueKey('search_grid'),
+        bloc: bloc,
+        state: state,
+        columns: columns,
+        controller: controller,
+        onOpenAnime: () =>
+            context.read<SearchHistoryCubit?>()?.record(state.query),
+      );
     }
-    return AnimeGrid(
-      bloc: bloc,
-      state: state,
-      columns: columns,
-      controller: controller,
-      onOpenAnime: () =>
-          context.read<SearchHistoryCubit?>()?.record(state.query),
+    return DitherSwitcher(
+      expand: true,
+      duration: const Duration(milliseconds: 240),
+      child: child,
     );
   }
 }
@@ -555,7 +657,7 @@ class _ResetFiltersButton extends StatelessWidget {
 }
 
 class _FailureState extends StatelessWidget {
-  const _FailureState({required this.bloc});
+  const _FailureState({required this.bloc, super.key});
 
   final AnimeListBloc bloc;
 

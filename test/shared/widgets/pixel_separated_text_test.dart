@@ -34,4 +34,39 @@ void main() {
       expect(find.bySemanticsLabel(label), findsOneWidget);
     }
   });
+
+  testWidgets('wraps segments onto clean lines without dangling separators', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      testApp(
+        const Scaffold(
+          body: SizedBox(
+            width: 140,
+            child: PixelSeparatedText.parts([
+              '38.1 GiB',
+              '412 seeders',
+              '18,204 downloads',
+              'Mar 22, 2024',
+            ], cleanLineWrap: true),
+          ),
+        ),
+      ),
+    );
+    expect(tester.takeException(), isNull);
+    expect(
+      find.bySemanticsLabel(
+        '38.1 GiB, 412 seeders, 18,204 downloads, Mar 22, 2024',
+      ),
+      findsOneWidget,
+    );
+    final first = tester.getTopLeft(
+      find.textContaining('38.1 GiB', findRichText: true),
+    );
+    final third = tester.getTopLeft(
+      find.textContaining('18,204 downloads', findRichText: true),
+    );
+    expect(third.dy, greaterThan(first.dy));
+    expect(third.dx, equals(first.dx));
+  });
 }

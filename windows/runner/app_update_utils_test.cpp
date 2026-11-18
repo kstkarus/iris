@@ -29,6 +29,13 @@ int wmain() {
   assert(app_update::BeginAppStartup(&running, installing_name.c_str(),
                                      running_name.c_str()));
   assert(running != nullptr);
+  HANDLE second = nullptr;
+  assert(!app_update::BeginAppStartup(&second, installing_name.c_str(),
+                                      running_name.c_str()));
+  assert(second == nullptr);
+  CloseHandle(running);
+  assert(app_update::BeginAppStartup(&running, installing_name.c_str(),
+                                     running_name.c_str()));
   CloseHandle(running);
 
   HANDLE ready = CreateEventW(nullptr, TRUE, FALSE, nullptr);

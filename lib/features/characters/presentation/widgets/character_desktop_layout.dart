@@ -11,6 +11,7 @@ import 'package:iris/shared/widgets/adaptive/adaptive_content_width.dart';
 import 'package:iris/shared/widgets/adaptive/window_size_class.dart';
 import 'package:iris/shared/widgets/detail_layout.dart';
 import 'package:iris/shared/widgets/poster_image.dart';
+import 'package:iris/shared/widgets/status_views.dart';
 
 /// Desktop and landscape tablets: a sticky left dossier rail (portrait and
 /// name variants) beside a reading-width editorial column where the headline

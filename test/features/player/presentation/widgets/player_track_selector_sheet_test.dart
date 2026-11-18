@@ -131,9 +131,9 @@ void main() {
       ),
     );
 
-    expect(find.text('AUDIO'), findsNothing);
+    expect(find.text('Audio'), findsNothing);
     expect(find.text('Japanese'), findsNothing);
-    expect(find.text('SUBTITLES'), findsOneWidget);
+    expect(find.text('Subtitles'), findsOneWidget);
     expect(find.text('Off'), findsOneWidget);
     expect(find.text('English Signs'), findsOneWidget);
   });
@@ -152,8 +152,8 @@ void main() {
       ),
     );
 
-    expect(find.text('AUDIO'), findsOneWidget);
-    expect(find.text('SUBTITLES'), findsNothing);
+    expect(find.text('Audio'), findsOneWidget);
+    expect(find.text('Subtitles'), findsNothing);
     expect(find.text('Off'), findsNothing);
     expect(find.text('Auto'), findsOneWidget);
   });

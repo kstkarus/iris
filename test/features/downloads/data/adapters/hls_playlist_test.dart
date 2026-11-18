@@ -39,6 +39,16 @@ https://other.example.test/1080/index.m3u8
       ));
     });
 
+    test(
+      'takes the closest lower variant when the selected height is missing',
+      () {
+        expect(
+          HlsPlaylist.pickVariant(master, base, quality: 600)?.height,
+          480,
+        );
+      },
+    );
+
     test('gives nothing for a media playlist', () {
       expect(
         HlsPlaylist.pickVariant(
@@ -52,6 +62,14 @@ https://other.example.test/1080/index.m3u8
   });
 
   group('parseMedia', () {
+    test('different variant heights identify different partial files', () {
+      const text = '#EXTM3U\n#EXTINF:6,\na.ts\n';
+      final lower = HlsPlaylist.parseMedia(text, base, variantHeight: 480)!;
+      final higher = HlsPlaylist.parseMedia(text, base, variantHeight: 720)!;
+
+      expect(lower.fingerprint, isNot(higher.fingerprint));
+    });
+
     test('reads segments with their play time, Kodik names included', () {
       const text =
           '#EXTM3U\r\n'

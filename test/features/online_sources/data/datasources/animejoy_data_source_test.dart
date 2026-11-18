@@ -17,7 +17,7 @@ void main() {
   AnimejoyDataSource source(Future<FakeReply> Function(RequestOptions) reply) {
     final adapter = FakeHttpAdapter(reply);
     final dio = createVideoServerDio()..httpClientAdapter = adapter;
-    return AnimejoyDataSource(dio: dio, baseUrl: 'https://otakujoy.fun/');
+    return AnimejoyDataSource(dio: dio);
   }
 
   setUp(() => requests = []);
@@ -29,6 +29,7 @@ void main() {
     });
 
     expect(await animejoy.search('Tougen Anki'), [5682, 5287]);
+    expect(requests.single.uri.origin, 'https://otakujoy.fun');
     expect(requests.single.uri.path, '/index.php');
     expect(requests.single.uri.queryParameters, {
       'story': 'Tougen Anki',

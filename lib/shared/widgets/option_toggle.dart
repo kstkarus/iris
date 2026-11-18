@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'package:iris/shared/utils/motion_duration.dart';
+import 'package:iris/shared/widgets/detail_layout.dart';
 import 'package:iris/shared/widgets/tap_row.dart';
 
 /// A square check box with its label, for both single choice ([exclusive])
@@ -24,19 +26,22 @@ class OptionToggle extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    final anim = motionDuration(context, const Duration(milliseconds: 160));
     return Semantics(
       checked: selected,
       inMutuallyExclusiveGroup: exclusive,
       child: TapRow(
         onTap: () => onChanged(exclusive || !selected),
         child: ConstrainedBox(
-          constraints: const BoxConstraints(minHeight: 44),
+          constraints: const BoxConstraints(minHeight: 46),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Container(
+                AnimatedContainer(
+                  duration: anim,
+                  curve: Curves.easeOutCubic,
                   width: 18,
                   height: 18,
                   padding: const EdgeInsets.all(3),
@@ -48,19 +53,29 @@ class OptionToggle extends StatelessWidget {
                       width: 1.5,
                     ),
                   ),
-                  child: selected
-                      ? ColoredBox(color: scheme.onSurface)
-                      : const SizedBox.shrink(),
+                  child: AnimatedContainer(
+                    duration: anim,
+                    curve: Curves.easeOutCubic,
+                    color: selected ? scheme.onSurface : Colors.transparent,
+                  ),
                 ),
-                const SizedBox(width: 10),
+                const SizedBox(width: 12),
                 Flexible(
-                  child: Text(
-                    label,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: selected
-                          ? scheme.onSurface
-                          : scheme.onSurfaceVariant,
-                    ),
+                  child: AnimatedDefaultTextStyle(
+                    duration: anim,
+                    curve: Curves.easeOutCubic,
+                    style: (theme.textTheme.bodyMedium ?? const TextStyle())
+                        .copyWith(
+                          fontFamily: DetailLayout.sansFont,
+                          fontSize: 15,
+                          fontWeight: selected
+                              ? FontWeight.w500
+                              : FontWeight.w400,
+                          color: selected
+                              ? scheme.onSurface
+                              : scheme.onSurfaceVariant,
+                        ),
+                    child: Text(label),
                   ),
                 ),
               ],

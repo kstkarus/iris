@@ -1,6 +1,7 @@
 import 'package:iris/features/downloads/domain/entities/download_item.dart';
 import 'package:iris/features/downloads/domain/entities/download_status.dart';
 import 'package:iris/features/downloads/domain/entities/download_title.dart';
+import 'package:iris/features/online_sources/domain/online_episode_files.dart';
 import 'package:iris/features/player/domain/entities/prepared_player_source.dart';
 import 'package:iris/features/player/domain/entities/player_video_file.dart';
 
@@ -37,22 +38,15 @@ PreparedPlayerSource? downloadedPlayerSource(
 }
 
 PlayerVideoFile _downloadedFile(DownloadItem item) {
-  // Online downloads persist onlineEpisodeFileName: "04 Title" or "12.5".
-  // Recover that supplied number rather than guessing it from a torrent name.
-  final separator = item.fileName.indexOf(' ');
-  final number = item.isOnline
-      ? num.tryParse(
-          separator < 0 ? item.fileName : item.fileName.substring(0, separator),
-        )
+  final episode = item.isOnline
+      ? parseOnlineEpisodeFileName(item.fileName)
       : null;
   return PlayerVideoFile(
     index: item.fileIndex,
     name: item.fileName,
     size: item.totalBytes,
     extension: '',
-    episodeNumber: number,
-    title: number != null && separator >= 0
-        ? item.fileName.substring(separator + 1)
-        : '',
+    episodeNumber: episode?.number,
+    title: episode?.title ?? '',
   );
 }

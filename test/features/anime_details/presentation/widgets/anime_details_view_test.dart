@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -283,6 +285,28 @@ void main() {
       expect(tester.takeException(), isNull);
     });
   }
+
+  testWidgets('collapses empty description smoothly without layout error', (
+    tester,
+  ) async {
+    final gate = Completer<AnimeDetails>();
+    final cubit = AnimeDetailsCubit(
+      animeId: '5114',
+      repository: _FutureAnimeDetailsRepository(gate.future),
+    );
+    addTearDown(cubit.close);
+
+    await tester.pumpWidget(_app(cubit..loadAnime(), preview: _preview));
+    await tester.pump();
+    expect(find.text('Synopsis'), findsOneWidget);
+
+    gate.complete(AnimeDetails(anime: fmaDetails.anime, description: ''));
+    await tester.pump(const Duration(milliseconds: 110));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Synopsis'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
 }
 
 Future<void> _pumpPage(WidgetTester tester) async {
@@ -356,6 +380,15 @@ class _ToggleAnimeDetailsRepository implements AnimeDetailsRepository {
 
     return fmaDetails;
   }
+}
+
+class _FutureAnimeDetailsRepository implements AnimeDetailsRepository {
+  _FutureAnimeDetailsRepository(this.future);
+
+  final Future<AnimeDetails> future;
+
+  @override
+  Future<AnimeDetails> fetchAnimeDetails(String id) => future;
 }
 
 final _preview = AnimeDetailsPreview.fromSummary(

@@ -101,10 +101,13 @@ inline bool BeginAppStartup(HANDLE* running_mutex,
     return false;
   }
 
+  SetLastError(ERROR_SUCCESS);
   *running_mutex = CreateMutexW(nullptr, FALSE, running_name);
+  const bool already_running =
+      *running_mutex != nullptr && GetLastError() == ERROR_ALREADY_EXISTS;
   const bool released = ReleaseMutex(installing_mutex) != FALSE;
   CloseHandle(installing_mutex);
-  if (!released || *running_mutex == nullptr) {
+  if (!released || *running_mutex == nullptr || already_running) {
     if (*running_mutex != nullptr) {
       CloseHandle(*running_mutex);
       *running_mutex = nullptr;

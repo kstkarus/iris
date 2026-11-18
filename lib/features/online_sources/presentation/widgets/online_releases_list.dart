@@ -14,10 +14,11 @@ import 'package:iris/shared/online/online_source_link.dart';
 import 'package:iris/shared/utils/watched_first.dart';
 import 'package:iris/shared/widgets/adaptive/adaptive_grid_row.dart';
 import 'package:iris/shared/widgets/app_skeleton.dart';
+import 'package:iris/shared/widgets/dither_list.dart';
 import 'package:iris/shared/widgets/dither_switcher.dart';
 import 'package:iris/shared/widgets/pixel_icon.dart';
 import 'package:iris/shared/widgets/quality_badge.dart';
-import 'package:iris/shared/widgets/segmented_bar.dart';
+import 'package:iris/shared/widgets/detail_layout.dart';
 import 'package:iris/shared/widgets/source_facts_line.dart';
 import 'package:iris/shared/widgets/status_views.dart';
 import 'package:iris/shared/widgets/tap_row.dart';
@@ -92,27 +93,40 @@ class OnlineReleasesList extends StatelessWidget {
     bool watched(OnlineRelease release) =>
         watchedLinks.contains(_link(release));
     final ordered = watchedFirst(releases, watched);
+    final scheme = Theme.of(context).colorScheme;
+    final items = <_OnlineRowItem>[
+      for (final release in ordered)
+        _ReleaseItem(
+          key: _link(release),
+          release: release,
+          watched: watched(release),
+        ),
+      for (var index = 0; index < standIns; index++)
+        _StandInItem(key: ('stand_in', index)),
+    ];
     // Each dub its own node: dubs side by side would be heard, and
     // tapped, as one.
-    Widget cell(int index) => Semantics(
+    Widget cell(_OnlineRowItem item) => Semantics(
       container: true,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const SegmentedRule(),
-          if (index < ordered.length)
-            _ReleaseRow(
-              release: ordered[index],
-              watched: watched(ordered[index]),
-              onTap: () => _open(context, ordered[index]),
-              onDownload: () => _download(context, ordered[index]),
-            )
-          else
-            const _StandInRow(),
-        ],
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 10),
+        child: Material(
+          color: scheme.surfaceContainerLow,
+          shape: RoundedRectangleBorder(
+            side: BorderSide(color: DetailLayout.ruleColor(scheme)),
+          ),
+          child: switch (item) {
+            _ReleaseItem(:final release, :final watched) => _ReleaseRow(
+              release: release,
+              watched: watched,
+              onTap: () => _open(context, release),
+              onDownload: () => _download(context, release),
+            ),
+            _StandInItem() => const _StandInRow(),
+          },
+        ),
       ),
     );
-    final count = ordered.length + standIns;
     // A dub's name is short: wide windows set the dubs in columns, read
     // row by row, rather than one narrow line across the whole width.
     return LayoutBuilder(
@@ -122,21 +136,14 @@ class OnlineReleasesList extends StatelessWidget {
           minItemWidth: _minColumnWidth,
           spacing: _columnGap,
         );
-        return ListView.builder(
+        return DitherList<_OnlineRowItem>(
           padding: const EdgeInsets.only(bottom: 24),
-          itemCount: (count / columns).ceil(),
-          itemBuilder: (context, row) => AdaptiveGridRow(
-            columns: columns,
-            spacing: _columnGap,
-            children: [
-              for (
-                var index = row * columns;
-                index < count && index < (row + 1) * columns;
-                index++
-              )
-                cell(index),
-            ],
-          ),
+          items: items,
+          keyOf: (item) => item.key,
+          crossAxisCount: columns,
+          columnSpacing: _columnGap,
+          removalDuration: const Duration(milliseconds: 240),
+          itemBuilder: (context, item) => cell(item),
         );
       },
     );
@@ -174,6 +181,29 @@ class OnlineReleasesList extends StatelessWidget {
   }
 }
 
+/// An entry in [OnlineReleasesList]: either a resolved dub or a trailing noise
+/// row while a slower server is still searching.
+sealed class _OnlineRowItem {
+  const _OnlineRowItem(this.key);
+
+  final Object key;
+}
+
+final class _ReleaseItem extends _OnlineRowItem {
+  const _ReleaseItem({
+    required Object key,
+    required this.release,
+    required this.watched,
+  }) : super(key);
+
+  final OnlineRelease release;
+  final bool watched;
+}
+
+final class _StandInItem extends _OnlineRowItem {
+  const _StandInItem({required Object key}) : super(key);
+}
+
 /// A row's shape in noise while a server is still searching.
 class _StandInRow extends StatelessWidget {
   const _StandInRow();
@@ -181,7 +211,7 @@ class _StandInRow extends StatelessWidget {
   static const _standIn = OnlineRelease(
     provider: OnlineProvider.anilibria,
     id: '',
-    dub: 'AniLibria',
+    dub: 'Studio Dub',
     episodes: [],
     bestQuality: 1080,
   );
@@ -227,15 +257,22 @@ class _ReleaseRow extends StatelessWidget {
       inkKey: ValueKey('online_release_${release.provider.name}_${release.id}'),
       onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 12, 0, 12),
+        padding: const EdgeInsets.fromLTRB(14, 12, 4, 12),
         child: Row(
           children: [
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(release.dub, style: theme.textTheme.bodyMedium),
-                  const SizedBox(height: 4),
+                  Text(
+                    release.dub,
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontFamily: DetailLayout.sansFont,
+                      fontWeight: FontWeight.w500,
+                      fontSize: 15,
+                    ),
+                  ),
+                  const SizedBox(height: 5),
                   Wrap(
                     spacing: 8,
                     runSpacing: 4,

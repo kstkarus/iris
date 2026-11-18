@@ -864,8 +864,10 @@ void main() {
       animeTitle: 'Frieren',
       sourceTitle: 'Frieren batch',
       magnet: magnet,
-      fileIndex: 5,
-      fileName: 'Frieren - 06.mkv',
+      fileIndex: magnet.startsWith('online:') ? 6 : 5,
+      fileName: magnet.startsWith('online:')
+          ? '06 Frieren'
+          : 'Frieren - 06.mkv',
       relativePath: 'Frieren - 06.mkv',
       localPath: 'Frieren - 06.mkv',
       totalBytes: total,
@@ -942,6 +944,54 @@ void main() {
 
       expect(find.textContaining('FIRST RELEASE'), findsOneWidget);
       expect(find.textContaining('SECOND RELEASE'), findsOneWidget);
+    });
+
+    testWidgets('episode order is stable when a release has unnamed extras', (
+      tester,
+    ) async {
+      final secondEpisode = download(
+        status: DownloadStatus.completed,
+      ).copyWith(fileName: 'A - 02.mkv');
+      final extra = secondEpisode.copyWith(
+        id: 'extra',
+        fileName: 'M feature.mkv',
+        fileIndex: 7,
+      );
+      final firstEpisode = secondEpisode.copyWith(
+        id: 'first',
+        fileName: 'Z - 01.mkv',
+        fileIndex: 8,
+      );
+      final repository = _ScriptedDownloadsRepository([
+        secondEpisode,
+        extra,
+        firstEpisode,
+      ]);
+      await _pumpApp(
+        tester,
+        BlocProvider(
+          create: (_) => DownloadManagerCubit(repository: repository)..load(),
+          child: DownloadManagerPage(
+            titleKey: downloadTitleKey(firstEpisode),
+            onOpenTitle: (_) {},
+            onBrowseCatalog: () {},
+            onWatch: (_) {},
+          ),
+        ),
+      );
+
+      void expectOrder() {
+        final first = tester.getTopLeft(find.text('Episode 01')).dy;
+        final second = tester.getTopLeft(find.text('Episode 02')).dy;
+        final feature = tester.getTopLeft(find.text('M feature')).dy;
+        expect(first, lessThan(second));
+        expect(second, lessThan(feature));
+      }
+
+      expectOrder();
+      repository.push([firstEpisode, secondEpisode, extra]);
+      await tester.pumpAndSettle();
+      expectOrder();
     });
 
     testWidgets('shows known heights per episode when a release disagrees', (
@@ -1235,6 +1285,22 @@ void main() {
         expect(statusText('1080p'), findsNothing);
       },
     );
+
+    testWidgets('a full estimate is shown as 99% until the episode is ready', (
+      tester,
+    ) async {
+      final active = download(
+        downloaded: 120,
+        total: 100,
+        magnet: 'online:anilibria/9542?anime=52991',
+      );
+      await pump(tester, active);
+
+      expect(find.text('99%'), findsOneWidget);
+      expect(find.byTooltip('Pause'), findsOneWidget);
+      await openStatus(tester);
+      expect(statusText('99%'), findsOneWidget);
+    });
 
     testWidgets(
       'an active online episode with unknown size shows no fake zero',
@@ -1694,6 +1760,44 @@ void main() {
       expect(downloadFailureFrom('tracker timed out'), DownloadFailure.other);
     });
   });
+
+  testWidgets(
+    'gallery lets the last title dissolve before empty state and updates row action key',
+    (tester) async {
+      await _withTargetPlatform(TargetPlatform.android, () async {
+        final first = _libraryDownload(
+          id: 'ep-1',
+          animeId: '52991',
+          animeTitle: 'Frieren',
+          fileName: 'Episode 01.mkv',
+          status: DownloadStatus.downloading,
+          createdAt: DateTime(2026, 10, 1),
+        );
+        final repository = _ScriptedDownloadsRepository([first]);
+        await _pumpApp(
+          tester,
+          BlocProvider(
+            create: (_) => DownloadManagerCubit(repository: repository)..load(),
+            child: DownloadManagerPage(
+              onOpenTitle: (_) {},
+              onWatch: (_) {},
+              onBrowseCatalog: () {},
+            ),
+          ),
+        );
+
+        expect(
+          find.byKey(const ValueKey('download_title_anime:52991')),
+          findsOneWidget,
+        );
+        repository.push([]);
+        await tester.pump(const Duration(milliseconds: 120));
+        expect(find.text('Browse the catalog'), findsNothing);
+        await tester.pumpAndSettle();
+        expect(find.text('Browse the catalog'), findsOneWidget);
+      });
+    },
+  );
 }
 
 Future<void> _pumpApp(WidgetTester tester, Widget home) async {

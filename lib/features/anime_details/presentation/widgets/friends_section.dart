@@ -8,6 +8,7 @@ import 'package:iris/entities/user_rate/presentation/user_rate_status_label.dart
 import 'package:iris/features/anime_details/presentation/cubit/friend_rates_cubit.dart';
 import 'package:iris/features/anime_details/presentation/widgets/anime_details_layout.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
+import 'package:iris/shared/utils/motion_duration.dart';
 import 'package:iris/shared/widgets/detail_layout.dart';
 import 'package:iris/shared/widgets/dither_switcher.dart';
 import 'package:iris/shared/widgets/pixel_separated_text.dart';
@@ -24,46 +25,59 @@ class FriendsSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final rates = context.watch<FriendRatesCubit?>()?.state ?? const [];
-    if (rates.isEmpty) return const DitherSwitcher(child: SizedBox.shrink());
-    return DitherSwitcher(
-      child: Padding(
-        padding: const EdgeInsets.only(top: 32),
-        child: DetailSection(
-          label: AppLocalizations.of(context).animeDetailsFriendsTitle,
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final twoColumns = AnimeDetailsLayout.useFriendGrid(
-                context,
-                constraints.maxWidth,
-              );
-              if (!twoColumns) {
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    for (final (index, rate) in rates.indexed) ...[
-                      if (index > 0) const SizedBox(height: 8),
-                      _FriendCard(rate: rate, total: totalEpisodes),
+    final Widget child = rates.isEmpty
+        ? const SizedBox.shrink(key: ValueKey('empty'))
+        : Padding(
+            key: const ValueKey('content'),
+            padding: const EdgeInsets.only(top: 32),
+            child: DetailSection(
+              label: AppLocalizations.of(context).animeDetailsFriendsTitle,
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final twoColumns = AnimeDetailsLayout.useFriendGrid(
+                    context,
+                    constraints.maxWidth,
+                  );
+                  if (!twoColumns) {
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        for (final (index, rate) in rates.indexed) ...[
+                          if (index > 0) const SizedBox(height: 8),
+                          _FriendCard(rate: rate, total: totalEpisodes),
+                        ],
+                      ],
+                    );
+                  }
+                  const gap = 10.0;
+                  final itemWidth = (constraints.maxWidth - gap) / 2;
+                  return Wrap(
+                    spacing: gap,
+                    runSpacing: gap,
+                    children: [
+                      for (final rate in rates)
+                        SizedBox(
+                          width: itemWidth,
+                          child: _FriendCard(rate: rate, total: totalEpisodes),
+                        ),
                     ],
-                  ],
-                );
-              }
-              const gap = 10.0;
-              final itemWidth = (constraints.maxWidth - gap) / 2;
-              return Wrap(
-                spacing: gap,
-                runSpacing: gap,
-                children: [
-                  for (final rate in rates)
-                    SizedBox(
-                      width: itemWidth,
-                      child: _FriendCard(rate: rate, total: totalEpisodes),
-                    ),
-                ],
-              );
-            },
-          ),
-        ),
-      ),
+                  );
+                },
+              ),
+            ),
+          );
+    final switcher = DitherSwitcher(
+      collapse: true,
+      duration: const Duration(milliseconds: 240),
+      child: child,
+    );
+    final duration = motionDuration(context, const Duration(milliseconds: 200));
+    if (duration == Duration.zero) return switcher;
+    return AnimatedSize(
+      duration: duration,
+      curve: Curves.easeOutCubic,
+      alignment: Alignment.topCenter,
+      child: switcher,
     );
   }
 }

@@ -5,9 +5,10 @@ import 'package:iris/entities/anime/domain/anime_kind.dart';
 import 'package:iris/features/anime_details/domain/entities/related_anime.dart';
 import 'package:iris/features/anime_details/presentation/models/anime_details_preview.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
-import 'package:iris/shared/widgets/detail_layout.dart';
 import 'package:iris/shared/utils/anime_metadata_formatter.dart';
 import 'package:iris/shared/utils/incomplete_date.dart';
+import 'package:iris/shared/utils/motion_duration.dart';
+import 'package:iris/shared/widgets/detail_layout.dart';
 import 'package:iris/shared/widgets/dither_switcher.dart';
 import 'package:iris/shared/widgets/fold_row.dart';
 import 'package:iris/shared/widgets/pixel_icon.dart';
@@ -80,13 +81,15 @@ class RelatedAnimeSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final related = relatedToShow(this.related);
-    if (related.isEmpty) return const DitherSwitcher(child: SizedBox.shrink());
-
-    final l10n = AppLocalizations.of(context);
-    final scheme = Theme.of(context).colorScheme;
-    final ruleColor = DetailLayout.ruleColor(scheme);
-    return DitherSwitcher(
-      child: Padding(
+    final Widget child;
+    if (related.isEmpty) {
+      child = const SizedBox.shrink(key: ValueKey('empty'));
+    } else {
+      final l10n = AppLocalizations.of(context);
+      final scheme = Theme.of(context).colorScheme;
+      final ruleColor = DetailLayout.ruleColor(scheme);
+      child = Padding(
+        key: const ValueKey('content'),
         padding: const EdgeInsets.only(top: 32),
         child: DetailSection(
           label: l10n.animeDetailsRelatedTitle,
@@ -119,7 +122,20 @@ class RelatedAnimeSection extends StatelessWidget {
             ),
           ),
         ),
-      ),
+      );
+    }
+    final switcher = DitherSwitcher(
+      collapse: true,
+      duration: const Duration(milliseconds: 240),
+      child: child,
+    );
+    final duration = motionDuration(context, const Duration(milliseconds: 200));
+    if (duration == Duration.zero) return switcher;
+    return AnimatedSize(
+      duration: duration,
+      curve: Curves.easeOutCubic,
+      alignment: Alignment.topCenter,
+      child: switcher,
     );
   }
 }

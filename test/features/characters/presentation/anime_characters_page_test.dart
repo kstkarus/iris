@@ -1,7 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:iris/features/characters/domain/entities/anime_character.dart';
+import 'package:iris/features/characters/domain/entities/character_details.dart';
+import 'package:iris/features/characters/domain/repositories/characters_repository.dart';
 import 'package:iris/features/characters/presentation/cubit/anime_characters_cubit.dart';
 import 'package:iris/features/characters/presentation/pages/anime_characters_page.dart';
 
@@ -44,9 +48,9 @@ void main() {
 
     expect(find.text('Characters'), findsOneWidget);
     expect(find.text('Sousou no Frieren'), findsOneWidget);
-    final main = tester.getTopLeft(find.text('MAIN'));
+    final main = tester.getTopLeft(find.text('Main'));
     final frieren = tester.getTopLeft(find.text('Frieren'));
-    final supporting = tester.getTopLeft(find.text('SUPPORTING'));
+    final supporting = tester.getTopLeft(find.text('Supporting'));
     final aura = tester.getTopLeft(find.text('Aura'));
     expect(find.text('Heiter'), findsOneWidget);
     expect(main.dy, lessThan(frieren.dy));
@@ -68,4 +72,50 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Aura'), findsOneWidget);
   });
+
+  testWidgets('keeps main header aligned between loading and loaded grid', (
+    tester,
+  ) async {
+    setTestWindowSize(tester, TestWindowSizes.phone);
+    final gate = Completer<List<AnimeCharacter>>();
+    final cubit = AnimeCharactersCubit(
+      animeId: '1',
+      repository: _PendingCharactersRepository(gate.future),
+    );
+    addTearDown(cubit.close);
+
+    await tester.pumpWidget(
+      testApp(
+        BlocProvider.value(
+          value: cubit,
+          child: const AnimeCharactersPage(animeName: 'Sousou no Frieren'),
+        ),
+      ),
+    );
+    unawaited(cubit.load());
+    await tester.pump();
+
+    final loadingFirstTileTop = tester.getTopLeft(find.text('A name').first).dy;
+
+    gate.complete([
+      testCharacter('1', role: CharacterRole.main, name: 'Frieren'),
+    ]);
+    await tester.pumpAndSettle();
+
+    final loadedFirstTileTop = tester.getTopLeft(find.text('Frieren')).dy;
+    expect(loadedFirstTileTop, closeTo(loadingFirstTileTop, 0.5));
+  });
+}
+
+class _PendingCharactersRepository implements CharactersRepository {
+  _PendingCharactersRepository(this.characters);
+
+  final Future<List<AnimeCharacter>> characters;
+
+  @override
+  Future<List<AnimeCharacter>> animeCharacters(String animeId) => characters;
+
+  @override
+  Future<CharacterDetails> character(String characterId) =>
+      throw UnimplementedError();
 }

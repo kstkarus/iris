@@ -15,9 +15,11 @@ import 'package:iris/features/anime_details/presentation/widgets/recently_watche
 import 'package:iris/features/anime_details/presentation/widgets/related_anime_section.dart';
 import 'package:iris/features/characters/presentation/widgets/characters_section.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
-import 'package:iris/shared/widgets/detail_layout.dart';
+import 'package:iris/shared/utils/motion_duration.dart';
 import 'package:iris/shared/widgets/adaptive/window_size_class.dart';
 import 'package:iris/shared/widgets/app_skeleton.dart';
+import 'package:iris/shared/widgets/detail_layout.dart';
+import 'package:iris/shared/widgets/dither_switcher.dart';
 import 'package:iris/shared/widgets/poster_image.dart';
 import 'package:iris/shared/widgets/status_views.dart';
 
@@ -36,24 +38,35 @@ class AnimeDetailsView extends StatelessWidget {
         final l10n = AppLocalizations.of(context);
         final preview = this.preview;
         void retry() => context.read<AnimeDetailsCubit>().loadAnime();
-        return switch (state) {
-          AnimeDetailsInitial() ||
-          AnimeDetailsLoading() => _Content(head: preview, loading: true),
+        final child = switch (state) {
+          AnimeDetailsInitial() || AnimeDetailsLoading() => _Content(
+            key: const ValueKey('content'),
+            head: preview,
+            loading: true,
+          ),
           AnimeDetailsSuccess(:final details) => _Content(
+            key: const ValueKey('content'),
             head: AnimeDetailsPreview.fromDetails(details),
             description: details.description,
             related: details.related,
           ),
           // What the list already knew stays, with its way to the sources.
           AnimeDetailsFailure() when preview != null => _Content(
+            key: const ValueKey('content'),
             head: preview,
             onRetry: retry,
           ),
           AnimeDetailsFailure() => RetryView(
+            key: const ValueKey('failure'),
             message: l10n.animeDetailsLoadError,
             onRetry: retry,
           ),
         };
+        return DitherSwitcher(
+          expand: true,
+          duration: const Duration(milliseconds: 240),
+          child: child,
+        );
       },
     );
   }
@@ -84,6 +97,7 @@ class _Content extends StatelessWidget {
     this.description,
     this.related = const [],
     this.onRetry,
+    super.key,
   });
 
   final AnimeDetailsPreview? head;
@@ -191,10 +205,20 @@ class _StackedLayout extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           AnimeDetailsWatchSourcesButton(head: head),
-          if (onRetry != null) ...[
-            const SizedBox(height: 12),
-            AnimeDetailsRetryBanner(onRetry: onRetry!),
-          ],
+          _animatedSlot(
+            context,
+            DitherSwitcher(
+              collapse: true,
+              duration: const Duration(milliseconds: 220),
+              child: onRetry == null
+                  ? const SizedBox.shrink(key: ValueKey('no_retry'))
+                  : Padding(
+                      key: const ValueKey('retry'),
+                      padding: const EdgeInsets.only(top: 12),
+                      child: AnimeDetailsRetryBanner(onRetry: onRetry!),
+                    ),
+            ),
+          ),
           const SizedBox(height: 16),
           AnimePassportCard(
             entries: buildAnimePassportEntries(l10n, head, loading: loading),
@@ -202,15 +226,25 @@ class _StackedLayout extends StatelessWidget {
           ),
           MyListSection(totalEpisodes: head.anime.episodes),
           RecentlyWatchedSection(animeId: head.anime.id),
-          if (onRetry == null)
-            AnimeDetailsDescription(description: description),
+          _animatedSlot(
+            context,
+            DitherSwitcher(
+              collapse: true,
+              duration: const Duration(milliseconds: 220),
+              child: onRetry == null
+                  ? AnimeDetailsDescription(
+                      key: const ValueKey('description'),
+                      description: description,
+                    )
+                  : const SizedBox.shrink(key: ValueKey('no_description')),
+            ),
+          ),
           RelatedAnimeSection(related: related),
           CharactersSection(
             animeId: head.anime.id,
             animeName: head.anime.name,
             labelStyle: DetailLayout.sectionTitleStyle(Theme.of(context)),
             uppercase: false,
-            showPrefix: false,
             hairlineDivider: true,
           ),
           FriendsSection(totalEpisodes: head.anime.episodes),
@@ -218,4 +252,15 @@ class _StackedLayout extends StatelessWidget {
       ),
     );
   }
+}
+
+Widget _animatedSlot(BuildContext context, Widget child) {
+  final duration = motionDuration(context, const Duration(milliseconds: 200));
+  if (duration == Duration.zero) return child;
+  return AnimatedSize(
+    duration: duration,
+    curve: Curves.easeOutCubic,
+    alignment: Alignment.topCenter,
+    child: child,
+  );
 }

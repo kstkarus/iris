@@ -8,6 +8,7 @@ import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/theme/cjk_font.dart';
 import 'package:iris/shared/utils/anime_metadata_formatter.dart';
 import 'package:iris/shared/utils/incomplete_date.dart';
+import 'package:iris/shared/utils/motion_duration.dart';
 import 'package:iris/shared/widgets/adaptive/adaptive_content_width.dart';
 import 'package:iris/shared/widgets/app_skeleton.dart';
 import 'package:iris/shared/widgets/detail_layout.dart';
@@ -70,18 +71,19 @@ class CharacterNamesCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final japanese = details?.japanese.trim() ?? '';
     final altName = details?.altName.trim() ?? '';
+    final Widget child;
     if (japanese.isEmpty && altName.isEmpty) {
-      return const DitherSwitcher(child: SizedBox.shrink());
-    }
-    final l10n = AppLocalizations.of(context);
-    final scheme = Theme.of(context).colorScheme;
-    final ruleColor = DetailLayout.ruleColor(scheme);
-    final rows = <(String, String)>[
-      if (japanese.isNotEmpty) (l10n.characterFactJapanese, japanese),
-      if (altName.isNotEmpty) (l10n.characterFactAltNames, altName),
-    ];
-    return DitherSwitcher(
-      child: Padding(
+      child = const SizedBox.shrink(key: ValueKey('empty'));
+    } else {
+      final l10n = AppLocalizations.of(context);
+      final scheme = Theme.of(context).colorScheme;
+      final ruleColor = DetailLayout.ruleColor(scheme);
+      final rows = <(String, String)>[
+        if (japanese.isNotEmpty) (l10n.characterFactJapanese, japanese),
+        if (altName.isNotEmpty) (l10n.characterFactAltNames, altName),
+      ];
+      child = Padding(
+        key: const ValueKey('content'),
         padding: EdgeInsets.only(top: topSpacing),
         child: DecoratedBox(
           key: const Key('character_names_card'),
@@ -97,9 +99,37 @@ class CharacterNamesCard extends StatelessWidget {
             ],
           ),
         ),
-      ),
+      );
+    }
+    return _animatedPresence(
+      context,
+      duration: const Duration(milliseconds: 240),
+      child: child,
     );
   }
+}
+
+Widget _animatedPresence(
+  BuildContext context, {
+  required Duration duration,
+  required Widget child,
+}) {
+  final switcher = DitherSwitcher(
+    collapse: true,
+    duration: duration,
+    child: child,
+  );
+  final sizeDuration = motionDuration(
+    context,
+    const Duration(milliseconds: 200),
+  );
+  if (sizeDuration == Duration.zero) return switcher;
+  return AnimatedSize(
+    duration: sizeDuration,
+    curve: Curves.easeOutCubic,
+    alignment: Alignment.topCenter,
+    child: switcher,
+  );
 }
 
 class _NameCell extends StatelessWidget {
@@ -145,33 +175,38 @@ class CharacterDescriptionSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final trimmed = description?.trim();
-    if (trimmed != null && trimmed.isEmpty) {
-      return const SizedBox.shrink();
-    }
     final l10n = AppLocalizations.of(context);
-    return Padding(
-      padding: const EdgeInsets.only(top: 32),
-      child: DetailSection(
-        label: l10n.characterDescriptionTitle,
-        child: Align(
-          alignment: AlignmentDirectional.topStart,
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(
-              maxWidth: AdaptiveContentWidth.reading,
-            ),
-            child: AppSkeleton(
-              enabled: trimmed == null,
-              semanticLabel: l10n.characterLoading,
-              child: Text(
-                trimmed ?? standInCharacterDescription,
-                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                  fontFamily: DetailLayout.sansFont,
+    final Widget child = trimmed != null && trimmed.isEmpty
+        ? const SizedBox.shrink(key: ValueKey('empty_description'))
+        : Padding(
+            key: const ValueKey('description'),
+            padding: const EdgeInsets.only(top: 32),
+            child: DetailSection(
+              label: l10n.characterDescriptionTitle,
+              child: Align(
+                alignment: AlignmentDirectional.topStart,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(
+                    maxWidth: AdaptiveContentWidth.reading,
+                  ),
+                  child: AppSkeleton(
+                    enabled: trimmed == null,
+                    semanticLabel: l10n.characterLoading,
+                    child: Text(
+                      trimmed ?? standInCharacterDescription,
+                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                        fontFamily: DetailLayout.sansFont,
+                      ),
+                    ),
+                  ),
                 ),
               ),
             ),
-          ),
-        ),
-      ),
+          );
+    return _animatedPresence(
+      context,
+      duration: const Duration(milliseconds: 220),
+      child: child,
     );
   }
 }
@@ -196,13 +231,15 @@ class CharacterAppearancesSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final shown = appearancesToShow(appearances);
-    if (shown.isEmpty) return const DitherSwitcher(child: SizedBox.shrink());
-
-    final l10n = AppLocalizations.of(context);
-    final scheme = Theme.of(context).colorScheme;
-    final ruleColor = DetailLayout.ruleColor(scheme);
-    return DitherSwitcher(
-      child: Padding(
+    final Widget child;
+    if (shown.isEmpty) {
+      child = const SizedBox.shrink(key: ValueKey('empty'));
+    } else {
+      final l10n = AppLocalizations.of(context);
+      final scheme = Theme.of(context).colorScheme;
+      final ruleColor = DetailLayout.ruleColor(scheme);
+      child = Padding(
+        key: const ValueKey('content'),
         padding: const EdgeInsets.only(top: 32),
         child: DetailSection(
           label: l10n.characterAnimeTitle,
@@ -246,7 +283,12 @@ class CharacterAppearancesSection extends StatelessWidget {
             ),
           ),
         ),
-      ),
+      );
+    }
+    return _animatedPresence(
+      context,
+      duration: const Duration(milliseconds: 240),
+      child: child,
     );
   }
 }

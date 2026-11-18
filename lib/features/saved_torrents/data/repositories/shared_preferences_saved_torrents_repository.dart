@@ -7,6 +7,7 @@ import 'package:iris/features/saved_torrents/domain/entities/saved_torrent.dart'
 import 'package:iris/features/saved_torrents/domain/repositories/saved_torrents_repository.dart';
 import 'package:iris/shared/storage/json_list_preference.dart';
 import 'package:iris/shared/torrent/magnet_link.dart';
+import 'package:iris/shared/utils/serial_queue.dart';
 
 class SharedPreferencesSavedTorrentsRepository
     implements SavedTorrentsRepository {
@@ -28,6 +29,8 @@ class SharedPreferencesSavedTorrentsRepository
   final DateTime Function() _now;
   final StreamController<List<SavedTorrent>> _changes =
       StreamController<List<SavedTorrent>>.broadcast();
+  final _writes = SerialQueue();
+  List<SavedTorrent>? _beforeUnconfirmedWrite;
 
   @override
   Stream<List<SavedTorrent>> watchTorrents(String animeId) async* {
@@ -39,7 +42,7 @@ class SharedPreferencesSavedTorrentsRepository
   Future<SaveTorrentResult> add({
     required String animeId,
     required String magnet,
-  }) async {
+  }) => _writes.run(() async {
     final link = MagnetLink.tryParse(magnet);
     if (link == null) return const SaveTorrentInvalidMagnet();
 
@@ -57,9 +60,9 @@ class SharedPreferencesSavedTorrentsRepository
       title: link.displayName ?? link.infoHash,
       addedAt: _now(),
     );
-    await _write([...torrents, torrent]);
+    await _write(torrents, [...torrents, torrent]);
     return SaveTorrentAdded(torrent);
-  }
+  });
 
   @override
   Future<void> rename(SavedTorrent torrent, String title) {
@@ -74,46 +77,47 @@ class SharedPreferencesSavedTorrentsRepository
   }
 
   @override
-  Future<void> delete(SavedTorrent torrent) async {
+  Future<void> delete(SavedTorrent torrent) => _writes.run(() async {
     final torrents = _read();
     final remaining = [
       for (final saved in torrents)
         if (!_same(saved, torrent.animeId, torrent.infoHash)) saved,
     ];
     if (remaining.length == torrents.length) return;
-    await _write(remaining);
-  }
+    await _write(torrents, remaining);
+  });
 
   @override
-  Future<void> restore(SavedTorrent torrent) async {
+  Future<void> restore(SavedTorrent torrent) => _writes.run(() async {
     final torrents = _read();
     if (torrents.any(
       (saved) => _same(saved, torrent.animeId, torrent.infoHash),
     )) {
       return;
     }
-    await _write([...torrents, torrent]);
-  }
+    await _write(torrents, [...torrents, torrent]);
+  });
 
   Future<void> close() => _changes.close();
 
   Future<void> _update(
     SavedTorrent torrent,
     SavedTorrent Function(SavedTorrent saved) change,
-  ) async {
+  ) => _writes.run(() async {
     final torrents = _read();
     final index = torrents.indexWhere(
       (saved) => _same(saved, torrent.animeId, torrent.infoHash),
     );
     if (index < 0) return;
-    torrents[index] = change(torrents[index]);
-    await _write(torrents);
-  }
+    final updated = [...torrents]..[index] = change(torrents[index]);
+    await _write(torrents, updated);
+  });
 
   static bool _same(SavedTorrent torrent, String animeId, String infoHash) =>
       torrent.animeId == animeId && torrent.infoHash == infoHash;
 
   List<SavedTorrent> _read() {
+    if (_beforeUnconfirmedWrite case final previous?) return previous;
     // Both spellings of one info-hash may have been saved before they were
     // unified; the one added first stands.
     final seen = <(String, String)>{};
@@ -123,8 +127,14 @@ class SharedPreferencesSavedTorrentsRepository
     ];
   }
 
-  Future<void> _write(List<SavedTorrent> torrents) async {
+  Future<void> _write(
+    List<SavedTorrent> previous,
+    List<SavedTorrent> torrents,
+  ) async {
+    // SharedPreferences updates its cache before the platform confirms a write.
+    _beforeUnconfirmedWrite = previous;
     await _storage.write(torrents);
+    _beforeUnconfirmedWrite = null;
     if (!_changes.isClosed) _changes.add(torrents);
   }
 

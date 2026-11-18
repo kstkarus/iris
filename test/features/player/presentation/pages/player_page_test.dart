@@ -194,7 +194,7 @@ void main() {
 
     await tester.pumpWidget(_wrap(source: _seriesSource));
 
-    expect(find.text('NOW PLAYING'), findsOneWidget);
+    expect(find.text('Now playing'), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('player_episode_card_3')));
     await tester.pump();
     final cubit =

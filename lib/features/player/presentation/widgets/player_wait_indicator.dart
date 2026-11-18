@@ -6,6 +6,8 @@ import 'package:flutter/material.dart';
 import 'package:iris/features/player/domain/entities/player_playback_stats.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/utils/byte_size_formatter.dart';
+import 'package:iris/shared/widgets/detail_layout.dart';
+import 'package:iris/shared/widgets/dither_switcher.dart';
 import 'package:iris/shared/widgets/pixel_separated_text.dart';
 
 /// The player's wait: one block runs around a 3×3 square. Square like the
@@ -164,10 +166,14 @@ class _PlayerWaitLabelState extends State<PlayerWaitLabel> {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(
-          widget.label,
+        DitherSwitcher(
           key: const Key('player_startup_label'),
-          style: widget.style,
+          duration: const Duration(milliseconds: 300),
+          child: Text(
+            widget.label,
+            key: ValueKey(widget.label),
+            style: widget.style?.copyWith(fontFamily: DetailLayout.sansFont),
+          ),
         ),
         if (_showStats && stats != null)
           ValueListenableBuilder<PlayerPlaybackStats?>(
@@ -180,9 +186,11 @@ class _PlayerWaitLabelState extends State<PlayerWaitLabel> {
                 child: PixelSeparatedText(
                   line,
                   key: const Key('player_wait_stats'),
-                  style: widget.style?.copyWith(
-                    color: widget.style?.color?.withValues(alpha: 0.7),
-                    fontSize: (widget.style?.fontSize ?? 14) * 0.85,
+                  style: DetailLayout.monoTelemetryStyle(
+                    widget.style?.copyWith(
+                      color: widget.style?.color?.withValues(alpha: 0.7),
+                      fontSize: (widget.style?.fontSize ?? 14) * 0.85,
+                    ),
                   ),
                 ),
               );

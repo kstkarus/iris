@@ -25,6 +25,7 @@ class AnimejoyOnlineSourcesRepository implements OnlineSourcesRepository {
   }) async {
     final wanted = int.tryParse(shikimoriId);
     if (wanted == null || wanted <= 0) return const [];
+    final generation = dataSource.sessionGeneration;
     // Several names can find the same article. Share only this search's
     // requests; a later search or playback must see the current playlist.
     final articles = <int, Future<AnimejoyArticleDto>>{};
@@ -70,6 +71,7 @@ class AnimejoyOnlineSourcesRepository implements OnlineSourcesRepository {
       },
       keep: (part) => part.episodes.isNotEmpty,
     );
+    dataSource.requireSessionGeneration(generation);
     final groups = <String, Map<int, List<AnimejoyEpisodeDto>>>{};
     for (final part in {for (final part in found) part.id: part}.values) {
       for (final episode in part.episodes) {
@@ -92,6 +94,7 @@ class AnimejoyOnlineSourcesRepository implements OnlineSourcesRepository {
     if (parsed == null) {
       throw ResourceNotFoundException('No AnimeJoy release $id.');
     }
+    final generation = dataSource.sessionGeneration;
     final parts = await searchAll<int, _ArticleEpisodes>(parsed.articles, (
       articleId,
     ) async {
@@ -115,6 +118,7 @@ class AnimejoyOnlineSourcesRepository implements OnlineSourcesRepository {
         ),
       ];
     }, keep: (part) => part.episodes.isNotEmpty);
+    dataSource.requireSessionGeneration(generation);
     if (parts.isEmpty) {
       throw ResourceNotFoundException('No playable AnimeJoy release $id.');
     }
@@ -161,6 +165,7 @@ class AnimejoyOnlineSourcesRepository implements OnlineSourcesRepository {
     }
 
     // Ask the preferred players before loading either fallback catalog.
+    final generation = dataSource.sessionGeneration;
     var episode = selectEpisode(
       await dataSource.episodes(
         articleId,
@@ -190,6 +195,7 @@ class AnimejoyOnlineSourcesRepository implements OnlineSourcesRepository {
     }
 
     await readPreferred(episode);
+    dataSource.requireSessionGeneration(generation);
     if (streams.isEmpty) {
       try {
         episode = selectEpisode(
@@ -208,6 +214,7 @@ class AnimejoyOnlineSourcesRepository implements OnlineSourcesRepository {
         firstError ??= error;
       }
     }
+    dataSource.requireSessionGeneration(generation);
     if (streams.isEmpty) {
       try {
         episode = selectEpisode(await dataSource.episodes(articleId));
@@ -228,6 +235,7 @@ class AnimejoyOnlineSourcesRepository implements OnlineSourcesRepository {
         firstError ??= error;
       }
     }
+    dataSource.requireSessionGeneration(generation);
     if (episode == null && firstError == null) {
       throw ResourceNotFoundException('No AnimeJoy episode $episodeId.');
     }

@@ -8,6 +8,7 @@ import 'package:iris/features/downloads/presentation/widgets/download_files.dart
 import 'package:iris/features/downloads/presentation/widgets/download_queue.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/widgets/adaptive/page_frame.dart';
+import 'package:iris/shared/widgets/dither_switcher.dart';
 import 'package:iris/shared/widgets/status_views.dart';
 
 class DownloadQueuePage extends StatelessWidget {
@@ -42,7 +43,9 @@ class DownloadQueuePage extends StatelessWidget {
                           child: Text(
                             AppLocalizations.of(context).downloadQueueTitle,
                             maxLines: 2,
-                            style: Theme.of(context).textTheme.titleLarge,
+                            style: Theme.of(
+                              context,
+                            ).textTheme.titleLarge?.copyWith(wordSpacing: -3.6),
                           ),
                         ),
                       ),
@@ -53,15 +56,18 @@ class DownloadQueuePage extends StatelessWidget {
                     child:
                         BlocBuilder<DownloadManagerCubit, DownloadManagerState>(
                           builder: (context, state) {
+                            final Widget view;
                             if (state.downloads.isEmpty && state.isLoading) {
-                              return LoadingView(
+                              view = LoadingView(
+                                key: const ValueKey('download_queue_loading'),
                                 semanticsLabel: AppLocalizations.of(
                                   context,
                                 ).downloadsLoading,
                               );
-                            }
-                            if (state.downloads.isEmpty && state.hasError) {
-                              return RetryView(
+                            } else if (state.downloads.isEmpty &&
+                                state.hasError) {
+                              view = RetryView(
+                                key: const ValueKey('download_queue_error'),
                                 message: AppLocalizations.of(
                                   context,
                                 ).downloadManagerUnableToLoad,
@@ -69,9 +75,18 @@ class DownloadQueuePage extends StatelessWidget {
                                     .read<DownloadManagerCubit>()
                                     .load,
                               );
+                            } else {
+                              view = KeyedSubtree(
+                                key: const ValueKey('download_queue_ready'),
+                                child: DownloadQueueView(
+                                  onFiles: () => _files(context),
+                                ),
+                              );
                             }
-                            return DownloadQueueView(
-                              onFiles: () => _files(context),
+                            return DitherSwitcher(
+                              expand: true,
+                              duration: const Duration(milliseconds: 220),
+                              child: view,
                             );
                           },
                         ),

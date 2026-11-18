@@ -249,11 +249,11 @@ class _FakeAnimejoySite {
   FakeReply reply(RequestOptions options) {
     requests.add(options);
     final uri = options.uri;
-    if (uri.host == 'animejoy.ru' && uri.path == '/index.php') {
+    if (uri.host == 'otakujoy.fun' && uri.path == '/index.php') {
       if (uri.queryParameters.containsKey('story')) {
         return FakeReply.text(
           200,
-          '<div id="dle-content">${[for (final id in searchIds) '<article class="shortstory"><h2><a href="https://animejoy.ru/$id-title.html">Example</a></h2></article>'].join()}</div>',
+          '<div id="dle-content">${[for (final id in searchIds) '<article class="shortstory"><h2><a href="https://otakujoy.fun/$id-title.html">Example</a></h2></article>'].join()}</div>',
         );
       }
       final id = int.tryParse(uri.queryParameters['newsid'] ?? '');
@@ -264,7 +264,7 @@ class _FakeAnimejoySite {
         );
       }
     }
-    if (uri.host == 'animejoy.ru' && uri.path == '/engine/ajax/playlists.php') {
+    if (uri.host == 'otakujoy.fun' && uri.path == '/engine/ajax/playlists.php') {
       final id = int.tryParse(uri.queryParameters['news_id'] ?? '');
       final response = id == null ? null : playlists[id];
       if (response != null) {

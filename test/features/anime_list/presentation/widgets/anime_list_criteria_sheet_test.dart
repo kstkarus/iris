@@ -124,7 +124,7 @@ void main() {
       await genres.close();
       genres = AnimeGenresCubit(repository: _ManyGenres());
       await openSheet(tester, signedIn: false);
-      expect(find.text('AUDIENCE'), findsOneWidget);
+      expect(find.text('Audience'), findsOneWidget);
       expect(find.text('Shounen'), findsOneWidget);
       expect(find.text('Genre 9'), findsOneWidget);
       expect(find.text('Genre 10'), findsNothing);
@@ -160,6 +160,77 @@ void main() {
     await tester.pumpAndSettle();
     expect(bloc.state.sort, AnimeListSortOption.popularity);
     expect(bloc.state.filters.hasAny, isFalse);
+  });
+
+  testWidgets('filter tags animate selection and honor disableAnimations', (
+    tester,
+  ) async {
+    await openSheet(tester, signedIn: false);
+    final tag = find.widgetWithText(OutlinedButton, 'TV');
+    final initialBg = tester
+        .widget<OutlinedButton>(tag)
+        .style!
+        .backgroundColor!
+        .resolve({});
+
+    await tester.tap(tag);
+    await tester.pump();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 80));
+    final midBg = tester
+        .widget<OutlinedButton>(tag)
+        .style!
+        .backgroundColor!
+        .resolve({});
+
+    await tester.pumpAndSettle();
+    final endBg = tester
+        .widget<OutlinedButton>(tag)
+        .style!
+        .backgroundColor!
+        .resolve({});
+
+    expect(midBg, isNot(equals(initialBg)));
+    expect(midBg, isNot(equals(endBg)));
+
+    // Reduced motion jumps straight to the settled color.
+    await tester.tapAt(const Offset(10, 10));
+    await tester.pumpAndSettle();
+
+    tester.platformDispatcher.accessibilityFeaturesTestValue =
+        const FakeAccessibilityFeatures(disableAnimations: true);
+    addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
+
+    await tester.pumpWidget(
+      testApp(
+        MultiBlocProvider(
+          providers: [
+            BlocProvider.value(value: bloc),
+            BlocProvider.value(value: genres),
+          ],
+          child: Scaffold(
+            body: Builder(
+              builder: (context) => TextButton(
+                onPressed: () => showAnimeListCriteriaSheet(context),
+                child: const Text('open'),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(tag);
+    await tester.pump();
+    final immediateBg = tester
+        .widget<OutlinedButton>(tag)
+        .style!
+        .backgroundColor!
+        .resolve({});
+    expect(immediateBg, equals(endBg));
   });
 }
 

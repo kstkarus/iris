@@ -57,34 +57,14 @@ class _AnimeGridState extends State<AnimeGrid> {
   /// Rows of stand-in cards shown as noise while the first page loads.
   static const _standInRows = 3;
 
+  ScrollableState? _scrollable;
   bool _prefetchCheckScheduled = false;
-
-  @override
-  void initState() {
-    super.initState();
-    widget.controller.addListener(_onScroll);
-  }
-
-  @override
-  void didUpdateWidget(AnimeGrid oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.controller != widget.controller) {
-      oldWidget.controller.removeListener(_onScroll);
-      widget.controller.addListener(_onScroll);
-    }
-  }
-
-  @override
-  void dispose() {
-    widget.controller.removeListener(_onScroll);
-    super.dispose();
-  }
 
   void _onScroll() {
     if (!mounted || !_canLoadMore) return;
-    final controller = widget.controller;
-    if (!controller.hasClients) return;
-    final position = controller.position;
+    final scrollable = _scrollable;
+    if (scrollable == null || !scrollable.mounted) return;
+    final position = scrollable.position;
     if (position.hasContentDimensions &&
         position.extentAfter <= _loadMoreThreshold) {
       widget.bloc.add(const AnimeListNextPageRequested());
@@ -93,7 +73,8 @@ class _AnimeGridState extends State<AnimeGrid> {
 
   bool get _canLoadMore {
     final state = widget.bloc.state;
-    return state.hasLoadedOnce &&
+    return identical(widget.state, state) &&
+        state.hasLoadedOnce &&
         !state.isInitialLoading &&
         state.hasMore &&
         !state.isLoadingMore &&
@@ -133,9 +114,15 @@ class _AnimeGridState extends State<AnimeGrid> {
         state.isLoadingMore || state.errorType == AnimeListErrorType.loadMore;
     final first = header == null ? 0 : 1;
 
-    return NotificationListener<ScrollMetricsNotification>(
+    return NotificationListener<Notification>(
       onNotification: (notification) {
-        if (notification.depth == 0) _schedulePrefetchCheck();
+        switch (notification) {
+          case ScrollMetricsNotification(depth: 0, :final context):
+            _scrollable = Scrollable.maybeOf(context);
+            _schedulePrefetchCheck();
+          case ScrollUpdateNotification(depth: 0):
+            _onScroll();
+        }
         return false;
       },
       child: ListView.separated(

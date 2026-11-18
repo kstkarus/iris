@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'package:iris/shared/widgets/detail_layout.dart';
+
 /// App bar title with an optional one-line subtitle (Material small top app
 /// bar): what the page is, then what it is about.
 class PageTitle extends StatelessWidget {
@@ -10,11 +12,16 @@ class PageTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     final subtitle = this.subtitle;
-    final titleText = Text(title, maxLines: 1, overflow: TextOverflow.ellipsis);
+    final titleText = Text(
+      title,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: theme.textTheme.titleLarge?.copyWith(wordSpacing: -3.6),
+    );
     if (subtitle == null || subtitle.isEmpty) return titleText;
 
-    final theme = Theme.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
@@ -24,7 +31,10 @@ class PageTitle extends StatelessWidget {
           subtitle,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: theme.textTheme.bodySmall,
+          style: theme.textTheme.bodySmall?.copyWith(
+            fontFamily: DetailLayout.sansFont,
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
         ),
       ],
     );

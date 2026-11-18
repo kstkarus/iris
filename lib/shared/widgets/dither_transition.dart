@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 
 import 'package:iris/shared/utils/bayer_mask.dart';
+import 'package:iris/shared/widgets/active_layer.dart';
 
 /// [AnimatedSwitcher] parts that swap two children cell by cell, in the
 /// order of the Bayer screen: the new child develops in exactly the cells
@@ -26,12 +27,14 @@ abstract final class DitherTransition {
   /// Children stacked from the top-left; the tallest sets the height.
   static Widget layout(Widget? current, List<Widget> previous) => Stack(
     alignment: AlignmentDirectional.topStart,
-    children: [...previous, ?current],
+    children: ActiveLayer.switcherChildren(current, previous),
   );
 
   /// Like [layout], with every child filling the box.
-  static Widget expandedLayout(Widget? current, List<Widget> previous) =>
-      Stack(fit: StackFit.expand, children: [...previous, ?current]);
+  static Widget expandedLayout(Widget? current, List<Widget> previous) => Stack(
+    fit: StackFit.expand,
+    children: ActiveLayer.switcherChildren(current, previous),
+  );
 }
 
 class _DitherTransition extends AnimatedWidget {
@@ -55,29 +58,24 @@ class _DitherTransition extends AnimatedWidget {
     };
     final progress = leaving ? 1 - animation.value : animation.value;
     if (!leaving || !collapse) {
-      return IgnorePointer(
-        ignoring: leaving,
-        child: BayerMasked(
-          open: (progress * BayerMask.steps).round(),
-          inverse: leaving,
-          child: child,
-        ),
+      return BayerMasked(
+        open: (progress * BayerMask.steps).round(),
+        inverse: leaving,
+        child: child,
       );
     }
     final dissolved = (progress * 2).clamp(0.0, 1.0);
     final collapsed = Curves.easeInOut.transform(
       (progress * 2 - 1).clamp(0.0, 1.0),
     );
-    return IgnorePointer(
-      child: ClipRect(
-        child: Align(
-          alignment: AlignmentDirectional.topStart,
-          heightFactor: 1 - collapsed,
-          child: BayerMasked(
-            open: (dissolved * BayerMask.steps).round(),
-            inverse: true,
-            child: child,
-          ),
+    return ClipRect(
+      child: Align(
+        alignment: AlignmentDirectional.topStart,
+        heightFactor: 1 - collapsed,
+        child: BayerMasked(
+          open: (dissolved * BayerMask.steps).round(),
+          inverse: true,
+          child: child,
         ),
       ),
     );

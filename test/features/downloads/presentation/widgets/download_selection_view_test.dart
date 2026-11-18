@@ -26,6 +26,45 @@ const _online = DownloadSelectionArgs(
 );
 
 void main() {
+  testWidgets('torrent badges keep numbers belonging to the title', (
+    tester,
+  ) async {
+    const args = DownloadSelectionArgs(
+      animeId: '1',
+      animeTitle: '91 Days',
+      sourceTitle: 'Release',
+      magnet: 'magnet:?xt=urn:btih:0123456789012345678901234567890123456789',
+    );
+    await tester.pumpWidget(
+      testApp(
+        BlocProvider(
+          create: (_) => DownloadSelectionCubit(
+            args: args,
+            repository: _EpisodesRepository(
+              const [],
+              files: const [
+                DownloadableFile(
+                  index: 1,
+                  name: '91 Days 01.mkv',
+                  relativePath: '',
+                  size: 0,
+                ),
+              ],
+            ),
+          )..load(),
+          child: DownloadSelectionPage(args: args, onWatch: (_) {}),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final row = find.byKey(const ValueKey('download_selection_file_1'));
+    expect(
+      find.descendant(of: row, matching: find.text('91 Days 01')),
+      findsOneWidget,
+    );
+    expect(find.descendant(of: row, matching: find.text('01')), findsOneWidget);
+  });
+
   Future<MemoryOnlineQualityPreferences> pump(
     WidgetTester tester, {
     DownloadSelectionArgs args = _online,
@@ -338,12 +377,56 @@ void main() {
     expect(find.text('01'), findsOneWidget);
     expect(find.text('Quality'), findsNothing);
   });
+
+  testWidgets(
+    'file row transitions action state across idle, active, and done',
+    (tester) async {
+      final repository = _LoadingRepository();
+      final cubit = DownloadSelectionCubit(
+        args: _online,
+        repository: repository,
+      );
+      await tester.pumpWidget(
+        testApp(
+          BlocProvider(
+            create: (_) => cubit..load(),
+            child: DownloadSelectionPage(args: _online, onWatch: (_) {}),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const ValueKey('action_idle')), findsNWidgets(2));
+      await tester.tap(find.byKey(const ValueKey('download_file_button_1')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('action_active')), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('download_file_progress_1')),
+        findsOneWidget,
+      );
+
+      repository.load(1, 1);
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('action_completed')), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('download_file_watch_1')),
+        findsOneWidget,
+      );
+    },
+  );
 }
 
 class _EpisodesRepository extends MockDownloadsRepository {
-  _EpisodesRepository(this.qualities);
+  _EpisodesRepository(
+    this.qualities, {
+    this.files = const [
+      DownloadableFile(index: 1, name: '01', relativePath: '', size: 0),
+      DownloadableFile(index: 2, name: '02', relativePath: '', size: 0),
+    ],
+  });
 
   final List<int> qualities;
+  final List<DownloadableFile> files;
 
   @override
   Future<PreparedDownloadSource> prepareSource({
@@ -352,10 +435,7 @@ class _EpisodesRepository extends MockDownloadsRepository {
   }) async {
     return PreparedDownloadSource(
       sourceToken: 'online',
-      files: const [
-        DownloadableFile(index: 1, name: '01', relativePath: '', size: 0),
-        DownloadableFile(index: 2, name: '02', relativePath: '', size: 0),
-      ],
+      files: files,
       qualities: qualities,
     );
   }
