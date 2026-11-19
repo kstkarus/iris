@@ -12,6 +12,10 @@ abstract interface class WatchProgressRepository {
   /// Inserts or replaces the record with the same torrent and file.
   Future<void> save(WatchProgress progress);
 
-  /// Forgets every record of a torrent (e.g. "remove from Continue watching").
+  /// Hides the anime (or standalone source) from Continue watching without
+  /// deleting saved resume positions; newer playback brings it back.
+  Future<void> dismissFromContinueWatching(WatchProgress progress);
+
+  /// Forgets every record of a torrent.
   Future<void> removeTorrent({required String torrentKey});
 }

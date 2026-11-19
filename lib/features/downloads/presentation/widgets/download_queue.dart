@@ -643,45 +643,36 @@ class _QueueProgress extends StatelessWidget {
           ),
           if (active || knownTotal) ...[
             const SizedBox(height: 8),
-            AnimatedSwitcher(
-              duration: motionDuration(
-                context,
-                const Duration(milliseconds: 180),
+            if (knownTotal)
+              TweenAnimationBuilder<double>(
+                tween: Tween<double>(begin: progress, end: progress),
+                duration: motionDuration(
+                  context,
+                  const Duration(milliseconds: 240),
+                ),
+                curve: Curves.easeOutCubic,
+                builder: (context, value, _) => LinearProgressIndicator(
+                  value: value,
+                  backgroundColor: DetailLayout.progressTrackColor(
+                    theme.colorScheme,
+                  ),
+                  color: active
+                      ? theme.colorScheme.tertiary
+                      : theme.colorScheme.onSurfaceVariant,
+                  semanticsLabel: downloadSemanticName(l10n, item),
+                ),
+              )
+            else
+              LinearProgressIndicator(
+                value: disableAnimations ? 0.5 : null,
+                backgroundColor: DetailLayout.progressTrackColor(
+                  theme.colorScheme,
+                ),
+                color: active
+                    ? theme.colorScheme.tertiary
+                    : theme.colorScheme.onSurfaceVariant,
+                semanticsLabel: downloadSemanticName(l10n, item),
               ),
-              switchInCurve: Curves.easeOutCubic,
-              switchOutCurve: Curves.easeOutCubic,
-              child: knownTotal
-                  ? TweenAnimationBuilder<double>(
-                      key: const ValueKey('determinate'),
-                      tween: Tween<double>(begin: progress, end: progress),
-                      duration: motionDuration(
-                        context,
-                        const Duration(milliseconds: 240),
-                      ),
-                      curve: Curves.easeOutCubic,
-                      builder: (context, value, _) => LinearProgressIndicator(
-                        value: value,
-                        backgroundColor: DetailLayout.progressTrackColor(
-                          theme.colorScheme,
-                        ),
-                        color: active
-                            ? theme.colorScheme.tertiary
-                            : theme.colorScheme.onSurfaceVariant,
-                        semanticsLabel: downloadSemanticName(l10n, item),
-                      ),
-                    )
-                  : LinearProgressIndicator(
-                      key: const ValueKey('indeterminate'),
-                      value: disableAnimations ? 0.5 : null,
-                      backgroundColor: DetailLayout.progressTrackColor(
-                        theme.colorScheme,
-                      ),
-                      color: active
-                          ? theme.colorScheme.tertiary
-                          : theme.colorScheme.onSurfaceVariant,
-                      semanticsLabel: downloadSemanticName(l10n, item),
-                    ),
-            ),
           ],
         ],
       ),

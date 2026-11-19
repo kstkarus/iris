@@ -47,6 +47,9 @@ class ShikimoriSessionStore {
   /// Changes when signing in or out, but not when the token is renewed.
   int get generation => _generation;
 
+  /// The current tokens for a request whose session has already been loaded.
+  ShikimoriTokens? get cachedTokens => _tokens;
+
   /// Fires when Shikimori no longer accepts the session (see [expire]); a
   /// sign-out the user asked for does not.
   Stream<void> get expired => _expired.stream;

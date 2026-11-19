@@ -1,5 +1,7 @@
 import 'dart:developer' as developer;
 
+import 'package:dio/dio.dart' show CancelToken;
+
 import 'package:iris/features/online_sources/data/datasources/animejoy_data_source.dart';
 import 'package:iris/features/online_sources/data/mappers/video_link_mapper.dart';
 import 'package:iris/features/online_sources/data/models/animejoy_dto.dart';
@@ -22,6 +24,7 @@ class AnimejoyOnlineSourcesRepository implements OnlineSourcesRepository {
   Future<List<OnlineRelease>> findReleases({
     required String shikimoriId,
     required List<String> titles,
+    CancelToken? cancelToken,
   }) async {
     final wanted = int.tryParse(shikimoriId);
     if (wanted == null || wanted <= 0) return const [];
@@ -39,13 +42,23 @@ class AnimejoyOnlineSourcesRepository implements OnlineSourcesRepository {
         final parts = <_ArticleEpisodes>[];
         Object? failure;
         try {
-          await for (final candidates in dataSource.searchPages(title)) {
+          await for (final candidates in dataSource.searchPages(
+            title,
+            cancelToken: cancelToken,
+          )) {
+            if (cancelToken?.isCancelled == true) break;
             try {
               final matching = await searchAll(
                 candidates.where((id) => id > 0).toSet(),
-                (id) async => [await (articles[id] ??= dataSource.article(id))],
+                (id) async => [
+                  await (articles[id] ??= dataSource.article(
+                    id,
+                    cancelToken: cancelToken,
+                  )),
+                ],
                 keep: (article) => article.shikimoriId == wanted,
               );
+              if (cancelToken?.isCancelled == true) break;
               parts.addAll(
                 await searchAll(
                   matching,
@@ -53,7 +66,7 @@ class AnimejoyOnlineSourcesRepository implements OnlineSourcesRepository {
                     (
                       id: article.id,
                       episodes: await (playlists[article.id] ??= dataSource
-                          .episodes(article.id)),
+                          .episodes(article.id, cancelToken: cancelToken)),
                     ),
                   ],
                   keep: (part) => part.episodes.isNotEmpty,

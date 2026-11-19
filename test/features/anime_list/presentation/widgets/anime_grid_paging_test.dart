@@ -15,6 +15,7 @@ import 'package:iris/features/anime_list/presentation/bloc/anime_list_state.dart
 import 'package:iris/features/anime_list/presentation/widgets/anime_card.dart';
 import 'package:iris/features/anime_list/presentation/widgets/anime_grid.dart';
 import 'package:iris/shared/widgets/adaptive/adaptive_grid_row.dart';
+import 'package:iris/shared/widgets/status_views.dart';
 
 import '../../../../helpers/test_app.dart';
 import '../../../../helpers/test_window.dart';
@@ -94,6 +95,36 @@ void main() {
     await tester.pumpAndSettle();
   });
 
+  testWidgets('the footer recedes after an empty last page', (tester) async {
+    setTestWindowSize(tester, TestWindowSizes.desktop);
+    final pageTwo = Completer<AnimeListPageResult>();
+    final bloc = AnimeListBloc(repository: _PagingRepository(pageTwo: pageTwo))
+      ..add(const AnimeListStarted());
+    final controller = ScrollController();
+    addTearDown(bloc.close);
+    addTearDown(controller.dispose);
+    await tester.pumpWidget(
+      _gridApp(bloc: bloc, controller: controller, viewportHeight: 950),
+    );
+    await _pumpFrames(tester);
+    controller.jumpTo(controller.position.maxScrollExtent);
+    await tester.pump(const Duration(milliseconds: 250));
+    expect(find.byType(BlockSpinner), findsOneWidget);
+    final loadingExtent = controller.position.maxScrollExtent;
+
+    pageTwo.complete(
+      const AnimeListPageResult(items: [], page: 2, hasMore: false, query: ''),
+    );
+    await tester.pump();
+    expect(bloc.state.isLoadingMore, isFalse);
+    expect(find.byType(BlockSpinner), findsOneWidget);
+    expect(controller.position.maxScrollExtent, loadingExtent);
+    await tester.pumpAndSettle();
+
+    expect(find.byType(BlockSpinner), findsNothing);
+    expect(controller.position.maxScrollExtent, lessThan(loadingExtent));
+  });
+
   testWidgets('a failed page waits for the footer retry', (tester) async {
     setTestWindowSize(tester, TestWindowSizes.phone);
     final repository = _PagingRepository(failPageTwoAttempts: 1);
@@ -114,7 +145,7 @@ void main() {
 
     await tester.dragUntilVisible(
       find.text('Try Again'),
-      find.byType(ListView),
+      find.byType(CustomScrollView),
       const Offset(0, -500),
     );
     await tester.pumpAndSettle();

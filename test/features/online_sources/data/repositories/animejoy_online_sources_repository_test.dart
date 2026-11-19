@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart' show CancelToken;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:iris/features/online_sources/data/datasources/animejoy_data_source.dart';
 import 'package:iris/features/online_sources/data/models/animejoy_dto.dart';
@@ -653,14 +654,17 @@ class _FakeAnimejoyDataSource extends AnimejoyDataSource {
   final linkCalls = <String>[];
 
   @override
-  Stream<List<int>> searchPages(String title) async* {
+  Stream<List<int>> searchPages(
+    String title, {
+    CancelToken? cancelToken,
+  }) async* {
     searchCalls.add(title);
     if (searchErrors[title] case final error?) throw error;
     yield searchResults[title] ?? const [];
   }
 
   @override
-  Future<AnimejoyArticleDto> article(int id) async {
+  Future<AnimejoyArticleDto> article(int id, {CancelToken? cancelToken}) async {
     articleCalls.add(id);
     if (articleErrors[id] case final error?) throw error;
     return articles[id] ?? AnimejoyArticleDto(id: id);
@@ -671,6 +675,7 @@ class _FakeAnimejoyDataSource extends AnimejoyDataSource {
     int articleId, {
     bool includeKodik = true,
     bool includeAlloha = true,
+    CancelToken? cancelToken,
   }) async {
     playlistCalls.add(articleId);
     if (playlistErrors[articleId] case final error?) throw error;

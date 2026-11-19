@@ -18,8 +18,8 @@ import 'package:iris/features/player/domain/repositories/player_repository.dart'
 import 'package:iris/shared/torrent/preparation_cancelled_exception.dart';
 
 /// Plays an online release as a torrent is played: its episodes are the
-/// files, and the release's [OnlineSourceLink] is both the "magnet" and the
-/// session id.
+/// files, and each prepared player gets its own session id backed by the
+/// release's [OnlineSourceLink].
 ///
 /// Stream links expire, so each episode's link is asked for right before it
 /// plays; mpv does the buffering. The quality is the one chosen for
@@ -33,18 +33,23 @@ class OnlinePlayerRepository implements PlayerRepository {
        _qualityPreferences = qualityPreferences,
        _animejoyAccount = animejoyAccount;
 
+  static const _sessionPrefix = 'online-session:';
+
+  /// Whether [sessionId] belongs to an online playback session (either a
+  /// per-player session id or a raw [OnlineSourceLink]).
+  static bool isOnlineSessionId(String sessionId) =>
+      sessionId.startsWith(_sessionPrefix) ||
+      OnlineSourceLink.tryParse(sessionId) != null;
+
   final OnlineSourcesRepository _repository;
   final OnlineQualityPreferences? _qualityPreferences;
   final AnimejoyAccountRepository? _animejoyAccount;
 
-  /// The releases of the sessions in use: "next episode" needs no request.
-  final _releases = <String, ({OnlineRelease release, int? generation})>{};
+  int _nextSessionId = 0;
 
-  /// Only the current load may publish metadata into a live session.
-  final _releaseLoads = <String, Object>{};
-
-  /// The episode each session plays now, to renew its link.
-  final _playing = <String, int>{};
+  /// Active online sessions, each isolated by its own id so a closing player
+  /// never clears a replacement player for the same release.
+  final _sessions = <String, _OnlineSession>{};
 
   /// Stops waiting when [cancelled] completes; a slow server's late answer
   /// is dropped.
@@ -53,9 +58,20 @@ class OnlinePlayerRepository implements PlayerRepository {
     required String magnet,
     Future<void>? cancelled,
   }) async {
-    final release = await _release(magnet, cancelled: cancelled);
+    final sessionId = '$_sessionPrefix${++_nextSessionId}';
+    final session = _OnlineSession(link: magnet);
+    _sessions[sessionId] = session;
+    final OnlineRelease release;
+    try {
+      release = await _release(session, cancelled: cancelled);
+    } on Object {
+      if (identical(_sessions[sessionId], session)) {
+        _sessions.remove(sessionId);
+      }
+      rethrow;
+    }
     return PreparedPlayerSource(
-      sessionId: magnet,
+      sessionId: sessionId,
       files: [
         for (final (index, episode) in onlineEpisodeFileIndices(
           release,
@@ -88,14 +104,24 @@ class OnlinePlayerRepository implements PlayerRepository {
     late final StreamController<PlayerLaunchUpdate> controller;
     controller = StreamController<PlayerLaunchUpdate>(
       onListen: () async {
+        final session = _sessionFor(sessionId);
+        if (session == null) {
+          controller.add(const PlayerLaunchFailureUpdate());
+          await controller.close();
+          return;
+        }
         final update = await _launch(
+          session: session,
           sessionId: sessionId,
           fileIndex: fileIndex,
           cancelled: cancelled.future,
         );
-        if (cancelled.isCompleted) return;
+        if (cancelled.isCompleted ||
+            !identical(_sessions[sessionId], session)) {
+          return;
+        }
         if (update is PlayerLaunchReadyUpdate) {
-          _playing[sessionId] = fileIndex;
+          session.playingFileIndex = fileIndex;
         }
         controller.add(update);
         await controller.close();
@@ -106,17 +132,19 @@ class OnlinePlayerRepository implements PlayerRepository {
   }
 
   Future<PlayerLaunchUpdate> _launch({
+    required _OnlineSession session,
     required String sessionId,
     required int fileIndex,
     required Future<void> cancelled,
   }) async {
     try {
-      final session = await _resolve(
+      final resolved = await _resolve(
+        session,
         sessionId,
         fileIndex,
         cancelled: cancelled,
       );
-      return PlayerLaunchReadyUpdate(session);
+      return PlayerLaunchReadyUpdate(resolved);
     } on PreparationCancelledException {
       return const PlayerLaunchFailureUpdate();
     } on Object catch (error) {
@@ -133,9 +161,14 @@ class OnlinePlayerRepository implements PlayerRepository {
   /// chosen.
   @override
   Future<PlayerSession?> renewSession(PlayerSession session) async {
-    final fileIndex = _playing[session.sessionId];
-    if (fileIndex == null) return null;
-    final renewed = await _resolve(session.sessionId, fileIndex);
+    final state = _sessions[session.sessionId];
+    final fileIndex = state?.playingFileIndex;
+    if (state == null || fileIndex == null) return null;
+    final renewed = await _resolve(state, session.sessionId, fileIndex);
+    if (!identical(_sessions[session.sessionId], state) ||
+        state.playingFileIndex != fileIndex) {
+      return null;
+    }
     developer.log(
       'Renewed the link of online episode $fileIndex of ${session.sessionId}.',
       name: 'iris.player.online',
@@ -143,13 +176,14 @@ class OnlinePlayerRepository implements PlayerRepository {
     return renewed;
   }
 
-  /// A fresh link to episode [fileIndex] of the release [sessionId] names.
+  /// A fresh link to episode [fileIndex] of [session].
   Future<PlayerSession> _resolve(
+    _OnlineSession session,
     String sessionId,
     int fileIndex, {
     Future<void>? cancelled,
   }) async {
-    final release = await _release(sessionId, cancelled: cancelled);
+    final release = await _release(session, cancelled: cancelled);
     final position = onlineEpisodeFileIndices(release).indexOf(fileIndex);
     if (position < 0) {
       throw RangeError.value(fileIndex, 'fileIndex', 'No such episode');
@@ -183,34 +217,47 @@ class OnlinePlayerRepository implements PlayerRepository {
 
   @override
   Future<void> stopPlayback({required String sessionId}) async {
-    _playing.remove(sessionId);
+    _sessions[sessionId]?.playingFileIndex = null;
   }
 
   @override
   Future<void> disposePlayback({required String sessionId}) async {
-    _releaseLoads.remove(sessionId);
-    _releases.remove(sessionId);
-    _playing.remove(sessionId);
+    final removed = _sessions.remove(sessionId);
+    if (removed != null) {
+      removed.releaseLoad = null;
+      removed.release = null;
+      removed.playingFileIndex = null;
+    }
   }
 
-  Future<OnlineRelease> _release(String link, {Future<void>? cancelled}) async {
-    final known = _releases[link];
+  _OnlineSession? _sessionFor(String sessionId) {
+    final existing = _sessions[sessionId];
+    if (existing != null) return existing;
+    if (OnlineSourceLink.tryParse(sessionId) == null) return null;
+    return _sessions[sessionId] = _OnlineSession(link: sessionId);
+  }
+
+  Future<OnlineRelease> _release(
+    _OnlineSession session, {
+    Future<void>? cancelled,
+  }) async {
+    final known = session.release;
     if (known != null) {
       if (known.generation == _sessionGeneration(known.release.provider)) {
         return known.release;
       }
-      _releases.remove(link);
+      session.release = null;
     }
-    final parsed = OnlineSourceLink.tryParse(link);
+    final parsed = OnlineSourceLink.tryParse(session.link);
     final provider = parsed == null
         ? null
         : OnlineProvider.named(parsed.provider);
     if (parsed == null || provider == null) {
-      throw ArgumentError.value(link, 'link');
+      throw ArgumentError.value(session.link, 'link');
     }
     final load = Object();
     final generation = _sessionGeneration(provider);
-    _releaseLoads[link] = load;
+    session.releaseLoad = load;
     try {
       final release = await unlessCancelled(
         _repository.fetchRelease(provider: provider, id: parsed.releaseId),
@@ -219,15 +266,24 @@ class OnlinePlayerRepository implements PlayerRepository {
       if (generation != _sessionGeneration(provider)) {
         throw const AnimejoySessionChanged();
       }
-      if (identical(_releaseLoads[link], load)) {
-        _releases[link] = (release: release, generation: generation);
+      if (identical(session.releaseLoad, load)) {
+        session.release = (release: release, generation: generation);
       }
       return release;
     } finally {
-      if (identical(_releaseLoads[link], load)) _releaseLoads.remove(link);
+      if (identical(session.releaseLoad, load)) session.releaseLoad = null;
     }
   }
 
   int? _sessionGeneration(OnlineProvider provider) =>
       provider == OnlineProvider.animejoy ? _animejoyAccount?.generation : null;
+}
+
+class _OnlineSession {
+  _OnlineSession({required this.link});
+
+  final String link;
+  ({OnlineRelease release, int? generation})? release;
+  Object? releaseLoad;
+  int? playingFileIndex;
 }

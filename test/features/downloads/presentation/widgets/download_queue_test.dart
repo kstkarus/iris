@@ -739,6 +739,11 @@ void main() {
             await tester.tap(
               find.byKey(const Key('download_files_clear_temporary')),
             );
+            await tester.pump();
+            expect(
+              find.byKey(const Key('download_files_clear_temporary')),
+              findsNothing,
+            );
             await tester.pumpAndSettle();
             expect(repository.cleared, 1);
             expect(find.text('Temporary files deleted'), findsOneWidget);

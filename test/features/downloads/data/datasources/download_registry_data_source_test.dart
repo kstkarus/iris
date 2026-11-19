@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:path/path.dart' as path;
 
 import 'package:iris/features/downloads/data/datasources/download_registry_data_source.dart';
 import 'package:iris/features/downloads/data/models/download_item_model.dart';
@@ -100,6 +101,29 @@ void main() {
     final replacement = item.copyWith(id: 'replacement');
     await dataSource.writeDownloads([replacement]);
     expect(await dataSource.readDownloads(), [replacement]);
+  });
+
+  test('moves a legacy registry and recovers its interrupted write', () async {
+    final item = _createItem();
+    await dataSource.writeDownloads([item]);
+    await registryFile.rename('${registryFile.path}.bak');
+    await File('${registryFile.path}.tmp').writeAsString('incomplete');
+    final moved = File(
+      path.join(temporaryDirectory.path, 'offline_downloads', 'downloads.json'),
+    );
+    final relocated = DownloadRegistryDataSource(
+      registryFile: moved,
+      legacyRegistryFile: registryFile,
+    );
+
+    expect(await relocated.readDownloads(), [item]);
+    expect(await File('${registryFile.path}.bak').exists(), isFalse);
+    expect(await File('${registryFile.path}.tmp').exists(), isFalse);
+    await relocated.writeDownloads([item]);
+    expect(
+      await DownloadRegistryDataSource(registryFile: moved).readDownloads(),
+      [item],
+    );
   });
 
   test(

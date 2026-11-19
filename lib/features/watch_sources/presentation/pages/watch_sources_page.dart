@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -25,13 +23,11 @@ import 'package:iris/features/watch_sources/presentation/widgets/watch_sources_v
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/torrent/torrent_file_picker.dart';
 import 'package:iris/shared/utils/desktop_platform.dart';
-import 'package:iris/shared/utils/motion_duration.dart';
 import 'package:iris/shared/widgets/active_layer.dart';
 import 'package:iris/shared/widgets/adaptive/framed_app_bar.dart';
 import 'package:iris/shared/widgets/adaptive/page_frame.dart';
 import 'package:iris/shared/widgets/detail_layout.dart';
 import 'package:iris/shared/widgets/dither_switcher.dart';
-import 'package:iris/shared/widgets/dither_transition.dart';
 import 'package:iris/shared/widgets/page_title.dart';
 import 'package:iris/shared/widgets/marked_tab.dart';
 import 'package:iris/shared/widgets/pixel_icon.dart';
@@ -45,7 +41,7 @@ import 'package:iris/shared/widgets/pixel_icon.dart';
 /// the user's own to this anime, so what plays from it is known to be this
 /// anime. It is there however the search went, including when it found
 /// nothing.
-class WatchSourcesPage extends StatelessWidget {
+class WatchSourcesPage extends StatefulWidget {
   const WatchSourcesPage({
     required this.args,
     this.pickFile = pickTorrentFile,
@@ -58,6 +54,22 @@ class WatchSourcesPage extends StatelessWidget {
   final TorrentFilePicker pickFile;
 
   @override
+  State<WatchSourcesPage> createState() => _WatchSourcesPageState();
+}
+
+class _WatchSourcesPageState extends State<WatchSourcesPage> {
+  bool _keepMineUntilEmpty = false;
+
+  AnimeWatchSourcesArgs get args => widget.args;
+
+  void _onMineEmptied() {
+    if (_keepMineUntilEmpty &&
+        context.read<SavedTorrentsCubit>().state.torrents.isEmpty) {
+      setState(() => _keepMineUntilEmpty = false);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final hasOnline = context.select<OnlineReleasesCubit, bool>(
       (cubit) => cubit.state is! OnlineReleasesEmpty,
@@ -68,32 +80,24 @@ class WatchSourcesPage extends StatelessWidget {
     final hasMine = context.select<SavedTorrentsCubit, bool>(
       (cubit) => cubit.state.torrents.isNotEmpty,
     );
-    return _Lingering(
-      value: hasMine,
-      // The last row dissolves before its tab goes.
-      linger: DitherTransition.duration * 2,
-      builder: (context, hasMine) =>
-          _build(context, hasOnline, hasTorrents, hasMine),
-    );
-  }
-
-  Widget _build(
-    BuildContext context,
-    bool hasOnline,
-    bool hasTorrents,
-    bool hasMine,
-  ) {
     final l10n = AppLocalizations.of(context);
+    final chosen = context.watch<WatchSourcesTabCubit>().state;
     final tabs = [
       if (hasOnline) WatchSourcesTab.online,
       if (hasTorrents) WatchSourcesTab.torrents,
-      if (hasMine) WatchSourcesTab.mine,
     ];
-    final chosen = context.watch<WatchSourcesTabCubit>().state;
+    // Only the selected list can visibly finish removing its last row.
+    final showMine =
+        hasMine ||
+        (_keepMineUntilEmpty &&
+            (chosen == WatchSourcesTab.mine || tabs.isEmpty) &&
+            !MediaQuery.disableAnimationsOf(context));
+    if (showMine) tabs.add(WatchSourcesTab.mine);
     final tab = tabs.contains(chosen)
         ? chosen
         // With nothing anywhere, the torrents say so and offer to add one.
         : tabs.firstOrNull ?? WatchSourcesTab.torrents;
+    _keepMineUntilEmpty = tab == WatchSourcesTab.mine;
 
     return Shortcuts(
       shortcuts: const {
@@ -115,7 +119,7 @@ class WatchSourcesPage extends StatelessWidget {
                 subtitle: args.animeTitle,
               ),
               trailing: IconButton(
-                key: addButtonKey,
+                key: WatchSourcesPage.addButtonKey,
                 tooltip: isDesktopPlatform
                     ? l10n.savedTorrentsAddWithShortcut(
                         defaultTargetPlatform == TargetPlatform.macOS
@@ -131,21 +135,19 @@ class WatchSourcesPage extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // The tabs go once one kind is left: they dissolve, then
-                  // give their height back. A kind coming or going changes
-                  // the row in place.
+                  // The strip gives its height back when one kind is left.
                   DitherSwitcher(
                     collapse: true,
+                    duration: const Duration(milliseconds: 220),
                     child: tabs.length > 1
                         ? Padding(
-                            key: ValueKey(tabs.map((tab) => tab.name).join()),
+                            key: const ValueKey('source_tabs'),
                             padding: const EdgeInsets.only(bottom: 16),
                             child: _Tabs(tabs: tabs, selected: tab),
                           )
                         : const SizedBox.shrink(key: ValueKey('no_tabs')),
                   ),
-                  // All stay built, so each keeps its scroll and the torrent
-                  // search while another is shown.
+                  // Hidden tabs keep their scroll and the torrent search.
                   Expanded(
                     child: Stack(
                       fit: StackFit.expand,
@@ -169,12 +171,19 @@ class WatchSourcesPage extends StatelessWidget {
                         ),
                         _TabPane(
                           active: tab == WatchSourcesTab.mine,
-                          child: SavedTorrentsList(
-                            onWatch: (torrent, {autoOpenFileIndex}) =>
-                                _watch(context, torrent, autoOpenFileIndex),
-                            onDownload: (torrent) =>
-                                _download(context, torrent),
-                          ),
+                          child: showMine
+                              ? SavedTorrentsList(
+                                  onEmptied: _onMineEmptied,
+                                  onWatch: (torrent, {autoOpenFileIndex}) =>
+                                      _watch(
+                                        context,
+                                        torrent,
+                                        autoOpenFileIndex,
+                                      ),
+                                  onDownload: (torrent) =>
+                                      _download(context, torrent),
+                                )
+                              : const SizedBox.shrink(),
                         ),
                       ],
                     ),
@@ -204,7 +213,7 @@ class WatchSourcesPage extends StatelessWidget {
       context: context,
       onSave: cubit.add,
       initialMagnet: initialMagnet,
-      pickFile: pickFile,
+      pickFile: widget.pickFile,
     );
     switch (result) {
       case SaveTorrentAdded():
@@ -252,12 +261,11 @@ class WatchSourcesPage extends StatelessWidget {
   }
 }
 
-/// Keeps its child mounted like an [IndexedStack] slot while cross-fading
-/// briskly between tabs.
+/// Keeps each tab mounted and fades in the newly selected one.
 class _TabPane extends StatefulWidget {
   const _TabPane({required this.active, required this.child});
 
-  static const _duration = Duration(milliseconds: 180);
+  static const _duration = Duration(milliseconds: 150);
 
   final bool active;
   final Widget child;
@@ -271,113 +279,48 @@ class _TabPaneState extends State<_TabPane>
   late final AnimationController _controller = AnimationController(
     vsync: this,
     duration: _TabPane._duration,
-    value: widget.active ? 1 : 0,
-  )..addStatusListener(_onStatus);
+    value: 1,
+  );
+  late final Animation<double> _opacity = _controller.drive(
+    CurveTween(curve: Curves.easeOutCubic),
+  );
 
-  late bool _visible = widget.active;
-
-  void _onStatus(AnimationStatus status) {
-    if ((status == AnimationStatus.completed ||
-            status == AnimationStatus.dismissed) &&
-        !widget.active &&
-        _controller.value == 0 &&
-        mounted) {
-      setState(() => _visible = false);
-    }
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (MediaQuery.disableAnimationsOf(context)) _controller.value = 1;
   }
 
   @override
   void didUpdateWidget(covariant _TabPane oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.active == oldWidget.active) return;
-    final duration = motionDuration(context, _TabPane._duration);
-    if (widget.active) {
-      _visible = true;
-      if (duration == Duration.zero) {
-        _controller.value = 1;
-      } else {
-        _controller.animateTo(
-          1,
-          duration: duration,
-          curve: Curves.easeOutCubic,
-        );
-      }
-    } else if (duration == Duration.zero) {
-      _controller.value = 0;
-      _visible = false;
+    if (widget.active && !MediaQuery.disableAnimationsOf(context)) {
+      _controller.forward(from: 0);
     } else {
-      _controller.animateTo(0, duration: duration, curve: Curves.easeOutCubic);
+      _controller.value = 1;
     }
   }
 
   @override
   void dispose() {
-    _controller
-      ..removeStatusListener(_onStatus)
-      ..dispose();
+    _controller.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Offstage(
-      offstage: !_visible,
+      offstage: !widget.active,
       child: TickerMode(
         enabled: widget.active,
         child: ActiveLayer(
           active: widget.active,
-          child: FadeTransition(opacity: _controller, child: widget.child),
+          child: FadeTransition(opacity: _opacity, child: widget.child),
         ),
       ),
     );
   }
-}
-
-/// [value] as it turns true at once, and as it turns false only after
-/// [linger], unless it turns back meanwhile.
-class _Lingering extends StatefulWidget {
-  const _Lingering({
-    required this.value,
-    required this.linger,
-    required this.builder,
-  });
-
-  final bool value;
-  final Duration linger;
-  final Widget Function(BuildContext context, bool value) builder;
-
-  @override
-  State<_Lingering> createState() => _LingeringState();
-}
-
-class _LingeringState extends State<_Lingering> {
-  late bool _value = widget.value;
-  Timer? _timer;
-
-  @override
-  void didUpdateWidget(covariant _Lingering oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    _timer?.cancel();
-    if (widget.value) {
-      _value = true;
-    } else if (_value) {
-      final linger = MediaQuery.disableAnimationsOf(context)
-          ? Duration.zero
-          : widget.linger;
-      _timer = Timer(linger, () {
-        if (mounted) setState(() => _value = false);
-      });
-    }
-  }
-
-  @override
-  void dispose() {
-    _timer?.cancel();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) => widget.builder(context, _value);
 }
 
 class _PasteIntent extends Intent {

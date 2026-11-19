@@ -30,19 +30,22 @@ class HlsPlan {
 }
 
 /// Reads the HLS playlists of video servers, as far as loading them takes:
-/// variants, segments and the fMP4 init segment. Encrypted and byte-range
-/// playlists are not loaded.
+/// variants, segments and the fMP4 init segment. Encrypted, byte-range and
+/// separate-audio playlists are not loaded.
 abstract final class HlsPlaylist {
   static const _variantTag = '#EXT-X-STREAM-INF:';
+  static const _mediaTag = '#EXT-X-MEDIA:';
 
-  /// The closest variant within [quality], or the lowest above it.
-  /// Null for a media playlist.
+  /// The closest downloadable variant within [quality], or the lowest above it.
+  /// Variants whose audio lives in a separate playlist are skipped.
+  /// Null for a media playlist or a master playlist with no muxed variant.
   static ({Uri uri, int height})? pickVariant(
     String text,
     Uri base, {
     required int quality,
   }) {
     final lines = _lines(text);
+    final externalAudioGroups = _externalAudioGroups(lines);
     final variants = <({Uri uri, int height, int bandwidth})>[];
     for (var index = 0; index < lines.length; index++) {
       final line = lines[index];
@@ -55,6 +58,10 @@ abstract final class HlsPlaylist {
           );
       if (uri.isEmpty) continue;
       final attributes = line.substring(_variantTag.length);
+      final audioGroup = _attribute(attributes, 'AUDIO');
+      if (audioGroup != null && externalAudioGroups.contains(audioGroup)) {
+        continue;
+      }
       final resolution = _attribute(attributes, 'RESOLUTION');
       final height = int.tryParse(resolution?.split('x').last ?? '') ?? 0;
       final bandwidth = int.tryParse(_attribute(attributes, 'BANDWIDTH') ?? '');
@@ -85,8 +92,28 @@ abstract final class HlsPlaylist {
     return (uri: variant.uri, height: variant.height);
   }
 
+  /// Audio groups that require fetching a separate audio playlist.
+  static Set<String> _externalAudioGroups(List<String> lines) {
+    final withUri = <String>{};
+    final muxedDefault = <String>{};
+    for (final line in lines) {
+      if (!line.startsWith(_mediaTag)) continue;
+      final attributes = line.substring(_mediaTag.length);
+      if (_attribute(attributes, 'TYPE') != 'AUDIO') continue;
+      final groupId = _attribute(attributes, 'GROUP-ID');
+      if (groupId == null || groupId.isEmpty) continue;
+      final uri = _attribute(attributes, 'URI');
+      if (uri != null && uri.isNotEmpty) {
+        withUri.add(groupId);
+      } else if (_attribute(attributes, 'DEFAULT') == 'YES') {
+        muxedDefault.add(groupId);
+      }
+    }
+    return withUri.difference(muxedDefault);
+  }
+
   /// The pieces of a media playlist; null when it cannot be loaded as
-  /// plain pieces (encrypted, byte ranges) or has none.
+  /// plain pieces (master playlist, encrypted, byte ranges) or has none.
   static HlsPlan? parseMedia(String text, Uri base, {int? variantHeight}) {
     HlsPiece? init;
     final segments = <HlsPiece>[];
@@ -94,7 +121,9 @@ abstract final class HlsPlaylist {
     final lines = _lines(text);
     for (final line in lines) {
       if (line.isEmpty) continue;
-      if (line.startsWith('#EXTINF:')) {
+      if (line.startsWith(_variantTag) || line.startsWith(_mediaTag)) {
+        return null;
+      } else if (line.startsWith('#EXTINF:')) {
         final value = line.substring('#EXTINF:'.length).split(',').first;
         seconds = double.tryParse(value.trim()) ?? 0;
       } else if (line.startsWith('#EXT-X-KEY:')) {

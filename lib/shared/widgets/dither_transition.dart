@@ -24,9 +24,34 @@ abstract final class DitherTransition {
     Animation<double> animation,
   ) => _DitherTransition(animation: animation, collapse: true, child: child);
 
-  /// Children stacked from the top-left; the tallest sets the height.
-  static Widget layout(Widget? current, List<Widget> previous) => Stack(
-    alignment: AlignmentDirectional.topStart,
+  /// Grows from [alignment] as fine cells reveal the content. The same
+  /// progress can run in either direction without changing the cell order.
+  static Widget horizontalReveal(
+    Widget? child,
+    double progress, {
+    AlignmentGeometry alignment = AlignmentDirectional.centerStart,
+  }) {
+    final revealed = progress.clamp(0.0, 1.0);
+    return ClipRect(
+      child: Align(
+        alignment: alignment,
+        widthFactor: revealed,
+        child: BayerMasked(
+          open: (revealed * BayerMask.steps).round(),
+          cell: 1,
+          child: child,
+        ),
+      ),
+    );
+  }
+
+  /// Stacked children; the tallest sets the height.
+  static Widget layout(
+    Widget? current,
+    List<Widget> previous, {
+    AlignmentGeometry alignment = AlignmentDirectional.topStart,
+  }) => Stack(
+    alignment: alignment,
     children: ActiveLayer.switcherChildren(current, previous),
   );
 

@@ -25,20 +25,35 @@ Dio createJsonApiDio({
 
 /// The Shikimori API client; with a [session] and [oauth] it also signs
 /// requests in as the account (anonymous requests go as before).
+///
+/// Token renewal finishes before reserving a rate-limit slot. After the wait
+/// the request rechecks the session and uses the current in-memory token.
 Dio createShikimoriDio({
   ShikimoriSessionStore? session,
   ShikimoriOAuthClient? oauth,
+  DateTime Function()? now,
+  Future<void> Function(Duration)? wait,
 }) {
   final dio = _shikimoriBaseDio(contentType: Headers.jsonContentType);
-  if (session != null && oauth != null) {
-    dio.interceptors.add(
-      ShikimoriAuthInterceptor(dio: dio, store: session, oauth: oauth),
-    );
-  }
-  return dio
-    ..interceptors.add(
-      RateLimitInterceptor(dio: dio, limits: ShikimoriApi.rateLimits),
-    );
+  final auth = session != null && oauth != null
+      ? ShikimoriAuthInterceptor(
+          dio: dio,
+          store: session,
+          oauth: oauth,
+          now: now,
+        )
+      : null;
+  dio.interceptors.addAll([
+    ?auth,
+    RateLimitInterceptor(
+      dio: dio,
+      limits: ShikimoriApi.rateLimits,
+      now: now,
+      wait: wait,
+    ),
+    if (auth != null) InterceptorsWrapper(onRequest: auth.authorize),
+  ]);
+  return dio;
 }
 
 /// For [ShikimoriOAuthClient]: the same limits, no auth interceptor.

@@ -6,13 +6,20 @@ import 'package:iris/features/downloads/domain/entities/download_item.dart';
 import 'package:iris/shared/utils/serial_queue.dart';
 
 class DownloadRegistryDataSource {
-  DownloadRegistryDataSource({required File registryFile})
-    : _registryFile = registryFile;
+  DownloadRegistryDataSource({
+    required File registryFile,
+    File? legacyRegistryFile,
+  }) : _legacyRegistryFile = legacyRegistryFile,
+       _registryFile = registryFile;
 
   final File _registryFile;
+  final File? _legacyRegistryFile;
   final _writes = SerialQueue();
 
   Future<List<DownloadItem>> readDownloads() async {
+    if (_legacyRegistryFile case final legacy?) {
+      await _writes.run(() => _moveLegacyRegistry(legacy));
+    }
     final primary = await _tryRead(_registryFile);
     if (primary != null) {
       return primary;
@@ -29,6 +36,28 @@ class DownloadRegistryDataSource {
 
   File get _temporaryFile => File('${_registryFile.path}.tmp');
   File get _backupFile => File('${_registryFile.path}.bak');
+
+  Future<void> _moveLegacyRegistry(File legacy) async {
+    final alreadyMoved = await _registryFile.exists();
+    // Move the main copy last so an interrupted move can resume safely.
+    for (final suffix in const [
+      '.bak',
+      '.tmp',
+      '.corrupt',
+      '.bak.corrupt',
+      '',
+    ]) {
+      final source = File('${legacy.path}$suffix');
+      if (!await source.exists()) continue;
+      final destination = File('${_registryFile.path}$suffix');
+      if (alreadyMoved || await destination.exists()) {
+        await source.delete();
+      } else {
+        await destination.parent.create(recursive: true);
+        await source.rename(destination.path);
+      }
+    }
+  }
 
   /// The downloads [file] lists, or null when it is missing or unreadable
   /// as a list. A file that cannot be read now (the disk, not the content)

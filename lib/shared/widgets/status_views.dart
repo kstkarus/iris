@@ -295,6 +295,7 @@ class PagingFooter extends StatelessWidget {
     required this.failed,
     required this.failedMessage,
     required this.onRetry,
+    this.topSpacing = 0,
     this.idle = const SizedBox.shrink(),
     super.key,
   });
@@ -303,6 +304,7 @@ class PagingFooter extends StatelessWidget {
   final bool failed;
   final String failedMessage;
   final VoidCallback onRetry;
+  final double topSpacing;
   final Widget idle;
 
   @override
@@ -310,15 +312,16 @@ class PagingFooter extends StatelessWidget {
     final anim = motionDuration(context, const Duration(milliseconds: 180));
     final Widget content;
     if (loadingMore) {
-      content = const Padding(
-        key: ValueKey(_PagingFooterSlot.loading),
-        padding: EdgeInsets.symmetric(vertical: 8),
-        child: Center(child: SizedBox(width: 120, child: BlockSpinner())),
+      content = Padding(
+        key: const ValueKey(_PagingFooterSlot.loading),
+        padding: EdgeInsets.only(top: topSpacing + 8, bottom: 8),
+        child: const Center(child: SizedBox(width: 120, child: BlockSpinner())),
       );
     } else if (failed) {
       content = Column(
         key: const ValueKey(_PagingFooterSlot.failed),
         children: [
+          if (topSpacing > 0) SizedBox(height: topSpacing),
           const SegmentedRule(),
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 8),

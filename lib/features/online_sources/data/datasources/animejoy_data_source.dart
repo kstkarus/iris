@@ -40,10 +40,13 @@ class AnimejoyDataSource {
     for (final page in await searchPages(title).toList()) ...page,
   ];
 
-  Stream<List<int>> searchPages(String title) async* {
+  Stream<List<int>> searchPages(
+    String title, {
+    CancelToken? cancelToken,
+  }) async* {
     final ids = <int>{};
     var page = 1;
-    while (true) {
+    while (cancelToken?.isCancelled != true) {
       final html = await _getText(
         _baseUri.replace(
           path: '/index.php',
@@ -54,7 +57,9 @@ class AnimejoyDataSource {
             if (page > 1) 'search_start': '$page',
           },
         ),
+        cancelToken: cancelToken,
       );
+      if (cancelToken?.isCancelled == true) return;
       final document = parse(html);
       final before = ids.length;
       for (final anchor in document.querySelectorAll(
@@ -87,13 +92,14 @@ class AnimejoyDataSource {
     }
   }
 
-  Future<AnimejoyArticleDto> article(int id) async {
+  Future<AnimejoyArticleDto> article(int id, {CancelToken? cancelToken}) async {
     if (id <= 0) {
       throw const ResourceNotFoundException('Invalid Animejoy article id.');
     }
     final html = await _getText(
       _baseUri.replace(path: '/index.php', queryParameters: {'newsid': '$id'}),
       notFoundMessage: 'Animejoy article $id was not found.',
+      cancelToken: cancelToken,
     );
     final document = parse(html);
     int? shikimoriId;
@@ -117,6 +123,7 @@ class AnimejoyDataSource {
     int articleId, {
     bool includeKodik = true,
     bool includeAlloha = true,
+    CancelToken? cancelToken,
   }) async {
     if (articleId <= 0) {
       throw const ResourceNotFoundException('Invalid Animejoy article id.');
@@ -128,6 +135,7 @@ class AnimejoyDataSource {
       ),
       notFoundMessage:
           'Animejoy playlists for article $articleId were not found.',
+      cancelToken: cancelToken,
     );
     final Object? json;
     try {
@@ -197,14 +205,16 @@ class AnimejoyDataSource {
     Uri uri, {
     String? referer,
     String? notFoundMessage,
+    CancelToken? cancelToken,
   }) async {
     final Response<String> response;
     try {
       final session = _session;
       response = session != null && uri.origin == _baseUri.origin
-          ? await session.get(uri)
+          ? await session.get(uri, cancelToken: cancelToken)
           : await _dio.getUri<String>(
               uri,
+              cancelToken: cancelToken,
               options: Options(
                 headers: {
                   'Accept': 'text/html,application/json;q=0.9,*/*;q=0.8',

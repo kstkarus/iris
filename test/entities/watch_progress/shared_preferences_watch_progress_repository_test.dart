@@ -79,6 +79,75 @@ void main() {
     expect(lists.last.map((item) => item.torrentKey), ['def']);
   });
 
+  test(
+    'dismisses all torrents of an anime while keeping resume positions until newer playback',
+    () async {
+      final older = _progress(
+        torrentKey: 't1',
+        fileIndex: 0,
+        positionSeconds: 300,
+        minute: 1,
+        animeId: '52991',
+      );
+      final newer = _progress(
+        torrentKey: 't2',
+        fileIndex: 1,
+        positionSeconds: 600,
+        minute: 5,
+        animeId: '52991',
+      );
+      final otherAnime = _progress(
+        torrentKey: 't3',
+        fileIndex: 0,
+        positionSeconds: 400,
+        minute: 3,
+        animeId: '99999',
+      );
+      await repository.save(older);
+      await repository.save(newer);
+      await repository.save(otherAnime);
+
+      await repository.dismissFromContinueWatching(newer);
+
+      // Resume positions stay intact across reload, both sources are hidden.
+      final reopened = SharedPreferencesWatchProgressRepository(preferences);
+      addTearDown(reopened.close);
+      expect(
+        (await reopened.find(torrentKey: 't1', fileIndex: 0))?.position,
+        const Duration(seconds: 300),
+      );
+      expect(
+        (await reopened.find(torrentKey: 't2', fileIndex: 1))?.position,
+        const Duration(seconds: 600),
+      );
+      final afterDismiss = await reopened.watchAll().first;
+      expect(
+        afterDismiss
+            .where((item) => !item.hiddenFromContinueWatching)
+            .map((item) => item.torrentKey),
+        ['t3'],
+      );
+
+      // Newer playback restores the anime to Continue watching.
+      await reopened.save(
+        _progress(
+          torrentKey: 't2',
+          fileIndex: 2,
+          positionSeconds: 180,
+          minute: 10,
+          animeId: '52991',
+        ),
+      );
+      final afterResume = await reopened.watchAll().first;
+      expect(
+        afterResume
+            .where((item) => !item.hiddenFromContinueWatching)
+            .map((item) => item.id),
+        ['t2:2', 't3:0'],
+      );
+    },
+  );
+
   test('drops the oldest records beyond the limit', () async {
     final limited = SharedPreferencesWatchProgressRepository(
       preferences,

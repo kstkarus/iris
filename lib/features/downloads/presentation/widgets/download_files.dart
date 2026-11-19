@@ -162,153 +162,22 @@ class _DownloadFilesState extends State<_DownloadFiles> {
                   context,
                   const Duration(milliseconds: 180),
                 );
-                final clearMessageSwitcher = AnimatedSwitcher(
-                  duration: animDuration,
-                  switchInCurve: Curves.easeOutCubic,
-                  switchOutCurve: Curves.easeOutCubic,
-                  child: _clearMessage == null
-                      ? const SizedBox.shrink(key: ValueKey('no_clear_message'))
-                      : Padding(
-                          key: ValueKey(_clearMessage),
-                          padding: const EdgeInsets.only(bottom: 16),
-                          child: Semantics(
-                            liveRegion: true,
-                            child: Text(
-                              _clearMessage!,
-                              style: theme.textTheme.bodyMedium?.copyWith(
-                                fontFamily: DetailLayout.sansFont,
-                              ),
+                final temporaryArea = Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (_clearMessage case final message?)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 16),
+                        child: Semantics(
+                          liveRegion: true,
+                          child: Text(
+                            message,
+                            textAlign: TextAlign.center,
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              fontFamily: DetailLayout.sansFont,
                             ),
                           ),
                         ),
-                );
-                final temporarySectionSwitcher = AnimatedSwitcher(
-                  duration: animDuration,
-                  switchInCurve: Curves.easeOutCubic,
-                  switchOutCurve: Curves.easeOutCubic,
-                  child: temporary != null && temporary > 0
-                      ? Column(
-                          key: const ValueKey('temporary_cache_section'),
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            OverflowBar(
-                              alignment: MainAxisAlignment.spaceBetween,
-                              overflowAlignment: OverflowBarAlignment.start,
-                              spacing: 12,
-                              overflowSpacing: 4,
-                              children: [
-                                IntrinsicWidth(
-                                  child: SectionLabel(
-                                    l10n.downloadFilesTemporary,
-                                    style: sectionStyle,
-                                    uppercase: false,
-                                  ),
-                                ),
-                                Text(
-                                  formatByteSize(
-                                    l10n,
-                                    temporary,
-                                    compact: true,
-                                  ),
-                                  style: DetailLayout.monoTelemetryStyle(
-                                    theme.textTheme.bodyMedium,
-                                    fontWeight: FontWeight.w600,
-                                    color: scheme.onSurface,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 6),
-                            Text(
-                              usage!.cacheInUse
-                                  ? l10n.downloadFilesTemporaryBusy
-                                  : l10n.downloadFilesTemporaryHint,
-                              style: theme.textTheme.bodyMedium?.copyWith(
-                                fontFamily: DetailLayout.sansFont,
-                                color: scheme.onSurfaceVariant,
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            Align(
-                              alignment: Alignment.centerLeft,
-                              child: OutlinedButton(
-                                key: const Key(
-                                  'download_files_clear_temporary',
-                                ),
-                                style: ButtonStyle(
-                                  textStyle: const WidgetStatePropertyAll(
-                                    TextStyle(
-                                      fontFamily: DetailLayout.sansFont,
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                  side: WidgetStateProperty.resolveWith((
-                                    states,
-                                  ) {
-                                    if (states.contains(WidgetState.focused)) {
-                                      return BorderSide(
-                                        color: scheme.onSurface,
-                                        width: 2,
-                                      );
-                                    }
-                                    return BorderSide(
-                                      color:
-                                          states.contains(WidgetState.disabled)
-                                          ? rule.withValues(alpha: 0.45)
-                                          : rule,
-                                    );
-                                  }),
-                                ),
-                                onPressed: usage.cacheInUse || _clearing
-                                    ? null
-                                    : _clear,
-                                child: Stack(
-                                  alignment: Alignment.center,
-                                  children: [
-                                    ExcludeSemantics(
-                                      excluding: _clearing,
-                                      child: Opacity(
-                                        opacity: _clearing ? 0 : 1,
-                                        child: Text(
-                                          l10n.downloadStorageClearCache,
-                                          semanticsLabel:
-                                              l10n.downloadFilesClearTemporary,
-                                        ),
-                                      ),
-                                    ),
-                                    if (_clearing)
-                                      Semantics(
-                                        label: l10n.downloadFilesClearTemporary,
-                                        child: const SizedBox(
-                                          width: 48,
-                                          child: BlockSpinner(height: 6),
-                                        ),
-                                      ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 20),
-                            Divider(height: 1, thickness: 1, color: rule),
-                            const SizedBox(height: 20),
-                          ],
-                        )
-                      : const SizedBox.shrink(
-                          key: ValueKey('no_temporary_cache'),
-                        ),
-                );
-                return ListView(
-                  shrinkWrap: true,
-                  children: [
-                    if (animDuration == Duration.zero)
-                      clearMessageSwitcher
-                    else
-                      AnimatedSize(
-                        duration: animDuration,
-                        curve: Curves.easeOutCubic,
-                        alignment: Alignment.topCenter,
-                        child: clearMessageSwitcher,
                       ),
                     if (temporary == null)
                       Padding(
@@ -320,15 +189,114 @@ class _DownloadFilesState extends State<_DownloadFiles> {
                             color: scheme.onSurfaceVariant,
                           ),
                         ),
+                      )
+                    else if (temporary > 0) ...[
+                      OverflowBar(
+                        alignment: MainAxisAlignment.spaceBetween,
+                        overflowAlignment: OverflowBarAlignment.start,
+                        spacing: 12,
+                        overflowSpacing: 4,
+                        children: [
+                          IntrinsicWidth(
+                            child: SectionLabel(
+                              l10n.downloadFilesTemporary,
+                              style: sectionStyle,
+                              uppercase: false,
+                            ),
+                          ),
+                          Text(
+                            formatByteSize(l10n, temporary, compact: true),
+                            style: DetailLayout.monoTelemetryStyle(
+                              theme.textTheme.bodyMedium,
+                              fontWeight: FontWeight.w600,
+                              color: scheme.onSurface,
+                            ),
+                          ),
+                        ],
                       ),
+                      const SizedBox(height: 6),
+                      Text(
+                        usage!.cacheInUse
+                            ? l10n.downloadFilesTemporaryBusy
+                            : l10n.downloadFilesTemporaryHint,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          fontFamily: DetailLayout.sansFont,
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: OutlinedButton(
+                          key: const Key('download_files_clear_temporary'),
+                          style: ButtonStyle(
+                            textStyle: const WidgetStatePropertyAll(
+                              TextStyle(
+                                fontFamily: DetailLayout.sansFont,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            side: WidgetStateProperty.resolveWith((states) {
+                              if (states.contains(WidgetState.focused)) {
+                                return BorderSide(
+                                  color: scheme.onSurface,
+                                  width: 2,
+                                );
+                              }
+                              return BorderSide(
+                                color: states.contains(WidgetState.disabled)
+                                    ? rule.withValues(alpha: 0.45)
+                                    : rule,
+                              );
+                            }),
+                          ),
+                          onPressed: usage.cacheInUse || _clearing
+                              ? null
+                              : _clear,
+                          child: Stack(
+                            alignment: Alignment.center,
+                            children: [
+                              ExcludeSemantics(
+                                excluding: _clearing,
+                                child: Opacity(
+                                  opacity: _clearing ? 0 : 1,
+                                  child: Text(
+                                    l10n.downloadStorageClearCache,
+                                    semanticsLabel:
+                                        l10n.downloadFilesClearTemporary,
+                                  ),
+                                ),
+                              ),
+                              if (_clearing)
+                                Semantics(
+                                  label: l10n.downloadFilesClearTemporary,
+                                  child: const SizedBox(
+                                    width: 48,
+                                    child: BlockSpinner(height: 6),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      Divider(height: 1, thickness: 1, color: rule),
+                      const SizedBox(height: 20),
+                    ],
+                  ],
+                );
+                return ListView(
+                  shrinkWrap: true,
+                  children: [
                     if (animDuration == Duration.zero)
-                      temporarySectionSwitcher
+                      temporaryArea
                     else
                       AnimatedSize(
                         duration: animDuration,
                         curve: Curves.easeOutCubic,
                         alignment: Alignment.topCenter,
-                        child: temporarySectionSwitcher,
+                        child: temporaryArea,
                       ),
                     SectionLabel(
                       l10n.downloadFilesSaved,

@@ -1633,6 +1633,13 @@ class AppLocalizationsRu extends AppLocalizations {
   String get savedTorrentsNotTorrentFile => 'Это не торрент-файл.';
 
   @override
+  String get savedTorrentsFileTooLarge => 'Файл слишком большой для торрента.';
+
+  @override
+  String get savedTorrentsFileReadFailed =>
+      'Не удалось прочитать файл. Попробуйте ещё раз.';
+
+  @override
   String get savedTorrentsFromFile => 'из файла';
 
   @override

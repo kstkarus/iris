@@ -3,11 +3,12 @@ import 'dart:developer' as developer;
 import 'dart:io';
 
 import 'package:iris/features/player/data/utils/player_debug_formatter.dart';
+import 'package:iris/shared/torrent/preparation_cancelled_exception.dart';
 
 const _sniffedByteCount = 64;
 
 abstract interface class PlaybackStreamProbe {
-  Future<PlaybackProbeResult> probe(String url);
+  Future<PlaybackProbeResult> probe(String url, {Future<void>? cancelled});
 }
 
 class PlaybackProbeResult {
@@ -76,39 +77,49 @@ class HttpPlaybackStreamProbe implements PlaybackStreamProbe {
   final Duration timeout;
 
   @override
-  Future<PlaybackProbeResult> probe(String url) async {
+  Future<PlaybackProbeResult> probe(
+    String url, {
+    Future<void>? cancelled,
+  }) async {
     final client = HttpClient();
     client.connectionTimeout = timeout;
     try {
-      final result = await () async {
-        final request = await client.getUrl(Uri.parse(url));
-        request.headers.set(
-          HttpHeaders.rangeHeader,
-          'bytes=0-${_sniffedByteCount - 1}',
-        );
-        final response = await request.close();
-        final bytes = <int>[];
-        // Leaving the loop cancels the response, so a server that ignores
-        // Range does not stream the whole file to the probe.
-        await for (final chunk in response) {
-          bytes.addAll(chunk.take(_sniffedByteCount - bytes.length));
-          if (bytes.length >= _sniffedByteCount) break;
-        }
+      final result = await unlessCancelled(
+        () async {
+          final request = await client.getUrl(Uri.parse(url));
+          request.headers.set(
+            HttpHeaders.rangeHeader,
+            'bytes=0-${_sniffedByteCount - 1}',
+          );
+          final response = await request.close();
+          final bytes = <int>[];
+          // Leaving the loop cancels the response, so a server that ignores
+          // Range does not stream the whole file to the probe.
+          await for (final chunk in response) {
+            bytes.addAll(chunk.take(_sniffedByteCount - bytes.length));
+            if (bytes.length >= _sniffedByteCount) break;
+          }
 
-        return PlaybackProbeResult(
-          statusCode: response.statusCode,
-          contentType: response.headers.contentType,
-          contentLength: response.contentLength,
-          acceptRanges: response.headers.value(HttpHeaders.acceptRangesHeader),
-          firstBytes: bytes,
-        );
-      }().timeout(timeout);
+          return PlaybackProbeResult(
+            statusCode: response.statusCode,
+            contentType: response.headers.contentType,
+            contentLength: response.contentLength,
+            acceptRanges: response.headers.value(
+              HttpHeaders.acceptRangesHeader,
+            ),
+            firstBytes: bytes,
+          );
+        }().timeout(timeout),
+        cancelled,
+      );
 
       developer.log(
         'HTTP probe completed. status=${result.statusCode} contentType=${result.contentType} contentLength=${result.contentLength} acceptRanges=${result.acceptRanges} firstBytesHex=${formatBytesHex(result.firstBytes)} firstBytesText=${_toAscii(result.firstBytes)} looksLikePlayableMedia=${result.looksLikePlayableMedia}',
         name: 'iris.player.http_probe',
       );
       return result;
+    } on PreparationCancelledException {
+      rethrow;
     } catch (error, stackTrace) {
       developer.log(
         'HTTP probe failed.',

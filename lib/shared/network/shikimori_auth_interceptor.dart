@@ -44,6 +44,15 @@ class ShikimoriAuthInterceptor extends Interceptor {
     RequestOptions options,
     RequestInterceptorHandler handler,
   ) async {
+    if (_sameSession(options)) {
+      final tokens = await _store.read();
+      if (tokens != null && _isStale(tokens)) await _renew(tokens);
+    }
+    authorize(options, handler);
+  }
+
+  /// Rechecks the prepared session after the rate-limit wait, without I/O.
+  void authorize(RequestOptions options, RequestInterceptorHandler handler) {
     if (!_sameSession(options)) {
       handler.reject(
         DioException.requestCancelled(
@@ -53,19 +62,7 @@ class ShikimoriAuthInterceptor extends Interceptor {
       );
       return;
     }
-    var tokens = await _store.read();
-    if (tokens != null && _isStale(tokens)) {
-      tokens = await _renew(tokens) ?? await _store.read();
-    }
-    if (!_sameSession(options)) {
-      handler.reject(
-        DioException.requestCancelled(
-          requestOptions: options,
-          reason: 'Account session changed',
-        ),
-      );
-      return;
-    }
+    final tokens = _store.cachedTokens;
     if (tokens != null) {
       options.headers[_header] = _bearer(tokens);
     } else {

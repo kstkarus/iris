@@ -732,6 +732,9 @@ class _MemoryWatchProgressRepository implements WatchProgressRepository {
   }
 
   @override
+  Future<void> dismissFromContinueWatching(WatchProgress progress) async {}
+
+  @override
   Future<void> removeTorrent({required String torrentKey}) async {
     _cacheLoaded = true;
     _items.removeWhere((_, item) => item.torrentKey == torrentKey);

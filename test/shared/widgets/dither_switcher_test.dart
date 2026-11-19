@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:iris/shared/widgets/dither_switcher.dart';
+import 'package:iris/shared/widgets/dither_transition.dart';
 
 void main() {
   Future<void> pumpSwitcher(
@@ -30,6 +31,37 @@ void main() {
 
   const empty = SizedBox(key: ValueKey('empty'), width: 100);
   const row = SizedBox(key: ValueKey('row'), width: 100, height: 60);
+
+  testWidgets('a horizontal reveal grows from the leading edge', (
+    tester,
+  ) async {
+    const revealKey = ValueKey('reveal');
+    final reveal = find.byKey(revealKey);
+    for (final direction in TextDirection.values) {
+      for (final progress in [0.5, 1.0, 0.5, 0.0]) {
+        await tester.pumpWidget(
+          Directionality(
+            textDirection: direction,
+            child: Align(
+              alignment: AlignmentDirectional.centerStart,
+              child: SizedBox(
+                key: revealKey,
+                child: DitherTransition.horizontalReveal(row, progress),
+              ),
+            ),
+          ),
+        );
+
+        final visible = tester.getRect(reveal);
+        final full = tester.getRect(find.byKey(row.key!));
+        expect(visible.width, full.width * progress);
+        expect(
+          direction == TextDirection.ltr ? visible.left : visible.right,
+          direction == TextDirection.ltr ? full.left : full.right,
+        );
+      }
+    }
+  });
 
   testWidgets('a shorter reverse duration keeps both collapse stages', (
     tester,

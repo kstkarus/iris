@@ -550,6 +550,12 @@ Future<void> _registerReal() async {
 }
 
 Future<void> _registerDownloads(Directory supportDirectory) async {
+  final downloadsDirectory = Directory(
+    path.join(supportDirectory.path, 'offline_downloads'),
+  );
+  const registryName = 'downloads_registry.json';
+  final legacyRegistry = File(path.join(supportDirectory.path, registryName));
+  final registryInDownloads = defaultTargetPlatform == TargetPlatform.iOS;
   serviceLocator
     ..registerLazySingleton<LibtorrentDownloadEngineAdapter>(
       LibtorrentDownloadEngineAdapterImpl.new,
@@ -561,18 +567,17 @@ Future<void> _registerDownloads(Directory supportDirectory) async {
     )
     ..registerLazySingleton<DownloadRegistryDataSource>(
       () => DownloadRegistryDataSource(
-        registryFile: File(
-          path.join(supportDirectory.path, 'downloads_registry.json'),
-        ),
+        registryFile: registryInDownloads
+            ? File(path.join(downloadsDirectory.path, registryName))
+            : legacyRegistry,
+        legacyRegistryFile: registryInDownloads ? legacyRegistry : null,
       ),
     );
 
   final repository = DownloadsRepositoryImpl(
     engine: serviceLocator<LibtorrentDownloadEngineAdapter>(),
     registry: serviceLocator<DownloadRegistryDataSource>(),
-    downloadsDirectory: Directory(
-      path.join(supportDirectory.path, 'offline_downloads'),
-    ),
+    downloadsDirectory: downloadsDirectory,
     foregroundService: serviceLocator<DownloadForegroundServiceAdapter>(),
     streamCache: serviceLocator<StreamCacheStorage>(),
     activityRegistry: serviceLocator<TorrentActivityRegistry>(),

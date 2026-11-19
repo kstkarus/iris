@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="file" path="offline_downloads" />
+        <exclude domain="file" path="app_updates" />
+        <exclude domain="file" path="downloads_registry.json" />
+        <exclude domain="file" path="downloads_registry.json.bak" />
+        <exclude domain="file" path="downloads_registry.json.tmp" />
+        <exclude domain="file" path="downloads_registry.json.corrupt" />
+        <exclude domain="file" path="downloads_registry.json.bak.corrupt" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="file" path="offline_downloads" />
+        <exclude domain="file" path="app_updates" />
+        <exclude domain="file" path="downloads_registry.json" />
+        <exclude domain="file" path="downloads_registry.json.bak" />
+        <exclude domain="file" path="downloads_registry.json.tmp" />
+        <exclude domain="file" path="downloads_registry.json.corrupt" />
+        <exclude domain="file" path="downloads_registry.json.bak.corrupt" />
+    </device-transfer>
+</data-extraction-rules>

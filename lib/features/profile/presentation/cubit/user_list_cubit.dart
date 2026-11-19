@@ -39,6 +39,10 @@ class UserListCubit extends Cubit<UserListState> {
   /// back again. The set is cleared when the first page is replaced.
   final Set<String> _departed = {};
 
+  /// Titles moved into the current status while the initial page was loading;
+  /// if the initial answer misses any of them, one fresh read follows it.
+  final Set<String> _pendingArrivals = {};
+
   /// Shows [userId]'s list, or nobody's.
   void show(String? userId) {
     if (userId == state.userId && state.load != UserListLoad.failed) return;
@@ -103,6 +107,7 @@ class UserListCubit extends Cubit<UserListState> {
     _request++;
     _stepBack = 0;
     _departed.clear();
+    _pendingArrivals.clear();
     if (userId == null) {
       emit(UserListState(status: status, load: UserListLoad.loaded));
       return;
@@ -125,6 +130,12 @@ class UserListCubit extends Cubit<UserListState> {
       if (isClosed || request != _request) return;
       final stepBack = _stepBack;
       _departed.clear();
+      final needsReread =
+          !quietly &&
+          _pendingArrivals.any(
+            (id) => !page.entries.any((entry) => entry.anime.id == id),
+          );
+      if (!quietly) _pendingArrivals.clear();
       emit(
         UserListState(
           userId: userId,
@@ -133,10 +144,16 @@ class UserListCubit extends Cubit<UserListState> {
           load: UserListLoad.loaded,
           page: 1,
           hasMore: page.hasMore || stepBack > 0,
+          refreshing: needsReread,
         ),
       );
+      if (needsReread) {
+        _request++;
+        unawaited(_readFirstPage(quietly: true));
+      }
     } on Object {
       if (isClosed || request != _request || quietly) return;
+      _pendingArrivals.clear();
       emit(state.copyWith(load: UserListLoad.failed));
     } finally {
       if (quietly && !isClosed && request == _request && state.refreshing) {
@@ -146,8 +163,19 @@ class UserListCubit extends Cubit<UserListState> {
   }
 
   void _onChange(UserRateChange change) {
+    if (isClosed) return;
     final rate = change.rate;
-    if (!isClosed && _lists(change.animeId)) {
+    if (state.load == UserListLoad.loading) {
+      if (state.userId != null) {
+        if (rate != null && rate.status == state.status) {
+          _pendingArrivals.add(change.animeId);
+        } else {
+          _pendingArrivals.remove(change.animeId);
+        }
+      }
+      return;
+    }
+    if (_lists(change.animeId)) {
       if (rate?.status == state.status) {
         _departed.remove(change.animeId);
       } else if (_departed.add(change.animeId)) {
@@ -158,8 +186,7 @@ class UserListCubit extends Cubit<UserListState> {
         return;
       }
     }
-    if (isClosed ||
-        state.load != UserListLoad.loaded ||
+    if (state.load != UserListLoad.loaded ||
         rate == null ||
         rate.status != state.status ||
         _lists(change.animeId)) {

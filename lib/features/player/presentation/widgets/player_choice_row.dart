@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 
-import 'package:iris/shared/utils/motion_duration.dart';
+import 'package:iris/features/player/presentation/widgets/player_glyph_switcher.dart';
 import 'package:iris/shared/widgets/detail_layout.dart';
 import 'package:iris/shared/widgets/pixel_icon.dart';
 
 /// A row of a list to choose one from, such as a track or a decoder: the
-/// chosen row carries a check mark, which fades in where the choice moves.
+/// chosen row carries a check mark, with a fixed slot in every row.
 class PlayerChoiceRow extends StatelessWidget {
   const PlayerChoiceRow({
     required this.label,
@@ -14,8 +14,6 @@ class PlayerChoiceRow extends StatelessWidget {
     this.detail,
     super.key,
   });
-
-  static const _checkFade = Duration(milliseconds: 160);
 
   final String label;
   final bool selected;
@@ -59,15 +57,7 @@ class PlayerChoiceRow extends StatelessWidget {
           ],
           SizedBox.square(
             dimension: 18,
-            child: AnimatedSwitcher(
-              duration: motionDuration(context, _checkFade),
-              transitionBuilder: (child, animation) => FadeTransition(
-                opacity: animation,
-                child: ScaleTransition(
-                  scale: Tween(begin: 0.6, end: 1.0).animate(animation),
-                  child: child,
-                ),
-              ),
+            child: PlayerGlyphSwitcher(
               child: selected
                   ? PixelIcon(
                       PixelGlyph.check,

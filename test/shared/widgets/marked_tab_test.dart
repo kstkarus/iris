@@ -50,6 +50,8 @@ void main() {
     tester,
   ) async {
     await pump(tester, selected: false);
+    final label = find.text('Catalog');
+    final labelStart = tester.getTopLeft(label).dx;
     final unselectedColor = labelStyle(tester).color!;
     expect(labelStyle(tester).fontWeight, FontWeight.w400);
 
@@ -57,11 +59,13 @@ void main() {
     await tester.pump(const Duration(milliseconds: 110));
     final midwayColor = labelStyle(tester).color!;
     expect(midwayColor, isNot(equals(unselectedColor)));
+    expect(tester.getTopLeft(label).dx, labelStart);
     expect(tester.hasRunningAnimations, isTrue);
 
     await tester.pumpAndSettle();
     expect(labelStyle(tester).fontWeight, FontWeight.w500);
     expect(labelStyle(tester).color, isNot(equals(midwayColor)));
+    expect(tester.getTopLeft(label).dx, labelStart);
     expect(tester.hasRunningAnimations, isFalse);
   });
 

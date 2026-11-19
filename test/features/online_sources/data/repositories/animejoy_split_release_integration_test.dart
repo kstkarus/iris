@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:dio/dio.dart';
@@ -5,19 +6,62 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:iris/features/downloads/data/adapters/online_episode_downloader.dart';
 import 'package:iris/features/online_sources/data/datasources/animejoy_data_source.dart';
+import 'package:iris/features/online_sources/data/datasources/animejoy_session.dart';
 import 'package:iris/features/online_sources/data/repositories/animejoy_online_sources_repository.dart';
 import 'package:iris/features/online_sources/data/repositories/combined_online_sources_repository.dart';
 import 'package:iris/features/online_sources/domain/entities/online_provider.dart';
+import 'package:iris/features/online_sources/presentation/cubit/online_releases_cubit.dart';
 import 'package:iris/features/player/data/repositories/online_player_repository.dart';
 import 'package:iris/features/player/domain/entities/player_launch_update.dart';
 import 'package:iris/shared/network/video_server_dio_factory.dart';
 import 'package:iris/shared/online/online_source_link.dart';
 
 import '../../../../helpers/fake_http_adapter.dart';
+import '../../../../helpers/fake_secure_storage.dart';
 
 const _animeId = '63181';
 
 void main() {
+  test('closing Sources cancels the AnimeJoy request in flight', () async {
+    final requested = Completer<RequestOptions>();
+    final dio = fakeDio((options) async {
+      requested.complete(options);
+      await options.cancelToken?.whenCancel;
+      return const FakeReply.text(200, '');
+    });
+    final session = AnimejoySession(dio: dio, storage: FakeSecureStorage());
+    addTearDown(session.dispose);
+    final repository = CombinedOnlineSourcesRepository(
+      providers: {
+        OnlineProvider.animejoy: AnimejoyOnlineSourcesRepository(
+          dataSource: AnimejoyDataSource(dio: dio, session: session),
+        ),
+      },
+    );
+    final cubit = OnlineReleasesCubit(
+      shikimoriId: _animeId,
+      titles: const ['Example'],
+      search: repository,
+    );
+    addTearDown(() async {
+      if (!cubit.isClosed) await cubit.close();
+    });
+    final loading = cubit.load();
+    const deadline = Duration(seconds: 2);
+    final options = await requested.future.timeout(deadline);
+    expect(options.uri.queryParameters['story'], 'Example');
+    expect(options.cancelToken, isNotNull);
+    final cancellation = options.cancelToken!.whenCancel;
+
+    await cubit.close().timeout(deadline);
+
+    expect(
+      (await cancellation.timeout(deadline)).type,
+      DioExceptionType.cancel,
+    );
+    await loading.timeout(deadline);
+  });
+
   test(
     'merges unnamed parts and keeps arbitrary translations independent',
     () async {
@@ -264,7 +308,8 @@ class _FakeAnimejoySite {
         );
       }
     }
-    if (uri.host == 'otakujoy.fun' && uri.path == '/engine/ajax/playlists.php') {
+    if (uri.host == 'otakujoy.fun' &&
+        uri.path == '/engine/ajax/playlists.php') {
       final id = int.tryParse(uri.queryParameters['news_id'] ?? '');
       final response = id == null ? null : playlists[id];
       if (response != null) {

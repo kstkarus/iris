@@ -459,6 +459,7 @@ void main() {
 
       await probe.started.future;
       await dataSource.disposePlayback(sessionId: sessionId);
+      await probe.cancellationSeen.future.timeout(const Duration(seconds: 2));
       probe.release(
         const PlaybackProbeResult(
           statusCode: 206,
@@ -482,6 +483,21 @@ void main() {
       expect(probe.probedUrls.length, 1);
     },
   );
+
+  test('cancelling the launch subscription cancels its HTTP probe', () async {
+    final probe = _BlockingPlaybackStreamProbe();
+    final dataSource = LibtorrentPlayerDataSource(
+      engine: _videoEngine(),
+      probe: probe,
+    );
+    final sessionId = await _prepare(dataSource);
+
+    await dataSource.startPlayback(sessionId: sessionId, fileIndex: 8).first;
+
+    await probe.cancellationSeen.future.timeout(const Duration(seconds: 2));
+    probe.releaseError(StateError('late probe failure'));
+    await dataSource.disposePlayback(sessionId: sessionId);
+  });
 
   test(
     'ignores probe errors that arrive after playback was disposed',
@@ -873,7 +889,10 @@ class _FakePlaybackStreamProbe implements PlaybackStreamProbe {
   final List<String> probedUrls = [];
 
   @override
-  Future<PlaybackProbeResult> probe(String url) async {
+  Future<PlaybackProbeResult> probe(
+    String url, {
+    Future<void>? cancelled,
+  }) async {
     probedUrls.add(url);
     return result;
   }
@@ -882,6 +901,7 @@ class _FakePlaybackStreamProbe implements PlaybackStreamProbe {
 class _BlockingPlaybackStreamProbe implements PlaybackStreamProbe {
   final List<String> probedUrls = [];
   final Completer<void> started = Completer<void>();
+  final Completer<void> cancellationSeen = Completer<void>();
   final Completer<PlaybackProbeResult> _result =
       Completer<PlaybackProbeResult>();
 
@@ -898,11 +918,17 @@ class _BlockingPlaybackStreamProbe implements PlaybackStreamProbe {
   }
 
   @override
-  Future<PlaybackProbeResult> probe(String url) async {
+  Future<PlaybackProbeResult> probe(
+    String url, {
+    Future<void>? cancelled,
+  }) async {
     probedUrls.add(url);
     if (!started.isCompleted) {
       started.complete();
     }
+    cancelled?.then((_) {
+      if (!cancellationSeen.isCompleted) cancellationSeen.complete();
+    });
     return _result.future;
   }
 }

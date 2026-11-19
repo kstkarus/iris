@@ -10,6 +10,7 @@ private let playerRuntimeStatsChannelName = "iris/player_runtime_stats"
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
+    excludeTransientDirectoriesFromBackup()
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 
@@ -27,6 +28,25 @@ private let playerRuntimeStatsChannelName = "iris/player_runtime_stats"
       default:
         result(FlutterMethodNotImplemented)
       }
+    }
+  }
+
+  private func excludeTransientDirectoriesFromBackup() {
+    let fileManager = FileManager.default
+    guard let supportDirectory = try? fileManager.url(
+      for: .applicationSupportDirectory,
+      in: .userDomainMask,
+      appropriateFor: nil,
+      create: true
+    ) else {
+      return
+    }
+    for name in ["offline_downloads", "app_updates"] {
+      var directory = supportDirectory.appendingPathComponent(name, isDirectory: true)
+      try? fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
+      var values = URLResourceValues()
+      values.isExcludedFromBackup = true
+      try? directory.setResourceValues(values)
     }
   }
 

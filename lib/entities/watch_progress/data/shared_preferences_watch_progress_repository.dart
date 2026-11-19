@@ -59,6 +59,24 @@ class SharedPreferencesWatchProgressRepository
   }
 
   @override
+  Future<void> dismissFromContinueWatching(WatchProgress progress) async {
+    final items = _items();
+    var changed = false;
+    final updated = <WatchProgress>[];
+    for (final item in items) {
+      if (!item.hiddenFromContinueWatching &&
+          item.matchesContinueWatchingTarget(progress)) {
+        changed = true;
+        updated.add(item.copyWith(hiddenFromContinueWatching: true));
+      } else {
+        updated.add(item);
+      }
+    }
+    if (!changed) return;
+    await _write(updated);
+  }
+
+  @override
   Future<void> removeTorrent({required String torrentKey}) async {
     final items = _items();
     final remaining = items

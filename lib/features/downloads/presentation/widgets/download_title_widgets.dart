@@ -450,24 +450,13 @@ class DownloadPosterOption extends StatelessWidget {
                 Positioned(
                   right: 5,
                   bottom: 5,
-                  child: AnimatedSwitcher(
-                    duration: motionDuration(
-                      context,
-                      const Duration(milliseconds: 180),
-                    ),
-                    switchInCurve: Curves.easeOutCubic,
-                    switchOutCurve: Curves.easeOutCubic,
-                    child: KeyedSubtree(
-                      key: ValueKey(status),
-                      child: _downloadStatusBadge(
-                        context,
-                        status,
-                        statusColor,
-                        fill: status == DownloadStatus.downloading
-                            ? _titleProgress(title)
-                            : null,
-                      ),
-                    ),
+                  child: _downloadStatusBadge(
+                    context,
+                    status,
+                    statusColor,
+                    fill: status == DownloadStatus.downloading
+                        ? _titleProgress(title)
+                        : null,
                   ),
                 ),
               ],
@@ -639,19 +628,8 @@ class _GalleryTitle extends StatelessWidget {
         Positioned(
           right: 5,
           bottom: 5,
-          child: AnimatedSwitcher(
-            duration: motionDuration(
-              context,
-              const Duration(milliseconds: 180),
-            ),
-            switchInCurve: Curves.easeOutCubic,
-            switchOutCurve: Curves.easeOutCubic,
-            child: status == null
-                ? const SizedBox.shrink(key: ValueKey('no_status'))
-                : ExcludeSemantics(
-                    key: ValueKey(status),
-                    child: _downloadStatusBadge(context, status, color),
-                  ),
+          child: ExcludeSemantics(
+            child: _downloadStatusBadge(context, status, color),
           ),
         ),
       ],
@@ -746,18 +724,30 @@ DownloadStatus? _galleryBadgeStatus(DownloadTitle title) {
 
 Widget _downloadStatusBadge(
   BuildContext context,
-  DownloadStatus status,
+  DownloadStatus? status,
   Color color, {
   double? fill,
-}) => DecoratedBox(
-  decoration: BoxDecoration(
-    color: Theme.of(context).colorScheme.surface,
-    border: Border.all(color: color),
-  ),
-  child: Padding(
-    padding: const EdgeInsets.all(3),
-    child: PixelIcon(_statusGlyph(status), size: 14, color: color, fill: fill),
-  ),
+}) => DitherSwitcher(
+  duration: const Duration(milliseconds: 160),
+  alignment: Alignment.bottomRight,
+  child: status == null
+      ? const SizedBox.shrink(key: ValueKey(null))
+      : DecoratedBox(
+          key: ValueKey(status),
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surface,
+            border: Border.all(color: color),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(3),
+            child: PixelIcon(
+              _statusGlyph(status),
+              size: 14,
+              color: color,
+              fill: fill,
+            ),
+          ),
+        ),
 );
 
 double _titleProgress(DownloadTitle title) {

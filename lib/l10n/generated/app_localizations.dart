@@ -2858,6 +2858,18 @@ abstract class AppLocalizations {
   /// **'This file is not a torrent.'**
   String get savedTorrentsNotTorrentFile;
 
+  /// No description provided for @savedTorrentsFileTooLarge.
+  ///
+  /// In en, this message translates to:
+  /// **'This file is too large to be a torrent.'**
+  String get savedTorrentsFileTooLarge;
+
+  /// No description provided for @savedTorrentsFileReadFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t read the file. Try again.'**
+  String get savedTorrentsFileReadFailed;
+
   /// No description provided for @savedTorrentsFromFile.
   ///
   /// In en, this message translates to:

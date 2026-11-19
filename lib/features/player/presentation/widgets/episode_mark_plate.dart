@@ -10,6 +10,7 @@ import 'package:iris/features/player/presentation/widgets/player_countdown.dart'
 import 'package:iris/features/player/presentation/widgets/player_wait_indicator.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/utils/motion_duration.dart';
+import 'package:iris/shared/widgets/active_layer.dart';
 import 'package:iris/shared/widgets/detail_layout.dart';
 import 'package:iris/shared/widgets/dither_switcher.dart';
 import 'package:iris/shared/widgets/pixel_icon.dart';
@@ -78,8 +79,8 @@ class _EpisodeMarkPlateState extends State<EpisodeMarkPlate> {
                       _intro ||
                       controlsVisible ||
                       _open;
-                  return IgnorePointer(
-                    ignoring: !visible,
+                  return ActiveLayer(
+                    active: visible,
                     child: AnimatedOpacity(
                       key: const Key('player_mark_visibility'),
                       opacity: visible ? 1 : 0,

@@ -15,10 +15,10 @@ import 'package:iris/shared/utils/desktop_platform.dart';
 import 'package:iris/shared/utils/duration_formatter.dart';
 import 'package:iris/shared/utils/episode_number.dart';
 import 'package:iris/shared/utils/file_display_name.dart';
-import 'package:iris/shared/utils/motion_duration.dart';
 import 'package:iris/shared/widgets/adaptive/window_size_class.dart';
 import 'package:iris/shared/widgets/detail_layout.dart';
 import 'package:iris/shared/widgets/dither_list.dart';
+import 'package:iris/shared/widgets/dither_switcher.dart';
 import 'package:iris/shared/widgets/focusable_list_row.dart';
 import 'package:iris/shared/widgets/pixel_icon.dart';
 import 'package:iris/shared/widgets/pixel_separated_text.dart';
@@ -35,11 +35,13 @@ class SavedTorrentsList extends StatelessWidget {
   const SavedTorrentsList({
     required this.onWatch,
     required this.onDownload,
+    this.onEmptied,
     super.key,
   });
 
   final SavedTorrentWatchCallback onWatch;
   final ValueChanged<SavedTorrent> onDownload;
+  final VoidCallback? onEmptied;
 
   @override
   Widget build(BuildContext context) {
@@ -55,6 +57,8 @@ class SavedTorrentsList extends StatelessWidget {
         final rule = DetailLayout.ruleColor(scheme);
         return DitherList<SavedTorrent>(
           padding: const EdgeInsets.only(bottom: 24),
+          removalDuration: const Duration(milliseconds: 360),
+          onEmptied: onEmptied,
           items: state.torrents,
           keyOf: (torrent) => torrent.infoHash,
           itemBuilder: (context, torrent) {
@@ -194,27 +198,13 @@ class _Status extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final duration = motionDuration(context, _duration);
     final (Object key, Widget content) = _buildMode(context);
-    if (duration == Duration.zero) {
-      return SizedBox(width: double.infinity, child: content);
-    }
     return SizedBox(
       width: double.infinity,
-      child: AnimatedSize(
-        duration: duration,
-        curve: Curves.easeOutCubic,
-        alignment: AlignmentDirectional.topStart,
-        child: AnimatedSwitcher(
-          duration: duration,
-          switchInCurve: Curves.easeOutCubic,
-          switchOutCurve: Curves.easeOutCubic,
-          layoutBuilder: (currentChild, previousChildren) => Stack(
-            alignment: AlignmentDirectional.topStart,
-            children: [...previousChildren, ?currentChild],
-          ),
-          child: KeyedSubtree(key: ValueKey(key), child: content),
-        ),
+      child: DitherSwitcher(
+        duration: _duration,
+        resizeDuration: _duration,
+        child: KeyedSubtree(key: ValueKey(key), child: content),
       ),
     );
   }

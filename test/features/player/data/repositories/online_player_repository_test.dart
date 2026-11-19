@@ -45,7 +45,8 @@ void main() {
     final source = await repository.prepareSource(magnet: _link);
 
     expect(sources.fetched, [(OnlineProvider.anilibria, '9542')]);
-    expect(source.sessionId, _link);
+    expect(OnlinePlayerRepository.isOnlineSessionId(source.sessionId), isTrue);
+    expect(source.sessionId, isNot(_link));
     expect(source.files, const [
       PlayerVideoFile(
         index: 1,
@@ -68,26 +69,54 @@ void main() {
   });
 
   test('plays an episode from its freshly issued best stream', () async {
-    await repository.prepareSource(magnet: _link);
+    final source = await repository.prepareSource(magnet: _link);
 
     final updates = await repository
-        .startPlayback(sessionId: _link, fileIndex: 1)
+        .startPlayback(sessionId: source.sessionId, fileIndex: 1)
         .toList();
 
     expect(sources.resolved, ['e1']);
     // The release is not asked for again.
     expect(sources.fetched, hasLength(1));
-    expect(updates, const [
+    expect(updates, [
       PlayerLaunchReadyUpdate(
         PlayerSession(
-          sessionId: _link,
+          sessionId: source.sessionId,
           streamUrl: 'https://cdn.example.test/e1/1080.m3u8',
-          qualities: [1080, 720],
+          qualities: const [1080, 720],
           quality: 1080,
         ),
       ),
     ]);
   });
+
+  test(
+    'disposing an earlier player for the same release does not break the next one',
+    () async {
+      final first = await repository.prepareSource(magnet: _link);
+      final firstReady =
+          await repository
+                  .startPlayback(sessionId: first.sessionId, fileIndex: 1)
+                  .first
+              as PlayerLaunchReadyUpdate;
+
+      final second = await repository.prepareSource(magnet: _link);
+      expect(second.sessionId, isNot(first.sessionId));
+      final secondReady =
+          await repository
+                  .startPlayback(sessionId: second.sessionId, fileIndex: 1)
+                  .first
+              as PlayerLaunchReadyUpdate;
+
+      // The first player finishes closing after the replacement has started.
+      await repository.disposePlayback(sessionId: first.sessionId);
+
+      expect(await repository.renewSession(firstReady.session), isNull);
+      final renewed = await repository.renewSession(secondReady.session);
+      expect(renewed?.sessionId, second.sessionId);
+      expect(renewed?.streamUrl, 'https://cdn.example.test/e1/1080.m3u8');
+    },
+  );
 
   test('plays the quality chosen for watching, read as each episode '
       'starts', () async {
@@ -180,24 +209,27 @@ void main() {
   });
 
   test('cancelling a launch does not wait for the server', () async {
-    await repository.prepareSource(magnet: _link);
+    final source = await repository.prepareSource(magnet: _link);
     sources.pendingStreams = Completer<List<OnlineStream>>();
     final updates = <PlayerLaunchUpdate>[];
 
     final subscription = repository
-        .startPlayback(sessionId: _link, fileIndex: 1)
+        .startPlayback(sessionId: source.sessionId, fileIndex: 1)
         .listen(updates.add);
     await pumpEventQueue();
     // Completes although the server has not answered.
     await subscription.cancel();
-    await repository.stopPlayback(sessionId: _link);
+    await repository.stopPlayback(sessionId: source.sessionId);
 
     sources.pendingStreams!.complete(sources.streams);
     await pumpEventQueue();
     expect(updates, isEmpty, reason: 'a late answer is dropped');
     expect(
       await repository.renewSession(
-        const PlayerSession(sessionId: _link, streamUrl: 'https://old.test'),
+        PlayerSession(
+          sessionId: source.sessionId,
+          streamUrl: 'https://old.test',
+        ),
       ),
       isNull,
       reason: 'a cancelled launch cannot restart a stopped session',
@@ -223,7 +255,6 @@ void main() {
             throwsA(isA<PreparationCancelledException>()),
           );
         }
-        await repository.disposePlayback(sessionId: _link);
         sources
           ..pendingRelease = null
           ..release = const OnlineRelease(
@@ -236,11 +267,16 @@ void main() {
         expect(current.files.single.index, 2);
 
         old.complete(_release);
-        if (!cancel) await preparation;
+        if (!cancel) {
+          final stale = await preparation;
+          await repository.disposePlayback(sessionId: stale.sessionId);
+        }
         await pumpEventQueue();
 
         expect(
-          await repository.startPlayback(sessionId: _link, fileIndex: 2).first,
+          await repository
+              .startPlayback(sessionId: current.sessionId, fileIndex: 2)
+              .first,
           isA<PlayerLaunchReadyUpdate>(),
         );
         expect(sources.resolved, ['new2']);
@@ -277,18 +313,22 @@ void main() {
     final pending = Completer<List<OnlineStream>>();
     sources.pendingStreams = pending;
     final subscription = repository
-        .startPlayback(sessionId: _link, fileIndex: source.files.first.index)
+        .startPlayback(
+          sessionId: source.sessionId,
+          fileIndex: source.files.first.index,
+        )
         .listen((_) {});
     await pumpEventQueue();
     await subscription.cancel();
-    await repository.disposePlayback(sessionId: _link);
+    await repository.disposePlayback(sessionId: source.sessionId);
 
     sources.pendingStreams = null;
+    final next = await repository.prepareSource(magnet: _link);
     final current =
         await repository
                 .startPlayback(
-                  sessionId: _link,
-                  fileIndex: source.files.last.index,
+                  sessionId: next.sessionId,
+                  fileIndex: next.files.last.index,
                 )
                 .first
             as PlayerLaunchReadyUpdate;
@@ -329,8 +369,8 @@ void main() {
   });
 
   test('asks for the release again after the session ends', () async {
-    await repository.prepareSource(magnet: _link);
-    await repository.disposePlayback(sessionId: _link);
+    final first = await repository.prepareSource(magnet: _link);
+    await repository.disposePlayback(sessionId: first.sessionId);
     await repository.prepareSource(magnet: _link);
 
     expect(sources.fetched, hasLength(2));

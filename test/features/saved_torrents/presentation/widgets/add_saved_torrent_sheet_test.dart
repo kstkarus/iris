@@ -264,4 +264,25 @@ void main() {
     expect(find.text('This file is not a torrent.'), findsNothing);
     expect(find.text('Frieren [BD]'), findsOneWidget);
   });
+
+  testWidgets('shows form errors for oversized or unreadable files', (
+    tester,
+  ) async {
+    Object error = const TorrentFileTooLargeException();
+    await pumpForm(tester, pickFile: () async => throw error);
+
+    await tester.tap(find.byKey(AddSavedTorrentForm.fileButtonKey));
+    await tester.pumpAndSettle();
+    expect(
+      find.text('This file is too large to be a torrent.'),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
+
+    error = StateError('permission denied');
+    await tester.tap(find.byKey(AddSavedTorrentForm.fileButtonKey));
+    await tester.pumpAndSettle();
+    expect(find.text("Couldn't read the file. Try again."), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 }

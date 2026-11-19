@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:crypto/crypto.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as path;
@@ -557,6 +558,33 @@ void main() {
     );
   }
 
+  test('HLS restarts a checkpoint that counted an empty piece', () async {
+    final playlist = _playlist(2);
+    sources.streams = [_hls('https://cdn.test/e2/720.m3u8')];
+    await File(path.join(directory.path, 'episode.ts')).create();
+    await File(path.join(directory.path, 'online_download.json')).writeAsString(
+      jsonEncode({
+        'format': 'hls',
+        'quality': 720,
+        'pieces': 2,
+        'done': 1,
+        'bytes': 0,
+        'playlistHash': sha256.convert(utf8.encode(playlist)).toString(),
+      }),
+    );
+
+    final task = start(
+      downloader((options) {
+        final name = options.uri.pathSegments.last;
+        return name.endsWith('.m3u8')
+            ? FakeReply.text(200, playlist)
+            : FakeReply.text(200, '[$name]');
+      }),
+    );
+
+    expect(await (await task.done)!.readAsString(), '[s1.ts][s2.ts]');
+  });
+
   test('a server error is tried again after a growing wait', () async {
     sources.streams = [_hls('https://cdn.test/e2/720.m3u8')];
     var failures = 0;
@@ -951,6 +979,72 @@ void main() {
 
     expect(await file!.readAsString(), 'abcdefghij');
     expect(ranges, [null, 'bytes=4-']);
+  });
+
+  test('retries an empty HLS segment and fails when it stays empty', () async {
+    sources.streams = [_hls('https://cdn.test/e2/720.m3u8')];
+    var segmentCalls = 0;
+    final recovered = start(
+      downloader((options) {
+        final name = options.uri.pathSegments.last;
+        if (name.endsWith('.m3u8')) return FakeReply.text(200, _playlist(1));
+        segmentCalls++;
+        if (segmentCalls == 1) return const FakeReply.text(200, '');
+        return const FakeReply.text(200, '[s1.ts]');
+      }),
+    );
+
+    final file = await recovered.done;
+    expect(await file!.readAsString(), '[s1.ts]');
+    expect(segmentCalls, 2);
+
+    final emptyDir = await Directory.systemTemp.createTemp(
+      'iris_online_empty_',
+    );
+    addTearDown(() async {
+      if (await emptyDir.exists()) await emptyDir.delete(recursive: true);
+    });
+    final alwaysEmpty = downloader((options) {
+      final name = options.uri.pathSegments.last;
+      if (name.endsWith('.m3u8')) return FakeReply.text(200, _playlist(1));
+      return const FakeReply.text(200, '');
+    }).start(link: _link, fileIndex: 2, directory: emptyDir);
+
+    await expectLater(
+      alwaysEmpty.done,
+      throwsA(
+        isA<OnlineDownloadException>().having(
+          (error) => error.message,
+          'message',
+          downloadConnectionLostMessage,
+        ),
+      ),
+    );
+  });
+
+  test('rejects an HLS master playlist that requires separate audio', () async {
+    sources.streams = [_hls('https://cdn.test/e2/master.m3u8')];
+    final task = start(
+      downloader((options) {
+        return const FakeReply.text(200, '''
+#EXTM3U
+#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="aud",NAME="Japanese",URI="audio.m3u8"
+#EXT-X-STREAM-INF:BANDWIDTH=2500000,RESOLUTION=1280x720,AUDIO="aud"
+720/video.m3u8
+''');
+      }),
+    );
+
+    await expectLater(
+      task.done,
+      throwsA(
+        isA<OnlineDownloadException>().having(
+          (error) => error.message,
+          'message',
+          downloadNotDownloadableMessage,
+        ),
+      ),
+    );
   });
 }
 

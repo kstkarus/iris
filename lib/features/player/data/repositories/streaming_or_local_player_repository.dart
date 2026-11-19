@@ -1,3 +1,4 @@
+import 'package:iris/features/player/data/repositories/online_player_repository.dart';
 import 'package:iris/shared/online/online_source_link.dart';
 import 'package:iris/features/player/domain/entities/player_launch_update.dart';
 import 'package:iris/features/player/domain/entities/player_playback_stats.dart';
@@ -8,9 +9,10 @@ import 'package:iris/features/player/domain/repositories/player_repository.dart'
 /// Streams torrents by default, plays online releases from their video
 /// servers and completed downloads from disk.
 ///
-/// Streaming sessions are numeric session counters, online sessions
-/// are the release's [OnlineSourceLink], and local sessions use a download
-/// id or `download-source:<source key>`. The id selects the backend.
+/// Streaming sessions are numeric session counters, online sessions use
+/// `online-session:<counter>` (or a raw [OnlineSourceLink]), and local
+/// sessions use a download id or `download-source:<source key>`. The id
+/// selects the backend.
 class StreamingOrLocalPlayerRepository implements PlayerRepository {
   const StreamingOrLocalPlayerRepository({
     required PlayerRepository streaming,
@@ -64,7 +66,7 @@ class StreamingOrLocalPlayerRepository implements PlayerRepository {
   }
 
   PlayerRepository _backendFor(String sessionId) {
-    if (_isOnline(sessionId)) return _online;
+    if (OnlinePlayerRepository.isOnlineSessionId(sessionId)) return _online;
     return int.tryParse(sessionId) != null ? _streaming : _local;
   }
 

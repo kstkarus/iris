@@ -9,7 +9,6 @@ import 'package:iris/features/player/presentation/models/anime_player_source_arg
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/utils/duration_formatter.dart';
 import 'package:iris/shared/utils/file_display_name.dart';
-import 'package:iris/shared/utils/motion_duration.dart';
 import 'package:iris/shared/widgets/detail_layout.dart';
 import 'package:iris/shared/widgets/dither_switcher.dart';
 import 'package:iris/shared/widgets/pixel_separated_text.dart';
@@ -51,18 +50,11 @@ class RecentlyWatchedSection extends StatelessWidget {
               ),
             ),
           );
-    final switcher = DitherSwitcher(
+    return DitherSwitcher(
       collapse: true,
       duration: const Duration(milliseconds: 240),
+      resizeDuration: const Duration(milliseconds: 200),
       child: child,
-    );
-    final duration = motionDuration(context, const Duration(milliseconds: 200));
-    if (duration == Duration.zero) return switcher;
-    return AnimatedSize(
-      duration: duration,
-      curve: Curves.easeOutCubic,
-      alignment: Alignment.topCenter,
-      child: switcher,
     );
   }
 }
@@ -99,14 +91,10 @@ class _RecentSource extends StatelessWidget {
         !progress.isFinished &&
         progress.resumePosition != null;
 
-    final progressWidget = AnimatedSwitcher(
-      duration: motionDuration(context, const Duration(milliseconds: 180)),
-      switchInCurve: Curves.easeOutCubic,
-      switchOutCurve: Curves.easeOutCubic,
-      layoutBuilder: (currentChild, previousChildren) => Stack(
-        alignment: AlignmentDirectional.centerStart,
-        children: [...previousChildren, ?currentChild],
-      ),
+    final progressWidget = DitherSwitcher(
+      duration: const Duration(milliseconds: 160),
+      resizeDuration: const Duration(milliseconds: 160),
+      alignment: AlignmentDirectional.centerStart,
       child: progress.isFinished
           ? WatchProgressLine(
               key: const ValueKey('finished'),
@@ -192,12 +180,7 @@ class _RecentSource extends StatelessWidget {
               foregroundColor: WidgetStatePropertyAll(scheme.onSurface),
             )
           : null,
-      child: AnimatedSwitcher(
-        duration: motionDuration(context, const Duration(milliseconds: 180)),
-        switchInCurve: Curves.easeOutCubic,
-        switchOutCurve: Curves.easeOutCubic,
-        child: Text(actionLabel, key: ValueKey(actionLabel)),
-      ),
+      child: Text(actionLabel),
     );
 
     return DecoratedBox(

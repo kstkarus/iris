@@ -18,6 +18,7 @@ import 'package:iris/features/player/domain/entities/player_skip_segment.dart';
 import 'package:iris/features/player/domain/entities/player_session.dart';
 import 'package:iris/features/player/domain/entities/player_video_file.dart';
 import 'package:iris/features/player/domain/entities/player_decoding_preferences.dart';
+import 'package:iris/features/player/domain/entities/subtitle_preferences.dart';
 import 'package:iris/features/player/domain/repositories/player_repository.dart';
 import 'package:iris/features/player/presentation/cubit/player_decoding_preferences_cubit.dart';
 import 'package:iris/features/player/presentation/cubit/episode_mark_cubit.dart';
@@ -2193,15 +2194,20 @@ void main() {
     );
   });
 
-  testWidgets('adds external subtitles after the video track is available', (
+  testWidgets('styles the external subtitles after the video track is ready', (
     tester,
   ) async {
     final platformPlayer = _FakePlatformPlayer(
-      configuration: const PlayerConfiguration(),
+      configuration: const PlayerConfiguration(libass: true),
     );
+    final subtitleCubit = PlayerSubtitlePreferencesCubit(
+      repository: MemorySubtitlePreferencesRepository(),
+    );
+    addTearDown(subtitleCubit.close);
     await tester.pumpWidget(
       _wrapViewport(
         platformPlayer: platformPlayer,
+        subtitleCubit: subtitleCubit,
         session: const PlayerSession(
           sessionId: '7',
           streamUrl: 'https://video.example/1.m3u8',
@@ -2225,6 +2231,21 @@ void main() {
     expect(platformPlayer.subtitles.single.language, 'ru');
     platformPlayer.emitTracks(platformPlayer.state.tracks);
     await tester.pump();
+    expect(platformPlayer.subtitles, hasLength(1));
+
+    final options = platformPlayer.nativeProperties;
+    expect(options['sub-border-style'], 'background-box');
+    expect(options['sub-back-color'], '#AA000000');
+    await subtitleCubit.setBackgroundStyle(SubtitleBackgroundStylePreset.solid);
+    await subtitleCubit.setTextColor(SubtitleTextColorPreset.cyan);
+    await tester.pump();
+    expect(options['sub-border-style'], 'background-box');
+    expect(options['sub-back-color'], '#DD000000');
+    expect(options['sub-color'], '#FF7FDBFF');
+    await subtitleCubit.setBackgroundStyle(SubtitleBackgroundStylePreset.none);
+    await tester.pump();
+    expect(options['sub-border-style'], 'outline-and-shadow');
+    expect(options['sub-back-color'], '#00000000');
     expect(platformPlayer.subtitles, hasLength(1));
   });
 

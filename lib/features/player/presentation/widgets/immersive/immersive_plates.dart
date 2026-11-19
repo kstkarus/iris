@@ -238,19 +238,13 @@ class _OfferButton extends StatelessWidget {
     final content = PlayerOfferLabel(label: label, maxWidth: 240);
     return Padding(
       padding: const EdgeInsets.only(top: 12),
-      child: TweenAnimationBuilder<double>(
-        tween: Tween(begin: 0, end: 1),
-        duration: motionDuration(context, const Duration(milliseconds: 300)),
-        builder: (context, value, child) =>
-            DitherTransition.transition(child!, AlwaysStoppedAnimation(value)),
-        child: PlayerCountdownBar(
-          color: Colors.white70,
-          inset: const EdgeInsets.all(1),
-          child: OutlinedButton(
-            onPressed: onPressed,
-            style: _overVideoButtonStyle(theme),
-            child: content,
-          ),
+      child: PlayerCountdownBar(
+        color: Colors.white70,
+        inset: const EdgeInsets.all(1),
+        child: OutlinedButton(
+          onPressed: onPressed,
+          style: _overVideoButtonStyle(theme),
+          child: content,
         ),
       ),
     );

@@ -93,12 +93,51 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('Remove from list'));
       await tester.pumpAndSettle();
-      expect(harness.history.items, isEmpty);
+      expect(
+        harness.history.items.single.hiddenFromContinueWatching,
+        isTrue,
+        reason: 'dismissal preserves saved resume progress',
+      );
       expect(find.byType(ContinueWatchingRow), findsNothing);
       expect(find.byKey(ContinueWatchingButton.buttonKey), findsNothing);
       expect(tester.takeException(), isNull);
     });
   }
+
+  testWidgets(
+    'hiding a title keeps older unlabelled episodes of its torrents out of the list',
+    (tester) async {
+      final harness = await _pump(
+        tester,
+        const Size(1280, 900),
+        items: [
+          _progress(source: 'newer', animeId: '52991', minute: 20),
+          _progress(source: 'older', animeId: '52991', minute: 10),
+          _progress(source: 'older', animeId: '', fileIndex: 1),
+        ],
+      );
+      await tester.tap(find.byKey(ContinueWatchingButton.buttonKey));
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('continue_watching_newer')),
+        findsOneWidget,
+      );
+      await tester.tap(find.byTooltip('More actions'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Remove from list'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ContinueWatchingRow), findsNothing);
+      expect(find.byKey(ContinueWatchingButton.buttonKey), findsNothing);
+      expect(harness.history.items, hasLength(3));
+      expect(
+        harness.history.items
+            .singleWhere((item) => item.fileIndex == 1)
+            .position,
+        const Duration(minutes: 12),
+      );
+    },
+  );
 
   for (final size in [const Size(390, 844), const Size(1280, 900)]) {
     testWidgets('search and history remain usable together at $size', (
@@ -159,6 +198,28 @@ void main() {
       isEmpty,
     );
     expect(find.byKey(ContinueWatchingButton.buttonKey), findsOneWidget);
+  });
+
+  testWidgets('the disappearing history button releases keyboard focus', (
+    tester,
+  ) async {
+    final harness = await _pump(tester, const Size(1280, 900));
+    final historyButton = find.byKey(ContinueWatchingButton.buttonKey);
+    final label = find.descendant(
+      of: historyButton,
+      matching: find.text('Continue watching'),
+    );
+    final focus = Focus.of(tester.element(label));
+    focus.requestFocus();
+    await tester.pump();
+    expect(focus.hasFocus, isTrue);
+
+    await harness.history.removeTorrent(torrentKey: 'source');
+    await tester.pump();
+    expect(historyButton, findsOneWidget);
+    expect(focus.canRequestFocus, isFalse);
+    expect(focus.hasFocus, isFalse);
+    await tester.pumpAndSettle();
   });
 
   testWidgets('a narrow large-text phone can search and scroll all history', (
@@ -269,9 +330,11 @@ WatchProgress _progress({
   bool finished = false,
   String source = 'source',
   String? animeId,
+  int minute = 0,
+  int fileIndex = 2,
 }) => WatchProgress(
   torrentKey: source,
-  fileIndex: 2,
+  fileIndex: fileIndex,
   fileName: 'Episode 3.mkv',
   magnet: 'magnet:$source',
   sourceTitle: 'Release',
@@ -279,7 +342,7 @@ WatchProgress _progress({
   animeTitle: 'An exceptionally long anime title to check wrapping',
   position: Duration(minutes: finished ? 24 : 12),
   duration: const Duration(minutes: 24),
-  updatedAt: DateTime(2026),
+  updatedAt: DateTime.utc(2026, 1, 1, 12, minute),
 );
 
 class _History implements WatchProgressRepository {
@@ -291,6 +354,18 @@ class _History implements WatchProgressRepository {
       );
   @override
   Stream<List<WatchProgress>> watchAll() => changes.stream;
+
+  @override
+  Future<void> dismissFromContinueWatching(WatchProgress progress) async {
+    items = [
+      for (final item in items)
+        if (item.matchesContinueWatchingTarget(progress))
+          item.copyWith(hiddenFromContinueWatching: true)
+        else
+          item,
+    ];
+    changes.add(items);
+  }
 
   @override
   Future<void> removeTorrent({required String torrentKey}) async {

@@ -12,6 +12,9 @@ import 'package:iris/shared/widgets/dither_transition.dart';
 /// With [collapse], a leaving child's height is eased: it dissolves, then
 /// gives its space back, so what lies below slides instead of jumping.
 /// For a place that goes empty.
+///
+/// [resizeDuration] also eases changes in the size of the stack, keeping
+/// its children anchored to [alignment].
 class DitherSwitcher extends StatelessWidget {
   const DitherSwitcher({
     required this.child,
@@ -19,6 +22,8 @@ class DitherSwitcher extends StatelessWidget {
     this.collapse = false,
     this.duration = DitherTransition.duration,
     this.reverseDuration,
+    this.resizeDuration = Duration.zero,
+    this.alignment = AlignmentDirectional.topStart,
     super.key,
   });
 
@@ -31,15 +36,15 @@ class DitherSwitcher extends StatelessWidget {
 
   /// Overrides removal without changing how new content appears.
   final Duration? reverseDuration;
+  final Duration resizeDuration;
+  final AlignmentGeometry alignment;
 
   @override
   Widget build(BuildContext context) {
-    final duration = MediaQuery.disableAnimationsOf(context)
-        ? Duration.zero
-        : this.duration;
-    return AnimatedSwitcher(
-      duration: duration,
-      reverseDuration: MediaQuery.disableAnimationsOf(context)
+    final reducedMotion = MediaQuery.disableAnimationsOf(context);
+    final switcher = AnimatedSwitcher(
+      duration: reducedMotion ? Duration.zero : duration,
+      reverseDuration: reducedMotion
           ? Duration.zero
           : reverseDuration ?? (collapse ? duration * 2 : null),
       transitionBuilder: collapse
@@ -47,8 +52,19 @@ class DitherSwitcher extends StatelessWidget {
           : DitherTransition.transition,
       layoutBuilder: expand
           ? DitherTransition.expandedLayout
-          : DitherTransition.layout,
+          : (current, previous) => DitherTransition.layout(
+              current,
+              previous,
+              alignment: alignment,
+            ),
       child: child,
+    );
+    if (reducedMotion || resizeDuration == Duration.zero) return switcher;
+    return AnimatedSize(
+      duration: resizeDuration,
+      curve: Curves.easeOutCubic,
+      alignment: alignment,
+      child: switcher,
     );
   }
 }

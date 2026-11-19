@@ -524,6 +524,8 @@
   "savedTorrentsOr": "или",
   "savedTorrentsChooseFile": "Выбрать файл .torrent",
   "savedTorrentsNotTorrentFile": "Это не торрент-файл.",
+  "savedTorrentsFileTooLarge": "Файл слишком большой для торрента.",
+  "savedTorrentsFileReadFailed": "Не удалось прочитать файл. Попробуйте ещё раз.",
   "savedTorrentsFromFile": "из файла",
   "savedTorrentsFromLink": "по ссылке",
   "savedTorrentsFileCount": "{count, plural, one{{count} файл} few{{count} файла} many{{count} файлов} other{{count} файла}}",

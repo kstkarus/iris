@@ -997,6 +997,8 @@
   "savedTorrentsOr": "or",
   "savedTorrentsChooseFile": "Choose a .torrent file",
   "savedTorrentsNotTorrentFile": "This file is not a torrent.",
+  "savedTorrentsFileTooLarge": "This file is too large to be a torrent.",
+  "savedTorrentsFileReadFailed": "Couldn't read the file. Try again.",
   "savedTorrentsFromFile": "from a file",
   "savedTorrentsFromLink": "from a link",
   "savedTorrentsFileCount": "{count, plural, =1{1 file} other{{count} files}}",

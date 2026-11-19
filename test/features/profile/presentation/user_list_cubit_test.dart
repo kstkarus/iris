@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:iris/entities/user_rate/domain/user_rate.dart';
+import 'package:iris/features/profile/domain/entities/user_list_entry.dart';
 import 'package:iris/features/profile/domain/repositories/user_list_repository.dart';
 import 'package:iris/features/profile/presentation/cubit/user_list_cubit.dart';
 import 'package:iris/features/profile/presentation/cubit/user_list_state.dart';
@@ -323,4 +324,65 @@ void main() {
     expect(ids(), ['9', '1']);
     expect(cubit.state.page, 1);
   });
+
+  test(
+    'schedules one fresh read when a matching change arrives during initial load',
+    () async {
+      final firstReply = Completer<UserListPage>();
+      var calls = 0;
+      final scripted = _ScriptedUserListRepository((_) {
+        calls++;
+        if (calls == 1) return firstReply.future;
+        return Future.value(
+          UserListPage(entries: [listEntry('9')], hasMore: false),
+        );
+      });
+      final localCubit = UserListCubit(
+        repository: scripted,
+        changes: changes.stream,
+      );
+      addTearDown(localCubit.close);
+
+      localCubit.show('42');
+      expect(localCubit.state.load, UserListLoad.loading);
+
+      // A title enters Watching while the initial (stale empty) read is in flight.
+      changes
+        ..add(
+          const UserRateChange(
+            '9',
+            UserRate(id: 'r9', status: UserRateStatus.watching, episodes: 1),
+          ),
+        )
+        ..add(
+          const UserRateChange(
+            '9',
+            UserRate(id: 'r9', status: UserRateStatus.watching, episodes: 2),
+          ),
+        );
+      await settle();
+
+      // Deliver the stale empty initial reply; one fresh read must follow.
+      firstReply.complete(const UserListPage(entries: [], hasMore: false));
+      await settle();
+      await settle();
+
+      expect(calls, 2);
+      expect(localCubit.state.entries.map((entry) => entry.anime.id), ['9']);
+      expect(localCubit.state.refreshing, isFalse);
+    },
+  );
+}
+
+class _ScriptedUserListRepository implements UserListRepository {
+  _ScriptedUserListRepository(this._onPage);
+
+  final Future<UserListPage> Function(int page) _onPage;
+
+  @override
+  Future<UserListPage> page({
+    required String userId,
+    required UserRateStatus status,
+    required int page,
+  }) => _onPage(page);
 }

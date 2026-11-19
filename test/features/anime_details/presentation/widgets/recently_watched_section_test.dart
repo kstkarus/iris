@@ -8,6 +8,7 @@ import 'package:iris/features/anime_details/presentation/widgets/recently_watche
 
 import '../../../../helpers/fake_watch_progress_repository.dart';
 import '../../../../helpers/test_app.dart';
+import '../../../../helpers/test_window.dart';
 
 WatchProgress _progress(
   String torrentKey, {
@@ -31,7 +32,10 @@ WatchProgress _progress(
 }
 
 void main() {
-  Future<void> pump(WidgetTester tester, List<WatchProgress> items) async {
+  Future<WatchProgressCubit> pump(
+    WidgetTester tester,
+    List<WatchProgress> items,
+  ) async {
     final cubit = WatchProgressCubit(
       repository: FixedWatchProgressRepository(items),
     )..load();
@@ -49,6 +53,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+    return cubit;
   }
 
   testWidgets('lists the latest file of each source used for this anime', (
@@ -90,5 +95,22 @@ void main() {
     expect(label('aaa'), 'Continue');
     expect(label('bbb'), 'Watch');
     expect(label('ccc'), 'Play next');
+  });
+
+  testWidgets('the watched label keeps its leading edge as progress shrinks', (
+    tester,
+  ) async {
+    setTestWindowSize(tester, TestWindowSizes.phone);
+    final cubit = await pump(tester, [_progress('aaa')]);
+    cubit.emit([_progress('aaa', seconds: 23 * 60)]);
+    await tester.pump();
+    await tester.pump();
+
+    final watched = find.text('Watched');
+    final start = tester.getTopLeft(watched).dx;
+    for (var frame = 0; frame < 18; frame++) {
+      await tester.pump(const Duration(milliseconds: 20));
+      expect(tester.getTopLeft(watched).dx, closeTo(start, 0.01));
+    }
   });
 }

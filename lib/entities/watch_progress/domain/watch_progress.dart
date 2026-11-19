@@ -16,6 +16,7 @@ class WatchProgress {
     required this.updatedAt,
     this.animeId = '',
     this.animeTitle = '',
+    this.hiddenFromContinueWatching = false,
   });
 
   /// Share of the file after which it counts as watched (credits excluded).
@@ -38,11 +39,37 @@ class WatchProgress {
   final DateTime updatedAt;
   final String animeId;
   final String animeTitle;
+  final bool hiddenFromContinueWatching;
 
   String get id =>
       watchProgressId(torrentKey: torrentKey, fileIndex: fileIndex);
 
   bool get hasAnime => animeId.isNotEmpty;
+
+  /// Groups Continue watching entries by anime when known, otherwise by source.
+  String get continueWatchingKey => hasAnime ? 'anime:$animeId' : torrentKey;
+
+  /// Whether this record belongs to the same Continue watching row as [target].
+  bool matchesContinueWatchingTarget(WatchProgress target) => target.hasAnime
+      ? animeId == target.animeId || torrentKey == target.torrentKey
+      : torrentKey == target.torrentKey;
+
+  WatchProgress copyWith({bool? hiddenFromContinueWatching}) {
+    return WatchProgress(
+      torrentKey: torrentKey,
+      fileIndex: fileIndex,
+      fileName: fileName,
+      magnet: magnet,
+      sourceTitle: sourceTitle,
+      position: position,
+      duration: duration,
+      updatedAt: updatedAt,
+      animeId: animeId,
+      animeTitle: animeTitle,
+      hiddenFromContinueWatching:
+          hiddenFromContinueWatching ?? this.hiddenFromContinueWatching,
+    );
+  }
 
   /// Anime title when known, otherwise the torrent's own title.
   String get displayTitle => hasAnime ? animeTitle : sourceTitle;
@@ -77,7 +104,8 @@ class WatchProgress {
         other.duration == duration &&
         other.updatedAt == updatedAt &&
         other.animeId == animeId &&
-        other.animeTitle == animeTitle;
+        other.animeTitle == animeTitle &&
+        other.hiddenFromContinueWatching == hiddenFromContinueWatching;
   }
 
   @override
@@ -92,6 +120,7 @@ class WatchProgress {
     updatedAt,
     animeId,
     animeTitle,
+    hiddenFromContinueWatching,
   );
 }
 

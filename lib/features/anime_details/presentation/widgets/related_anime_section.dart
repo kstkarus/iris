@@ -7,7 +7,6 @@ import 'package:iris/features/anime_details/presentation/models/anime_details_pr
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/utils/anime_metadata_formatter.dart';
 import 'package:iris/shared/utils/incomplete_date.dart';
-import 'package:iris/shared/utils/motion_duration.dart';
 import 'package:iris/shared/widgets/detail_layout.dart';
 import 'package:iris/shared/widgets/dither_switcher.dart';
 import 'package:iris/shared/widgets/fold_row.dart';
@@ -124,18 +123,11 @@ class RelatedAnimeSection extends StatelessWidget {
         ),
       );
     }
-    final switcher = DitherSwitcher(
+    return DitherSwitcher(
       collapse: true,
       duration: const Duration(milliseconds: 240),
+      resizeDuration: const Duration(milliseconds: 200),
       child: child,
-    );
-    final duration = motionDuration(context, const Duration(milliseconds: 200));
-    if (duration == Duration.zero) return switcher;
-    return AnimatedSize(
-      duration: duration,
-      curve: Curves.easeOutCubic,
-      alignment: Alignment.topCenter,
-      child: switcher,
     );
   }
 }

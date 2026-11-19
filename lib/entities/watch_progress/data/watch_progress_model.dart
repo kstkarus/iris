@@ -14,6 +14,7 @@ abstract final class WatchProgressModel {
     'updatedAt': progress.updatedAt.toUtc().toIso8601String(),
     'animeId': progress.animeId,
     'animeTitle': progress.animeTitle,
+    if (progress.hiddenFromContinueWatching) 'hiddenFromContinueWatching': true,
   };
 
   /// Returns null for malformed entries instead of failing the whole list.
@@ -43,6 +44,7 @@ abstract final class WatchProgressModel {
       updatedAt: updatedAt,
       animeId: jsonString(json['animeId']),
       animeTitle: jsonString(json['animeTitle']),
+      hiddenFromContinueWatching: json['hiddenFromContinueWatching'] == true,
     );
   }
 }

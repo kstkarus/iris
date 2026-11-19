@@ -26,7 +26,27 @@ class DitherList<T> extends StatefulWidget {
     this.onEmptied,
     super.key,
   }) : assert(crossAxisCount > 0),
-       _horizontal = false;
+       _layout = _ListLayout.scroll,
+       _separator = null;
+
+  /// A short list inside an existing scroll view, such as a sheet.
+  const DitherList.column({
+    required this.items,
+    required this.keyOf,
+    required this.itemBuilder,
+    this.removalDuration,
+    Widget? separator,
+    super.key,
+  }) : _layout = _ListLayout.column,
+       _separator = separator,
+       padding = null,
+       header = null,
+       footer = null,
+       physics = null,
+       crossAxisCount = 1,
+       columnSpacing = 0,
+       rowSpacing = 0,
+       onEmptied = null;
 
   /// Content-sized entries in one row, for a horizontal scroll view.
   const DitherList.horizontal({
@@ -36,7 +56,8 @@ class DitherList<T> extends StatefulWidget {
     this.footer,
     double spacing = 8,
     super.key,
-  }) : _horizontal = true,
+  }) : _layout = _ListLayout.horizontal,
+       _separator = null,
        padding = null,
        header = null,
        physics = null,
@@ -46,7 +67,8 @@ class DitherList<T> extends StatefulWidget {
        removalDuration = horizontalRemovalDuration,
        onEmptied = null;
 
-  final bool _horizontal;
+  final _ListLayout _layout;
+  final Widget? _separator;
 
   final List<T> items;
   final Object Function(T item) keyOf;
@@ -108,19 +130,31 @@ class _DitherListState<T> extends State<DitherList<T>> {
     setState(() => _entries.removeWhere((e) => e.key == key && e.leaving));
   }
 
-  Widget _presence(_Entry<T> entry) => _Presence(
-    key: ValueKey<Object>(entry.key),
-    axis: widget._horizontal ? Axis.horizontal : Axis.vertical,
-    entering: entry.entering,
-    leaving: entry.leaving,
-    removalDuration: widget.removalDuration,
-    onEntered: () => entry.entering = false,
-    onLeaving: widget.onEmptied == null
-        ? null
-        : () => _animatingRemovals.add(entry.key),
-    onLeft: () => _left(entry.key),
-    child: widget.itemBuilder(context, entry.item),
-  );
+  Widget _presence(_Entry<T> entry, {bool preceded = false}) {
+    final child = widget.itemBuilder(context, entry.item);
+    final separator = widget._separator;
+    return _Presence(
+      key: ValueKey<Object>(entry.key),
+      axis: widget._layout == _ListLayout.horizontal
+          ? Axis.horizontal
+          : Axis.vertical,
+      entering: entry.entering,
+      leaving: entry.leaving,
+      removalDuration: widget.removalDuration,
+      onEntered: () => entry.entering = false,
+      onLeaving: widget.onEmptied == null
+          ? null
+          : () => _animatingRemovals.add(entry.key),
+      onLeft: () => _left(entry.key),
+      child: separator == null
+          ? child
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisSize: MainAxisSize.min,
+              children: [if (preceded) separator, child],
+            ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -137,13 +171,23 @@ class _DitherListState<T> extends State<DitherList<T>> {
         widget.onEmptied?.call();
       });
     }
-    if (widget._horizontal) {
+    if (widget._layout == _ListLayout.horizontal) {
       return Row(
         mainAxisSize: MainAxisSize.min,
         spacing: widget.columnSpacing,
         children: [
           for (final entry in _entries) _presence(entry),
           ?widget.footer,
+        ],
+      );
+    }
+    if (widget._layout == _ListLayout.column) {
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (final (index, entry) in _entries.indexed)
+            _presence(entry, preceded: index > 0),
         ],
       );
     }
@@ -202,6 +246,8 @@ class _DitherListState<T> extends State<DitherList<T>> {
     );
   }
 }
+
+enum _ListLayout { scroll, column, horizontal }
 
 enum _StaticPart { header, footer }
 

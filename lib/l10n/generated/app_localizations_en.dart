@@ -1620,6 +1620,14 @@ class AppLocalizationsEn extends AppLocalizations {
   String get savedTorrentsNotTorrentFile => 'This file is not a torrent.';
 
   @override
+  String get savedTorrentsFileTooLarge =>
+      'This file is too large to be a torrent.';
+
+  @override
+  String get savedTorrentsFileReadFailed =>
+      'Couldn\'t read the file. Try again.';
+
+  @override
   String get savedTorrentsFromFile => 'from a file';
 
   @override

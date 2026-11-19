@@ -19,6 +19,7 @@ import 'package:iris/shared/widgets/adaptive/adaptive_grid_row.dart';
 import 'package:iris/shared/widgets/app_skeleton.dart';
 import 'package:iris/shared/widgets/checked_menu_item.dart';
 import 'package:iris/shared/widgets/detail_layout.dart';
+import 'package:iris/shared/widgets/dither_transition.dart';
 import 'package:iris/shared/widgets/marked_tab.dart';
 import 'package:iris/shared/widgets/pixel_icon.dart';
 import 'package:iris/shared/widgets/pixel_separated_text.dart';
@@ -34,6 +35,8 @@ const _userListStatuses = [
   UserRateStatus.dropped,
   UserRateStatus.rewatching,
 ];
+
+typedef _ListSectionKey = ({Object section, String phase});
 
 /// A user's list under [header], one status at a time, read further as the
 /// page scrolls down.
@@ -151,7 +154,7 @@ class _UserListViewState extends State<UserListView> {
         state.load != UserListLoad.loaded) {
       _shownEntriesStatus = null;
     }
-    final (Object contentKey, List<Widget> contentSlivers) = friendsShown
+    final (contentKey, contentSlivers) = friendsShown
         ? _friendsContent(context, onOpenFriend)
         : _content(context, state);
     _schedulePrefetchCheck();
@@ -193,7 +196,7 @@ class _UserListViewState extends State<UserListView> {
     );
   }
 
-  (Object, List<Widget>) _friendsContent(
+  (_ListSectionKey, List<Widget>) _friendsContent(
     BuildContext context,
     ValueChanged<Friend> onOpenFriend,
   ) {
@@ -204,7 +207,7 @@ class _UserListViewState extends State<UserListView> {
       FriendsLoading() || FriendsLoaded() => 'entries',
     };
     return (
-      ('friends', phase),
+      (section: 'friends', phase: phase),
       friendListSlivers(context, onOpen: onOpenFriend),
     );
   }
@@ -224,12 +227,15 @@ class _UserListViewState extends State<UserListView> {
     );
   }
 
-  (Object, List<Widget>) _content(BuildContext context, UserListState state) {
+  (_ListSectionKey, List<Widget>) _content(
+    BuildContext context,
+    UserListState state,
+  ) {
     final l10n = AppLocalizations.of(context);
     final retry = context.read<UserListCubit>().retry;
     if (state.load == UserListLoad.failed) {
       return (
-        ('list', state.status, 'failed'),
+        (section: state.status, phase: 'failed'),
         [
           SliverFillRemaining(
             hasScrollBody: false,
@@ -258,7 +264,7 @@ class _UserListViewState extends State<UserListView> {
         !state.moreFailed) {
       final status = userRateStatusLabel(l10n, state.status);
       return (
-        ('list', state.status, 'empty'),
+        (section: state.status, phase: 'empty'),
         [
           SliverFillRemaining(
             hasScrollBody: false,
@@ -274,7 +280,7 @@ class _UserListViewState extends State<UserListView> {
       );
     }
     return (
-      ('list', state.status, 'entries'),
+      (section: state.status, phase: 'entries'),
       [
         SliverLayoutBuilder(
           builder: (context, constraints) {
@@ -419,7 +425,7 @@ class _SliverFadeSwitch extends StatefulWidget {
     required this.slivers,
   });
 
-  final Object switchKey;
+  final _ListSectionKey switchKey;
   final Duration duration;
   final List<Widget> slivers;
 
@@ -429,44 +435,89 @@ class _SliverFadeSwitch extends StatefulWidget {
 
 class _SliverFadeSwitchState extends State<_SliverFadeSwitch>
     with SingleTickerProviderStateMixin {
-  late final AnimationController _controller = AnimationController(
+  late final _controller = AnimationController(
     vsync: this,
     duration: widget.duration,
+    reverseDuration: widget.duration ~/ 2,
     value: 1,
+  )..addStatusListener(_showWhenHidden);
+  late final _opacity = _controller.drive(
+    CurveTween(curve: Curves.easeInOutCubic),
   );
-  late final CurvedAnimation _opacity = CurvedAnimation(
-    parent: _controller,
-    curve: Curves.easeOutCubic,
-  );
+  late _ListSectionKey _shownKey = widget.switchKey;
+  late List<Widget> _shownSlivers = widget.slivers;
+
+  bool get _leaving => _shownKey != widget.switchKey;
+
+  void _showLatest() {
+    _shownKey = widget.switchKey;
+    _shownSlivers = widget.slivers;
+  }
+
+  void _showWhenHidden(AnimationStatus status) {
+    if (status != AnimationStatus.dismissed || !_leaving) return;
+    // The request may finish while the old list is still fading out.
+    setState(_showLatest);
+    _controller.forward();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _showLatest();
+      _controller.value = 1;
+    }
+  }
 
   @override
   void didUpdateWidget(covariant _SliverFadeSwitch oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.switchKey != oldWidget.switchKey) {
-      final duration = motionDuration(context, widget.duration);
-      if (duration == Duration.zero) {
-        _controller.value = 1;
-      } else {
-        _controller
-          ..duration = duration
-          ..forward(from: 0);
-      }
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _showLatest();
+      _controller.value = 1;
+    } else if (!_leaving) {
+      _showLatest();
+      if (_controller.status == AnimationStatus.reverse) _controller.forward();
+    } else if (_shownKey.section == widget.switchKey.section ||
+        _controller.value == 0) {
+      // Within a section, the outgoing placeholder or last row has already
+      // left. Start bringing in the message as soon as it is ready.
+      _showLatest();
+      _controller.forward(from: 0);
+    } else if (_controller.status != AnimationStatus.reverse) {
+      _controller.reverse();
     }
   }
 
   @override
   void dispose() {
-    _opacity.dispose();
     _controller.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final sliver = widget.slivers.length == 1
-        ? widget.slivers.single
-        : SliverMainAxisGroup(slivers: widget.slivers);
-    return SliverFadeTransition(opacity: _opacity, sliver: sliver);
+    final leaving = _leaving;
+    final sliver = _shownSlivers.length == 1
+        ? _shownSlivers.single
+        : SliverMainAxisGroup(slivers: _shownSlivers);
+    return SliverFadeTransition(
+      opacity: _opacity,
+      sliver: ExcludeFocus(
+        excluding: leaving,
+        child: SliverIgnorePointer(
+          ignoring: leaving,
+          sliver: SliverSemantics(
+            excludeSemantics: leaving,
+            sliver: TickerMode(
+              enabled: !leaving,
+              child: KeyedSubtree(key: ValueKey(_shownKey), child: sliver),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -676,15 +727,7 @@ class _AnimatedStatusMenuState extends State<_AnimatedStatusMenu>
             ignoring: !visible,
             child: ExcludeSemantics(
               excluding: !visible,
-              child: FadeTransition(
-                opacity: _curved,
-                child: SizeTransition(
-                  axis: Axis.horizontal,
-                  alignment: AlignmentDirectional.centerStart,
-                  sizeFactor: _curved,
-                  child: child,
-                ),
-              ),
+              child: DitherTransition.horizontalReveal(child, _curved.value),
             ),
           ),
         );
@@ -724,6 +767,7 @@ class _RowCollapseState extends State<_RowCollapse>
     duration: widget.duration,
     value: widget.collapsing ? 0 : 1,
   );
+  late final _size = _controller.drive(CurveTween(curve: Curves.easeOutCubic));
 
   @override
   void didUpdateWidget(covariant _RowCollapse oldWidget) {
@@ -747,20 +791,10 @@ class _RowCollapseState extends State<_RowCollapse>
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _controller,
+    return SizeTransition(
+      sizeFactor: _size,
+      alignment: AlignmentDirectional.topStart,
       child: widget.child,
-      builder: (context, child) {
-        final value = Curves.easeOutCubic.transform(_controller.value);
-        if (value >= 1) return child!;
-        return ClipRect(
-          child: Align(
-            alignment: AlignmentDirectional.topStart,
-            heightFactor: value,
-            child: child,
-          ),
-        );
-      },
     );
   }
 }
@@ -791,6 +825,9 @@ class _EntryPresenceState extends State<_EntryPresence>
     vsync: this,
     duration: widget.duration,
     value: 1,
+  );
+  late final _opacity = _controller.drive(
+    CurveTween(curve: Curves.easeOutCubic),
   );
   bool _gone = false;
   bool _started = false;
@@ -846,20 +883,14 @@ class _EntryPresenceState extends State<_EntryPresence>
 
   @override
   Widget build(BuildContext context) {
-    final animated = AnimatedBuilder(
-      animation: _controller,
-      child: widget.child,
-      builder: (context, child) {
-        final value = Curves.easeOutCubic.transform(_controller.value);
-        if (value >= 1) return child!;
-        return Opacity(opacity: value, child: child);
-      },
-    );
     return ExcludeFocus(
       excluding: widget.leaving,
       child: IgnorePointer(
         ignoring: widget.leaving,
-        child: ExcludeSemantics(excluding: widget.leaving, child: animated),
+        child: ExcludeSemantics(
+          excluding: widget.leaving,
+          child: FadeTransition(opacity: _opacity, child: widget.child),
+        ),
       ),
     );
   }

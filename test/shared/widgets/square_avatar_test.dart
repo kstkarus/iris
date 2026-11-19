@@ -18,7 +18,7 @@ void main() {
     return image;
   }
 
-  testWidgets('fades in asynchronous avatar loads and skips sync frames', (
+  testWidgets('fades in a loaded avatar again on a memory cache hit', (
     tester,
   ) async {
     final image = await tester.runAsync(createTestImage);
@@ -26,40 +26,27 @@ void main() {
     addTearDown(() => networkImage = previous);
 
     final pending = Completer<ImageInfo>();
-    networkImage = (url) => url == 'sync'
-        ? _TestImageProvider(image: image!, synchronous: true)
-        : _TestImageProvider(future: pending.future);
-
-    await tester.pumpWidget(
-      const MaterialApp(
-        home: Center(child: SquareAvatar(url: 'async', size: 48)),
-      ),
+    final provider = _TestImageProvider(pending.future);
+    networkImage = (_) => provider;
+    const app = MaterialApp(
+      home: Center(child: SquareAvatar(url: 'avatar', size: 48)),
     );
+    Future<void> expectFade() async {
+      await tester.pump(const Duration(milliseconds: 80));
+      expect(tester.widget<RawImage>(find.byType(RawImage)).image, isNotNull);
+      expect(tester.hasRunningAnimations, isTrue);
+      await tester.pumpAndSettle();
+      expect(tester.hasRunningAnimations, isFalse);
+    }
 
-    expect(
-      tester.widget<AnimatedOpacity>(find.byType(AnimatedOpacity)).opacity,
-      0,
-    );
-
-    pending.complete(ImageInfo(image: image!.clone()));
+    await tester.pumpWidget(app);
+    pending.complete(ImageInfo(image: image!));
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 80));
-    expect(
-      tester.widget<AnimatedOpacity>(find.byType(AnimatedOpacity)).opacity,
-      1,
-    );
-    expect(tester.hasRunningAnimations, isTrue);
+    await expectFade();
 
-    await tester.pumpAndSettle();
-    expect(tester.hasRunningAnimations, isFalse);
-
-    await tester.pumpWidget(
-      const MaterialApp(
-        home: Center(child: SquareAvatar(url: 'sync', size: 48)),
-      ),
-    );
-    expect(find.byType(AnimatedOpacity), findsNothing);
-    expect(tester.hasRunningAnimations, isFalse);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pumpWidget(app);
+    await expectFade();
   });
 
   testWidgets('reveals avatar immediately when animations are disabled', (
@@ -70,7 +57,8 @@ void main() {
     addTearDown(() => networkImage = previous);
 
     final pending = Completer<ImageInfo>();
-    networkImage = (_) => _TestImageProvider(future: pending.future);
+    final provider = _TestImageProvider(pending.future);
+    networkImage = (_) => provider;
 
     await tester.pumpWidget(
       const MaterialApp(
@@ -85,20 +73,15 @@ void main() {
     await tester.pump();
     await tester.pump();
 
-    expect(
-      tester.widget<AnimatedOpacity>(find.byType(AnimatedOpacity)).opacity,
-      1,
-    );
+    expect(tester.widget<RawImage>(find.byType(RawImage)).image, isNotNull);
     expect(tester.hasRunningAnimations, isFalse);
   });
 }
 
 class _TestImageProvider extends ImageProvider<_TestImageProvider> {
-  const _TestImageProvider({this.image, this.future, this.synchronous = false});
+  const _TestImageProvider(this.frame);
 
-  final ui.Image? image;
-  final Future<ImageInfo>? future;
-  final bool synchronous;
+  final Future<ImageInfo> frame;
 
   @override
   Future<_TestImageProvider> obtainKey(ImageConfiguration configuration) =>
@@ -108,19 +91,11 @@ class _TestImageProvider extends ImageProvider<_TestImageProvider> {
   ImageStreamCompleter loadImage(
     _TestImageProvider key,
     ImageDecoderCallback decode,
-  ) => _TestCompleter(image: image, future: future, synchronous: synchronous);
+  ) => _TestCompleter(frame);
 }
 
 class _TestCompleter extends ImageStreamCompleter {
-  _TestCompleter({
-    ui.Image? image,
-    Future<ImageInfo>? future,
-    bool synchronous = false,
-  }) {
-    if (synchronous && image != null) {
-      setImage(ImageInfo(image: image));
-    } else if (future != null) {
-      future.then(setImage);
-    }
+  _TestCompleter(Future<ImageInfo> frame) {
+    frame.then(setImage);
   }
 }

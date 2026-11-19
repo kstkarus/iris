@@ -100,10 +100,10 @@ class AnimejoySession implements AnimejoyAccountRepository {
     await _forget();
   });
 
-  Future<Response<String>> get(Uri uri) async {
+  Future<Response<String>> get(Uri uri, {CancelToken? cancelToken}) async {
     await _ensureLoaded();
     final cookies = _cookies;
-    final response = await _request(cookies, uri);
+    final response = await _request(cookies, uri, cancelToken: cancelToken);
     _requireCurrent(cookies);
     if (!_hasAccount) return response;
 
@@ -111,7 +111,7 @@ class AnimejoySession implements AnimejoyAccountRepository {
         _accountPage(response.data) == _AccountPage.guest) {
       await _changes.run(() async {
         _requireCurrent(cookies);
-        if (!await _verify(cookies)) await _forget();
+        if (!await _verify(cookies, cancelToken: cancelToken)) await _forget();
       });
       _requireCurrent(cookies);
     }
@@ -131,8 +131,11 @@ class AnimejoySession implements AnimejoyAccountRepository {
     await _sessionChanges.close();
   }
 
-  Future<bool> _verify(AnimejoyCookies cookies) async {
-    final response = await _request(cookies, baseUri);
+  Future<bool> _verify(
+    AnimejoyCookies cookies, {
+    CancelToken? cancelToken,
+  }) async {
+    final response = await _request(cookies, baseUri, cancelToken: cancelToken);
     _requireSuccess(response);
     return switch (_accountPage(response.data)) {
       _AccountPage.guest => false,
@@ -147,6 +150,7 @@ class AnimejoySession implements AnimejoyAccountRepository {
     AnimejoyCookies cookies,
     Uri uri, {
     Map<String, String>? form,
+    CancelToken? cancelToken,
   }) async {
     final active = identical(cookies, _cookies);
     var target = uri;
@@ -164,6 +168,7 @@ class AnimejoySession implements AnimejoyAccountRepository {
         response = await _dio.requestUri<String>(
           target,
           data: body,
+          cancelToken: cancelToken,
           options: Options(
             method: body == null ? 'GET' : 'POST',
             responseType: ResponseType.plain,

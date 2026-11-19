@@ -8,7 +8,6 @@ import 'package:iris/entities/user_rate/presentation/user_rate_status_label.dart
 import 'package:iris/features/anime_details/presentation/cubit/friend_rates_cubit.dart';
 import 'package:iris/features/anime_details/presentation/widgets/anime_details_layout.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
-import 'package:iris/shared/utils/motion_duration.dart';
 import 'package:iris/shared/widgets/detail_layout.dart';
 import 'package:iris/shared/widgets/dither_switcher.dart';
 import 'package:iris/shared/widgets/pixel_separated_text.dart';
@@ -66,18 +65,11 @@ class FriendsSection extends StatelessWidget {
               ),
             ),
           );
-    final switcher = DitherSwitcher(
+    return DitherSwitcher(
       collapse: true,
       duration: const Duration(milliseconds: 240),
+      resizeDuration: const Duration(milliseconds: 200),
       child: child,
-    );
-    final duration = motionDuration(context, const Duration(milliseconds: 200));
-    if (duration == Duration.zero) return switcher;
-    return AnimatedSize(
-      duration: duration,
-      curve: Curves.easeOutCubic,
-      alignment: Alignment.topCenter,
-      child: switcher,
     );
   }
 }

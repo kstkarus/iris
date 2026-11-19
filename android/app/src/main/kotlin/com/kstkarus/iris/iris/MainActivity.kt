@@ -20,6 +20,7 @@ import java.io.File
 
 class MainActivity : FlutterActivity() {
     private var pictureInPicture: PictureInPictureController? = null
+    private var torrentFilePicker: TorrentFilePicker? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         DownloadForegroundService.cancelEnd()
@@ -33,6 +34,7 @@ class MainActivity : FlutterActivity() {
             this,
             flutterEngine.dartExecutor.binaryMessenger,
         )
+        torrentFilePicker = TorrentFilePicker(this, flutterEngine.dartExecutor.binaryMessenger)
 
         MethodChannel(
             flutterEngine.dartExecutor.binaryMessenger,
@@ -132,6 +134,12 @@ class MainActivity : FlutterActivity() {
         pictureInPicture?.onUserLeaveHint()
     }
 
+    @Suppress("DEPRECATION")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        torrentFilePicker?.onActivityResult(requestCode, resultCode, data)
+    }
+
     override fun onPictureInPictureModeChanged(
         isInPictureInPictureMode: Boolean,
         newConfig: Configuration,
@@ -141,6 +149,8 @@ class MainActivity : FlutterActivity() {
     }
 
     override fun onDestroy() {
+        torrentFilePicker?.dispose()
+        torrentFilePicker = null
         pictureInPicture?.dispose()
         pictureInPicture = null
         val closing = isFinishing && !isChangingConfigurations

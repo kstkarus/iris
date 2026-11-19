@@ -3,6 +3,8 @@ import 'package:flutter/widgets.dart';
 
 import 'package:iris/features/player/presentation/widgets/player_countdown.dart';
 import 'package:iris/shared/utils/motion_duration.dart';
+import 'package:iris/shared/widgets/active_layer.dart';
+import 'package:iris/shared/widgets/dither_transition.dart';
 
 /// Shows [child] for [shownAtStart] when it appears, counting down, and
 /// from then on exactly while the player's controls are visible, without a
@@ -56,8 +58,8 @@ class _PlayerAutoHidingOfferState extends State<PlayerAutoHidingOffer> {
         valueListenable: widget.controlsVisible,
         builder: (context, controlsVisible, child) {
           final visible = pinned || _intro || controlsVisible;
-          return IgnorePointer(
-            ignoring: !visible,
+          return ActiveLayer(
+            active: visible,
             child: AnimatedOpacity(
               opacity: visible ? 1 : 0,
               duration: motionDuration(
@@ -70,9 +72,11 @@ class _PlayerAutoHidingOfferState extends State<PlayerAutoHidingOffer> {
         },
         child: TweenAnimationBuilder<double>(
           tween: Tween(begin: 0, end: 1),
-          duration: motionDuration(context, const Duration(milliseconds: 200)),
-          builder: (context, value, child) =>
-              Opacity(opacity: value, child: child),
+          duration: motionDuration(context, const Duration(milliseconds: 300)),
+          builder: (context, value, child) => DitherTransition.transition(
+            child!,
+            AlwaysStoppedAnimation(value),
+          ),
           child: widget.child,
         ),
       ),

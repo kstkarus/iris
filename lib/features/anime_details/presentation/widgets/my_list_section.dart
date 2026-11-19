@@ -263,19 +263,10 @@ class _PickerCell extends StatelessWidget {
         ),
         child: Row(
           children: [
-            AnimatedSwitcher(
+            DitherSwitcher(
               duration: duration,
-              switchInCurve: Curves.easeOutCubic,
-              switchOutCurve: Curves.easeOutCubic,
-              transitionBuilder: (child, animation) => FadeTransition(
-                opacity: animation,
-                child: SizeTransition(
-                  sizeFactor: animation,
-                  axis: Axis.horizontal,
-                  alignment: AlignmentDirectional.centerStart,
-                  child: child,
-                ),
-              ),
+              resizeDuration: duration,
+              alignment: AlignmentDirectional.centerStart,
               child: leading == null
                   ? const SizedBox.shrink(key: ValueKey('no_leading'))
                   : Padding(
@@ -284,18 +275,7 @@ class _PickerCell extends StatelessWidget {
                       child: leading,
                     ),
             ),
-            Expanded(
-              child: AnimatedSwitcher(
-                duration: duration,
-                switchInCurve: Curves.easeOutCubic,
-                switchOutCurve: Curves.easeOutCubic,
-                layoutBuilder: (currentChild, previousChildren) => Stack(
-                  alignment: AlignmentDirectional.centerStart,
-                  children: [...previousChildren, ?currentChild],
-                ),
-                child: labelWidget,
-              ),
-            ),
+            Expanded(child: labelWidget),
             const SizedBox(width: 8),
             PixelIcon(
               PixelGlyph.expand,
@@ -432,24 +412,11 @@ class _ProgressBand extends StatelessWidget {
         Semantics(
           label: l10n.userRateEpisodesWatched(shown),
           child: ExcludeSemantics(
-            child: AnimatedSwitcher(
-              duration: motionDuration(
-                context,
-                const Duration(milliseconds: 160),
-              ),
-              switchInCurve: Curves.easeOutCubic,
-              switchOutCurve: Curves.easeOutCubic,
-              layoutBuilder: (currentChild, previousChildren) => Stack(
-                alignment: AlignmentDirectional.centerStart,
-                children: [...previousChildren, ?currentChild],
-              ),
-              child: Text(
-                shown,
-                key: ValueKey(shown),
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontFeatures: const [FontFeature.tabularFigures()],
-                  fontWeight: FontWeight.w600,
-                ),
+            child: Text(
+              shown,
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontFeatures: const [FontFeature.tabularFigures()],
+                fontWeight: FontWeight.w600,
               ),
             ),
           ),

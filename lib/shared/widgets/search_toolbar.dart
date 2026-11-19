@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
-import 'package:iris/shared/utils/motion_duration.dart';
 import 'package:iris/shared/widgets/adaptive/adaptive_content_width.dart';
 import 'package:iris/shared/widgets/detail_layout.dart';
+import 'package:iris/shared/widgets/dither_switcher.dart';
 import 'package:iris/shared/widgets/pixel_icon.dart';
 import 'package:iris/shared/widgets/search_field.dart';
 
@@ -37,10 +37,10 @@ class SearchToolbar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final anim = motionDuration(context, const Duration(milliseconds: 160));
+    const duration = Duration(milliseconds: 160);
     final countMarker = actionCount > 0
         ? Container(
-            key: ValueKey('count_$actionCount'),
+            key: const ValueKey('count'),
             padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
             color: Theme.of(context).colorScheme.onSurface,
             child: Text(
@@ -57,29 +57,18 @@ class SearchToolbar extends StatelessWidget {
     final wideMarker = countMarker ?? activeMarker;
     final scheme = Theme.of(context).colorScheme;
     final rule = DetailLayout.ruleColor(scheme);
-    final Widget wideBadge = anim == Duration.zero
-        ? wideMarker == null
-              ? const SizedBox.shrink()
-              : Padding(
-                  padding: const EdgeInsets.only(left: 8),
-                  child: wideMarker,
-                )
-        : AnimatedSize(
-            duration: anim,
-            curve: Curves.easeOutCubic,
-            child: AnimatedSwitcher(
-              duration: anim,
-              switchInCurve: Curves.easeOutCubic,
-              switchOutCurve: Curves.easeOutCubic,
-              child: wideMarker == null
-                  ? const SizedBox.shrink(key: ValueKey('no_marker'))
-                  : Padding(
-                      key: ValueKey('marker_${actionCount}_$actionActive'),
-                      padding: const EdgeInsets.only(left: 8),
-                      child: wideMarker,
-                    ),
+    final wideBadge = DitherSwitcher(
+      duration: duration,
+      resizeDuration: duration,
+      alignment: Alignment.center,
+      child: wideMarker == null
+          ? const SizedBox.shrink(key: ValueKey('no_marker'))
+          : Padding(
+              key: wideMarker.key,
+              padding: const EdgeInsetsDirectional.only(start: 8),
+              child: wideMarker,
             ),
-          );
+    );
     final iconColor = actionActive
         ? scheme.onSurface
         : scheme.onSurface.withValues(alpha: 0.85);
@@ -114,10 +103,9 @@ class SearchToolbar extends StatelessWidget {
                 top: -10,
                 right: -8,
                 child: IgnorePointer(
-                  child: AnimatedSwitcher(
-                    duration: anim,
-                    switchInCurve: Curves.easeOutCubic,
-                    switchOutCurve: Curves.easeOutCubic,
+                  child: DitherSwitcher(
+                    duration: duration,
+                    alignment: Alignment.center,
                     child:
                         countMarker ??
                         const SizedBox.shrink(key: ValueKey('no_count')),
@@ -128,10 +116,8 @@ class SearchToolbar extends StatelessWidget {
                 top: 8,
                 right: 8,
                 child: IgnorePointer(
-                  child: AnimatedSwitcher(
-                    duration: anim,
-                    switchInCurve: Curves.easeOutCubic,
-                    switchOutCurve: Curves.easeOutCubic,
+                  child: DitherSwitcher(
+                    duration: duration,
                     child:
                         activeMarker ??
                         const SizedBox.shrink(key: ValueKey('no_active')),

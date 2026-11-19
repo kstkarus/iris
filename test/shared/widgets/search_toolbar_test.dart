@@ -55,13 +55,31 @@ void main() {
     await tester.tap(find.byType(IconButton));
     expect(taps, 1);
 
+    await tester.pumpWidget(
+      buildToolbar(isWide: false, actionActive: true, actionCount: 3),
+    );
+    expect(find.text('3'), findsOneWidget);
+    expect(find.text('2'), findsNothing);
+
     await tester.pumpWidget(buildToolbar(isWide: true, actionActive: true));
     await tester.pumpAndSettle();
+    final square = find.byKey(const ValueKey('active')).last;
+    final action = find.text('Filters');
+    double squareOffset() =>
+        tester.getCenter(square).dy - tester.getCenter(action).dy;
+    final restingOffset = squareOffset();
+
     await tester.pumpWidget(buildToolbar(isWide: true, actionCount: 3));
     await tester.pump(const Duration(milliseconds: 80));
     expect(tester.hasRunningAnimations, isTrue);
     await tester.pumpAndSettle();
     expect(find.text('3'), findsOneWidget);
+
+    await tester.pumpWidget(buildToolbar(isWide: true, actionActive: true));
+    for (var frame = 0; frame < 18; frame++) {
+      await tester.pump(const Duration(milliseconds: 20));
+      expect(squareOffset(), closeTo(restingOffset, 0.01));
+    }
   });
 
   testWidgets('updates markers immediately when animations are disabled', (

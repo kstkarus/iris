@@ -5,7 +5,6 @@ import 'package:skeletonizer/skeletonizer.dart';
 import 'package:iris/features/anime_details/presentation/models/anime_details_preview.dart';
 import 'package:iris/features/watch_sources/presentation/models/anime_watch_sources_args.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
-import 'package:iris/shared/utils/motion_duration.dart';
 import 'package:iris/shared/widgets/app_skeleton.dart';
 import 'package:iris/shared/widgets/detail_layout.dart';
 import 'package:iris/shared/widgets/dither_switcher.dart';
@@ -147,18 +146,11 @@ class AnimeDetailsDescription extends StatelessWidget {
               ),
             ),
           );
-    final switcher = DitherSwitcher(
+    return DitherSwitcher(
       collapse: true,
       duration: const Duration(milliseconds: 220),
+      resizeDuration: const Duration(milliseconds: 200),
       child: child,
-    );
-    final duration = motionDuration(context, const Duration(milliseconds: 200));
-    if (duration == Duration.zero) return switcher;
-    return AnimatedSize(
-      duration: duration,
-      curve: Curves.easeOutCubic,
-      alignment: Alignment.topCenter,
-      child: switcher,
     );
   }
 }

@@ -1,5 +1,8 @@
 import 'dart:async';
 
+import 'package:dio/dio.dart' show CancelToken;
+
+import 'package:iris/features/online_sources/data/repositories/animejoy_online_sources_repository.dart';
 import 'package:iris/features/online_sources/domain/entities/online_provider.dart';
 import 'package:iris/features/online_sources/domain/entities/online_release.dart';
 import 'package:iris/features/online_sources/domain/entities/online_stream.dart';
@@ -45,10 +48,11 @@ class CombinedOnlineSourcesRepository
     );
     Object? failure;
     var pending = repositories.length;
+    final cancellation = CancelToken();
     late final StreamController<List<OnlineRelease>> controller;
 
     void answered() {
-      if (--pending > 0) return;
+      if (--pending > 0 || controller.isClosed) return;
       if (failure case final error? when answers.every((a) => a.isEmpty)) {
         controller.addError(error);
       }
@@ -56,6 +60,10 @@ class CombinedOnlineSourcesRepository
     }
 
     controller = StreamController(
+      onCancel: () {
+        cancellation.cancel();
+        if (!controller.isClosed) unawaited(controller.close());
+      },
       onListen: () {
         if (repositories.isEmpty) {
           unawaited(controller.close());
@@ -64,15 +72,23 @@ class CombinedOnlineSourcesRepository
         for (final (index, repository) in repositories.indexed) {
           unawaited(
             Future.sync(
-                  () => repository.findReleases(
-                    shikimoriId: shikimoriId,
-                    titles: titles,
-                  ),
+                  () => repository is AnimejoyOnlineSourcesRepository
+                      ? repository.findReleases(
+                          shikimoriId: shikimoriId,
+                          titles: titles,
+                          cancelToken: cancellation,
+                        )
+                      : repository.findReleases(
+                          shikimoriId: shikimoriId,
+                          titles: titles,
+                        ),
                 )
                 .then(
                   (releases) {
                     answers[index] = releases;
-                    if (releases.isNotEmpty) controller.add(_merge(answers));
+                    if (!controller.isClosed && releases.isNotEmpty) {
+                      controller.add(_merge(answers));
+                    }
                   },
                   onError: (Object error) {
                     failure ??= error;

@@ -151,7 +151,7 @@ void main() {
     expect(offset(), closeTo(onlineOffset, 0.5));
   }, variant: const TargetPlatformVariant({TargetPlatform.android}));
 
-  testWidgets('cross-fades tab switches and honors reduced motion', (
+  testWidgets('fades in only the selected tab and honors reduced motion', (
     tester,
   ) async {
     await _pumpPage(tester, online: _FakeOnlineSources.found());
@@ -160,8 +160,8 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 90));
 
-    // Mid-transition, the incoming pane is visible and fading in rather than
-    // snapped to full opacity.
+    expect(find.text('[SubsPlease] Frieren'), findsOneWidget);
+    expect(find.text('AniLibria'), findsNothing);
     final transitions = tester
         .widgetList<FadeTransition>(find.byType(FadeTransition))
         .map((widget) => widget.opacity.value)
@@ -530,7 +530,9 @@ void main() {
       expect(args.magnet, magnet);
     });
 
-    testWidgets('deleting the last saved torrent removes it', (tester) async {
+    testWidgets('Mine stays open until its last visible row leaves', (
+      tester,
+    ) async {
       await _pumpPage(
         tester,
         online: _FakeOnlineSources.found(),
@@ -542,10 +544,59 @@ void main() {
       await tester.longPress(find.text('Frieren BD'));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('saved_torrent_delete')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 120));
+      expect(find.text('Mine'), findsOneWidget);
+      expect(find.text('AniLibria'), findsNothing);
       await tester.pumpAndSettle();
       expect(find.text('Frieren BD'), findsNothing);
       expect(find.text('Mine'), findsNothing);
+      expect(find.text('AniLibria'), findsOneWidget);
       expect(find.text('Torrent deleted'), findsOneWidget);
+    });
+
+    testWidgets('a hidden Mine tab goes away as soon as it is empty', (
+      tester,
+    ) async {
+      await _pumpPage(
+        tester,
+        online: _FakeOnlineSources.found(),
+        mine: [magnet],
+      );
+      expect(find.text('AniLibria'), findsOneWidget);
+      expect(find.text('Mine'), findsOneWidget);
+      final cubit = tester
+          .element(find.byType(WatchSourcesPage))
+          .read<SavedTorrentsCubit>();
+
+      await cubit.delete(cubit.state.torrents.single);
+      await tester.pump();
+
+      expect(find.text('Mine'), findsNothing);
+      expect(find.text('AniLibria'), findsOneWidget);
+    });
+
+    testWidgets('the only saved release finishes leaving before fallback', (
+      tester,
+    ) async {
+      await _pumpPage(
+        tester,
+        online: _FakeOnlineSources(const []),
+        torrents: const _Torrents.none(),
+        mine: [magnet],
+      );
+      await tester.pumpAndSettle();
+      final cubit = tester
+          .element(find.byType(WatchSourcesPage))
+          .read<SavedTorrentsCubit>();
+      expect(find.text('Frieren BD'), findsOneWidget);
+
+      await cubit.delete(cubit.state.torrents.single);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 120));
+      expect(find.text('Frieren BD'), findsOneWidget);
+      await tester.pumpAndSettle();
+      expect(find.text('Frieren BD'), findsNothing);
     });
 
     testWidgets('a paste adds from the clipboard, but not in the search', (

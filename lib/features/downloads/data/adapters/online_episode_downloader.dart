@@ -319,6 +319,8 @@ class _Task implements OnlineDownloadTask {
     final plan = playlist.plan;
     final videoHeight = playlist.height;
     final pieces = [?plan.init, ...plan.segments];
+    // Older checkpoints may have counted empty pieces as downloaded.
+    final playlistHash = 'v2:${plan.fingerprint}';
     final output = File(
       path.join(
         directory.path,
@@ -330,7 +332,7 @@ class _Task implements OnlineDownloadTask {
         state.format == stream.format.name &&
         state.quality == stream.quality &&
         state.pieces == pieces.length &&
-        state.playlistHash == plan.fingerprint &&
+        state.playlistHash == playlistHash &&
         await output.exists() &&
         await output.length() >= state.bytes;
     if (state != null && !resumable) {
@@ -369,7 +371,7 @@ class _Task implements OnlineDownloadTask {
             pieces: pieces.length,
             done: done,
             bytes: bytes,
-            playlistHash: plan.fingerprint,
+            playlistHash: playlistHash,
           ),
         );
         _report(
@@ -592,7 +594,11 @@ class _Task implements OnlineDownloadTask {
       try {
         final response = await _send<List<int>>(url, ResponseType.bytes);
         _checkStatus(response.statusCode ?? 0);
-        return response.data ?? const [];
+        final data = response.data;
+        if (data == null || data.isEmpty) {
+          throw const _Retryable('empty segment response');
+        }
+        return data;
       } on _Retryable catch (error) {
         if (attempt >= _attempts) throw _LinkRefused(error.reason);
         await _wait(attempt);

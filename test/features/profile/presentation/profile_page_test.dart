@@ -235,6 +235,36 @@ void main() {
     expect(find.text('The status is set on an anime’s page.'), findsOneWidget);
   });
 
+  testWidgets('the previous category fades out before the new list appears', (
+    tester,
+  ) async {
+    await pumpPage(tester, FakeAuthRepository(restored: testAccount));
+    await tester.pumpAndSettle();
+
+    final response = Completer<void>();
+    lists.gate = response;
+    await tester.tap(find.byKey(UserListView.statusButtonKey));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('user_list_status_planned')));
+    await tester.pump();
+    await tester.pump();
+
+    double opacity() => tester
+        .widget<SliverFadeTransition>(find.byType(SliverFadeTransition))
+        .opacity
+        .value;
+    final beforeFade = opacity();
+    await tester.pump(const Duration(milliseconds: 32));
+    expect(opacity(), lessThan(beforeFade));
+    expect(find.text('Anime 1'), findsOneWidget);
+    expect(find.text('Anime 1').hitTestable(), findsNothing);
+
+    response.complete();
+    await tester.pumpAndSettle();
+    expect(find.text('Anime 1'), findsNothing);
+    expect(find.text('Anime 3').hitTestable(), findsOneWidget);
+  });
+
   testWidgets('an empty Watching list leads to the catalog', (tester) async {
     lists.lists.remove(UserRateStatus.watching);
     await pumpPage(tester, FakeAuthRepository(restored: testAccount));
@@ -381,8 +411,11 @@ void main() {
 
       expect(find.byKey(UserListView.statusButtonKey), findsOneWidget);
       await tester.tap(find.byKey(UserListView.friendsTabKey));
+      await tester.pump();
       await tester.pump(const Duration(milliseconds: 90));
-      expect(find.byKey(UserListView.statusButtonKey), findsOneWidget);
+      final statusMenu = find.byKey(UserListView.statusButtonKey);
+      expect(statusMenu, findsOneWidget);
+      expect(statusMenu.hitTestable(), findsNothing);
       await tester.pumpAndSettle();
       expect(find.byKey(UserListView.statusButtonKey), findsNothing);
       expect(find.text('friend_7'), findsOneWidget);
@@ -409,7 +442,11 @@ void main() {
         episodes: 12,
         score: 0,
       );
-      await tester.pump(const Duration(milliseconds: 100));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 32));
+      await tester.pump(const Duration(milliseconds: 64));
+      await tester.pump();
+      expect(find.text('Anime 1'), findsOneWidget);
       expect(find.text('Nothing in “Watching”'), findsNothing);
       await tester.pumpAndSettle();
       expect(find.text('Anime 1'), findsNothing);

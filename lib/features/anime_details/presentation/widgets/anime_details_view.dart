@@ -15,7 +15,6 @@ import 'package:iris/features/anime_details/presentation/widgets/recently_watche
 import 'package:iris/features/anime_details/presentation/widgets/related_anime_section.dart';
 import 'package:iris/features/characters/presentation/widgets/characters_section.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
-import 'package:iris/shared/utils/motion_duration.dart';
 import 'package:iris/shared/widgets/adaptive/window_size_class.dart';
 import 'package:iris/shared/widgets/app_skeleton.dart';
 import 'package:iris/shared/widgets/detail_layout.dart';
@@ -205,19 +204,17 @@ class _StackedLayout extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           AnimeDetailsWatchSourcesButton(head: head),
-          _animatedSlot(
-            context,
-            DitherSwitcher(
-              collapse: true,
-              duration: const Duration(milliseconds: 220),
-              child: onRetry == null
-                  ? const SizedBox.shrink(key: ValueKey('no_retry'))
-                  : Padding(
-                      key: const ValueKey('retry'),
-                      padding: const EdgeInsets.only(top: 12),
-                      child: AnimeDetailsRetryBanner(onRetry: onRetry!),
-                    ),
-            ),
+          DitherSwitcher(
+            resizeDuration: const Duration(milliseconds: 200),
+            collapse: true,
+            duration: const Duration(milliseconds: 220),
+            child: onRetry == null
+                ? const SizedBox.shrink(key: ValueKey('no_retry'))
+                : Padding(
+                    key: const ValueKey('retry'),
+                    padding: const EdgeInsets.only(top: 12),
+                    child: AnimeDetailsRetryBanner(onRetry: onRetry!),
+                  ),
           ),
           const SizedBox(height: 16),
           AnimePassportCard(
@@ -226,18 +223,16 @@ class _StackedLayout extends StatelessWidget {
           ),
           MyListSection(totalEpisodes: head.anime.episodes),
           RecentlyWatchedSection(animeId: head.anime.id),
-          _animatedSlot(
-            context,
-            DitherSwitcher(
-              collapse: true,
-              duration: const Duration(milliseconds: 220),
-              child: onRetry == null
-                  ? AnimeDetailsDescription(
-                      key: const ValueKey('description'),
-                      description: description,
-                    )
-                  : const SizedBox.shrink(key: ValueKey('no_description')),
-            ),
+          DitherSwitcher(
+            resizeDuration: const Duration(milliseconds: 200),
+            collapse: true,
+            duration: const Duration(milliseconds: 220),
+            child: onRetry == null
+                ? AnimeDetailsDescription(
+                    key: const ValueKey('description'),
+                    description: description,
+                  )
+                : const SizedBox.shrink(key: ValueKey('no_description')),
           ),
           RelatedAnimeSection(related: related),
           CharactersSection(
@@ -252,15 +247,4 @@ class _StackedLayout extends StatelessWidget {
       ),
     );
   }
-}
-
-Widget _animatedSlot(BuildContext context, Widget child) {
-  final duration = motionDuration(context, const Duration(milliseconds: 200));
-  if (duration == Duration.zero) return child;
-  return AnimatedSize(
-    duration: duration,
-    curve: Curves.easeOutCubic,
-    alignment: Alignment.topCenter,
-    child: child,
-  );
 }

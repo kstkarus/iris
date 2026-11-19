@@ -32,6 +32,10 @@ class WatchProgressCubit extends Cubit<List<WatchProgress>> {
     );
   }
 
+  Future<void> dismissFromContinueWatching(WatchProgress progress) {
+    return _repository.dismissFromContinueWatching(progress);
+  }
+
   Future<void> removeTorrent(String torrentKey) {
     return _repository.removeTorrent(torrentKey: torrentKey);
   }

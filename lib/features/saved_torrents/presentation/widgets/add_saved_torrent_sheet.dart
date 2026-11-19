@@ -96,7 +96,13 @@ final class _FileDraft extends _Draft {
   String get name => torrent.name.isEmpty ? torrent.infoHash : torrent.name;
 }
 
-enum _Problem { invalidLink, notTorrent, saveFailed }
+enum _Problem {
+  invalidLink,
+  notTorrent,
+  fileTooLarge,
+  fileReadFailed,
+  saveFailed,
+}
 
 class _AddSavedTorrentFormState extends State<AddSavedTorrentForm> {
   final _magnetController = TextEditingController();
@@ -147,7 +153,30 @@ class _AddSavedTorrentFormState extends State<AddSavedTorrentForm> {
   }
 
   Future<void> _chooseFile() async {
-    final bytes = await widget.pickFile();
+    final Uint8List? bytes;
+    try {
+      bytes = await widget.pickFile();
+    } on TorrentFileTooLargeException {
+      if (!mounted) return;
+      setState(() {
+        _draft = null;
+        _problem = _Problem.fileTooLarge;
+      });
+      return;
+    } on Object catch (error, stackTrace) {
+      developer.log(
+        'Unable to read a torrent file.',
+        name: 'iris.saved_torrents.form',
+        error: error.runtimeType,
+        stackTrace: stackTrace,
+      );
+      if (!mounted) return;
+      setState(() {
+        _draft = null;
+        _problem = _Problem.fileReadFailed;
+      });
+      return;
+    }
     if (!mounted || bytes == null) return;
     final torrent = TorrentFile.tryParse(bytes);
     setState(() {
@@ -228,25 +257,19 @@ class _AddSavedTorrentFormState extends State<AddSavedTorrentForm> {
           Flexible(
             child: SingleChildScrollView(
               // The same place shows the torrent instead of the input.
-              child: _AnimatedSizeIfEnabled(
-                duration: motionDuration(
-                  context,
-                  const Duration(milliseconds: 200),
-                ),
-                alignment: AlignmentDirectional.topStart,
-                child: DitherSwitcher(
-                  duration: const Duration(milliseconds: 220),
-                  child: draft == null
-                      ? KeyedSubtree(
-                          key: const ValueKey('input'),
-                          child: _input(l10n, theme),
-                        )
-                      : _DraftCard(
-                          key: ValueKey(draft.magnet),
-                          draft: draft,
-                          onClear: _clear,
-                        ),
-                ),
+              child: DitherSwitcher(
+                duration: const Duration(milliseconds: 220),
+                resizeDuration: const Duration(milliseconds: 200),
+                child: draft == null
+                    ? KeyedSubtree(
+                        key: const ValueKey('input'),
+                        child: _input(l10n, theme),
+                      )
+                    : _DraftCard(
+                        key: ValueKey(draft.magnet),
+                        draft: draft,
+                        onClear: _clear,
+                      ),
               ),
             ),
           ),
@@ -357,15 +380,22 @@ class _AddSavedTorrentFormState extends State<AddSavedTorrentForm> {
     ThemeData theme,
   ) {
     final duration = motionDuration(context, const Duration(milliseconds: 160));
-    final notice = _problem == _Problem.notTorrent
+    final message = switch (_problem) {
+      _Problem.notTorrent => l10n.savedTorrentsNotTorrentFile,
+      _Problem.fileTooLarge => l10n.savedTorrentsFileTooLarge,
+      _Problem.fileReadFailed => l10n.savedTorrentsFileReadFailed,
+      _ => null,
+    };
+    final notice = message != null
         ? KeyedSubtree(
-            key: const ValueKey('not_torrent_error'),
-            child: _problemNotice(l10n.savedTorrentsNotTorrentFile, theme),
+            key: ValueKey('file_problem_${_problem!.name}'),
+            child: _problemNotice(message, theme),
           )
         : const SizedBox.shrink(key: ValueKey('no_problem'));
     if (duration == Duration.zero) return notice;
-    return _AnimatedSizeIfEnabled(
+    return AnimatedSize(
       duration: duration,
+      curve: Curves.easeOutCubic,
       alignment: Alignment.topCenter,
       child: AnimatedSwitcher(
         duration: duration,
@@ -393,29 +423,6 @@ class _AddSavedTorrentFormState extends State<AddSavedTorrentForm> {
       ),
     ),
   );
-}
-
-class _AnimatedSizeIfEnabled extends StatelessWidget {
-  const _AnimatedSizeIfEnabled({
-    required this.duration,
-    required this.alignment,
-    required this.child,
-  });
-
-  final Duration duration;
-  final AlignmentGeometry alignment;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    if (duration == Duration.zero) return child;
-    return AnimatedSize(
-      duration: duration,
-      curve: Curves.easeOutCubic,
-      alignment: alignment,
-      child: child,
-    );
-  }
 }
 
 /// The torrent about to be added: its name and what is known about it.

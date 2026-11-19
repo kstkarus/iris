@@ -124,10 +124,14 @@ const playbackMpvProperties = <String, String>{
 Map<String, String> buildSubtitleMpvProperties(
   SubtitlePreferences preferences,
 ) {
+  final background = preferences.backgroundStyle;
   return {
     'sub-scale': _textScale(preferences.textScale).toString(),
     'sub-color': _mpvColor(subtitleTextColor(preferences.textColor)),
-    'sub-back-color': _mpvColor(_backgroundColor(preferences.backgroundStyle)),
+    'sub-border-style': background == SubtitleBackgroundStylePreset.none
+        ? 'outline-and-shadow'
+        : 'background-box',
+    'sub-back-color': _mpvColor(_backgroundColor(background)),
     'sub-pos': subtitleMpvPosition(preferences.verticalPosition).toString(),
     'sub-ass-override': overridesReleaseSubtitleStyle(preferences)
         ? 'force'

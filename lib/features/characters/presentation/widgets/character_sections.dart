@@ -8,7 +8,6 @@ import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/theme/cjk_font.dart';
 import 'package:iris/shared/utils/anime_metadata_formatter.dart';
 import 'package:iris/shared/utils/incomplete_date.dart';
-import 'package:iris/shared/utils/motion_duration.dart';
 import 'package:iris/shared/widgets/adaptive/adaptive_content_width.dart';
 import 'package:iris/shared/widgets/app_skeleton.dart';
 import 'package:iris/shared/widgets/detail_layout.dart';
@@ -101,35 +100,13 @@ class CharacterNamesCard extends StatelessWidget {
         ),
       );
     }
-    return _animatedPresence(
-      context,
+    return DitherSwitcher(
+      collapse: true,
+      resizeDuration: const Duration(milliseconds: 200),
       duration: const Duration(milliseconds: 240),
       child: child,
     );
   }
-}
-
-Widget _animatedPresence(
-  BuildContext context, {
-  required Duration duration,
-  required Widget child,
-}) {
-  final switcher = DitherSwitcher(
-    collapse: true,
-    duration: duration,
-    child: child,
-  );
-  final sizeDuration = motionDuration(
-    context,
-    const Duration(milliseconds: 200),
-  );
-  if (sizeDuration == Duration.zero) return switcher;
-  return AnimatedSize(
-    duration: sizeDuration,
-    curve: Curves.easeOutCubic,
-    alignment: Alignment.topCenter,
-    child: switcher,
-  );
 }
 
 class _NameCell extends StatelessWidget {
@@ -203,8 +180,9 @@ class CharacterDescriptionSection extends StatelessWidget {
               ),
             ),
           );
-    return _animatedPresence(
-      context,
+    return DitherSwitcher(
+      collapse: true,
+      resizeDuration: const Duration(milliseconds: 200),
       duration: const Duration(milliseconds: 220),
       child: child,
     );
@@ -285,8 +263,9 @@ class CharacterAppearancesSection extends StatelessWidget {
         ),
       );
     }
-    return _animatedPresence(
-      context,
+    return DitherSwitcher(
+      collapse: true,
+      resizeDuration: const Duration(milliseconds: 200),
       duration: const Duration(milliseconds: 240),
       child: child,
     );

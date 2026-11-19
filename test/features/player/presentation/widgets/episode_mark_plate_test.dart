@@ -90,7 +90,10 @@ void main() {
     await tester.pump(const Duration(milliseconds: 400));
     await tester.pump(const Duration(seconds: 5));
     await tester.pump(const Duration(milliseconds: 300));
-    expect(find.byKey(const Key('player_mark_disclosure')), findsOneWidget);
+    final disclosure = find.byKey(const Key('player_mark_disclosure'));
+    expect(disclosure, findsOneWidget);
+    final focus = Focus.of(tester.element(disclosure));
+    expect(focus.canRequestFocus, isTrue);
     await tester.pump(const Duration(seconds: 4));
     await tester.pump(const Duration(milliseconds: 300));
     expect(
@@ -101,6 +104,7 @@ void main() {
           .opacity,
       0,
     );
+    expect(focus.canRequestFocus, isFalse);
     visible.value = true;
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));

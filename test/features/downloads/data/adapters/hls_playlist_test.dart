@@ -59,6 +59,50 @@ https://other.example.test/1080/index.m3u8
         isNull,
       );
     });
+
+    test('skips variants that require a separate audio playlist', () {
+      const splitAudioMaster = '''
+#EXTM3U
+#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="aud-ext",NAME="Japanese",DEFAULT=YES,URI="audio.m3u8"
+#EXT-X-STREAM-INF:BANDWIDTH=5000000,RESOLUTION=1920x1080,AUDIO="aud-ext"
+1080/video.m3u8
+#EXT-X-STREAM-INF:BANDWIDTH=2500000,RESOLUTION=1280x720
+720/muxed.m3u8
+''';
+
+      expect(HlsPlaylist.pickVariant(splitAudioMaster, base, quality: 1080), (
+        uri: Uri.parse('https://cdn.example.test/video/720/muxed.m3u8'),
+        height: 720,
+      ));
+    });
+
+    test('returns null when every variant requires a separate audio track', () {
+      const splitAudioOnly = '''
+#EXTM3U
+#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="aud",NAME="Japanese",URI="audio.m3u8"
+#EXT-X-STREAM-INF:BANDWIDTH=2500000,RESOLUTION=1280x720,AUDIO="aud"
+720/video.m3u8
+''';
+
+      expect(
+        HlsPlaylist.pickVariant(splitAudioOnly, base, quality: 720),
+        isNull,
+      );
+    });
+
+    test('accepts variants whose audio group is muxed without a URI', () {
+      const muxedAudioMaster = '''
+#EXTM3U
+#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="aud",NAME="Japanese",DEFAULT=YES
+#EXT-X-STREAM-INF:BANDWIDTH=2500000,RESOLUTION=1280x720,AUDIO="aud"
+720/muxed.m3u8
+''';
+
+      expect(HlsPlaylist.pickVariant(muxedAudioMaster, base, quality: 720), (
+        uri: Uri.parse('https://cdn.example.test/video/720/muxed.m3u8'),
+        height: 720,
+      ));
+    });
   });
 
   group('parseMedia', () {
@@ -123,8 +167,9 @@ https://other.example.test/1080/index.m3u8
       expect(HlsPlaylist.parseMedia(text, base)?.segments, hasLength(1));
     });
 
-    test('does not load encrypted, byte-range or empty playlists', () {
+    test('does not load master, encrypted, byte-range or empty playlists', () {
       for (final text in [
+        '#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=1000\n720.m3u8\n',
         '#EXTM3U\n#EXT-X-KEY:METHOD=AES-128,URI="key.bin"\n#EXTINF:4,\na.ts\n',
         '#EXTM3U\n#EXTINF:4,\n#EXT-X-BYTERANGE:1000@0\na.ts\n',
         '#EXTM3U\n#EXT-X-ENDLIST\n',

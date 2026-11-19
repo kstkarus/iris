@@ -14,7 +14,6 @@ class SquareAvatar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final empty = ColoredBox(color: scheme.surfaceContainer);
     return ExcludeSemantics(
       child: SizedBox.square(
         dimension: size,
@@ -23,26 +22,31 @@ class SquareAvatar extends StatelessWidget {
           decoration: BoxDecoration(
             border: Border.all(color: scheme.outlineVariant),
           ),
-          child: url.isEmpty
-              ? empty
-              : Image(
-                  image: networkImage(url),
-                  fit: BoxFit.cover,
-                  frameBuilder:
-                      (context, child, frame, wasSynchronouslyLoaded) {
-                        if (wasSynchronouslyLoaded) return child;
-                        return AnimatedOpacity(
-                          opacity: frame == null ? 0 : 1,
-                          duration: motionDuration(
-                            context,
-                            const Duration(milliseconds: 160),
-                          ),
-                          curve: Curves.easeOutCubic,
-                          child: child,
-                        );
-                      },
-                  errorBuilder: (context, error, stackTrace) => empty,
-                ),
+          child: ColoredBox(
+            color: scheme.surfaceContainer,
+            child: url.isEmpty
+                ? null
+                : Image(
+                    key: ValueKey(url),
+                    image: networkImage(url),
+                    fit: BoxFit.cover,
+                    frameBuilder: (context, child, frame, _) {
+                      if (frame == null) return const SizedBox.shrink();
+                      return TweenAnimationBuilder<double>(
+                        tween: Tween(begin: 0, end: 1),
+                        duration: motionDuration(
+                          context,
+                          const Duration(milliseconds: 160),
+                        ),
+                        curve: Curves.easeOutCubic,
+                        builder: (_, opacity, child) =>
+                            Opacity(opacity: opacity, child: child),
+                        child: child,
+                      );
+                    },
+                    errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                  ),
+          ),
         ),
       ),
     );

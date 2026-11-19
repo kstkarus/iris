@@ -8,7 +8,6 @@ import 'package:iris/features/characters/presentation/cubit/anime_characters_cub
 import 'package:iris/features/characters/presentation/cubit/anime_characters_state.dart';
 import 'package:iris/features/characters/presentation/widgets/character_tile.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
-import 'package:iris/shared/utils/motion_duration.dart';
 import 'package:iris/shared/widgets/adaptive/adaptive_content_width.dart';
 import 'package:iris/shared/widgets/adaptive/adaptive_grid_row.dart';
 import 'package:iris/shared/widgets/adaptive/window_size_class.dart';
@@ -132,18 +131,11 @@ class CharactersSection extends StatelessWidget {
         ),
       );
     }
-    final switcher = DitherSwitcher(
+    return DitherSwitcher(
       collapse: true,
       duration: const Duration(milliseconds: 240),
+      resizeDuration: const Duration(milliseconds: 200),
       child: child,
-    );
-    final duration = motionDuration(context, const Duration(milliseconds: 200));
-    if (duration == Duration.zero) return switcher;
-    return AnimatedSize(
-      duration: duration,
-      curve: Curves.easeOutCubic,
-      alignment: Alignment.topCenter,
-      child: switcher,
     );
   }
 }

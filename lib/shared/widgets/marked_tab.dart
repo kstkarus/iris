@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
+import 'package:iris/shared/utils/bayer_mask.dart';
 import 'package:iris/shared/utils/motion_duration.dart';
 import 'package:iris/shared/widgets/detail_layout.dart';
+import 'package:iris/shared/widgets/dither_transition.dart';
 
 /// One of a row of text tabs, the app's sections or a page's views: the
 /// current one is marked with a square, not boxed, so the tabs stay as
@@ -25,22 +27,26 @@ class MarkedTab extends StatelessWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final anim = motionDuration(context, _markerDuration);
-    final markerColor = selected ? scheme.onSurface : Colors.transparent;
+    final mark = ColoredBox(color: scheme.onSurface);
     final labelStyle = (theme.textTheme.bodyMedium ?? const TextStyle())
         .copyWith(
           fontFamily: DetailLayout.sansFont,
           fontWeight: selected ? FontWeight.w500 : FontWeight.w400,
           color: selected ? scheme.onSurface : scheme.onSurfaceVariant,
         );
-    final marker = anim == Duration.zero
-        ? Container(width: 6, height: 6, color: markerColor)
-        : AnimatedContainer(
-            duration: anim,
-            curve: Curves.easeOutCubic,
-            width: 6,
-            height: 6,
-            color: markerColor,
-          );
+    final marker = SizedBox.square(
+      dimension: 6,
+      child: anim == Duration.zero
+          ? (selected ? mark : null)
+          : TweenAnimationBuilder<int>(
+              tween: IntTween(end: selected ? BayerMask.steps : 0),
+              duration: anim,
+              curve: Curves.easeOutCubic,
+              child: mark,
+              builder: (_, open, child) =>
+                  BayerMasked(open: open, cell: 1, child: child),
+            ),
+    );
     final styledLabel = anim == Duration.zero
         ? DefaultTextStyle(style: labelStyle, child: Text(label))
         : AnimatedDefaultTextStyle(

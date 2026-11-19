@@ -46,7 +46,7 @@ class LibtorrentPlayerDataSource {
   /// Numeric: the player routes numeric session ids to streaming.
   int _lastSessionId = 0;
   final Map<String, int> _streamIdsBySessionId = {};
-  final Map<String, _BackgroundProbeToken> _probeTokensBySessionId = {};
+  final Map<String, Completer<void>> _probeTokensBySessionId = {};
 
   Future<PreparedPlayerSourceModel> prepareSource({
     required String magnet,
@@ -186,14 +186,31 @@ class LibtorrentPlayerDataSource {
     _streamIdsBySessionId[sessionId] = stream.streamId;
 
     // Diagnostics only: the launch never waits for the probe.
-    _launchHttpProbeInBackground(sessionId: sessionId, url: stream.url);
+    final probeToken = Completer<void>();
+    _probeTokensBySessionId[sessionId] = probeToken;
+    unawaited(
+      _runHttpProbeInBackground(
+        sessionId: sessionId,
+        url: stream.url,
+        token: probeToken,
+      ),
+    );
     developer.log(
       'Playback stream prepared. torrentId=$torrentId sessionId=$sessionId streamId=${stream.streamId} url=${stream.url}',
       name: 'iris.player.datasource',
     );
-    yield PlaybackLaunchReadyUpdateModel(
-      PreparedPlaybackModel(sessionId: sessionId, streamUrl: stream.url),
-    );
+    var delivered = false;
+    try {
+      yield PlaybackLaunchReadyUpdateModel(
+        PreparedPlaybackModel(sessionId: sessionId, streamUrl: stream.url),
+      );
+      delivered = true;
+    } finally {
+      if (!delivered &&
+          identical(_probeTokensBySessionId[sessionId], probeToken)) {
+        _probeTokensBySessionId.remove(sessionId)?.complete();
+      }
+    }
   }
 
   /// The end of a stream resets the whole torrent's piece priorities, which
@@ -318,25 +335,14 @@ class LibtorrentPlayerDataSource {
   /// Forgets the session's stream and its probe; the caller
   /// stops the native stream. Returns the stream's id, if it had one.
   int? _releaseStream(String sessionId) {
-    _probeTokensBySessionId.remove(sessionId)?.cancel();
+    _probeTokensBySessionId.remove(sessionId)?.complete();
     return _streamIdsBySessionId.remove(sessionId);
-  }
-
-  void _launchHttpProbeInBackground({
-    required String sessionId,
-    required String url,
-  }) {
-    final token = _BackgroundProbeToken();
-    _probeTokensBySessionId[sessionId] = token;
-    unawaited(
-      _runHttpProbeInBackground(sessionId: sessionId, url: url, token: token),
-    );
   }
 
   Future<void> _runHttpProbeInBackground({
     required String sessionId,
     required String url,
-    required _BackgroundProbeToken token,
+    required Completer<void> token,
   }) async {
     PlaybackProbeResult? lastResult;
 
@@ -353,7 +359,7 @@ class LibtorrentPlayerDataSource {
           'Running background playback HTTP probe. sessionId=$sessionId attempt=$attempt url=$url',
           name: 'iris.player.datasource',
         );
-        final result = await _probe.probe(url);
+        final result = await _probe.probe(url, cancelled: token.future);
         lastResult = result;
 
         if (_shouldStopProbe(sessionId, token)) {
@@ -373,7 +379,13 @@ class LibtorrentPlayerDataSource {
         }
 
         if (attempt < 6) {
-          await Future<void>.delayed(const Duration(seconds: 1));
+          final ready = Completer<void>();
+          final timer = Timer(const Duration(seconds: 1), ready.complete);
+          try {
+            await unlessCancelled(ready.future, token.future);
+          } finally {
+            timer.cancel();
+          }
         }
       }
 
@@ -402,8 +414,8 @@ class LibtorrentPlayerDataSource {
     }
   }
 
-  bool _shouldStopProbe(String sessionId, _BackgroundProbeToken token) {
-    return token.isCancelled ||
+  bool _shouldStopProbe(String sessionId, Completer<void> token) {
+    return token.isCompleted ||
         _streamIdsBySessionId[sessionId] == null ||
         !identical(_probeTokensBySessionId[sessionId], token);
   }
@@ -423,12 +435,4 @@ class _SharedTorrent {
   /// Awaited by every session that prepares this torrent.
   final Future<void> metadata;
   final Set<String> sessionIds = {};
-}
-
-class _BackgroundProbeToken {
-  bool isCancelled = false;
-
-  void cancel() {
-    isCancelled = true;
-  }
 }

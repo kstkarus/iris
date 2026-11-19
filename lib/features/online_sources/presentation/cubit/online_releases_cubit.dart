@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:iris/features/online_sources/domain/entities/online_release.dart';
@@ -17,27 +19,48 @@ class OnlineReleasesCubit extends Cubit<OnlineReleasesState> {
   final String shikimoriId;
   final List<String> titles;
   final OnlineReleasesSearch _search;
+  StreamIterator<List<OnlineRelease>>? _activeSearch;
 
   Future<void> load() async {
+    if (isClosed) return;
+    _activeSearch?.cancel().ignore();
+    _activeSearch = null;
     emit(const OnlineReleasesLoading());
     var found = const <OnlineRelease>[];
+    StreamIterator<List<OnlineRelease>>? active;
     try {
-      await for (final releases in _search.watchReleases(
-        shikimoriId: shikimoriId,
-        titles: titles,
-      )) {
-        if (isClosed) return;
-        found = releases;
-        emit(OnlineReleasesLoaded(releases, searching: true));
+      final results = StreamIterator(
+        _search.watchReleases(shikimoriId: shikimoriId, titles: titles),
+      );
+      active = _activeSearch = results;
+      while (await results.moveNext()) {
+        if (!identical(_activeSearch, results)) return;
+        found = results.current;
+        emit(OnlineReleasesLoaded(found, searching: true));
+      }
+      if (identical(_activeSearch, results)) {
+        emit(
+          found.isEmpty
+              ? const OnlineReleasesEmpty()
+              : OnlineReleasesLoaded(found),
+        );
       }
     } on Object {
-      if (isClosed) return;
-      emit(const OnlineReleasesFailure());
-      return;
+      if (!isClosed && identical(_activeSearch, active)) {
+        emit(const OnlineReleasesFailure());
+      }
+    } finally {
+      if (identical(_activeSearch, active)) _activeSearch = null;
+      await active?.cancel();
     }
-    if (isClosed) return;
-    emit(
-      found.isEmpty ? const OnlineReleasesEmpty() : OnlineReleasesLoaded(found),
-    );
+  }
+
+  @override
+  Future<void> close() async {
+    final active = _activeSearch;
+    _activeSearch = null;
+    final closed = super.close();
+    await active?.cancel();
+    await closed;
   }
 }

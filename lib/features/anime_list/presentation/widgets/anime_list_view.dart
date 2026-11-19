@@ -294,7 +294,7 @@ class _SearchControlsState extends State<_SearchControls>
       context.watchWatchProgress(),
     ).isNotEmpty;
     final animate = !MediaQuery.disableAnimationsOf(context);
-    if (!_initialized) {
+    if (!_initialized || !animate) {
       _initialized = true;
       _hasHistory = hasHistory;
       _historyController.value = hasHistory ? 1 : 0;
@@ -302,9 +302,7 @@ class _SearchControlsState extends State<_SearchControls>
     }
     if (hasHistory == _hasHistory) return;
     _hasHistory = hasHistory;
-    if (!animate) {
-      _historyController.value = hasHistory ? 1 : 0;
-    } else if (hasHistory) {
+    if (hasHistory) {
       _historyController.forward();
     } else {
       _historyController.reverse();
@@ -335,22 +333,15 @@ class _SearchControlsState extends State<_SearchControls>
         final showHistory = _hasHistory || !_historyController.isDismissed;
         final history = !showHistory
             ? null
-            : FadeTransition(
-                opacity: _historyCurve,
-                child: SizeTransition(
-                  sizeFactor: _historyCurve,
-                  axis: Axis.horizontal,
-                  alignment: AlignmentDirectional.centerEnd,
-                  child: IgnorePointer(
-                    ignoring: !_hasHistory,
-                    child: ExcludeSemantics(
-                      excluding: !_hasHistory,
-                      child: ContinueWatchingButton(
-                        repository: widget.detailsRepository,
-                      ),
-                    ),
+            : DitherTransition.horizontalReveal(
+                ActiveLayer(
+                  active: _hasHistory,
+                  child: ContinueWatchingButton(
+                    repository: widget.detailsRepository,
                   ),
                 ),
+                _historyCurve.value,
+                alignment: AlignmentDirectional.centerEnd,
               );
         return SearchToolbar(
           searchField: SearchField(

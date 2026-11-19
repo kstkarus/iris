@@ -10,7 +10,6 @@ import 'package:iris/features/characters/presentation/cubit/character_state.dart
 import 'package:iris/features/characters/presentation/widgets/character_desktop_layout.dart';
 import 'package:iris/features/characters/presentation/widgets/character_sections.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
-import 'package:iris/shared/utils/motion_duration.dart';
 import 'package:iris/shared/widgets/adaptive/window_size_class.dart';
 import 'package:iris/shared/widgets/app_skeleton.dart';
 import 'package:iris/shared/widgets/detail_layout.dart';
@@ -200,36 +199,32 @@ class _StackedLayout extends StatelessWidget {
               );
             },
           ),
-          _animatedSlot(
-            context,
-            DitherSwitcher(
-              collapse: true,
-              duration: const Duration(milliseconds: 220),
-              child: onRetry == null
-                  ? const SizedBox.shrink(key: ValueKey('no_retry'))
-                  : Padding(
-                      key: const ValueKey('retry'),
-                      padding: const EdgeInsets.only(top: 16),
-                      child: DetailRetryBanner(
-                        message: l10n.characterLoadError,
-                        onRetry: onRetry!,
-                      ),
+          DitherSwitcher(
+            resizeDuration: const Duration(milliseconds: 200),
+            collapse: true,
+            duration: const Duration(milliseconds: 220),
+            child: onRetry == null
+                ? const SizedBox.shrink(key: ValueKey('no_retry'))
+                : Padding(
+                    key: const ValueKey('retry'),
+                    padding: const EdgeInsets.only(top: 16),
+                    child: DetailRetryBanner(
+                      message: l10n.characterLoadError,
+                      onRetry: onRetry!,
                     ),
-            ),
+                  ),
           ),
           CharacterNamesCard(details: details, topSpacing: 16),
-          _animatedSlot(
-            context,
-            DitherSwitcher(
-              collapse: true,
-              duration: const Duration(milliseconds: 220),
-              child: onRetry == null
-                  ? CharacterDescriptionSection(
-                      key: const ValueKey('description'),
-                      description: details?.description,
-                    )
-                  : const SizedBox.shrink(key: ValueKey('no_description')),
-            ),
+          DitherSwitcher(
+            resizeDuration: const Duration(milliseconds: 200),
+            collapse: true,
+            duration: const Duration(milliseconds: 220),
+            child: onRetry == null
+                ? CharacterDescriptionSection(
+                    key: const ValueKey('description'),
+                    description: details?.description,
+                  )
+                : const SizedBox.shrink(key: ValueKey('no_description')),
           ),
           CharacterAppearancesSection(
             appearances: details?.appearances ?? const [],
@@ -239,15 +234,4 @@ class _StackedLayout extends StatelessWidget {
       ),
     );
   }
-}
-
-Widget _animatedSlot(BuildContext context, Widget child) {
-  final duration = motionDuration(context, const Duration(milliseconds: 200));
-  if (duration == Duration.zero) return child;
-  return AnimatedSize(
-    duration: duration,
-    curve: Curves.easeOutCubic,
-    alignment: Alignment.topCenter,
-    child: child,
-  );
 }

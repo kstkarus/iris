@@ -207,7 +207,7 @@ class _HistoryContents extends StatelessWidget {
                 onOpenAnime: onOpenAnime,
                 onRemove: (progress) => context
                     .read<WatchProgressCubit>()
-                    .removeTorrent(progress.torrentKey),
+                    .dismissFromContinueWatching(progress),
               ),
             ),
           );

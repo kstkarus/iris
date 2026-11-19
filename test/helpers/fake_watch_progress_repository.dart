@@ -20,5 +20,8 @@ class FixedWatchProgressRepository implements WatchProgressRepository {
   Future<void> save(WatchProgress progress) async {}
 
   @override
+  Future<void> dismissFromContinueWatching(WatchProgress progress) async {}
+
+  @override
   Future<void> removeTorrent({required String torrentKey}) async {}
 }

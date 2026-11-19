@@ -55,16 +55,19 @@ void main() {
 
   test('prepares and plays an online release online', () async {
     const link = 'online:anilibria/9542';
+    const sessionId = 'online-session:1';
     await repository.prepareSource(magnet: link);
-    await repository.startPlayback(sessionId: link, fileIndex: 3).drain<void>();
-    await repository.watchPlaybackStats(sessionId: link).drain<void>();
-    await repository.disposePlayback(sessionId: link);
+    await repository
+        .startPlayback(sessionId: sessionId, fileIndex: 3)
+        .drain<void>();
+    await repository.watchPlaybackStats(sessionId: sessionId).drain<void>();
+    await repository.disposePlayback(sessionId: sessionId);
 
     expect(online.calls, [
       'prepare',
-      'start:$link',
-      'stats:$link',
-      'dispose:$link',
+      'start:$sessionId',
+      'stats:$sessionId',
+      'dispose:$sessionId',
     ]);
     expect(streaming.calls, isEmpty);
     expect(local.calls, isEmpty);

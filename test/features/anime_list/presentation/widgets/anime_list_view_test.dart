@@ -697,7 +697,9 @@ Future<AnimeListBloc> _pumpCatalog(
 
 /// The catalog is the first list; search results stack over it.
 double _catalogOffset(WidgetTester tester) => tester
-    .widget<ListView>(find.byType(ListView, skipOffstage: false).first)
+    .widget<CustomScrollView>(
+      find.byType(CustomScrollView, skipOffstage: false).first,
+    )
     .controller!
     .offset;
 

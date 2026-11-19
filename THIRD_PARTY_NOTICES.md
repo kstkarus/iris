@@ -30,7 +30,7 @@ SOFTWARE.
 
 ## Fonts
 
-[Medeo](https://github.com/DNFDEVS/medeo-font) Mono, Sans, Pixel Circle and Pixel Grid 1.0.0 (`assets/fonts/`, license in `assets/fonts/Medeo-OFL.txt`) and Noto Sans CJK JP are licensed under the SIL Open Font License 1.1. The Medeo files are from upstream commit `72c9ca7cbd091f8b85ff2cee26e3dcc4e762f1a7`.
+[Medeo](https://github.com/DNFDEVS/medeo-font) Mono, Sans and Pixel Grid 1.0.0 (`assets/fonts/`, license in `assets/fonts/Medeo-OFL.txt`) and Noto Sans CJK JP are licensed under the SIL Open Font License 1.1. The Medeo files are from upstream commit `72c9ca7cbd091f8b85ff2cee26e3dcc4e762f1a7`.
 
 ## Bundled native libraries
 

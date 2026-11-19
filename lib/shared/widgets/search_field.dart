@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/utils/motion_duration.dart';
-import 'package:iris/shared/widgets/active_layer.dart';
 import 'package:iris/shared/widgets/detail_layout.dart';
+import 'package:iris/shared/widgets/dither_switcher.dart';
 import 'package:iris/shared/widgets/pixel_icon.dart';
 
 /// Search field with a Clear button once something is typed.
@@ -44,19 +44,11 @@ class SearchField extends StatelessWidget {
       borderSide: BorderSide(color: rule),
     );
     final anim = motionDuration(context, const Duration(milliseconds: 160));
-    Widget fadeSwitch(Widget child) => anim == Duration.zero
+    Widget switchIcon(Widget child) => anim == Duration.zero
         ? child
-        : AnimatedSwitcher(
+        : DitherSwitcher(
             duration: anim,
-            switchInCurve: Curves.easeOutCubic,
-            switchOutCurve: Curves.easeOutCubic,
-            layoutBuilder: (currentChild, previousChildren) => Stack(
-              alignment: Alignment.center,
-              children: ActiveLayer.switcherChildren(
-                currentChild,
-                previousChildren,
-              ),
-            ),
+            alignment: Alignment.center,
             child: child,
           );
 
@@ -80,7 +72,7 @@ class SearchField extends StatelessWidget {
           ),
           hintText: hintText,
           hintStyle: sans?.copyWith(color: scheme.onSurfaceVariant),
-          prefixIcon: fadeSwitch(
+          prefixIcon: switchIcon(
             onCancel == null
                 ? PixelIcon(
                     PixelGlyph.search,
@@ -96,7 +88,7 @@ class SearchField extends StatelessWidget {
                   ),
           ),
           suffixIconConstraints: const BoxConstraints(minHeight: height),
-          suffixIcon: fadeSwitch(
+          suffixIcon: switchIcon(
             value.text.isEmpty
                 ? const SizedBox.shrink(key: ValueKey('empty'))
                 : IconButton(
