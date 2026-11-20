@@ -20,8 +20,8 @@ class AppUpdateCubit extends Cubit<AppUpdateState> {
   final AppUpdateDownloadRepository? _downloads;
   String? _preparedPath;
   int _operation = 0;
-  bool _cancelling = false;
   bool _closing = false;
+  bool _checkingInstallPermission = false;
   bool _awaitingPermission = false;
 
   bool get supportsInAppUpdate => _downloads != null;
@@ -35,7 +35,7 @@ class AppUpdateCubit extends Cubit<AppUpdateState> {
       !_closing &&
       !isClosed &&
       !state.busy &&
-      !_cancelling &&
+      !_checkingInstallPermission &&
       state.checkStatus != AppUpdateCheckStatus.checking;
 
   Future<void> loadInstalledVersion() async {
@@ -148,7 +148,10 @@ class AppUpdateCubit extends Cubit<AppUpdateState> {
   Future<void> download() async {
     final downloads = _downloads;
     final release = state.release;
-    if (downloads == null || release == null || state.busy || _cancelling) {
+    if (downloads == null ||
+        release == null ||
+        state.busy ||
+        _checkingInstallPermission) {
       return;
     }
     final operation = ++_operation;
@@ -199,18 +202,18 @@ class AppUpdateCubit extends Cubit<AppUpdateState> {
   }
 
   Future<void> cancelDownload() async {
-    if (_cancelling ||
-        (state.phase != AppUpdatePhase.downloading &&
-            state.phase != AppUpdatePhase.verifying)) {
+    if (state.phase != AppUpdatePhase.downloading ||
+        state.cancelling ||
+        _closing ||
+        isClosed) {
       return;
     }
     final release = state.release;
     final operation = ++_operation;
-    _cancelling = true;
+    emit(state.copyWith(cancelling: true));
     try {
       await _downloads?.cancel();
     } finally {
-      _cancelling = false;
       if (_current(operation)) _emitRelease(release);
     }
   }
@@ -230,26 +233,38 @@ class AppUpdateCubit extends Cubit<AppUpdateState> {
     final downloads = _downloads;
     final release = state.release;
     final path = _preparedPath;
-    if (downloads == null || release == null || path == null || state.busy) {
+    if (downloads == null ||
+        release == null ||
+        path == null ||
+        state.phase != AppUpdatePhase.ready ||
+        _checkingInstallPermission ||
+        _closing ||
+        isClosed) {
       return;
     }
     final operation = ++_operation;
-    _emitRelease(release, phase: AppUpdatePhase.installing);
     try {
-      final allowed = await downloads.canInstall();
+      final bool allowed;
+      _checkingInstallPermission = true;
+      try {
+        allowed = await downloads.canInstall();
+      } finally {
+        _checkingInstallPermission = false;
+      }
       if (!_current(operation)) return;
       if (!allowed) {
+        _awaitingPermission = requestPermission;
         _emitRelease(
           release,
           phase: AppUpdatePhase.ready,
-          failure: requestPermission ? null : AppUpdateFailureKind.permission,
+          failure: AppUpdateFailureKind.permission,
         );
         if (requestPermission) {
-          _awaitingPermission = true;
           await downloads.openInstallPermissionSettings();
         }
         return;
       }
+      _emitRelease(release, phase: AppUpdatePhase.installing);
       await downloads.install(path);
       if (!_current(operation)) return;
       // This only opens Android's confirmation; cancellation leaves the APK ready.

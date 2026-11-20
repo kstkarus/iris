@@ -2156,12 +2156,6 @@ abstract class AppLocalizations {
   /// **'Friends'**
   String get animeDetailsFriendsTitle;
 
-  /// No description provided for @appUpdateAvailable.
-  ///
-  /// In en, this message translates to:
-  /// **'Version {version} is out'**
-  String appUpdateAvailable(String version);
-
   /// No description provided for @appUpdateDownload.
   ///
   /// In en, this message translates to:
@@ -2189,20 +2183,44 @@ abstract class AppLocalizations {
   /// No description provided for @appUpdateNoticeAvailable.
   ///
   /// In en, this message translates to:
-  /// **'{version} available'**
+  /// **'Version {version} available'**
   String appUpdateNoticeAvailable(String version);
 
   /// No description provided for @appUpdateNoticeDownloading.
   ///
   /// In en, this message translates to:
-  /// **'Updating'**
+  /// **'Downloading'**
   String get appUpdateNoticeDownloading;
+
+  /// No description provided for @appUpdateNoticeDownloadingVersion.
+  ///
+  /// In en, this message translates to:
+  /// **'Downloading {version}'**
+  String appUpdateNoticeDownloadingVersion(String version);
 
   /// No description provided for @appUpdateNoticeReady.
   ///
   /// In en, this message translates to:
   /// **'Update ready'**
   String get appUpdateNoticeReady;
+
+  /// No description provided for @appUpdateNoticeRestartReady.
+  ///
+  /// In en, this message translates to:
+  /// **'Ready to restart'**
+  String get appUpdateNoticeRestartReady;
+
+  /// No description provided for @appUpdateNoticePermissionNeeded.
+  ///
+  /// In en, this message translates to:
+  /// **'Permission needed'**
+  String get appUpdateNoticePermissionNeeded;
+
+  /// No description provided for @appUpdateNoticeInstallFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn’t install'**
+  String get appUpdateNoticeInstallFailed;
 
   /// No description provided for @appUpdateNoticeFailed.
   ///
@@ -2213,7 +2231,7 @@ abstract class AppLocalizations {
   /// No description provided for @appUpdateNoticeVerifying.
   ///
   /// In en, this message translates to:
-  /// **'Checking file'**
+  /// **'Verifying file'**
   String get appUpdateNoticeVerifying;
 
   /// No description provided for @appUpdateNoticeInstalling.
@@ -2221,6 +2239,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Opening installer'**
   String get appUpdateNoticeInstalling;
+
+  /// No description provided for @appUpdateNoticeRestarting.
+  ///
+  /// In en, this message translates to:
+  /// **'Restarting Iris'**
+  String get appUpdateNoticeRestarting;
 
   /// No description provided for @appUpdateWhatsNew.
   ///
@@ -2246,17 +2270,23 @@ abstract class AppLocalizations {
   /// **'Install'**
   String get appUpdateInstall;
 
+  /// No description provided for @appUpdateRetryInstall.
+  ///
+  /// In en, this message translates to:
+  /// **'Retry install'**
+  String get appUpdateRetryInstall;
+
+  /// No description provided for @appUpdateRestart.
+  ///
+  /// In en, this message translates to:
+  /// **'Restart'**
+  String get appUpdateRestart;
+
   /// No description provided for @appUpdateRestartAndUpdate.
   ///
   /// In en, this message translates to:
   /// **'Restart and update'**
   String get appUpdateRestartAndUpdate;
-
-  /// No description provided for @appUpdateHide.
-  ///
-  /// In en, this message translates to:
-  /// **'Hide'**
-  String get appUpdateHide;
 
   /// No description provided for @appUpdateDownloading.
   ///
@@ -2264,17 +2294,17 @@ abstract class AppLocalizations {
   /// **'Downloading'**
   String get appUpdateDownloading;
 
-  /// No description provided for @appUpdateCancelDownloadFull.
-  ///
-  /// In en, this message translates to:
-  /// **'Cancel download'**
-  String get appUpdateCancelDownloadFull;
-
   /// No description provided for @appUpdateRetry.
   ///
   /// In en, this message translates to:
   /// **'Retry'**
   String get appUpdateRetry;
+
+  /// No description provided for @appUpdateDownloadAgain.
+  ///
+  /// In en, this message translates to:
+  /// **'Download again'**
+  String get appUpdateDownloadAgain;
 
   /// No description provided for @appUpdateProgress.
   ///
@@ -2285,13 +2315,13 @@ abstract class AppLocalizations {
   /// No description provided for @appUpdateFailureNetwork.
   ///
   /// In en, this message translates to:
-  /// **'Couldn\'t download the update. Check your connection and try again.'**
+  /// **'Couldn\'t download the update. Check your connection.'**
   String get appUpdateFailureNetwork;
 
   /// No description provided for @appUpdateFailureInvalidFile.
   ///
   /// In en, this message translates to:
-  /// **'The update file is damaged. Download it again.'**
+  /// **'File damaged'**
   String get appUpdateFailureInvalidFile;
 
   /// No description provided for @appUpdateFailureStorage.
@@ -2303,7 +2333,7 @@ abstract class AppLocalizations {
   /// No description provided for @appUpdateFailureInstall.
   ///
   /// In en, this message translates to:
-  /// **'Couldn\'t open the installer. Try again.'**
+  /// **'Couldn\'t open the installer.'**
   String get appUpdateFailureInstall;
 
   /// No description provided for @appUpdateFailurePermission.
@@ -3326,10 +3356,16 @@ abstract class AppLocalizations {
   /// **'Couldn’t check'**
   String get settingsUpdateCheckFailed;
 
-  /// No description provided for @settingsUpdateOpenDetails.
+  /// No description provided for @settingsUpdateOpen.
   ///
   /// In en, this message translates to:
   /// **'Update'**
+  String get settingsUpdateOpen;
+
+  /// No description provided for @settingsUpdateOpenDetails.
+  ///
+  /// In en, this message translates to:
+  /// **'Details'**
   String get settingsUpdateOpenDetails;
 }
 

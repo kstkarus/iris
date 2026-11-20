@@ -1203,11 +1203,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get animeDetailsFriendsTitle => 'Friends';
 
   @override
-  String appUpdateAvailable(String version) {
-    return 'Version $version is out';
-  }
-
-  @override
   String get appUpdateDownload => 'Download';
 
   @override
@@ -1221,23 +1216,40 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String appUpdateNoticeAvailable(String version) {
-    return '$version available';
+    return 'Version $version available';
   }
 
   @override
-  String get appUpdateNoticeDownloading => 'Updating';
+  String get appUpdateNoticeDownloading => 'Downloading';
+
+  @override
+  String appUpdateNoticeDownloadingVersion(String version) {
+    return 'Downloading $version';
+  }
 
   @override
   String get appUpdateNoticeReady => 'Update ready';
 
   @override
+  String get appUpdateNoticeRestartReady => 'Ready to restart';
+
+  @override
+  String get appUpdateNoticePermissionNeeded => 'Permission needed';
+
+  @override
+  String get appUpdateNoticeInstallFailed => 'Couldn’t install';
+
+  @override
   String get appUpdateNoticeFailed => 'Download failed';
 
   @override
-  String get appUpdateNoticeVerifying => 'Checking file';
+  String get appUpdateNoticeVerifying => 'Verifying file';
 
   @override
   String get appUpdateNoticeInstalling => 'Opening installer';
+
+  @override
+  String get appUpdateNoticeRestarting => 'Restarting Iris';
 
   @override
   String get appUpdateWhatsNew => 'What\'s new';
@@ -1252,19 +1264,22 @@ class AppLocalizationsEn extends AppLocalizations {
   String get appUpdateInstall => 'Install';
 
   @override
-  String get appUpdateRestartAndUpdate => 'Restart and update';
+  String get appUpdateRetryInstall => 'Retry install';
 
   @override
-  String get appUpdateHide => 'Hide';
+  String get appUpdateRestart => 'Restart';
+
+  @override
+  String get appUpdateRestartAndUpdate => 'Restart and update';
 
   @override
   String get appUpdateDownloading => 'Downloading';
 
   @override
-  String get appUpdateCancelDownloadFull => 'Cancel download';
+  String get appUpdateRetry => 'Retry';
 
   @override
-  String get appUpdateRetry => 'Retry';
+  String get appUpdateDownloadAgain => 'Download again';
 
   @override
   String appUpdateProgress(String received, String total) {
@@ -1273,19 +1288,17 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get appUpdateFailureNetwork =>
-      'Couldn\'t download the update. Check your connection and try again.';
+      'Couldn\'t download the update. Check your connection.';
 
   @override
-  String get appUpdateFailureInvalidFile =>
-      'The update file is damaged. Download it again.';
+  String get appUpdateFailureInvalidFile => 'File damaged';
 
   @override
   String get appUpdateFailureStorage =>
       'Couldn\'t save the update. Check available storage.';
 
   @override
-  String get appUpdateFailureInstall =>
-      'Couldn\'t open the installer. Try again.';
+  String get appUpdateFailureInstall => 'Couldn\'t open the installer.';
 
   @override
   String get appUpdateFailurePermission =>
@@ -1925,5 +1938,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsUpdateCheckFailed => 'Couldn’t check';
 
   @override
-  String get settingsUpdateOpenDetails => 'Update';
+  String get settingsUpdateOpen => 'Update';
+
+  @override
+  String get settingsUpdateOpenDetails => 'Details';
 }

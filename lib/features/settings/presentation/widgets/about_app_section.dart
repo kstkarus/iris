@@ -6,10 +6,9 @@ import 'package:iris/features/app_update/presentation/cubit/app_update_state.dar
 import 'package:iris/features/app_update/presentation/widgets/update_notice.dart';
 import 'package:iris/features/settings/presentation/widgets/settings_row.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
+import 'package:iris/shared/utils/motion_duration.dart';
 import 'package:iris/shared/widgets/detail_layout.dart';
 import 'package:iris/shared/widgets/dither_switcher.dart';
-import 'package:iris/shared/widgets/segmented_bar.dart';
-import 'package:iris/shared/widgets/status_views.dart';
 
 class AboutAppSection extends StatelessWidget {
   const AboutAppSection({this.onOpenUpdate, this.openExternalUrl, super.key});
@@ -29,18 +28,19 @@ class AboutAppSection extends StatelessWidget {
     final state = context.watch<AppUpdateCubit>().state;
     final installed = state.installedVersion;
     final labelStyle = SettingsRow.labelStyle(theme);
-    final ready = state.phase == AppUpdatePhase.ready;
-    final signal = state.phase == AppUpdatePhase.failed
-        ? scheme.error
-        : scheme.tertiary;
+    final windows = theme.platform == TargetPlatform.windows;
+    final inApp = cubit.supportsInAppUpdate;
+    final actionLabel = !inApp
+        ? l10n.appUpdateDownload
+        : switch (state.phase) {
+            AppUpdatePhase.available => l10n.settingsUpdateOpen,
+            AppUpdatePhase.ready =>
+              windows ? l10n.appUpdateRestart : l10n.appUpdateInstall,
+            _ => l10n.settingsUpdateOpenDetails,
+          };
 
     final feedback = state.release != null
-        ? SettingsStatus(
-            appUpdatePhaseLabel(l10n, state),
-            signalColor: signal,
-            color: signal,
-            mixedData: true,
-          )
+        ? _updateFeedback(l10n, state, scheme, windows: windows)
         : switch (state.checkStatus) {
             AppUpdateCheckStatus.checking => SettingsStatus.loading(
               l10n.settingsUpdateChecking,
@@ -54,25 +54,20 @@ class AboutAppSection extends StatelessWidget {
             ),
             AppUpdateCheckStatus.idle || AppUpdateCheckStatus.available => null,
           };
+    void openUpdate() => showAppUpdateSheet(context, open: openExternalUrl);
     final action = state.release != null
-        ? FilledButton(
-            key: openUpdateButtonKey,
-            onPressed: state.phase == AppUpdatePhase.installing
-                ? null
-                : ready
-                ? cubit.install
-                : cubit.supportsInAppUpdate && onOpenUpdate != null
-                ? onOpenUpdate
-                : () => showAppUpdateSheet(context, open: openExternalUrl),
-            child: Text(
-              ready
-                  ? l10n.appUpdateInstall
-                  : cubit.supportsInAppUpdate
-                  ? l10n.settingsUpdateOpenDetails
-                  : l10n.appUpdateDownload,
-              textAlign: TextAlign.center,
-            ),
-          )
+        ? inApp && state.phase == AppUpdatePhase.installing
+              ? null
+              : FilledButton(
+                  key: openUpdateButtonKey,
+                  onPressed: !inApp
+                      ? openUpdate
+                      : switch (state.phase) {
+                          AppUpdatePhase.ready => cubit.install,
+                          _ => onOpenUpdate ?? openUpdate,
+                        },
+                  child: Text(actionLabel, textAlign: TextAlign.center),
+                )
         : cubit.supportsCheck
         ? TextButton(
             key: checkUpdatesButtonKey,
@@ -131,15 +126,40 @@ class AboutAppSection extends StatelessWidget {
             ],
           ),
         ),
-        if (state.release != null &&
-            state.phase == AppUpdatePhase.downloading) ...[
-          const SizedBox(height: 8),
-          if (state.totalBytes > 0)
-            SegmentedBar(value: state.progress)
-          else
-            const BlockSpinner(height: 6),
-        ],
+        AnimatedSize(
+          duration: motionDuration(context, const Duration(milliseconds: 200)),
+          curve: Curves.easeOutCubic,
+          alignment: Alignment.topCenter,
+          child: state.release != null && state.showsProgress
+              ? Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: AppUpdateProgressBar(state: state),
+                )
+              : const SizedBox.shrink(),
+        ),
       ],
+    );
+  }
+
+  Widget _updateFeedback(
+    AppLocalizations l10n,
+    AppUpdateState state,
+    ColorScheme scheme, {
+    required bool windows,
+  }) {
+    final label = appUpdatePhaseLabel(l10n, state, windows: windows);
+    if (state.phase == AppUpdatePhase.verifying ||
+        state.phase == AppUpdatePhase.installing) {
+      return SettingsStatus.loading(label);
+    }
+    final signal = state.hasFailure ? scheme.error : scheme.tertiary;
+    return SettingsStatus(
+      state.phase == AppUpdatePhase.downloading && state.totalBytes > 0
+          ? '$label · ${state.progressPercent}%'
+          : label,
+      signalColor: signal,
+      color: signal,
+      mixedData: true,
     );
   }
 }

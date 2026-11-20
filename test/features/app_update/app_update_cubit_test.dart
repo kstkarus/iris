@@ -360,11 +360,21 @@ void main() {
         final pending = cubit.download();
         final staleProgress = downloads.progress!;
         final staleResult = downloads.result;
+        final cancelGate = downloads.cancelGate = Completer<void>();
+        final cancelling = cubit.cancelDownload();
+        expect(cubit.state.cancelling, isTrue);
         await cubit.cancelDownload();
+        await cubit.download();
+        expect(downloads.cancels, 1);
+        expect(downloads.starts, 1);
         staleProgress(59, 59);
         staleResult.complete('/old.apk');
         await pending;
+        expect(cubit.state.phase, AppUpdatePhase.downloading);
+        cancelGate.complete();
+        await cancelling;
         expect(cubit.state.phase, AppUpdatePhase.available);
+        expect(cubit.state.cancelling, isFalse);
         downloads.result = Completer<String>();
         await prepare();
         expect(downloads.starts, 2);
@@ -413,12 +423,23 @@ void main() {
     );
 
     test(
-      'permission denial keeps APK ready and does not reopen settings',
+      'a pending or denied permission check keeps the APK ready without opening the installer',
       () async {
         await prepare();
         downloads.permission = false;
+        final permission = downloads.permissionResult = Completer<bool>();
+        final states = <AppUpdateState>[];
+        final subscription = cubit.stream.listen(states.add);
+        addTearDown(subscription.cancel);
+        final installing = cubit.install();
+        expect(cubit.state.phase, AppUpdatePhase.ready);
         await cubit.install();
+        expect(downloads.permissionChecks, 1);
+        permission.complete(false);
+        await installing;
+        expect(cubit.state.failure, AppUpdateFailureKind.permission);
         await cubit.resumeInstallation();
+        expect(states.map((state) => state.phase), [AppUpdatePhase.ready]);
         expect(cubit.state.phase, AppUpdatePhase.ready);
         expect(cubit.state.failure, AppUpdateFailureKind.permission);
         expect(downloads.settingsOpened, 1);
@@ -484,9 +505,13 @@ void main() {
 class _Downloads implements AppUpdateDownloadRepository {
   Completer<String> result = Completer<String>();
   Completer<String?>? restoreResult;
+  Completer<void>? cancelGate;
+  Completer<bool>? permissionResult;
   String? restored;
   void Function(int, int)? progress;
   int starts = 0;
+  int cancels = 0;
+  int permissionChecks = 0;
   int settingsOpened = 0;
   bool permission = true;
   AppUpdateFailureKind? installFailure;
@@ -507,9 +532,18 @@ class _Downloads implements AppUpdateDownloadRepository {
   }
 
   @override
-  Future<void> cancel() async {}
+  Future<void> cancel() async {
+    cancels++;
+    await cancelGate?.future;
+  }
+
   @override
-  Future<bool> canInstall() async => permission;
+  Future<bool> canInstall() async {
+    permissionChecks++;
+    if (permissionResult case final pending?) return pending.future;
+    return permission;
+  }
+
   @override
   Future<void> openInstallPermissionSettings() async => settingsOpened++;
   @override

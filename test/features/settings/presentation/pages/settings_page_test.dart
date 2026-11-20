@@ -22,6 +22,9 @@ import 'package:iris/features/settings/presentation/widgets/animejoy_account_sec
 import 'package:iris/features/settings/presentation/widgets/settings_dialog.dart';
 import 'package:iris/features/settings/presentation/widgets/shikimori_account_row.dart';
 import 'package:iris/shared/network/network_exceptions.dart';
+import 'package:iris/shared/widgets/pixel_noise.dart';
+import 'package:iris/shared/widgets/segmented_bar.dart';
+import 'package:iris/shared/widgets/status_views.dart';
 
 import '../../../../helpers/test_app.dart';
 import '../../../../helpers/test_window.dart';
@@ -45,7 +48,8 @@ void main() {
     FakeAppUpdateRepository? updateRepo,
     Future<bool> Function(Uri url)? onOpenExternalUrl,
     bool asDialog = false,
-    bool inAppUpdate = false,
+    AppUpdateDownloadRepository? updateDownloads,
+    TargetPlatform? platform,
   }) async {
     setTestWindowSize(tester, size);
     tester.platformDispatcher.textScaleFactorTestValue = textScale;
@@ -61,7 +65,7 @@ void main() {
         FakeAppUpdateRepository(installed: const AppVersion(1, 5, 1));
     final updateCubit = AppUpdateCubit(
       repository: appUpdateRepo,
-      downloads: inAppUpdate ? _UpdateDownloads() : null,
+      downloads: updateDownloads,
     );
 
     addTearDown(() async {
@@ -92,7 +96,9 @@ void main() {
                 )
               : SettingsPage(openExternalUrl: onOpenExternalUrl),
           locale: locale,
-          theme: buildAppTheme(brightness: Brightness.dark),
+          theme: buildAppTheme(
+            brightness: Brightness.dark,
+          ).copyWith(platform: platform),
         ),
       ),
     );
@@ -549,7 +555,7 @@ void main() {
       ..latest = release;
     await tester.tap(checkButton);
     await tester.pumpAndSettle();
-    expect(find.text('1.6.0 available'), findsOneWidget);
+    expect(find.text('Version 1.6.0 available'), findsOneWidget);
 
     final openButton = find.byKey(AboutAppSection.openUpdateButtonKey);
     expect(
@@ -563,6 +569,128 @@ void main() {
     expect(opened, [release.downloadUrl]);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets(
+    'About shows Windows verification, Restart and restart progress',
+    (tester) async {
+      final downloads = _UpdateDownloads();
+      await pumpSettings(
+        tester,
+        size: const Size(1280, 800),
+        platform: TargetPlatform.windows,
+        updateDownloads: downloads,
+        updateRepo: FakeAppUpdateRepository(
+          installed: const AppVersion(1, 5, 1),
+          latest: testRelease(6),
+        ),
+      );
+      final check = find.byKey(AboutAppSection.checkUpdatesButtonKey);
+      await tester.ensureVisible(check);
+      await tester.pumpAndSettle();
+      await tester.tap(check);
+      await tester.pumpAndSettle();
+
+      final action = find.byKey(AboutAppSection.openUpdateButtonKey);
+      expect(
+        find.descendant(of: action, matching: find.text('Update')),
+        findsOneWidget,
+      );
+      await tester.tap(action);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(UpdateNotice.downloadActionKey));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byType(CloseButton));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Downloading · 42%'), findsOneWidget);
+      expect(
+        find.descendant(of: action, matching: find.text('Details')),
+        findsOneWidget,
+      );
+      expect(tester.widget<FilledButton>(action).onPressed, isNotNull);
+      final bar = find.byType(SegmentedBar);
+      final progressBar = tester.element(bar);
+      downloads.progress(100, 100);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(find.text('Verifying file'), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byType(AboutAppSection),
+          matching: find.byType(PixelNoise),
+        ),
+        findsOneWidget,
+      );
+      expect(tester.widget<FilledButton>(action).onPressed, isNotNull);
+      expect(tester.element(bar), same(progressBar));
+      expect(tester.widget<SegmentedBar>(bar).value, 1);
+
+      downloads.downloaded.complete(r'C:\updates\iris.exe');
+      await tester.pumpAndSettle();
+      expect(find.text('Ready to restart'), findsOneWidget);
+      expect(
+        find.descendant(of: action, matching: find.text('Restart')),
+        findsOneWidget,
+      );
+      await tester.tap(action);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(find.text('Restarting Iris'), findsOneWidget);
+      expect(action, findsNothing);
+      expect(
+        find.descendant(
+          of: find.byType(AboutAppSection),
+          matching: find.byType(PixelNoise),
+        ),
+        findsOneWidget,
+      );
+      expect(downloads.installPath, r'C:\updates\iris.exe');
+      downloads.installed.complete();
+      await tester.pumpAndSettle();
+    },
+  );
+
+  testWidgets(
+    'About shows a static status beside an unknown-size download spinner',
+    (tester) async {
+      final downloads = _UpdateDownloads();
+      await pumpSettings(
+        tester,
+        size: const Size(1280, 800),
+        platform: TargetPlatform.windows,
+        updateDownloads: downloads,
+        updateRepo: FakeAppUpdateRepository(
+          installed: const AppVersion(1, 5, 1),
+          latest: testRelease(6),
+        ),
+      );
+      final check = find.byKey(AboutAppSection.checkUpdatesButtonKey);
+      await tester.ensureVisible(check);
+      await tester.pumpAndSettle();
+      await tester.tap(check);
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(AboutAppSection.openUpdateButtonKey));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(UpdateNotice.downloadActionKey));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byType(CloseButton));
+      await tester.pumpAndSettle();
+
+      downloads.progress(12 * 1024 * 1024, 0);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      final about = find.byType(AboutAppSection);
+      expect(
+        find.descendant(of: about, matching: find.byType(BlockSpinner)),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: about, matching: find.byType(PixelNoise)),
+        findsNothing,
+      );
+    },
+  );
 
   testWidgets('the Russian phone About row keeps its status by the version', (
     tester,
@@ -601,7 +729,8 @@ void main() {
         latest: testRelease(6),
       ),
       asDialog: true,
-      inAppUpdate: true,
+      updateDownloads: _UpdateDownloads(),
+      platform: TargetPlatform.windows,
     );
     await tester.tap(find.byKey(AboutAppSection.checkUpdatesButtonKey));
     await tester.pumpAndSettle();
@@ -678,9 +807,33 @@ void main() {
 }
 
 class _UpdateDownloads extends Fake implements AppUpdateDownloadRepository {
+  final downloaded = Completer<String>();
+  final installed = Completer<void>();
+  late void Function(int received, int total) progress;
+  String? installPath;
+
   @override
   Future<String?> restore(AppRelease release) async => null;
 
   @override
+  Future<String> download(
+    AppRelease release, {
+    required void Function(int received, int total) onProgress,
+  }) {
+    progress = onProgress;
+    onProgress(42, 100);
+    return downloaded.future;
+  }
+
+  @override
   Future<void> cancel() async {}
+
+  @override
+  Future<bool> canInstall() async => true;
+
+  @override
+  Future<void> install(String path) {
+    installPath = path;
+    return installed.future;
+  }
 }

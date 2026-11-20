@@ -13,12 +13,15 @@ import 'package:iris/shared/utils/motion_duration.dart';
 import 'package:iris/shared/widgets/adaptive/adaptive_content_width.dart';
 import 'package:iris/shared/widgets/adaptive/show_adaptive_sheet.dart';
 import 'package:iris/shared/widgets/adaptive/window_size_class.dart';
+import 'package:iris/shared/widgets/busy_button_child.dart';
+import 'package:iris/shared/widgets/detail_layout.dart';
 import 'package:iris/shared/widgets/dither_switcher.dart';
 import 'package:iris/shared/widgets/dither_transition.dart';
 import 'package:iris/shared/widgets/pixel_icon.dart';
 import 'package:iris/shared/widgets/pixel_noise.dart';
 import 'package:iris/shared/widgets/pixel_separated_text.dart';
 import 'package:iris/shared/widgets/segmented_bar.dart';
+import 'package:iris/shared/widgets/status_views.dart';
 import 'package:iris/shared/widgets/tap_row.dart';
 
 /// Opens [url] outside the app; false when nothing could.
@@ -61,19 +64,33 @@ Future<void> showAppUpdateSheet(
   );
 }
 
-String appUpdatePhaseLabel(AppLocalizations l10n, AppUpdateState state) =>
-    switch (state.phase) {
-      AppUpdatePhase.available => l10n.appUpdateNoticeAvailable(
-        '${state.release!.version}',
-      ),
-      AppUpdatePhase.downloading => l10n.appUpdateNoticeDownloading,
-      AppUpdatePhase.verifying => l10n.appUpdateNoticeVerifying,
-      AppUpdatePhase.ready => l10n.appUpdateNoticeReady,
-      AppUpdatePhase.installing => l10n.appUpdateNoticeInstalling,
-      AppUpdatePhase.failed => l10n.appUpdateNoticeFailed,
-    };
+String appUpdatePhaseLabel(
+  AppLocalizations l10n,
+  AppUpdateState state, {
+  required bool windows,
+  bool includeDownloadVersion = false,
+}) => switch (state.phase) {
+  AppUpdatePhase.available => l10n.appUpdateNoticeAvailable(
+    '${state.release!.version}',
+  ),
+  AppUpdatePhase.downloading when includeDownloadVersion =>
+    l10n.appUpdateNoticeDownloadingVersion('${state.release!.version}'),
+  AppUpdatePhase.downloading => l10n.appUpdateNoticeDownloading,
+  AppUpdatePhase.verifying => l10n.appUpdateNoticeVerifying,
+  AppUpdatePhase.ready => switch (state.failure) {
+    AppUpdateFailureKind.permission => l10n.appUpdateNoticePermissionNeeded,
+    AppUpdateFailureKind.install => l10n.appUpdateNoticeInstallFailed,
+    _ => windows ? l10n.appUpdateNoticeRestartReady : l10n.appUpdateNoticeReady,
+  },
+  AppUpdatePhase.installing =>
+    windows ? l10n.appUpdateNoticeRestarting : l10n.appUpdateNoticeInstalling,
+  AppUpdatePhase.failed =>
+    state.failure == AppUpdateFailureKind.invalidFile
+        ? l10n.appUpdateFailureInvalidFile
+        : l10n.appUpdateNoticeFailed,
+};
 
-/// An update strip above [child]. Android opens an in-app release sheet;
+/// An update strip above [child]. Android and installed Windows open an update;
 /// platforms without in-app updates keep their existing external download.
 ///
 /// The strip takes the status bar inset from [child] while it is visible, so
@@ -95,7 +112,6 @@ class UpdateNotice extends StatelessWidget {
   static const laterKey = Key('update_notice_later');
   static const downloadActionKey = Key('update_download_action');
   static const cancelDownloadKey = Key('update_cancel_download');
-  static const hideKey = Key('update_hide');
   static const installKey = Key('update_install');
 
   final Widget child;
@@ -258,6 +274,7 @@ class _Strip extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final margin = WindowSizeClass.of(context).pageMargin;
+    final tappable = state.phase != AppUpdatePhase.installing;
     return DecoratedBox(
       decoration: BoxDecoration(
         color: theme.colorScheme.surfaceContainer,
@@ -271,33 +288,32 @@ class _Strip extends StatelessWidget {
           maxWidth: AdaptiveContentWidth.page,
           child: inAppUpdate
               ? Semantics(
-                  button: true,
+                  button: tappable,
                   child: TapRow(
                     inkKey: UpdateNotice.noticeKey,
-                    onTap: () => showAppUpdateSheet(context, open: open),
+                    onTap: tappable
+                        ? () => showAppUpdateSheet(context, open: open)
+                        : null,
                     child: ConstrainedBox(
                       constraints: const BoxConstraints(minHeight: 48),
                       child: Row(
                         children: [
                           Expanded(
-                            child: SizedBox(
-                              height: MediaQuery.textScalerOf(
-                                context,
-                              ).scale(24),
-                              child: DitherSwitcher(
-                                key: UpdateNotice.noticeLabelSwitcherKey,
-                                duration: const Duration(milliseconds: 300),
-                                expand: true,
-                                child: Align(
-                                  key: ValueKey(state.phase),
-                                  alignment: Alignment.centerLeft,
-                                  child: _NoticeLabel(state: state),
-                                ),
+                            child: DitherSwitcher(
+                              key: UpdateNotice.noticeLabelSwitcherKey,
+                              duration: const Duration(milliseconds: 300),
+                              resizeDuration: const Duration(milliseconds: 200),
+                              alignment: AlignmentDirectional.centerStart,
+                              child: _NoticeLabel(
+                                key: ValueKey(state.phase),
+                                state: state,
                               ),
                             ),
                           ),
-                          const SizedBox(width: 16),
-                          const PixelIcon(PixelGlyph.arrowRight, size: 16),
+                          if (tappable) ...[
+                            const SizedBox(width: 16),
+                            const PixelIcon(PixelGlyph.arrowRight, size: 16),
+                          ],
                         ],
                       ),
                     ),
@@ -305,16 +321,7 @@ class _Strip extends StatelessWidget {
                 )
               : Row(
                   children: [
-                    Expanded(
-                      child: Text(
-                        AppLocalizations.of(
-                          context,
-                        ).appUpdateAvailable('${state.release!.version}'),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.bodyMedium,
-                      ),
-                    ),
+                    Expanded(child: _NoticeLabel(state: state)),
                     const SizedBox(width: 8),
                     TextButton(
                       key: UpdateNotice.laterKey,
@@ -337,119 +344,84 @@ class _Strip extends StatelessWidget {
 }
 
 class _NoticeLabel extends StatelessWidget {
-  const _NoticeLabel({required this.state});
+  const _NoticeLabel({required this.state, super.key});
 
   final AppUpdateState state;
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final color = Theme.of(context).colorScheme.tertiary;
-    final label = appUpdatePhaseLabel(l10n, state);
-    if (state.phase == AppUpdatePhase.downloading) {
-      final percent = '${(state.progress * 100).round()}%';
-      return PixelSeparatedText.spans(
-        [
-          TextSpan(text: label),
-          if (state.totalBytes > 0)
-            TextSpan(
-              text: percent,
-              style: TextStyle(color: color),
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final label = appUpdatePhaseLabel(
+      l10n,
+      state,
+      windows: theme.platform == TargetPlatform.windows,
+      includeDownloadVersion: true,
+    );
+    final style = theme.textTheme.bodyMedium?.copyWith(
+      fontFamily: DetailLayout.sansFont,
+      color: state.hasFailure
+          ? scheme.error
+          : state.phase == AppUpdatePhase.ready
+          ? scheme.tertiary
+          : scheme.onSurface,
+    );
+    final downloading = state.phase == AppUpdatePhase.downloading;
+    if (downloading && state.totalBytes > 0) {
+      return Text.rich(
+        TextSpan(
+          style: style,
+          children: [
+            DetailLayout.mixedDataSpan(
+              label,
+              sansStyle: style,
+              monoStyle: style,
             ),
-        ],
-        maxLines: 1,
+            const TextSpan(text: ' · '),
+            TextSpan(
+              text: '${state.progressPercent}%',
+              style: DetailLayout.monoTelemetryStyle(
+                style,
+                color: scheme.tertiary,
+              ),
+            ),
+          ],
+        ),
+        maxLines: 2,
         overflow: TextOverflow.ellipsis,
-        style: Theme.of(context).textTheme.bodyMedium,
       );
     }
-    return Text(
-      label,
-      maxLines: 1,
+
+    final content = MixedDataText(
+      downloading && state.receivedBytes > 0
+          ? '$label · ${formatByteSize(l10n, state.receivedBytes)}'
+          : label,
+      sansStyle: style,
+      maxLines: 2,
       overflow: TextOverflow.ellipsis,
-      style: Theme.of(context).textTheme.bodyMedium,
     );
+    final shimmer = switch (state.phase) {
+      AppUpdatePhase.verifying || AppUpdatePhase.installing => true,
+      AppUpdatePhase.downloading =>
+        state.totalBytes <= 0 && state.receivedBytes == 0,
+      _ => false,
+    };
+    return shimmer ? PixelNoise.shimmer(child: content) : content;
   }
 }
 
-class _UpdateSheet extends StatelessWidget {
+class _UpdateSheet extends StatefulWidget {
   const _UpdateSheet({required this.release, required this.windows});
 
   final AppRelease release;
   final bool windows;
 
   @override
-  Widget build(BuildContext context) =>
-      BlocBuilder<AppUpdateCubit, AppUpdateState>(
-        builder: (context, state) {
-          final l10n = AppLocalizations.of(context);
-          final theme = Theme.of(context);
-          final failure = _failureMessage(l10n, state.failure);
-          return SizedBox(
-            key: UpdateNotice.sheetKey,
-            width: double.infinity,
-            child: windows
-                ? _WindowsUpdateContent(
-                    release: release,
-                    state: state,
-                    failure: failure,
-                  )
-                : Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Flexible(
-                        child: Scrollbar(
-                          child: SingleChildScrollView(
-                            primary: true,
-                            padding: const EdgeInsets.fromLTRB(24, 4, 24, 24),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                Text(
-                                  '${release.version}',
-                                  style: theme.textTheme.displaySmall?.copyWith(
-                                    fontSize: 40,
-                                  ),
-                                ),
-                                const SizedBox(height: 20),
-                                Text(
-                                  l10n.appUpdateWhatsNew,
-                                  style: theme.textTheme.titleMedium?.copyWith(
-                                    fontSize: 18,
-                                  ),
-                                ),
-                                _FailureBanner(failure: failure),
-                                const SizedBox(height: 24),
-                                _ReleaseNotes(notes: release.notes),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                      _UpdateFooter(release: release, state: state),
-                    ],
-                  ),
-          );
-        },
-      );
+  State<_UpdateSheet> createState() => _UpdateSheetState();
 }
 
-class _WindowsUpdateContent extends StatefulWidget {
-  const _WindowsUpdateContent({
-    required this.release,
-    required this.state,
-    required this.failure,
-  });
-
-  final AppRelease release;
-  final AppUpdateState state;
-  final String? failure;
-
-  @override
-  State<_WindowsUpdateContent> createState() => _WindowsUpdateContentState();
-}
-
-class _WindowsUpdateContentState extends State<_WindowsUpdateContent> {
+class _UpdateSheetState extends State<_UpdateSheet> {
   final _notesScroll = ScrollController();
 
   @override
@@ -460,501 +432,99 @@ class _WindowsUpdateContentState extends State<_WindowsUpdateContent> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final l10n = AppLocalizations.of(context);
-    return BlocListener<AppUpdateCubit, AppUpdateState>(
-      listenWhen: (_, state) => state.failure != null,
-      listener: (_, _) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (!mounted || !_notesScroll.hasClients) return;
-          final duration = motionDuration(
-            context,
-            const Duration(milliseconds: 200),
-          );
-          final target = _notesScroll.position.minScrollExtent;
-          if (duration == Duration.zero) {
-            _notesScroll.jumpTo(target);
-          } else {
-            _notesScroll.animateTo(
-              target,
-              duration: duration,
-              curve: Curves.easeOutCubic,
-            );
-          }
-        });
-      },
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Padding(
-            key: UpdateNotice.headerKey,
-            padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '${widget.release.version}',
-                  style: theme.textTheme.displaySmall?.copyWith(fontSize: 40),
+    final windows = widget.windows;
+    return BlocBuilder<AppUpdateCubit, AppUpdateState>(
+      builder: (context, state) {
+        final currentRelease = state.release ?? widget.release;
+        final header = _UpdateHeader(release: currentRelease, windows: windows);
+        return SizedBox(
+          key: UpdateNotice.sheetKey,
+          width: double.infinity,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (windows)
+                Padding(
+                  key: UpdateNotice.headerKey,
+                  padding: const EdgeInsetsDirectional.fromSTEB(24, 16, 16, 16),
+                  child: header,
                 ),
-                const SizedBox(height: 20),
-                Text(
-                  l10n.appUpdateWhatsNew,
-                  style: theme.textTheme.titleMedium?.copyWith(fontSize: 18),
-                ),
-              ],
-            ),
-          ),
-          Flexible(
-            fit: FlexFit.loose,
-            child: Scrollbar(
-              controller: _notesScroll,
-              thumbVisibility: true,
-              child: ScrollConfiguration(
-                behavior: ScrollConfiguration.of(
-                  context,
-                ).copyWith(scrollbars: false),
-                child: SingleChildScrollView(
-                  key: UpdateNotice.notesScrollKey,
+              Flexible(
+                child: Scrollbar(
                   controller: _notesScroll,
-                  padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      _FailureBanner(
-                        failure: widget.failure,
-                        bottomSpacing: 24,
+                  thumbVisibility: windows,
+                  child: ScrollConfiguration(
+                    behavior: ScrollConfiguration.of(
+                      context,
+                    ).copyWith(scrollbars: false),
+                    child: SingleChildScrollView(
+                      key: UpdateNotice.notesScrollKey,
+                      controller: _notesScroll,
+                      padding: EdgeInsets.fromLTRB(24, windows ? 0 : 4, 24, 24),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          if (!windows) ...[header, const SizedBox(height: 16)],
+                          _ReleaseNotes(notes: currentRelease.notes),
+                        ],
                       ),
-                      _ReleaseNotes(
-                        notes: widget.release.notes,
-                        sectionRules: false,
-                      ),
-                    ],
+                    ),
                   ),
                 ),
               ),
-            ),
+              _UpdateFooter(
+                release: currentRelease,
+                state: state,
+                windows: windows,
+              ),
+            ],
           ),
-          _WindowsUpdateFooter(release: widget.release, state: widget.state),
-        ],
-      ),
+        );
+      },
     );
   }
 }
 
-class _UpdateFooter extends StatelessWidget {
-  const _UpdateFooter({required this.release, required this.state});
+class _UpdateHeader extends StatelessWidget {
+  const _UpdateHeader({required this.release, required this.windows});
 
   final AppRelease release;
-  final AppUpdateState state;
+  final bool windows;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final largeText = MediaQuery.textScalerOf(context).scale(1) > 1.2;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerLow,
-        border: Border(
-          top: BorderSide(color: theme.colorScheme.outlineVariant),
-        ),
-      ),
-      child: SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: SizedBox(
-            height: largeText ? 120 : 48,
-            child: DitherSwitcher(
-              duration: const Duration(milliseconds: 220),
-              expand: true,
-              child: _footerContent(context, state, release),
-            ),
-          ),
+    final version = Semantics(
+      container: true,
+      header: true,
+      namesRoute: true,
+      child: Text(
+        '${release.version}',
+        style: DetailLayout.monoTelemetryStyle(
+          theme.textTheme.displaySmall?.copyWith(fontSize: 40, height: 1.1),
         ),
       ),
     );
-  }
-
-  Widget _footerContent(
-    BuildContext context,
-    AppUpdateState state,
-    AppRelease release,
-  ) {
-    final l10n = AppLocalizations.of(context);
-    final largeText = MediaQuery.textScalerOf(context).scale(1) > 1.2;
-    return switch (state.phase) {
-      AppUpdatePhase.available || AppUpdatePhase.failed => Row(
-        key: ValueKey(state.phase),
-        children: [
-          TextButton(
-            onPressed: () => _dismiss(context),
-            style: _updateTextButtonStyle(largeText),
-            child: Text(l10n.appUpdateLater),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: FilledButton(
-              key: UpdateNotice.downloadActionKey,
-              onPressed: () => context.read<AppUpdateCubit>().download(),
-              style: _updateFilledButtonStyle(largeText),
-              child: PixelSeparatedText(
-                state.phase == AppUpdatePhase.failed
-                    ? l10n.appUpdateRetry
-                    : _downloadLabel(l10n, release),
-                maxLines: largeText ? 2 : 1,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.center,
-              ),
-            ),
-          ),
-        ],
-      ),
-      AppUpdatePhase.downloading =>
-        largeText
-            ? Column(
-                key: ValueKey(state.phase),
-                children: [
-                  Expanded(
-                    child: _DownloadProgress(state: state, largeText: true),
-                  ),
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: TextButton(
-                      key: UpdateNotice.cancelDownloadKey,
-                      onPressed: () =>
-                          context.read<AppUpdateCubit>().cancelDownload(),
-                      style: _updateTextButtonStyle(false),
-                      child: Text(l10n.appUpdateCancelDownload),
-                    ),
-                  ),
-                ],
-              )
-            : Row(
-                key: ValueKey(state.phase),
-                children: [
-                  Expanded(child: _DownloadProgress(state: state)),
-                  const SizedBox(width: 16),
-                  TextButton(
-                    key: UpdateNotice.cancelDownloadKey,
-                    onPressed: () =>
-                        context.read<AppUpdateCubit>().cancelDownload(),
-                    style: _updateTextButtonStyle(false),
-                    child: Text(l10n.appUpdateCancelDownload),
-                  ),
-                ],
-              ),
-      AppUpdatePhase.verifying =>
-        largeText
-            ? Column(
-                key: ValueKey(state.phase),
-                children: [
-                  Expanded(
-                    child: _BusyLabel(label: l10n.appUpdateNoticeVerifying),
-                  ),
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: TextButton(
-                      key: UpdateNotice.cancelDownloadKey,
-                      onPressed: () =>
-                          context.read<AppUpdateCubit>().cancelDownload(),
-                      style: _updateTextButtonStyle(false),
-                      child: Text(l10n.appUpdateCancelDownload),
-                    ),
-                  ),
-                ],
-              )
-            : Row(
-                key: ValueKey(state.phase),
-                children: [
-                  Expanded(
-                    child: _BusyLabel(label: l10n.appUpdateNoticeVerifying),
-                  ),
-                  const SizedBox(width: 16),
-                  TextButton(
-                    key: UpdateNotice.cancelDownloadKey,
-                    onPressed: () =>
-                        context.read<AppUpdateCubit>().cancelDownload(),
-                    style: _updateTextButtonStyle(false),
-                    child: Text(l10n.appUpdateCancelDownload),
-                  ),
-                ],
-              ),
-      AppUpdatePhase.installing => _BusyLabel(
-        key: ValueKey(state.phase),
-        label: l10n.appUpdateNoticeInstalling,
-      ),
-      AppUpdatePhase.ready => KeyedSubtree(
-        key: ValueKey(state.phase),
-        child: FilledButton(
-          key: UpdateNotice.installKey,
-          onPressed: () => context.read<AppUpdateCubit>().install(),
-          style: _updateFilledButtonStyle(largeText),
-          child: Text(
-            l10n.appUpdateInstall,
-            maxLines: largeText ? 2 : 1,
-            overflow: TextOverflow.ellipsis,
-            textAlign: TextAlign.center,
-          ),
-        ),
-      ),
-    };
-  }
-
-  Future<void> _dismiss(BuildContext context) async {
-    final navigator = Navigator.of(context);
-    await context.read<AppUpdateCubit>().dismiss();
-    if (context.mounted) navigator.pop();
-  }
-}
-
-String _downloadLabel(AppLocalizations l10n, AppRelease release) =>
-    release.sizeBytes > 0
-    ? '${l10n.appUpdateDownload} · ${formatByteSize(l10n, release.sizeBytes, compact: true)}'
-    : l10n.appUpdateDownload;
-
-Size _updateButtonSize(bool largeText) => Size(64, largeText ? 80 : 48);
-
-ButtonStyle _updateTextButtonStyle(bool largeText) {
-  final size = _updateButtonSize(largeText);
-  return TextButton.styleFrom(
-    minimumSize: size,
-    maximumSize: Size(double.infinity, size.height),
-    padding: EdgeInsets.symmetric(horizontal: 16, vertical: largeText ? 8 : 0),
-  );
-}
-
-ButtonStyle _updateFilledButtonStyle(bool largeText) {
-  final size = _updateButtonSize(largeText);
-  return FilledButton.styleFrom(
-    minimumSize: size,
-    maximumSize: Size(double.infinity, size.height),
-    padding: EdgeInsets.symmetric(horizontal: 16, vertical: largeText ? 8 : 0),
-  );
-}
-
-ButtonStyle _updateOutlinedButtonStyle() => OutlinedButton.styleFrom(
-  minimumSize: const Size(64, 80),
-  maximumSize: const Size(double.infinity, 80),
-  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-);
-
-class _WindowsUpdateFooter extends StatelessWidget {
-  const _WindowsUpdateFooter({required this.release, required this.state});
-
-  final AppRelease release;
-  final AppUpdateState state;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final textScaler = MediaQuery.textScalerOf(context);
-    final largeText = textScaler.scale(1) > 1.2;
-    final scaledProgressHeight = textScaler.scale(24) + 16;
-    final progressHeight = scaledProgressHeight > 48
-        ? scaledProgressHeight
-        : 48.0;
-    final height = largeText ? progressHeight + 80 : 48.0;
-    return DecoratedBox(
-      key: UpdateNotice.footerKey,
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerLow,
-        border: Border(
-          top: BorderSide(color: theme.colorScheme.outlineVariant),
-        ),
-      ),
-      child: SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: SizedBox(
-            height: height,
-            child: DitherSwitcher(
-              duration: const Duration(milliseconds: 220),
-              expand: true,
-              child: _footerContent(
-                context,
-                state,
-                release,
-                largeText,
-                progressHeight,
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _footerContent(
-    BuildContext context,
-    AppUpdateState state,
-    AppRelease release,
-    bool largeText,
-    double progressHeight,
-  ) {
-    final l10n = AppLocalizations.of(context);
-    final cubit = context.read<AppUpdateCubit>();
-    void close() => Navigator.of(context).pop();
-    return switch (state.phase) {
-      AppUpdatePhase.available || AppUpdatePhase.failed => Row(
-        key: ValueKey(state.phase),
-        children: [
-          Expanded(
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: FilledButton(
-                key: UpdateNotice.downloadActionKey,
-                onPressed: cubit.download,
-                style: _updateFilledButtonStyle(largeText),
-                child: PixelSeparatedText(
-                  state.phase == AppUpdatePhase.failed
-                      ? l10n.appUpdateRetry
-                      : _downloadLabel(l10n, release),
-                  maxLines: largeText ? 2 : 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ),
-          ),
-          TextButton(
-            key: UpdateNotice.laterKey,
-            onPressed: close,
-            style: _updateTextButtonStyle(largeText),
-            child: Text(l10n.appUpdateLater),
-          ),
-        ],
-      ),
-      AppUpdatePhase.downloading =>
-        largeText
-            ? Column(
-                key: ValueKey(state.phase),
-                children: [
-                  SizedBox(
-                    height: progressHeight,
-                    child: _DownloadProgress(state: state, windows: true),
-                  ),
-                  _DownloadActions(cubit: cubit),
-                ],
-              )
-            : Row(
-                key: ValueKey(state.phase),
-                children: [
-                  Expanded(
-                    child: _DownloadProgress(state: state, windows: true),
-                  ),
-                  const SizedBox(width: 16),
-                  OutlinedButton(
-                    key: UpdateNotice.cancelDownloadKey,
-                    onPressed: cubit.cancelDownload,
-                    child: Text(l10n.appUpdateCancelDownloadFull),
-                  ),
-                  const SizedBox(width: 8),
-                  TextButton(
-                    key: UpdateNotice.hideKey,
-                    onPressed: close,
-                    style: _updateTextButtonStyle(false),
-                    child: Text(l10n.appUpdateHide),
-                  ),
-                ],
-              ),
-      AppUpdatePhase.verifying =>
-        largeText
-            ? Column(
-                key: ValueKey(state.phase),
-                children: [
-                  SizedBox(
-                    height: progressHeight,
-                    child: _BusyLabel(label: l10n.appUpdateNoticeVerifying),
-                  ),
-                  _DownloadActions(cubit: cubit),
-                ],
-              )
-            : Row(
-                key: ValueKey(state.phase),
-                children: [
-                  Expanded(
-                    child: _BusyLabel(label: l10n.appUpdateNoticeVerifying),
-                  ),
-                  OutlinedButton(
-                    key: UpdateNotice.cancelDownloadKey,
-                    onPressed: cubit.cancelDownload,
-                    child: Text(l10n.appUpdateCancelDownloadFull),
-                  ),
-                  const SizedBox(width: 8),
-                  TextButton(
-                    key: UpdateNotice.hideKey,
-                    onPressed: close,
-                    style: _updateTextButtonStyle(false),
-                    child: Text(l10n.appUpdateHide),
-                  ),
-                ],
-              ),
-      AppUpdatePhase.installing => _BusyLabel(
-        key: ValueKey(state.phase),
-        label: l10n.appUpdateNoticeInstalling,
-      ),
-      AppUpdatePhase.ready => Row(
-        key: ValueKey(state.phase),
-        children: [
-          Expanded(
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: FilledButton(
-                key: UpdateNotice.installKey,
-                onPressed: cubit.install,
-                style: _updateFilledButtonStyle(largeText),
-                child: Text(
-                  l10n.appUpdateRestartAndUpdate,
-                  maxLines: largeText ? 2 : 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ),
-          ),
-          TextButton(
-            key: UpdateNotice.laterKey,
-            onPressed: close,
-            style: _updateTextButtonStyle(largeText),
-            child: Text(l10n.appUpdateLater),
-          ),
-        ],
-      ),
-    };
-  }
-}
-
-class _DownloadActions extends StatelessWidget {
-  const _DownloadActions({required this.cubit});
-
-  final AppUpdateCubit cubit;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
-    return Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      spacing: 16,
       children: [
-        Flexible(
-          child: OutlinedButton(
-            key: UpdateNotice.cancelDownloadKey,
-            onPressed: cubit.cancelDownload,
-            style: _updateOutlinedButtonStyle(),
-            child: Text(
-              l10n.appUpdateCancelDownloadFull,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-        ),
-        const Spacer(),
-        TextButton(
-          key: UpdateNotice.hideKey,
-          onPressed: () => Navigator.of(context).pop(),
-          style: _updateTextButtonStyle(true),
+        if (windows)
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(child: version),
+              const CloseButton(),
+            ],
+          )
+        else
+          version,
+        Semantics(
+          header: true,
           child: Text(
-            l10n.appUpdateHide,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
+            AppLocalizations.of(context).appUpdateWhatsNew,
+            style: DetailLayout.sectionTitleStyle(theme),
           ),
         ),
       ],
@@ -962,110 +532,310 @@ class _DownloadActions extends StatelessWidget {
   }
 }
 
-class _DownloadProgress extends StatelessWidget {
-  const _DownloadProgress({
+class _UpdateFooter extends StatelessWidget {
+  const _UpdateFooter({
+    required this.release,
     required this.state,
-    this.largeText = false,
-    this.windows = false,
+    required this.windows,
   });
 
+  final AppRelease release;
   final AppUpdateState state;
-  final bool largeText;
   final bool windows;
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    if (windows) {
-      final progress = state.totalBytes > 0
-          ? l10n.appUpdateProgress(
-              formatByteSize(l10n, state.receivedBytes),
-              formatByteSize(l10n, state.totalBytes, compact: true),
-            )
-          : formatByteSize(l10n, state.receivedBytes);
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final size = release.sizeBytes > 0
+        ? formatByteSize(l10n, release.sizeBytes, compact: true)
+        : null;
+    final failure = _failureMessage(l10n, state.failure);
+    final status = switch (state.phase) {
+      AppUpdatePhase.available when windows && size != null => MixedDataText(
+        size,
+        sansStyle: theme.textTheme.bodySmall?.copyWith(
+          color: scheme.onSurfaceVariant,
+        ),
+      ),
+      AppUpdatePhase.installing => _BusyLabel(
+        label: appUpdatePhaseLabel(l10n, state, windows: windows),
+      ),
+      AppUpdatePhase.failed || AppUpdatePhase.ready when failure != null =>
+        _FailureBanner(message: failure),
+      AppUpdatePhase.failed => _FailureBanner(
+        message: l10n.appUpdateNoticeFailed,
+      ),
+      _ => null,
+    };
+    final actions = _actions(context, l10n, size);
+    return DecoratedBox(
+      key: UpdateNotice.footerKey,
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerLow,
+        border: Border(top: BorderSide(color: scheme.outlineVariant)),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+          child: DitherSwitcher(
+            duration: const Duration(milliseconds: 220),
+            resizeDuration: const Duration(milliseconds: 200),
+            alignment: AlignmentDirectional.bottomStart,
+            child: ConstrainedBox(
+              key: ValueKey(
+                state.showsProgress ? AppUpdatePhase.downloading : state.phase,
+              ),
+              constraints: const BoxConstraints(minHeight: 48),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final largeText = DetailLayout.isLargeText(context);
+                  if (state.showsProgress) {
+                    return _progressRow(
+                      context,
+                      actions.firstOrNull,
+                      stacked: largeText && constraints.maxWidth < 420,
+                    );
+                  }
+                  if (windows && !largeText && constraints.maxWidth >= 420) {
+                    return Row(
+                      children: [
+                        Expanded(child: status ?? const SizedBox.shrink()),
+                        if (actions.isNotEmpty) ...[
+                          const SizedBox(width: 16),
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            spacing: 8,
+                            children: actions,
+                          ),
+                        ],
+                      ],
+                    );
+                  }
+                  return Column(
+                    mainAxisSize: MainAxisSize.min,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    spacing: 8,
+                    children: [
+                      ?status,
+                      if (actions.isNotEmpty)
+                        windows
+                            ? OverflowBar(
+                                alignment: MainAxisAlignment.end,
+                                overflowAlignment: OverflowBarAlignment.end,
+                                spacing: 8,
+                                overflowSpacing: 8,
+                                children: actions,
+                              )
+                            : Row(
+                                spacing: 8,
+                                children: [
+                                  if (actions.length > 1) actions.first,
+                                  Expanded(child: actions.last),
+                                ],
+                              ),
+                    ],
+                  );
+                },
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  List<Widget> _actions(
+    BuildContext context,
+    AppLocalizations l10n,
+    String? size,
+  ) {
+    final cubit = context.read<AppUpdateCubit>();
+    final textStyle = TextButton.styleFrom(minimumSize: const Size(48, 48));
+    if (state.phase == AppUpdatePhase.downloading) {
+      return [
+        TextButton(
+          key: UpdateNotice.cancelDownloadKey,
+          onPressed: state.cancelling ? null : cubit.cancelDownload,
+          style: busyButtonStyle(busy: state.cancelling, base: textStyle),
+          child: BusyButtonChild(
+            l10n.appUpdateCancelDownload,
+            busy: state.cancelling,
+          ),
+        ),
+      ];
+    }
+    final label = switch (state.phase) {
+      AppUpdatePhase.available => l10n.appUpdateDownload,
+      AppUpdatePhase.failed =>
+        state.failure == AppUpdateFailureKind.invalidFile
+            ? l10n.appUpdateDownloadAgain
+            : l10n.appUpdateRetry,
+      AppUpdatePhase.ready =>
+        windows
+            ? l10n.appUpdateRestartAndUpdate
+            : state.failure == AppUpdateFailureKind.install
+            ? l10n.appUpdateRetryInstall
+            : l10n.appUpdateInstall,
+      _ => null,
+    };
+    if (label == null) return const [];
+    final installing = state.phase == AppUpdatePhase.ready;
+    return [
+      if (!installing)
+        TextButton(
+          key: UpdateNotice.laterKey,
+          onPressed: () async {
+            final route = ModalRoute.of(context);
+            await cubit.dismiss();
+            if (context.mounted && route?.isCurrent == true) {
+              Navigator.of(context).pop();
+            }
+          },
+          style: textStyle,
+          child: Text(l10n.appUpdateLater),
+        ),
+      FilledButton(
+        key: installing
+            ? UpdateNotice.installKey
+            : UpdateNotice.downloadActionKey,
+        onPressed: installing ? cubit.install : cubit.download,
+        style: FilledButton.styleFrom(
+          minimumSize: const Size(64, 48),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        ),
+        child:
+            !windows && state.phase == AppUpdatePhase.available && size != null
+            ? PixelSeparatedText('$label · $size', textAlign: TextAlign.center)
+            : Text(label, textAlign: TextAlign.center),
+      ),
+    ];
+  }
+
+  Widget _progressRow(
+    BuildContext context,
+    Widget? cancel, {
+    required bool stacked,
+  }) {
+    final progress = _DownloadProgress(state: state, windows: windows);
+    final control = AnimatedSize(
+      duration: motionDuration(context, const Duration(milliseconds: 200)),
+      alignment: AlignmentDirectional.centerEnd,
+      child: cancel == null
+          ? const SizedBox.shrink()
+          : Padding(
+              padding: stacked
+                  ? const EdgeInsets.only(top: 8)
+                  : const EdgeInsetsDirectional.only(start: 16),
+              child: cancel,
+            ),
+    );
+    if (stacked) {
       return Column(
+        mainAxisSize: MainAxisSize.min,
         mainAxisAlignment: MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  l10n.appUpdateDownloading,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.titleSmall,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Flexible(
-                child: Text(
-                  progress,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  textAlign: TextAlign.end,
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          SegmentedBar(value: state.progress, height: 6),
+          progress,
+          Align(alignment: AlignmentDirectional.centerEnd, child: control),
         ],
       );
     }
-    final percent = state.totalBytes > 0
-        ? '${(state.progress * 100).round()}%'
-        : null;
-    final progressText = state.totalBytes > 0
-        ? l10n.appUpdateProgress(
-            formatByteSize(l10n, state.receivedBytes),
-            formatByteSize(l10n, state.totalBytes, compact: true),
-          )
-        : formatByteSize(l10n, state.receivedBytes);
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
+    // Anchor the bar if the byte count wraps to more lines than the status.
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.end,
       children: [
-        PixelSeparatedText.spans(
-          [
-            TextSpan(text: progressText),
-            if (percent != null)
-              TextSpan(
-                text: percent,
-                style: TextStyle(color: Theme.of(context).colorScheme.tertiary),
-              ),
-          ],
-          maxLines: largeText ? 2 : 1,
-          overflow: TextOverflow.ellipsis,
-          style: Theme.of(context).textTheme.bodySmall,
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: progress,
+          ),
         ),
-        const SizedBox(height: 8),
-        SegmentedBar(value: state.progress, height: 4),
+        control,
+      ],
+    );
+  }
+}
+
+class AppUpdateProgressBar extends StatelessWidget {
+  const AppUpdateProgressBar({required this.state, super.key});
+
+  final AppUpdateState state;
+
+  @override
+  Widget build(BuildContext context) {
+    if (state.phase == AppUpdatePhase.verifying) {
+      return const SegmentedBar(value: 1, height: 6);
+    }
+    return state.totalBytes > 0
+        ? SegmentedBar(value: state.progress, height: 6)
+        : const BlockSpinner(height: 6);
+  }
+}
+
+class _DownloadProgress extends StatelessWidget {
+  const _DownloadProgress({required this.state, required this.windows});
+
+  final AppUpdateState state;
+  final bool windows;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final theme = Theme.of(context);
+    final received = formatByteSize(l10n, state.receivedBytes);
+    final knownTotal = state.totalBytes > 0;
+    final label = [
+      if (windows || (!knownTotal && state.receivedBytes == 0))
+        l10n.appUpdateDownloading,
+      if (knownTotal)
+        l10n.appUpdateProgress(
+          received,
+          formatByteSize(l10n, state.totalBytes, compact: true),
+        )
+      else if (state.receivedBytes > 0)
+        received,
+      if (!windows && knownTotal) '${state.progressPercent}%',
+    ].join(' · ');
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      spacing: 8,
+      children: [
+        if (state.phase == AppUpdatePhase.verifying)
+          _BusyLabel(label: l10n.appUpdateNoticeVerifying)
+        else
+          MixedDataText(
+            label,
+            sansStyle: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        AppUpdateProgressBar(state: state),
       ],
     );
   }
 }
 
 class _BusyLabel extends StatelessWidget {
-  const _BusyLabel({required this.label, super.key});
+  const _BusyLabel({required this.label});
 
   final String label;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Center(
-      child: Semantics(
-        liveRegion: true,
-        child: PixelNoise.shimmer(
-          child: Text(
-            label,
-            maxLines: 2,
-            textAlign: TextAlign.center,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurface,
-            ),
+    return Semantics(
+      liveRegion: true,
+      child: PixelNoise.shimmer(
+        child: Text(
+          label,
+          style: theme.textTheme.bodySmall?.copyWith(
+            fontFamily: DetailLayout.sansFont,
+            color: theme.colorScheme.onSurface,
           ),
         ),
       ),
@@ -1074,10 +844,9 @@ class _BusyLabel extends StatelessWidget {
 }
 
 class _ReleaseNotes extends StatelessWidget {
-  const _ReleaseNotes({required this.notes, this.sectionRules = true});
+  const _ReleaseNotes({required this.notes});
 
   final String notes;
-  final bool sectionRules;
 
   @override
   Widget build(BuildContext context) {
@@ -1085,26 +854,23 @@ class _ReleaseNotes extends StatelessWidget {
     final theme = Theme.of(context);
     final blocks = _releaseNoteBlocks(notes);
     if (blocks.isEmpty) {
-      return Text(l10n.appUpdateNoNotes, style: theme.textTheme.bodyMedium);
-    }
-    final children = <Widget>[];
-    var hasContent = false;
-    for (final block in blocks) {
-      if (block.kind == _NoteKind.heading && hasContent) {
-        children.add(const SizedBox(height: 16));
-        if (sectionRules) {
-          children.add(const SegmentedRule());
-          children.add(const SizedBox(height: 16));
-        }
-      } else if (hasContent) {
-        children.add(SizedBox(height: sectionRules ? 8 : 4));
-      }
-      children.add(_NoteBlock(block: block));
-      hasContent = true;
+      return Text(
+        l10n.appUpdateNoNotes,
+        style: theme.textTheme.bodyMedium?.copyWith(
+          fontFamily: DetailLayout.sansFont,
+          color: theme.colorScheme.onSurfaceVariant,
+        ),
+      );
     }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: children,
+      children: [
+        for (final (index, block) in blocks.indexed) ...[
+          if (index > 0)
+            SizedBox(height: block.kind == _NoteKind.heading ? 20 : 12),
+          _NoteBlock(block: block),
+        ],
+      ],
     );
   }
 }
@@ -1117,19 +883,27 @@ class _NoteBlock extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final style = switch (block.kind) {
-      _NoteKind.heading => theme.textTheme.titleSmall,
-      _NoteKind.paragraph => theme.textTheme.bodyMedium,
-      _NoteKind.bullet => theme.textTheme.bodyMedium,
-    };
-    if (block.kind != _NoteKind.bullet) {
-      return Text(block.text, style: style);
+    final style = theme.textTheme.bodyMedium?.copyWith(
+      fontFamily: DetailLayout.sansFont,
+      height: 1.45,
+    );
+    if (block.kind == _NoteKind.heading) {
+      return Semantics(
+        header: true,
+        child: Text(
+          block.text,
+          style: DetailLayout.sectionTitleStyle(theme).copyWith(fontSize: 14),
+        ),
+      );
     }
+    final marker = block.marker;
+    if (marker == null) return Text(block.text, style: style);
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.baseline,
+      textBaseline: TextBaseline.alphabetic,
+      spacing: 8,
       children: [
-        Text('•', style: style),
-        const SizedBox(width: 8),
+        Text(marker, style: DetailLayout.monoTelemetryStyle(style)),
         Expanded(child: Text(block.text, style: style)),
       ],
     );
@@ -1139,11 +913,15 @@ class _NoteBlock extends StatelessWidget {
 enum _NoteKind { heading, paragraph, bullet }
 
 final class _NoteBlockData {
-  const _NoteBlockData(this.kind, this.text);
+  const _NoteBlockData(this.kind, this.text, {this.marker});
 
   final _NoteKind kind;
   final String text;
+  final String? marker;
 }
+
+final _noteHeading = RegExp(r'^#{1,6}\s+(.+)$');
+final _noteBullet = RegExp(r'^([-*+]|\d+\.)\s+(.+)$');
 
 List<_NoteBlockData> _releaseNoteBlocks(String markdown) {
   final blocks = <_NoteBlockData>[];
@@ -1162,8 +940,8 @@ List<_NoteBlockData> _releaseNoteBlocks(String markdown) {
       flushParagraph();
       continue;
     }
-    final heading = RegExp(r'^#{1,6}\s+(.+)$').firstMatch(line);
-    final bullet = RegExp(r'^(?:[-*+]|\d+\.)\s+(.+)$').firstMatch(line);
+    final heading = _noteHeading.firstMatch(line);
+    final bullet = _noteBullet.firstMatch(line);
     if (heading != null) {
       flushParagraph();
       blocks.add(
@@ -1171,8 +949,13 @@ List<_NoteBlockData> _releaseNoteBlocks(String markdown) {
       );
     } else if (bullet != null) {
       flushParagraph();
+      final prefix = bullet.group(1)!;
       blocks.add(
-        _NoteBlockData(_NoteKind.bullet, _plainMarkdown(bullet.group(1)!)),
+        _NoteBlockData(
+          _NoteKind.bullet,
+          _plainMarkdown(bullet.group(2)!),
+          marker: prefix.endsWith('.') ? prefix : '•',
+        ),
       );
     } else {
       paragraph.add(line);
@@ -1200,37 +983,22 @@ String? _failureMessage(AppLocalizations l10n, AppUpdateFailureKind? failure) =>
     };
 
 class _FailureBanner extends StatelessWidget {
-  const _FailureBanner({required this.failure, this.bottomSpacing = 0});
+  const _FailureBanner({required this.message});
 
-  final String? failure;
-  final double bottomSpacing;
+  final String message;
 
   @override
   Widget build(BuildContext context) {
-    final anim = motionDuration(context, const Duration(milliseconds: 180));
-    final message = failure;
-    final content = message == null
-        ? const SizedBox.shrink(key: ValueKey('no_failure'))
-        : Padding(
-            key: ValueKey(message),
-            padding: EdgeInsets.only(top: 16, bottom: bottomSpacing),
-            child: Text(
-              message,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Theme.of(context).colorScheme.error,
-              ),
-            ),
-          );
-    if (anim == Duration.zero) return content;
-    return AnimatedSize(
-      duration: anim,
-      curve: Curves.easeOutCubic,
-      alignment: Alignment.topCenter,
-      child: AnimatedSwitcher(
-        duration: anim,
-        switchInCurve: Curves.easeOutCubic,
-        switchOutCurve: Curves.easeOutCubic,
-        child: content,
+    final theme = Theme.of(context);
+    return Semantics(
+      liveRegion: true,
+      child: Text(
+        message,
+        style: theme.textTheme.bodySmall?.copyWith(
+          fontFamily: DetailLayout.sansFont,
+          color: theme.colorScheme.error,
+          height: 1.4,
+        ),
       ),
     );
   }

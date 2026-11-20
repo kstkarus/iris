@@ -744,38 +744,41 @@
   "profileFriendsLoadError": "Friends did not load.",
   "profileFriendsLoading": "Loading friends",
   "animeDetailsFriendsTitle": "Friends",
-  "appUpdateAvailable": "Version {version} is out",
-  "@appUpdateAvailable": {
-    "placeholders": {
-      "version": {
-        "type": "String"
-      }
-    }
-  },
   "appUpdateDownload": "Download",
   "appUpdateLater": "Later",
   "appUpdateOpenFailed": "Could not open the download.",
   "appUpdateNotificationTitle": "Iris update",
-  "appUpdateNoticeAvailable": "{version} available",
+  "appUpdateNoticeAvailable": "Version {version} available",
   "@appUpdateNoticeAvailable": {
     "placeholders": {
       "version": { "type": "String" }
     }
   },
-  "appUpdateNoticeDownloading": "Updating",
+  "appUpdateNoticeDownloading": "Downloading",
+  "appUpdateNoticeDownloadingVersion": "Downloading {version}",
+  "@appUpdateNoticeDownloadingVersion": {
+    "placeholders": {
+      "version": { "type": "String" }
+    }
+  },
   "appUpdateNoticeReady": "Update ready",
+  "appUpdateNoticeRestartReady": "Ready to restart",
+  "appUpdateNoticePermissionNeeded": "Permission needed",
+  "appUpdateNoticeInstallFailed": "Couldn’t install",
   "appUpdateNoticeFailed": "Download failed",
-  "appUpdateNoticeVerifying": "Checking file",
+  "appUpdateNoticeVerifying": "Verifying file",
   "appUpdateNoticeInstalling": "Opening installer",
+  "appUpdateNoticeRestarting": "Restarting Iris",
   "appUpdateWhatsNew": "What's new",
   "appUpdateNoNotes": "No release notes were provided.",
   "appUpdateCancelDownload": "Cancel",
   "appUpdateInstall": "Install",
+  "appUpdateRetryInstall": "Retry install",
+  "appUpdateRestart": "Restart",
   "appUpdateRestartAndUpdate": "Restart and update",
-  "appUpdateHide": "Hide",
   "appUpdateDownloading": "Downloading",
-  "appUpdateCancelDownloadFull": "Cancel download",
   "appUpdateRetry": "Retry",
+  "appUpdateDownloadAgain": "Download again",
   "appUpdateProgress": "{received} / {total}",
   "@appUpdateProgress": {
     "placeholders": {
@@ -783,10 +786,10 @@
       "total": { "type": "String" }
     }
   },
-  "appUpdateFailureNetwork": "Couldn't download the update. Check your connection and try again.",
-  "appUpdateFailureInvalidFile": "The update file is damaged. Download it again.",
+  "appUpdateFailureNetwork": "Couldn't download the update. Check your connection.",
+  "appUpdateFailureInvalidFile": "File damaged",
   "appUpdateFailureStorage": "Couldn't save the update. Check available storage.",
-  "appUpdateFailureInstall": "Couldn't open the installer. Try again.",
+  "appUpdateFailureInstall": "Couldn't open the installer.",
   "appUpdateFailurePermission": "Allow Iris to install apps in Android settings.",
   "charactersTitle": "Characters",
   "charactersAll": "All {count}",
@@ -1124,5 +1127,6 @@
   "settingsUpdateChecking": "Checking",
   "settingsUpdateUpToDate": "Up to date",
   "settingsUpdateCheckFailed": "Couldn’t check",
-  "settingsUpdateOpenDetails": "Update"
+  "settingsUpdateOpen": "Update",
+  "settingsUpdateOpenDetails": "Details"
 }

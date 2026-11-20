@@ -20,6 +20,7 @@ final class AppUpdateState {
     this.receivedBytes = 0,
     this.totalBytes = 0,
     this.failure,
+    this.cancelling = false,
     this.checkStatus = AppUpdateCheckStatus.idle,
     this.installedVersion,
   });
@@ -29,11 +30,21 @@ final class AppUpdateState {
   final int receivedBytes;
   final int totalBytes;
   final AppUpdateFailureKind? failure;
+  final bool cancelling;
   final AppUpdateCheckStatus checkStatus;
   final AppVersion? installedVersion;
 
   double get progress =>
       totalBytes > 0 ? (receivedBytes / totalBytes).clamp(0.0, 1.0) : 0;
+
+  int get progressPercent => (progress * 100).round();
+
+  bool get hasFailure =>
+      phase == AppUpdatePhase.failed ||
+      (phase == AppUpdatePhase.ready && failure != null);
+
+  bool get showsProgress =>
+      phase == AppUpdatePhase.downloading || phase == AppUpdatePhase.verifying;
 
   bool get busy => switch (phase) {
     AppUpdatePhase.downloading ||
@@ -48,6 +59,7 @@ final class AppUpdateState {
     int? receivedBytes,
     int? totalBytes,
     AppUpdateFailureKind? failure,
+    bool? cancelling,
     AppUpdateCheckStatus? checkStatus,
     AppVersion? installedVersion,
   }) => AppUpdateState(
@@ -56,6 +68,7 @@ final class AppUpdateState {
     receivedBytes: receivedBytes ?? this.receivedBytes,
     totalBytes: totalBytes ?? this.totalBytes,
     failure: failure ?? this.failure,
+    cancelling: cancelling ?? this.cancelling,
     checkStatus: checkStatus ?? this.checkStatus,
     installedVersion: installedVersion ?? this.installedVersion,
   );
@@ -68,6 +81,7 @@ final class AppUpdateState {
       other.receivedBytes == receivedBytes &&
       other.totalBytes == totalBytes &&
       other.failure == failure &&
+      other.cancelling == cancelling &&
       other.checkStatus == checkStatus &&
       other.installedVersion == installedVersion;
 
@@ -78,6 +92,7 @@ final class AppUpdateState {
     receivedBytes,
     totalBytes,
     failure,
+    cancelling,
     checkStatus,
     installedVersion,
   );

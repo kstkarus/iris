@@ -1218,11 +1218,6 @@ class AppLocalizationsRu extends AppLocalizations {
   String get animeDetailsFriendsTitle => 'Друзья';
 
   @override
-  String appUpdateAvailable(String version) {
-    return 'Вышла версия $version';
-  }
-
-  @override
   String get appUpdateDownload => 'Скачать';
 
   @override
@@ -1236,14 +1231,28 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String appUpdateNoticeAvailable(String version) {
-    return 'Доступна $version';
+    return 'Доступна версия $version';
   }
 
   @override
-  String get appUpdateNoticeDownloading => 'Обновление';
+  String get appUpdateNoticeDownloading => 'Скачиваем';
+
+  @override
+  String appUpdateNoticeDownloadingVersion(String version) {
+    return 'Скачиваем $version';
+  }
 
   @override
   String get appUpdateNoticeReady => 'Обновление готово';
+
+  @override
+  String get appUpdateNoticeRestartReady => 'Готово к перезапуску';
+
+  @override
+  String get appUpdateNoticePermissionNeeded => 'Нужно разрешение';
+
+  @override
+  String get appUpdateNoticeInstallFailed => 'Не удалось установить';
 
   @override
   String get appUpdateNoticeFailed => 'Не удалось скачать';
@@ -1253,6 +1262,9 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get appUpdateNoticeInstalling => 'Открываем установщик';
+
+  @override
+  String get appUpdateNoticeRestarting => 'Перезапускаем Iris';
 
   @override
   String get appUpdateWhatsNew => 'Что нового';
@@ -1267,19 +1279,22 @@ class AppLocalizationsRu extends AppLocalizations {
   String get appUpdateInstall => 'Установить';
 
   @override
-  String get appUpdateRestartAndUpdate => 'Перезапустить и обновить';
+  String get appUpdateRetryInstall => 'Повторить установку';
 
   @override
-  String get appUpdateHide => 'Скрыть';
+  String get appUpdateRestart => 'Перезапустить';
+
+  @override
+  String get appUpdateRestartAndUpdate => 'Перезапустить и обновить';
 
   @override
   String get appUpdateDownloading => 'Скачивание';
 
   @override
-  String get appUpdateCancelDownloadFull => 'Отменить загрузку';
+  String get appUpdateRetry => 'Повторить';
 
   @override
-  String get appUpdateRetry => 'Повторить';
+  String get appUpdateDownloadAgain => 'Скачать заново';
 
   @override
   String appUpdateProgress(String received, String total) {
@@ -1288,19 +1303,17 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get appUpdateFailureNetwork =>
-      'Не удалось скачать обновление. Проверьте подключение и попробуйте ещё раз.';
+      'Не удалось скачать обновление. Проверьте подключение.';
 
   @override
-  String get appUpdateFailureInvalidFile =>
-      'Файл обновления повреждён. Скачайте его ещё раз.';
+  String get appUpdateFailureInvalidFile => 'Файл повреждён';
 
   @override
   String get appUpdateFailureStorage =>
       'Не удалось сохранить обновление. Проверьте свободное место.';
 
   @override
-  String get appUpdateFailureInstall =>
-      'Не удалось открыть установщик. Попробуйте ещё раз.';
+  String get appUpdateFailureInstall => 'Не удалось открыть установщик.';
 
   @override
   String get appUpdateFailurePermission =>
@@ -1954,5 +1967,8 @@ class AppLocalizationsRu extends AppLocalizations {
   String get settingsUpdateCheckFailed => 'Не удалось проверить';
 
   @override
-  String get settingsUpdateOpenDetails => 'Обновить';
+  String get settingsUpdateOpen => 'Обновить';
+
+  @override
+  String get settingsUpdateOpenDetails => 'Подробнее';
 }

@@ -1,8 +1,9 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:iris/features/app_update/domain/entities/app_release.dart';
@@ -13,6 +14,9 @@ import 'package:iris/features/app_update/presentation/cubit/app_update_cubit.dar
 import 'package:iris/features/app_update/presentation/cubit/app_update_state.dart';
 import 'package:iris/features/app_update/presentation/widgets/update_notice.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
+import 'package:iris/shared/widgets/pixel_icon.dart';
+import 'package:iris/shared/widgets/pixel_noise.dart';
+import 'package:iris/shared/widgets/segmented_bar.dart';
 
 import '../../helpers/test_app.dart';
 import 'app_update_test_doubles.dart';
@@ -46,7 +50,7 @@ void main() {
         ),
       ),
     );
-    expect(find.text('Version 1.3.0 is out'), findsNothing);
+    expect(find.text('Version 1.3.0 available'), findsNothing);
     await tester.runAsync(cubit.check);
     await tester.pumpAndSettle();
     return repository;
@@ -55,7 +59,7 @@ void main() {
   testWidgets('Download opens the build for this platform', (tester) async {
     await pumpNotice(tester);
 
-    expect(find.text('Version 1.3.0 is out'), findsOneWidget);
+    expect(find.text('Version 1.3.0 available'), findsOneWidget);
     await tester.tap(find.byKey(UpdateNotice.downloadKey));
     await tester.pumpAndSettle();
 
@@ -82,7 +86,7 @@ void main() {
 
     expect(_InsetProbe.topOf(tester), 0);
     expect(
-      tester.getTopLeft(find.text('Version 1.3.0 is out')).dy,
+      tester.getTopLeft(find.text('Version 1.3.0 available')).dy,
       greaterThan(24),
     );
 
@@ -98,7 +102,7 @@ void main() {
     await tester.tap(find.byKey(UpdateNotice.laterKey));
     await tester.pumpAndSettle();
 
-    expect(find.text('Version 1.3.0 is out'), findsNothing);
+    expect(find.text('Version 1.3.0 available'), findsNothing);
     expect(repository.dismissed, const AppVersion(1, 3, 0));
   });
 
@@ -111,7 +115,8 @@ void main() {
       tester,
       downloads,
       notes:
-          'A paragraph continued\non the next line.\n\n- First change\n- Second change',
+          'A paragraph continued\non the next line.\n\n'
+          '- First change\n\n### Playback\n1. Choose a track\n2. Resume',
     );
 
     expect(find.byKey(UpdateNotice.noticeKey), findsOneWidget);
@@ -138,11 +143,64 @@ void main() {
       find.descendant(of: sheet, matching: find.text('First change')),
       findsOneWidget,
     );
+    expect(
+      find.descendant(of: sheet, matching: find.text('•')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: sheet, matching: find.text('1.')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: sheet, matching: find.text('2.')),
+      findsOneWidget,
+    );
     expect(find.byKey(UpdateNotice.downloadActionKey), findsOneWidget);
     expect(find.text('Later'), findsOneWidget);
   });
 
-  testWidgets('Windows can cancel a download after scrolling release notes', (
+  testWidgets(
+    'an open update follows the version, notes and size of a new release',
+    (tester) async {
+      _usePhoneSize(tester);
+      final repository = FakeAppUpdateRepository(
+        latest: testRelease(3),
+        installed: const AppVersion(1, 2, 0),
+      );
+      final cubit = await _pumpInAppNotice(
+        tester,
+        _AndroidDownloads(),
+        repository: repository,
+      );
+      await tester.tap(find.byKey(UpdateNotice.noticeKey));
+      await tester.pumpAndSettle();
+
+      repository.latest = AppRelease(
+        version: const AppVersion(1, 4, 0),
+        downloadUrl: testRelease(4).downloadUrl,
+        sizeBytes: 42 * 1024 * 1024,
+        notes: 'New release notes',
+      );
+      await cubit.checkManually();
+      await tester.pumpAndSettle();
+
+      final sheet = find.byKey(UpdateNotice.sheetKey);
+      expect(
+        find.descendant(of: sheet, matching: find.text('1.4.0')),
+        findsOneWidget,
+      );
+      expect(find.text('New release notes'), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byKey(UpdateNotice.downloadActionKey),
+          matching: find.textContaining('42 MB'),
+        ),
+        findsOneWidget,
+      );
+    },
+  );
+
+  testWidgets('Windows disables Cancel while cancellation finishes', (
     tester,
   ) async {
     _useDesktopSize(tester);
@@ -150,12 +208,17 @@ void main() {
       40,
       (index) => '- Change ${index + 1}: a long release note for scrolling.',
     ).join('\n');
+    final cancelGate = Completer<void>();
+    final downloads = _AndroidDownloads()..cancelGate = cancelGate;
     final cubit = await _pumpInAppNotice(
       tester,
-      _AndroidDownloads(),
+      downloads,
       platform: TargetPlatform.windows,
       notes: notes,
     );
+    addTearDown(() {
+      if (!cancelGate.isCompleted) cancelGate.complete();
+    });
 
     await tester.tap(find.byKey(UpdateNotice.noticeKey));
     await tester.pumpAndSettle();
@@ -173,37 +236,60 @@ void main() {
 
     expect(tester.getTopLeft(find.text(firstNote)).dy, lessThan(noteTop));
 
-    await tester.tap(find.byKey(UpdateNotice.cancelDownloadKey));
-    await tester.pumpAndSettle();
-    expect(cubit.state.phase, AppUpdatePhase.available);
-  });
-
-  testWidgets('Windows Later closes without dismissing an available update', (
-    tester,
-  ) async {
-    _useDesktopSize(tester);
-    final cubit = await _pumpInAppNotice(
-      tester,
-      _AndroidDownloads(),
-      platform: TargetPlatform.windows,
+    final cancel = find.byKey(UpdateNotice.cancelDownloadKey);
+    await tester.tap(cancel);
+    await tester.pump();
+    expect(tester.widget<TextButton>(cancel).onPressed, isNull);
+    expect(
+      find.descendant(of: cancel, matching: find.byType(PixelNoise)),
+      findsWidgets,
     );
-
-    await tester.tap(find.byKey(UpdateNotice.noticeKey));
-    await tester.pumpAndSettle();
-    final later = find.byKey(UpdateNotice.laterKey);
-
-    await tester.tap(later);
+    await tester.tap(cancel);
+    expect(downloads.cancelCalls, 1);
+    expect(cubit.state.cancelling, isTrue);
+    cancelGate.complete();
     await tester.pumpAndSettle();
     expect(cubit.state.phase, AppUpdatePhase.available);
-    expect(cubit.state.release, isNotNull);
-    expect(find.byKey(UpdateNotice.sheetKey), findsNothing);
-
-    await tester.tap(find.byKey(UpdateNotice.noticeKey));
-    await tester.pumpAndSettle();
-    expect(find.byKey(UpdateNotice.downloadActionKey), findsOneWidget);
+    expect(cubit.state.cancelling, isFalse);
+    expect(
+      find.byKey(UpdateNotice.downloadActionKey).hitTestable(),
+      findsOneWidget,
+    );
   });
 
-  testWidgets('Windows Hide keeps an active download and can reopen it', (
+  testWidgets(
+    'Windows Later dismisses the offered release and hides the strip',
+    (tester) async {
+      _useDesktopSize(tester);
+      final repository = FakeAppUpdateRepository(
+        latest: testRelease(3),
+        installed: const AppVersion(1, 2, 0),
+      );
+      final cubit = await _pumpInAppNotice(
+        tester,
+        _AndroidDownloads(),
+        platform: TargetPlatform.windows,
+        repository: repository,
+      );
+
+      await tester.tap(find.byKey(UpdateNotice.noticeKey));
+      await tester.pumpAndSettle();
+      final later = find.byKey(UpdateNotice.laterKey);
+
+      await tester.tap(later);
+      await tester.pumpAndSettle();
+      expect(cubit.state.release, isNull);
+      expect(repository.dismissed, const AppVersion(1, 3, 0));
+      expect(find.byKey(UpdateNotice.sheetKey), findsNothing);
+      expect(find.byKey(UpdateNotice.noticeKey), findsNothing);
+
+      await cubit.checkManually();
+      await tester.pumpAndSettle();
+      expect(find.byKey(UpdateNotice.noticeKey), findsOneWidget);
+    },
+  );
+
+  testWidgets('close, Escape and backdrop keep a Windows download running', (
     tester,
   ) async {
     _useDesktopSize(tester);
@@ -219,23 +305,29 @@ void main() {
     await tester.tap(find.byKey(UpdateNotice.downloadActionKey));
     await tester.pumpAndSettle();
     expect(cubit.state.phase, AppUpdatePhase.downloading);
-    expect(find.text('Downloading'), findsOneWidget);
-    expect(find.text('42 B / 100 B'), findsOneWidget);
+    final progress = find.text('Downloading · 42 B / 100 B');
+    expect(progress, findsOneWidget);
+    for (final close in [
+      () => tester.tap(find.byType(CloseButton)),
+      () => tester.sendKeyEvent(LogicalKeyboardKey.escape),
+      () => tester.tapAt(const Offset(20, 20)),
+    ]) {
+      await close();
+      await tester.pumpAndSettle();
+      expect(find.byKey(UpdateNotice.sheetKey), findsNothing);
+      expect(cubit.state.phase, AppUpdatePhase.downloading);
+      expect(downloads.cancelCalls, 0);
 
-    await tester.tap(find.byKey(UpdateNotice.hideKey));
-    await tester.pumpAndSettle();
-    expect(cubit.state.phase, AppUpdatePhase.downloading);
-    expect(downloads.cancelCalls, 0);
-
-    await tester.tap(find.byKey(UpdateNotice.noticeKey));
-    await tester.pumpAndSettle();
-    expect(find.text('42 B / 100 B'), findsOneWidget);
+      await tester.tap(find.byKey(UpdateNotice.noticeKey));
+      await tester.pumpAndSettle();
+      expect(progress, findsOneWidget);
+    }
     await tester.tap(find.byKey(UpdateNotice.cancelDownloadKey));
     await tester.pumpAndSettle();
     expect(cubit.state.phase, AppUpdatePhase.available);
   });
 
-  testWidgets('Windows Later preserves a ready update and can reopen it', (
+  testWidgets('Windows Close preserves a ready update for reopening', (
     tester,
   ) async {
     _useDesktopSize(tester);
@@ -248,10 +340,9 @@ void main() {
 
     await tester.tap(find.byKey(UpdateNotice.noticeKey));
     await tester.pumpAndSettle();
-    final later = find.byKey(UpdateNotice.laterKey);
     expect(find.text('Restart and update'), findsOneWidget);
 
-    await tester.tap(later);
+    await tester.tap(find.byType(CloseButton));
     await tester.pumpAndSettle();
     expect(cubit.state.phase, AppUpdatePhase.ready);
     expect(find.byKey(UpdateNotice.sheetKey), findsNothing);
@@ -302,14 +393,14 @@ void main() {
     await tester.pumpAndSettle();
     expect(cubit.state.phase, AppUpdatePhase.downloading);
     _expectOnScreen(tester, find.byKey(UpdateNotice.cancelDownloadKey), size);
-    _expectOnScreen(tester, find.byKey(UpdateNotice.hideKey), size);
+    _expectOnScreen(tester, find.byType(CloseButton), size);
     expect(tester.takeException(), isNull);
 
     downloads.completeDownload(r'C:\updates\iris.exe');
     await tester.pumpAndSettle();
     expect(cubit.state.phase, AppUpdatePhase.ready);
     _expectOnScreen(tester, find.byKey(UpdateNotice.installKey), size);
-    _expectOnScreen(tester, find.byKey(UpdateNotice.laterKey), size);
+    _expectOnScreen(tester, find.byType(CloseButton), size);
     expect(tester.takeException(), isNull);
   });
 
@@ -337,77 +428,80 @@ void main() {
     await tester.pumpAndSettle();
     expect(cubit.state.phase, AppUpdatePhase.downloading);
     _expectOnScreen(tester, find.byKey(UpdateNotice.cancelDownloadKey), size);
-    _expectOnScreen(tester, find.byKey(UpdateNotice.hideKey), size);
+    _expectOnScreen(tester, find.byType(CloseButton), size);
     expect(tester.takeException(), isNull);
 
     downloads.emitProgress(100, 100);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
     expect(cubit.state.phase, AppUpdatePhase.verifying);
-    _expectOnScreen(
-      tester,
-      find.byKey(UpdateNotice.cancelDownloadKey).hitTestable(),
-      size,
-    );
-    _expectOnScreen(
-      tester,
-      find.byKey(UpdateNotice.hideKey).hitTestable(),
-      size,
-    );
+    expect(find.byKey(UpdateNotice.cancelDownloadKey), findsNothing);
+    final bar = find.byType(SegmentedBar);
+    expect(tester.widget<SegmentedBar>(bar).value, 1);
+    _expectOnScreen(tester, bar, size);
+    _expectOnScreen(tester, find.byType(CloseButton).hitTestable(), size);
     expect(tester.takeException(), isNull);
 
     downloads.completeDownload(r'C:\updates\iris.exe');
     await tester.pumpAndSettle();
     expect(cubit.state.phase, AppUpdatePhase.ready);
     _expectOnScreen(tester, find.byKey(UpdateNotice.installKey), size);
-    _expectOnScreen(tester, find.byKey(UpdateNotice.laterKey), size);
+    _expectOnScreen(tester, find.byType(CloseButton), size);
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('Windows scrolls release notes up to show a new failure', (
-    tester,
-  ) async {
-    _useDesktopSize(tester);
-    final downloads = _AndroidDownloads();
-    final notes = List.generate(
-      40,
-      (index) => '- Change ${index + 1}: a long release note for scrolling.',
-    ).join('\n');
-    final cubit = await _pumpInAppNotice(
-      tester,
-      downloads,
-      platform: TargetPlatform.windows,
-      notes: notes,
-    );
+  testWidgets(
+    'Windows shows file damage and retry without scrolling the notes',
+    (tester) async {
+      _useDesktopSize(tester);
+      final downloads = _AndroidDownloads();
+      final notes = List.generate(
+        40,
+        (index) => '- Change ${index + 1}: a long release note for scrolling.',
+      ).join('\n');
+      final cubit = await _pumpInAppNotice(
+        tester,
+        downloads,
+        platform: TargetPlatform.windows,
+        notes: notes,
+      );
 
-    await tester.tap(find.byKey(UpdateNotice.noticeKey));
-    await tester.pumpAndSettle();
-    await tester.drag(
-      find.byKey(UpdateNotice.notesScrollKey),
-      const Offset(0, -500),
-    );
-    await tester.pumpAndSettle();
-    expect(
-      find.text('Change 1: a long release note for scrolling.').hitTestable(),
-      findsNothing,
-    );
+      await tester.tap(find.byKey(UpdateNotice.noticeKey));
+      await tester.pumpAndSettle();
+      await tester.drag(
+        find.byKey(UpdateNotice.notesScrollKey),
+        const Offset(0, -500),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.text('Change 1: a long release note for scrolling.').hitTestable(),
+        findsNothing,
+      );
 
-    await tester.tap(find.byKey(UpdateNotice.downloadActionKey));
-    await tester.pump();
-    downloads.failDownload();
-    await tester.pumpAndSettle();
+      await tester.tap(find.byKey(UpdateNotice.downloadActionKey));
+      await tester.pump();
+      downloads.failDownload(AppUpdateFailureKind.invalidFile);
+      await tester.pumpAndSettle();
 
-    expect(cubit.state.phase, AppUpdatePhase.failed);
-    expect(
-      find
-          .text(
-            "Couldn't download the update. Check your connection and try again.",
-          )
-          .hitTestable(),
-      findsOneWidget,
-    );
-    expect(tester.takeException(), isNull);
-  });
+      expect(cubit.state.phase, AppUpdatePhase.failed);
+      final footer = find.byKey(UpdateNotice.footerKey);
+      expect(
+        find
+            .descendant(of: footer, matching: find.text('File damaged'))
+            .hitTestable(),
+        findsOneWidget,
+      );
+      expect(find.text('Download again').hitTestable(), findsOneWidget);
+      expect(
+        find.text('Change 1: a long release note for scrolling.').hitTestable(),
+        findsNothing,
+      );
+      await tester.tap(find.byKey(UpdateNotice.laterKey));
+      await tester.pumpAndSettle();
+      expect(find.byKey(UpdateNotice.noticeKey), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets(
     'Windows reveals repeated installation failures after scrolling',
@@ -447,7 +541,7 @@ void main() {
         expect(downloads.installCalls, attempt);
         expect(cubit.state.failure, AppUpdateFailureKind.install);
         expect(
-          find.text("Couldn't open the installer. Try again.").hitTestable(),
+          find.text("Couldn't open the installer.").hitTestable(),
           findsOneWidget,
         );
         expect(tester.takeException(), isNull);
@@ -499,25 +593,24 @@ void main() {
 
     await tester.tap(find.byKey(UpdateNotice.noticeKey));
     await tester.pumpAndSettle();
-    expect(
-      find.textContaining(RegExp(r'Updating.*60%'), findRichText: true),
-      findsOneWidget,
-    );
+    expect(find.text('Downloading 1.3.0 · 60%'), findsOneWidget);
 
+    final bar = find.byType(SegmentedBar);
+    final downloadingBar = tester.element(bar);
+    final leading = tester.getTopLeft(bar);
     downloads.emitProgress(100, 100);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
     expect(cubit.state.phase, AppUpdatePhase.verifying);
     final sheet = find.byKey(UpdateNotice.sheetKey);
     expect(
-      find.descendant(of: sheet, matching: find.text('Checking file')),
+      find.descendant(of: sheet, matching: find.text('Verifying file')),
       findsOneWidget,
     );
-
-    await tester.tap(find.byKey(UpdateNotice.cancelDownloadKey).hitTestable());
-    await tester.pumpAndSettle();
-    expect(downloads.cancelCalls, 1);
-    expect(cubit.state.phase, AppUpdatePhase.available);
+    expect(find.byKey(UpdateNotice.cancelDownloadKey), findsNothing);
+    expect(tester.widget<SegmentedBar>(bar).value, 1);
+    expect(tester.element(bar), same(downloadingBar));
+    expect(tester.getTopLeft(bar), leading);
   });
 
   testWidgets('a restored update stays installable after an install error', (
@@ -550,12 +643,61 @@ void main() {
     install.complete();
     await tester.pumpAndSettle();
     expect(cubit.state.phase, AppUpdatePhase.ready);
-    expect(
-      find.text("Couldn't open the installer. Try again."),
-      findsOneWidget,
-    );
-    expect(find.text('Install'), findsOneWidget);
+    expect(find.text("Couldn't open the installer."), findsOneWidget);
+    expect(find.text('Retry install'), findsOneWidget);
   });
+
+  testWidgets(
+    'missing Android permission keeps Install visible and reports the error',
+    (tester) async {
+      _usePhoneSize(tester);
+      final permission = Completer<bool>();
+      final downloads = _AndroidDownloads(restorePath: '/tmp/iris.apk')
+        ..permissionGate = permission;
+      final cubit = await _pumpInAppNotice(
+        tester,
+        downloads,
+        notes: List.generate(
+          40,
+          (index) => '- Release note ${index + 1}',
+        ).join('\n'),
+      );
+      await tester.tap(find.byKey(UpdateNotice.noticeKey));
+      await tester.pumpAndSettle();
+      await tester.drag(
+        find.byKey(UpdateNotice.notesScrollKey),
+        const Offset(0, -420),
+      );
+      await tester.pumpAndSettle();
+      final install = find.byKey(UpdateNotice.installKey);
+      await tester.tap(install);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 350));
+      expect(install.hitTestable(), findsOneWidget);
+      expect(find.text('Opening installer'), findsNothing);
+
+      permission.complete(false);
+      await tester.pumpAndSettle();
+      expect(cubit.state.failure, AppUpdateFailureKind.permission);
+      expect(downloads.permissionSettingsOpened, 1);
+      expect(downloads.installCalls, 0);
+      expect(
+        find
+            .text('Allow Iris to install apps in Android settings.')
+            .hitTestable(),
+        findsOneWidget,
+      );
+      expect(find.text('Release note 1').hitTestable(), findsNothing);
+      Navigator.of(tester.element(find.byKey(UpdateNotice.sheetKey))).pop();
+      await tester.pumpAndSettle();
+      final status = find.text('Permission needed');
+      expect(status.hitTestable(), findsOneWidget);
+      expect(
+        tester.widget<Text>(status).textSpan?.style?.color,
+        Theme.of(tester.element(status)).colorScheme.error,
+      );
+    },
+  );
 
   testWidgets(
     'large-text download keeps progress readable and cancel reachable',
@@ -603,7 +745,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 240));
     await tester.pump(const Duration(milliseconds: 1));
 
-    expect(find.text('Version 1.3.0 is out'), findsNothing);
+    expect(find.text('Version 1.3.0 available'), findsNothing);
     expect(tester.hasRunningAnimations, isFalse);
   });
 
@@ -634,12 +776,88 @@ void main() {
 
       await tester.pumpAndSettle();
       expect(
-        find.text(
-          "Couldn't download the update. Check your connection and try again.",
-        ),
+        find.text("Couldn't download the update. Check your connection."),
         findsOneWidget,
       );
       expect(tester.hasRunningAnimations, isFalse);
+    },
+  );
+
+  testWidgets(
+    'strip keeps live download bytes static and hides tap affordance while installing',
+    (tester) async {
+      _usePhoneSize(tester);
+      final install = Completer<void>();
+      final downloads = _AndroidDownloads(initialProgress: false)
+        ..installGate = install;
+      final cubit = await _pumpInAppNotice(
+        tester,
+        downloads,
+        repository: FakeAppUpdateRepository(
+          latest: AppRelease(
+            version: const AppVersion(1, 3, 0),
+            downloadUrl: Uri.parse('https://example.org/iris-1.3.0.apk'),
+            notes: '## Improvements\n\n- More stable playback.',
+          ),
+          installed: const AppVersion(1, 2, 0),
+        ),
+      );
+
+      final notice = find.byKey(UpdateNotice.noticeKey);
+      final downloadFuture = cubit.download();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 350));
+      expect(
+        find.descendant(of: notice, matching: find.byType(PixelNoise)),
+        findsOneWidget,
+      );
+
+      downloads.emitProgress(12 * 1024 * 1024, 0);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 350));
+      expect(
+        find.textContaining('12.0 MB', findRichText: true),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: notice, matching: find.byType(PixelNoise)),
+        findsNothing,
+      );
+
+      downloads.emitProgress(100, 100);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 350));
+      expect(
+        find.descendant(of: notice, matching: find.byType(PixelNoise)),
+        findsOneWidget,
+      );
+      expect(tester.widget<InkWell>(notice).onTap, isNotNull);
+      expect(
+        find.descendant(of: notice, matching: find.byType(PixelIcon)),
+        findsOneWidget,
+      );
+
+      downloads.completeDownload('/tmp/iris.apk');
+      await downloadFuture;
+      await tester.pumpAndSettle();
+
+      final installing = cubit.install();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 350));
+      expect(cubit.state.phase, AppUpdatePhase.installing);
+      expect(
+        find.descendant(of: notice, matching: find.byType(PixelNoise)),
+        findsOneWidget,
+      );
+      expect(tester.widget<InkWell>(notice).onTap, isNull);
+      expect(
+        find.descendant(of: notice, matching: find.byType(PixelIcon)),
+        findsNothing,
+      );
+
+      install.complete();
+      await installing;
+      await tester.pumpAndSettle();
     },
   );
 }
@@ -659,17 +877,20 @@ Future<AppUpdateCubit> _pumpInAppNotice(
   bool reducedMotion = false,
   TargetPlatform platform = TargetPlatform.android,
   Locale? locale,
+  FakeAppUpdateRepository? repository,
 }) async {
   final cubit = AppUpdateCubit(
-    repository: FakeAppUpdateRepository(
-      latest: AppRelease(
-        version: const AppVersion(1, 3, 0),
-        downloadUrl: Uri.parse('https://example.org/iris-1.3.0.apk'),
-        notes: notes,
-        sizeBytes: 2 * 1024 * 1024,
-      ),
-      installed: const AppVersion(1, 2, 0),
-    ),
+    repository:
+        repository ??
+        FakeAppUpdateRepository(
+          latest: AppRelease(
+            version: const AppVersion(1, 3, 0),
+            downloadUrl: Uri.parse('https://example.org/iris-1.3.0.apk'),
+            notes: notes,
+            sizeBytes: 2 * 1024 * 1024,
+          ),
+          installed: const AppVersion(1, 2, 0),
+        ),
     downloads: downloads,
   );
   addTearDown(cubit.close);
@@ -700,14 +921,18 @@ Future<AppUpdateCubit> _pumpInAppNotice(
 }
 
 class _AndroidDownloads implements AppUpdateDownloadRepository {
-  _AndroidDownloads({this.restorePath});
+  _AndroidDownloads({this.restorePath, this.initialProgress = true});
 
   final String? restorePath;
+  final bool initialProgress;
   Completer<void>? installGate;
+  Completer<void>? cancelGate;
+  Completer<bool>? permissionGate;
   bool failInstall = false;
   bool canInstallResult = true;
   int cancelCalls = 0;
   int installCalls = 0;
+  int permissionSettingsOpened = 0;
   void Function(int received, int total)? _onProgress;
   Completer<String>? _download;
 
@@ -716,9 +941,9 @@ class _AndroidDownloads implements AppUpdateDownloadRepository {
 
   void completeDownload(String path) => _download!.complete(path);
 
-  void failDownload() => _download!.completeError(
-    const AppUpdateFailure(AppUpdateFailureKind.network),
-  );
+  void failDownload([
+    AppUpdateFailureKind kind = AppUpdateFailureKind.network,
+  ]) => _download!.completeError(AppUpdateFailure(kind));
 
   @override
   Future<String?> restore(AppRelease release) async => restorePath;
@@ -729,7 +954,7 @@ class _AndroidDownloads implements AppUpdateDownloadRepository {
     required void Function(int received, int total) onProgress,
   }) {
     _onProgress = onProgress;
-    onProgress(42, 100);
+    if (initialProgress) onProgress(42, 100);
     _download = Completer<String>();
     return _download!.future;
   }
@@ -737,6 +962,10 @@ class _AndroidDownloads implements AppUpdateDownloadRepository {
   @override
   Future<void> cancel() async {
     cancelCalls++;
+    if (cancelGate case final gate?) {
+      cancelGate = null;
+      await gate.future;
+    }
     if (_download case final download? when !download.isCompleted) {
       download.completeError(
         const AppUpdateFailure(AppUpdateFailureKind.cancelled),
@@ -745,10 +974,14 @@ class _AndroidDownloads implements AppUpdateDownloadRepository {
   }
 
   @override
-  Future<bool> canInstall() async => canInstallResult;
+  Future<bool> canInstall() async {
+    if (permissionGate case final gate?) return gate.future;
+    return canInstallResult;
+  }
 
   @override
-  Future<void> openInstallPermissionSettings() async {}
+  Future<void> openInstallPermissionSettings() async =>
+      permissionSettingsOpened++;
 
   @override
   Future<void> install(String path) async {
