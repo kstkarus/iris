@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 
 import 'package:iris/entities/anime/domain/anime_summary.dart';
 
@@ -13,6 +14,7 @@ import 'package:iris/features/anime_details/presentation/cubit/anime_details_cub
 import 'package:iris/features/anime_details/presentation/models/anime_details_preview.dart';
 import 'package:iris/features/anime_details/presentation/pages/anime_details_page.dart';
 import 'package:iris/features/anime_details/presentation/widgets/anime_details_view.dart';
+import 'package:iris/shared/models/details_description.dart';
 
 import '../../../../helpers/test_app.dart';
 import '../../../../helpers/test_window.dart';
@@ -89,6 +91,69 @@ void main() {
     );
   });
 
+  testWidgets('synopsis links open their character and Back returns', (
+    tester,
+  ) async {
+    setTestWindowSize(tester, TestWindowSizes.phone);
+    final cubit = AnimeDetailsCubit(
+      animeId: '5114',
+      repository: FixedAnimeDetailsRepository(
+        AnimeDetails(
+          anime: fmaDetails.anime,
+          description: const DetailsDescription(
+            'The cast includes Яхве and Ичиго Куросаки.',
+            characterLinks: [
+              (start: 18, end: 22, characterId: '68537'),
+              (start: 27, end: 41, characterId: '5'),
+            ],
+          ),
+        ),
+      ),
+    )..loadAnime();
+    addTearDown(cubit.close);
+    final router = GoRouter(
+      routes: [
+        GoRoute(
+          path: '/',
+          builder: (_, _) => Scaffold(
+            body: BlocProvider.value(
+              value: cubit,
+              child: const AnimeDetailsView(),
+            ),
+          ),
+        ),
+        GoRoute(
+          path: '/character/:id',
+          name: 'character',
+          builder: (_, state) =>
+              Scaffold(body: Text('Character ${state.pathParameters['id']}')),
+        ),
+      ],
+    );
+    addTearDown(router.dispose);
+    await tester.pumpWidget(testRouterApp(router));
+    for (final (label, id, size) in [
+      ('Яхве', '68537', TestWindowSizes.phone),
+      ('Ичиго Куросаки', '5', TestWindowSizes.desktop),
+    ]) {
+      tester.view.physicalSize = size;
+      await tester.pumpAndSettle();
+      final link = find.text(label);
+      await tester.ensureVisible(link);
+      await tester.pumpAndSettle();
+      expect(
+        tester.getSemantics(link),
+        isSemantics(label: label, isLink: true, hasTapAction: true),
+      );
+      await tester.tap(link);
+      await tester.pumpAndSettle();
+      expect(find.text('Character $id'), findsOneWidget);
+      router.pop();
+      await tester.pumpAndSettle();
+      expect(link, findsOneWidget);
+    }
+  });
+
   testWidgets('the details add the next episode, studio, genres and rating', (
     tester,
   ) async {
@@ -106,7 +171,7 @@ void main() {
         posterUrl: '',
         nextEpisodeAt: DateTime.now().add(const Duration(days: 3)),
       ),
-      description: 'About it.',
+      description: const DetailsDescription('About it.'),
       rating: 'pg_13',
       studios: const ['Bones', 'MAPPA'],
       genres: const [
@@ -154,7 +219,7 @@ void main() {
             posterUrl: '',
             nextEpisodeAt: DateTime.now().add(const Duration(days: 3)),
           ),
-          description: 'About it.',
+          description: const DetailsDescription('About it.'),
         ),
       ),
     );
@@ -241,7 +306,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Unable to load anime details.'), findsNothing);
-    expect(find.text(fmaDetails.description), findsOneWidget);
+    expect(find.text(fmaDetails.description.text), findsOneWidget);
   });
 
   testWidgets('screen readers hear the name once', (tester) async {
@@ -300,7 +365,12 @@ void main() {
     await tester.pump();
     expect(find.text('Synopsis'), findsOneWidget);
 
-    gate.complete(AnimeDetails(anime: fmaDetails.anime, description: ''));
+    gate.complete(
+      AnimeDetails(
+        anime: fmaDetails.anime,
+        description: const DetailsDescription(''),
+      ),
+    );
     await tester.pump(const Duration(milliseconds: 110));
     await tester.pumpAndSettle();
 
@@ -408,5 +478,7 @@ final _preview = AnimeDetailsPreview.fromSummary(
 
 final _longDetails = AnimeDetails(
   anime: fmaDetails.anime,
-  description: List.filled(40, fmaDetails.description).join(' '),
+  description: DetailsDescription(
+    List.filled(40, fmaDetails.description.text).join(' '),
+  ),
 );

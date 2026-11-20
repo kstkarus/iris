@@ -12,6 +12,7 @@ import 'package:iris/features/anime_details/presentation/widgets/recently_watche
 import 'package:iris/features/anime_details/presentation/widgets/related_anime_section.dart';
 import 'package:iris/features/characters/presentation/widgets/characters_section.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
+import 'package:iris/shared/models/details_description.dart';
 import 'package:iris/shared/widgets/detail_layout.dart';
 import 'package:iris/shared/widgets/adaptive/adaptive_content_width.dart';
 import 'package:iris/shared/widgets/adaptive/window_size_class.dart';
@@ -33,7 +34,7 @@ class AnimeDetailsDesktopLayout extends StatefulWidget {
 
   final AnimeDetailsPreview head;
   final bool loading;
-  final String? description;
+  final DetailsDescription? description;
   final List<RelatedAnime> related;
   final VoidCallback? onRetry;
   final WindowSizeClass sizeClass;

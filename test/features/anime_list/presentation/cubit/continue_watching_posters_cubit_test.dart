@@ -6,6 +6,7 @@ import 'package:iris/entities/watch_progress/domain/watch_progress.dart';
 import 'package:iris/features/anime_details/domain/entities/anime_details.dart';
 import 'package:iris/features/anime_details/domain/repositories/anime_details_repository.dart';
 import 'package:iris/features/anime_list/presentation/cubit/continue_watching_posters_cubit.dart';
+import 'package:iris/shared/models/details_description.dart';
 
 void main() {
   test(
@@ -76,7 +77,7 @@ AnimeDetails _details(String id) => AnimeDetails(
     airedOn: '',
     posterUrl: '$id.webp',
   ),
-  description: '',
+  description: const DetailsDescription(''),
 );
 
 WatchProgress _progress(String id) => WatchProgress(

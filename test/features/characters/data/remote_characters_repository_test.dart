@@ -6,6 +6,7 @@ import 'package:iris/features/characters/data/remote_characters_repository.dart'
 import 'package:iris/features/characters/domain/entities/anime_character.dart';
 import 'package:iris/features/characters/domain/entities/character_details.dart';
 import 'package:iris/features/characters/domain/entities/character_summary.dart';
+import 'package:iris/shared/models/details_description.dart';
 import 'package:iris/shared/network/shikimori_graph_ql_client.dart';
 import 'package:iris/shared/network/shikimori_rest_client.dart';
 
@@ -120,8 +121,12 @@ void main() {
       'altname': 'Fullmetal Alchemist',
       'image': {'original': '/system/characters/original/11.jpg?1'},
       'description':
-          'Младший брат — [character=12]Альфонс[/character].\r\n'
+          'Младший брат — [character=12 альфонс-элрик] по паспорту.\r\n'
           '[h3]Внешность[/h3]Невысокий.',
+      'description_html':
+          '<div class="b-text_with_paragraphs">Младший брат — '
+          '<a href="/characters/12"><b>Альфонс</b> Элрик </a>по паспорту.'
+          '<h3>Внешность</h3>Невысокий.</div>',
       'animes': [
         {
           'id': 5114,
@@ -165,7 +170,10 @@ void main() {
         ),
         japanese: 'エドワード・エルリック',
         altName: 'Fullmetal Alchemist',
-        description: 'Младший брат — Альфонс.\n\nВнешность\nНевысокий.',
+        description: DetailsDescription(
+          'Младший брат — Альфонс Элрик по паспорту.\n\nВнешность\nНевысокий.',
+          characterLinks: [(start: 15, end: 28, characterId: '12')],
+        ),
         appearances: [
           CharacterAppearance(
             anime: AnimeSummary(

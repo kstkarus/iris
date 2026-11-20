@@ -15,7 +15,10 @@ AnimeDetails mapShikimoriAnimeDetailsToDomain(ShikimoriAnimeDetailsDto dto) {
 
   return AnimeDetails(
     anime: anime.copyWith(episodesAired: normalizedEpisodesAired),
-    description: sanitizeShikimoriDescription(dto.description),
+    description: parseShikimoriDescription(
+      dto.description,
+      html: dto.descriptionHtml,
+    ),
     rating: dto.rating == 'none' ? '' : dto.rating,
     studios: dto.studios,
     genres: [

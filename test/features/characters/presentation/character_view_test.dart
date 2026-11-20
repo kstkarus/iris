@@ -9,6 +9,7 @@ import 'package:iris/features/characters/domain/entities/character_details.dart'
 import 'package:iris/features/characters/domain/entities/character_summary.dart';
 import 'package:iris/features/characters/presentation/cubit/character_cubit.dart';
 import 'package:iris/features/characters/presentation/widgets/character_view.dart';
+import 'package:iris/shared/models/details_description.dart';
 
 import '../../../helpers/test_app.dart';
 import '../../../helpers/test_window.dart';
@@ -57,7 +58,7 @@ void main() {
     character: _frieren,
     japanese: 'フリーレン',
     altName: 'Frieren the Slayer',
-    description: description,
+    description: DetailsDescription(description),
     appearances: appearances,
   );
 
@@ -187,7 +188,7 @@ void main() {
           character: longCharacter,
           japanese: '寿限無',
           altName: 'Jugemu',
-          description: 'An elf mage.',
+          description: const DetailsDescription('An elf mage.'),
           appearances: const [],
         ),
       ),

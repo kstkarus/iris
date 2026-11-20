@@ -5,18 +5,19 @@ import 'package:iris/entities/anime/domain/anime_summary.dart';
 import 'package:iris/features/anime_details/data/datasources/remote_anime_details_data_source.dart';
 import 'package:iris/features/anime_details/data/repositories/remote_anime_details_repository.dart';
 import 'package:iris/features/anime_details/domain/entities/anime_details.dart';
+import 'package:iris/shared/models/details_description.dart';
 import 'package:iris/shared/network/network_exceptions.dart';
 import 'package:iris/shared/network/shikimori_graph_ql_client.dart';
 
 import '../../../../helpers/fake_http_adapter.dart';
 
 void main() {
-  test('maps remote anime details and sanitizes description', () async {
+  test('keeps character link targets in remote anime details', () async {
     final repository = RemoteAnimeDetailsRepository(
       dataSource: RemoteAnimeDetailsDataSource(
         client: ShikimoriGraphQlClient(
           dio: fakeDio(
-            (_) => FakeReply(200, {
+            (request) => FakeReply(200, {
               'data': {
                 'animes': [
                   {
@@ -24,7 +25,17 @@ void main() {
                     'name': 'Fullmetal Alchemist: Brotherhood',
                     'russian': 'Fullmetal Alchemist: Brotherhood RU',
                     'description':
-                        'A remake of [anime=121]Fullmetal Alchemist[/anime].\n\n[character=1]Hero[/character]',
+                        'A remake of [anime=121]Fullmetal Alchemist[/anime].\n\n'
+                        'Follow [character=12 alphonse-elric].',
+                    if (((request.data as Map)['query'] as String).contains(
+                      'descriptionHtml',
+                    ))
+                      'descriptionHtml':
+                          '<div class="b-text_with_paragraphs">A remake of '
+                          '<a href="/animes/121">Fullmetal Alchemist</a>.<br><br>'
+                          'Alphonse Elric is also in the cast. Follow '
+                          '<a href="https://shikimori.io/characters/z12-alphonse-elric">Alphonse  Elric</a>'
+                          ' and <a href="https://other.example/characters/9">Edward</a>.</div>',
                     'kind': 'tv',
                     'score': 9.1,
                     'status': 'released',
@@ -61,7 +72,11 @@ void main() {
           airedOn: '2009-04-05',
           posterUrl: 'https://shikimori.one/posters/5114/original.jpg',
         ),
-        description: 'A remake of Fullmetal Alchemist.\n\nHero',
+        description: DetailsDescription(
+          'A remake of Fullmetal Alchemist.\n\n'
+          'Alphonse Elric is also in the cast. Follow Alphonse Elric and Edward.',
+          characterLinks: [(start: 77, end: 91, characterId: '12')],
+        ),
       ),
     );
   });

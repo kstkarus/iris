@@ -1,6 +1,7 @@
 import 'package:iris/entities/anime/domain/anime_summary.dart';
 import 'package:iris/features/anime_details/domain/entities/anime_genre_name.dart';
 import 'package:iris/features/anime_details/domain/entities/related_anime.dart';
+import 'package:iris/shared/models/details_description.dart';
 import 'package:iris/shared/utils/equality.dart';
 
 class AnimeDetails {
@@ -15,7 +16,7 @@ class AnimeDetails {
 
   /// With the original-size poster and, while airing, the next episode.
   final AnimeSummary anime;
-  final String description;
+  final DetailsDescription description;
 
   /// The age rating as Shikimori names it (`pg_13`); empty when unknown.
   final String rating;

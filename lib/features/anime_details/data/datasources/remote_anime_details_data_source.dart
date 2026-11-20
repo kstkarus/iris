@@ -42,6 +42,7 @@ query AnimeDetails($id: String!) {
     '$shikimoriAnimeSummaryFields'
     r'''
     description
+    descriptionHtml
     poster {
       originalUrl
     }

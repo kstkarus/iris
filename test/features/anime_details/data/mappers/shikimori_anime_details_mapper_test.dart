@@ -6,6 +6,7 @@ import 'package:iris/features/anime_details/data/models/shikimori_anime_details_
 import 'package:iris/features/anime_details/domain/entities/anime_details.dart';
 import 'package:iris/features/anime_details/domain/entities/anime_genre_name.dart';
 import 'package:iris/features/anime_details/domain/entities/related_anime.dart';
+import 'package:iris/shared/models/details_description.dart';
 import 'package:iris/shared/utils/shikimori_markup.dart';
 
 void main() {
@@ -45,8 +46,9 @@ void main() {
           airedOn: '2009-04-05',
           posterUrl: 'https://shikimori.one/posters/5114/original.jpg',
         ),
-        description:
-            'Two brothers search for a Philosopher\'s Stone after a failed ritual.',
+        description: DetailsDescription(
+          'Two brothers search for a Philosopher\'s Stone after a failed ritual.',
+        ),
       ),
     );
   });
@@ -96,11 +98,11 @@ void main() {
 
   test('description keeps the text of wiki links and BBCode tags', () {
     expect(
-      sanitizeShikimoriDescription(
+      parseShikimoriDescription(
         'Изнывающий от скуки [[Бог смерти|бог смерти]] '
         '[character=71]Рюк[/character]  бросает тетрадь. '
         'Убийцу окрещают [[Кира]].',
-      ),
+      ).text,
       'Изнывающий от скуки бог смерти Рюк бросает тетрадь. '
       'Убийцу окрещают Кира.',
     );
@@ -108,9 +110,9 @@ void main() {
 
   test('description headings get a line of their own', () {
     expect(
-      sanitizeShikimoriDescription(
+      parseShikimoriDescription(
         'Капитан пиратов.\r\n\r\n[h3]Внешность[/h3]Невысокий паренёк.',
-      ),
+      ).text,
       'Капитан пиратов.\n\nВнешность\nНевысокий паренёк.',
     );
   });

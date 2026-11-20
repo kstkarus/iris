@@ -39,8 +39,9 @@ CharacterDetails? parseShikimoriCharacter(Object? json) {
     ),
     japanese: jsonString(character['japanese']),
     altName: jsonString(character['altname']),
-    description: sanitizeShikimoriDescription(
+    description: parseShikimoriDescription(
       jsonString(character['description']),
+      html: jsonString(character['description_html']),
     ),
     appearances: [
       if (animes is List)

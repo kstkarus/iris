@@ -5,8 +5,10 @@ import 'package:skeletonizer/skeletonizer.dart';
 import 'package:iris/features/anime_details/presentation/models/anime_details_preview.dart';
 import 'package:iris/features/watch_sources/presentation/models/anime_watch_sources_args.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
+import 'package:iris/shared/models/details_description.dart';
 import 'package:iris/shared/widgets/app_skeleton.dart';
 import 'package:iris/shared/widgets/detail_layout.dart';
+import 'package:iris/shared/widgets/details_description_text.dart';
 import 'package:iris/shared/widgets/dither_switcher.dart';
 import 'package:iris/shared/widgets/dithered_image.dart';
 import 'package:iris/shared/widgets/network_image.dart';
@@ -121,13 +123,12 @@ class AnimeDetailsRetryBanner extends StatelessWidget {
 class AnimeDetailsDescription extends StatelessWidget {
   const AnimeDetailsDescription({required this.description, super.key});
 
-  final String? description;
+  final DetailsDescription? description;
 
   @override
   Widget build(BuildContext context) {
-    final trimmed = description?.trim();
     final l10n = AppLocalizations.of(context);
-    final Widget child = trimmed != null && trimmed.isEmpty
+    final Widget child = description?.text.trim().isEmpty == true
         ? const SizedBox.shrink(key: ValueKey('empty_description'))
         : Padding(
             key: const ValueKey('description'),
@@ -135,13 +136,11 @@ class AnimeDetailsDescription extends StatelessWidget {
             child: DetailSection(
               label: l10n.animeDetailsDescriptionTitle,
               child: AppSkeleton(
-                enabled: trimmed == null,
+                enabled: description == null,
                 semanticLabel: l10n.animeDetailsLoading,
-                child: Text(
-                  trimmed ?? standInDescription,
-                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    fontFamily: DetailLayout.sansFont,
-                  ),
+                child: DetailsDescriptionText(
+                  description:
+                      description ?? DetailsDescription(standInDescription),
                 ),
               ),
             ),

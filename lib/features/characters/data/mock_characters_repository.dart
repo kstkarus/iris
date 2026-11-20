@@ -3,6 +3,7 @@ import 'package:iris/features/characters/domain/entities/anime_character.dart';
 import 'package:iris/features/characters/domain/entities/character_details.dart';
 import 'package:iris/features/characters/domain/entities/character_summary.dart';
 import 'package:iris/features/characters/domain/repositories/characters_repository.dart';
+import 'package:iris/shared/models/details_description.dart';
 
 /// The same few characters in every anime, for the mock build.
 class MockCharactersRepository implements CharactersRepository {
@@ -53,7 +54,7 @@ class MockCharactersRepository implements CharactersRepository {
       character: found.character,
       japanese: '',
       altName: '',
-      description: 'A character of the mock catalog.',
+      description: const DetailsDescription('A character of the mock catalog.'),
       appearances: [
         CharacterAppearance(
           anime: const AnimeSummary(

@@ -1,6 +1,7 @@
 import 'package:iris/entities/anime/domain/anime_summary.dart';
 import 'package:iris/features/characters/domain/entities/anime_character.dart';
 import 'package:iris/features/characters/domain/entities/character_summary.dart';
+import 'package:iris/shared/models/details_description.dart';
 import 'package:iris/shared/utils/equality.dart';
 
 /// A character's page: who they are and where they appear.
@@ -21,8 +22,7 @@ class CharacterDetails {
   /// Other names and titles the character goes by; empty when none.
   final String altName;
 
-  /// Plain text, paragraphs apart by blank lines; empty when none.
-  final String description;
+  final DetailsDescription description;
 
   /// Every anime the character is in, as Shikimori lists them.
   final List<CharacterAppearance> appearances;

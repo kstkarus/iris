@@ -5,12 +5,14 @@ import 'package:iris/entities/anime/domain/anime_summary.dart';
 import 'package:iris/features/characters/domain/entities/character_details.dart';
 import 'package:iris/features/characters/presentation/character_names.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
+import 'package:iris/shared/models/details_description.dart';
 import 'package:iris/shared/theme/cjk_font.dart';
 import 'package:iris/shared/utils/anime_metadata_formatter.dart';
 import 'package:iris/shared/utils/incomplete_date.dart';
 import 'package:iris/shared/widgets/adaptive/adaptive_content_width.dart';
 import 'package:iris/shared/widgets/app_skeleton.dart';
 import 'package:iris/shared/widgets/detail_layout.dart';
+import 'package:iris/shared/widgets/details_description_text.dart';
 import 'package:iris/shared/widgets/dither_switcher.dart';
 import 'package:iris/shared/widgets/fold_row.dart';
 import 'package:iris/shared/widgets/pixel_icon.dart';
@@ -147,13 +149,12 @@ class _NameCell extends StatelessWidget {
 class CharacterDescriptionSection extends StatelessWidget {
   const CharacterDescriptionSection({required this.description, super.key});
 
-  final String? description;
+  final DetailsDescription? description;
 
   @override
   Widget build(BuildContext context) {
-    final trimmed = description?.trim();
     final l10n = AppLocalizations.of(context);
-    final Widget child = trimmed != null && trimmed.isEmpty
+    final Widget child = description?.text.trim().isEmpty == true
         ? const SizedBox.shrink(key: ValueKey('empty_description'))
         : Padding(
             key: const ValueKey('description'),
@@ -167,13 +168,12 @@ class CharacterDescriptionSection extends StatelessWidget {
                     maxWidth: AdaptiveContentWidth.reading,
                   ),
                   child: AppSkeleton(
-                    enabled: trimmed == null,
+                    enabled: description == null,
                     semanticLabel: l10n.characterLoading,
-                    child: Text(
-                      trimmed ?? standInCharacterDescription,
-                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        fontFamily: DetailLayout.sansFont,
-                      ),
+                    child: DetailsDescriptionText(
+                      description:
+                          description ??
+                          DetailsDescription(standInCharacterDescription),
                     ),
                   ),
                 ),

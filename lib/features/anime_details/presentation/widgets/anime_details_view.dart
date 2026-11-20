@@ -15,6 +15,7 @@ import 'package:iris/features/anime_details/presentation/widgets/recently_watche
 import 'package:iris/features/anime_details/presentation/widgets/related_anime_section.dart';
 import 'package:iris/features/characters/presentation/widgets/characters_section.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
+import 'package:iris/shared/models/details_description.dart';
 import 'package:iris/shared/widgets/adaptive/window_size_class.dart';
 import 'package:iris/shared/widgets/app_skeleton.dart';
 import 'package:iris/shared/widgets/detail_layout.dart';
@@ -101,7 +102,7 @@ class _Content extends StatelessWidget {
 
   final AnimeDetailsPreview? head;
   final bool loading;
-  final String? description;
+  final DetailsDescription? description;
   final VoidCallback? onRetry;
   final List<RelatedAnime> related;
 
@@ -152,7 +153,7 @@ class _StackedLayout extends StatelessWidget {
 
   final AnimeDetailsPreview head;
   final bool loading;
-  final String? description;
+  final DetailsDescription? description;
   final List<RelatedAnime> related;
   final VoidCallback? onRetry;
   final bool isMedium;

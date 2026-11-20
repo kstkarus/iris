@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:iris/entities/anime/domain/anime_summary.dart';
 import 'package:iris/features/anime_details/domain/entities/anime_details.dart';
 import 'package:iris/features/anime_details/domain/repositories/anime_details_repository.dart';
+import 'package:iris/shared/models/details_description.dart';
 
 const fmaDetails = AnimeDetails(
   anime: AnimeSummary(
@@ -17,8 +18,9 @@ const fmaDetails = AnimeDetails(
     airedOn: '2009-04-05',
     posterUrl: 'https://shikimori.one/posters/5114/original.jpg',
   ),
-  description:
-      'Two brothers search for a Philosopher\'s Stone after a failed ritual.',
+  description: DetailsDescription(
+    'Two brothers search for a Philosopher\'s Stone after a failed ritual.',
+  ),
 );
 
 /// Answers every request with [details].

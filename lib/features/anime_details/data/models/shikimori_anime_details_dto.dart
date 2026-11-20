@@ -5,6 +5,7 @@ class ShikimoriAnimeDetailsDto {
   const ShikimoriAnimeDetailsDto({
     required this.anime,
     required this.description,
+    this.descriptionHtml = '',
     this.rating = '',
     this.studios = const [],
     this.genres = const [],
@@ -14,6 +15,7 @@ class ShikimoriAnimeDetailsDto {
   /// With the original-size poster.
   final AnimeSummary anime;
   final String description;
+  final String descriptionHtml;
 
   /// The age rating: `pg_13`, `r_plus`; `none` when unknown.
   final String rating;
@@ -31,6 +33,7 @@ class ShikimoriAnimeDetailsDto {
     return ShikimoriAnimeDetailsDto(
       anime: anime,
       description: json['description']?.toString() ?? '',
+      descriptionHtml: json['descriptionHtml']?.toString() ?? '',
       rating: json['rating']?.toString() ?? '',
       studios: [
         for (final studio in json['studios'] as List<dynamic>? ?? const [])
