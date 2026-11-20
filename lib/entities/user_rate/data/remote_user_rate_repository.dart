@@ -25,6 +25,7 @@ class RemoteUserRateRepository implements UserRateRepository {
          session,
          StreamController<UserRateChange>.broadcast(),
          SerialQueue(),
+         {},
          null,
        );
 
@@ -34,6 +35,7 @@ class RemoteUserRateRepository implements UserRateRepository {
     this._session,
     this._changes,
     this._requests,
+    this._statuses,
     this._editGeneration,
   );
 
@@ -44,7 +46,9 @@ class RemoteUserRateRepository implements UserRateRepository {
   final ShikimoriSessionStore _session;
   final StreamController<UserRateChange> _changes;
   final SerialQueue _requests;
+  final Map<String, UserRateStatus> _statuses;
   final int? _editGeneration;
+  int? _statusesGeneration;
 
   @override
   Stream<UserRateChange> get changes => _changes.stream;
@@ -58,6 +62,7 @@ class RemoteUserRateRepository implements UserRateRepository {
         _session,
         _changes,
         _requests,
+        _statuses,
         generation,
       ),
     ),
@@ -67,7 +72,13 @@ class RemoteUserRateRepository implements UserRateRepository {
     // Calls inside editRate already hold the queue and use its session.
     if (_editGeneration case final generation?) return request(generation);
     final generation = _session.generation;
-    return _requests.run(() => request(generation));
+    return _requests.run(() {
+      if (_statusesGeneration != generation) {
+        _statuses.clear();
+        _statusesGeneration = generation;
+      }
+      return request(generation);
+    });
   }
 
   @override
@@ -89,7 +100,7 @@ class RemoteUserRateRepository implements UserRateRepository {
     }
     final anime = jsonMap(animes.first);
     final rate = UserRateDto.tryParse(anime['userRate'])?.toEntity();
-    await _publishIfCurrent(sessionGeneration, UserRateChange(animeId, rate));
+    await _publishIfCurrent(sessionGeneration, animeId, rate);
     return (rate: rate, totalEpisodes: jsonInt(anime['episodes']));
   });
 
@@ -133,7 +144,7 @@ class RemoteUserRateRepository implements UserRateRepository {
       throw const RemoteResponseException('User rate response is invalid.');
     }
     final rate = saved.toEntity();
-    await _publishIfCurrent(sessionGeneration, UserRateChange(animeId, rate));
+    await _publishIfCurrent(sessionGeneration, animeId, rate, mutation: true);
     return rate;
   });
 
@@ -147,7 +158,9 @@ class RemoteUserRateRepository implements UserRateRepository {
         );
         await _publishIfCurrent(
           sessionGeneration,
-          UserRateChange(animeId, null),
+          animeId,
+          null,
+          mutation: true,
         );
       });
 
@@ -163,12 +176,24 @@ class RemoteUserRateRepository implements UserRateRepository {
   /// An in-flight request may return after its account has changed.
   Future<void> _publishIfCurrent(
     int sessionGeneration,
-    UserRateChange change,
-  ) async {
+    String animeId,
+    UserRate? rate, {
+    bool mutation = false,
+  }) async {
     if (sessionGeneration >= 0 &&
         await _session.read() != null &&
         _session.generation == sessionGeneration) {
-      _changes.add(change);
+      final previousStatus = _statuses[animeId];
+      if (rate == null) {
+        _statuses.remove(animeId);
+      } else {
+        _statuses[animeId] = rate.status;
+      }
+      _changes.add(
+        mutation
+            ? UserRateMutation(animeId, rate, previousStatus: previousStatus)
+            : UserRateChange(animeId, rate),
+      );
     }
   }
 }

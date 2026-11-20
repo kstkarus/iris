@@ -3,15 +3,18 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import 'package:iris/entities/user_rate/domain/user_rate.dart';
 import 'package:iris/features/anime_list/domain/entities/anime_list_query.dart';
 import 'package:iris/features/anime_list/domain/repositories/anime_list_repository.dart';
 import 'package:iris/features/anime_list/presentation/bloc/anime_list_event.dart';
 import 'package:iris/features/anime_list/presentation/bloc/anime_list_state.dart';
 
 class AnimeListBloc extends Bloc<AnimeListEvent, AnimeListState> {
-  AnimeListBloc({required AnimeListRepository repository})
-    : _repository = repository,
-      super(const AnimeListState()) {
+  AnimeListBloc({
+    required AnimeListRepository repository,
+    Stream<UserRateChange>? rateChanges,
+  }) : _repository = repository,
+       super(const AnimeListState()) {
     on<AnimeListStarted>(_onStarted);
     on<AnimeListInitialRetryRequested>(_onInitialRetryRequested);
     on<AnimeListNextPageRequested>(_onNextPageRequested);
@@ -20,13 +23,18 @@ class AnimeListBloc extends Bloc<AnimeListEvent, AnimeListState> {
     on<AnimeListCriteriaApplied>(_onCriteriaApplied);
     on<AnimeListCriteriaReset>(_onCriteriaReset);
     on<AnimeListAccountChanged>(_onAccountChanged);
+    on<_AnimeListRateChanged>(_onRateChanged);
     on<AnimeListPageLoaded>(_onPageLoaded);
     on<AnimeListPageFailed>(_onPageFailed);
+    _rateChanges = rateChanges?.listen((change) {
+      if (change is UserRateMutation) add(_AnimeListRateChanged(change));
+    });
   }
 
   static const pageSize = 12;
 
   final AnimeListRepository _repository;
+  late final StreamSubscription<UserRateChange>? _rateChanges;
   int _requestSessionId = 0;
 
   /// Whether a list without a search query is fetched; when not, it stays
@@ -164,14 +172,37 @@ class AnimeListBloc extends Bloc<AnimeListEvent, AnimeListState> {
     _restartList(emit, query: state.query, sort: state.sort, filters: filters);
   }
 
+  void _onRateChanged(
+    _AnimeListRateChanged event,
+    Emitter<AnimeListState> emit,
+  ) {
+    final filters = state.filters;
+    final change = event.change;
+    if (!state.signedIn ||
+        !filters.usesMyList ||
+        (!state.hasLoadedOnce && !state.isInitialLoading) ||
+        filters.matchesMyListStatus(change.previousStatus) ==
+            filters.matchesMyListStatus(change.rate?.status)) {
+      return;
+    }
+    _restartList(emit, query: state.query, sort: state.sort, filters: filters);
+  }
+
   void _onPageLoaded(AnimeListPageLoaded event, Emitter<AnimeListState> emit) {
     if (event.sessionId != _requestSessionId) {
       return;
     }
 
-    final items = event.append
-        ? [...state.items, ...event.result.items]
-        : event.result.items;
+    final existingIds = event.append
+        ? {for (final item in state.items) item.anime.id}
+        : null;
+    final items = existingIds == null
+        ? event.result.items
+        : [
+            ...state.items,
+            for (final item in event.result.items)
+              if (existingIds.add(item.anime.id)) item,
+          ];
 
     emit(
       state.copyWith(
@@ -288,4 +319,16 @@ class AnimeListBloc extends Bloc<AnimeListEvent, AnimeListState> {
       );
     }
   }
+
+  @override
+  Future<void> close() async {
+    await _rateChanges?.cancel();
+    return super.close();
+  }
+}
+
+class _AnimeListRateChanged extends AnimeListEvent {
+  const _AnimeListRateChanged(this.change);
+
+  final UserRateMutation change;
 }

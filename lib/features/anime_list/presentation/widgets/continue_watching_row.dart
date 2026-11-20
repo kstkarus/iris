@@ -10,17 +10,17 @@ import 'package:iris/shared/widgets/pixel_icon.dart';
 import 'package:iris/shared/widgets/poster_image.dart';
 import 'package:iris/shared/widgets/tap_row.dart';
 
-/// Keep the same useful record, source grouping and five-title limit as before.
+/// The newest useful record per title or unlinked source, when not hidden.
 List<WatchProgress> continueWatchingItems(List<WatchProgress> history) {
+  final sorted = history.where((item) => item.isWorthContinuing).toList()
+    ..sort((left, right) => right.updatedAt.compareTo(left.updatedAt));
   final seen = <String>{};
-  return latestPerTorrent(history.where((item) => item.isWorthContinuing))
-      .where(
-        (item) =>
-            !item.hiddenFromContinueWatching &&
-            seen.add(item.continueWatchingKey),
-      )
-      .take(ContinueWatchingRow.maxItems)
-      .toList();
+  return [
+    for (final item in sorted)
+      if (seen.add(item.continueWatchingKey) &&
+          !item.hiddenFromContinueWatching)
+        item,
+  ].take(ContinueWatchingRow.maxItems).toList();
 }
 
 /// The compact contents shared by the catalog's popover and phone sheet.
@@ -68,7 +68,7 @@ class ContinueWatchingRow extends StatelessWidget {
         const SizedBox(height: 8),
         DitherList<WatchProgress>.column(
           items: items,
-          keyOf: (item) => item.torrentKey,
+          keyOf: (item) => item.continueWatchingKey,
           separator: const Divider(height: 1),
           removalDuration: const Duration(milliseconds: 280),
           itemBuilder: (context, item) => _ProgressEntryRow(
@@ -114,7 +114,7 @@ class _ProgressEntryRow extends StatelessWidget {
           ? l10n.watchProgressPlayNextButton
           : l10n.watchProgressContinueButton,
       child: TapRow(
-        inkKey: ValueKey('continue_watching_${progress.torrentKey}'),
+        inkKey: ValueKey('continue_watching_${progress.continueWatchingKey}'),
         onTap: () => onOpen(progress),
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 8),

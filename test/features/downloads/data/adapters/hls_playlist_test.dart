@@ -107,7 +107,7 @@ https://other.example.test/1080/index.m3u8
 
   group('parseMedia', () {
     test('different variant heights identify different partial files', () {
-      const text = '#EXTM3U\n#EXTINF:6,\na.ts\n';
+      const text = '#EXTM3U\n#EXTINF:6,\na.ts\n#EXT-X-ENDLIST\n';
       final lower = HlsPlaylist.parseMedia(text, base, variantHeight: 480)!;
       final higher = HlsPlaylist.parseMedia(text, base, variantHeight: 720)!;
 
@@ -146,7 +146,8 @@ https://other.example.test/1080/index.m3u8
           '#EXTM3U\n'
           '#EXT-X-MAP:URI="init.mp4"\n'
           '#EXTINF:4,\n'
-          '//edge.example.test/seg1.m4s\n';
+          '//edge.example.test/seg1.m4s\n'
+          '#EXT-X-ENDLIST\n';
 
       final plan = HlsPlaylist.parseMedia(text, base)!;
 
@@ -162,19 +163,31 @@ https://other.example.test/1080/index.m3u8
     });
 
     test('a plain key changes nothing', () {
-      const text = '#EXTM3U\n#EXT-X-KEY:METHOD=NONE\n#EXTINF:4,\na.ts\n';
+      const text =
+          '#EXTM3U\n#EXT-X-KEY:METHOD=NONE\n#EXTINF:4,\na.ts\n#EXT-X-ENDLIST\n';
 
       expect(HlsPlaylist.parseMedia(text, base)?.segments, hasLength(1));
     });
 
-    test('does not load master, encrypted, byte-range or empty playlists', () {
+    test('does not load master, encrypted or byte-range playlists', () {
       for (final text in [
         '#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=1000\n720.m3u8\n',
         '#EXTM3U\n#EXT-X-KEY:METHOD=AES-128,URI="key.bin"\n#EXTINF:4,\na.ts\n',
         '#EXTM3U\n#EXTINF:4,\n#EXT-X-BYTERANGE:1000@0\na.ts\n',
-        '#EXTM3U\n#EXT-X-ENDLIST\n',
       ]) {
         expect(HlsPlaylist.parseMedia(text, base), isNull, reason: text);
+      }
+    });
+
+    test('reports incomplete and non-playlist responses as malformed', () {
+      for (final text in [
+        '#EXTM3U\n#EXT-X-PLAYLIST-TYPE:EVENT\n#EXTINF:6,\na.ts\n',
+        '#EXTM3U\n#EXTINF:6,\na.ts\n#EXTINF:6,\n',
+        '#EXTM3U\n#EXT-X-ENDLIST\n',
+        '<html>Sign in to watch</html>',
+        '#EXTINF:6,\na.ts\n#EXT-X-ENDLIST\n',
+      ]) {
+        expect(() => HlsPlaylist.parseMedia(text, base), throwsFormatException);
       }
     });
   });

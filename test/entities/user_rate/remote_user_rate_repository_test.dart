@@ -7,6 +7,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:iris/entities/user_rate/data/remote_user_rate_repository.dart';
 import 'package:iris/entities/user_rate/domain/mark_episode_watched.dart';
 import 'package:iris/entities/user_rate/domain/user_rate.dart';
+import 'package:iris/entities/user_rate/presentation/user_rate_cubit.dart';
+import 'package:iris/entities/user_rate/presentation/user_rate_state.dart';
 import 'package:iris/shared/network/network_exceptions.dart';
 import 'package:iris/shared/network/shikimori_auth_interceptor.dart';
 import 'package:iris/shared/network/shikimori_graph_ql_client.dart';
@@ -162,6 +164,82 @@ void main() {
     // Shikimori finishes an anime whose last episode is marked.
     expect(rate.status, UserRateStatus.completed);
   });
+
+  for (final edit in ['score', 'status']) {
+    test(
+      'editing the $edit preserves a watch mark that creates the rate',
+      () async {
+        Map<String, dynamic>? entry;
+        server = (request) {
+          if (request.path.contains('graphql')) {
+            return FakeReply(200, {
+              'data': {
+                'animes': [
+                  {'id': '1', 'episodes': 12, 'userRate': entry},
+                ],
+              },
+            });
+          }
+          final saved = {
+            if (request.method == 'PATCH') ...?entry,
+            ...body(request)['user_rate'] as Map<String, dynamic>,
+            'id': 16,
+          };
+          entry = saved;
+          return FakeReply(200, saved);
+        };
+        final repo = repository();
+        await session.write(tokens('a'));
+        final cubit = UserRateCubit(repository: repo, animeId: '1');
+        addTearDown(cubit.close);
+        await cubit.accountChanged('42');
+        final markStarted = Completer<void>();
+        final allowMark = Completer<void>();
+        final mark = MarkEpisodeWatched(repo).call(
+          userId: '42',
+          animeId: '1',
+          episode: 5,
+          beforeSave: (_) {
+            markStarted.complete();
+            return allowMark.future;
+          },
+        );
+        await markStarted.future;
+        if (edit == 'score') {
+          cubit.setScore(8);
+        } else {
+          cubit.setStatus(UserRateStatus.onHold);
+        }
+        final settled = cubit.stream.firstWhere(
+          (state) => state is UserRateLoaded && !state.saving,
+        );
+        allowMark.complete();
+        expect(await mark, isA<EpisodeMarked>());
+        expect(
+          await settled,
+          UserRateLoaded(
+            UserRate(
+              id: '16',
+              episodes: 5,
+              status: edit == 'score'
+                  ? UserRateStatus.watching
+                  : UserRateStatus.onHold,
+              score: edit == 'score' ? 8 : 0,
+            ),
+          ),
+        );
+        final writes = adapter.requests.where(
+          (request) => !request.path.contains('graphql'),
+        );
+        expect(writes.map((request) => request.method), ['POST', 'PATCH']);
+        expect(writes.last.path, '/api/v2/user_rates/16');
+        expect(
+          body(writes.last)['user_rate'],
+          edit == 'score' ? {'score': 8} : {'status': 'on_hold'},
+        );
+      },
+    );
+  }
 
   test('removes an entry', () async {
     server = (_) => const FakeReply(204);
@@ -437,6 +515,15 @@ void main() {
     expect((await saving).episodes, 5);
     await pumpEventQueue();
     expect(changes.map((change) => change.rate?.episodes), [2, 5]);
+    expect(changes.first, isNot(isA<UserRateMutation>()));
+    expect(
+      changes.last,
+      isA<UserRateMutation>().having(
+        (change) => change.previousStatus,
+        'previous status',
+        UserRateStatus.watching,
+      ),
+    );
     await subscription.cancel();
   });
 

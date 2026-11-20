@@ -8,31 +8,6 @@ import 'package:iris/entities/user_rate/domain/user_rate_repository.dart';
 import 'package:iris/shared/network/network_exceptions.dart';
 import 'package:iris/shared/utils/serial_queue.dart';
 
-class EpisodeSyncState {
-  const EpisodeSyncState({
-    this.pending = 0,
-    this.blocked = 0,
-    this.syncing = false,
-    this.storageFailed = false,
-  });
-
-  final int pending;
-  final int blocked;
-  final bool syncing;
-  final bool storageFailed;
-
-  @override
-  bool operator ==(Object other) =>
-      other is EpisodeSyncState &&
-      pending == other.pending &&
-      blocked == other.blocked &&
-      syncing == other.syncing &&
-      storageFailed == other.storageFailed;
-
-  @override
-  int get hashCode => Object.hash(pending, blocked, syncing, storageFailed);
-}
-
 /// A durable outbox for watched episodes, scoped to the signed-in account.
 /// Writes absolute counts, so a lost response cannot count an episode twice.
 class EpisodeWatchSync implements EpisodeMarker, EpisodeMarkSync {
@@ -55,7 +30,6 @@ class EpisodeWatchSync implements EpisodeMarker, EpisodeMarkSync {
   final DateTime Function() _now;
   final _storageQueue = SerialQueue();
   final _networkQueue = SerialQueue();
-  final _changes = StreamController<EpisodeSyncState>.broadcast();
   final _markUpdates = StreamController<EpisodeMarkUpdate>.broadcast();
   final _retryAt = <String, DateTime>{};
   final _attempts = <String, int>{};
@@ -68,12 +42,7 @@ class EpisodeWatchSync implements EpisodeMarker, EpisodeMarkSync {
   int _generation = -1;
   bool _foreground = true;
   bool _closed = false;
-  bool _sending = false;
-  bool _storageFailed = false;
-  EpisodeSyncState _state = const EpisodeSyncState();
 
-  EpisodeSyncState get state => _state;
-  Stream<EpisodeSyncState> get changes => _changes.stream;
   @override
   Stream<EpisodeMarkUpdate> get markUpdates => _markUpdates.stream;
 
@@ -112,7 +81,6 @@ class EpisodeWatchSync implements EpisodeMarker, EpisodeMarkSync {
         unawaited(_remember(userId, generation, change));
       });
     }
-    _publish();
     unawaited(sync());
   }
 
@@ -239,28 +207,6 @@ class EpisodeWatchSync implements EpisodeMarker, EpisodeMarkSync {
     }
   }
 
-  /// Explicit retry also releases requests refused by the server (e.g. 403).
-  Future<void> retry() async {
-    final userId = _userId;
-    if (userId == null) return;
-    try {
-      await _mutate(
-        (entries) => [
-          for (final entry in entries)
-            if (entry.userId == userId && entry.blocked)
-              entry.withEpisodes(entry.episodes)
-            else
-              entry,
-        ],
-      );
-      _retryAt.clear();
-      _attempts.clear();
-      await sync();
-    } on Object catch (error, stack) {
-      _log(error, stack);
-    }
-  }
-
   Future<void> sync() {
     if (_draining != null) return _draining!;
     final userId = _userId;
@@ -283,7 +229,6 @@ class EpisodeWatchSync implements EpisodeMarker, EpisodeMarkSync {
         })
         .whenComplete(() {
           _draining = null;
-          _publish();
           _schedule();
         });
   }
@@ -292,8 +237,6 @@ class EpisodeWatchSync implements EpisodeMarker, EpisodeMarkSync {
     EpisodeSyncEntry entry,
     int generation,
   ) async {
-    _sending = true;
-    _publish();
     try {
       final result = await _mark(
         userId: entry.userId,
@@ -397,9 +340,6 @@ class EpisodeWatchSync implements EpisodeMarker, EpisodeMarkSync {
         }
       }
       return deferred;
-    } finally {
-      _sending = false;
-      _publish();
     }
   }
 
@@ -463,13 +403,8 @@ class EpisodeWatchSync implements EpisodeMarker, EpisodeMarkSync {
     try {
       await (_writing = _storage.write(kept));
       _entries = kept;
-      _storageFailed = false;
-    } on Object {
-      _storageFailed = true;
-      rethrow;
     } finally {
       _writing = null;
-      _publish();
     }
   }
 
@@ -503,22 +438,6 @@ class EpisodeWatchSync implements EpisodeMarker, EpisodeMarkSync {
     );
   }
 
-  void _publish() {
-    if (_closed) return;
-    final mine = _entries.where((entry) => entry.userId == _userId);
-    final next = EpisodeSyncState(
-      pending: mine.fold(0, (sum, entry) => sum + entry.episodes.length),
-      blocked: mine
-          .where((entry) => entry.blocked)
-          .fold(0, (sum, entry) => sum + entry.episodes.length),
-      syncing: _sending,
-      storageFailed: _storageFailed,
-    );
-    if (next == _state) return;
-    _state = next;
-    _changes.add(next);
-  }
-
   void _log(Object error, StackTrace stack) => developer.log(
     'Episode synchronization deferred.',
     name: 'EpisodeSync',
@@ -533,7 +452,6 @@ class EpisodeWatchSync implements EpisodeMarker, EpisodeMarkSync {
     await _ratesSubscription?.cancel();
     await _writing;
     // A paused UI subscriber must not hold disposal open.
-    unawaited(_changes.close());
     unawaited(_markUpdates.close());
   }
 }

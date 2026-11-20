@@ -4,7 +4,7 @@ import 'package:iris/features/anime_list/presentation/bloc/anime_list_bloc.dart'
 /// [AnimeListBloc], kept apart so the catalog stays as it was while
 /// searching. Without a query there is no search and nothing is fetched.
 class AnimeSearchBloc extends AnimeListBloc {
-  AnimeSearchBloc({required super.repository});
+  AnimeSearchBloc({required super.repository, super.rateChanges});
 
   @override
   bool get fetchesWithoutQuery => false;

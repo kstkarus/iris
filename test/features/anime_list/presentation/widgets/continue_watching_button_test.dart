@@ -46,7 +46,7 @@ void main() {
           findsOneWidget,
         );
         await tester.tap(
-          find.byKey(const ValueKey('continue_watching_source')),
+          find.byKey(const ValueKey('continue_watching_anime:source')),
         );
         await tester.pumpAndSettle();
         expect(find.text('Player destination'), findsOneWidget);
@@ -105,36 +105,44 @@ void main() {
   }
 
   testWidgets(
-    'hiding a title keeps older unlabelled episodes of its torrents out of the list',
+    'dismissing one title keeps other titles and unlinked files of its torrent',
     (tester) async {
       final harness = await _pump(
         tester,
         const Size(1280, 900),
         items: [
-          _progress(source: 'newer', animeId: '52991', minute: 20),
+          _progress(source: 'pack', animeId: '52991', minute: 20),
           _progress(source: 'older', animeId: '52991', minute: 10),
-          _progress(source: 'older', animeId: '', fileIndex: 1),
+          _progress(source: 'pack', animeId: '99999', fileIndex: 3),
+          _progress(source: 'pack', animeId: '', fileIndex: 4),
         ],
       );
       await tester.tap(find.byKey(ContinueWatchingButton.buttonKey));
       await tester.pumpAndSettle();
-      expect(
-        find.byKey(const ValueKey('continue_watching_newer')),
-        findsOneWidget,
+      final first = find.byKey(const ValueKey('continue_watching_anime:52991'));
+      final second = find.byKey(
+        const ValueKey('continue_watching_anime:99999'),
       );
-      await tester.tap(find.byTooltip('More actions'));
+      final unlinked = find.byKey(const ValueKey('continue_watching_pack'));
+      expect(first, findsOneWidget);
+      expect(second, findsOneWidget);
+      expect(unlinked, findsOneWidget);
+      await tester.tap(
+        find.descendant(of: first, matching: find.byTooltip('More actions')),
+      );
       await tester.pumpAndSettle();
       await tester.tap(find.text('Remove from list'));
       await tester.pumpAndSettle();
 
-      expect(find.byType(ContinueWatchingRow), findsNothing);
-      expect(find.byKey(ContinueWatchingButton.buttonKey), findsNothing);
-      expect(harness.history.items, hasLength(3));
+      expect(first, findsNothing);
+      expect(second, findsOneWidget);
+      expect(unlinked, findsOneWidget);
+      expect(tester.takeException(), isNull);
       expect(
         harness.history.items
-            .singleWhere((item) => item.fileIndex == 1)
-            .position,
-        const Duration(minutes: 12),
+            .where((item) => item.hiddenFromContinueWatching)
+            .map((item) => item.torrentKey),
+        ['pack', 'older'],
       );
     },
   );
@@ -240,7 +248,7 @@ void main() {
     await tester.tap(find.byKey(ContinueWatchingButton.buttonKey));
     await tester.pumpAndSettle();
     await tester.ensureVisible(
-      find.byKey(const ValueKey('continue_watching_source4')),
+      find.byKey(const ValueKey('continue_watching_anime:source4')),
     );
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);

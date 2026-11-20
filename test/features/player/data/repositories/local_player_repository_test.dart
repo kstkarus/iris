@@ -17,19 +17,23 @@ import '../../player_test_doubles.dart';
 void main() {
   test('offline online episodes retain their supplied numbers and titles', () {
     const magnet = 'online:anilibria/release?anime=1';
-    final source = downloadedPlayerSource([
-      _completedDownload.copyWith(
-        magnet: magnet,
-        fileIndex: 4,
-        fileName: onlineEpisodeFileName(4, 'Title'),
-      ),
-      _completedDownload.copyWith(
-        id: 'special',
-        magnet: magnet,
-        fileIndex: 100250,
-        fileName: onlineEpisodeFileName(2.5, 'Special'),
-      ),
-    ], magnet)!;
+    final source = downloadedPlayerSource(
+      [
+        _completedDownload.copyWith(
+          magnet: magnet,
+          fileIndex: 4,
+          fileName: onlineEpisodeFileName(4, 'Title'),
+        ),
+        _completedDownload.copyWith(
+          id: 'special',
+          magnet: magnet,
+          fileIndex: 100250,
+          fileName: onlineEpisodeFileName(2.5, 'Special'),
+        ),
+      ],
+      magnet,
+      animeId: '1',
+    )!;
     expect(source.files.map((file) => file.episodeNumber), [2.5, 4]);
     expect(source.files.map((file) => file.title), ['Special', 'Title']);
     expect(filesCountedInList(source.files, 4), {4});
@@ -46,6 +50,25 @@ void main() {
       ).episodeNumber,
       4,
     );
+  });
+
+  test('offline sources separate both linked titles and unlinked files', () {
+    final items = [
+      _completedDownload,
+      _completedDownload.copyWith(animeId: '2', fileIndex: 1),
+      _completedDownload.copyWith(animeId: '', fileIndex: 2),
+    ];
+    final sessions = <String>{};
+    for (final item in items) {
+      final source = downloadedPlayerSource(
+        items,
+        item.magnet,
+        animeId: item.animeId,
+      )!;
+      expect(source.files.map((file) => file.index), [item.fileIndex]);
+      sessions.add(source.sessionId);
+    }
+    expect(sessions, hasLength(3));
   });
 
   test('opens only a completed download as a local media file', () async {
@@ -65,7 +88,7 @@ void main() {
   });
 
   test(
-    'one offline source opens the selected completed episode and rejects deletion',
+    'local playback rejects other titles and unlinked files in the same torrent',
     () async {
       final second = _completedDownload.copyWith(
         id: 'second',
@@ -87,11 +110,14 @@ void main() {
           magnet: 'online:anilibria/other',
           fileIndex: 9,
         ),
+        second.copyWith(id: 'other-title', animeId: '2', fileIndex: 6),
+        second.copyWith(id: 'unlinked', animeId: '', fileIndex: 7),
         _completedDownload.copyWith(fileName: 'episode-01.mkv'),
       ]);
       final source = downloadedPlayerSource(
         downloads.items,
         _completedDownload.magnet,
+        animeId: _completedDownload.animeId,
       )!;
       expect(source.files.map((file) => file.index), [0, 1]);
       final repository = LocalPlayerRepository(
@@ -106,12 +132,43 @@ void main() {
         second.localPath,
       );
       downloads.items.remove(second);
-      expect(
-        await repository
-            .startPlayback(sessionId: source.sessionId, fileIndex: 1)
-            .toList(),
-        const [PlayerLaunchFailureUpdate()],
+      for (final fileIndex in [1, 6, 7, 9]) {
+        expect(
+          await repository
+              .startPlayback(sessionId: source.sessionId, fileIndex: fileIndex)
+              .toList(),
+          const [PlayerLaunchFailureUpdate()],
+          reason:
+              'file $fileIndex is outside the source or no longer downloaded',
+        );
+      }
+    },
+  );
+
+  test(
+    'a file relinked before the disk lookup cannot open in the old title',
+    () async {
+      final downloads = _DownloadsRepositoryFake(_completedDownload);
+      final source = downloadedPlayerSource(
+        downloads.items,
+        _completedDownload.magnet,
+        animeId: _completedDownload.animeId,
+      )!;
+      downloads.beforeLookup = () {
+        downloads.items[0] = _completedDownload.copyWith(animeId: '2');
+      };
+      final repository = LocalPlayerRepository(
+        downloadsRepository: downloads,
+        memoryAdapter: const FixedMemoryAdapter(1024),
       );
+
+      final updates = await repository
+          .startPlayback(
+            sessionId: source.sessionId,
+            fileIndex: _completedDownload.fileIndex,
+          )
+          .toList();
+      expect(updates, const [PlayerLaunchFailureUpdate()]);
     },
   );
 
@@ -152,12 +209,18 @@ class _DownloadsRepositoryFake extends Fake implements DownloadsRepository {
   _DownloadsRepositoryFake(DownloadItem? item) : items = [?item];
   _DownloadsRepositoryFake.many(this.items);
   final List<DownloadItem> items;
+  void Function()? beforeLookup;
 
   @override
   Stream<List<DownloadItem>> watchDownloads() => Stream.value(List.of(items));
 
   @override
-  Future<DownloadItem?> findCompletedById({required String id}) async => items
-      .where((item) => item.id == id && item.status == DownloadStatus.completed)
-      .firstOrNull;
+  Future<DownloadItem?> findCompletedById({required String id}) async {
+    beforeLookup?.call();
+    return items
+        .where(
+          (item) => item.id == id && item.status == DownloadStatus.completed,
+        )
+        .firstOrNull;
+  }
 }

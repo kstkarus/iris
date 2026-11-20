@@ -224,14 +224,23 @@ class UserRateCubit extends Cubit<UserRateState> {
         final wish = _wish!;
         _wish = null;
         final rateId = _saved?.id;
-        final saved = await _repository.save(
-          userId: userId,
-          animeId: _animeId,
-          rateId: rateId,
-          status: rateId == null || wish.status ? wish.rate.status : null,
-          episodes: rateId == null || wish.episodes ? wish.rate.episodes : null,
-          score: rateId == null || wish.score ? wish.rate.score : null,
-        );
+        Future<UserRate> save(UserRateRepository rates, String? rateId) =>
+            rates.save(
+              userId: userId,
+              animeId: _animeId,
+              rateId: rateId,
+              status: rateId == null || wish.status ? wish.rate.status : null,
+              episodes: rateId == null || wish.episodes
+                  ? wish.rate.episodes
+                  : null,
+              score: rateId == null || wish.score ? wish.rate.score : null,
+            );
+        final saved = rateId != null
+            ? await save(_repository, rateId)
+            : await _repository.editRate((rates) async {
+                final current = await rates.fetch(_animeId);
+                return save(rates, current?.id);
+              });
         if (isClosed || session != _session) return;
         _saved = saved;
       }

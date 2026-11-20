@@ -97,7 +97,7 @@ void main() {
         animeId: '52991',
       );
       final otherAnime = _progress(
-        torrentKey: 't3',
+        torrentKey: 't2',
         fileIndex: 0,
         positionSeconds: 400,
         minute: 3,
@@ -106,6 +106,8 @@ void main() {
       await repository.save(older);
       await repository.save(newer);
       await repository.save(otherAnime);
+      final unlinked = _progress(torrentKey: 't2', fileIndex: 3);
+      await repository.save(unlinked);
 
       await repository.dismissFromContinueWatching(newer);
 
@@ -124,9 +126,10 @@ void main() {
       expect(
         afterDismiss
             .where((item) => !item.hiddenFromContinueWatching)
-            .map((item) => item.torrentKey),
-        ['t3'],
+            .map((item) => item.id),
+        ['t2:0', 't2:3'],
       );
+      await reopened.dismissFromContinueWatching(unlinked);
 
       // Newer playback restores the anime to Continue watching.
       await reopened.save(
@@ -143,7 +146,7 @@ void main() {
         afterResume
             .where((item) => !item.hiddenFromContinueWatching)
             .map((item) => item.id),
-        ['t2:2', 't3:0'],
+        ['t2:2', 't2:0'],
       );
     },
   );

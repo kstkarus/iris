@@ -262,8 +262,11 @@ void main() {
     await cubit.accountChanged('42');
     repository
       ..failSaveAfterSaving = true
-      ..fetchGate = Completer();
+      ..gate = Completer();
     cubit.setStatus(UserRateStatus.watching);
+    await pumpEventQueue();
+    repository.fetchGate = Completer();
+    repository.gate!.complete();
     await pumpEventQueue();
     repository.failSaveAfterSaving = false;
 

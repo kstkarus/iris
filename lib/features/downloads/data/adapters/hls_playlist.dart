@@ -33,6 +33,7 @@ class HlsPlan {
 /// variants, segments and the fMP4 init segment. Encrypted, byte-range and
 /// separate-audio playlists are not loaded.
 abstract final class HlsPlaylist {
+  static const _header = '#EXTM3U';
   static const _variantTag = '#EXT-X-STREAM-INF:';
   static const _mediaTag = '#EXT-X-MEDIA:';
 
@@ -45,6 +46,7 @@ abstract final class HlsPlaylist {
     required int quality,
   }) {
     final lines = _lines(text);
+    if (lines.first != _header) return null;
     final externalAudioGroups = _externalAudioGroups(lines);
     final variants = <({Uri uri, int height, int bandwidth})>[];
     for (var index = 0; index < lines.length; index++) {
@@ -112,16 +114,21 @@ abstract final class HlsPlaylist {
     return withUri.difference(muxedDefault);
   }
 
-  /// The pieces of a media playlist; null when it cannot be loaded as
-  /// plain pieces (master playlist, encrypted, byte ranges) or has none.
+  /// The pieces of a complete media playlist. Unsupported formats return
+  /// null. Invalid or unfinished playlists throw [FormatException].
   static HlsPlan? parseMedia(String text, Uri base, {int? variantHeight}) {
     HlsPiece? init;
     final segments = <HlsPiece>[];
     var seconds = 0.0;
     final lines = _lines(text);
+    if (lines.first != _header) {
+      throw const FormatException('playlist is missing #EXTM3U');
+    }
     for (final line in lines) {
       if (line.isEmpty) continue;
-      if (line.startsWith(_variantTag) || line.startsWith(_mediaTag)) {
+      if (line.startsWith(_variantTag) ||
+          line.startsWith(_mediaTag) ||
+          line.startsWith('#EXT-X-I-FRAME-STREAM-INF:')) {
         return null;
       } else if (line.startsWith('#EXTINF:')) {
         final value = line.substring('#EXTINF:'.length).split(',').first;
@@ -142,7 +149,12 @@ abstract final class HlsPlaylist {
         seconds = 0;
       }
     }
-    if (segments.isEmpty) return null;
+    if (!lines.contains('#EXT-X-ENDLIST')) {
+      throw const FormatException('playlist is missing #EXT-X-ENDLIST');
+    }
+    if (segments.isEmpty) {
+      throw const FormatException('playlist has no media segments');
+    }
     final fingerprintInput = [
       if (variantHeight != null) '$variantHeight',
       ...lines,

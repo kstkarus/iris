@@ -15,26 +15,29 @@ import '../../../../helpers/fake_player_repository.dart';
 
 void main() {
   test(
-    'resume uses a downloaded episode without preparing the remote source',
+    'resume uses only completed files for the selected title in a shared torrent',
     () async {
       final downloads = MockDownloadsRepository();
-      await downloads.enqueueDownload(
-        source: const PreparedDownloadSource(sourceToken: 's', files: []),
-        file: const DownloadableFile(
-          index: 0,
-          name: 'episode-01.mkv',
-          relativePath: 'episode-01.mkv',
-          size: 1,
-        ),
-        animeId: '1',
-        animeTitle: 'Anime',
-        sourceTitle: 'Release',
-      );
+      for (final (index, animeId) in [(0, '1'), (1, '2'), (2, '')]) {
+        await downloads.enqueueDownload(
+          source: const PreparedDownloadSource(sourceToken: 's', files: []),
+          file: DownloadableFile(
+            index: index,
+            name: 'episode-$index.mkv',
+            relativePath: 'episode-$index.mkv',
+            size: 1,
+          ),
+          animeId: animeId,
+          animeTitle: 'Anime',
+          sourceTitle: 'Release',
+        );
+      }
       final remote = _PreparedSourceRepository(
         const PreparedPlayerSource(sessionId: 'remote', files: []),
       );
       final cubit = PlayerSourceCubit(
         magnet: 'mock-magnet',
+        animeId: '1',
         repository: remote,
         downloadsRepository: downloads,
         preferDownloads: true,
@@ -43,12 +46,15 @@ void main() {
       await cubit.loadSource();
       expect(remote.preparations, 0);
       expect(
-        (cubit.state as PlayerSourceReady).preparedSource.sessionId,
-        startsWith('download-source:'),
+        (cubit.state as PlayerSourceReady).preparedSource.files.map(
+          (file) => file.index,
+        ),
+        [0],
       );
       await cubit.close();
       final missing = PlayerSourceCubit(
         magnet: 'mock-magnet',
+        animeId: '1',
         repository: remote,
         downloadsRepository: downloads,
         preferDownloads: true,

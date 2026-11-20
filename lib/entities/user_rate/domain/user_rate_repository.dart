@@ -3,7 +3,7 @@ import 'package:iris/entities/user_rate/domain/user_rate.dart';
 /// The signed-in user's Shikimori list, one anime at a time.
 abstract interface class UserRateRepository {
   /// Every entry read, saved or removed, so screens showing the same
-  /// anime agree.
+  /// anime agree. Confirmed writes are emitted as [UserRateMutation].
   Stream<UserRateChange> get changes;
 
   /// Null when the anime is not in the list.

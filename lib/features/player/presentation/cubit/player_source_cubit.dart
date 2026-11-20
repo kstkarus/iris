@@ -14,6 +14,7 @@ class PlayerSourceCubit extends Cubit<PlayerSourceState> {
   PlayerSourceCubit({
     required this.magnet,
     required PlayerRepository repository,
+    this.animeId = '',
     DownloadsRepository? downloadsRepository,
     this.preferDownloads = false,
     this.preferredFileIndex,
@@ -22,6 +23,7 @@ class PlayerSourceCubit extends Cubit<PlayerSourceState> {
        super(const PlayerSourceInitial());
 
   final String magnet;
+  final String animeId;
   final PlayerRepository _repository;
   final DownloadsRepository? _downloadsRepository;
   final bool preferDownloads;
@@ -67,6 +69,7 @@ class PlayerSourceCubit extends Cubit<PlayerSourceState> {
           local = downloadedPlayerSource(
             await downloads.watchDownloads().first,
             magnet,
+            animeId: animeId,
           );
           if (preferredFileIndex != null &&
               !(local?.files.any((file) => file.index == preferredFileIndex) ??

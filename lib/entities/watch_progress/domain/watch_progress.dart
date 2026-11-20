@@ -50,9 +50,8 @@ class WatchProgress {
   String get continueWatchingKey => hasAnime ? 'anime:$animeId' : torrentKey;
 
   /// Whether this record belongs to the same Continue watching row as [target].
-  bool matchesContinueWatchingTarget(WatchProgress target) => target.hasAnime
-      ? animeId == target.animeId || torrentKey == target.torrentKey
-      : torrentKey == target.torrentKey;
+  bool matchesContinueWatchingTarget(WatchProgress target) =>
+      continueWatchingKey == target.continueWatchingKey;
 
   WatchProgress copyWith({bool? hiddenFromContinueWatching}) {
     return WatchProgress(

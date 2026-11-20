@@ -438,7 +438,9 @@ void main() {
         setTestWindowSize(tester, const Size(320, 760));
         final bloc = await _pumpCatalog(
           tester,
-          const _SuccessAnimeListRepository(initialResult: _pageOneResult),
+          _SuccessAnimeListRepository(
+            initialResult: _withHasMore(_pageOneResult, false),
+          ),
         );
         bloc.add(
           AnimeListCriteriaApplied(
@@ -485,7 +487,9 @@ void main() {
     addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
     final bloc = await _pumpCatalog(
       tester,
-      const _SuccessAnimeListRepository(initialResult: _pageOneResult),
+      _SuccessAnimeListRepository(
+        initialResult: _withHasMore(_pageOneResult, false),
+      ),
     );
     bloc.add(
       AnimeListCriteriaApplied(
@@ -576,7 +580,7 @@ void main() {
           await tester.tap(find.byKey(ContinueWatchingButton.buttonKey));
           await tester.pumpAndSettle();
           expect(
-            find.byKey(const ValueKey('continue_watching_abc')),
+            find.byKey(const ValueKey('continue_watching_anime:5114')),
             findsOneWidget,
           );
         }
@@ -633,7 +637,7 @@ void main() {
   ) async {
     final gate = Completer<AnimeListPageResult>();
     final repository = _PendingSearchRepository(
-      initial: _pageOneResult,
+      initial: _withHasMore(_pageOneResult, false),
       searchFuture: gate.future,
     );
     await _pumpCatalog(tester, repository);

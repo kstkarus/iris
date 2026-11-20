@@ -45,21 +45,26 @@ class MockUserRateRepository implements UserRateRepository {
     int? score,
     int? rewatches,
   }) async {
+    final previousStatus = _rates[animeId]?.status;
     final rate = UserRate(
       id: rateId ?? '${_nextId++}',
-      status: status ?? _rates[animeId]?.status ?? UserRateStatus.watching,
+      status: status ?? previousStatus ?? UserRateStatus.watching,
       episodes: episodes ?? _rates[animeId]?.episodes ?? 0,
       score: score ?? _rates[animeId]?.score ?? 0,
       rewatches: rewatches ?? _rates[animeId]?.rewatches,
     );
     _rates[animeId] = rate;
-    _changes.add(UserRateChange(animeId, rate));
+    _changes.add(
+      UserRateMutation(animeId, rate, previousStatus: previousStatus),
+    );
     return rate;
   }
 
   @override
   Future<void> remove({required String animeId, required String rateId}) async {
-    _rates.remove(animeId);
-    _changes.add(UserRateChange(animeId, null));
+    final previous = _rates.remove(animeId);
+    _changes.add(
+      UserRateMutation(animeId, null, previousStatus: previous?.status),
+    );
   }
 }

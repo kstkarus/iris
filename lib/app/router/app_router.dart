@@ -142,7 +142,11 @@ abstract final class AppRouter {
       return;
     }
     if (!context.mounted) return;
-    final local = downloadedPlayerSource(items, item.magnet);
+    final local = downloadedPlayerSource(
+      items,
+      item.magnet,
+      animeId: item.animeId,
+    );
     context.pushNamed(
       'player',
       extra: AnimePlayerArgs(
@@ -150,7 +154,9 @@ abstract final class AppRouter {
           animeId: item.animeId,
           animeTitle: item.animeTitle,
           sourceTitle: item.sourceTitle,
-          sessionId: local?.sessionId ?? item.id,
+          sessionId:
+              local?.sessionId ??
+              downloadedSourceSessionId(item.animeId, item.magnet),
           files: local?.files ?? const [],
           listedEpisodes:
               context
@@ -569,6 +575,7 @@ abstract final class AppRouter {
             final page = BlocProvider(
               create: (_) => PlayerSourceCubit(
                 magnet: args.magnet,
+                animeId: args.animeId,
                 repository: serviceLocator<PlayerRepository>(),
                 downloadsRepository: serviceLocator<DownloadsRepository>(),
                 preferDownloads: args.preferDownloads,

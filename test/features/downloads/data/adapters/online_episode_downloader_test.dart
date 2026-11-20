@@ -347,6 +347,115 @@ void main() {
     expect(delays, isEmpty, reason: 'a refusal is not tried again as it is');
   });
 
+  for (final format in [OnlineStreamFormat.mp4, OnlineStreamFormat.hls]) {
+    for (final (type, errorPage) in [
+      ('Text/HTML; charset=UTF-8', '<html>Sign in to watch</html>'),
+      ('application/xhtml+xml', '<html xmlns="http://www.w3.org/1999/xhtml"/>'),
+      ('application/json; charset=utf-8', '{"error":"Link expired"}'),
+      ('application/problem+json', '{"title":"Link expired"}'),
+    ]) {
+      test('$format retries and renews after receiving $type', () async {
+        var resolves = 0;
+        var rejected = 0;
+        final name = format == OnlineStreamFormat.mp4
+            ? 'episode.mp4'
+            : 'index.m3u8';
+        sources.onResolve = () => [
+          OnlineStream(
+            url: 'https://cdn.test/${++resolves}/$name',
+            quality: 720,
+            format: format,
+          ),
+        ];
+        final task = start(
+          downloader((options) {
+            if (options.uri.path.endsWith('.m3u8')) {
+              return FakeReply.text(200, _playlist(1));
+            }
+            if (options.uri.pathSegments.first == '1') {
+              rejected++;
+              return FakeReply.text(
+                200,
+                errorPage,
+                headers: {
+                  'content-type': [type],
+                },
+              );
+            }
+            return const FakeReply.text(
+              200,
+              'video',
+              headers: {
+                'content-type': ['application/octet-stream'],
+              },
+            );
+          }),
+        );
+
+        expect(await (await task.done)!.readAsString(), 'video');
+        expect(rejected, 4);
+        expect(resolves, 2);
+        expect(delays, const [
+          Duration(seconds: 1),
+          Duration(seconds: 2),
+          Duration(seconds: 4),
+        ]);
+      });
+    }
+  }
+
+  test(
+    'retries an unfinished HLS media playlist until it is complete',
+    () async {
+      sources.streams = [_hls('https://cdn.test/episode.m3u8')];
+      final asked = <String>[];
+      final task = start(
+        downloader((options) {
+          final name = options.uri.pathSegments.last;
+          asked.add(name);
+          if (asked.length == 1) {
+            return const FakeReply.text(200, '#EXTM3U\n#EXTINF:6,\ns1.ts\n');
+          }
+          if (name == 'episode.m3u8') return FakeReply.text(200, _playlist(2));
+          return FakeReply.text(200, '[$name]');
+        }),
+      );
+
+      expect(await (await task.done)!.readAsString(), '[s1.ts][s2.ts]');
+      expect(asked, ['episode.m3u8', 'episode.m3u8', 's1.ts', 's2.ts']);
+      expect(delays, const [Duration(seconds: 1)]);
+    },
+  );
+
+  test('renews a playlist URL that repeatedly returns an HTML page', () async {
+    var resolves = 0;
+    final asked = <String>[];
+    sources.onResolve = () => [
+      _hls('https://cdn.test/${++resolves}/episode.m3u8'),
+    ];
+    final task = start(
+      downloader((options) {
+        final uri = options.uri;
+        asked.add(uri.path);
+        if (uri.path == '/1/episode.m3u8') {
+          return const FakeReply.text(200, '<html>Sign in to watch</html>');
+        }
+        if (uri.path == '/2/episode.m3u8') {
+          return FakeReply.text(200, _playlist(1));
+        }
+        return const FakeReply.text(200, 'video');
+      }),
+    );
+
+    expect(await (await task.done)!.readAsString(), 'video');
+    expect(asked, [
+      ...List.filled(4, '/1/episode.m3u8'),
+      '/2/episode.m3u8',
+      '/2/s1.ts',
+    ]);
+    expect(resolves, 2);
+  });
+
   test('a network that is gone a while is waited for', () async {
     sources
       ..streams = [_hls('https://cdn.test/e2/720.m3u8')]

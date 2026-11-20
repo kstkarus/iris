@@ -16,8 +16,9 @@ void main() {
     'restored account, resume, and later sign-in drain durable work',
     (tester) async {
       final rates = MockUserRateRepository();
+      final storage = _MemoryQueue();
       final sync = EpisodeWatchSync(
-        storage: _MemoryQueue(),
+        storage: storage,
         rates: rates,
         sessionGeneration: () => 0,
       );
@@ -42,6 +43,7 @@ void main() {
       tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
       await sync(userId: '42', animeId: '1', episode: 3);
       expect(rates.rates['1']?.episodes, 2);
+      expect(storage.read().single.episodes, [3]);
       tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
       tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
       tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
@@ -55,10 +57,11 @@ void main() {
       tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
       await tester.pumpAndSettle();
       expect(rates.rates['1']?.episodes, 3);
+      expect(storage.read().single.episodes, [4]);
       await auth.signIn();
       await tester.pumpAndSettle();
       expect(rates.rates['1']?.episodes, 4);
-      expect(sync.state.pending, 0);
+      expect(storage.read().single.episodes, isEmpty);
       await tester.pumpWidget(const SizedBox.shrink());
       var closed = false;
       sync.close().then((_) => auth.close()).then((_) => closed = true);
@@ -73,11 +76,15 @@ void main() {
 }
 
 class _MemoryQueue implements EpisodeSyncRepository {
-  @override
-  List<EpisodeSyncEntry> read() => [
+  List<EpisodeSyncEntry> _entries = [
     const EpisodeSyncEntry(userId: '42', animeId: '1', episodes: [2]),
   ];
 
   @override
-  Future<void> write(List<EpisodeSyncEntry> entries) async {}
+  List<EpisodeSyncEntry> read() => _entries;
+
+  @override
+  Future<void> write(List<EpisodeSyncEntry> entries) async {
+    _entries = entries;
+  }
 }

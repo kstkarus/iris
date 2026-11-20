@@ -678,10 +678,16 @@ void _registerCommon() {
       ),
     )
     ..registerFactory<AnimeListBloc>(
-      () => AnimeListBloc(repository: serviceLocator<AnimeListRepository>()),
+      () => AnimeListBloc(
+        repository: serviceLocator<AnimeListRepository>(),
+        rateChanges: serviceLocator<UserRateRepository>().changes,
+      ),
     )
     ..registerFactory<AnimeSearchBloc>(
-      () => AnimeSearchBloc(repository: serviceLocator<AnimeListRepository>()),
+      () => AnimeSearchBloc(
+        repository: serviceLocator<AnimeListRepository>(),
+        rateChanges: serviceLocator<UserRateRepository>().changes,
+      ),
     );
 }
 

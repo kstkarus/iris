@@ -39,6 +39,59 @@ void main() {
     expect(items.map((item) => (item.torrentKey, item.fileIndex)), [('a', 0)]);
   });
 
+  test(
+    'keeps the newest entry per anime and unlinked source when not hidden',
+    () {
+      final resumed = _progress('pack', animeId: 'a', seconds: 700, minute: 30);
+      final olderHidden = _progress(
+        'pack',
+        animeId: 'a',
+        file: 3,
+        seconds: 700,
+        minute: 10,
+      ).copyWith(hiddenFromContinueWatching: true);
+      final second = _progress(
+        'pack',
+        animeId: 'b',
+        file: 1,
+        seconds: 700,
+        minute: 20,
+      );
+      final unlinked = _progress(
+        'pack',
+        animeId: '',
+        file: 2,
+        seconds: 700,
+        minute: 15,
+      );
+      final dismissedOlder = _progress(
+        'pack',
+        animeId: 'c',
+        file: 4,
+        seconds: 700,
+        minute: 12,
+      );
+      final dismissedNewer = _progress(
+        'pack',
+        animeId: 'c',
+        file: 5,
+        seconds: 700,
+        minute: 25,
+      ).copyWith(hiddenFromContinueWatching: true);
+      expect(
+        continueWatchingItems([
+          olderHidden,
+          unlinked,
+          second,
+          resumed,
+          dismissedOlder,
+          dismissedNewer,
+        ]),
+        [resumed, second, unlinked],
+      );
+    },
+  );
+
   testWidgets('shows all five compact entries and opens the selected one', (
     tester,
   ) async {
@@ -61,13 +114,22 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.byKey(const ValueKey('continue_watching_t1')), findsOneWidget);
-    expect(find.byKey(const ValueKey('continue_watching_t2')), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('continue_watching_anime:t1')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('continue_watching_anime:t2')),
+      findsOneWidget,
+    );
     // The list already says what the times are.
     expect(find.text('11:00 / 24:00'), findsOneWidget);
 
-    expect(find.byKey(const ValueKey('continue_watching_t4')), findsOneWidget);
-    await tester.tap(find.byKey(const ValueKey('continue_watching_t2')));
+    expect(
+      find.byKey(const ValueKey('continue_watching_anime:t4')),
+      findsOneWidget,
+    );
+    await tester.tap(find.byKey(const ValueKey('continue_watching_anime:t2')));
     expect(selected, items[2]);
   });
 
@@ -95,7 +157,10 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.byKey(const ValueKey('continue_watching_t2')), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('continue_watching_anime:t2')),
+      findsOneWidget,
+    );
     expect(find.text('Watched'), findsOneWidget);
     expect(find.text('24:00 / 24:00'), findsNothing);
   });
@@ -131,23 +196,41 @@ void main() {
 
     await tester.pumpWidget(buildRow(initial));
     await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('continue_watching_a')), findsOneWidget);
-    expect(find.byKey(const ValueKey('continue_watching_b')), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('continue_watching_anime:a')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('continue_watching_anime:b')),
+      findsOneWidget,
+    );
 
     await tester.pumpWidget(buildRow([initial[1]]));
     await tester.pump(const Duration(milliseconds: 100));
-    expect(find.byKey(const ValueKey('continue_watching_a')), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('continue_watching_anime:a')),
+      findsOneWidget,
+    );
 
     await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('continue_watching_a')), findsNothing);
-    expect(find.byKey(const ValueKey('continue_watching_b')), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('continue_watching_anime:a')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey('continue_watching_anime:b')),
+      findsOneWidget,
+    );
 
     // With reduced motion, removal finishes after a single post-frame step.
     await tester.pumpWidget(buildRow(initial, disableAnimations: true));
     await tester.pump();
     await tester.pumpWidget(buildRow([initial[1]], disableAnimations: true));
     await tester.pump();
-    expect(find.byKey(const ValueKey('continue_watching_a')), findsNothing);
+    expect(
+      find.byKey(const ValueKey('continue_watching_anime:a')),
+      findsNothing,
+    );
   });
 }
 
@@ -157,6 +240,7 @@ Widget _app(Widget child) {
 
 WatchProgress _progress(
   String torrent, {
+  String? animeId,
   int file = 0,
   required int seconds,
   required int minute,
@@ -170,7 +254,7 @@ WatchProgress _progress(
     position: Duration(seconds: seconds),
     duration: const Duration(minutes: 24),
     updatedAt: DateTime.utc(2026, 10, 7, 12, minute),
-    animeId: torrent,
+    animeId: animeId ?? torrent,
     animeTitle: 'Anime $torrent',
   );
 }

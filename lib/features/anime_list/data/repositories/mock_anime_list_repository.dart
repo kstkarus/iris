@@ -1,5 +1,4 @@
 import 'package:iris/entities/user_rate/data/mock_user_rate_repository.dart';
-import 'package:iris/entities/user_rate/domain/user_rate.dart';
 import 'package:iris/features/anime_list/data/datasources/mock_anime_list_data_source.dart';
 import 'package:iris/features/anime_list/data/mappers/anime_list_query_variables.dart';
 import 'package:iris/features/anime_list/data/mappers/shikimori_anime_mapper.dart';
@@ -85,10 +84,7 @@ bool _matchesFilters(AnimeListItem item, AnimeListFilters filters) {
       filters.statuses.isEmpty ||
       filters.statuses.any((status) => status.apiValue == item.anime.status);
 
-  final status = item.userRate?.status;
-  final matchesMyList =
-      (filters.myList.isEmpty || filters.myList.contains(status)) &&
-      (!filters.hideCompleted || status != UserRateStatus.completed);
+  final matchesMyList = filters.matchesMyListStatus(item.userRate?.status);
   final year = yearOfIsoDate(item.anime.airedOn);
   final matchesSeason =
       filters.seasons.isEmpty ||

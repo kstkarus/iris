@@ -39,6 +39,12 @@ void main() {
     String animeId = '1',
   }) => sync(userId: userId, animeId: animeId, episode: episode);
 
+  List<EpisodeMarkUpdate> pending({String userId = '42'}) =>
+      sync.pendingMarks(userId: userId, animeId: '1');
+
+  Future<EpisodeMarkResult> retry(int episode) =>
+      sync.retryMark(userId: '42', animeId: '1', episode: episode);
+
   setUp(() async {
     SharedPreferences.setMockInitialValues({});
     preferences = await SharedPreferences.getInstance();
@@ -58,7 +64,7 @@ void main() {
       expect(await watch(2), isA<EpisodeMarkDeferred>());
       await watch(3);
       await watch(2);
-      expect(sync.state.pending, 2);
+      expect(pending().map((mark) => mark.episode), [2, 3]);
       expect(storage.read().single.episodes, [2, 3]);
       await sync.close();
 
@@ -67,7 +73,7 @@ void main() {
       rates.offline = false;
       sync = start();
       await activate();
-      expect(sync.state.pending, 0);
+      expect(storage.read().single.episodes, isEmpty);
       expect(rates.writes.map((write) => write.episode), [2, 3]);
       expect(rates.rates['1']?.episodes, 3);
     },
@@ -77,10 +83,10 @@ void main() {
     rates.loseResponse = true;
     expect(await watch(5), isA<EpisodeMarkDeferred>());
     expect(rates.rates['1']?.episodes, 5);
-    expect(sync.state.pending, 1);
+    expect(storage.read().single.episodes, [5]);
 
-    await sync.retry();
-    expect(sync.state.pending, 0);
+    expect(await retry(5), isA<EpisodeAlreadyMarked>());
+    expect(pending(), isEmpty);
     expect(rates.writes.length, 1);
     expect(rates.rates['1']?.episodes, 5);
   });
@@ -99,8 +105,8 @@ void main() {
       await rates.seed(0);
       rates.refused.clear();
       rates.writes.clear();
-      await sync.retry();
-      expect(sync.state.pending, 0);
+      expect(await retry(5), isA<EpisodeMarkObsolete>());
+      expect(storage.read().single.episodes, isEmpty);
       expect(rates.writes, isEmpty);
       expect(rates.rates['1']?.episodes, 0);
     },
@@ -111,8 +117,8 @@ void main() {
     await watch(4);
     await rates.seed(8, score: 9);
     rates.offline = false;
-    await sync.retry();
-    expect(sync.state.pending, 0);
+    expect(await retry(4), isA<EpisodeAlreadyMarked>());
+    expect(pending(), isEmpty);
     expect(rates.writes, isEmpty);
     expect(rates.rates['1']?.score, 9);
   });
@@ -159,7 +165,7 @@ void main() {
         rates.writes.clear();
         sync = start();
         await activate();
-        expect(sync.state.pending, 0, reason: kind);
+        expect(storage.read().single.episodes, isEmpty, reason: kind);
         expect(rates.writes, isEmpty, reason: kind);
       }
     },
@@ -203,7 +209,7 @@ void main() {
     await scoring.future;
     try {
       expect(await watch(5), isA<EpisodeMarked>());
-      expect(sync.state.pending, 0);
+      expect(pending(), isEmpty);
     } finally {
       saveScore.complete();
     }
@@ -221,14 +227,14 @@ void main() {
     rates.offline = false;
     generation++;
     await activate('77');
-    expect(sync.state.pending, 0);
+    expect(pending(userId: '77'), isEmpty);
     expect(storage.read().single.episodes, [2]);
     expect(rates.writes, isEmpty);
 
     generation++;
     await activate();
     expect(rates.writes.single.userId, '42');
-    expect(sync.state.pending, 0);
+    expect(storage.read().single.episodes, isEmpty);
   });
 
   test('session changes during a fetch prevent the following write', () async {
@@ -259,7 +265,7 @@ void main() {
     reply.complete(null);
     expect(await mark, isA<EpisodeMarked>());
     expect(rates.rates['1']?.episodes, 3);
-    expect(sync.state.pending, 0);
+    expect(pending(), isEmpty);
   });
 
   test(
@@ -270,16 +276,23 @@ void main() {
       await watch(2);
       expect(rates.writes.length, 1);
       await watch(2, animeId: '2');
-      expect(sync.state.pending, 2);
-      expect(sync.state.blocked, 2);
+      expect(pending().map((mark) => (mark.episode, mark.blocked)), [
+        (1, true),
+        (2, true),
+      ]);
       expect(rates.rates['2']?.episodes, 2);
       await sync.close();
       sync = start();
       await activate();
-      expect(sync.state.blocked, 2);
+      final queued = storage.read().singleWhere(
+        (entry) => entry.animeId == '1',
+      );
+      expect(queued.episodes, [1, 2]);
+      expect(queued.blocked, isTrue);
       rates.refused.clear();
-      await sync.retry();
-      expect(sync.state.pending, 0);
+      expect(await retry(1), isA<EpisodeMarked>());
+      await sync.sync();
+      expect(pending(), isEmpty);
       expect(rates.rates['1']?.episodes, 2);
     },
   );
@@ -308,7 +321,8 @@ void main() {
       rates.offline = false;
       sync.setForeground(true);
       time.flushMicrotasks();
-      expect(sync.state.pending, 0);
+      expect(rates.rates['1']?.episodes, 2);
+      expect(pending(), isEmpty);
       expect(time.nonPeriodicTimerCount, 0);
       unawaited(sync.close());
       time.flushMicrotasks();
@@ -325,8 +339,7 @@ void main() {
     );
     await activate();
     await expectLater(watch(1), throwsStateError);
-    expect(sync.state.pending, 0);
-    expect(sync.state.storageFailed, isTrue);
+    expect(pending(), isEmpty);
     expect(rates.fetches, 0);
     expect(rates.writes, isEmpty);
   });
@@ -338,8 +351,8 @@ void main() {
       await watch(3);
       await rates.seed(0);
       rates.offline = false;
-      await sync.retry();
-      expect(sync.state.pending, 0);
+      expect(await retry(3), isA<EpisodeMarked>());
+      expect(pending(), isEmpty);
       expect(rates.rates['1']?.episodes, 3);
     },
   );
@@ -358,8 +371,8 @@ void main() {
       await watch(5);
       await rates.seed(0, rewatches: 2);
       rates.offline = false;
-      await sync.retry();
-      expect(sync.state.pending, 0);
+      expect(await retry(5), isA<EpisodeMarkObsolete>());
+      expect(storage.read().single.episodes, isEmpty);
       expect(rates.writes, isEmpty);
       expect(rates.rates['1']?.episodes, 0);
     },
@@ -388,17 +401,13 @@ void main() {
       expect(updates.last.result, isA<EpisodeMarkDeferred>());
 
       rates.offline = false;
-      await sync.retry();
+      sync.setForeground(true);
+      await sync.sync();
       await pumpEventQueue();
       expect(updates.last.result, isA<EpisodeMarked>());
-      expect(sync.state.pending, 0);
-      final result = await sync.retryMark(
-        userId: '42',
-        animeId: '1',
-        episode: 5,
-      );
-      expect(result, isA<EpisodeAlreadyMarked>());
-      expect(sync.state.pending, 0);
+      expect(pending(), isEmpty);
+      expect(await retry(5), isA<EpisodeAlreadyMarked>());
+      expect(pending(), isEmpty);
       expect(rates.writes.length, 1);
     },
   );
@@ -427,10 +436,9 @@ void main() {
       updates.every((event) => event.result is EpisodeMarkObsolete),
       isTrue,
     );
-    expect(sync.state.pending, 0);
-    final result = await sync.retryMark(userId: '42', animeId: '1', episode: 5);
-    expect(result, isA<EpisodeMarkObsolete>());
-    expect(sync.state.pending, 0);
+    expect(pending(), isEmpty);
+    expect(await retry(5), isA<EpisodeMarkObsolete>());
+    expect(pending(), isEmpty);
   });
 
   test('a reopened player can retry a blocked mark from the outbox', () async {
@@ -454,7 +462,7 @@ void main() {
     cubit.confirm();
     await pumpEventQueue(times: 100);
     expect(cubit.state, isA<EpisodeMarkDone>());
-    expect(sync.state.pending, 0);
+    expect(pending(), isEmpty);
     expect(rates.rates['1']?.episodes, 5);
   });
 }

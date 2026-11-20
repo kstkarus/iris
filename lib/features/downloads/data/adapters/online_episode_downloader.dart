@@ -403,27 +403,34 @@ class _Task implements OnlineDownloadTask {
   }
 
   /// A master playlist chooses a variant using the requested quality.
-  Future<({HlsPlan plan, int? height})> _playlist(OnlineStream stream) async {
-    final playlist = await _fetchText(Uri.parse(stream.url));
-    final variant = HlsPlaylist.pickVariant(
-      playlist.text,
-      playlist.uri,
-      quality: maxQuality ?? stream.quality,
-    );
-    final media = variant == null ? playlist : await _fetchText(variant.uri);
-    final plan = HlsPlaylist.parseMedia(
-      media.text,
-      media.uri,
-      variantHeight: variant?.height,
-    );
-    if (plan == null) {
-      throw const OnlineDownloadException(downloadNotDownloadableMessage);
-    }
-    return (
-      plan: plan,
-      height: _positiveHeight(variant?.height ?? stream.quality),
-    );
-  }
+  Future<({HlsPlan plan, int? height})> _playlist(OnlineStream stream) =>
+      _retryLink(() async {
+        try {
+          final playlist = await _fetchText(Uri.parse(stream.url));
+          final variant = HlsPlaylist.pickVariant(
+            playlist.text,
+            playlist.uri,
+            quality: maxQuality ?? stream.quality,
+          );
+          final media = variant == null
+              ? playlist
+              : await _fetchText(variant.uri);
+          final plan = HlsPlaylist.parseMedia(
+            media.text,
+            media.uri,
+            variantHeight: variant?.height,
+          );
+          if (plan == null) {
+            throw const OnlineDownloadException(downloadNotDownloadableMessage);
+          }
+          return (
+            plan: plan,
+            height: _positiveHeight(variant?.height ?? stream.quality),
+          );
+        } on FormatException catch (error) {
+          throw _Retryable(error.message);
+        }
+      });
 
   Future<File> _loadMp4(
     OnlineStream stream,
@@ -518,6 +525,13 @@ class _Task implements OnlineDownloadTask {
       _checkStatus(status);
       throw _Retryable('HTTP $status did not include a video');
     }
+    if (_isHtmlOrJson(response.headers)) {
+      await body.stream.drain<void>().onError<Exception>((_, _) {});
+      _checkCancelled();
+      throw const _Retryable(
+        'the server returned HTML or JSON instead of video',
+      );
+    }
     final range = status == 206 ? _mp4Range(contentRange) : null;
     final encoding = response.headers.value('content-encoding')?.toLowerCase();
     if ((encoding != null && encoding != 'identity') ||
@@ -589,16 +603,34 @@ class _Task implements OnlineDownloadTask {
 
   /// A segment or init piece, tried [_attempts] times; a link the server
   /// still refuses then is renewed.
-  Future<List<int>> _fetchBytes(Uri url) async {
+  Future<List<int>> _fetchBytes(Uri url) => _retryLink(() async {
+    final response = await _send<List<int>>(url, ResponseType.bytes);
+    _checkStatus(response.statusCode ?? 0);
+    if (_isHtmlOrJson(response.headers)) {
+      throw const _Retryable(
+        'the server returned HTML or JSON instead of video',
+      );
+    }
+    final data = response.data;
+    if (data == null || data.isEmpty) {
+      throw const _Retryable('empty segment response');
+    }
+    return data;
+  });
+
+  Future<({String text, Uri uri})> _fetchText(Uri url) => _retryLink(() async {
+    final response = await _send<List<int>>(url, ResponseType.bytes);
+    _checkStatus(response.statusCode ?? 0);
+    return (
+      text: utf8.decode(response.data ?? const [], allowMalformed: true),
+      uri: _responseUri(response),
+    );
+  });
+
+  Future<T> _retryLink<T>(Future<T> Function() fetch) async {
     for (var attempt = 1; ; attempt++) {
       try {
-        final response = await _send<List<int>>(url, ResponseType.bytes);
-        _checkStatus(response.statusCode ?? 0);
-        final data = response.data;
-        if (data == null || data.isEmpty) {
-          throw const _Retryable('empty segment response');
-        }
-        return data;
+        return await fetch();
       } on _Retryable catch (error) {
         if (attempt >= _attempts) throw _LinkRefused(error.reason);
         await _wait(attempt);
@@ -606,20 +638,17 @@ class _Task implements OnlineDownloadTask {
     }
   }
 
-  Future<({String text, Uri uri})> _fetchText(Uri url) async {
-    for (var attempt = 1; ; attempt++) {
-      try {
-        final response = await _send<List<int>>(url, ResponseType.bytes);
-        _checkStatus(response.statusCode ?? 0);
-        return (
-          text: utf8.decode(response.data ?? const [], allowMalformed: true),
-          uri: _responseUri(response),
-        );
-      } on _Retryable catch (error) {
-        if (attempt >= _attempts) throw _LinkRefused(error.reason);
-        await _wait(attempt);
-      }
-    }
+  bool _isHtmlOrJson(Headers headers) {
+    final type = headers
+        .value(Headers.contentTypeHeader)
+        ?.split(';')
+        .first
+        .trim()
+        .toLowerCase();
+    return type == 'text/html' ||
+        type == 'application/xhtml+xml' ||
+        type == 'application/json' ||
+        (type?.endsWith('+json') ?? false);
   }
 
   Future<Response<T>> _send<T>(

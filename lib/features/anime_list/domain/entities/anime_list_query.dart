@@ -84,6 +84,10 @@ class AnimeListFilters {
   /// Whether the filters need a signed-in account.
   bool get usesMyList => myList.isNotEmpty || hideCompleted;
 
+  bool matchesMyListStatus(UserRateStatus? status) =>
+      (myList.isEmpty || myList.contains(status)) &&
+      (!hideCompleted || status != UserRateStatus.completed);
+
   /// The same filters without the user's list, for a signed-out catalog.
   AnimeListFilters withoutMyList() => AnimeListFilters(
     kinds: kinds,

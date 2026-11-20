@@ -4,7 +4,10 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:iris/entities/anime/domain/anime_summary.dart';
 
+import 'package:iris/entities/user_rate/data/mock_user_rate_repository.dart';
 import 'package:iris/entities/user_rate/domain/user_rate.dart';
+import 'package:iris/features/anime_list/data/datasources/mock_anime_list_data_source.dart';
+import 'package:iris/features/anime_list/data/repositories/mock_anime_list_repository.dart';
 import 'package:iris/features/anime_list/domain/entities/anime_list_item.dart';
 import 'package:iris/features/anime_list/domain/entities/anime_list_page_result.dart';
 import 'package:iris/features/anime_list/domain/entities/anime_list_query.dart';
@@ -12,6 +15,7 @@ import 'package:iris/features/anime_list/domain/repositories/anime_list_reposito
 import 'package:iris/features/anime_list/presentation/bloc/anime_list_bloc.dart';
 import 'package:iris/features/anime_list/presentation/bloc/anime_list_event.dart';
 import 'package:iris/features/anime_list/presentation/bloc/anime_list_state.dart';
+import 'package:iris/features/anime_list/presentation/bloc/anime_search_bloc.dart';
 
 void main() {
   group('AnimeListBloc', () {
@@ -69,6 +73,148 @@ void main() {
       expect(bloc.state.page, 2);
       expect(bloc.state.hasMore, isFalse);
     });
+
+    test(
+      'overlapping pages keep unique titles and advance the server page',
+      () async {
+        final queries = <int>[];
+        final bloc = AnimeListBloc(
+          repository: _FakeAnimeListRepository(
+            handler: ({required query}) async {
+              queries.add(query.page);
+              return AnimeListPageResult(
+                items: query.page < 3
+                    ? _pageOneItems
+                    : [..._pageOneItems, ..._pageTwoItems],
+                page: query.page,
+                hasMore: query.page < 3,
+                query: query.search,
+              );
+            },
+          ),
+        );
+        addTearDown(bloc.close);
+        bloc.add(const AnimeListStarted());
+        await pumpEventQueue();
+        bloc.add(const AnimeListNextPageRequested());
+        await pumpEventQueue();
+        expect(bloc.state.items, _pageOneItems);
+        expect(bloc.state.page, 2);
+        expect(bloc.state.hasMore, isTrue);
+
+        bloc.add(const AnimeListNextPageRequested());
+        await pumpEventQueue();
+        expect(queries, [1, 2, 3]);
+        expect(bloc.state.items, [..._pageOneItems, ..._pageTwoItems]);
+        expect(bloc.state.page, 3);
+        expect(bloc.state.hasMore, isFalse);
+      },
+    );
+
+    for (final view in ['catalog', 'search']) {
+      for (final (label, filters) in [
+        (
+          'My list',
+          const AnimeListFilters(
+            myList: {UserRateStatus.watching, UserRateStatus.rewatching},
+          ),
+        ),
+        ('Hide completed', const AnimeListFilters(hideCompleted: true)),
+      ]) {
+        test(
+          '$view refreshes $label only when a write changes membership',
+          () async {
+            const animeId = '52991';
+            const userId = '42';
+            final rates = MockUserRateRepository();
+            final current = await rates.save(
+              userId: userId,
+              animeId: animeId,
+              rateId: null,
+              status: UserRateStatus.watching,
+            );
+            final catalog = MockAnimeListRepository(
+              dataSource: MockAnimeListDataSource(),
+              userRates: rates,
+            );
+            final requests = <AnimeListQuery>[];
+            final repository = _FakeAnimeListRepository(
+              handler: ({required query}) {
+                requests.add(query);
+                return catalog.fetchAnimePage(query: query);
+              },
+            );
+            final bloc = view == 'catalog'
+                ? AnimeListBloc(
+                    repository: repository,
+                    rateChanges: rates.changes,
+                  )
+                : AnimeSearchBloc(
+                    repository: repository,
+                    rateChanges: rates.changes,
+                  );
+            addTearDown(bloc.close);
+            bool containsAnime() =>
+                bloc.state.items.any((item) => item.anime.id == animeId);
+
+            bloc
+              ..add(
+                const AnimeListAccountChanged(signedIn: true, reload: false),
+              )
+              ..add(AnimeListCriteriaApplied(filters: filters));
+            if (view == 'search') {
+              bloc.add(const AnimeListSearchChanged('Frieren'));
+            }
+            await pumpEventQueue();
+            final firstRequest = requests.single;
+            expect(containsAnime(), isTrue);
+
+            await rates.fetch(animeId);
+            await rates.save(
+              userId: userId,
+              animeId: animeId,
+              rateId: current.id,
+              score: 8,
+            );
+            await rates.save(
+              userId: userId,
+              animeId: animeId,
+              rateId: current.id,
+              episodes: 3,
+            );
+            await rates.save(
+              userId: userId,
+              animeId: animeId,
+              rateId: current.id,
+              status: UserRateStatus.rewatching,
+            );
+            await pumpEventQueue();
+            expect(requests, [firstRequest]);
+            expect(containsAnime(), isTrue);
+
+            await rates.save(
+              userId: userId,
+              animeId: animeId,
+              rateId: current.id,
+              status: UserRateStatus.completed,
+            );
+            await pumpEventQueue();
+            expect(requests, [firstRequest, firstRequest]);
+            expect(containsAnime(), isFalse);
+
+            await rates.save(
+              userId: userId,
+              animeId: animeId,
+              rateId: current.id,
+              status: UserRateStatus.watching,
+            );
+            await pumpEventQueue();
+            expect(requests, [firstRequest, firstRequest, firstRequest]);
+            expect(containsAnime(), isTrue);
+          },
+        );
+      }
+    }
 
     test('does not request the next page when hasMore is false', () async {
       var callCount = 0;

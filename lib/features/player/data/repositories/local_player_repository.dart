@@ -1,10 +1,10 @@
 import 'dart:async';
 
-import 'package:iris/features/downloads/domain/repositories/downloads_repository.dart';
-import 'package:iris/features/downloads/domain/entities/download_title.dart';
+import 'package:iris/features/downloads/domain/entities/download_item.dart';
 import 'package:iris/features/downloads/domain/entities/download_status.dart';
-import 'package:iris/features/player/domain/downloaded_player_source.dart';
+import 'package:iris/features/downloads/domain/repositories/downloads_repository.dart';
 import 'package:iris/features/player/data/adapters/player_runtime_memory_adapter.dart';
+import 'package:iris/features/player/domain/downloaded_player_source.dart';
 import 'package:iris/features/player/domain/entities/player_launch_update.dart';
 import 'package:iris/features/player/domain/entities/player_playback_stats.dart';
 import 'package:iris/features/player/domain/entities/player_session.dart';
@@ -45,17 +45,14 @@ class LocalPlayerRepository implements PlayerRepository {
     required int fileIndex,
   }) async* {
     var downloadId = sessionId;
-    if (sessionId.startsWith(downloadedSourcePrefix)) {
-      final key = sessionId.substring(downloadedSourcePrefix.length);
+    final scoped = sessionId.startsWith(downloadedSourcePrefix);
+    bool matchesSource(DownloadItem item) =>
+        item.status == DownloadStatus.completed &&
+        item.fileIndex == fileIndex &&
+        downloadedSourceSessionId(item.animeId, item.magnet) == sessionId;
+    if (scoped) {
       final items = await _downloadsRepository.watchDownloads().first;
-      final item = items
-          .where(
-            (item) =>
-                downloadSourceKey(item.magnet) == key &&
-                item.status == DownloadStatus.completed &&
-                item.fileIndex == fileIndex,
-          )
-          .firstOrNull;
+      final item = items.where(matchesSource).firstOrNull;
       if (item == null) {
         yield const PlayerLaunchFailureUpdate();
         return;
@@ -65,7 +62,7 @@ class LocalPlayerRepository implements PlayerRepository {
     final download = await _downloadsRepository.findCompletedById(
       id: downloadId,
     );
-    if (download == null) {
+    if (download == null || (scoped && !matchesSource(download))) {
       yield const PlayerLaunchFailureUpdate();
       return;
     }

@@ -7,19 +7,23 @@ import 'package:iris/features/player/domain/entities/player_video_file.dart';
 
 const downloadedSourcePrefix = 'download-source:';
 
-/// Only completed files of this release, so offline playback never switches
-/// dub or torrent behind the user's back.
+String downloadedSourceSessionId(String animeId, String magnet) =>
+    '$downloadedSourcePrefix${Uri.encodeComponent(animeId)}:${downloadSourceKey(magnet)}';
+
+/// Only completed files of this title and release.
 PreparedPlayerSource? downloadedPlayerSource(
   List<DownloadItem> items,
-  String magnet,
-) {
-  final key = downloadSourceKey(magnet);
+  String magnet, {
+  required String animeId,
+}) {
+  final sessionId = downloadedSourceSessionId(animeId, magnet);
   final seen = <int>{};
   final files =
       [
         for (final item in items)
           if (item.status == DownloadStatus.completed &&
-              downloadSourceKey(item.magnet) == key &&
+              downloadedSourceSessionId(item.animeId, item.magnet) ==
+                  sessionId &&
               seen.add(item.fileIndex))
             _downloadedFile(item),
       ]..sort((a, b) {
@@ -32,7 +36,7 @@ PreparedPlayerSource? downloadedPlayerSource(
       });
   if (files.isEmpty) return null;
   return PreparedPlayerSource(
-    sessionId: '$downloadedSourcePrefix$key',
+    sessionId: sessionId,
     files: List.unmodifiable(files),
   );
 }
