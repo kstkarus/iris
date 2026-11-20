@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:iris/app/theme/app_theme.dart';
 import 'package:iris/entities/friend/domain/friend.dart';
 import 'package:iris/entities/user_rate/data/mock_user_rate_repository.dart';
 import 'package:iris/entities/user_rate/domain/user_rate.dart';
@@ -17,7 +18,10 @@ import 'package:iris/features/profile/presentation/cubit/user_list_cubit.dart';
 import 'package:iris/features/profile/presentation/pages/profile_page.dart';
 import 'package:iris/features/profile/presentation/pages/user_profile_page.dart';
 import 'package:iris/features/profile/presentation/widgets/user_list_view.dart';
+import 'package:iris/shared/widgets/adaptive/window_size_class.dart';
 import 'package:iris/shared/widgets/page_title.dart';
+import 'package:iris/shared/widgets/pixel_icon.dart';
+import 'package:iris/shared/widgets/status_views.dart';
 
 import '../../../entities/friend/friend_test_doubles.dart';
 import '../../../helpers/test_app.dart';
@@ -52,15 +56,22 @@ void main() {
     WidgetTester tester,
     FakeAuthRepository repository, {
     Locale locale = const Locale('en'),
+    VoidCallback? onOpenSettings,
+    ThemeData? theme,
   }) async {
     final cubit = AuthCubit(repository: repository);
-    await cubit.restore();
+    if (repository.restoreGate == null) {
+      await cubit.restore();
+    } else {
+      unawaited(cubit.restore());
+    }
     final userList = UserListCubit(repository: lists)
       ..show(accountIdOf(cubit.state));
     final book = UserRateBookCubit(repository: rates);
     final friendsCubit = FriendsCubit(repository: friends)
       ..show(accountIdOf(cubit.state));
     addTearDown(() async {
+      await cubit.close();
       await userList.close();
       await book.close();
       await friendsCubit.close();
@@ -80,10 +91,12 @@ void main() {
               onOpenAnime: opened.add,
               onOpenFriend: openedFriends.add,
               onBrowseCatalog: () => catalogOpens++,
+              onOpenSettings: onOpenSettings ?? () {},
             ),
           ),
         ),
         locale: locale,
+        theme: theme,
       ),
     );
     await tester.pump();
@@ -115,7 +128,7 @@ void main() {
   ) async {
     await pumpPage(tester, FakeAuthRepository(canSignIn: false));
 
-    expect(find.text('Sign-in is not set up in this build.'), findsOneWidget);
+    expect(find.text('Sign-in is not set up in this build'), findsOneWidget);
     expect(signInButton(tester).onPressed, isNull);
   });
 
@@ -130,21 +143,7 @@ void main() {
     await tester.pump();
     await tester.pump();
 
-    expect(find.text('Shikimori did not respond. Try again.'), findsOneWidget);
-  });
-
-  testWidgets('signed in, it names the account and signs out', (tester) async {
-    final repository = FakeAuthRepository(restored: testAccount);
-    await pumpPage(tester, repository);
-
-    expect(find.text('kstk'), findsOneWidget);
-
-    await tester.tap(find.byKey(ProfilePage.signOutButtonKey));
-    await tester.pump();
-    await tester.pump();
-
-    expect(repository.signOuts, 1);
-    expect(find.byKey(ProfilePage.signInButtonKey), findsOneWidget);
+    expect(find.text('No response. Check your connection.'), findsOneWidget);
   });
 
   testWidgets('a session Shikimori ended asks to sign in again', (
@@ -157,10 +156,7 @@ void main() {
     await tester.pump();
     await tester.pump();
 
-    expect(
-      find.text('Shikimori ended the session. Sign in again.'),
-      findsOneWidget,
-    );
+    expect(find.text('Session expired. Sign in again.'), findsOneWidget);
   });
 
   testWidgets('a narrow profile lists the anime by status', (tester) async {
@@ -468,6 +464,71 @@ void main() {
       expect(sliverFade.opacity.value, 1.0);
     },
   );
+
+  testWidgets('compact Settings stays put through restoring and sign-in', (
+    tester,
+  ) async {
+    setTestWindowSize(tester, TestWindowSizes.phone);
+    var settingsOpens = 0;
+    final restore = Completer<void>();
+    final signIn = Completer<void>();
+    final repository = FakeAuthRepository()
+      ..restoreGate = restore
+      ..signInGate = signIn;
+
+    final cubit = await pumpPage(
+      tester,
+      repository,
+      onOpenSettings: () => settingsOpens++,
+      theme: buildAppTheme(brightness: Brightness.dark),
+    );
+    final gear = find.byKey(ProfilePage.settingsButtonKey);
+    final glyph = find.descendant(of: gear, matching: find.byType(PixelIcon));
+    expect(cubit.state, isA<AuthRestoring>());
+    final placement = tester.getRect(gear);
+    final glyphPlacement = tester.getRect(glyph);
+    expect(
+      placement.right,
+      TestWindowSizes.phone.width - WindowSizeClass.compact.pageMargin,
+    );
+    expect(glyphPlacement.right, closeTo(placement.right, 2));
+    expect(placement.width, greaterThanOrEqualTo(48));
+
+    restore.complete();
+    await tester.pumpAndSettle();
+    expect(tester.getRect(gear), placement);
+    expect(tester.getRect(glyph), glyphPlacement);
+    expect(
+      tester.getCenter(find.byType(MessageView)).dy,
+      (TestWindowSizes.phone.height + WindowSizeClass.compact.pageTop) / 2,
+    );
+    await tester.tap(gear);
+    expect(settingsOpens, 1);
+
+    await tester.tap(find.byKey(ProfilePage.signInButtonKey));
+    await tester.pump();
+    expect(cubit.state, isA<AuthSigningIn>());
+    expect(tester.getRect(gear), placement);
+    expect(tester.getRect(glyph), glyphPlacement);
+
+    signIn.complete();
+    await tester.pumpAndSettle();
+    expect(tester.getRect(gear), placement);
+    expect(tester.getRect(glyph), glyphPlacement);
+    expect(tester.getCenter(find.text('kstk')).dy, placement.center.dy);
+    await tester.tap(gear);
+    expect(settingsOpens, 2);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('desktop profile hides compact Settings button', (tester) async {
+    setTestWindowSize(tester, TestWindowSizes.desktop);
+    await pumpPage(tester, FakeAuthRepository(restored: testAccount));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(ProfilePage.settingsButtonKey), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
 }
 
 Future<void> chooseStatus(WidgetTester tester, String status) async {

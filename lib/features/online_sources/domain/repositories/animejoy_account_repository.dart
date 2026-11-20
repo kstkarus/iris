@@ -5,6 +5,9 @@ abstract interface class AnimejoyAccountRepository {
   /// Emits true after sign-in and false when the session is cleared.
   Stream<bool> get sessionChanges;
 
+  /// Reads the local session without contacting AnimeJoy.
+  Future<bool> hasSavedSession();
+
   Future<bool> restore();
 
   Future<void> signIn({required String login, required String password});

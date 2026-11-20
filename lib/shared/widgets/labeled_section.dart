@@ -12,6 +12,7 @@ class LabeledSection extends StatelessWidget {
     this.labelWidth,
     this.labelStyle,
     this.uppercase = true,
+    this.alignLabelBaseline = false,
     super.key,
   });
 
@@ -20,6 +21,9 @@ class LabeledSection extends StatelessWidget {
   final double? labelWidth;
   final TextStyle? labelStyle;
   final bool uppercase;
+
+  /// Aligns a side label with the first text baseline in [child].
+  final bool alignLabelBaseline;
 
   @override
   Widget build(BuildContext context) {
@@ -36,12 +40,18 @@ class LabeledSection extends StatelessWidget {
       );
     }
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: alignLabelBaseline
+          ? CrossAxisAlignment.baseline
+          : CrossAxisAlignment.start,
+      textBaseline: alignLabelBaseline ? TextBaseline.alphabetic : null,
       children: [
         SizedBox(
           width: labelWidth,
           child: Padding(
-            padding: const EdgeInsets.only(top: 3, right: 24),
+            padding: EdgeInsetsDirectional.only(
+              top: alignLabelBaseline ? 0 : 3,
+              end: 24,
+            ),
             child: heading,
           ),
         ),

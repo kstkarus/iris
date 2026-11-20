@@ -45,8 +45,8 @@ PreferredTrack? _describe(String? language, String? title) {
   return PreferredTrack(language: normalizedLanguage, title: normalizedTitle);
 }
 
-/// Exact language and title first, then language, then title: releases keep
-/// the same dubs across episodes but sometimes rename them slightly.
+/// Language and title first, then language, then title. For each language
+/// match, prefer the original tag over another name for the same language.
 T? _match<T>(
   Iterable<T> tracks,
   PreferredTrack preferred, {
@@ -55,11 +55,15 @@ T? _match<T>(
 }) {
   final candidates = tracks.toList();
   final wantedLanguage = _normalize(preferred.language);
+  final wantedAlias = _languageAlias(wantedLanguage);
   final wantedTitle = _normalize(preferred.title);
   if (wantedLanguage == null && wantedTitle == null) return null;
 
   bool sameLanguage(T track) =>
       wantedLanguage != null && _normalize(language(track)) == wantedLanguage;
+  bool sameAlias(T track) =>
+      wantedAlias != null &&
+      _languageAlias(_normalize(language(track))) == wantedAlias;
   bool sameTitle(T track) =>
       wantedTitle != null && _normalize(title(track)) == wantedTitle;
 
@@ -70,13 +74,26 @@ T? _match<T>(
     }
   }
   for (final track in candidates) {
+    if (sameAlias(track) && sameTitle(track)) return track;
+  }
+  for (final track in candidates) {
     if (sameLanguage(track)) return track;
+  }
+  for (final track in candidates) {
+    if (sameAlias(track)) return track;
   }
   for (final track in candidates) {
     if (sameTitle(track)) return track;
   }
   return null;
 }
+
+String? _languageAlias(String? language) => switch (language) {
+  'ja' || 'jpn' || 'jp' || 'japanese' => 'ja',
+  'ru' || 'rus' || 'russian' => 'ru',
+  'en' || 'eng' || 'english' => 'en',
+  _ => null,
+};
 
 String? _normalize(String? value) {
   final trimmed = value?.trim().toLowerCase();

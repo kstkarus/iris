@@ -38,6 +38,9 @@
   },
   "appName": "Iris",
   "commonRetry": "Try Again",
+  "commonSignIn": "Sign in",
+  "commonCancel": "Cancel",
+  "commonSignOut": "Sign out",
   "navigationCatalog": "Catalog",
   "navigationDownloads": "Downloads",
   "downloadsOpenButton": "Download",
@@ -59,10 +62,6 @@
     }
   },
   "downloadManagerUnableToLoad": "Unable to load downloads.",
-  "downloadStorageTitle": "App storage",
-  "downloadStorageTotal": "Total used by app",
-  "downloadStorageContent": "Offline content",
-  "downloadStorageCache": "Online viewing cache",
   "downloadStatusQueued": "Queued",
   "downloadStatusDownloading": "Downloading",
   "downloadStatusPaused": "Paused",
@@ -120,14 +119,12 @@
   "animeListLoadMoreError": "Unable to load more anime.",
   "animeListSearchHint": "Search anime",
   "animeListFilterSortButton": "Filter & Sort",
-  "animeListFilterSortTitle": "Filter & Sort",
   "animeListSortSectionTitle": "Sort",
   "animeListTypeSectionTitle": "Type",
   "animeListStatusSectionTitle": "Status",
   "animeListSortPopularity": "Popularity",
   "animeListSortScore": "Score",
   "animeListSortAiredOn": "Aired On",
-  "animeListApplyButton": "Apply",
   "animeListResetButton": "Reset",
   "animeListEmpty": "No anime available right now.",
   "animeListSearchEmpty": "No anime found for your search.",
@@ -364,8 +361,6 @@
     }
   },
   "downloadStorageClearCache": "Clear",
-  "downloadStorageCacheCleared": "Cache cleared",
-  "downloadStorageCacheBusy": "The cache is in use while a video is playing",
   "downloadsLoading": "Loading downloaded files...",
   "downloadDeleteFailed": "Unable to delete the files. Close the file if it is open and try again",
   "playerResumedFrom": "Resumed from {position}",
@@ -445,8 +440,6 @@
   },
   "continueWatchingTitle": "Continue watching",
   "continueWatchingRemove": "Remove from list",
-  "continueWatchingStoppedAtLabel": "Stopped at",
-  "continueWatchingFinishedLabel": "Watched to the end",
   "animeListHeadingPopularity": "Popular",
   "animeListHeadingScore": "Top rated",
   "animeListHeadingAiredOn": "Latest",
@@ -595,7 +588,6 @@
   "watchSourcesColumnSeeders": "Seeders",
   "watchSourcesColumnDownloads": "Downloads",
   "watchSourcesColumnDate": "Date",
-  "downloadsFilesTitle": "Files",
   "commonShowMore": "{count} more",
   "@commonShowMore": {
     "description": "Unfolds the rest of a list.",
@@ -623,13 +615,11 @@
   "navigationProfile": "Profile",
   "profileSignInTitle": "Shikimori account",
   "profileSignInMessage": "Track what you've watched and keep up with airing anime and friends",
-  "profileSignInButton": "Sign in",
-  "profileSignInUnavailable": "Sign-in is not set up in this build.",
+  "profileSignInUnavailable": "Sign-in is not set up in this build",
   "profileSigningIn": "Waiting for Shikimori",
-  "profileSignInNetworkError": "Shikimori did not respond. Try again.",
-  "profileSignInRejected": "Shikimori did not let the app in. Try again.",
-  "profileSessionExpired": "Shikimori ended the session. Sign in again.",
-  "profileSignOut": "Sign out",
+  "profileSignInNetworkError": "No response. Check your connection.",
+  "profileSignInRejected": "Couldn’t sign in. Try again.",
+  "profileSessionExpired": "Session expired. Sign in again.",
   "userRateTitle": "My list",
   "userRateAdd": "Add to list",
   "userRateRemove": "Remove from list",
@@ -663,14 +653,6 @@
   "userRateNoScore": "No score",
   "animeListHideCompleted": "Not completed",
   "animeListGenresSectionTitle": "Genres",
-  "animeListShowThemes": "Themes ({count})",
-  "@animeListShowThemes": {
-    "placeholders": {
-      "count": {
-        "type": "int"
-      }
-    }
-  },
   "animeListSeasonSectionTitle": "Season",
   "animeSeasonWinter": "Winter {year}",
   "@animeSeasonWinter": {
@@ -773,7 +755,7 @@
   "appUpdateLater": "Later",
   "appUpdateOpenFailed": "Could not open the download.",
   "appUpdateNotificationTitle": "Iris update",
-  "appUpdateNoticeAvailable": "Available {version}",
+  "appUpdateNoticeAvailable": "{version} available",
   "@appUpdateNoticeAvailable": {
     "placeholders": {
       "version": { "type": "String" }
@@ -787,7 +769,7 @@
   "appUpdateWhatsNew": "What's new",
   "appUpdateNoNotes": "No release notes were provided.",
   "appUpdateCancelDownload": "Cancel",
-  "appUpdateInstall": "Install update",
+  "appUpdateInstall": "Install",
   "appUpdateRestartAndUpdate": "Restart and update",
   "appUpdateHide": "Hide",
   "appUpdateDownloading": "Downloading",
@@ -930,7 +912,6 @@
   },
   "commonUndo": "Undo",
   "userRateLoading": "Loading my list...",
-  "downloadStorageCacheHint": "Episodes watched without downloading. Clearing it keeps your downloads.",
   "downloadNoPeers": "no peers yet",
   "downloadTimeLeftUnderMinute": "< 1 min left",
   "downloadTimeLeftMinutes": "~{minutes} min left",
@@ -1022,44 +1003,19 @@
     }
   },
   "downloadTitleEmpty": "No episodes remain on this device.",
-  "downloadLibraryCount": "{count, plural, one{{count} title} other{{count} titles}}",
-  "@downloadLibraryCount": {"placeholders": {"count": {"type": "int"}}},
-  "downloadLibraryTitle": "In library",
   "downloadEpisodeLabel": "Episode {number}",
   "@downloadEpisodeLabel": {"placeholders": {"number": {"type": "String"}}},
-  "downloadTitlesTitle": "Titles",
-  "downloadInformation": "Download information",
-  "downloadInformationAction": "Information",
   "downloadOpenAnime": "Open anime",
   "downloadStatusDetails": "Download status",
   "downloadTitleEpisodeCount": "{ready} of {total} {total, plural, one{episode} other{episodes}}",
   "@downloadTitleEpisodeCount": {"placeholders": {"ready": {"type": "int"}, "total": {"type": "int"}}},
   "downloadDeleteAll": "Delete all episodes",
-  "downloadDeleteTitleMessage": "Remove all downloads of “{name}” from this device?",
-  "@downloadDeleteTitleMessage": {
-    "placeholders": {
-      "name": {
-        "type": "String"
-      }
-    }
-  },
-  "downloadSelectedQuality": "Selected: {quality}",
-  "@downloadSelectedQuality": {
-    "placeholders": {
-      "quality": {
-        "type": "String"
-      }
-    }
-  },
   "animeListDemographicsSectionTitle": "Audience",
   "animeListThemesSectionTitle": "Themes",
-  "animeListShowAll": "All",
   "animeListCollapse": "Show less",
   "animeListShowResults": "Show results",
   "animeListShowCount": "Show {count}",
   "@animeListShowCount": {"placeholders": {"count": {"type": "String"}}},
-  "animeListActiveFilters": "Active filters: {count}",
-  "@animeListActiveFilters": {"placeholders": {"count": {"type": "int"}}},
   "searchRecentEmpty": "Your recent searches will appear here.",
   "searchRecentClear": "Clear history",
   "searchRecentRemove": "Remove “{query}”",
@@ -1097,7 +1053,6 @@
   "downloadSelectedFiles": "{count, plural, =0{Download} one{Download {count} file} other{Download {count} files}}",
   "downloadQueueTitle": "Download queue",
   "downloadQueueCount": "Queue · {count}",
-  "downloadQueueEmpty": "Nothing in the queue",
   "downloadNext": "Move to front",
   "downloadMore": "Download more",
   "@downloadSelectedEpisodes": {
@@ -1120,5 +1075,52 @@
         "type": "int"
       }
     }
-  }
+  },
+  "settingsTitle": "Settings",
+  "settingsShortcutTooltip": "Settings · Ctrl+,",
+  "settingsSectionAccounts": "Accounts",
+  "settingsSectionPlayback": "Playback",
+  "settingsSectionAppearance": "Appearance",
+  "settingsSectionAbout": "About",
+  "settingsAccountSignedOut": "Not connected",
+  "settingsCheckingSession": "Checking session",
+  "settingsSigningIn": "Signing in",
+  "settingsAnimejoySignedIn": "Connected",
+  "settingsAnimejoyUnverified": "Couldn’t verify session",
+  "settingsAnimejoyExpired": "Session expired. Sign in again.",
+  "settingsAnimejoyVerify": "Verify",
+  "settingsAnimejoySignInTitle": "Sign in to AnimeJoy",
+  "settingsAnimejoyLoginLabel": "Username",
+  "settingsAnimejoyPasswordLabel": "Password",
+  "settingsAnimejoyShowPassword": "Show password",
+  "settingsAnimejoyHidePassword": "Hide password",
+  "settingsAnimejoyLoginRequired": "Enter username",
+  "settingsAnimejoyPasswordRequired": "Enter password",
+  "settingsAnimejoyErrorInvalidCredentials": "Wrong username or password",
+  "settingsAnimejoyErrorNetwork": "No response. Check your connection.",
+  "settingsAnimejoyErrorUnavailable": "Sign-in unavailable",
+  "settingsDefaultAudioLabel": "Audio",
+  "settingsDefaultSubtitlesLabel": "Subtitles",
+  "settingsTrackAuto": "Auto",
+  "settingsAudioJapanese": "Japanese",
+  "settingsAudioRussian": "Russian",
+  "settingsAudioEnglish": "English",
+  "settingsSubtitlesRussian": "Russian",
+  "settingsSubtitlesEnglish": "English",
+  "settingsSubtitlesOff": "Off",
+  "settingsThemeLabel": "Theme",
+  "settingsThemeSystem": "System",
+  "settingsThemeLight": "Light",
+  "settingsThemeDark": "Dark",
+  "settingsLanguageLabel": "Language",
+  "settingsLanguageSystem": "System",
+  "settingsLanguageRussian": "Русский",
+  "settingsLanguageEnglish": "English",
+  "settingsAppVersion": "Version",
+  "settingsAppVersionUnknown": "Unknown",
+  "settingsCheckUpdates": "Check",
+  "settingsUpdateChecking": "Checking",
+  "settingsUpdateUpToDate": "Up to date",
+  "settingsUpdateCheckFailed": "Couldn’t check",
+  "settingsUpdateOpenDetails": "Update"
 }

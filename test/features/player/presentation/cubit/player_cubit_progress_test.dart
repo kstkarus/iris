@@ -58,6 +58,7 @@ void main() {
   PlayerCubit createCubit({
     AnimePlayerSource source = _source,
     FakePlayerEngine? playerEngine,
+    PlayerTrackPreferences? defaultTrackPreferences,
   }) {
     return PlayerCubit(
       source: source,
@@ -65,6 +66,7 @@ void main() {
       engine: playerEngine ?? engine,
       progressRepository: progress,
       trackPreferencesRepository: tracks,
+      defaultTrackPreferences: defaultTrackPreferences,
       skipTimesRepository: skipTimes,
       now: () => now,
       engineReleaseTimeout: const Duration(milliseconds: 50),
@@ -640,6 +642,110 @@ void main() {
         subtitle: PreferredTrack.off(),
       ),
     );
+  });
+
+  test(
+    'remembered choices override app defaults independently by track kind',
+    () async {
+      const russian = PreferredTrack(language: 'ru');
+      const english = PreferredTrack(language: 'en');
+      const japanese = PreferredTrack(language: 'ja');
+      tracks.seed(const PlayerTrackPreferences(audio: russian));
+      final cubit = createCubit(
+        defaultTrackPreferences: const PlayerTrackPreferences(
+          audio: japanese,
+          subtitle: english,
+        ),
+      );
+      addTearDown(cubit.close);
+
+      await cubit.loadPlayback();
+      expect(
+        engine.lastPreferredTracks,
+        const PlayerTrackPreferences(audio: russian, subtitle: english),
+      );
+
+      cubit.saveTrackPreferences(
+        const PlayerTrackPreferences(subtitle: PreferredTrack.off()),
+      );
+      await cubit.playFile(cubit.source.nextFile!);
+
+      expect(
+        engine.lastPreferredTracks,
+        const PlayerTrackPreferences(
+          audio: russian,
+          subtitle: PreferredTrack.off(),
+        ),
+      );
+    },
+  );
+
+  test(
+    'saving a subtitle choice leaves the audio default free to change',
+    () async {
+      const japanese = PreferredTrack(language: 'ja');
+      const english = PreferredTrack(language: 'en');
+      const subtitleChoice = PlayerTrackPreferences(
+        subtitle: PreferredTrack(language: 'ru'),
+      );
+      final cubit = createCubit(
+        defaultTrackPreferences: const PlayerTrackPreferences(
+          audio: japanese,
+          subtitle: PreferredTrack.off(),
+        ),
+      );
+      await cubit.loadPlayback();
+      expect(
+        engine.lastPreferredTracks,
+        const PlayerTrackPreferences(
+          audio: japanese,
+          subtitle: PreferredTrack.off(),
+        ),
+      );
+
+      cubit.saveTrackPreferences(subtitleChoice);
+      await cubit.close();
+      expect(await tracks.load(torrentKey: _hash), subtitleChoice);
+
+      final reopened = createCubit(
+        playerEngine: FakePlayerEngine(),
+        defaultTrackPreferences: const PlayerTrackPreferences(audio: english),
+      );
+      addTearDown(reopened.close);
+      await reopened.loadPlayback();
+
+      expect(
+        reopened.trackPreferences,
+        PlayerTrackPreferences(
+          audio: english,
+          subtitle: subtitleChoice.subtitle,
+        ),
+      );
+    },
+  );
+
+  test('opens a keyless online session with app track defaults', () async {
+    const defaults = PlayerTrackPreferences(
+      audio: PreferredTrack(language: 'ja'),
+      subtitle: PreferredTrack.off(),
+    );
+    final cubit = createCubit(
+      source: const AnimePlayerSource(
+        animeId: '5114',
+        animeTitle: 'Fullmetal Alchemist',
+        sourceTitle: 'Online',
+        sessionId: 'online-session:1',
+        fileIndex: 0,
+        fileName: 'Episode 1',
+      ),
+      defaultTrackPreferences: defaults,
+    );
+    addTearDown(cubit.close);
+
+    await cubit.loadPlayback();
+
+    expect(cubit.state, isA<PlayerReady>());
+    expect(engine.lastPreferredTracks, defaults);
   });
 }
 

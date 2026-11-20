@@ -10,12 +10,14 @@ class IrisApp extends StatelessWidget {
   const IrisApp({
     required this.router,
     required this.downloadsRepository,
+    this.themeMode = ThemeMode.system,
     this.locale,
     super.key,
   });
 
   final GoRouter router;
   final DownloadsRepository downloadsRepository;
+  final ThemeMode themeMode;
   final Locale? locale;
 
   @override
@@ -24,6 +26,7 @@ class IrisApp extends StatelessWidget {
       onGenerateTitle: (context) => AppLocalizations.of(context).appName,
       theme: buildAppTheme(),
       darkTheme: buildAppTheme(brightness: Brightness.dark),
+      themeMode: themeMode,
       routerConfig: router,
       builder: (context, child) =>
           DownloadAnnouncements(repository: downloadsRepository, child: child!),

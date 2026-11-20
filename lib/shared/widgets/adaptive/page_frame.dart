@@ -9,10 +9,8 @@ class PageFrame extends StatelessWidget {
   /// A top-level page's gap, [WindowSizeClass.pageTop].
   const PageFrame({required this.child, super.key}) : _subPage = false;
 
-  /// The fixed gap under a sub-page's bar.
+  /// The gap under a sub-page's bar, smaller on compact windows.
   const PageFrame.subPage({required this.child, super.key}) : _subPage = true;
-
-  static const _subPageTop = 24.0;
 
   final Widget child;
   final bool _subPage;
@@ -21,13 +19,11 @@ class PageFrame extends StatelessWidget {
   Widget build(BuildContext context) {
     final sizeClass = WindowSizeClass.of(context);
     final margin = sizeClass.pageMargin;
+    final top = _subPage
+        ? (sizeClass.isCompact ? 16.0 : 24.0)
+        : sizeClass.pageTop;
     return Padding(
-      padding: EdgeInsets.fromLTRB(
-        margin,
-        _subPage ? _subPageTop : sizeClass.pageTop,
-        margin,
-        0,
-      ),
+      padding: EdgeInsets.fromLTRB(margin, top, margin, 0),
       child: MaxWidthBox(maxWidth: AdaptiveContentWidth.page, child: child),
     );
   }

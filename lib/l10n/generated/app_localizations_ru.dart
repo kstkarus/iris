@@ -99,6 +99,15 @@ class AppLocalizationsRu extends AppLocalizations {
   String get commonRetry => 'Повторить';
 
   @override
+  String get commonSignIn => 'Войти';
+
+  @override
+  String get commonCancel => 'Отмена';
+
+  @override
+  String get commonSignOut => 'Выйти';
+
+  @override
   String get navigationCatalog => 'Каталог';
 
   @override
@@ -146,18 +155,6 @@ class AppLocalizationsRu extends AppLocalizations {
   @override
   String get downloadManagerUnableToLoad =>
       'Не удалось открыть список загрузок.';
-
-  @override
-  String get downloadStorageTitle => 'Память приложения';
-
-  @override
-  String get downloadStorageTotal => 'Всего занято приложением';
-
-  @override
-  String get downloadStorageContent => 'Офлайн-контент';
-
-  @override
-  String get downloadStorageCache => 'Кэш онлайн-просмотра';
 
   @override
   String get downloadStatusQueued => 'В очереди';
@@ -266,9 +263,6 @@ class AppLocalizationsRu extends AppLocalizations {
   String get animeListFilterSortButton => 'Фильтры и сортировка';
 
   @override
-  String get animeListFilterSortTitle => 'Фильтры и сортировка';
-
-  @override
   String get animeListSortSectionTitle => 'Сортировка';
 
   @override
@@ -285,9 +279,6 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get animeListSortAiredOn => 'Новинки';
-
-  @override
-  String get animeListApplyButton => 'Применить';
 
   @override
   String get animeListResetButton => 'Сбросить';
@@ -694,12 +685,6 @@ class AppLocalizationsRu extends AppLocalizations {
   String get downloadStorageClearCache => 'Очистить';
 
   @override
-  String get downloadStorageCacheCleared => 'Кэш очищен';
-
-  @override
-  String get downloadStorageCacheBusy => 'Кэш занят: сейчас идёт просмотр';
-
-  @override
   String get downloadsLoading => 'Загружаем список файлов...';
 
   @override
@@ -785,12 +770,6 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get continueWatchingRemove => 'Убрать из списка';
-
-  @override
-  String get continueWatchingStoppedAtLabel => 'Остановились на';
-
-  @override
-  String get continueWatchingFinishedLabel => 'Досмотрено';
 
   @override
   String get animeListHeadingPopularity => 'Популярное';
@@ -1000,9 +979,6 @@ class AppLocalizationsRu extends AppLocalizations {
   String get watchSourcesColumnDate => 'Дата';
 
   @override
-  String get downloadsFilesTitle => 'Файлы';
-
-  @override
   String commonShowMore(int count) {
     return 'Ещё $count';
   }
@@ -1063,28 +1039,19 @@ class AppLocalizationsRu extends AppLocalizations {
       'Отмечайте просмотренное, следите за онгоингами и друзьями';
 
   @override
-  String get profileSignInButton => 'Войти';
-
-  @override
-  String get profileSignInUnavailable => 'Вход не настроен в этой сборке.';
+  String get profileSignInUnavailable => 'Вход не настроен в этой сборке';
 
   @override
   String get profileSigningIn => 'Ждём Шикимори';
 
   @override
-  String get profileSignInNetworkError =>
-      'Шикимори не ответил. Попробуйте ещё раз.';
+  String get profileSignInNetworkError => 'Нет ответа. Проверьте сеть.';
 
   @override
-  String get profileSignInRejected =>
-      'Шикимори не пустил приложение. Попробуйте ещё раз.';
+  String get profileSignInRejected => 'Не удалось войти. Попробуйте ещё раз.';
 
   @override
-  String get profileSessionExpired =>
-      'Шикимори завершил сессию. Войдите снова.';
-
-  @override
-  String get profileSignOut => 'Выйти';
+  String get profileSessionExpired => 'Сессия истекла. Войдите снова.';
 
   @override
   String get userRateTitle => 'Мой список';
@@ -1146,11 +1113,6 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get animeListGenresSectionTitle => 'Жанры';
-
-  @override
-  String animeListShowThemes(int count) {
-    return 'Темы ($count)';
-  }
 
   @override
   String get animeListSeasonSectionTitle => 'Сезон';
@@ -1299,7 +1261,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get appUpdateCancelDownload => 'Отменить';
 
   @override
-  String get appUpdateInstall => 'Установить обновление';
+  String get appUpdateInstall => 'Установить';
 
   @override
   String get appUpdateRestartAndUpdate => 'Перезапустить и обновить';
@@ -1548,10 +1510,6 @@ class AppLocalizationsRu extends AppLocalizations {
   String get userRateLoading => 'Загружаем мой список...';
 
   @override
-  String get downloadStorageCacheHint =>
-      'Серии, которые смотрели без загрузки. Очистка не трогает загрузки.';
-
-  @override
   String get downloadNoPeers => 'пока нет пиров';
 
   @override
@@ -1677,34 +1635,9 @@ class AppLocalizationsRu extends AppLocalizations {
       'На устройстве больше нет серий этого тайтла.';
 
   @override
-  String downloadLibraryCount(int count) {
-    String _temp0 = intl.Intl.pluralLogic(
-      count,
-      locale: localeName,
-      other: '$count тайтла',
-      many: '$count тайтлов',
-      few: '$count тайтла',
-      one: '$count тайтл',
-    );
-    return '$_temp0';
-  }
-
-  @override
-  String get downloadLibraryTitle => 'В библиотеке';
-
-  @override
   String downloadEpisodeLabel(String number) {
     return 'Серия $number';
   }
-
-  @override
-  String get downloadTitlesTitle => 'Тайтлы';
-
-  @override
-  String get downloadInformation => 'Информация о загрузке';
-
-  @override
-  String get downloadInformationAction => 'Информация';
 
   @override
   String get downloadOpenAnime => 'Перейти к аниме';
@@ -1727,23 +1660,10 @@ class AppLocalizationsRu extends AppLocalizations {
   String get downloadDeleteAll => 'Удалить все серии';
 
   @override
-  String downloadDeleteTitleMessage(String name) {
-    return 'Удалить все загрузки «$name» с этого устройства?';
-  }
-
-  @override
-  String downloadSelectedQuality(String quality) {
-    return 'Выбрано: $quality';
-  }
-
-  @override
   String get animeListDemographicsSectionTitle => 'Аудитория';
 
   @override
   String get animeListThemesSectionTitle => 'Темы';
-
-  @override
-  String get animeListShowAll => 'Все';
 
   @override
   String get animeListCollapse => 'Свернуть';
@@ -1754,11 +1674,6 @@ class AppLocalizationsRu extends AppLocalizations {
   @override
   String animeListShowCount(String count) {
     return 'Показать $count';
-  }
-
-  @override
-  String animeListActiveFilters(int count) {
-    return 'Активные фильтры: $count';
   }
 
   @override
@@ -1888,11 +1803,150 @@ class AppLocalizationsRu extends AppLocalizations {
   }
 
   @override
-  String get downloadQueueEmpty => 'В очереди ничего нет';
-
-  @override
   String get downloadNext => 'В начало очереди';
 
   @override
   String get downloadMore => 'Скачать ещё';
+
+  @override
+  String get settingsTitle => 'Настройки';
+
+  @override
+  String get settingsShortcutTooltip => 'Настройки · Ctrl+,';
+
+  @override
+  String get settingsSectionAccounts => 'Аккаунты';
+
+  @override
+  String get settingsSectionPlayback => 'Воспроизведение';
+
+  @override
+  String get settingsSectionAppearance => 'Оформление';
+
+  @override
+  String get settingsSectionAbout => 'О приложении';
+
+  @override
+  String get settingsAccountSignedOut => 'Не подключён';
+
+  @override
+  String get settingsCheckingSession => 'Проверяем сессию';
+
+  @override
+  String get settingsSigningIn => 'Входим';
+
+  @override
+  String get settingsAnimejoySignedIn => 'Подключён';
+
+  @override
+  String get settingsAnimejoyUnverified => 'Сессия не подтверждена';
+
+  @override
+  String get settingsAnimejoyExpired => 'Сессия истекла. Войдите снова.';
+
+  @override
+  String get settingsAnimejoyVerify => 'Проверить';
+
+  @override
+  String get settingsAnimejoySignInTitle => 'Вход в AnimeJoy';
+
+  @override
+  String get settingsAnimejoyLoginLabel => 'Логин';
+
+  @override
+  String get settingsAnimejoyPasswordLabel => 'Пароль';
+
+  @override
+  String get settingsAnimejoyShowPassword => 'Показать пароль';
+
+  @override
+  String get settingsAnimejoyHidePassword => 'Скрыть пароль';
+
+  @override
+  String get settingsAnimejoyLoginRequired => 'Введите логин';
+
+  @override
+  String get settingsAnimejoyPasswordRequired => 'Введите пароль';
+
+  @override
+  String get settingsAnimejoyErrorInvalidCredentials =>
+      'Неверный логин или пароль';
+
+  @override
+  String get settingsAnimejoyErrorNetwork => 'Нет ответа. Проверьте сеть.';
+
+  @override
+  String get settingsAnimejoyErrorUnavailable => 'Вход сейчас недоступен';
+
+  @override
+  String get settingsDefaultAudioLabel => 'Аудио';
+
+  @override
+  String get settingsDefaultSubtitlesLabel => 'Субтитры';
+
+  @override
+  String get settingsTrackAuto => 'Авто';
+
+  @override
+  String get settingsAudioJapanese => 'Японский';
+
+  @override
+  String get settingsAudioRussian => 'Русский';
+
+  @override
+  String get settingsAudioEnglish => 'Английский';
+
+  @override
+  String get settingsSubtitlesRussian => 'Русские';
+
+  @override
+  String get settingsSubtitlesEnglish => 'Английские';
+
+  @override
+  String get settingsSubtitlesOff => 'Выкл';
+
+  @override
+  String get settingsThemeLabel => 'Тема';
+
+  @override
+  String get settingsThemeSystem => 'Системная';
+
+  @override
+  String get settingsThemeLight => 'Светлая';
+
+  @override
+  String get settingsThemeDark => 'Тёмная';
+
+  @override
+  String get settingsLanguageLabel => 'Язык';
+
+  @override
+  String get settingsLanguageSystem => 'Системный';
+
+  @override
+  String get settingsLanguageRussian => 'Русский';
+
+  @override
+  String get settingsLanguageEnglish => 'English';
+
+  @override
+  String get settingsAppVersion => 'Версия';
+
+  @override
+  String get settingsAppVersionUnknown => 'Неизвестна';
+
+  @override
+  String get settingsCheckUpdates => 'Проверить';
+
+  @override
+  String get settingsUpdateChecking => 'Проверяем';
+
+  @override
+  String get settingsUpdateUpToDate => 'Актуальная версия';
+
+  @override
+  String get settingsUpdateCheckFailed => 'Не удалось проверить';
+
+  @override
+  String get settingsUpdateOpenDetails => 'Обновить';
 }

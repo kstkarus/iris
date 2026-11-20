@@ -2,6 +2,7 @@ import 'dart:developer' as developer;
 
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import 'package:iris/features/app_update/domain/entities/app_release.dart';
 import 'package:iris/features/app_update/domain/entities/app_update_failure.dart';
 import 'package:iris/features/app_update/domain/repositories/app_update_download_repository.dart';
 import 'package:iris/features/app_update/domain/repositories/app_update_repository.dart';
@@ -25,30 +26,111 @@ class AppUpdateCubit extends Cubit<AppUpdateState> {
 
   bool get supportsInAppUpdate => _downloads != null;
 
+  bool get supportsCheck => _repository.supportsCheck;
+
   bool _current(int operation) =>
       !_closing && !isClosed && operation == _operation;
 
+  bool get _canCheck =>
+      !_closing &&
+      !isClosed &&
+      !state.busy &&
+      !_cancelling &&
+      state.checkStatus != AppUpdateCheckStatus.checking;
+
+  Future<void> loadInstalledVersion() async {
+    if (_closing || isClosed || state.installedVersion != null) return;
+    try {
+      final installed = await _repository.installedVersion();
+      if (!_closing &&
+          !isClosed &&
+          state.installedVersion == null &&
+          installed != null) {
+        emit(state.copyWith(installedVersion: installed));
+      }
+    } on Object catch (error, stackTrace) {
+      _logFailure('Unable to read the installed version.', error, stackTrace);
+    }
+  }
+
   Future<void> check() async {
-    if (_closing || isClosed || state.busy || _cancelling) return;
+    if (!_canCheck) return;
     final operation = ++_operation;
     try {
       final latest = await _repository.latestRelease();
+      if (!_current(operation)) return;
       final installed = await _repository.installedVersion();
-      if (!_current(operation) || latest == null || installed == null) return;
-      if (!latest.version.isNewerThan(installed)) return;
-      if (latest.version == _repository.dismissedVersion) return;
+      if (!_current(operation) || installed == null) return;
+      emit(state.copyWith(installedVersion: installed));
+      if (latest == null ||
+          !latest.version.isNewerThan(installed) ||
+          latest.version == _repository.dismissedVersion) {
+        return;
+      }
       _preparedPath = null;
-      emit(AppUpdateState(release: latest));
+      _emitRelease(latest);
       final path = await _downloads?.restore(latest);
       if (!_current(operation) || path == null) return;
       _preparedPath = path;
-      emit(AppUpdateState(release: latest, phase: AppUpdatePhase.ready));
-    } on Object catch (error) {
-      developer.log(
-        'Update check failed.',
-        name: 'iris.app_update',
-        error: error,
+      _emitRelease(latest, phase: AppUpdatePhase.ready);
+    } on Object catch (error, stackTrace) {
+      _logFailure('Update check failed.', error, stackTrace);
+    }
+  }
+
+  Future<void> checkManually() async {
+    if (!supportsCheck || !_canCheck) return;
+    final operation = ++_operation;
+    emit(state.copyWith(checkStatus: AppUpdateCheckStatus.checking));
+    try {
+      final latest = await _repository.latestRelease();
+      if (!_current(operation)) return;
+      final installed =
+          await _repository.installedVersion() ?? state.installedVersion;
+      if (!_current(operation)) return;
+      if (installed == null) {
+        emit(state.copyWith(checkStatus: AppUpdateCheckStatus.failed));
+        return;
+      }
+      if (latest == null) {
+        _preparedPath = null;
+        _awaitingPermission = false;
+        emit(
+          AppUpdateState(
+            installedVersion: installed,
+            checkStatus: AppUpdateCheckStatus.upToDate,
+          ),
+        );
+        return;
+      }
+      if (!latest.version.isNewerThan(installed)) {
+        emit(
+          state.copyWith(
+            installedVersion: installed,
+            checkStatus: AppUpdateCheckStatus.upToDate,
+          ),
+        );
+        return;
+      }
+      final path = await _downloads?.restore(latest);
+      if (!_current(operation)) return;
+      if (state.release != latest || _preparedPath != path) {
+        _awaitingPermission = false;
+      }
+      _preparedPath = path;
+      emit(
+        AppUpdateState(
+          release: latest,
+          phase: path == null ? AppUpdatePhase.available : AppUpdatePhase.ready,
+          installedVersion: installed,
+          checkStatus: AppUpdateCheckStatus.available,
+        ),
       );
+    } on Object catch (error, stackTrace) {
+      _logFailure('Manual update check failed.', error, stackTrace);
+      if (_current(operation)) {
+        emit(state.copyWith(checkStatus: AppUpdateCheckStatus.failed));
+      }
     }
   }
 
@@ -59,7 +141,7 @@ class AppUpdateCubit extends Cubit<AppUpdateState> {
       return;
     }
     ++_operation;
-    emit(const AppUpdateState());
+    emit(AppUpdateState(installedVersion: state.installedVersion));
     await _repository.dismiss(release.version);
   }
 
@@ -71,12 +153,10 @@ class AppUpdateCubit extends Cubit<AppUpdateState> {
     }
     final operation = ++_operation;
     _preparedPath = null;
-    emit(
-      AppUpdateState(
-        release: release,
-        phase: AppUpdatePhase.downloading,
-        totalBytes: release.sizeBytes,
-      ),
+    _emitRelease(
+      release,
+      phase: AppUpdatePhase.downloading,
+      totalBytes: release.sizeBytes,
     );
     int? lastPercent;
     try {
@@ -90,34 +170,30 @@ class AppUpdateCubit extends Cubit<AppUpdateState> {
             if (lastPercent == percent && state.totalBytes == expected) return;
             lastPercent = percent;
           }
-          emit(
-            AppUpdateState(
-              release: release,
-              phase: expected > 0 && received >= expected
-                  ? AppUpdatePhase.verifying
-                  : AppUpdatePhase.downloading,
-              receivedBytes: received,
-              totalBytes: expected,
-            ),
+          _emitRelease(
+            release,
+            phase: expected > 0 && received >= expected
+                ? AppUpdatePhase.verifying
+                : AppUpdatePhase.downloading,
+            receivedBytes: received,
+            totalBytes: expected,
           );
         },
       );
       if (!_current(operation)) return;
       _preparedPath = path;
-      emit(AppUpdateState(release: release, phase: AppUpdatePhase.ready));
+      _emitRelease(release, phase: AppUpdatePhase.ready);
     } on Object catch (error) {
       if (!_current(operation)) return;
       final kind = error is AppUpdateFailure
           ? error.kind
           : AppUpdateFailureKind.network;
-      emit(
-        AppUpdateState(
-          release: release,
-          phase: kind == AppUpdateFailureKind.cancelled
-              ? AppUpdatePhase.available
-              : AppUpdatePhase.failed,
-          failure: kind == AppUpdateFailureKind.cancelled ? null : kind,
-        ),
+      _emitRelease(
+        release,
+        phase: kind == AppUpdateFailureKind.cancelled
+            ? AppUpdatePhase.available
+            : AppUpdatePhase.failed,
+        failure: kind == AppUpdateFailureKind.cancelled ? null : kind,
       );
     }
   }
@@ -135,7 +211,7 @@ class AppUpdateCubit extends Cubit<AppUpdateState> {
       await _downloads?.cancel();
     } finally {
       _cancelling = false;
-      if (_current(operation)) emit(AppUpdateState(release: release));
+      if (_current(operation)) _emitRelease(release);
     }
   }
 
@@ -158,17 +234,15 @@ class AppUpdateCubit extends Cubit<AppUpdateState> {
       return;
     }
     final operation = ++_operation;
-    emit(AppUpdateState(release: release, phase: AppUpdatePhase.installing));
+    _emitRelease(release, phase: AppUpdatePhase.installing);
     try {
       final allowed = await downloads.canInstall();
       if (!_current(operation)) return;
       if (!allowed) {
-        emit(
-          AppUpdateState(
-            release: release,
-            phase: AppUpdatePhase.ready,
-            failure: requestPermission ? null : AppUpdateFailureKind.permission,
-          ),
+        _emitRelease(
+          release,
+          phase: AppUpdatePhase.ready,
+          failure: requestPermission ? null : AppUpdateFailureKind.permission,
         );
         if (requestPermission) {
           _awaitingPermission = true;
@@ -179,7 +253,7 @@ class AppUpdateCubit extends Cubit<AppUpdateState> {
       await downloads.install(path);
       if (!_current(operation)) return;
       // This only opens Android's confirmation; cancellation leaves the APK ready.
-      emit(AppUpdateState(release: release, phase: AppUpdatePhase.ready));
+      _emitRelease(release, phase: AppUpdatePhase.ready);
     } on Object catch (error) {
       if (!_current(operation)) return;
       _awaitingPermission = false;
@@ -187,16 +261,46 @@ class AppUpdateCubit extends Cubit<AppUpdateState> {
           ? error.kind
           : AppUpdateFailureKind.install;
       if (kind == AppUpdateFailureKind.invalidFile) _preparedPath = null;
-      emit(
-        AppUpdateState(
-          release: release,
-          phase: kind == AppUpdateFailureKind.invalidFile
-              ? AppUpdatePhase.failed
-              : AppUpdatePhase.ready,
-          failure: kind,
-        ),
+      _emitRelease(
+        release,
+        phase: kind == AppUpdateFailureKind.invalidFile
+            ? AppUpdatePhase.failed
+            : AppUpdatePhase.ready,
+        failure: kind,
       );
     }
+  }
+
+  void _emitRelease(
+    AppRelease? release, {
+    AppUpdatePhase phase = AppUpdatePhase.available,
+    int receivedBytes = 0,
+    int totalBytes = 0,
+    AppUpdateFailureKind? failure,
+  }) {
+    final checkStatus = state.checkStatus;
+    emit(
+      AppUpdateState(
+        release: release,
+        phase: phase,
+        receivedBytes: receivedBytes,
+        totalBytes: totalBytes,
+        failure: failure,
+        checkStatus: checkStatus == AppUpdateCheckStatus.checking
+            ? AppUpdateCheckStatus.idle
+            : checkStatus,
+        installedVersion: state.installedVersion,
+      ),
+    );
+  }
+
+  void _logFailure(String message, Object error, StackTrace stackTrace) {
+    developer.log(
+      message,
+      name: 'iris.app_update',
+      error: error,
+      stackTrace: stackTrace,
+    );
   }
 
   @override

@@ -26,6 +26,52 @@ typedef OpenExternalUrl = Future<bool> Function(Uri url);
 Future<bool> _openInBrowser(Uri url) =>
     launchUrl(url, mode: LaunchMode.externalApplication);
 
+/// Opens the release notes and update actions sheet/dialog when a release
+/// is available in [AppUpdateCubit].
+Future<void> showAppUpdateSheet(
+  BuildContext context, {
+  OpenExternalUrl? open,
+}) async {
+  final cubit = context.read<AppUpdateCubit>();
+  final release = cubit.state.release;
+  if (release == null) return;
+  if (!cubit.supportsInAppUpdate) {
+    final failed = AppLocalizations.of(context).appUpdateOpenFailed;
+    bool opened;
+    try {
+      opened = await (open ?? _openInBrowser)(release.downloadUrl);
+    } on Exception {
+      opened = false;
+    }
+    if (!opened && context.mounted) {
+      ScaffoldMessenger.maybeOf(
+        context,
+      )?.showSnackBar(SnackBar(content: Text(failed)));
+    }
+    return;
+  }
+  final windows = Theme.of(context).platform == TargetPlatform.windows;
+  await showAdaptiveSheet<void>(
+    context: context,
+    builder: (_) => BlocProvider.value(
+      value: cubit,
+      child: _UpdateSheet(release: release, windows: windows),
+    ),
+  );
+}
+
+String appUpdatePhaseLabel(AppLocalizations l10n, AppUpdateState state) =>
+    switch (state.phase) {
+      AppUpdatePhase.available => l10n.appUpdateNoticeAvailable(
+        '${state.release!.version}',
+      ),
+      AppUpdatePhase.downloading => l10n.appUpdateNoticeDownloading,
+      AppUpdatePhase.verifying => l10n.appUpdateNoticeVerifying,
+      AppUpdatePhase.ready => l10n.appUpdateNoticeReady,
+      AppUpdatePhase.installing => l10n.appUpdateNoticeInstalling,
+      AppUpdatePhase.failed => l10n.appUpdateNoticeFailed,
+    };
+
 /// An update strip above [child]. Android opens an in-app release sheet;
 /// platforms without in-app updates keep their existing external download.
 ///
@@ -207,25 +253,6 @@ class _Strip extends StatelessWidget {
   final OpenExternalUrl open;
   final double topInset;
 
-  Future<void> _downloadExternally(BuildContext context) async {
-    final failed = AppLocalizations.of(context).appUpdateOpenFailed;
-    final messenger = ScaffoldMessenger.maybeOf(context);
-    final opened = await open(state.release!.downloadUrl);
-    if (!opened) messenger?.showSnackBar(SnackBar(content: Text(failed)));
-  }
-
-  void _showSheet(BuildContext context) {
-    final cubit = context.read<AppUpdateCubit>();
-    final windows = Theme.of(context).platform == TargetPlatform.windows;
-    showAdaptiveSheet<void>(
-      context: context,
-      builder: (_) => BlocProvider.value(
-        value: cubit,
-        child: _UpdateSheet(release: state.release!, windows: windows),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -246,7 +273,7 @@ class _Strip extends StatelessWidget {
                   button: true,
                   child: TapRow(
                     inkKey: UpdateNotice.noticeKey,
-                    onTap: () => _showSheet(context),
+                    onTap: () => showAppUpdateSheet(context, open: open),
                     child: ConstrainedBox(
                       constraints: const BoxConstraints(minHeight: 48),
                       child: Row(
@@ -295,7 +322,7 @@ class _Strip extends StatelessWidget {
                     ),
                     TextButton(
                       key: UpdateNotice.downloadKey,
-                      onPressed: () => _downloadExternally(context),
+                      onPressed: () => showAppUpdateSheet(context, open: open),
                       child: Text(
                         AppLocalizations.of(context).appUpdateDownload,
                       ),
@@ -317,11 +344,12 @@ class _NoticeLabel extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final color = Theme.of(context).colorScheme.tertiary;
+    final label = appUpdatePhaseLabel(l10n, state);
     if (state.phase == AppUpdatePhase.downloading) {
       final percent = '${(state.progress * 100).round()}%';
       return PixelSeparatedText.spans(
         [
-          TextSpan(text: l10n.appUpdateNoticeDownloading),
+          TextSpan(text: label),
           if (state.totalBytes > 0)
             TextSpan(
               text: percent,
@@ -333,18 +361,8 @@ class _NoticeLabel extends StatelessWidget {
         style: Theme.of(context).textTheme.bodyMedium,
       );
     }
-    final text = switch (state.phase) {
-      AppUpdatePhase.available => l10n.appUpdateNoticeAvailable(
-        '${state.release!.version}',
-      ),
-      AppUpdatePhase.verifying => l10n.appUpdateNoticeVerifying,
-      AppUpdatePhase.ready => l10n.appUpdateNoticeReady,
-      AppUpdatePhase.installing => l10n.appUpdateNoticeInstalling,
-      AppUpdatePhase.failed => l10n.appUpdateNoticeFailed,
-      AppUpdatePhase.downloading => throw StateError('handled above'),
-    };
     return Text(
-      text,
+      label,
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
       style: Theme.of(context).textTheme.bodyMedium,

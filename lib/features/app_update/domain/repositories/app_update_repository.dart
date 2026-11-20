@@ -2,6 +2,8 @@ import 'package:iris/features/app_update/domain/entities/app_release.dart';
 import 'package:iris/features/app_update/domain/entities/app_version.dart';
 
 abstract interface class AppUpdateRepository {
+  bool get supportsCheck;
+
   /// The newest published release with a build for this platform; null
   /// when there is none, or the platform takes no updates this way (iOS).
   Future<AppRelease?> latestRelease();

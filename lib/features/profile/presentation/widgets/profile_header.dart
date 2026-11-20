@@ -17,36 +17,54 @@ class ProfileHeader extends StatelessWidget {
     super.key,
   });
 
+  static const compactRowHeight = 56.0;
+
   final String nickname;
   final String avatarUrl;
 
-  /// A quiet action at the end of the row, such as signing out.
+  /// A quiet action at the end of the row.
   final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
     final compact = WindowSizeClass.of(context).isCompact;
-    final avatarSize = compact ? 56.0 : 72.0;
+    final avatarSize = compact ? compactRowHeight : 72.0;
     final trailing = this.trailing;
+    final alignActionToTop = compact && trailing != null;
+    final title = HeadlineAnchor(
+      child: DisplayTitle(
+        nickname,
+        maxSize: compact ? 40 : 64,
+        preferredMinSize: 22,
+        minSize: 16,
+        maxLines: 1,
+        fallbackStyleAt: DetailLayout.fallbackTitleStyle,
+      ),
+    );
     return Padding(
       padding: EdgeInsets.only(bottom: compact ? 14 : 20),
       child: Row(
+        crossAxisAlignment: alignActionToTop
+            ? CrossAxisAlignment.start
+            : CrossAxisAlignment.center,
         children: [
           if (avatarUrl.isNotEmpty) ...[
             SquareAvatar(url: avatarUrl, size: avatarSize),
             SizedBox(width: compact ? 16 : 24),
           ],
           Expanded(
-            child: HeadlineAnchor(
-              child: DisplayTitle(
-                nickname,
-                maxSize: compact ? 40 : 64,
-                preferredMinSize: 22,
-                minSize: 16,
-                maxLines: 1,
-                fallbackStyleAt: DetailLayout.fallbackTitleStyle,
-              ),
-            ),
+            child: alignActionToTop
+                ? ConstrainedBox(
+                    constraints: const BoxConstraints(
+                      minHeight: compactRowHeight,
+                    ),
+                    child: Align(
+                      alignment: AlignmentDirectional.centerStart,
+                      heightFactor: 1,
+                      child: title,
+                    ),
+                  )
+                : title,
           ),
           if (trailing != null) ...[const SizedBox(width: 12), trailing],
         ],

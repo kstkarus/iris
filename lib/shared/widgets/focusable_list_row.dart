@@ -4,23 +4,25 @@ import 'package:flutter/services.dart';
 import 'package:iris/shared/utils/motion_duration.dart';
 
 /// A list row with an ink splash that also works from a keyboard: focus
-/// shows as an outline, and the Delete key runs [onDelete].
+/// shows as an outline, and the Delete key can run [onDelete].
 class FocusableListRow extends StatefulWidget {
   const FocusableListRow({
-    required this.onDelete,
     required this.child,
+    this.onDelete,
     this.onTap,
     this.onLongPress,
     this.onSecondaryTap,
+    this.focusNode,
     this.filled = false,
     this.inkKey,
     super.key,
   });
 
-  final VoidCallback onDelete;
+  final VoidCallback? onDelete;
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;
   final VoidCallback? onSecondaryTap;
+  final FocusNode? focusNode;
 
   /// Fills the row, e.g. while its menu is open.
   final bool filled;
@@ -42,7 +44,7 @@ class _FocusableListRowState extends State<FocusableListRow> {
     final anim = motionDuration(context, const Duration(milliseconds: 160));
     return CallbackShortcuts(
       bindings: {
-        const SingleActivator(LogicalKeyboardKey.delete): widget.onDelete,
+        const SingleActivator(LogicalKeyboardKey.delete): ?widget.onDelete,
       },
       child: AnimatedContainer(
         duration: anim,
@@ -63,6 +65,7 @@ class _FocusableListRowState extends State<FocusableListRow> {
             type: MaterialType.transparency,
             child: InkWell(
               key: widget.inkKey,
+              focusNode: widget.focusNode,
               onTap: widget.onTap,
               onLongPress: widget.onLongPress,
               onSecondaryTap: widget.onSecondaryTap,

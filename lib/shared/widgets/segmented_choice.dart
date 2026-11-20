@@ -41,6 +41,14 @@ class SegmentedChoice<T> extends StatelessWidget {
 
   static const _height = 44.0;
   static const _slide = Duration(milliseconds: 220);
+  static const horizontalCellPadding = 4.0;
+
+  static TextStyle labelStyle(ThemeData theme) =>
+      (theme.textTheme.labelLarge ?? const TextStyle()).copyWith(
+        fontFamily: DetailLayout.sansFont,
+        fontSize: 13,
+        fontFeatures: const [FontFeature.tabularFigures()],
+      );
 
   final List<SegmentedOption<T>> options;
   final T selected;
@@ -49,11 +57,7 @@ class SegmentedChoice<T> extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final textStyle = Theme.of(context).textTheme.labelLarge?.copyWith(
-      fontFamily: DetailLayout.sansFont,
-      fontSize: 13,
-      fontFeatures: const [FontFeature.tabularFigures()],
-    );
+    final textStyle = labelStyle(Theme.of(context));
     final duration = MediaQuery.disableAnimationsOf(context)
         ? Duration.zero
         : _slide;
@@ -151,7 +155,10 @@ class _Cell<T> extends StatelessWidget {
         child: ConstrainedBox(
           constraints: BoxConstraints(minHeight: height),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+            padding: const EdgeInsets.symmetric(
+              horizontal: SegmentedChoice.horizontalCellPadding,
+              vertical: 6,
+            ),
             child: Center(
               child: AnimatedDefaultTextStyle(
                 duration: duration,

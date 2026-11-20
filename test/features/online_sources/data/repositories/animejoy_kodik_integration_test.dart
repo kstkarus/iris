@@ -274,7 +274,8 @@ class _FakeSite {
         '<div class="abasel"><a href="https://shikimori.io/animes/y42310-cyberpunk">Shikimori</a></div>',
       );
     }
-    if (uri.host == 'otakujoy.fun' && uri.path == '/engine/ajax/playlists.php') {
+    if (uri.host == 'otakujoy.fun' &&
+        uri.path == '/engine/ajax/playlists.php') {
       return FakeReply(200, {'success': true, 'response': _playlist()});
     }
     if (uri.host == 'fsst.online') {

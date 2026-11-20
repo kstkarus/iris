@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:iris/features/app_update/presentation/widgets/update_notice.dart';
+import 'package:iris/features/settings/presentation/widgets/settings_dialog.dart';
+import 'package:iris/features/settings/presentation/widgets/settings_icon_button.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/widgets/adaptive/window_size_class.dart';
 import 'package:iris/shared/widgets/marked_tab.dart';
@@ -17,24 +19,44 @@ import 'package:iris/shared/widgets/adaptive/adaptive_content_width.dart';
 ///
 /// The navigation stays small on purpose: each page brings its own large
 /// headline, and the contrast between the two carries the hierarchy.
-class AppShellPage extends StatelessWidget {
+class AppShellPage extends StatefulWidget {
   const AppShellPage({required this.navigationShell, super.key});
 
   static const navigationBarKey = Key('app_shell_navigation_bar');
   static const topBarKey = Key('app_shell_top_bar');
   static const wordmarkKey = Key('app_shell_wordmark');
+  static const settingsButtonKey = Key('app_shell_settings_button');
 
   final StatefulNavigationShell navigationShell;
 
+  @override
+  State<AppShellPage> createState() => _AppShellPageState();
+}
+
+class _AppShellPageState extends State<AppShellPage> {
+  bool _settingsOpen = false;
+
   void _select(int index) {
+    final navigationShell = widget.navigationShell;
     navigationShell.goBranch(
       index,
       initialLocation: index == navigationShell.currentIndex,
     );
   }
 
+  Future<void> _openSettings() async {
+    if (_settingsOpen) return;
+    _settingsOpen = true;
+    try {
+      await showSettingsDialog(context);
+    } finally {
+      _settingsOpen = false;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final navigationShell = widget.navigationShell;
     final l10n = AppLocalizations.of(context);
     final labels = [
       l10n.navigationCatalog,
@@ -50,7 +72,7 @@ class AppShellPage extends StatelessWidget {
         // The tabs at the bottom on phones: the top belongs to the status
         // bar and each page's own heading, and the thumb is down here.
         bottomNavigationBar: _BottomTabs(
-          key: navigationBarKey,
+          key: AppShellPage.navigationBarKey,
           labels: labels,
           selectedIndex: navigationShell.currentIndex,
           onSelected: _select,
@@ -62,27 +84,36 @@ class AppShellPage extends StatelessWidget {
       bindings: {
         for (final (index, key) in _sectionKeys.take(labels.length).indexed)
           SingleActivator(key, control: true): () => _select(index),
+        const SingleActivator(
+          LogicalKeyboardKey.comma,
+          control: true,
+          includeRepeats: false,
+        ): _openSettings,
       },
-      child: Scaffold(
-        body: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _TopBar(
-              key: topBarKey,
-              appName: l10n.appName,
-              labels: labels,
-              selectedIndex: navigationShell.currentIndex,
-              onSelected: _select,
-            ),
-            Expanded(
-              // The top bar has taken the status bar's inset.
-              child: MediaQuery.removePadding(
-                context: context,
-                removeTop: true,
-                child: UpdateNotice(child: navigationShell),
+      child: FocusScope(
+        autofocus: true,
+        child: Scaffold(
+          body: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _TopBar(
+                key: AppShellPage.topBarKey,
+                appName: l10n.appName,
+                labels: labels,
+                selectedIndex: navigationShell.currentIndex,
+                onSelected: _select,
+                onOpenSettings: _openSettings,
               ),
-            ),
-          ],
+              Expanded(
+                // The top bar has taken the status bar's inset.
+                child: MediaQuery.removePadding(
+                  context: context,
+                  removeTop: true,
+                  child: UpdateNotice(child: navigationShell),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -101,6 +132,7 @@ class _TopBar extends StatelessWidget {
     required this.labels,
     required this.selectedIndex,
     required this.onSelected,
+    required this.onOpenSettings,
     super.key,
   });
 
@@ -110,6 +142,7 @@ class _TopBar extends StatelessWidget {
   final List<String> labels;
   final int selectedIndex;
   final ValueChanged<int> onSelected;
+  final VoidCallback onOpenSettings;
 
   @override
   Widget build(BuildContext context) {
@@ -160,7 +193,16 @@ class _TopBar extends StatelessWidget {
                               selected: index == selectedIndex,
                               onTap: () => onSelected(index),
                             ),
-                          const Spacer(),
+                          Expanded(
+                            child: Align(
+                              alignment: AlignmentDirectional.centerEnd,
+                              child: SettingsIconButton(
+                                key: AppShellPage.settingsButtonKey,
+                                inTopBar: true,
+                                onPressed: onOpenSettings,
+                              ),
+                            ),
+                          ),
                         ],
                       ),
                     ),

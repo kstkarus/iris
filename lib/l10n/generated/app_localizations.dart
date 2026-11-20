@@ -260,6 +260,24 @@ abstract class AppLocalizations {
   /// **'Try Again'**
   String get commonRetry;
 
+  /// No description provided for @commonSignIn.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in'**
+  String get commonSignIn;
+
+  /// No description provided for @commonCancel.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get commonCancel;
+
+  /// No description provided for @commonSignOut.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign out'**
+  String get commonSignOut;
+
   /// No description provided for @navigationCatalog.
   ///
   /// In en, this message translates to:
@@ -343,30 +361,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Unable to load downloads.'**
   String get downloadManagerUnableToLoad;
-
-  /// No description provided for @downloadStorageTitle.
-  ///
-  /// In en, this message translates to:
-  /// **'App storage'**
-  String get downloadStorageTitle;
-
-  /// No description provided for @downloadStorageTotal.
-  ///
-  /// In en, this message translates to:
-  /// **'Total used by app'**
-  String get downloadStorageTotal;
-
-  /// No description provided for @downloadStorageContent.
-  ///
-  /// In en, this message translates to:
-  /// **'Offline content'**
-  String get downloadStorageContent;
-
-  /// No description provided for @downloadStorageCache.
-  ///
-  /// In en, this message translates to:
-  /// **'Online viewing cache'**
-  String get downloadStorageCache;
 
   /// No description provided for @downloadStatusQueued.
   ///
@@ -548,12 +542,6 @@ abstract class AppLocalizations {
   /// **'Filter & Sort'**
   String get animeListFilterSortButton;
 
-  /// No description provided for @animeListFilterSortTitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Filter & Sort'**
-  String get animeListFilterSortTitle;
-
   /// No description provided for @animeListSortSectionTitle.
   ///
   /// In en, this message translates to:
@@ -589,12 +577,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Aired On'**
   String get animeListSortAiredOn;
-
-  /// No description provided for @animeListApplyButton.
-  ///
-  /// In en, this message translates to:
-  /// **'Apply'**
-  String get animeListApplyButton;
 
   /// No description provided for @animeListResetButton.
   ///
@@ -1298,18 +1280,6 @@ abstract class AppLocalizations {
   /// **'Clear'**
   String get downloadStorageClearCache;
 
-  /// No description provided for @downloadStorageCacheCleared.
-  ///
-  /// In en, this message translates to:
-  /// **'Cache cleared'**
-  String get downloadStorageCacheCleared;
-
-  /// No description provided for @downloadStorageCacheBusy.
-  ///
-  /// In en, this message translates to:
-  /// **'The cache is in use while a video is playing'**
-  String get downloadStorageCacheBusy;
-
   /// No description provided for @downloadsLoading.
   ///
   /// In en, this message translates to:
@@ -1453,18 +1423,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Remove from list'**
   String get continueWatchingRemove;
-
-  /// No description provided for @continueWatchingStoppedAtLabel.
-  ///
-  /// In en, this message translates to:
-  /// **'Stopped at'**
-  String get continueWatchingStoppedAtLabel;
-
-  /// No description provided for @continueWatchingFinishedLabel.
-  ///
-  /// In en, this message translates to:
-  /// **'Watched to the end'**
-  String get continueWatchingFinishedLabel;
 
   /// No description provided for @animeListHeadingPopularity.
   ///
@@ -1790,12 +1748,6 @@ abstract class AppLocalizations {
   /// **'Date'**
   String get watchSourcesColumnDate;
 
-  /// No description provided for @downloadsFilesTitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Files'**
-  String get downloadsFilesTitle;
-
   /// Unfolds the rest of a list.
   ///
   /// In en, this message translates to:
@@ -1910,16 +1862,10 @@ abstract class AppLocalizations {
   /// **'Track what you\'ve watched and keep up with airing anime and friends'**
   String get profileSignInMessage;
 
-  /// No description provided for @profileSignInButton.
-  ///
-  /// In en, this message translates to:
-  /// **'Sign in'**
-  String get profileSignInButton;
-
   /// No description provided for @profileSignInUnavailable.
   ///
   /// In en, this message translates to:
-  /// **'Sign-in is not set up in this build.'**
+  /// **'Sign-in is not set up in this build'**
   String get profileSignInUnavailable;
 
   /// No description provided for @profileSigningIn.
@@ -1931,26 +1877,20 @@ abstract class AppLocalizations {
   /// No description provided for @profileSignInNetworkError.
   ///
   /// In en, this message translates to:
-  /// **'Shikimori did not respond. Try again.'**
+  /// **'No response. Check your connection.'**
   String get profileSignInNetworkError;
 
   /// No description provided for @profileSignInRejected.
   ///
   /// In en, this message translates to:
-  /// **'Shikimori did not let the app in. Try again.'**
+  /// **'Couldn’t sign in. Try again.'**
   String get profileSignInRejected;
 
   /// No description provided for @profileSessionExpired.
   ///
   /// In en, this message translates to:
-  /// **'Shikimori ended the session. Sign in again.'**
+  /// **'Session expired. Sign in again.'**
   String get profileSessionExpired;
-
-  /// No description provided for @profileSignOut.
-  ///
-  /// In en, this message translates to:
-  /// **'Sign out'**
-  String get profileSignOut;
 
   /// No description provided for @userRateTitle.
   ///
@@ -2065,12 +2005,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Genres'**
   String get animeListGenresSectionTitle;
-
-  /// No description provided for @animeListShowThemes.
-  ///
-  /// In en, this message translates to:
-  /// **'Themes ({count})'**
-  String animeListShowThemes(int count);
 
   /// No description provided for @animeListSeasonSectionTitle.
   ///
@@ -2249,7 +2183,7 @@ abstract class AppLocalizations {
   /// No description provided for @appUpdateNoticeAvailable.
   ///
   /// In en, this message translates to:
-  /// **'Available {version}'**
+  /// **'{version} available'**
   String appUpdateNoticeAvailable(String version);
 
   /// No description provided for @appUpdateNoticeDownloading.
@@ -2303,7 +2237,7 @@ abstract class AppLocalizations {
   /// No description provided for @appUpdateInstall.
   ///
   /// In en, this message translates to:
-  /// **'Install update'**
+  /// **'Install'**
   String get appUpdateInstall;
 
   /// No description provided for @appUpdateRestartAndUpdate.
@@ -2726,12 +2660,6 @@ abstract class AppLocalizations {
   /// **'Loading my list...'**
   String get userRateLoading;
 
-  /// No description provided for @downloadStorageCacheHint.
-  ///
-  /// In en, this message translates to:
-  /// **'Episodes watched without downloading. Clearing it keeps your downloads.'**
-  String get downloadStorageCacheHint;
-
   /// No description provided for @downloadNoPeers.
   ///
   /// In en, this message translates to:
@@ -2906,41 +2834,11 @@ abstract class AppLocalizations {
   /// **'No episodes remain on this device.'**
   String get downloadTitleEmpty;
 
-  /// No description provided for @downloadLibraryCount.
-  ///
-  /// In en, this message translates to:
-  /// **'{count, plural, one{{count} title} other{{count} titles}}'**
-  String downloadLibraryCount(int count);
-
-  /// No description provided for @downloadLibraryTitle.
-  ///
-  /// In en, this message translates to:
-  /// **'In library'**
-  String get downloadLibraryTitle;
-
   /// No description provided for @downloadEpisodeLabel.
   ///
   /// In en, this message translates to:
   /// **'Episode {number}'**
   String downloadEpisodeLabel(String number);
-
-  /// No description provided for @downloadTitlesTitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Titles'**
-  String get downloadTitlesTitle;
-
-  /// No description provided for @downloadInformation.
-  ///
-  /// In en, this message translates to:
-  /// **'Download information'**
-  String get downloadInformation;
-
-  /// No description provided for @downloadInformationAction.
-  ///
-  /// In en, this message translates to:
-  /// **'Information'**
-  String get downloadInformationAction;
 
   /// No description provided for @downloadOpenAnime.
   ///
@@ -2966,18 +2864,6 @@ abstract class AppLocalizations {
   /// **'Delete all episodes'**
   String get downloadDeleteAll;
 
-  /// No description provided for @downloadDeleteTitleMessage.
-  ///
-  /// In en, this message translates to:
-  /// **'Remove all downloads of “{name}” from this device?'**
-  String downloadDeleteTitleMessage(String name);
-
-  /// No description provided for @downloadSelectedQuality.
-  ///
-  /// In en, this message translates to:
-  /// **'Selected: {quality}'**
-  String downloadSelectedQuality(String quality);
-
   /// No description provided for @animeListDemographicsSectionTitle.
   ///
   /// In en, this message translates to:
@@ -2989,12 +2875,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Themes'**
   String get animeListThemesSectionTitle;
-
-  /// No description provided for @animeListShowAll.
-  ///
-  /// In en, this message translates to:
-  /// **'All'**
-  String get animeListShowAll;
 
   /// No description provided for @animeListCollapse.
   ///
@@ -3013,12 +2893,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Show {count}'**
   String animeListShowCount(String count);
-
-  /// No description provided for @animeListActiveFilters.
-  ///
-  /// In en, this message translates to:
-  /// **'Active filters: {count}'**
-  String animeListActiveFilters(int count);
 
   /// No description provided for @searchRecentEmpty.
   ///
@@ -3152,12 +3026,6 @@ abstract class AppLocalizations {
   /// **'Queue · {count}'**
   String downloadQueueCount(int count);
 
-  /// No description provided for @downloadQueueEmpty.
-  ///
-  /// In en, this message translates to:
-  /// **'Nothing in the queue'**
-  String get downloadQueueEmpty;
-
   /// No description provided for @downloadNext.
   ///
   /// In en, this message translates to:
@@ -3169,6 +3037,288 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Download more'**
   String get downloadMore;
+
+  /// No description provided for @settingsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Settings'**
+  String get settingsTitle;
+
+  /// No description provided for @settingsShortcutTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Settings · Ctrl+,'**
+  String get settingsShortcutTooltip;
+
+  /// No description provided for @settingsSectionAccounts.
+  ///
+  /// In en, this message translates to:
+  /// **'Accounts'**
+  String get settingsSectionAccounts;
+
+  /// No description provided for @settingsSectionPlayback.
+  ///
+  /// In en, this message translates to:
+  /// **'Playback'**
+  String get settingsSectionPlayback;
+
+  /// No description provided for @settingsSectionAppearance.
+  ///
+  /// In en, this message translates to:
+  /// **'Appearance'**
+  String get settingsSectionAppearance;
+
+  /// No description provided for @settingsSectionAbout.
+  ///
+  /// In en, this message translates to:
+  /// **'About'**
+  String get settingsSectionAbout;
+
+  /// No description provided for @settingsAccountSignedOut.
+  ///
+  /// In en, this message translates to:
+  /// **'Not connected'**
+  String get settingsAccountSignedOut;
+
+  /// No description provided for @settingsCheckingSession.
+  ///
+  /// In en, this message translates to:
+  /// **'Checking session'**
+  String get settingsCheckingSession;
+
+  /// No description provided for @settingsSigningIn.
+  ///
+  /// In en, this message translates to:
+  /// **'Signing in'**
+  String get settingsSigningIn;
+
+  /// No description provided for @settingsAnimejoySignedIn.
+  ///
+  /// In en, this message translates to:
+  /// **'Connected'**
+  String get settingsAnimejoySignedIn;
+
+  /// No description provided for @settingsAnimejoyUnverified.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn’t verify session'**
+  String get settingsAnimejoyUnverified;
+
+  /// No description provided for @settingsAnimejoyExpired.
+  ///
+  /// In en, this message translates to:
+  /// **'Session expired. Sign in again.'**
+  String get settingsAnimejoyExpired;
+
+  /// No description provided for @settingsAnimejoyVerify.
+  ///
+  /// In en, this message translates to:
+  /// **'Verify'**
+  String get settingsAnimejoyVerify;
+
+  /// No description provided for @settingsAnimejoySignInTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in to AnimeJoy'**
+  String get settingsAnimejoySignInTitle;
+
+  /// No description provided for @settingsAnimejoyLoginLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Username'**
+  String get settingsAnimejoyLoginLabel;
+
+  /// No description provided for @settingsAnimejoyPasswordLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Password'**
+  String get settingsAnimejoyPasswordLabel;
+
+  /// No description provided for @settingsAnimejoyShowPassword.
+  ///
+  /// In en, this message translates to:
+  /// **'Show password'**
+  String get settingsAnimejoyShowPassword;
+
+  /// No description provided for @settingsAnimejoyHidePassword.
+  ///
+  /// In en, this message translates to:
+  /// **'Hide password'**
+  String get settingsAnimejoyHidePassword;
+
+  /// No description provided for @settingsAnimejoyLoginRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter username'**
+  String get settingsAnimejoyLoginRequired;
+
+  /// No description provided for @settingsAnimejoyPasswordRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter password'**
+  String get settingsAnimejoyPasswordRequired;
+
+  /// No description provided for @settingsAnimejoyErrorInvalidCredentials.
+  ///
+  /// In en, this message translates to:
+  /// **'Wrong username or password'**
+  String get settingsAnimejoyErrorInvalidCredentials;
+
+  /// No description provided for @settingsAnimejoyErrorNetwork.
+  ///
+  /// In en, this message translates to:
+  /// **'No response. Check your connection.'**
+  String get settingsAnimejoyErrorNetwork;
+
+  /// No description provided for @settingsAnimejoyErrorUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign-in unavailable'**
+  String get settingsAnimejoyErrorUnavailable;
+
+  /// No description provided for @settingsDefaultAudioLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Audio'**
+  String get settingsDefaultAudioLabel;
+
+  /// No description provided for @settingsDefaultSubtitlesLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Subtitles'**
+  String get settingsDefaultSubtitlesLabel;
+
+  /// No description provided for @settingsTrackAuto.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto'**
+  String get settingsTrackAuto;
+
+  /// No description provided for @settingsAudioJapanese.
+  ///
+  /// In en, this message translates to:
+  /// **'Japanese'**
+  String get settingsAudioJapanese;
+
+  /// No description provided for @settingsAudioRussian.
+  ///
+  /// In en, this message translates to:
+  /// **'Russian'**
+  String get settingsAudioRussian;
+
+  /// No description provided for @settingsAudioEnglish.
+  ///
+  /// In en, this message translates to:
+  /// **'English'**
+  String get settingsAudioEnglish;
+
+  /// No description provided for @settingsSubtitlesRussian.
+  ///
+  /// In en, this message translates to:
+  /// **'Russian'**
+  String get settingsSubtitlesRussian;
+
+  /// No description provided for @settingsSubtitlesEnglish.
+  ///
+  /// In en, this message translates to:
+  /// **'English'**
+  String get settingsSubtitlesEnglish;
+
+  /// No description provided for @settingsSubtitlesOff.
+  ///
+  /// In en, this message translates to:
+  /// **'Off'**
+  String get settingsSubtitlesOff;
+
+  /// No description provided for @settingsThemeLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Theme'**
+  String get settingsThemeLabel;
+
+  /// No description provided for @settingsThemeSystem.
+  ///
+  /// In en, this message translates to:
+  /// **'System'**
+  String get settingsThemeSystem;
+
+  /// No description provided for @settingsThemeLight.
+  ///
+  /// In en, this message translates to:
+  /// **'Light'**
+  String get settingsThemeLight;
+
+  /// No description provided for @settingsThemeDark.
+  ///
+  /// In en, this message translates to:
+  /// **'Dark'**
+  String get settingsThemeDark;
+
+  /// No description provided for @settingsLanguageLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Language'**
+  String get settingsLanguageLabel;
+
+  /// No description provided for @settingsLanguageSystem.
+  ///
+  /// In en, this message translates to:
+  /// **'System'**
+  String get settingsLanguageSystem;
+
+  /// No description provided for @settingsLanguageRussian.
+  ///
+  /// In en, this message translates to:
+  /// **'Русский'**
+  String get settingsLanguageRussian;
+
+  /// No description provided for @settingsLanguageEnglish.
+  ///
+  /// In en, this message translates to:
+  /// **'English'**
+  String get settingsLanguageEnglish;
+
+  /// No description provided for @settingsAppVersion.
+  ///
+  /// In en, this message translates to:
+  /// **'Version'**
+  String get settingsAppVersion;
+
+  /// No description provided for @settingsAppVersionUnknown.
+  ///
+  /// In en, this message translates to:
+  /// **'Unknown'**
+  String get settingsAppVersionUnknown;
+
+  /// No description provided for @settingsCheckUpdates.
+  ///
+  /// In en, this message translates to:
+  /// **'Check'**
+  String get settingsCheckUpdates;
+
+  /// No description provided for @settingsUpdateChecking.
+  ///
+  /// In en, this message translates to:
+  /// **'Checking'**
+  String get settingsUpdateChecking;
+
+  /// No description provided for @settingsUpdateUpToDate.
+  ///
+  /// In en, this message translates to:
+  /// **'Up to date'**
+  String get settingsUpdateUpToDate;
+
+  /// No description provided for @settingsUpdateCheckFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn’t check'**
+  String get settingsUpdateCheckFailed;
+
+  /// No description provided for @settingsUpdateOpenDetails.
+  ///
+  /// In en, this message translates to:
+  /// **'Update'**
+  String get settingsUpdateOpenDetails;
 }
 
 class _AppLocalizationsDelegate

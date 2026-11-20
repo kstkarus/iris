@@ -84,10 +84,13 @@ void main() {
     final storage = FakeSecureStorage({'shikimori.session': 'unrelated'});
     final dio = fakeDio(_account);
     final session = _session(dio, storage);
+    final requests = (dio.httpClientAdapter as FakeHttpAdapter).requests;
+    expect(await session.hasSavedSession(), isFalse);
+    expect(requests, isEmpty);
+
     final signedIn = session.sessionChanges.first;
     await _signIn(session);
     expect(await signedIn, isTrue);
-    final requests = (dio.httpClientAdapter as FakeHttpAdapter).requests;
     expect(requests.map((request) => request.method), [
       'GET',
       'POST',
@@ -105,9 +108,12 @@ void main() {
 
     final restoredDio = fakeDio(_account);
     final restored = _session(restoredDio, storage);
-    expect(await restored.restore(), isTrue);
     final restoredRequests =
         (restoredDio.httpClientAdapter as FakeHttpAdapter).requests;
+    expect(await restored.hasSavedSession(), isTrue);
+    expect(restoredRequests, isEmpty);
+
+    expect(await restored.restore(), isTrue);
     expect(_cookieHeader(restoredRequests.single), 'member=valid');
     await restored.get(_home.resolve('/engine/ajax/playlists.php'));
     expect(
@@ -115,6 +121,7 @@ void main() {
       'playlist=valid; member=valid',
     );
     await restored.signOut();
+    expect(await restored.hasSavedSession(), isFalse);
     expect(storage.values, {'shikimori.session': 'unrelated'});
   });
 

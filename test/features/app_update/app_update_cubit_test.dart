@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:iris/features/app_update/data/github_app_update_repository.dart';
 import 'package:iris/features/app_update/domain/entities/app_release.dart';
 import 'package:iris/features/app_update/domain/entities/app_update_failure.dart';
 import 'package:iris/features/app_update/domain/entities/app_version.dart';
@@ -28,6 +29,8 @@ void main() {
     );
 
     expect(cubit.state.release, testRelease(3));
+    expect(cubit.state.installedVersion, const AppVersion(1, 2, 0));
+    expect(cubit.state.checkStatus, AppUpdateCheckStatus.idle);
   });
 
   test('offers nothing for the running version or an older one', () async {
@@ -67,6 +70,248 @@ void main() {
     );
 
     expect(cubit.state.release, isNull);
+    expect(cubit.state.checkStatus, AppUpdateCheckStatus.idle);
+  });
+
+  group('installed version', () {
+    test('can be loaded on a platform without update checks', () async {
+      var reads = 0;
+      final cubit = AppUpdateCubit(
+        repository: NoAppUpdateRepository(
+          installed: () async {
+            reads++;
+            return '1.2.3+4';
+          },
+        ),
+      );
+      addTearDown(cubit.close);
+
+      expect(cubit.supportsCheck, isFalse);
+      await cubit.checkManually();
+      expect(reads, 0);
+      expect(cubit.state, const AppUpdateState());
+      await cubit.loadInstalledVersion();
+      await cubit.loadInstalledVersion();
+
+      expect(cubit.state.installedVersion, const AppVersion(1, 2, 3));
+      expect(cubit.state.checkStatus, AppUpdateCheckStatus.idle);
+      expect(reads, 1);
+    });
+
+    test('a version read failure is silent and can be retried', () async {
+      var failing = true;
+      final cubit = AppUpdateCubit(
+        repository: NoAppUpdateRepository(
+          installed: () async {
+            if (failing) throw StateError('package information unavailable');
+            return '1.2.3';
+          },
+        ),
+      );
+      addTearDown(cubit.close);
+
+      await cubit.loadInstalledVersion();
+      expect(cubit.state, const AppUpdateState());
+
+      failing = false;
+      await cubit.loadInstalledVersion();
+      expect(cubit.state.installedVersion, const AppVersion(1, 2, 3));
+    });
+
+    test('ignores installed version answers after closing', () async {
+      final answer = Completer<String?>();
+      final cubit = AppUpdateCubit(
+        repository: NoAppUpdateRepository(installed: () => answer.future),
+      );
+
+      final loading = cubit.loadInstalledVersion();
+      await cubit.close();
+      answer.complete('1.2.3');
+      await loading;
+      expect(cubit.state, const AppUpdateState());
+    });
+  });
+
+  group('manual checks', () {
+    const installed = AppVersion(1, 2, 0);
+
+    test('rediscovers an update the user put off', () async {
+      final release = testRelease(3);
+      final repository = FakeAppUpdateRepository(
+        latest: release,
+        installed: installed,
+      );
+      final cubit = await checked(repository);
+
+      await cubit.dismiss();
+      await cubit.check();
+      expect(cubit.state.release, isNull);
+      expect(cubit.supportsCheck, isTrue);
+
+      await cubit.checkManually();
+
+      expect(
+        cubit.state,
+        AppUpdateState(
+          release: release,
+          installedVersion: installed,
+          checkStatus: AppUpdateCheckStatus.available,
+        ),
+      );
+      expect(repository.dismissedVersion, release.version);
+    });
+
+    test(
+      'keeps the ready update visible during the check and restores its file',
+      () async {
+        final release = testRelease(3);
+        final repository = FakeAppUpdateRepository(
+          latest: release,
+          installed: installed,
+        );
+        final downloads = _Downloads()..restored = '/ready.apk';
+        final cubit = AppUpdateCubit(
+          repository: repository,
+          downloads: downloads,
+        );
+        addTearDown(cubit.close);
+        await cubit.check();
+        final answer = Completer<AppRelease?>();
+        repository.pendingLatest = answer;
+
+        final checking = cubit.checkManually();
+        expect(cubit.state.checkStatus, AppUpdateCheckStatus.checking);
+        expect(cubit.state.release, release);
+        expect(cubit.state.phase, AppUpdatePhase.ready);
+        expect(cubit.state.installedVersion, installed);
+        await cubit.checkManually();
+        await cubit.check();
+        expect(repository.latestReads, 2);
+
+        answer.complete(release);
+        await checking;
+        expect(cubit.state.checkStatus, AppUpdateCheckStatus.available);
+        expect(cubit.state.phase, AppUpdatePhase.ready);
+        await cubit.install();
+        expect(downloads.installed, ['/ready.apk']);
+        expect(cubit.state.installedVersion, installed);
+      },
+    );
+
+    test(
+      'reports up to date and clears the offer when the build is absent',
+      () async {
+        final release = testRelease(3);
+        final repository = FakeAppUpdateRepository(
+          latest: release,
+          installed: installed,
+        );
+        final cubit = await checked(repository);
+
+        repository.installed = release.version;
+        await cubit.checkManually();
+        expect(cubit.state.checkStatus, AppUpdateCheckStatus.upToDate);
+        expect(cubit.state.installedVersion, release.version);
+        expect(cubit.state.release, release);
+
+        repository.latest = null;
+        await cubit.checkManually();
+        expect(
+          cubit.state,
+          AppUpdateState(
+            installedVersion: release.version,
+            checkStatus: AppUpdateCheckStatus.upToDate,
+          ),
+        );
+      },
+    );
+
+    test(
+      'a failed lookup keeps the current offer and installed version',
+      () async {
+        final release = testRelease(3);
+        final repository = FakeAppUpdateRepository(
+          latest: release,
+          installed: installed,
+        );
+        final cubit = await checked(repository);
+        final previous = cubit.state;
+        repository.failing = true;
+
+        await cubit.checkManually();
+
+        expect(
+          cubit.state,
+          previous.copyWith(checkStatus: AppUpdateCheckStatus.failed),
+        );
+      },
+    );
+
+    test('a restore failure preserves the earlier prepared download', () async {
+      final release = testRelease(3);
+      final repository = FakeAppUpdateRepository(
+        latest: release,
+        installed: installed,
+      );
+      final downloads = _Downloads()..restored = '/ready.apk';
+      final cubit = AppUpdateCubit(
+        repository: repository,
+        downloads: downloads,
+      );
+      addTearDown(cubit.close);
+      await cubit.check();
+      final previous = cubit.state;
+      repository.latest = testRelease(4);
+      repository.installed = const AppVersion(1, 2, 1);
+      final restore = Completer<String?>();
+      downloads.restoreResult = restore;
+
+      final checking = cubit.checkManually();
+      await Future<void>.delayed(Duration.zero);
+      restore.completeError(StateError('storage unavailable'));
+      await checking;
+
+      expect(
+        cubit.state,
+        previous.copyWith(checkStatus: AppUpdateCheckStatus.failed),
+      );
+      await cubit.install();
+      expect(downloads.installed, ['/ready.apk']);
+    });
+
+    test(
+      'a download supersedes a manual check and blocks further checks',
+      () async {
+        final release = testRelease(3);
+        final repository = FakeAppUpdateRepository(
+          latest: release,
+          installed: installed,
+        );
+        final downloads = _Downloads();
+        final cubit = AppUpdateCubit(
+          repository: repository,
+          downloads: downloads,
+        );
+        addTearDown(cubit.close);
+        await cubit.check();
+        final answer = Completer<AppRelease?>();
+        repository.pendingLatest = answer;
+
+        final checking = cubit.checkManually();
+        final downloading = cubit.download();
+        await cubit.checkManually();
+        expect(repository.latestReads, 2);
+        answer.complete(testRelease(4));
+        await checking;
+
+        expect(cubit.state.release, release);
+        expect(cubit.state.phase, AppUpdatePhase.downloading);
+        expect(cubit.state.checkStatus, AppUpdateCheckStatus.idle);
+        expect(cubit.state.installedVersion, installed);
+        downloads.result.complete('/downloaded.apk');
+        await downloading;
+      },
+    );
   });
 
   group('Android download and installation', () {

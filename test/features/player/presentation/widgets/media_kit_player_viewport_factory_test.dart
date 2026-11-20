@@ -16,6 +16,7 @@ import 'package:iris/features/player/domain/entities/anime_player_source.dart';
 import 'package:iris/features/player/domain/entities/player_playback_stats.dart';
 import 'package:iris/features/player/domain/entities/player_skip_segment.dart';
 import 'package:iris/features/player/domain/entities/player_session.dart';
+import 'package:iris/features/player/domain/entities/player_track_preferences.dart';
 import 'package:iris/features/player/domain/entities/player_video_file.dart';
 import 'package:iris/features/player/domain/entities/player_decoding_preferences.dart';
 import 'package:iris/features/player/domain/entities/subtitle_preferences.dart';
@@ -2248,6 +2249,48 @@ void main() {
     expect(options['sub-back-color'], '#00000000');
     expect(platformPlayer.subtitles, hasLength(1));
   });
+
+  testWidgets(
+    'keeps preferred embedded subtitles after attaching external subtitles',
+    (tester) async {
+      const english = SubtitleTrack('2', 'English', 'eng');
+      final platform = _FakePlatformPlayer(
+        configuration: const PlayerConfiguration(),
+      );
+      platform.onOpen = (_) => platform.emitTracks(
+        const Tracks(
+          video: [VideoTrack('1', 'Video', 'ja')],
+          subtitle: [
+            SubtitleTrack('auto', null, null),
+            SubtitleTrack('no', null, null),
+            english,
+          ],
+        ),
+      );
+      const session = PlayerSession(
+        sessionId: '7',
+        streamUrl: 'https://video.example/1.m3u8',
+        subtitleUrl: 'http://127.0.0.1/full.vtt',
+      );
+
+      await tester.pumpWidget(
+        _wrapViewport(
+          platformPlayer: platform,
+          session: session,
+          preferredTracks: const PlayerTrackPreferences(
+            subtitle: PreferredTrack(language: 'en'),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(
+        platform.subtitles.where((track) => track.uri).single.id,
+        session.subtitleUrl,
+      );
+      expect(platform.subtitles.last, english);
+    },
+  );
 
   testWidgets('keep the playback stats coming when the next file opens on the '
       'same session', (tester) async {
@@ -5060,6 +5103,7 @@ Widget _wrapViewport({
   PictureInPicture? pictureInPicture,
   OnlineQualityPreferences? onlineQuality,
   Duration? startPosition,
+  PlayerTrackPreferences? preferredTracks,
   ThemeData? theme,
 }) {
   final effectivePlatformPlayer =
@@ -5119,6 +5163,7 @@ Widget _wrapViewport({
           chrome: chrome,
           input: input,
           startPosition: startPosition,
+          preferredTracks: preferredTracks,
         ),
       ),
     ),
@@ -5166,10 +5211,12 @@ class _EngineHost extends StatefulWidget {
     this.onEngine,
     this.next,
     this.startPosition,
+    this.preferredTracks,
   });
 
   final MediaKitPlayerViewportFactory factory;
   final Duration? startPosition;
+  final PlayerTrackPreferences? preferredTracks;
   final PlayerSession session;
   final PlayerSubtitlePreferencesCubit subtitleCubit;
   final PlayerDecodingPreferencesCubit decodingCubit;
@@ -5192,7 +5239,11 @@ class _EngineHostState extends State<_EngineHost> {
   void initState() {
     super.initState();
     unawaited(
-      _engine.open(widget.session, startPosition: widget.startPosition),
+      _engine.open(
+        widget.session,
+        startPosition: widget.startPosition,
+        preferredTracks: widget.preferredTracks,
+      ),
     );
     widget.onEngine?.call(_engine);
   }

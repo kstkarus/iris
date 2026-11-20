@@ -8,6 +8,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:get_it/get_it.dart';
 import 'package:go_router/go_router.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -100,12 +101,15 @@ import 'package:iris/features/online_sources/data/datasources/yummy_anime_data_s
 import 'package:iris/features/online_sources/data/repositories/anilibria_online_sources_repository.dart';
 import 'package:iris/features/online_sources/data/repositories/animejoy_online_sources_repository.dart';
 import 'package:iris/features/online_sources/data/repositories/combined_online_sources_repository.dart';
+import 'package:iris/features/online_sources/data/repositories/mock_animejoy_account_repository.dart';
 import 'package:iris/features/online_sources/data/repositories/yummy_anime_online_sources_repository.dart';
 import 'package:iris/features/online_sources/domain/entities/online_provider.dart';
 import 'package:iris/features/online_sources/data/repositories/mock_online_sources_repository.dart';
 import 'package:iris/features/online_sources/domain/repositories/animejoy_account_repository.dart';
 import 'package:iris/features/online_sources/domain/repositories/online_releases_search.dart';
 import 'package:iris/features/online_sources/domain/repositories/online_sources_repository.dart';
+import 'package:iris/features/settings/data/repositories/shared_preferences_app_settings_repository.dart';
+import 'package:iris/features/settings/domain/repositories/app_settings_repository.dart';
 import 'package:iris/features/watch_sources/data/datasources/mock_watch_sources_data_source.dart';
 import 'package:iris/features/watch_sources/data/datasources/remote_watch_sources_data_source.dart';
 import 'package:iris/features/watch_sources/data/repositories/mock_watch_sources_repository.dart';
@@ -244,6 +248,11 @@ void _registerMocks() {
     )
     ..registerLazySingleton<FriendsRepository>(MockFriendsRepository.new)
     ..registerLazySingleton<AppUpdateRepository>(NoAppUpdateRepository.new)
+    ..registerLazySingleton<AnimejoyAccountRepository>(
+      MockAnimejoyAccountRepository.new,
+      dispose: (repository) =>
+          (repository as MockAnimejoyAccountRepository).dispose(),
+    )
     ..registerLazySingleton<CharactersRepository>(MockCharactersRepository.new)
     ..registerLazySingleton<UserListRepository>(
       () => MockUserListRepository(
@@ -388,7 +397,11 @@ Future<void> _registerReal() async {
     )
     ..registerLazySingleton<AppUpdateRepository>(() {
       final target = kIsWeb ? null : _appBuildTarget();
-      if (target == null) return const NoAppUpdateRepository();
+      if (target == null) {
+        return NoAppUpdateRepository(
+          installed: () async => (await PackageInfo.fromPlatform()).version,
+        );
+      }
       return GitHubAppUpdateRepository(
         dio: createJsonApiDio(baseUrl: AppReleasesApi.baseUrl),
         preferences: serviceLocator<SharedPreferences>(),
@@ -620,6 +633,11 @@ void _registerCommon() {
     );
   }
   serviceLocator
+    ..registerLazySingleton<AppSettingsRepository>(
+      () => SharedPreferencesAppSettingsRepository(
+        serviceLocator<SharedPreferences>(),
+      ),
+    )
     ..registerLazySingleton<PlayerScreenMode>(
       () => phone ? const PhonePlayerScreenMode() : const NoPlayerScreenMode(),
     )

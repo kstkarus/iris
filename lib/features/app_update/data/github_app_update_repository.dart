@@ -64,6 +64,9 @@ class GitHubAppUpdateRepository implements AppUpdateRepository {
   final Future<String> Function() _installed;
 
   @override
+  bool get supportsCheck => true;
+
+  @override
   Future<AppRelease?> latestRelease() async {
     final Response<dynamic> response;
     try {
@@ -126,13 +129,22 @@ class GitHubAppUpdateRepository implements AppUpdateRepository {
 
 /// For platforms a release has no build for, and the mock build.
 class NoAppUpdateRepository implements AppUpdateRepository {
-  const NoAppUpdateRepository();
+  const NoAppUpdateRepository({Future<String?> Function()? installed})
+    : _installed = installed;
+
+  final Future<String?> Function()? _installed;
+
+  @override
+  bool get supportsCheck => false;
 
   @override
   Future<AppRelease?> latestRelease() async => null;
 
   @override
-  Future<AppVersion?> installedVersion() async => null;
+  Future<AppVersion?> installedVersion() async {
+    final installed = await _installed?.call();
+    return installed == null ? null : AppVersion.tryParse(installed);
+  }
 
   @override
   AppVersion? get dismissedVersion => null;

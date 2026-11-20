@@ -99,6 +99,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get commonRetry => 'Try Again';
 
   @override
+  String get commonSignIn => 'Sign in';
+
+  @override
+  String get commonCancel => 'Cancel';
+
+  @override
+  String get commonSignOut => 'Sign out';
+
+  @override
   String get navigationCatalog => 'Catalog';
 
   @override
@@ -145,18 +154,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get downloadManagerUnableToLoad => 'Unable to load downloads.';
-
-  @override
-  String get downloadStorageTitle => 'App storage';
-
-  @override
-  String get downloadStorageTotal => 'Total used by app';
-
-  @override
-  String get downloadStorageContent => 'Offline content';
-
-  @override
-  String get downloadStorageCache => 'Online viewing cache';
 
   @override
   String get downloadStatusQueued => 'Queued';
@@ -263,9 +260,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get animeListFilterSortButton => 'Filter & Sort';
 
   @override
-  String get animeListFilterSortTitle => 'Filter & Sort';
-
-  @override
   String get animeListSortSectionTitle => 'Sort';
 
   @override
@@ -282,9 +276,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get animeListSortAiredOn => 'Aired On';
-
-  @override
-  String get animeListApplyButton => 'Apply';
 
   @override
   String get animeListResetButton => 'Reset';
@@ -686,13 +677,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get downloadStorageClearCache => 'Clear';
 
   @override
-  String get downloadStorageCacheCleared => 'Cache cleared';
-
-  @override
-  String get downloadStorageCacheBusy =>
-      'The cache is in use while a video is playing';
-
-  @override
   String get downloadsLoading => 'Loading downloaded files...';
 
   @override
@@ -778,12 +762,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get continueWatchingRemove => 'Remove from list';
-
-  @override
-  String get continueWatchingStoppedAtLabel => 'Stopped at';
-
-  @override
-  String get continueWatchingFinishedLabel => 'Watched to the end';
 
   @override
   String get animeListHeadingPopularity => 'Popular';
@@ -988,9 +966,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get watchSourcesColumnDate => 'Date';
 
   @override
-  String get downloadsFilesTitle => 'Files';
-
-  @override
   String commonShowMore(int count) {
     return '$count more';
   }
@@ -1051,28 +1026,19 @@ class AppLocalizationsEn extends AppLocalizations {
       'Track what you\'ve watched and keep up with airing anime and friends';
 
   @override
-  String get profileSignInButton => 'Sign in';
-
-  @override
-  String get profileSignInUnavailable => 'Sign-in is not set up in this build.';
+  String get profileSignInUnavailable => 'Sign-in is not set up in this build';
 
   @override
   String get profileSigningIn => 'Waiting for Shikimori';
 
   @override
-  String get profileSignInNetworkError =>
-      'Shikimori did not respond. Try again.';
+  String get profileSignInNetworkError => 'No response. Check your connection.';
 
   @override
-  String get profileSignInRejected =>
-      'Shikimori did not let the app in. Try again.';
+  String get profileSignInRejected => 'Couldn’t sign in. Try again.';
 
   @override
-  String get profileSessionExpired =>
-      'Shikimori ended the session. Sign in again.';
-
-  @override
-  String get profileSignOut => 'Sign out';
+  String get profileSessionExpired => 'Session expired. Sign in again.';
 
   @override
   String get userRateTitle => 'My list';
@@ -1134,11 +1100,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get animeListGenresSectionTitle => 'Genres';
-
-  @override
-  String animeListShowThemes(int count) {
-    return 'Themes ($count)';
-  }
 
   @override
   String get animeListSeasonSectionTitle => 'Season';
@@ -1257,7 +1218,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String appUpdateNoticeAvailable(String version) {
-    return 'Available $version';
+    return '$version available';
   }
 
   @override
@@ -1285,7 +1246,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get appUpdateCancelDownload => 'Cancel';
 
   @override
-  String get appUpdateInstall => 'Install update';
+  String get appUpdateInstall => 'Install';
 
   @override
   String get appUpdateRestartAndUpdate => 'Restart and update';
@@ -1534,10 +1495,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get userRateLoading => 'Loading my list...';
 
   @override
-  String get downloadStorageCacheHint =>
-      'Episodes watched without downloading. Clearing it keeps your downloads.';
-
-  @override
   String get downloadNoPeers => 'no peers yet';
 
   @override
@@ -1656,32 +1613,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get downloadTitleEmpty => 'No episodes remain on this device.';
 
   @override
-  String downloadLibraryCount(int count) {
-    String _temp0 = intl.Intl.pluralLogic(
-      count,
-      locale: localeName,
-      other: '$count titles',
-      one: '$count title',
-    );
-    return '$_temp0';
-  }
-
-  @override
-  String get downloadLibraryTitle => 'In library';
-
-  @override
   String downloadEpisodeLabel(String number) {
     return 'Episode $number';
   }
-
-  @override
-  String get downloadTitlesTitle => 'Titles';
-
-  @override
-  String get downloadInformation => 'Download information';
-
-  @override
-  String get downloadInformationAction => 'Information';
 
   @override
   String get downloadOpenAnime => 'Open anime';
@@ -1704,23 +1638,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get downloadDeleteAll => 'Delete all episodes';
 
   @override
-  String downloadDeleteTitleMessage(String name) {
-    return 'Remove all downloads of “$name” from this device?';
-  }
-
-  @override
-  String downloadSelectedQuality(String quality) {
-    return 'Selected: $quality';
-  }
-
-  @override
   String get animeListDemographicsSectionTitle => 'Audience';
 
   @override
   String get animeListThemesSectionTitle => 'Themes';
-
-  @override
-  String get animeListShowAll => 'All';
 
   @override
   String get animeListCollapse => 'Show less';
@@ -1731,11 +1652,6 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String animeListShowCount(String count) {
     return 'Show $count';
-  }
-
-  @override
-  String animeListActiveFilters(int count) {
-    return 'Active filters: $count';
   }
 
   @override
@@ -1858,11 +1774,151 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get downloadQueueEmpty => 'Nothing in the queue';
-
-  @override
   String get downloadNext => 'Move to front';
 
   @override
   String get downloadMore => 'Download more';
+
+  @override
+  String get settingsTitle => 'Settings';
+
+  @override
+  String get settingsShortcutTooltip => 'Settings · Ctrl+,';
+
+  @override
+  String get settingsSectionAccounts => 'Accounts';
+
+  @override
+  String get settingsSectionPlayback => 'Playback';
+
+  @override
+  String get settingsSectionAppearance => 'Appearance';
+
+  @override
+  String get settingsSectionAbout => 'About';
+
+  @override
+  String get settingsAccountSignedOut => 'Not connected';
+
+  @override
+  String get settingsCheckingSession => 'Checking session';
+
+  @override
+  String get settingsSigningIn => 'Signing in';
+
+  @override
+  String get settingsAnimejoySignedIn => 'Connected';
+
+  @override
+  String get settingsAnimejoyUnverified => 'Couldn’t verify session';
+
+  @override
+  String get settingsAnimejoyExpired => 'Session expired. Sign in again.';
+
+  @override
+  String get settingsAnimejoyVerify => 'Verify';
+
+  @override
+  String get settingsAnimejoySignInTitle => 'Sign in to AnimeJoy';
+
+  @override
+  String get settingsAnimejoyLoginLabel => 'Username';
+
+  @override
+  String get settingsAnimejoyPasswordLabel => 'Password';
+
+  @override
+  String get settingsAnimejoyShowPassword => 'Show password';
+
+  @override
+  String get settingsAnimejoyHidePassword => 'Hide password';
+
+  @override
+  String get settingsAnimejoyLoginRequired => 'Enter username';
+
+  @override
+  String get settingsAnimejoyPasswordRequired => 'Enter password';
+
+  @override
+  String get settingsAnimejoyErrorInvalidCredentials =>
+      'Wrong username or password';
+
+  @override
+  String get settingsAnimejoyErrorNetwork =>
+      'No response. Check your connection.';
+
+  @override
+  String get settingsAnimejoyErrorUnavailable => 'Sign-in unavailable';
+
+  @override
+  String get settingsDefaultAudioLabel => 'Audio';
+
+  @override
+  String get settingsDefaultSubtitlesLabel => 'Subtitles';
+
+  @override
+  String get settingsTrackAuto => 'Auto';
+
+  @override
+  String get settingsAudioJapanese => 'Japanese';
+
+  @override
+  String get settingsAudioRussian => 'Russian';
+
+  @override
+  String get settingsAudioEnglish => 'English';
+
+  @override
+  String get settingsSubtitlesRussian => 'Russian';
+
+  @override
+  String get settingsSubtitlesEnglish => 'English';
+
+  @override
+  String get settingsSubtitlesOff => 'Off';
+
+  @override
+  String get settingsThemeLabel => 'Theme';
+
+  @override
+  String get settingsThemeSystem => 'System';
+
+  @override
+  String get settingsThemeLight => 'Light';
+
+  @override
+  String get settingsThemeDark => 'Dark';
+
+  @override
+  String get settingsLanguageLabel => 'Language';
+
+  @override
+  String get settingsLanguageSystem => 'System';
+
+  @override
+  String get settingsLanguageRussian => 'Русский';
+
+  @override
+  String get settingsLanguageEnglish => 'English';
+
+  @override
+  String get settingsAppVersion => 'Version';
+
+  @override
+  String get settingsAppVersionUnknown => 'Unknown';
+
+  @override
+  String get settingsCheckUpdates => 'Check';
+
+  @override
+  String get settingsUpdateChecking => 'Checking';
+
+  @override
+  String get settingsUpdateUpToDate => 'Up to date';
+
+  @override
+  String get settingsUpdateCheckFailed => 'Couldn’t check';
+
+  @override
+  String get settingsUpdateOpenDetails => 'Update';
 }

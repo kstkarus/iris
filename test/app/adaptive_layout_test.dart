@@ -13,6 +13,9 @@ import 'package:iris/features/downloads/presentation/widgets/download_queue.dart
 import 'package:iris/features/anime_list/presentation/bloc/anime_list_bloc.dart';
 import 'package:iris/features/anime_list/domain/entities/anime_list_query.dart';
 import 'package:iris/features/anime_list/presentation/widgets/anime_list_view.dart';
+import 'package:iris/features/profile/presentation/pages/profile_page.dart';
+import 'package:iris/features/settings/presentation/pages/settings_page.dart';
+import 'package:iris/shared/widgets/page_title.dart';
 
 import '../helpers/mock_app.dart';
 import '../helpers/test_window.dart';
@@ -101,29 +104,134 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('Ctrl and a digit switch sections; one past them does nothing', (
+  testWidgets(
+    'desktop gear and shortcut open a single Settings dialog over the tab',
+    (tester) async {
+      await pumpMockApp(tester, size: TestWindowSizes.desktop);
+
+      Future<void> ctrl(LogicalKeyboardKey key) async {
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+        await tester.sendKeyEvent(key);
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+        await tester.pumpAndSettle();
+      }
+
+      await ctrl(LogicalKeyboardKey.digit2);
+      final router = GoRouter.of(tester.element(find.byType(AppShellPage)));
+      expect(router.state.uri.path, '/downloads');
+
+      await ctrl(LogicalKeyboardKey.digit4);
+      expect(tester.takeException(), isNull);
+      expect(router.state.uri.path, '/downloads');
+      await ctrl(LogicalKeyboardKey.digit3);
+      expect(router.state.uri.path, '/profile');
+      await ctrl(LogicalKeyboardKey.digit1);
+      expect(router.state.uri.path, '/');
+
+      await tester.tap(find.byKey(AppShellPage.settingsButtonKey));
+      await tester.pumpAndSettle();
+      final dialog = find.byType(Dialog);
+      expect(dialog, findsOneWidget);
+      expect(router.state.uri.path, '/');
+      expect(find.text(_firstTitle), findsOneWidget);
+
+      // Pressing the shortcut again leaves just one route to dismiss.
+      await ctrl(LogicalKeyboardKey.comma);
+      await ctrl(LogicalKeyboardKey.comma);
+      expect(dialog, findsOneWidget);
+
+      final close = find.descendant(
+        of: dialog,
+        matching: find.byType(CloseButton),
+      );
+      final dismiss = [
+        () => tester.sendKeyEvent(LogicalKeyboardKey.escape),
+        () => tester.tap(close),
+        () => tester.tapAt(const Offset(8, 8)),
+      ];
+      for (final closeDialog in dismiss) {
+        await closeDialog();
+        await tester.pumpAndSettle();
+        expect(dialog, findsNothing);
+        expect(router.state.uri.path, '/');
+        await ctrl(LogicalKeyboardKey.comma);
+        expect(dialog, findsOneWidget);
+      }
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'desktop Settings and its playback menu follow the selected theme',
+    (tester) async {
+      await pumpMockApp(tester, size: const Size(1280, 800));
+      await tester.tap(find.byKey(AppShellPage.settingsButtonKey));
+      await tester.pumpAndSettle();
+
+      final dialog = find.byType(Dialog);
+      for (final (label, brightness) in [
+        ('Dark', Brightness.dark),
+        ('Light', Brightness.light),
+      ]) {
+        await tester.tap(
+          find.descendant(of: dialog, matching: find.text(label)),
+        );
+        await tester.pumpAndSettle();
+        expect(Theme.of(tester.element(dialog)).brightness, brightness);
+
+        await tester.tap(
+          find.byKey(const Key('settings_default_audio_choice')),
+        );
+        await tester.pumpAndSettle();
+        final option = find.widgetWithText(MenuItemButton, 'Japanese');
+        expect(option.hitTestable(), findsOneWidget);
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        await tester.pumpAndSettle();
+        expect(option, findsNothing);
+        expect(dialog, findsOneWidget);
+      }
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('the Settings route still renders a full page on desktop', (
     tester,
   ) async {
-    await pumpMockApp(tester, size: TestWindowSizes.desktop);
-
-    Future<void> ctrl(LogicalKeyboardKey key) async {
-      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
-      await tester.sendKeyEvent(key);
-      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
-      await tester.pumpAndSettle();
-    }
-
-    await ctrl(LogicalKeyboardKey.digit2);
-    final router = GoRouter.of(tester.element(find.byType(AppShellPage)));
-    expect(router.state.uri.path, '/downloads');
-
-    await ctrl(LogicalKeyboardKey.digit4);
+    await pumpMockApp(tester, size: const Size(1280, 800));
+    GoRouter.of(tester.element(find.byType(AppShellPage))).go('/settings');
+    await tester.pumpAndSettle();
+    expect(find.byType(SettingsPage), findsOneWidget);
+    expect(find.text('Accounts').hitTestable(), findsOneWidget);
+    expect(find.byType(Dialog), findsNothing);
     expect(tester.takeException(), isNull);
-    expect(router.state.uri.path, '/downloads');
-    await ctrl(LogicalKeyboardKey.digit3);
-    expect(router.state.uri.path, '/profile');
-    await ctrl(LogicalKeyboardKey.digit1);
-    expect(router.state.uri.path, '/');
+  });
+
+  testWidgets('phone Profile opens Settings and Back returns to Profile', (
+    tester,
+  ) async {
+    await pumpMockApp(tester, size: const Size(390, 640));
+    await tester.tap(find.text('Profile'));
+    await tester.pumpAndSettle();
+    final gear = find.byKey(ProfilePage.settingsButtonKey);
+    await tester.tap(gear);
+    await tester.pumpAndSettle();
+
+    expect(find.byType(SettingsPage), findsOneWidget);
+    expect(
+      GoRouter.of(tester.element(find.byType(SettingsPage))).state.uri.path,
+      '/settings',
+    );
+    expect(find.byType(PageTitle), findsNothing);
+    await tester.drag(
+      find.byType(SingleChildScrollView).first,
+      const Offset(0, -350),
+    );
+    await tester.pumpAndSettle();
+    expect(find.widgetWithText(PageTitle, 'Settings'), findsOneWidget);
+
+    await tester.tap(find.byType(BackButton));
+    await tester.pumpAndSettle();
+    expect(gear.hitTestable(), findsOneWidget);
   });
 
   for (final entry in TestWindowSizes.all.entries) {

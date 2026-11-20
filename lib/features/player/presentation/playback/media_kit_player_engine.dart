@@ -1342,10 +1342,18 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
             language: 'ru',
           ),
         );
+        final preference = _preferredTracks?.subtitle;
         if (!_closed &&
             generation == _startupGeneration &&
-            _preferredTracks?.subtitle?.disabled == true) {
-          await player.setSubtitleTrack(SubtitleTrack.no());
+            preference != null) {
+          // Adding the external track selects it, even after a preference applied.
+          final preferred = matchSubtitleTrack(
+            player.state.tracks.subtitle,
+            preference,
+          );
+          if (preferred != null && preferred != player.state.track.subtitle) {
+            await player.setSubtitleTrack(preferred);
+          }
         }
       } on Object catch (error, stackTrace) {
         developer.log(

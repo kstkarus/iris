@@ -45,6 +45,12 @@ class AnimejoySession implements AnimejoyAccountRepository {
   Stream<bool> get sessionChanges => _sessionChanges.stream;
 
   @override
+  Future<bool> hasSavedSession() async {
+    await _ensureLoaded();
+    return _hasAccount;
+  }
+
+  @override
   Future<bool> restore() => _changes.run(() async {
     await _ensureLoaded();
     if (!_hasAccount) return false;

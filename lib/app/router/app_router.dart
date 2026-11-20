@@ -53,6 +53,7 @@ import 'package:iris/features/downloads/presentation/pages/download_selection_pa
 import 'package:iris/features/online_sources/domain/repositories/online_releases_search.dart';
 import 'package:iris/features/online_sources/presentation/cubit/online_releases_cubit.dart';
 import 'package:iris/features/player/domain/entities/anime_player_source.dart';
+import 'package:iris/features/player/domain/entities/player_track_preferences.dart';
 import 'package:iris/features/player/domain/repositories/player_decoding_preferences_repository.dart';
 import 'package:iris/features/player/domain/repositories/player_repository.dart';
 import 'package:iris/features/player/domain/repositories/player_skip_times_repository.dart';
@@ -70,12 +71,15 @@ import 'package:iris/features/player/presentation/pages/player_source_page.dart'
 import 'package:iris/features/player/presentation/widgets/player_viewport_factory.dart';
 import 'package:iris/features/profile/domain/entities/user_list_entry.dart';
 import 'package:iris/features/profile/domain/repositories/user_list_repository.dart';
-import 'package:iris/features/profile/presentation/cubit/user_list_cubit.dart';
 import 'package:iris/features/profile/presentation/cubit/friends_cubit.dart';
+import 'package:iris/features/profile/presentation/cubit/user_list_cubit.dart';
 import 'package:iris/features/profile/presentation/pages/profile_page.dart';
 import 'package:iris/features/profile/presentation/pages/user_profile_page.dart';
 import 'package:iris/features/saved_torrents/domain/repositories/saved_torrents_repository.dart';
 import 'package:iris/features/saved_torrents/presentation/cubit/saved_torrents_cubit.dart';
+import 'package:iris/features/settings/domain/entities/app_settings.dart';
+import 'package:iris/features/settings/presentation/cubit/app_settings_cubit.dart';
+import 'package:iris/features/settings/presentation/pages/settings_page.dart';
 import 'package:iris/features/watch_sources/domain/repositories/watch_sources_repository.dart';
 import 'package:iris/features/watch_sources/domain/repositories/watch_sources_tab_repository.dart';
 import 'package:iris/features/watch_sources/presentation/cubit/watch_sources_cubit.dart';
@@ -83,6 +87,7 @@ import 'package:iris/features/watch_sources/presentation/cubit/watch_sources_tab
 import 'package:iris/features/watch_sources/presentation/models/anime_watch_sources_args.dart';
 import 'package:iris/features/watch_sources/presentation/pages/watch_sources_page.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
+import 'package:iris/shared/online/online_source_link.dart';
 import 'package:iris/shared/storage/shikimori_session_store.dart';
 import 'package:iris/shared/window/player_screen_mode.dart';
 
@@ -340,6 +345,7 @@ abstract final class AppRouter {
                             extra: friend,
                           ),
                           onBrowseCatalog: () => context.goNamed('anime-list'),
+                          onOpenSettings: () => context.pushNamed('settings'),
                         ),
                       ),
                     );
@@ -348,6 +354,11 @@ abstract final class AppRouter {
               ],
             ),
           ],
+        ),
+        GoRoute(
+          path: '/settings',
+          name: 'settings',
+          builder: (context, state) => const SettingsPage(),
         ),
         GoRoute(
           path: '/downloads/queue',
@@ -635,6 +646,10 @@ abstract final class AppRouter {
                           serviceLocator<WatchProgressRepository>(),
                       trackPreferencesRepository:
                           serviceLocator<PlayerTrackPreferencesRepository>(),
+                      defaultTrackPreferences: _defaultTorrentTracks(
+                        args.source.magnet,
+                        context.read<AppSettingsCubit?>()?.state,
+                      ),
                       skipTimesRepository:
                           serviceLocator<PlayerSkipTimesRepository>(),
                     );
@@ -671,6 +686,31 @@ abstract final class AppRouter {
       ],
     );
   }
+}
+
+PlayerTrackPreferences? _defaultTorrentTracks(
+  String sourceLink,
+  AppSettings? settings,
+) {
+  if (settings == null ||
+      sourceLink.trim().isEmpty ||
+      OnlineSourceLink.tryParse(sourceLink) != null) {
+    return null;
+  }
+  final audio = switch (settings.defaultAudioLanguage) {
+    DefaultAudioLanguage.auto => null,
+    DefaultAudioLanguage.japanese => const PreferredTrack(language: 'ja'),
+    DefaultAudioLanguage.russian => const PreferredTrack(language: 'ru'),
+    DefaultAudioLanguage.english => const PreferredTrack(language: 'en'),
+  };
+  final subtitle = switch (settings.defaultSubtitleLanguage) {
+    DefaultSubtitleLanguage.auto => null,
+    DefaultSubtitleLanguage.russian => const PreferredTrack(language: 'ru'),
+    DefaultSubtitleLanguage.english => const PreferredTrack(language: 'en'),
+    DefaultSubtitleLanguage.off => const PreferredTrack.off(),
+  };
+  if (audio == null && subtitle == null) return null;
+  return PlayerTrackPreferences(audio: audio, subtitle: subtitle);
 }
 
 void _reportInvalidRouteArgs({

@@ -26,6 +26,7 @@ class PlayerCubit extends Cubit<PlayerState> {
     required PlayerEngine engine,
     WatchProgressRepository? progressRepository,
     PlayerTrackPreferencesRepository? trackPreferencesRepository,
+    PlayerTrackPreferences? defaultTrackPreferences,
     PlayerSkipTimesRepository? skipTimesRepository,
     DateTime Function() now = DateTime.now,
     this.engineReleaseTimeout = const Duration(seconds: 5),
@@ -35,6 +36,7 @@ class PlayerCubit extends Cubit<PlayerState> {
        _engine = engine,
        _progressRepository = progressRepository,
        _trackPreferencesRepository = trackPreferencesRepository,
+       _defaultTrackPreferences = defaultTrackPreferences,
        _skipTimesRepository = skipTimesRepository,
        _now = now,
        super(const PlayerInitial()) {
@@ -46,6 +48,7 @@ class PlayerCubit extends Cubit<PlayerState> {
   late final StreamSubscription<PlayerEngineEvent> _engineEvents;
   final WatchProgressRepository? _progressRepository;
   final PlayerTrackPreferencesRepository? _trackPreferencesRepository;
+  final PlayerTrackPreferences? _defaultTrackPreferences;
   final PlayerSkipTimesRepository? _skipTimesRepository;
   final DateTime Function() _now;
   final _progressWrites = SerialQueue();
@@ -79,8 +82,14 @@ class PlayerCubit extends Cubit<PlayerState> {
 
   PlayerEngine get engine => _engine;
 
-  /// Remembered audio/subtitle choice for this release.
-  PlayerTrackPreferences? get trackPreferences => _trackPreferences;
+  /// The release's choices, with app defaults for tracks it has no choice for.
+  PlayerTrackPreferences? get trackPreferences {
+    final audio = _trackPreferences?.audio ?? _defaultTrackPreferences?.audio;
+    final subtitle =
+        _trackPreferences?.subtitle ?? _defaultTrackPreferences?.subtitle;
+    if (audio == null && subtitle == null) return null;
+    return PlayerTrackPreferences(audio: audio, subtitle: subtitle);
+  }
 
   /// The prepared session of this page. A failed launch keeps it, so Retry
   /// starts the same torrent again; [close] disposes it.
@@ -276,7 +285,7 @@ class PlayerCubit extends Cubit<PlayerState> {
   void saveTrackPreferences(PlayerTrackPreferences chosen) {
     final repository = _trackPreferencesRepository;
     final torrentKey = _source.torrentKey;
-    if (repository == null || torrentKey == null) return;
+    if (repository == null || torrentKey == null || chosen.isEmpty) return;
     final merged = (_trackPreferences ?? const PlayerTrackPreferences())
         .copyWith(audio: chosen.audio, subtitle: chosen.subtitle);
     _trackPreferences = merged;
@@ -481,7 +490,7 @@ class PlayerCubit extends Cubit<PlayerState> {
         final opening = _engine.open(
           session,
           startPosition: _startPosition,
-          preferredTracks: _trackPreferences,
+          preferredTracks: trackPreferences,
         );
         _engineOpened = true;
         if (_skipTimesLookup() != null) _engine.expectSkipTimes();

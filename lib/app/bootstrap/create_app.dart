@@ -1,6 +1,6 @@
 import 'dart:developer' as developer;
 
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
@@ -19,9 +19,14 @@ import 'package:iris/features/auth/domain/repositories/auth_repository.dart';
 import 'package:iris/features/auth/presentation/cubit/auth_cubit.dart';
 import 'package:iris/features/auth/presentation/widgets/account_listener.dart';
 import 'package:iris/features/downloads/domain/repositories/downloads_repository.dart';
+import 'package:iris/features/online_sources/domain/repositories/animejoy_account_repository.dart';
+import 'package:iris/features/settings/domain/entities/app_settings.dart';
+import 'package:iris/features/settings/domain/repositories/app_settings_repository.dart';
+import 'package:iris/features/settings/presentation/cubit/animejoy_account_cubit.dart';
+import 'package:iris/features/settings/presentation/cubit/app_settings_cubit.dart';
 import 'package:iris/shared/utils/playback_runtime_initializer.dart';
 
-Future<Widget> createApp({bool useMocks = false}) async {
+Future<Widget> createApp({bool useMocks = false, Locale? locale}) async {
   WidgetsFlutterBinding.ensureInitialized();
   if (!useMocks) {
     // Without a torrent engine the catalog, the lists and online sources
@@ -57,6 +62,16 @@ Future<Widget> createApp({bool useMocks = false}) async {
         create: (_) =>
             UserRateBookCubit(repository: serviceLocator<UserRateRepository>()),
       ),
+      BlocProvider(
+        create: (_) => AppSettingsCubit(
+          repository: serviceLocator<AppSettingsRepository>(),
+        ),
+      ),
+      BlocProvider(
+        create: (_) => AnimejoyAccountCubit(
+          repository: serviceLocator<AnimejoyAccountRepository>(),
+        ),
+      ),
       // Once a launch: friends get new builds from the releases page.
       BlocProvider(
         create: (_) => AppUpdateCubit(
@@ -71,9 +86,26 @@ Future<Widget> createApp({bool useMocks = false}) async {
       onChanged: (context, _) => context.read<UserRateBookCubit>().clear(),
       child: EpisodeSyncLifecycle(
         sync: serviceLocator<EpisodeWatchSync>(),
-        child: IrisApp(
-          router: serviceLocator<GoRouter>(),
-          downloadsRepository: serviceLocator<DownloadsRepository>(),
+        child: BlocBuilder<AppSettingsCubit, AppSettings>(
+          buildWhen: (previous, current) =>
+              previous.themeMode != current.themeMode ||
+              previous.locale != current.locale,
+          builder: (context, settings) => IrisApp(
+            router: serviceLocator<GoRouter>(),
+            downloadsRepository: serviceLocator<DownloadsRepository>(),
+            themeMode: switch (settings.themeMode) {
+              AppThemePreference.system => ThemeMode.system,
+              AppThemePreference.light => ThemeMode.light,
+              AppThemePreference.dark => ThemeMode.dark,
+            },
+            locale:
+                locale ??
+                switch (settings.locale) {
+                  AppLocalePreference.system => null,
+                  AppLocalePreference.russian => const Locale('ru'),
+                  AppLocalePreference.english => const Locale('en'),
+                },
+          ),
         ),
       ),
     ),

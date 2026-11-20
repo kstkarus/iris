@@ -521,7 +521,7 @@ void main() {
 
     await tester.tap(find.byKey(UpdateNotice.noticeKey));
     await tester.pumpAndSettle();
-    expect(find.text('Install update'), findsOneWidget);
+    expect(find.text('Install'), findsOneWidget);
 
     await tester.tap(find.byKey(UpdateNotice.installKey));
     await tester.pumpAndSettle();
@@ -530,7 +530,7 @@ void main() {
       find.text("Couldn't open the installer. Try again."),
       findsOneWidget,
     );
-    expect(find.text('Install update'), findsOneWidget);
+    expect(find.text('Install'), findsOneWidget);
   });
 
   testWidgets(

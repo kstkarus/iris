@@ -1,0 +1,50 @@
+enum AppThemePreference { system, light, dark }
+
+enum AppLocalePreference { system, russian, english }
+
+enum DefaultAudioLanguage { auto, japanese, russian, english }
+
+enum DefaultSubtitleLanguage { auto, russian, english, off }
+
+final class AppSettings {
+  const AppSettings({
+    this.themeMode = AppThemePreference.system,
+    this.locale = AppLocalePreference.system,
+    this.defaultAudioLanguage = DefaultAudioLanguage.auto,
+    this.defaultSubtitleLanguage = DefaultSubtitleLanguage.auto,
+  });
+
+  final AppThemePreference themeMode;
+  final AppLocalePreference locale;
+  final DefaultAudioLanguage defaultAudioLanguage;
+  final DefaultSubtitleLanguage defaultSubtitleLanguage;
+
+  AppSettings copyWith({
+    AppThemePreference? themeMode,
+    AppLocalePreference? locale,
+    DefaultAudioLanguage? defaultAudioLanguage,
+    DefaultSubtitleLanguage? defaultSubtitleLanguage,
+  }) => AppSettings(
+    themeMode: themeMode ?? this.themeMode,
+    locale: locale ?? this.locale,
+    defaultAudioLanguage: defaultAudioLanguage ?? this.defaultAudioLanguage,
+    defaultSubtitleLanguage:
+        defaultSubtitleLanguage ?? this.defaultSubtitleLanguage,
+  );
+
+  @override
+  bool operator ==(Object other) =>
+      other is AppSettings &&
+      other.themeMode == themeMode &&
+      other.locale == locale &&
+      other.defaultAudioLanguage == defaultAudioLanguage &&
+      other.defaultSubtitleLanguage == defaultSubtitleLanguage;
+
+  @override
+  int get hashCode => Object.hash(
+    themeMode,
+    locale,
+    defaultAudioLanguage,
+    defaultSubtitleLanguage,
+  );
+}

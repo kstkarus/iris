@@ -67,4 +67,39 @@ void main() {
       '2',
     );
   });
+
+  for (final aliases in const [
+    ['ja', 'jpn', 'jp', 'japanese'],
+    ['ru', 'rus', 'russian'],
+    ['en', 'eng', 'english'],
+  ]) {
+    test('matches ${aliases.last} aliases in both directions', () {
+      for (final alias in aliases) {
+        final audio = AudioTrack('1', null, ' ${alias.toUpperCase()} ');
+        final subtitle = SubtitleTrack('1', null, aliases.first);
+        expect(
+          matchAudioTrack([audio], PreferredTrack(language: aliases.first)),
+          audio,
+        );
+        expect(
+          matchSubtitleTrack([subtitle], PreferredTrack(language: alias)),
+          subtitle,
+        );
+      }
+    });
+  }
+
+  test('prefers an exact tag for equal matches and keeps the dub title', () {
+    const aliased = AudioTrack('1', 'Studio Band', 'russian');
+    const exact = AudioTrack('2', 'Studio Band', 'rus');
+    const otherDub = AudioTrack('3', 'AniLibria', 'rus');
+    const preferred = PreferredTrack(language: 'rus', title: 'studio band');
+
+    expect(matchAudioTrack([aliased, exact], preferred), exact);
+    expect(matchAudioTrack([otherDub, aliased], preferred), aliased);
+    expect(
+      matchAudioTrack([aliased, exact], const PreferredTrack(language: 'rus')),
+      exact,
+    );
+  });
 }

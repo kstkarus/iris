@@ -186,9 +186,20 @@ void main() {
   test('reads the running version and keeps the one put off', () async {
     final updates = await repository(FakeReply(200, _release));
 
+    expect(updates.supportsCheck, isTrue);
     expect(await updates.installedVersion(), const AppVersion(1, 2, 0));
     expect(updates.dismissedVersion, isNull);
     await updates.dismiss(const AppVersion(1, 3, 0));
     expect(updates.dismissedVersion, const AppVersion(1, 3, 0));
   });
+
+  test(
+    'the default no-update repository needs no package info plugin',
+    () async {
+      const updates = NoAppUpdateRepository();
+
+      expect(updates.supportsCheck, isFalse);
+      expect(await updates.installedVersion(), isNull);
+    },
+  );
 }
