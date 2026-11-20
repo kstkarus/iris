@@ -1,6 +1,7 @@
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:iris/shared/widgets/pixel_noise.dart';
@@ -53,6 +54,56 @@ void main() {
 
     await tester.pumpWidget(app(disableAnimations: true));
     await tester.pump();
+    expect(tester.hasRunningAnimations, isFalse);
+  });
+
+  testWidgets('text shimmers in place and holds a frame with reduced motion', (
+    tester,
+  ) async {
+    const key = Key('loading label');
+    const label = 'Checking session';
+    Widget app({required bool reduced}) => MaterialApp(
+      home: MediaQuery(
+        data: MediaQueryData(disableAnimations: reduced),
+        child: const Scaffold(
+          body: Center(
+            child: RepaintBoundary(
+              key: key,
+              child: PixelNoise.shimmer(child: Text(label)),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    Future<List<int>> pixels() async {
+      final boundary = tester.renderObject<RenderRepaintBoundary>(
+        find.byKey(key),
+      );
+      return (await tester.runAsync(() async {
+        final image = boundary.toImageSync();
+        try {
+          final bytes = (await image.toByteData())!;
+          return bytes.buffer.asUint8List();
+        } finally {
+          image.dispose();
+        }
+      }))!;
+    }
+
+    await tester.pumpWidget(app(reduced: false));
+    await tester.pump(const Duration(milliseconds: 450));
+    final rect = tester.getRect(find.text(label));
+    final first = await pixels();
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(await pixels(), isNot(first));
+    expect(tester.getRect(find.text(label)), rect);
+    expect(find.bySemanticsLabel(label), findsOneWidget);
+
+    await tester.pumpWidget(app(reduced: true));
+    final still = await pixels();
+    await tester.pump(const Duration(seconds: 1));
+    expect(await pixels(), still);
     expect(tester.hasRunningAnimations, isFalse);
   });
 }

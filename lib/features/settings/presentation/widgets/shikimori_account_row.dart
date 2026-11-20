@@ -28,11 +28,12 @@ class ShikimoriAccountRow extends StatelessWidget {
         shikimoriSignInNotice(l10n, state, canSignIn: cubit.canSignIn) ??
             l10n.settingsAccountSignedOut,
       ),
-      AuthSigningIn() => SettingsStatus(l10n.settingsSigningIn),
-      AuthRestoring() => SettingsStatus(l10n.settingsCheckingSession),
+      AuthSigningIn() => SettingsStatus.loading(l10n.settingsSigningIn),
+      AuthRestoring() => SettingsStatus.loading(l10n.settingsCheckingSession),
     };
     return SettingsAccountRow(
       title: 'Shikimori',
+      statusKey: state,
       status: status,
       actions: [
         if (state is AuthSignedOut && cubit.canSignIn)

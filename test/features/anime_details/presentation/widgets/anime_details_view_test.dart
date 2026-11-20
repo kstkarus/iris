@@ -31,7 +31,7 @@ void main() {
     await tester.pumpWidget(_app(cubit..loadAnime()));
     await tester.pump();
 
-    expect(find.bySemanticsLabel('Loading anime details...'), findsOneWidget);
+    expect(find.bySemanticsLabel('Loading anime details'), findsOneWidget);
     semantics.dispose();
   });
 

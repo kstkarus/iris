@@ -45,7 +45,7 @@ void main() {
 
     await tester.pump();
 
-    expect(find.bySemanticsLabel('Loading anime list...'), findsOneWidget);
+    expect(find.bySemanticsLabel('Loading anime list'), findsOneWidget);
     semantics.dispose();
   });
 

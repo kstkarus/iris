@@ -341,10 +341,19 @@ void main() {
     expect(tester.takeException(), isNull);
 
     downloads.emitProgress(100, 100);
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
     expect(cubit.state.phase, AppUpdatePhase.verifying);
-    _expectOnScreen(tester, find.byKey(UpdateNotice.cancelDownloadKey), size);
-    _expectOnScreen(tester, find.byKey(UpdateNotice.hideKey), size);
+    _expectOnScreen(
+      tester,
+      find.byKey(UpdateNotice.cancelDownloadKey).hitTestable(),
+      size,
+    );
+    _expectOnScreen(
+      tester,
+      find.byKey(UpdateNotice.hideKey).hitTestable(),
+      size,
+    );
     expect(tester.takeException(), isNull);
 
     downloads.completeDownload(r'C:\updates\iris.exe');
@@ -496,7 +505,8 @@ void main() {
     );
 
     downloads.emitProgress(100, 100);
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
     expect(cubit.state.phase, AppUpdatePhase.verifying);
     final sheet = find.byKey(UpdateNotice.sheetKey);
     expect(
@@ -504,7 +514,7 @@ void main() {
       findsOneWidget,
     );
 
-    await tester.tap(find.byKey(UpdateNotice.cancelDownloadKey));
+    await tester.tap(find.byKey(UpdateNotice.cancelDownloadKey).hitTestable());
     await tester.pumpAndSettle();
     expect(downloads.cancelCalls, 1);
     expect(cubit.state.phase, AppUpdatePhase.available);
@@ -514,7 +524,9 @@ void main() {
     tester,
   ) async {
     _usePhoneSize(tester);
+    final install = Completer<void>();
     final downloads = _AndroidDownloads(restorePath: '/tmp/iris.apk')
+      ..installGate = install
       ..failInstall = true;
     final cubit = await _pumpInAppNotice(tester, downloads);
     expect(cubit.state.phase, AppUpdatePhase.ready);
@@ -524,6 +536,18 @@ void main() {
     expect(find.text('Install'), findsOneWidget);
 
     await tester.tap(find.byKey(UpdateNotice.installKey));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    final sheet = find.byKey(UpdateNotice.sheetKey);
+    expect(cubit.state.phase, AppUpdatePhase.installing);
+    expect(
+      find.descendant(
+        of: sheet,
+        matching: find.bySemanticsLabel('Opening installer'),
+      ),
+      findsOneWidget,
+    );
+    install.complete();
     await tester.pumpAndSettle();
     expect(cubit.state.phase, AppUpdatePhase.ready);
     expect(
@@ -679,6 +703,7 @@ class _AndroidDownloads implements AppUpdateDownloadRepository {
   _AndroidDownloads({this.restorePath});
 
   final String? restorePath;
+  Completer<void>? installGate;
   bool failInstall = false;
   bool canInstallResult = true;
   int cancelCalls = 0;
@@ -728,6 +753,7 @@ class _AndroidDownloads implements AppUpdateDownloadRepository {
   @override
   Future<void> install(String path) async {
     installCalls++;
+    await installGate?.future;
     if (failInstall) {
       throw const AppUpdateFailure(AppUpdateFailureKind.install);
     }

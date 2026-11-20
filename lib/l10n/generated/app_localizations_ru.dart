@@ -28,6 +28,9 @@ class AppLocalizationsRu extends AppLocalizations {
   String get downloadFilesClearTemporary => 'Очистить временные файлы';
 
   @override
+  String get downloadFilesClearingTemporary => 'Очищаем временные файлы';
+
+  @override
   String get downloadFilesTemporaryCleared => 'Временные файлы удалены';
 
   @override
@@ -127,7 +130,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get downloadSelectionTitle => 'Скачать файл';
 
   @override
-  String get downloadSelectionPreparing => 'Получаем список файлов торрента...';
+  String get downloadSelectionPreparing => 'Получаем список файлов торрента';
 
   @override
   String get downloadSelectionUnsupported =>
@@ -145,7 +148,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get downloadFileButton => 'Скачать';
 
   @override
-  String get downloadAddingToQueue => 'Добавляем в очередь...';
+  String get downloadAddingToQueue => 'Добавляем в очередь';
 
   @override
   String downloadSelectionLoading(int percent) {
@@ -248,7 +251,7 @@ class AppLocalizationsRu extends AppLocalizations {
   }
 
   @override
-  String get animeListLoading => 'Загрузка списка аниме...';
+  String get animeListLoading => 'Загрузка списка аниме';
 
   @override
   String get animeListLoadError => 'Не удалось загрузить список аниме.';
@@ -294,7 +297,7 @@ class AppLocalizationsRu extends AppLocalizations {
       'Ничего не найдено для выбранных критериев.';
 
   @override
-  String get animeDetailsLoading => 'Загрузка деталей аниме...';
+  String get animeDetailsLoading => 'Загрузка деталей аниме';
 
   @override
   String get animeDetailsLoadError => 'Не удалось загрузить детали аниме.';
@@ -303,7 +306,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get watchSourcesTitle => 'Источники';
 
   @override
-  String get watchSourcesLoading => 'Загружаем источники...';
+  String get watchSourcesLoading => 'Загружаем источники';
 
   @override
   String get watchSourcesLoadError => 'Не удалось загрузить источники.';
@@ -370,7 +373,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get playerSourceTitle => 'Выбор файла';
 
   @override
-  String get playerSourcePreparing => 'Подготавливаем файлы torrent';
+  String get playerSourcePreparing => 'Подготавливаем файлы торрента';
 
   @override
   String get playerSourceUnsupported =>
@@ -685,7 +688,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get downloadStorageClearCache => 'Очистить';
 
   @override
-  String get downloadsLoading => 'Загружаем список файлов...';
+  String get downloadsLoading => 'Загружаем список файлов';
 
   @override
   String get downloadDeleteFailed =>
@@ -1318,7 +1321,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get charactersSupportingTitle => 'Второстепенные';
 
   @override
-  String get charactersLoading => 'Загрузка персонажей...';
+  String get charactersLoading => 'Загрузка персонажей';
 
   @override
   String get charactersLoadError => 'Не удалось загрузить персонажей.';
@@ -1327,7 +1330,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get charactersEmpty => 'Персонажи не указаны.';
 
   @override
-  String get characterLoading => 'Загрузка персонажа...';
+  String get characterLoading => 'Загрузка персонажа';
 
   @override
   String get characterLoadError => 'Не удалось загрузить персонажа.';
@@ -1405,13 +1408,13 @@ class AppLocalizationsRu extends AppLocalizations {
   String get playerMarkConflict => 'Запись изменилась в списке';
 
   @override
-  String get playerMarkSaving => 'Отмечаем…';
+  String get playerMarkSaving => 'Отмечаем';
 
   @override
-  String get playerUnmarkSaving => 'Отменяем…';
+  String get playerUnmarkSaving => 'Отменяем';
 
   @override
-  String get playerRestoreSaving => 'Возвращаем отметку…';
+  String get playerRestoreSaving => 'Возвращаем отметку';
 
   @override
   String get playerMarkShortMarked => 'Отмечена';
@@ -1432,7 +1435,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get playerMarkShortConflict => 'Запись изменилась';
 
   @override
-  String get playerMarkShortRestoreSaving => 'Возвращаем…';
+  String get playerMarkShortRestoreSaving => 'Возвращаем';
 
   @override
   String get playerMarkRestore => 'Вернуть';
@@ -1487,6 +1490,9 @@ class AppLocalizationsRu extends AppLocalizations {
   String get savedTorrentsAddConfirm => 'Добавить';
 
   @override
+  String get savedTorrentsAdding => 'Добавляем раздачу';
+
+  @override
   String get savedTorrentsSaveFailed =>
       'Не удалось сохранить торрент. Попробуйте ещё раз.';
 
@@ -1507,7 +1513,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get commonUndo => 'Отменить';
 
   @override
-  String get userRateLoading => 'Загружаем мой список...';
+  String get userRateLoading => 'Загружаем мой список';
 
   @override
   String get downloadNoPeers => 'пока нет пиров';
@@ -1545,7 +1551,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get downloadSelectionEpisodeTitle => 'Скачать серии';
 
   @override
-  String get downloadSelectionPreparingEpisodes => 'Получаем список серий...';
+  String get downloadSelectionPreparingEpisodes => 'Получаем список серий';
 
   @override
   String get downloadFailedConnectionLost =>
@@ -1739,7 +1745,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get downloadDeleteUnfinished => 'Незавершённые загрузки отменятся.';
 
   @override
-  String get downloadDeleting => 'Удаляем…';
+  String get downloadDeleting => 'Удаляем';
 
   @override
   String downloadDeleteSelectionFailed(int count) {

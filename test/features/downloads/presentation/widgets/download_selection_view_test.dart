@@ -14,6 +14,7 @@ import 'package:iris/features/downloads/presentation/cubit/download_selection_cu
 import 'package:iris/features/downloads/presentation/models/download_selection_args.dart';
 import 'package:iris/features/downloads/presentation/pages/download_selection_page.dart';
 import 'package:iris/shared/widgets/segmented_choice.dart';
+import 'package:iris/shared/widgets/status_views.dart';
 
 import '../../../../helpers/memory_online_quality_preferences.dart';
 import '../../../../helpers/test_app.dart';
@@ -26,6 +27,37 @@ const _online = DownloadSelectionArgs(
 );
 
 void main() {
+  testWidgets('loading announces what the picker is opening', (tester) async {
+    for (final (args, label) in const [
+      (_online, 'Loading the episode list'),
+      (
+        DownloadSelectionArgs(
+          animeId: '52991',
+          animeTitle: 'Frieren',
+          sourceTitle: 'Torrent',
+          magnet: 'magnet:?xt=urn:btih:abc',
+        ),
+        'Loading torrent file list',
+      ),
+    ]) {
+      await tester.pumpWidget(
+        testApp(
+          BlocProvider(
+            key: ValueKey(args.magnet),
+            create: (_) => DownloadSelectionCubit(
+              args: args,
+              repository: MockDownloadsRepository(),
+            ),
+            child: DownloadSelectionPage(args: args, onWatch: (_) {}),
+          ),
+        ),
+      );
+      expect(find.byType(BlockSpinner), findsOneWidget);
+      expect(find.bySemanticsLabel(label), findsOneWidget);
+      expect(find.text(label), findsNothing);
+    }
+  });
+
   testWidgets('torrent badges keep numbers belonging to the title', (
     tester,
   ) async {
@@ -224,7 +256,6 @@ void main() {
   ) async {
     final repository = _GatedEpisodesRepository();
     final cubit = DownloadSelectionCubit(args: _online, repository: repository);
-    final semantics = tester.ensureSemantics();
     await tester.pumpWidget(
       testApp(
         BlocProvider(
@@ -236,10 +267,17 @@ void main() {
     await tester.pumpAndSettle();
     cubit.startSelection();
     cubit.selectAll();
+    await tester.pump();
+    await tester.pumpAndSettle();
+    final button = find.byKey(const Key('download_selected'));
+    final idle = tester.getRect(button);
     final batch = cubit.downloadSelected();
     await tester.pump();
     await tester.pump();
     try {
+      expect(tester.getRect(button), idle);
+      expect(tester.widget<FilledButton>(button).onPressed, isNull);
+      expect(tester.getSemantics(button).label, 'Adding to queue');
       expect(
         tester
             .getSemantics(find.bySemanticsLabel('480p'))
@@ -260,7 +298,6 @@ void main() {
         isTrue,
       );
       await tester.pumpWidget(const SizedBox.shrink());
-      semantics.dispose();
     }
   });
 

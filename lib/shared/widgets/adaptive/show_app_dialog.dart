@@ -10,6 +10,9 @@ Future<T?> showAppDialog<T>({
   final theme = InverseTheme.of(Theme.of(context));
   return showDialog<T>(
     context: context,
+    animationStyle: MediaQuery.disableAnimationsOf(context)
+        ? AnimationStyle.noAnimation
+        : null,
     builder: (_) => Theme(
       data: theme,
       child: Builder(builder: builder),

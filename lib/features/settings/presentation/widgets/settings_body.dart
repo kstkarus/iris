@@ -144,7 +144,6 @@ class _SettingsBodyState extends State<SettingsBody> {
                 ),
               ],
             ),
-            const SizedBox(height: 16),
             SettingsAppearanceChoice(
               key: const Key('settings_language_choice'),
               label: l10n.settingsLanguageLabel,

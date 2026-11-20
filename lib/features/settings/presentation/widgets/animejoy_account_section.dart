@@ -8,6 +8,7 @@ import 'package:iris/features/settings/presentation/widgets/settings_row.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/widgets/adaptive/show_adaptive_sheet.dart';
 import 'package:iris/shared/widgets/adaptive/window_size_class.dart';
+import 'package:iris/shared/widgets/busy_button_child.dart';
 import 'package:iris/shared/widgets/pixel_icon.dart';
 
 class AnimejoyAccountSection extends StatelessWidget {
@@ -39,9 +40,11 @@ class AnimejoyAccountSection extends StatelessWidget {
         ? null
         : _failureMessage(l10n, failure);
     final status = switch (state) {
-      AnimejoyAccountInitial() ||
-      AnimejoyAccountChecking() => SettingsStatus(l10n.settingsCheckingSession),
-      AnimejoyAccountSigningIn() => SettingsStatus(l10n.settingsSigningIn),
+      AnimejoyAccountInitial() || AnimejoyAccountChecking() =>
+        SettingsStatus.loading(l10n.settingsCheckingSession),
+      AnimejoyAccountSigningIn() => SettingsStatus.loading(
+        l10n.settingsSigningIn,
+      ),
       AnimejoyAccountSignedOut(:final expired) => SettingsStatus(
         errorMessage ??
             (expired
@@ -77,6 +80,7 @@ class AnimejoyAccountSection extends StatelessWidget {
 
     return SettingsAccountRow(
       title: 'AnimeJoy',
+      statusKey: state,
       status: status,
       actions: [
         if (state is AnimejoyAccountSignedOut)
@@ -316,9 +320,12 @@ class _AnimejoySignInFormState extends State<AnimejoySignInForm> {
                 ),
                 FilledButton(
                   key: AnimejoyAccountSection.submitButtonKey,
+                  style: busyButtonStyle(busy: signingIn),
                   onPressed: signingIn ? null : _submit,
-                  child: Text(
-                    signingIn ? l10n.settingsSigningIn : l10n.commonSignIn,
+                  child: BusyButtonChild(
+                    l10n.commonSignIn,
+                    busy: signingIn,
+                    busyLabel: l10n.settingsSigningIn,
                   ),
                 ),
               ],

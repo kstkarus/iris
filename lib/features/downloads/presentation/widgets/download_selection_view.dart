@@ -15,6 +15,8 @@ import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/utils/byte_size_formatter.dart';
 import 'package:iris/shared/utils/episode_number.dart';
 import 'package:iris/shared/utils/file_display_name.dart';
+import 'package:iris/shared/widgets/block_runner.dart';
+import 'package:iris/shared/widgets/busy_button_child.dart';
 import 'package:iris/shared/widgets/detail_layout.dart';
 import 'package:iris/shared/widgets/dither_switcher.dart';
 import 'package:iris/shared/widgets/pixel_icon.dart';
@@ -40,7 +42,7 @@ class DownloadSelectionView extends StatelessWidget {
           DownloadSelectionInitial() || DownloadSelectionLoading() => (
             'loading',
             LoadingView(
-              label: episodes
+              semanticsLabel: episodes
                   ? l10n.downloadSelectionPreparingEpisodes
                   : l10n.downloadSelectionPreparing,
             ),
@@ -135,15 +137,16 @@ class _FileList extends StatelessWidget {
             visible: state.selecting,
             child: FilledButton(
               key: const Key('download_selected'),
+              style: busyButtonStyle(busy: state.addingBatch),
               onPressed: state.addingBatch || state.selected.isEmpty
                   ? null
                   : cubit.downloadSelected,
-              child: Text(
-                state.addingBatch
-                    ? l10n.downloadAddingToQueue
-                    : cubit.args.isOnlineRelease
+              child: BusyButtonChild(
+                cubit.args.isOnlineRelease
                     ? l10n.downloadSelectedEpisodes(state.selected.length)
                     : l10n.downloadSelectedFiles(state.selected.length),
+                busy: state.addingBatch,
+                busyLabel: l10n.downloadAddingToQueue,
               ),
             ),
           ),
@@ -372,9 +375,11 @@ class _FileRow extends StatelessWidget {
                                     }}',
                             ),
                             child: switch (status) {
-                              _ when adding => const SizedBox(
-                                width: 28,
-                                child: BlockSpinner(height: 4),
+                              _ when adding => BlockRunner(
+                                color: scheme.onSurface,
+                                trackColor: DetailLayout.ruleColor(scheme),
+                                cell: 5,
+                                gap: 2,
                               ),
                               null => IconButton(
                                 key: ValueKey(

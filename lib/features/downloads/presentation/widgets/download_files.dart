@@ -11,10 +11,10 @@ import 'package:iris/shared/utils/byte_size_formatter.dart';
 import 'package:iris/shared/utils/motion_duration.dart';
 import 'package:iris/shared/widgets/adaptive/show_adaptive_sheet.dart';
 import 'package:iris/shared/widgets/adaptive/window_size_class.dart';
+import 'package:iris/shared/widgets/busy_button_child.dart';
 import 'package:iris/shared/widgets/detail_layout.dart';
 import 'package:iris/shared/widgets/pixel_icon.dart';
 import 'package:iris/shared/widgets/section_label.dart';
-import 'package:iris/shared/widgets/status_views.dart';
 import 'package:iris/shared/widgets/tap_row.dart';
 
 Future<DownloadTitle?> showDownloadFiles(BuildContext context) {
@@ -229,54 +229,33 @@ class _DownloadFilesState extends State<_DownloadFiles> {
                         alignment: Alignment.centerLeft,
                         child: OutlinedButton(
                           key: const Key('download_files_clear_temporary'),
-                          style: ButtonStyle(
-                            textStyle: const WidgetStatePropertyAll(
-                              TextStyle(
-                                fontFamily: DetailLayout.sansFont,
-                                fontSize: 14,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                            side: WidgetStateProperty.resolveWith((states) {
-                              if (states.contains(WidgetState.focused)) {
+                          style: busyButtonStyle(
+                            busy: _clearing,
+                            base: ButtonStyle(
+                              side: WidgetStateProperty.resolveWith((states) {
+                                if (states.contains(WidgetState.focused)) {
+                                  return BorderSide(
+                                    color: scheme.onSurface,
+                                    width: 2,
+                                  );
+                                }
                                 return BorderSide(
-                                  color: scheme.onSurface,
-                                  width: 2,
+                                  color: states.contains(WidgetState.disabled)
+                                      ? rule.withValues(alpha: 0.45)
+                                      : rule,
                                 );
-                              }
-                              return BorderSide(
-                                color: states.contains(WidgetState.disabled)
-                                    ? rule.withValues(alpha: 0.45)
-                                    : rule,
-                              );
-                            }),
+                              }),
+                            ),
                           ),
                           onPressed: usage.cacheInUse || _clearing
                               ? null
                               : _clear,
-                          child: Stack(
-                            alignment: Alignment.center,
-                            children: [
-                              ExcludeSemantics(
-                                excluding: _clearing,
-                                child: Opacity(
-                                  opacity: _clearing ? 0 : 1,
-                                  child: Text(
-                                    l10n.downloadStorageClearCache,
-                                    semanticsLabel:
-                                        l10n.downloadFilesClearTemporary,
-                                  ),
-                                ),
-                              ),
-                              if (_clearing)
-                                Semantics(
-                                  label: l10n.downloadFilesClearTemporary,
-                                  child: const SizedBox(
-                                    width: 48,
-                                    child: BlockSpinner(height: 6),
-                                  ),
-                                ),
-                            ],
+                          child: BusyButtonChild(
+                            l10n.downloadStorageClearCache,
+                            busy: _clearing,
+                            semanticsLabel: l10n.downloadFilesClearTemporary,
+                            busySemanticsLabel:
+                                l10n.downloadFilesClearingTemporary,
                           ),
                         ),
                       ),

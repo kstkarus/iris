@@ -29,6 +29,9 @@ Future<T?> showAdaptiveSheet<T>({
       showDragHandle: true,
       isScrollControlled: true,
       useSafeArea: true,
+      sheetAnimationStyle: MediaQuery.disableAnimationsOf(context)
+          ? AnimationStyle.noAnimation
+          : null,
       backgroundColor: inverse.bottomSheetTheme.modalBackgroundColor,
       builder: (sheetContext) {
         return Theme(

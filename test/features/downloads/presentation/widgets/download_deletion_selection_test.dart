@@ -169,6 +169,8 @@ void main() {
           _item('gone', 1, DownloadStatus.queued),
           if (!lastFile) _item('kept', 2, DownloadStatus.completed),
         ]);
+        final locale = lastFile ? const Locale('en') : const Locale('ru');
+        final deleteGate = repository.deleteGate = Completer<void>();
         final manager = DownloadManagerCubit(repository: repository)..load();
         addTearDown(() {
           unawaited(manager.close());
@@ -192,6 +194,7 @@ void main() {
                 ),
               ),
             ),
+            locale: locale,
             theme: buildAppTheme(),
           ),
         );
@@ -200,9 +203,28 @@ void main() {
         await tester.pumpAndSettle();
         await tester.tap(_row('gone'));
         await tester.pumpAndSettle();
-        await tester.tap(find.byKey(const Key('download_delete_selected')));
+        final delete = find.byKey(const Key('download_delete_selected'));
+        final idle = tester.getRect(delete);
+        await tester.tap(delete);
         await tester.pumpAndSettle();
         await tester.tap(find.byKey(const Key('download_delete_confirm')));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 350));
+        await tester.pump();
+        expect(
+          manager.state.downloads.map((item) => item.id),
+          isNot(contains('gone')),
+        );
+        expect(tester.getRect(delete), idle);
+        expect(tester.widget<FilledButton>(delete).onPressed, isNull);
+        expect(
+          find.descendant(
+            of: delete,
+            matching: find.text(lastFile ? 'Deleting' : 'Удаляем'),
+          ),
+          findsOneWidget,
+        );
+        deleteGate.complete();
         await tester.pumpAndSettle();
         expect(repository.deleted, ['gone']);
         expect(
@@ -508,6 +530,7 @@ class _Downloads extends MockDownloadsRepository {
   final changes = StreamController<List<DownloadItem>>.broadcast();
   final failed = <String>{};
   final deleted = <String>[];
+  Completer<void>? deleteGate;
 
   @override
   Stream<List<DownloadItem>> watchDownloads() async* {
@@ -521,6 +544,7 @@ class _Downloads extends MockDownloadsRepository {
     if (failed.contains(id)) return false;
     items = items.where((item) => item.id != id).toList();
     changes.add(List.of(items));
+    await deleteGate?.future;
     return true;
   }
 }

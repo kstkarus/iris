@@ -15,6 +15,7 @@ import 'package:iris/features/anime_list/domain/entities/anime_list_query.dart';
 import 'package:iris/features/anime_list/presentation/widgets/anime_list_view.dart';
 import 'package:iris/features/profile/presentation/pages/profile_page.dart';
 import 'package:iris/features/settings/presentation/pages/settings_page.dart';
+import 'package:iris/features/settings/presentation/widgets/animejoy_account_section.dart';
 import 'package:iris/shared/widgets/page_title.dart';
 
 import '../helpers/mock_app.dart';
@@ -233,6 +234,52 @@ void main() {
     await tester.pumpAndSettle();
     expect(gear.hitTestable(), findsOneWidget);
   });
+
+  testWidgets(
+    'reduced motion makes Settings, the sign-in sheet and theme change immediate',
+    (tester) async {
+      final dispatcher = tester.platformDispatcher;
+      dispatcher.accessibilityFeaturesTestValue =
+          const FakeAccessibilityFeatures(disableAnimations: true);
+      dispatcher.platformBrightnessTestValue = Brightness.light;
+      addTearDown(dispatcher.clearAccessibilityFeaturesTestValue);
+      addTearDown(dispatcher.clearPlatformBrightnessTestValue);
+      await pumpMockApp(tester, size: TestWindowSizes.phone);
+
+      await tester.tap(find.text('Profile'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(ProfilePage.settingsButtonKey));
+      final settings = find.byType(SettingsPage);
+      await pumpUntilVisible(tester, settings);
+      final pageRoute = ModalRoute.of(tester.element(settings))!;
+      expect(pageRoute.transitionDuration, Duration.zero);
+      expect(pageRoute.reverseTransitionDuration, Duration.zero);
+      expect(pageRoute.animation!.isCompleted, isTrue);
+
+      final signIn = find.byKey(AnimejoyAccountSection.signInButtonKey);
+      await pumpUntilVisible(tester, signIn);
+      await tester.tap(signIn);
+      final login = find.byKey(AnimejoyAccountSection.loginFieldKey);
+      await pumpUntilVisible(tester, login);
+      final sheetRoute = ModalRoute.of(tester.element(login))!;
+      expect(sheetRoute.transitionDuration, Duration.zero);
+      expect(sheetRoute.reverseTransitionDuration, Duration.zero);
+      expect(sheetRoute.animation!.isCompleted, isTrue);
+      await _tapAndSettle(tester, find.widgetWithText(TextButton, 'Cancel'));
+      expect(login, findsNothing);
+
+      final dark = find.text('Dark');
+      await tester.ensureVisible(dark);
+      await tester.tap(dark);
+      await tester.pump();
+      expect(Theme.of(tester.element(settings)).brightness, Brightness.dark);
+      expect(tester.takeException(), isNull);
+    },
+    variant: const TargetPlatformVariant({
+      TargetPlatform.android,
+      TargetPlatform.iOS,
+    }),
+  );
 
   for (final entry in TestWindowSizes.all.entries) {
     final sizeName = entry.key;

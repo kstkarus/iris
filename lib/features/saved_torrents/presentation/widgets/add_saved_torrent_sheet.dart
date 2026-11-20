@@ -12,6 +12,7 @@ import 'package:iris/shared/utils/byte_size_formatter.dart';
 import 'package:iris/shared/utils/motion_duration.dart';
 import 'package:iris/shared/widgets/adaptive/show_adaptive_sheet.dart';
 import 'package:iris/shared/widgets/adaptive/window_size_class.dart';
+import 'package:iris/shared/widgets/busy_button_child.dart';
 import 'package:iris/shared/widgets/detail_layout.dart';
 import 'package:iris/shared/widgets/dither_switcher.dart';
 import 'package:iris/shared/widgets/pixel_icon.dart';
@@ -234,8 +235,13 @@ class _AddSavedTorrentFormState extends State<AddSavedTorrentForm> {
     final compact = WindowSizeClass.of(context).isCompact;
     final saveButton = FilledButton(
       key: AddSavedTorrentForm.saveButtonKey,
+      style: busyButtonStyle(busy: _saving),
       onPressed: draft != null && !_saving ? _save : null,
-      child: Text(l10n.savedTorrentsAddConfirm),
+      child: BusyButtonChild(
+        l10n.savedTorrentsAddConfirm,
+        busy: _saving,
+        busySemanticsLabel: l10n.savedTorrentsAdding,
+      ),
     );
 
     return Padding(

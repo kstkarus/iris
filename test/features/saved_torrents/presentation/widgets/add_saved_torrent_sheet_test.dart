@@ -154,6 +154,7 @@ void main() {
     await tester.tap(find.byKey(AddSavedTorrentForm.saveButtonKey));
     await tester.pump();
     expect(canAdd(tester), isFalse);
+    expect(find.bySemanticsLabel('Adding torrent'), findsOneWidget);
 
     await tester.tap(find.text('Cancel'));
     await tester.pump();

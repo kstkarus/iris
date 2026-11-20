@@ -58,6 +58,7 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
     expect(find.byKey(const Key('player_mark_progress')), findsOneWidget);
+    expect(find.text('Undoing'), findsOneWidget);
     expect(find.text('Undo'), findsNothing);
     await tester.pump(const Duration(seconds: 6));
     expect(find.byKey(const Key('player_mark_progress')), findsOneWidget);

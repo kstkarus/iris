@@ -134,6 +134,12 @@ abstract class AppLocalizations {
   /// **'Clear temporary files'**
   String get downloadFilesClearTemporary;
 
+  /// No description provided for @downloadFilesClearingTemporary.
+  ///
+  /// In en, this message translates to:
+  /// **'Clearing temporary files'**
+  String get downloadFilesClearingTemporary;
+
   /// No description provided for @downloadFilesTemporaryCleared.
   ///
   /// In en, this message translates to:
@@ -317,7 +323,7 @@ abstract class AppLocalizations {
   /// No description provided for @downloadSelectionPreparing.
   ///
   /// In en, this message translates to:
-  /// **'Loading torrent file list...'**
+  /// **'Loading torrent file list'**
   String get downloadSelectionPreparing;
 
   /// No description provided for @downloadSelectionUnsupported.
@@ -347,7 +353,7 @@ abstract class AppLocalizations {
   /// No description provided for @downloadAddingToQueue.
   ///
   /// In en, this message translates to:
-  /// **'Adding to queue...'**
+  /// **'Adding to queue'**
   String get downloadAddingToQueue;
 
   /// No description provided for @downloadSelectionLoading.
@@ -515,7 +521,7 @@ abstract class AppLocalizations {
   /// No description provided for @animeListLoading.
   ///
   /// In en, this message translates to:
-  /// **'Loading anime list...'**
+  /// **'Loading anime list'**
   String get animeListLoading;
 
   /// No description provided for @animeListLoadError.
@@ -605,7 +611,7 @@ abstract class AppLocalizations {
   /// No description provided for @animeDetailsLoading.
   ///
   /// In en, this message translates to:
-  /// **'Loading anime details...'**
+  /// **'Loading anime details'**
   String get animeDetailsLoading;
 
   /// No description provided for @animeDetailsLoadError.
@@ -623,7 +629,7 @@ abstract class AppLocalizations {
   /// No description provided for @watchSourcesLoading.
   ///
   /// In en, this message translates to:
-  /// **'Loading sources...'**
+  /// **'Loading sources'**
   String get watchSourcesLoading;
 
   /// No description provided for @watchSourcesLoadError.
@@ -1283,7 +1289,7 @@ abstract class AppLocalizations {
   /// No description provided for @downloadsLoading.
   ///
   /// In en, this message translates to:
-  /// **'Loading downloaded files...'**
+  /// **'Loading downloaded files'**
   String get downloadsLoading;
 
   /// No description provided for @downloadDeleteFailed.
@@ -2333,7 +2339,7 @@ abstract class AppLocalizations {
   /// No description provided for @charactersLoading.
   ///
   /// In en, this message translates to:
-  /// **'Loading characters...'**
+  /// **'Loading characters'**
   String get charactersLoading;
 
   /// No description provided for @charactersLoadError.
@@ -2351,7 +2357,7 @@ abstract class AppLocalizations {
   /// No description provided for @characterLoading.
   ///
   /// In en, this message translates to:
-  /// **'Loading the character...'**
+  /// **'Loading the character'**
   String get characterLoading;
 
   /// No description provided for @characterLoadError.
@@ -2483,19 +2489,19 @@ abstract class AppLocalizations {
   /// No description provided for @playerMarkSaving.
   ///
   /// In en, this message translates to:
-  /// **'Marking…'**
+  /// **'Marking'**
   String get playerMarkSaving;
 
   /// No description provided for @playerUnmarkSaving.
   ///
   /// In en, this message translates to:
-  /// **'Undoing…'**
+  /// **'Undoing'**
   String get playerUnmarkSaving;
 
   /// No description provided for @playerRestoreSaving.
   ///
   /// In en, this message translates to:
-  /// **'Restoring mark…'**
+  /// **'Restoring mark'**
   String get playerRestoreSaving;
 
   /// No description provided for @playerMarkShortMarked.
@@ -2537,7 +2543,7 @@ abstract class AppLocalizations {
   /// No description provided for @playerMarkShortRestoreSaving.
   ///
   /// In en, this message translates to:
-  /// **'Restoring…'**
+  /// **'Restoring'**
   String get playerMarkShortRestoreSaving;
 
   /// No description provided for @playerMarkRestore.
@@ -2624,6 +2630,12 @@ abstract class AppLocalizations {
   /// **'Add'**
   String get savedTorrentsAddConfirm;
 
+  /// No description provided for @savedTorrentsAdding.
+  ///
+  /// In en, this message translates to:
+  /// **'Adding torrent'**
+  String get savedTorrentsAdding;
+
   /// No description provided for @savedTorrentsSaveFailed.
   ///
   /// In en, this message translates to:
@@ -2657,7 +2669,7 @@ abstract class AppLocalizations {
   /// No description provided for @userRateLoading.
   ///
   /// In en, this message translates to:
-  /// **'Loading my list...'**
+  /// **'Loading my list'**
   String get userRateLoading;
 
   /// No description provided for @downloadNoPeers.
@@ -2717,7 +2729,7 @@ abstract class AppLocalizations {
   /// No description provided for @downloadSelectionPreparingEpisodes.
   ///
   /// In en, this message translates to:
-  /// **'Loading the episode list...'**
+  /// **'Loading the episode list'**
   String get downloadSelectionPreparingEpisodes;
 
   /// No description provided for @downloadFailedConnectionLost.
@@ -2969,7 +2981,7 @@ abstract class AppLocalizations {
   /// No description provided for @downloadDeleting.
   ///
   /// In en, this message translates to:
-  /// **'Deleting…'**
+  /// **'Deleting'**
   String get downloadDeleting;
 
   /// No description provided for @downloadDeleteSelectionFailed.

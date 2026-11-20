@@ -46,7 +46,7 @@ class PlayerSourceView extends StatelessWidget {
           PlayerSourceInitial() || PlayerSourceLoading() => (
             'loading',
             LoadingView(
-              label: isOnline
+              semanticsLabel: isOnline
                   ? AppLocalizations.of(context).playerSourceEpisodesPreparing
                   : AppLocalizations.of(context).playerSourcePreparing,
             ),

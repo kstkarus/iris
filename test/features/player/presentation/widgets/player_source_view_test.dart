@@ -23,7 +23,8 @@ void main() {
 
     await tester.pumpWidget(_wrap(cubit: cubit));
 
-    expect(find.text('Preparing torrent files'), findsOneWidget);
+    expect(find.bySemanticsLabel('Preparing torrent files'), findsOneWidget);
+    expect(find.text('Preparing torrent files'), findsNothing);
   });
 
   testWidgets('lists files with sizes and opens the tapped one', (
@@ -156,7 +157,8 @@ void main() {
       ),
     );
 
-    expect(find.text('Loading episodes'), findsOneWidget);
+    expect(find.bySemanticsLabel('Loading episodes'), findsOneWidget);
+    expect(find.text('Loading episodes'), findsNothing);
   });
 
   testWidgets('marks progress and continues the last unfinished file', (

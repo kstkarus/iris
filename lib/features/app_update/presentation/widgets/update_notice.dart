@@ -16,6 +16,7 @@ import 'package:iris/shared/widgets/adaptive/window_size_class.dart';
 import 'package:iris/shared/widgets/dither_switcher.dart';
 import 'package:iris/shared/widgets/dither_transition.dart';
 import 'package:iris/shared/widgets/pixel_icon.dart';
+import 'package:iris/shared/widgets/pixel_noise.dart';
 import 'package:iris/shared/widgets/pixel_separated_text.dart';
 import 'package:iris/shared/widgets/segmented_bar.dart';
 import 'package:iris/shared/widgets/tap_row.dart';
@@ -1052,14 +1053,24 @@ class _BusyLabel extends StatelessWidget {
   final String label;
 
   @override
-  Widget build(BuildContext context) => Center(
-    child: Text(
-      label,
-      maxLines: 2,
-      textAlign: TextAlign.center,
-      style: Theme.of(context).textTheme.bodySmall,
-    ),
-  );
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Center(
+      child: Semantics(
+        liveRegion: true,
+        child: PixelNoise.shimmer(
+          child: Text(
+            label,
+            maxLines: 2,
+            textAlign: TextAlign.center,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurface,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _ReleaseNotes extends StatelessWidget {

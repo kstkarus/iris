@@ -25,6 +25,7 @@ import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/utils/byte_size_formatter.dart';
 import 'package:iris/shared/utils/desktop_platform.dart';
 import 'package:iris/shared/utils/motion_duration.dart';
+import 'package:iris/shared/widgets/busy_button_child.dart';
 import 'package:iris/shared/widgets/dither_switcher.dart';
 import 'package:iris/features/downloads/presentation/widgets/download_title_widgets.dart';
 import 'package:iris/shared/widgets/focusable_list_row.dart';
@@ -544,8 +545,10 @@ class _EpisodesState extends State<_Episodes> {
   late DownloadTitle? _lastTitle = widget.title;
   String? _anchor;
   bool _selecting = false;
-  bool _busy = false;
+  int? _deletingCount;
   int _failureCount = 0;
+
+  bool get _busy => _deletingCount != null;
 
   @override
   void dispose() {
@@ -626,7 +629,7 @@ class _EpisodesState extends State<_Episodes> {
         .toList();
     final title = widget.title;
     if (items.isEmpty || title == null) return;
-    setState(() => _busy = true);
+    setState(() => _deletingCount = items.length);
     final failed = await confirmDownloadDeletion(
       context,
       items,
@@ -641,7 +644,7 @@ class _EpisodesState extends State<_Episodes> {
         .map((item) => item.id)
         .toSet();
     setState(() {
-      _busy = false;
+      _deletingCount = null;
       if (failed != null) {
         _selected
           ..clear()
@@ -896,13 +899,18 @@ class _EpisodesState extends State<_Episodes> {
                 visible: _selecting,
                 child: FilledButton(
                   key: const Key('download_delete_selected'),
+                  style: busyButtonStyle(
+                    busy: _busy && manager.deletingIds.isNotEmpty,
+                  ),
                   onPressed: _busy || _selected.isEmpty
                       ? null
                       : _deleteSelected,
-                  child: Text(
-                    _busy && manager.deletingIds.isNotEmpty
-                        ? l10n.downloadDeleting
-                        : l10n.downloadDeleteSelected(_selected.length),
+                  child: BusyButtonChild(
+                    l10n.downloadDeleteSelected(
+                      _deletingCount ?? _selected.length,
+                    ),
+                    busy: _busy && manager.deletingIds.isNotEmpty,
+                    busyLabel: l10n.downloadDeleting,
                   ),
                 ),
               ),

@@ -34,7 +34,7 @@ void main() {
     await _pumpView(tester, cubit: cubit..loadSources());
     await tester.pump();
 
-    expect(find.bySemanticsLabel('Loading sources...'), findsOneWidget);
+    expect(find.bySemanticsLabel('Loading sources'), findsOneWidget);
     semantics.dispose();
   });
 

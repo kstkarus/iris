@@ -4,6 +4,7 @@ import 'package:iris/features/app_update/presentation/widgets/update_notice.dart
 import 'package:iris/features/settings/presentation/widgets/animejoy_account_section.dart';
 import 'package:iris/features/settings/presentation/widgets/settings_body.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
+import 'package:iris/shared/widgets/dither_switcher.dart';
 
 Future<void> showSettingsDialog(BuildContext context) async {
   // Keep the live app theme so Appearance previews changes inside the dialog.
@@ -77,19 +78,24 @@ class _SettingsDialogState extends State<_SettingsDialog> {
             ),
           ),
           Flexible(
-            child: SingleChildScrollView(
-              key: ValueKey(_showSignIn),
-              padding: const EdgeInsets.fromLTRB(28, 0, 28, 16),
-              child: _showSignIn
-                  ? Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      child: AnimejoySignInForm(onDone: _backToSettings),
-                    )
-                  : SettingsBody(
-                      onAnimejoySignIn: () =>
-                          setState(() => _showSignIn = true),
-                      onOpenUpdate: () => Navigator.of(context).maybePop(true),
-                    ),
+            child: DitherSwitcher(
+              duration: const Duration(milliseconds: 220),
+              resizeDuration: const Duration(milliseconds: 200),
+              child: SingleChildScrollView(
+                key: ValueKey(_showSignIn),
+                padding: const EdgeInsets.fromLTRB(28, 0, 28, 16),
+                child: _showSignIn
+                    ? Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        child: AnimejoySignInForm(onDone: _backToSettings),
+                      )
+                    : SettingsBody(
+                        onAnimejoySignIn: () =>
+                            setState(() => _showSignIn = true),
+                        onOpenUpdate: () =>
+                            Navigator.of(context).maybePop(true),
+                      ),
+              ),
             ),
           ),
         ],

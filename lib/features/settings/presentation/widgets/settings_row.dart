@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
 
 import 'package:iris/shared/widgets/detail_layout.dart';
+import 'package:iris/shared/widgets/dither_switcher.dart';
+import 'package:iris/shared/widgets/pixel_noise.dart';
 
 class SettingsRow extends StatelessWidget {
   const SettingsRow({required this.child, this.action, super.key});
 
   final Widget child;
   final Widget? action;
+
+  static const contentPadding = EdgeInsets.symmetric(vertical: 12);
 
   static TextStyle? labelStyle(ThemeData theme) =>
       theme.textTheme.bodyMedium?.copyWith(
@@ -25,46 +29,46 @@ class SettingsRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final action = this.action;
+    final content = Padding(padding: contentPadding, child: child);
     return ConstrainedBox(
       constraints: const BoxConstraints(minHeight: 48),
-      child: action == null
-          ? Align(alignment: AlignmentDirectional.centerStart, child: child)
-          : LayoutBuilder(
-              builder: (context, constraints) {
-                if (constraints.maxWidth < 360 &&
-                    DetailLayout.isLargeText(context)) {
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 4),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        child,
-                        Align(
-                          alignment: AlignmentDirectional.centerEnd,
-                          child: action,
-                        ),
-                      ],
-                    ),
-                  );
-                }
-                return Row(
-                  children: [
-                    Expanded(
-                      child: Padding(
-                        padding: const EdgeInsetsDirectional.only(end: 12),
-                        child: child,
-                      ),
-                    ),
-                    ConstrainedBox(
-                      constraints: BoxConstraints(
-                        maxWidth: constraints.maxWidth / 2,
-                      ),
-                      child: action,
-                    ),
-                  ],
-                );
-              },
-            ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          if (constraints.maxWidth < 360 && DetailLayout.isLargeText(context)) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                content,
+                if (action != null)
+                  Align(
+                    alignment: AlignmentDirectional.centerEnd,
+                    child: action,
+                  ),
+              ],
+            );
+          }
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Padding(
+                  padding: EdgeInsetsDirectional.only(
+                    end: action == null ? 0 : 12,
+                  ),
+                  child: content,
+                ),
+              ),
+              if (action != null)
+                ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxWidth: constraints.maxWidth / 2,
+                  ),
+                  child: action,
+                ),
+            ],
+          );
+        },
+      ),
     );
   }
 }
@@ -91,12 +95,14 @@ ButtonStyle settingsActionStyle(BuildContext context, {bool primary = false}) {
 class SettingsAccountRow extends StatelessWidget {
   const SettingsAccountRow({
     required this.title,
+    required this.statusKey,
     required this.status,
     this.actions = const [],
     super.key,
   });
 
   final String title;
+  final Object statusKey;
   final Widget status;
   final List<Widget> actions;
 
@@ -111,17 +117,22 @@ class SettingsAccountRow extends StatelessWidget {
               crossAxisAlignment: WrapCrossAlignment.center,
               children: actions,
             ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          spacing: 4,
-          children: [
-            Text(title, style: SettingsRow.labelStyle(theme)),
-            status,
-          ],
-        ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        spacing: 4,
+        children: [
+          Text(title, style: SettingsRow.labelStyle(theme)),
+          DitherSwitcher(
+            duration: const Duration(milliseconds: 220),
+            resizeDuration: const Duration(milliseconds: 200),
+            child: Semantics(
+              key: ValueKey(statusKey),
+              liveRegion: true,
+              child: status,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -135,16 +146,34 @@ class SettingsStatus extends StatelessWidget {
     this.color,
     this.mixedData = false,
     super.key,
-  });
+  }) : _loading = false;
+
+  const SettingsStatus.loading(this.label, {super.key})
+    : leading = null,
+      signalColor = null,
+      color = null,
+      mixedData = false,
+      _loading = true;
 
   final String label;
   final Widget? leading;
   final Color? signalColor;
   final Color? color;
   final bool mixedData;
+  final bool _loading;
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final style = SettingsRow.captionStyle(theme);
+    if (_loading) {
+      return PixelNoise.shimmer(
+        child: Text(
+          label,
+          style: style?.copyWith(color: theme.colorScheme.onSurface),
+        ),
+      );
+    }
     final leading =
         this.leading ??
         switch (signalColor) {
@@ -154,12 +183,10 @@ class SettingsStatus extends StatelessWidget {
           ),
           null => null,
         };
-    final style = SettingsRow.captionStyle(
-      Theme.of(context),
-    )?.copyWith(color: color);
+    final statusStyle = style?.copyWith(color: color);
     final text = mixedData
-        ? MixedDataText(label, sansStyle: style)
-        : Text(label, style: style);
+        ? MixedDataText(label, sansStyle: statusStyle)
+        : Text(label, style: statusStyle);
     return leading == null
         ? text
         : Row(

@@ -69,23 +69,26 @@ class _SettingsMenuChoiceState<T> extends State<SettingsMenuChoice<T>> {
         ),
       ),
       child: SettingsRow(
-        action: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Flexible(
-              child: Text(
-                selected.label,
-                textAlign: TextAlign.end,
-                style: style?.copyWith(color: scheme.onSurfaceVariant),
+        action: Padding(
+          padding: SettingsRow.contentPadding,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Flexible(
+                child: Text(
+                  selected.label,
+                  textAlign: TextAlign.end,
+                  style: style?.copyWith(color: scheme.onSurfaceVariant),
+                ),
               ),
-            ),
-            const SizedBox(width: 8),
-            PixelIcon(
-              PixelGlyph.expand,
-              size: 10,
-              color: scheme.onSurfaceVariant,
-            ),
-          ],
+              const SizedBox(width: 8),
+              PixelIcon(
+                PixelGlyph.expand,
+                size: 10,
+                color: scheme.onSurfaceVariant,
+              ),
+            ],
+          ),
         ),
         child: Text(widget.label, style: style),
       ),
@@ -137,20 +140,22 @@ class SettingsAppearanceChoice<T> extends StatelessWidget {
             onSelected: onSelected,
           );
         }
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(label, style: SettingsRow.labelStyle(theme)),
-            const SizedBox(height: 8),
-            SizedBox(
-              width: width,
-              child: SegmentedChoice<T>(
-                options: options,
-                selected: selected,
-                onSelected: onSelected,
+        return SettingsRow(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(label, style: SettingsRow.labelStyle(theme)),
+              const SizedBox(height: 8),
+              SizedBox(
+                width: width,
+                child: SegmentedChoice<T>(
+                  options: options,
+                  selected: selected,
+                  onSelected: onSelected,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         );
       },
     );

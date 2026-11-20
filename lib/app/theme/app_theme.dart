@@ -27,6 +27,7 @@ const _appSansFamily = 'Medeo Sans';
 ThemeData buildAppTheme({
   Brightness brightness = Brightness.light,
   bool withTwin = true,
+  bool disableAnimations = false,
 }) {
   final scheme = brightness == Brightness.dark ? _darkScheme : _lightScheme;
   final text = _textTheme(scheme);
@@ -35,6 +36,7 @@ ThemeData buildAppTheme({
       ? buildAppTheme(
           brightness: dark ? Brightness.light : Brightness.dark,
           withTwin: false,
+          disableAnimations: disableAnimations,
         )
       : null;
   final menuScheme = twin?.colorScheme ?? scheme;
@@ -42,6 +44,12 @@ ThemeData buildAppTheme({
     light: dark ? const Color(0xFFFFFFFF) : const Color(0xFF4D4D4B),
     dark: dark ? const Color(0xFF8E8B85) : const Color(0xFF000000),
   );
+  final fadeTransition = disableAnimations
+      ? const _InstantFadeForwardsTransitions()
+      : const FadeForwardsPageTransitionsBuilder();
+  final cupertinoTransition = disableAnimations
+      ? const _InstantCupertinoTransitions()
+      : const CupertinoPageTransitionsBuilder();
 
   const square = RoundedRectangleBorder();
   const buttonSize = Size(64, 44);
@@ -74,13 +82,13 @@ ThemeData buildAppTheme({
     visualDensity: VisualDensity.standard,
     // Pages fade forward over the one before, a quiet move that suits the
     // flat surfaces; Apple platforms keep their native slide.
-    pageTransitionsTheme: const PageTransitionsTheme(
+    pageTransitionsTheme: PageTransitionsTheme(
       builders: {
-        TargetPlatform.android: FadeForwardsPageTransitionsBuilder(),
-        TargetPlatform.windows: FadeForwardsPageTransitionsBuilder(),
-        TargetPlatform.linux: FadeForwardsPageTransitionsBuilder(),
-        TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
-        TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
+        TargetPlatform.android: fadeTransition,
+        TargetPlatform.windows: fadeTransition,
+        TargetPlatform.linux: fadeTransition,
+        TargetPlatform.iOS: cupertinoTransition,
+        TargetPlatform.macOS: cupertinoTransition,
       },
     ),
     extensions: [
@@ -346,6 +354,21 @@ ThemeData buildAppTheme({
       checkColor: WidgetStatePropertyAll(scheme.surface),
     ),
   );
+}
+
+class _InstantFadeForwardsTransitions
+    extends FadeForwardsPageTransitionsBuilder {
+  const _InstantFadeForwardsTransitions();
+
+  @override
+  Duration get transitionDuration => Duration.zero;
+}
+
+class _InstantCupertinoTransitions extends CupertinoPageTransitionsBuilder {
+  const _InstantCupertinoTransitions();
+
+  @override
+  Duration get transitionDuration => Duration.zero;
 }
 
 /// A keyboard user sees which button Enter will press; a pointer user

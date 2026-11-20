@@ -29,6 +29,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get downloadFilesClearTemporary => 'Clear temporary files';
 
   @override
+  String get downloadFilesClearingTemporary => 'Clearing temporary files';
+
+  @override
   String get downloadFilesTemporaryCleared => 'Temporary files deleted';
 
   @override
@@ -127,7 +130,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get downloadSelectionTitle => 'Download a file';
 
   @override
-  String get downloadSelectionPreparing => 'Loading torrent file list...';
+  String get downloadSelectionPreparing => 'Loading torrent file list';
 
   @override
   String get downloadSelectionUnsupported =>
@@ -145,7 +148,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get downloadFileButton => 'Download';
 
   @override
-  String get downloadAddingToQueue => 'Adding to queue...';
+  String get downloadAddingToQueue => 'Adding to queue';
 
   @override
   String downloadSelectionLoading(int percent) {
@@ -245,7 +248,7 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get animeListLoading => 'Loading anime list...';
+  String get animeListLoading => 'Loading anime list';
 
   @override
   String get animeListLoadError => 'Unable to load anime list.';
@@ -290,7 +293,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get animeListCriteriaEmpty => 'Nothing found for selected criteria.';
 
   @override
-  String get animeDetailsLoading => 'Loading anime details...';
+  String get animeDetailsLoading => 'Loading anime details';
 
   @override
   String get animeDetailsLoadError => 'Unable to load anime details.';
@@ -299,7 +302,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get watchSourcesTitle => 'Watch sources';
 
   @override
-  String get watchSourcesLoading => 'Loading sources...';
+  String get watchSourcesLoading => 'Loading sources';
 
   @override
   String get watchSourcesLoadError => 'Unable to load sources.';
@@ -677,7 +680,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get downloadStorageClearCache => 'Clear';
 
   @override
-  String get downloadsLoading => 'Loading downloaded files...';
+  String get downloadsLoading => 'Loading downloaded files';
 
   @override
   String get downloadDeleteFailed =>
@@ -1303,7 +1306,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get charactersSupportingTitle => 'Supporting';
 
   @override
-  String get charactersLoading => 'Loading characters...';
+  String get charactersLoading => 'Loading characters';
 
   @override
   String get charactersLoadError => 'Unable to load the characters.';
@@ -1312,7 +1315,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get charactersEmpty => 'No characters are listed.';
 
   @override
-  String get characterLoading => 'Loading the character...';
+  String get characterLoading => 'Loading the character';
 
   @override
   String get characterLoadError => 'Unable to load the character.';
@@ -1390,13 +1393,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get playerMarkConflict => 'List entry changed elsewhere';
 
   @override
-  String get playerMarkSaving => 'Marking…';
+  String get playerMarkSaving => 'Marking';
 
   @override
-  String get playerUnmarkSaving => 'Undoing…';
+  String get playerUnmarkSaving => 'Undoing';
 
   @override
-  String get playerRestoreSaving => 'Restoring mark…';
+  String get playerRestoreSaving => 'Restoring mark';
 
   @override
   String get playerMarkShortMarked => 'Marked';
@@ -1417,7 +1420,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get playerMarkShortConflict => 'Entry changed';
 
   @override
-  String get playerMarkShortRestoreSaving => 'Restoring…';
+  String get playerMarkShortRestoreSaving => 'Restoring';
 
   @override
   String get playerMarkRestore => 'Restore';
@@ -1472,6 +1475,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get savedTorrentsAddConfirm => 'Add';
 
   @override
+  String get savedTorrentsAdding => 'Adding torrent';
+
+  @override
   String get savedTorrentsSaveFailed =>
       'Couldn\'t save the torrent. Try again.';
 
@@ -1492,7 +1498,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get commonUndo => 'Undo';
 
   @override
-  String get userRateLoading => 'Loading my list...';
+  String get userRateLoading => 'Loading my list';
 
   @override
   String get downloadNoPeers => 'no peers yet';
@@ -1530,8 +1536,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get downloadSelectionEpisodeTitle => 'Download episodes';
 
   @override
-  String get downloadSelectionPreparingEpisodes =>
-      'Loading the episode list...';
+  String get downloadSelectionPreparingEpisodes => 'Loading the episode list';
 
   @override
   String get downloadFailedConnectionLost =>
@@ -1716,7 +1721,7 @@ class AppLocalizationsEn extends AppLocalizations {
       'Unfinished downloads will be cancelled.';
 
   @override
-  String get downloadDeleting => 'Deleting…';
+  String get downloadDeleting => 'Deleting';
 
   @override
   String downloadDeleteSelectionFailed(int count) {

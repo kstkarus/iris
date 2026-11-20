@@ -22,11 +22,18 @@ class IrisApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final disableAnimations = MediaQuery.disableAnimationsOf(context);
     return MaterialApp.router(
       onGenerateTitle: (context) => AppLocalizations.of(context).appName,
-      theme: buildAppTheme(),
-      darkTheme: buildAppTheme(brightness: Brightness.dark),
+      theme: buildAppTheme(disableAnimations: disableAnimations),
+      darkTheme: buildAppTheme(
+        brightness: Brightness.dark,
+        disableAnimations: disableAnimations,
+      ),
       themeMode: themeMode,
+      themeAnimationDuration: disableAnimations
+          ? Duration.zero
+          : kThemeAnimationDuration,
       routerConfig: router,
       builder: (context, child) =>
           DownloadAnnouncements(repository: downloadsRepository, child: child!),

@@ -22,7 +22,6 @@ import 'package:iris/features/downloads/presentation/pages/download_title_page.d
 import 'package:iris/features/downloads/presentation/widgets/download_manager_view.dart';
 import 'package:iris/features/downloads/presentation/widgets/download_labels.dart';
 import 'package:iris/l10n/generated/app_localizations_en.dart';
-import 'package:iris/shared/widgets/status_views.dart';
 
 import '../../../../helpers/test_window.dart';
 
@@ -768,7 +767,7 @@ void main() {
   );
 
   testWidgets(
-    'files clear button keeps stable width with BlockSpinner and honors reduced motion',
+    'clearing files keeps the button steady and announces the pending action',
     (tester) async {
       final gate = Completer<void>();
       final repository = _Downloads()..clearGate = gate;
@@ -783,12 +782,23 @@ void main() {
 
       await tester.tap(buttonFinder);
       await tester.pump();
-      expect(find.byType(CircularProgressIndicator), findsNothing);
       expect(
-        find.descendant(of: buttonFinder, matching: find.byType(BlockSpinner)),
+        find.descendant(of: buttonFinder, matching: find.text('Clear')),
         findsOneWidget,
       );
+      expect(
+        tester.getSemantics(buttonFinder),
+        isSemantics(
+          label: 'Clearing temporary files',
+          isButton: true,
+          hasEnabledState: true,
+          isEnabled: false,
+          isLiveRegion: true,
+        ),
+      );
       expect(tester.getSize(buttonFinder), idleSize);
+      await tester.tap(buttonFinder);
+      expect(repository.cleared, 1);
 
       gate.complete();
       await tester.pumpAndSettle();

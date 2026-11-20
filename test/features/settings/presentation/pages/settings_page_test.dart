@@ -22,7 +22,6 @@ import 'package:iris/features/settings/presentation/widgets/animejoy_account_sec
 import 'package:iris/features/settings/presentation/widgets/settings_dialog.dart';
 import 'package:iris/features/settings/presentation/widgets/shikimori_account_row.dart';
 import 'package:iris/shared/network/network_exceptions.dart';
-import 'package:iris/shared/widgets/status_views.dart';
 
 import '../../../../helpers/test_app.dart';
 import '../../../../helpers/test_window.dart';
@@ -294,7 +293,12 @@ void main() {
 
     await tester.tap(find.byKey(ShikimoriAccountRow.signInButtonKey));
     await tester.pump();
-    expect(find.text('Signing in'), findsOneWidget);
+    final status = find.text('Signing in');
+    expect(status.hitTestable(), findsOneWidget);
+    expect(
+      tester.getTopLeft(status).dx,
+      tester.getTopLeft(find.text('Shikimori')).dx,
+    );
     auth.signInGate!.complete();
     await tester.pumpAndSettle();
     expect(find.text('kstk'), findsOneWidget);
@@ -399,6 +403,9 @@ void main() {
 
     Future<void> openForm() async {
       await tester.tap(signIn);
+      await tester.pump();
+      expect(find.text('Accounts'), findsOneWidget);
+      expect(signIn.hitTestable(), findsNothing);
       await tester.pumpAndSettle();
       expect(dialog, findsOneWidget);
       expect(ModalRoute.of(tester.element(login)), same(settingsRoute));
@@ -423,7 +430,19 @@ void main() {
       find.byKey(AnimejoyAccountSection.passwordFieldKey),
       'secret',
     );
-    await tester.tap(find.byKey(AnimejoyAccountSection.submitButtonKey));
+    final pending = Completer<void>();
+    repo.signInSession = () => pending.future;
+    final submit = find.byKey(AnimejoyAccountSection.submitButtonKey);
+    final idle = tester.getRect(submit);
+    await tester.tap(submit);
+    await tester.pump();
+    expect(
+      find.descendant(of: submit, matching: find.text('Signing in')),
+      findsOneWidget,
+    );
+    expect(tester.getRect(submit), idle);
+    expect(tester.widget<FilledButton>(submit).onPressed, isNull);
+    pending.complete();
     await tester.pumpAndSettle();
 
     expect(repo.credentials, [('user', 'secret')]);
@@ -455,11 +474,15 @@ void main() {
         findsOneWidget,
       );
 
-      repo.restoreSession = null;
+      final pending = Completer<bool>();
+      repo.restoreSession = () => pending.future;
       final verify = find.byKey(AnimejoyAccountSection.verifyButtonKey);
       await tester.ensureVisible(verify);
       await tester.pumpAndSettle();
       await tester.tap(verify);
+      await tester.pump();
+      expect(find.text('Checking session'), findsOneWidget);
+      pending.complete(true);
       await tester.pumpAndSettle();
 
       expect(find.text('Connected'), findsOneWidget);
@@ -503,7 +526,14 @@ void main() {
     final pending = updateRepo.pendingLatest = Completer<AppRelease?>();
     await tester.tap(checkButton);
     await tester.pump();
-    expect(find.byType(BlockSpinner), findsOneWidget);
+    await tester.pump(const Duration(milliseconds: 350));
+    final checking = find.text('Checking');
+    expect(checking.hitTestable(), findsOneWidget);
+    expect(
+      tester.getTopLeft(checking).dx,
+      tester.getTopLeft(find.text('Version')).dx,
+    );
+    expect(find.bySemanticsLabel('Checking'), findsOneWidget);
     expect(tester.widget<TextButton>(checkButton).onPressed, isNull);
     pending.complete(null);
     await tester.pumpAndSettle();

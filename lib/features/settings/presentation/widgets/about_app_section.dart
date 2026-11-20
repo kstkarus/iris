@@ -7,6 +7,7 @@ import 'package:iris/features/app_update/presentation/widgets/update_notice.dart
 import 'package:iris/features/settings/presentation/widgets/settings_row.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/widgets/detail_layout.dart';
+import 'package:iris/shared/widgets/dither_switcher.dart';
 import 'package:iris/shared/widgets/segmented_bar.dart';
 import 'package:iris/shared/widgets/status_views.dart';
 
@@ -41,12 +42,8 @@ class AboutAppSection extends StatelessWidget {
             mixedData: true,
           )
         : switch (state.checkStatus) {
-            AppUpdateCheckStatus.checking => SettingsStatus(
+            AppUpdateCheckStatus.checking => SettingsStatus.loading(
               l10n.settingsUpdateChecking,
-              leading: const SizedBox(
-                width: 64,
-                child: BlockSpinner(height: 6),
-              ),
             ),
             AppUpdateCheckStatus.upToDate => SettingsStatus(
               l10n.settingsUpdateUpToDate,
@@ -112,17 +109,26 @@ class AboutAppSection extends StatelessWidget {
       children: [
         SettingsRow(
           action: action,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              spacing: 4,
-              children: [
-                version,
-                if (feedback != null)
-                  Semantics(liveRegion: true, child: feedback),
-              ],
-            ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              version,
+              DitherSwitcher(
+                duration: const Duration(milliseconds: 300),
+                resizeDuration: const Duration(milliseconds: 200),
+                child: KeyedSubtree(
+                  key: ValueKey(
+                    state.release == null ? state.checkStatus : state.phase,
+                  ),
+                  child: feedback == null
+                      ? const SizedBox.shrink()
+                      : Padding(
+                          padding: const EdgeInsets.only(top: 4),
+                          child: Semantics(liveRegion: true, child: feedback),
+                        ),
+                ),
+              ),
+            ],
           ),
         ),
         if (state.release != null &&
