@@ -152,6 +152,13 @@ PictureInPictureSize FitPictureInPictureClientSize(int desired_width,
   return {width, height};
 }
 
+PictureInPicturePlacement PictureInPictureFromWindowBounds(
+    const RECT& bounds, const std::optional<PictureInPicturePlacement>& saved,
+    bool resized) {
+  const LONG width = saved && !resized ? saved->width : bounds.right - bounds.left;
+  return {bounds.left, bounds.top, width};
+}
+
 RECT RestorePictureInPictureBounds(const PictureInPicturePlacement& saved,
                                    const RECT& work_area,
                                    double aspect,

@@ -41,6 +41,9 @@ PictureInPictureSize FitPictureInPictureClientSize(int desired_width,
                                                    double aspect,
                                                    int maximum_width,
                                                    int maximum_height);
+PictureInPicturePlacement PictureInPictureFromWindowBounds(
+    const RECT& bounds, const std::optional<PictureInPicturePlacement>& saved,
+    bool resized);
 RECT RestorePictureInPictureBounds(const PictureInPicturePlacement& saved,
                                    const RECT& work_area,
                                    double aspect,

@@ -115,6 +115,26 @@ void TestPictureInPictureBounds() {
   assert(EqualRect(&moved, &expected_moved));
 }
 
+void TestPictureInPicturePreferredWidth() {
+  const RECT work{0, 0, 1280, 700};
+  const PictureInPicturePlacement saved{600, 200, 600};
+  RECT portrait = RestorePictureInPictureBounds(saved, work, 0.5, 240);
+  assert(portrait.right - portrait.left == 350);
+  assert(portrait.bottom - portrait.top == 700);
+
+  OffsetRect(&portrait, 100, 0);
+  const auto moved = PictureInPictureFromWindowBounds(portrait, saved, false);
+  assert(moved.left == portrait.left && moved.top == portrait.top);
+  assert(moved.width == 600);
+  const RECT next = RestorePictureInPictureBounds(moved, work, 16.0 / 9.0, 240);
+  assert(next.right - next.left == 600);
+
+  const RECT resized{700, 100, 1220, 393};
+  assert(PictureInPictureFromWindowBounds(resized, moved, true).width == 520);
+  assert(PictureInPictureFromWindowBounds(portrait, std::nullopt, false).width ==
+         350);
+}
+
 }  // namespace
 
 int main() {
@@ -122,5 +142,6 @@ int main() {
   TestWindowBounds();
   TestMaximizedPlacement();
   TestPictureInPictureBounds();
+  TestPictureInPicturePreferredWidth();
   std::cout << "Window placement native checks passed.\n";
 }

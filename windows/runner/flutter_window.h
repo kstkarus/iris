@@ -7,6 +7,7 @@
 #include <flutter/method_channel.h>
 
 #include <memory>
+#include <optional>
 
 #include "app_update_channel.h"
 #include "win32_window.h"
@@ -34,7 +35,8 @@ class FlutterWindow : public Win32Window {
   void SetFullscreen(bool fullscreen);
   bool EnterPictureInPicture();
   void RestorePictureInPicture(bool save_placement = true);
-  void SaveWindowPlacement(HWND window);
+  void SaveWindowPlacement(
+      HWND window, std::optional<LONG> pip_width_before_resize = std::nullopt);
   void SetPictureInPicturePlayer(bool valid, double aspect_ratio);
   void NotifyPictureInPicture(bool active, bool dismissed);
   static LRESULT CALLBACK PictureInPictureChildProc(HWND window, UINT message,
@@ -63,6 +65,7 @@ class FlutterWindow : public Win32Window {
   bool track_placement_ = false;
   bool moving_or_sizing_ = false;
   bool changing_picture_in_picture_ = false;
+  std::optional<LONG> picture_in_picture_width_before_resize_;
 
   bool fullscreen_ = false;
   WINDOWPLACEMENT placement_before_fullscreen_{sizeof(WINDOWPLACEMENT)};

@@ -309,7 +309,8 @@ void FlutterWindow::OnDestroy() {
   Win32Window::OnDestroy();
 }
 
-void FlutterWindow::SaveWindowPlacement(HWND window) {
+void FlutterWindow::SaveWindowPlacement(
+    HWND window, std::optional<LONG> pip_width_before_resize) {
   if (!track_placement_ || changing_picture_in_picture_ || window == nullptr) {
     return;
   }
@@ -318,8 +319,10 @@ void FlutterWindow::SaveWindowPlacement(HWND window) {
   RECT bounds{};
   const bool have_bounds = !minimized && GetWindowRect(window, &bounds);
   if (picture_in_picture_ && have_bounds && bounds.right > bounds.left) {
-    window_state_.pip = window_placement::PictureInPicturePlacement{
-        bounds.left, bounds.top, bounds.right - bounds.left};
+    const bool resized = pip_width_before_resize &&
+                         *pip_width_before_resize != bounds.right - bounds.left;
+    window_state_.pip = window_placement::PictureInPictureFromWindowBounds(
+        bounds, window_state_.pip, resized);
   }
 
   WINDOWPLACEMENT current{sizeof(WINDOWPLACEMENT)};
@@ -593,9 +596,11 @@ FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
   }
   if (message == WM_ENTERSIZEMOVE) {
     moving_or_sizing_ = true;
+    picture_in_picture_width_before_resize_.reset();
   } else if (message == WM_EXITSIZEMOVE) {
     moving_or_sizing_ = false;
-    SaveWindowPlacement(hwnd);
+    SaveWindowPlacement(hwnd, picture_in_picture_width_before_resize_);
+    picture_in_picture_width_before_resize_.reset();
   } else if (message == WM_SIZE && !moving_or_sizing_ && !fullscreen_ &&
              !picture_in_picture_ &&
              (wparam == SIZE_MAXIMIZED || wparam == SIZE_RESTORED)) {
@@ -746,6 +751,12 @@ FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
     }
   }
   if (picture_in_picture_ && message == WM_SIZING) {
+    if (!picture_in_picture_width_before_resize_) {
+      RECT current{};
+      if (GetWindowRect(hwnd, &current)) {
+        picture_in_picture_width_before_resize_ = current.right - current.left;
+      }
+    }
     auto* rect = reinterpret_cast<RECT*>(lparam);
     const UINT dpi = GetWindowDpi(hwnd);
     PictureInPictureLimits limits{};
