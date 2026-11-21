@@ -4490,8 +4490,9 @@ void main() {
 
     Future<_FakePlatformPlayer> open(
       WidgetTester tester,
-      PictureInPicture window,
-    ) async {
+      PictureInPicture window, {
+      ValueChanged<MediaKitPlayerEngine>? onEngine,
+    }) async {
       setTestWindowSize(tester, TestWindowSizes.landscape);
       final platformPlayer = _FakePlatformPlayer(
         configuration: const PlayerConfiguration(),
@@ -4501,6 +4502,7 @@ void main() {
           platformPlayer: platformPlayer,
           input: PlayerInputMode.touch,
           pictureInPicture: window,
+          onEngine: onEngine,
         ),
       );
       await tester.pump();
@@ -4600,33 +4602,46 @@ void main() {
       expect(window.clears, 1);
     });
 
-    testWidgets('pause a phone left without the window, not one in it', (
-      tester,
-    ) async {
-      final window = _FakePictureInPicture();
-      final platformPlayer = await open(tester, window);
-      void leaveApp() {
-        tester.binding
-          ..handleAppLifecycleStateChanged(AppLifecycleState.inactive)
-          ..handleAppLifecycleStateChanged(AppLifecycleState.hidden);
-      }
+    testWidgets(
+      'pause a phone left without the window, not one in it',
+      (tester) async {
+        final window = _FakePictureInPicture();
+        late MediaKitPlayerEngine engine;
+        final platformPlayer = await open(
+          tester,
+          window,
+          onEngine: (value) => engine = value,
+        );
+        void leaveApp() {
+          tester.binding
+            ..handleAppLifecycleStateChanged(AppLifecycleState.inactive)
+            ..handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+        }
 
-      void comeBack() {
-        tester.binding
-          ..handleAppLifecycleStateChanged(AppLifecycleState.inactive)
-          ..handleAppLifecycleStateChanged(AppLifecycleState.resumed);
-      }
+        void comeBack() {
+          tester.binding
+            ..handleAppLifecycleStateChanged(AppLifecycleState.inactive)
+            ..handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+        }
 
-      window.active.value = true;
-      leaveApp();
-      expect(platformPlayer.pauseCount, 0);
-      comeBack();
+        window.active.value = true;
+        leaveApp();
+        expect(platformPlayer.pauseCount, 0);
+        expect(engine.allowsStartingMediaPlayback, isTrue);
+        comeBack();
 
-      window.active.value = false;
-      leaveApp();
-      expect(platformPlayer.pauseCount, 1);
-      comeBack();
-    });
+        window.active.value = false;
+        leaveApp();
+        expect(platformPlayer.pauseCount, 1);
+        expect(engine.allowsStartingMediaPlayback, isFalse);
+        comeBack();
+        expect(engine.allowsStartingMediaPlayback, isTrue);
+      },
+      variant: const TargetPlatformVariant({
+        TargetPlatform.android,
+        TargetPlatform.iOS,
+      }),
+    );
 
     testWidgets('play and pause from the window, and pause when it is '
         'closed', (tester) async {

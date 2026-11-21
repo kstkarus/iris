@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:iris/features/player/domain/entities/player_session.dart';
 import 'package:iris/features/player/domain/entities/player_skip_segment.dart';
 import 'package:iris/features/player/domain/entities/player_track_preferences.dart';
+import 'package:iris/features/player/domain/player_media_controls.dart';
 import 'package:iris/features/player/presentation/cubit/player_decoding_preferences_cubit.dart';
 import 'package:iris/features/player/presentation/cubit/player_subtitle_preferences_cubit.dart';
 import 'package:iris/features/player/presentation/playback/player_engine.dart';
@@ -146,6 +147,15 @@ class MockPlayerEngine implements PlayerEngine {
 
   @override
   Stream<PlayerEngineEvent> get events => _events.stream;
+
+  @override
+  PlayerMediaPlayback? get mediaPlayback => null;
+
+  @override
+  bool get allowsStartingMediaPlayback => true;
+
+  @override
+  Future<void> setPlaying(bool playing) async {}
 
   @override
   Future<void> open(

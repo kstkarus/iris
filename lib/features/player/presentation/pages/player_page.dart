@@ -21,6 +21,7 @@ import 'package:iris/shared/utils/duration_formatter.dart';
 import 'package:iris/shared/utils/desktop_platform.dart';
 import 'package:iris/shared/theme/over_video_theme.dart';
 import 'package:iris/shared/window/player_screen_mode.dart';
+import 'package:iris/shared/window/windows_title_bar_theme.dart';
 
 /// The video fills the screen, with streaming-app controls over it and the
 /// episodes in a drawer; messages (the resume, the Shikimori mark) show
@@ -43,6 +44,8 @@ class PlayerPage extends StatefulWidget {
 class _PlayerPageState extends State<PlayerPage> {
   /// Puts the screen back in the player's mode when the app returns to it.
   late final AppLifecycleListener _lifecycle;
+  WindowsTitleBarTheme? _titleBarTheme;
+  late ThemeData _overVideoTheme;
 
   /// The resume message.
   PlayerNotice? _notice;
@@ -57,8 +60,17 @@ class _PlayerPageState extends State<PlayerPage> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _overVideoTheme = OverVideoTheme.of(Theme.of(context));
+    _titleBarTheme = context.read<WindowsTitleBarTheme?>();
+    _titleBarTheme?.setPlayerTheme(this, _overVideoTheme.colorScheme);
+  }
+
+  @override
   void dispose() {
     _lifecycle.dispose();
+    _titleBarTheme?.clearPlayerTheme(this);
     unawaited(widget.screenMode.leave());
     super.dispose();
   }
@@ -96,7 +108,7 @@ class _PlayerPageState extends State<PlayerPage> {
 
   Widget _buildPlayer(BuildContext context) {
     return Theme(
-      data: OverVideoTheme.of(Theme.of(context)),
+      data: _overVideoTheme,
       child: BlocConsumer<PlayerCubit, PlayerState>(
         listener: _showPlaybackMessages,
         builder: (context, state) {

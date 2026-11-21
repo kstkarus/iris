@@ -7,14 +7,12 @@
 
 namespace {
 
-/// Window attribute that enables dark mode window decorations.
-///
-/// Redefined in case the developer's machine has a Windows SDK older than
-/// version 10.0.22000.0.
-/// See: https://docs.microsoft.com/windows/win32/api/dwmapi/ne-dwmapi-dwmwindowattribute
-#ifndef DWMWA_USE_IMMERSIVE_DARK_MODE
-#define DWMWA_USE_IMMERSIVE_DARK_MODE 20
-#endif
+// DWM attribute IDs are stable even when an older SDK omits their enum names.
+constexpr DWORD kImmersiveDarkMode = 20;
+constexpr DWORD kLegacyImmersiveDarkMode = 19;
+constexpr DWORD kBorderColor = 34;
+constexpr DWORD kCaptionColor = 35;
+constexpr DWORD kTextColor = 36;
 
 constexpr const wchar_t kWindowClassName[] = L"FLUTTER_RUNNER_WIN32_WINDOW";
 
@@ -124,6 +122,7 @@ bool Win32Window::Create(const std::wstring& title,
                          const Point& origin,
                          const Size& size) {
   Destroy();
+  title_bar_theme_.reset();
 
   const wchar_t* window_class =
       WindowClassRegistrar::GetInstance()->GetWindowClass();
@@ -272,17 +271,37 @@ void Win32Window::OnDestroy() {
   // No-op; provided for subclasses.
 }
 
-void Win32Window::UpdateTheme(HWND const window) {
-  DWORD light_mode;
-  DWORD light_mode_size = sizeof(light_mode);
-  LSTATUS result = RegGetValue(HKEY_CURRENT_USER, kGetPreferredBrightnessRegKey,
-                               kGetPreferredBrightnessRegValue,
-                               RRF_RT_REG_DWORD, nullptr, &light_mode,
-                               &light_mode_size);
-
-  if (result == ERROR_SUCCESS) {
-    BOOL enable_dark_mode = light_mode == 0;
-    DwmSetWindowAttribute(window, DWMWA_USE_IMMERSIVE_DARK_MODE,
-                          &enable_dark_mode, sizeof(enable_dark_mode));
+void Win32Window::SetTitleBarTheme(TitleBarTheme theme) {
+  title_bar_theme_ = theme;
+  if (window_handle_) {
+    UpdateTheme(window_handle_);
+    RedrawWindow(window_handle_, nullptr, nullptr, RDW_FRAME | RDW_INVALIDATE);
   }
+}
+
+void Win32Window::UpdateTheme(HWND window) {
+  BOOL dark;
+  if (title_bar_theme_) {
+    dark = title_bar_theme_->dark;
+  } else {
+    DWORD light_mode = 1;
+    DWORD size = sizeof(light_mode);
+    dark = RegGetValue(HKEY_CURRENT_USER, kGetPreferredBrightnessRegKey,
+                       kGetPreferredBrightnessRegValue, RRF_RT_REG_DWORD,
+                       nullptr, &light_mode, &size) == ERROR_SUCCESS &&
+           light_mode == 0;
+  }
+  if (FAILED(DwmSetWindowAttribute(window, kImmersiveDarkMode, &dark,
+                                   sizeof(dark)))) {
+    DwmSetWindowAttribute(window, kLegacyImmersiveDarkMode, &dark,
+                          sizeof(dark));
+  }
+  if (!title_bar_theme_) return;
+  const auto& theme = *title_bar_theme_;
+  // Windows 10 ignores the explicit frame colors.
+  DwmSetWindowAttribute(window, kCaptionColor, &theme.caption,
+                        sizeof(theme.caption));
+  DwmSetWindowAttribute(window, kTextColor, &theme.text, sizeof(theme.text));
+  DwmSetWindowAttribute(window, kBorderColor, &theme.border,
+                        sizeof(theme.border));
 }

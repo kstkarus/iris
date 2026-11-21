@@ -54,6 +54,7 @@ import 'package:iris/features/online_sources/domain/repositories/online_releases
 import 'package:iris/features/online_sources/presentation/cubit/online_releases_cubit.dart';
 import 'package:iris/features/player/domain/entities/anime_player_source.dart';
 import 'package:iris/features/player/domain/entities/player_track_preferences.dart';
+import 'package:iris/features/player/domain/player_media_controls.dart';
 import 'package:iris/features/player/domain/repositories/player_decoding_preferences_repository.dart';
 import 'package:iris/features/player/domain/repositories/player_repository.dart';
 import 'package:iris/features/player/domain/repositories/player_skip_times_repository.dart';
@@ -66,6 +67,7 @@ import 'package:iris/features/player/presentation/cubit/player_source_cubit.dart
 import 'package:iris/features/player/presentation/cubit/player_subtitle_preferences_cubit.dart';
 import 'package:iris/features/player/presentation/models/anime_player_args.dart';
 import 'package:iris/features/player/presentation/models/anime_player_source_args.dart';
+import 'package:iris/features/player/presentation/models/player_chrome_mapper.dart';
 import 'package:iris/features/player/presentation/pages/player_page.dart';
 import 'package:iris/features/player/presentation/pages/player_source_page.dart';
 import 'package:iris/features/player/presentation/widgets/player_viewport_factory.dart';
@@ -617,6 +619,7 @@ abstract final class AppRouter {
             }
 
             final viewportFactory = serviceLocator<PlayerViewportFactory>();
+            final l10n = AppLocalizations.of(context);
             return MultiBlocProvider(
               providers: [
                 BlocProvider(
@@ -652,6 +655,13 @@ abstract final class AppRouter {
                       ),
                       skipTimesRepository:
                           serviceLocator<PlayerSkipTimesRepository>(),
+                      mediaControls: serviceLocator<PlayerMediaControls>(),
+                      mediaTitles: (source) {
+                        final titles = playerTitlesFor(l10n, source);
+                        return titles.title.isEmpty
+                            ? (title: titles.episode, episode: '')
+                            : titles;
+                      },
                     );
                     if (serviceLocator.isRegistered<WindowsUpdateRestart>()) {
                       serviceLocator<WindowsUpdateRestart>().trackPlayer(cubit);

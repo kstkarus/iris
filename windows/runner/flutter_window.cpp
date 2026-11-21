@@ -9,6 +9,7 @@
 #include <optional>
 
 #include "flutter/generated_plugin_registrant.h"
+#include "player_media_controls.h"
 
 namespace {
 constexpr UINT kStartPictureInPictureDrag = WM_APP + 1;
@@ -143,6 +144,26 @@ double GetNumber(const flutter::EncodableMap* arguments, const char* key,
   return fallback;
 }
 
+constexpr COLORREF ColorRefFromArgb(uint32_t argb) {
+  return RGB((argb >> 16) & 0xff, (argb >> 8) & 0xff, argb & 0xff);
+}
+
+static_assert(ColorRefFromArgb(0xff123456) == 0x00563412);
+
+COLORREF GetTitleBarColor(const flutter::EncodableMap& arguments,
+                          const char* key) {
+  const auto entry = arguments.find(flutter::EncodableValue(key));
+  if (entry != arguments.end()) {
+    if (const auto* color = std::get_if<int32_t>(&entry->second)) {
+      return ColorRefFromArgb(static_cast<uint32_t>(*color));
+    }
+    if (const auto* color = std::get_if<int64_t>(&entry->second)) {
+      return ColorRefFromArgb(static_cast<uint32_t>(*color));
+    }
+  }
+  return 0xffffffff;  // DWM default when a custom color is omitted.
+}
+
 }  // namespace
 
 FlutterWindow::FlutterWindow(const flutter::DartProject& project)
@@ -166,6 +187,8 @@ bool FlutterWindow::OnCreate() {
     return false;
   }
   RegisterPlugins(flutter_controller_->engine());
+  media_controls_ = std::make_unique<PlayerMediaControls>(
+      GetHandle(), flutter_controller_->engine()->messenger());
 
   app_update_channel_ = CreateAppUpdateChannel(
       flutter_controller_->engine()->messenger(), [this]() {
@@ -188,6 +211,21 @@ bool FlutterWindow::OnCreate() {
           result->Success();
         } else if (call.method_name() == "exitFullscreen") {
           SetFullscreen(false);
+          result->Success();
+        } else if (call.method_name() == "setTitleBarTheme") {
+          const auto* arguments = GetArguments(call);
+          const auto dark =
+              arguments ? arguments->find(flutter::EncodableValue("dark"))
+                        : flutter::EncodableMap::const_iterator{};
+          if (!arguments || dark == arguments->end() ||
+              !std::holds_alternative<bool>(dark->second)) {
+            result->Error("invalid_theme", "Expected a dark mode flag.");
+            return;
+          }
+          SetTitleBarTheme({std::get<bool>(dark->second),
+                            GetTitleBarColor(*arguments, "captionColor"),
+                            GetTitleBarColor(*arguments, "textColor"),
+                            GetTitleBarColor(*arguments, "borderColor")});
           result->Success();
         } else {
           result->NotImplemented();
@@ -263,6 +301,7 @@ void FlutterWindow::OnDestroy() {
     NotifyPictureInPicture(false, false);
   }
   picture_in_picture_channel_ = nullptr;
+  media_controls_ = nullptr;
   app_update_channel_ = nullptr;
   window_channel_ = nullptr;
   if (flutter_controller_) {
@@ -302,6 +341,7 @@ void FlutterWindow::SetFullscreen(bool fullscreen) {
                  SWP_NOOWNERZORDER | SWP_FRAMECHANGED);
   } else {
     SetWindowLongPtr(window, GWL_STYLE, style | WS_OVERLAPPEDWINDOW);
+    UpdateTheme(window);
     // Back to the same size, position and maximized state.
     SetWindowPlacement(window, &placement_before_fullscreen_);
     SetWindowPos(window, nullptr, 0, 0, 0, 0,
@@ -388,6 +428,7 @@ void FlutterWindow::RestorePictureInPicture() {
   SetWindowLongPtrValue(window, GWL_STYLE, restored_style);
   SetWindowLongPtrValue(window, GWL_EXSTYLE,
                         ex_style_before_picture_in_picture_);
+  UpdateTheme(window);
   SetWindowPlacement(window, &placement_before_picture_in_picture_);
   SetWindowPos(
       window,
@@ -490,6 +531,9 @@ LRESULT
 FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
                               WPARAM const wparam,
                               LPARAM const lparam) noexcept {
+  if (media_controls_ && media_controls_->HandleMessage(message, wparam, lparam)) {
+    return 0;
+  }
   if (picture_in_picture_ && message == WM_NCCALCSIZE) return 0;
   if (picture_in_picture_ && message == WM_NCHITTEST) {
     RECT bounds{};

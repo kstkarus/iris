@@ -1,0 +1,8 @@
+<resources>
+    <string name="media_playback">Video playback</string>
+    <string name="media_play">Play</string>
+    <string name="media_pause">Pause</string>
+    <string name="media_next">Next episode</string>
+    <string name="media_seek_forward">Skip forward 10 seconds</string>
+    <string name="media_seek_backward">Skip back 10 seconds</string>
+</resources>

@@ -106,7 +106,22 @@ class MediaKitPlayerViewportFactory implements PlayerViewportFactory {
       videoControllerBuilder: _videoControllerBuilder,
       firstFrameAwaiter: _firstFrameAwaiter,
       startupTimeout: _mediaKitStartupTimeout,
+      allowsStartingMediaPlayback: _allowsStartingMediaPlayback,
     );
+  }
+
+  bool _allowsStartingMediaPlayback() {
+    if (defaultTargetPlatform != TargetPlatform.android &&
+        defaultTargetPlatform != TargetPlatform.iOS) {
+      return true;
+    }
+    return (_pictureInPicture?.active.value ?? false) ||
+        switch (WidgetsBinding.instance.lifecycleState) {
+          AppLifecycleState.hidden ||
+          AppLifecycleState.paused ||
+          AppLifecycleState.detached => false,
+          _ => true,
+        };
   }
 
   @override

@@ -10,6 +10,7 @@ add_executable(${BINARY_NAME} WIN32
   "app_update_channel.cpp"
   "flutter_window.cpp"
   "main.cpp"
+  "player_media_controls.cpp"
   "utils.cpp"
   "win32_window.cpp"
   "${FLUTTER_MANAGED_DIR}/generated_plugin_registrant.cc"
@@ -39,6 +40,7 @@ target_link_libraries(${BINARY_NAME} PRIVATE
   "comctl32.lib"
   "dwmapi.lib"
   "ole32.lib"
+  "runtimeobject.lib"
   "shell32.lib"
 )
 target_include_directories(${BINARY_NAME} PRIVATE "${CMAKE_SOURCE_DIR}")

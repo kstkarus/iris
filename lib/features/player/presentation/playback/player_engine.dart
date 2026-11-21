@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:iris/features/player/domain/entities/player_session.dart';
 import 'package:iris/features/player/domain/entities/player_skip_segment.dart';
 import 'package:iris/features/player/domain/entities/player_track_preferences.dart';
+import 'package:iris/features/player/domain/player_media_controls.dart';
 
 /// What the media player reports back to the session owner.
 sealed class PlayerEngineEvent {
@@ -46,10 +47,25 @@ final class PlayerEngineTracksChosen extends PlayerEngineEvent {
   final PlayerTrackPreferences preferences;
 }
 
+/// The system media session needs a new playback state or seek position.
+final class PlayerEngineMediaChanged extends PlayerEngineEvent {
+  const PlayerEngineMediaChanged({this.seekPosition});
+
+  final Duration? seekPosition;
+}
+
 /// The page's media player. One instance lives as long as the player page,
 /// so switching files, layouts or full screen never recreates it.
 abstract interface class PlayerEngine {
   Stream<PlayerEngineEvent> get events;
+
+  /// The current clock and transport state, once the open file can play.
+  PlayerMediaPlayback? get mediaPlayback;
+
+  /// On phones a command may start video only in the app or in PiP.
+  bool get allowsStartingMediaPlayback;
+
+  Future<void> setPlaying(bool playing);
 
   /// Opens a file's stream, at [startPosition] when resuming.
   Future<void> open(

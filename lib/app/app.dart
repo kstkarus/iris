@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:iris/app/theme/app_theme.dart';
 import 'package:iris/features/downloads/domain/repositories/downloads_repository.dart';
 import 'package:iris/features/downloads/presentation/widgets/download_announcements.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
+import 'package:iris/shared/window/windows_title_bar_theme.dart';
 
-class IrisApp extends StatelessWidget {
+class IrisApp extends StatefulWidget {
   const IrisApp({
     required this.router,
     required this.downloadsRepository,
@@ -21,6 +23,13 @@ class IrisApp extends StatelessWidget {
   final Locale? locale;
 
   @override
+  State<IrisApp> createState() => _IrisAppState();
+}
+
+class _IrisAppState extends State<IrisApp> {
+  final _titleBarTheme = WindowsTitleBarTheme();
+
+  @override
   Widget build(BuildContext context) {
     final disableAnimations = MediaQuery.disableAnimationsOf(context);
     return MaterialApp.router(
@@ -30,14 +39,22 @@ class IrisApp extends StatelessWidget {
         brightness: Brightness.dark,
         disableAnimations: disableAnimations,
       ),
-      themeMode: themeMode,
+      themeMode: widget.themeMode,
       themeAnimationDuration: disableAnimations
           ? Duration.zero
           : kThemeAnimationDuration,
-      routerConfig: router,
-      builder: (context, child) =>
-          DownloadAnnouncements(repository: downloadsRepository, child: child!),
-      locale: locale,
+      routerConfig: widget.router,
+      builder: (context, child) {
+        _titleBarTheme.setAppTheme(Theme.of(context).colorScheme);
+        return RepositoryProvider.value(
+          value: _titleBarTheme,
+          child: DownloadAnnouncements(
+            repository: widget.downloadsRepository,
+            child: child!,
+          ),
+        );
+      },
+      locale: widget.locale,
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
     );

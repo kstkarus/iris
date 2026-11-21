@@ -9,6 +9,7 @@ import 'package:iris/features/player/domain/entities/anime_player_source.dart';
 import 'package:iris/features/player/domain/entities/player_launch_update.dart';
 import 'package:iris/features/player/domain/entities/player_track_preferences.dart';
 import 'package:iris/features/player/domain/entities/player_video_file.dart';
+import 'package:iris/features/player/domain/player_media_controls.dart';
 import 'package:iris/features/player/domain/repositories/player_repository.dart';
 import 'package:iris/features/player/domain/repositories/player_skip_times_repository.dart';
 import 'package:iris/features/player/domain/repositories/player_track_preferences_repository.dart';
@@ -28,6 +29,8 @@ class PlayerCubit extends Cubit<PlayerState> {
     PlayerTrackPreferencesRepository? trackPreferencesRepository,
     PlayerTrackPreferences? defaultTrackPreferences,
     PlayerSkipTimesRepository? skipTimesRepository,
+    PlayerMediaControls mediaControls = const NoPlayerMediaControls(),
+    PlayerMediaTitles Function(AnimePlayerSource)? mediaTitles,
     DateTime Function() now = DateTime.now,
     this.engineReleaseTimeout = const Duration(seconds: 5),
     this.progressSaveInterval = const Duration(seconds: 10),
@@ -38,6 +41,8 @@ class PlayerCubit extends Cubit<PlayerState> {
        _trackPreferencesRepository = trackPreferencesRepository,
        _defaultTrackPreferences = defaultTrackPreferences,
        _skipTimesRepository = skipTimesRepository,
+       _mediaControls = mediaControls,
+       _mediaTitles = mediaTitles,
        _now = now,
        super(const PlayerInitial()) {
     _engineEvents = engine.events.listen(_handleEngineEvent);
@@ -50,6 +55,9 @@ class PlayerCubit extends Cubit<PlayerState> {
   final PlayerTrackPreferencesRepository? _trackPreferencesRepository;
   final PlayerTrackPreferences? _defaultTrackPreferences;
   final PlayerSkipTimesRepository? _skipTimesRepository;
+  final PlayerMediaControls _mediaControls;
+  final PlayerMediaTitles Function(AnimePlayerSource)? _mediaTitles;
+  PlayerMediaPlayback? _publishedMediaPlayback;
   final DateTime Function() _now;
   final _progressWrites = SerialQueue();
   final _whenClosed = Completer<void>();
@@ -100,6 +108,7 @@ class PlayerCubit extends Cubit<PlayerState> {
   Future<void> get whenClosed => _whenClosed.future;
 
   Future<void> loadPlayback() async {
+    if (_closing) return;
     final activeLaunch = _launchCompleter;
     if (_launchSubscription != null && activeLaunch != null) {
       developer.log(
@@ -128,7 +137,7 @@ class PlayerCubit extends Cubit<PlayerState> {
     }
 
     await _loadSavedState();
-    if (isClosed) return;
+    if (_closing) return;
 
     final attemptId = ++_launchAttemptId;
     final completer = Completer<void>();
@@ -179,7 +188,102 @@ class PlayerCubit extends Cubit<PlayerState> {
         }
       case PlayerEngineTracksChosen(:final preferences):
         saveTrackPreferences(preferences);
+      case PlayerEngineMediaChanged(:final seekPosition):
+        _syncMediaControls(seekPosition: seekPosition);
     }
+  }
+
+  void _syncMediaControls({Duration? seekPosition}) {
+    final titles = _mediaTitles;
+    if (titles == null || _closing) return;
+    final playback = state is PlayerReady ? _engine.mediaPlayback : null;
+    if (playback == null) {
+      _clearMediaControls();
+      return;
+    }
+    final previous = _publishedMediaPlayback;
+    if (seekPosition == null &&
+        previous != null &&
+        previous.playing == playback.playing &&
+        previous.buffering == playback.buffering &&
+        previous.duration == playback.duration &&
+        previous.rate == playback.rate) {
+      return;
+    }
+    final source = _source;
+    _publishedMediaPlayback = playback;
+    unawaited(
+      _mediaControls.update(
+        titles: titles(source),
+        playback: (
+          position: _boundedMediaPosition(
+            seekPosition ?? playback.position,
+            playback.duration,
+          ),
+          duration: playback.duration,
+          playing: playback.playing,
+          buffering: playback.buffering,
+          rate: playback.rate,
+        ),
+        canNext: source.nextFile != null,
+        onCommand: (command, position) async {
+          if (identical(_source, source)) {
+            await _handleMediaCommand(command, position);
+          }
+        },
+      ),
+    );
+  }
+
+  void _clearMediaControls() {
+    if (_publishedMediaPlayback == null) return;
+    _publishedMediaPlayback = null;
+    unawaited(_mediaControls.deactivate());
+  }
+
+  Future<void> _handleMediaCommand(
+    PlayerMediaCommand command,
+    Duration? position,
+  ) async {
+    if (_closing || _publishedMediaPlayback == null || state is! PlayerReady) {
+      return;
+    }
+    final playback = _engine.mediaPlayback;
+    if (playback == null) return;
+
+    switch (command) {
+      case PlayerMediaCommand.pause:
+        await _engine.setPlaying(false);
+      case PlayerMediaCommand.togglePlayPause when playback.playing:
+        await _engine.setPlaying(false);
+      case _ when _switchingFile || !_engine.allowsStartingMediaPlayback:
+        return;
+      case PlayerMediaCommand.play || PlayerMediaCommand.togglePlayPause:
+        await _engine.setPlaying(true);
+      case PlayerMediaCommand.next:
+        final next = _source.nextFile;
+        if (next != null) await playFile(next);
+      case PlayerMediaCommand.seekForward ||
+          PlayerMediaCommand.seekBackward ||
+          PlayerMediaCommand.seekTo:
+        if (playback.duration <= Duration.zero) return;
+        const step = Duration(seconds: 10);
+        final target = switch (command) {
+          PlayerMediaCommand.seekForward => playback.position + step,
+          PlayerMediaCommand.seekBackward => playback.position - step,
+          _ => position,
+        };
+        if (target != null) {
+          await _engine.seek(_boundedMediaPosition(target, playback.duration));
+        }
+    }
+  }
+
+  static Duration _boundedMediaPosition(Duration position, Duration duration) {
+    if (position < Duration.zero) return Duration.zero;
+    return duration > Duration.zero && position > duration
+        ? duration
+        : position;
   }
 
   /// Looks up the opening/ending of the current file once its length is
@@ -296,24 +400,27 @@ class PlayerCubit extends Cubit<PlayerState> {
   /// re-adding the torrent. The media player stays, so full screen and the
   /// player's settings carry over to the next file.
   Future<void> playFile(PlayerVideoFile file) async {
-    if (_switchingFile || isClosed || _source.files.isEmpty) return;
+    if (_switchingFile || _closing || _source.files.isEmpty) return;
     _switchingFile = true;
     try {
       await _saveProgress();
+      if (_closing) return;
       await _cancelActiveLaunch();
+      if (_closing) return;
       _emitIfOpen(PlayerPreparing(keepsPlayer: _engineOpened));
       // On Windows a paused mpv stops reading the local torrent stream;
       // stopping that stream while mpv still holds the connection blocks
       // the UI thread in a native send(). Release the player's side first.
       await _releaseEngine(_engine.stop);
-      if (isClosed) return;
+      if (_closing) return;
       await _repository.stopPlayback(sessionId: _source.sessionId);
+      if (_closing) return;
       _source = _source.withFile(file);
       _resetProgressState();
     } finally {
       _switchingFile = false;
     }
-    if (!isClosed) await loadPlayback();
+    await loadPlayback();
   }
 
   @override
@@ -324,6 +431,7 @@ class PlayerCubit extends Cubit<PlayerState> {
     }
     _closing = true;
     try {
+      _clearMediaControls();
       await _cancelActiveLaunch();
       await _releaseEngine(_engine.close);
       await _engineEvents.cancel();
@@ -577,14 +685,15 @@ class PlayerCubit extends Cubit<PlayerState> {
   }
 
   bool _isCurrentAttempt(int attemptId) {
-    return !isClosed &&
+    return !_closing &&
         attemptId == _launchAttemptId &&
         _launchSubscription != null;
   }
 
   void _emitIfOpen(PlayerState state) {
-    if (!isClosed) {
+    if (!_closing) {
       emit(state);
+      _syncMediaControls();
     }
   }
 

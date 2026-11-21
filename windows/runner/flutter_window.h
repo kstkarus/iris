@@ -11,6 +11,8 @@
 #include "app_update_channel.h"
 #include "win32_window.h"
 
+class PlayerMediaControls;
+
 // A window that does nothing but host a Flutter view.
 class FlutterWindow : public Win32Window {
  public:
@@ -44,13 +46,14 @@ class FlutterWindow : public Win32Window {
   // The Flutter instance hosted by this window.
   std::unique_ptr<flutter::FlutterViewController> flutter_controller_;
 
-  // "iris/window": enterFullscreen, exitFullscreen.
+  // "iris/window": full screen and native title bar theme.
   std::unique_ptr<flutter::MethodChannel<flutter::EncodableValue>>
       window_channel_;
   std::unique_ptr<flutter::MethodChannel<flutter::EncodableValue>>
       picture_in_picture_channel_;
   std::unique_ptr<flutter::MethodChannel<flutter::EncodableValue>>
       app_update_channel_;
+  std::unique_ptr<PlayerMediaControls> media_controls_;
 
   bool fullscreen_ = false;
   WINDOWPLACEMENT placement_before_fullscreen_{sizeof(WINDOWPLACEMENT)};

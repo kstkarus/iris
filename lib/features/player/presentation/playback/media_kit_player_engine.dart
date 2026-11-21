@@ -16,6 +16,7 @@ import 'package:iris/features/player/domain/entities/player_playback_stats.dart'
 import 'package:iris/features/player/domain/entities/player_session.dart';
 import 'package:iris/features/player/domain/entities/player_skip_segment.dart';
 import 'package:iris/features/player/domain/entities/player_track_preferences.dart';
+import 'package:iris/features/player/domain/player_media_controls.dart';
 import 'package:iris/features/player/domain/entities/subtitle_preferences.dart';
 import 'package:iris/features/player/domain/player_chapter_skip_segments.dart';
 import 'package:iris/features/player/domain/player_timeline_parts.dart';
@@ -120,6 +121,7 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
     MediaKitPlayerBuilder? playerBuilder,
     MediaKitVideoControllerBuilder? videoControllerBuilder,
     MediaKitFirstFrameAwaiter? firstFrameAwaiter,
+    bool Function()? allowsStartingMediaPlayback,
     this.startupTimeout = const Duration(seconds: 45),
     this.stopTimeout = const Duration(seconds: 3),
     this.errorGrace = const Duration(seconds: 2),
@@ -129,6 +131,7 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
        _videoControllerBuilder =
            videoControllerBuilder ?? _defaultVideoControllerBuilder,
        _firstFrameAwaiter = firstFrameAwaiter ?? _defaultFirstFrameAwaiter,
+       _allowsStartingMediaPlayback = allowsStartingMediaPlayback,
        _subtitlePreferences = subtitlePreferences.state,
        _decodingPreferences = decodingPreferences.state {
     _subtitlePreferencesSubscription = subtitlePreferences.stream.listen(
@@ -149,6 +152,7 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
   final MediaKitPlayerBuilder _playerBuilder;
   final MediaKitVideoControllerBuilder _videoControllerBuilder;
   final MediaKitFirstFrameAwaiter _firstFrameAwaiter;
+  final bool Function()? _allowsStartingMediaPlayback;
 
   /// How long the first frame may take before startup fails.
   final Duration startupTimeout;
@@ -329,6 +333,30 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
 
   @override
   Stream<PlayerEngineEvent> get events => _events.stream;
+
+  @override
+  PlayerMediaPlayback? get mediaPlayback {
+    final state = _player?.state;
+    if (_closed || _session == null || !_isReady || state == null) return null;
+    return (
+      duration: state.duration,
+      position: state.completed ? state.duration : position,
+      playing: state.playing && !state.completed,
+      buffering: state.buffering,
+      rate: state.rate,
+    );
+  }
+
+  @override
+  bool get allowsStartingMediaPlayback =>
+      _allowsStartingMediaPlayback?.call() ?? true;
+
+  @override
+  Future<void> setPlaying(bool playing) async {
+    final player = _player;
+    if (_closed || player == null) return;
+    await (playing ? player.play() : player.pause());
+  }
 
   /// Created by the first [open]; replaced only when rendering preferences
   /// require a new native player.
@@ -578,7 +606,15 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
       _pendingSeek = position;
       return;
     }
+    await _seekPlayer(player, position);
+  }
+
+  Future<void> _seekPlayer(Player player, Duration position) async {
+    final generation = _startupGeneration;
     await player.seek(position);
+    if (!_closed && generation == _startupGeneration) {
+      _emit(PlayerEngineMediaChanged(seekPosition: position));
+    }
   }
 
   bool get _canSeek => _startupState.hasDuration || _isReady;
@@ -606,7 +642,7 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
       'Applying a seek asked for during startup. position=$position',
       name: 'iris.player.media',
     );
-    unawaited(player.seek(position));
+    unawaited(_seekPlayer(player, position));
   }
 
   @override
@@ -919,7 +955,10 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
       if (_closed || startupGeneration != _startupGeneration) return;
       _preferredTracksApplied = false;
       _openTarget = _openPosition;
-      await player.open(Media(session.streamUrl, start: _openPosition));
+      await player.open(
+        Media(session.streamUrl, start: _openPosition),
+        play: allowsStartingMediaPlayback,
+      );
       if (_closed || startupGeneration != _startupGeneration) return;
       _externalSubtitleReady = true;
       _attachExternalSubtitle(player.state.tracks);
@@ -1062,6 +1101,7 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
       player.stream.completed.listen(_onCompleted),
       player.stream.position.listen(_onPosition),
       player.stream.duration.listen(_onDuration),
+      player.stream.rate.listen((_) => _emit(const PlayerEngineMediaChanged())),
       trackEvents.listen(_onTrack),
       trackLists.listen(_onTracks),
       player.stream.error.listen(_onError),
@@ -1077,6 +1117,7 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
       name: 'iris.player.media',
     );
     buffering.value = value;
+    _emit(const PlayerEngineMediaChanged());
     _refreshAdvancing();
     unawaited(_logCacheBufferingState('buffering changed'));
   }
@@ -1126,6 +1167,7 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
       name: 'iris.player.media',
     );
     _refreshAdvancing();
+    _emit(const PlayerEngineMediaChanged());
     if (!_isReady) return;
     if (!playing) _reportProgress(flush: true);
   }
@@ -1140,6 +1182,7 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
     );
     // Seeking back from the end clears it.
     this.completed.value = completed && _isReady;
+    _emit(const PlayerEngineMediaChanged());
     if (this.completed.value) _emit(const PlayerEngineCompleted());
   }
 
@@ -1270,6 +1313,7 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
 
   void _onDuration(Duration duration) {
     if (_closed) return;
+    _emit(const PlayerEngineMediaChanged());
     _refreshTimeline();
     if (_chapters.isNotEmpty) {
       _refreshChapterSegments();
@@ -1604,7 +1648,7 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
       'mpv opened the file at $actual instead of $target; seeking there.',
       name: 'iris.player.media',
     );
-    await player.seek(target);
+    await _seekPlayer(player, target);
   }
 
   void _fail(PlayerEngineFailure failure) {
@@ -1629,7 +1673,9 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
 
   void _updateStartupState(PlayerEngineStartupState next) {
     if (next == _startupState) return;
+    final wasReady = _isReady;
     _startupState = next;
+    if (wasReady != _isReady) _emit(const PlayerEngineMediaChanged());
     if (next.phase != PlayerEnginePhase.ready) {
       _movedSinceReady = false;
       _readyPosition = null;

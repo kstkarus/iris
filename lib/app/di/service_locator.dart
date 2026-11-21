@@ -67,6 +67,7 @@ import 'package:iris/features/downloads/data/repositories/downloads_repository_i
 import 'package:iris/features/downloads/data/repositories/mock_downloads_repository.dart';
 import 'package:iris/features/downloads/domain/repositories/downloads_repository.dart';
 import 'package:iris/features/player/data/adapters/libtorrent_engine_adapter.dart';
+import 'package:iris/features/player/data/adapters/method_channel_player_media_controls.dart';
 import 'package:iris/features/player/data/adapters/player_runtime_memory_adapter.dart';
 import 'package:iris/features/player/data/datasources/libtorrent_player_data_source.dart';
 import 'package:iris/features/player/data/repositories/aniskip_skip_times_repository.dart';
@@ -79,6 +80,7 @@ import 'package:iris/features/player/data/repositories/shared_preferences_subtit
 import 'package:iris/features/player/data/repositories/shared_preferences_track_preferences_repository.dart';
 import 'package:iris/features/player/data/repositories/streaming_or_local_player_repository.dart';
 import 'package:iris/features/player/data/repositories/torrent_player_repository.dart';
+import 'package:iris/features/player/domain/player_media_controls.dart';
 import 'package:iris/features/player/domain/repositories/player_decoding_preferences_repository.dart';
 import 'package:iris/features/player/domain/repositories/player_repository.dart';
 import 'package:iris/features/player/domain/repositories/player_skip_times_repository.dart';
@@ -286,6 +288,7 @@ void _registerMocks() {
       MockOnlineSourcesRepository.new,
     )
     ..registerLazySingleton<PlayerRepository>(MockPlayerRepository.new)
+    ..registerFactory<PlayerMediaControls>(NoPlayerMediaControls.new)
     ..registerLazySingleton<PlayerSkipTimesRepository>(
       MockPlayerSkipTimesRepository.new,
     )
@@ -532,6 +535,15 @@ Future<void> _registerReal() async {
       () => AniSkipSkipTimesRepository(
         client: serviceLocator<AniSkipApiClient>(),
       ),
+    )
+    ..registerFactory<PlayerMediaControls>(
+      () =>
+          !kIsWeb &&
+              (defaultTargetPlatform == TargetPlatform.android ||
+                  defaultTargetPlatform == TargetPlatform.iOS ||
+                  defaultTargetPlatform == TargetPlatform.windows)
+          ? MethodChannelPlayerMediaControls()
+          : const NoPlayerMediaControls(),
     )
     ..registerLazySingleton<PlayerViewportFactory>(
       () => defaultTargetPlatform == TargetPlatform.windows && !kIsWeb

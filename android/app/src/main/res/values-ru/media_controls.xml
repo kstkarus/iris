@@ -1,0 +1,8 @@
+<resources>
+    <string name="media_playback">Воспроизведение видео</string>
+    <string name="media_play">Воспроизвести</string>
+    <string name="media_pause">Пауза</string>
+    <string name="media_next">Следующая серия</string>
+    <string name="media_seek_forward">На 10 секунд вперёд</string>
+    <string name="media_seek_backward">На 10 секунд назад</string>
+</resources>

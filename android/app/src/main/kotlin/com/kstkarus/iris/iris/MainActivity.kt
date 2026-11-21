@@ -20,6 +20,7 @@ import java.io.File
 
 class MainActivity : FlutterActivity() {
     private var pictureInPicture: PictureInPictureController? = null
+    private var playerMediaSession: PlayerMediaSessionController? = null
     private var torrentFilePicker: TorrentFilePicker? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -34,6 +35,7 @@ class MainActivity : FlutterActivity() {
             this,
             flutterEngine.dartExecutor.binaryMessenger,
         )
+        playerMediaSession = PlayerMediaSessionController(this, flutterEngine.dartExecutor.binaryMessenger)
         torrentFilePicker = TorrentFilePicker(this, flutterEngine.dartExecutor.binaryMessenger)
 
         MethodChannel(
@@ -149,6 +151,8 @@ class MainActivity : FlutterActivity() {
     }
 
     override fun onDestroy() {
+        playerMediaSession?.dispose()
+        playerMediaSession = null
         torrentFilePicker?.dispose()
         torrentFilePicker = null
         pictureInPicture?.dispose()

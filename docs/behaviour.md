@@ -119,6 +119,8 @@ builds, with `audio` background mode configured for playback. The bridge and its
 device-validation limits are documented in
 [IRIS_PATCHES.md](../packages/media_kit_video/IRIS_PATCHES.md).
 
+- System media controls on Android, iOS and Windows show the current title and episode while the player is open. They play, pause, seek to a known position or skip ten seconds in either direction, and offer Next when the source has another episode. Disconnecting headphones pauses on Android and iOS. An audio interruption also pauses on iOS. On phones, Play and Next work while Iris is visible or in picture in picture. Closing the player clears its media session.
+
 - The resume notice stays to the left of the play button, while skip offers sit on the right. Larger text can expand the buttons. On pause the notice sits above the title. In short viewports a notice leaves room by condensing the paused title to one line. Screen readers still get the complete title and details. The episode mark sits separately near the top, clear of brightness and the compact next button.
 
 Playback uses:
@@ -213,6 +215,7 @@ On iOS, downloads run in the app process without background transfer support. Th
 - Accounts shows the Shikimori nickname or connection status and offers Sign in or Sign out. While Iris signs in or checks a session, the status text shimmers under the account name. AnimeJoy opens a sign-in sheet on the phone. In the Settings dialog, the list and form swap with a dither transition and the dialog eases to its new height. Signing in with an animejoy.ru account unlocks releases that require one. Iris keeps the session in secure storage. If Iris cannot verify a saved session, the row offers Verify or Sign out.
 - Playback sets the default audio and subtitles for torrents without a saved track choice for that release. Audio can follow the file or prefer Japanese, Russian or English. Subtitles can follow the file, prefer Russian or English, or start off.
 - Appearance follows the system theme and language by default. Light and Dark, and Russian and English, can also be set explicitly. Changes apply when selected and are saved on the device. With system animations disabled, the page, sign-in panel and theme changes are immediate.
+- On Windows, the title bar follows Appearance. It turns dark while the player is open and returns to the app theme when the player closes. Windows 11 also uses the app theme for the caption, text and border colors.
 - About shows the installed version and the result of the latest check. On Android and Windows, Check can find a release again after Later hides it. Checking shimmers under the version while the check runs. Update and Details open the same in-app flow as the update strip, closing the Settings dialog first if it is open. About shows the download percentage when the size is known. Its progress bar stays full while Iris verifies the file and its status shimmers neutrally without a status dot. Once the file is ready, About offers Install on Android or Restart on Windows. While installation or restart is starting, the strip and About hide their open actions and shimmer the status. Portable Windows offers Download for the ZIP.
 
 ## Updates

@@ -1,10 +1,29 @@
 import 'package:flutter/foundation.dart';
 
 import 'package:iris/features/player/domain/entities/anime_player_source.dart';
+import 'package:iris/features/player/domain/player_media_controls.dart';
 import 'package:iris/features/player/presentation/widgets/player_viewport_factory.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/utils/file_display_name.dart';
 import 'package:iris/shared/utils/release_title.dart';
+
+PlayerMediaTitles playerTitlesFor(
+  AppLocalizations l10n,
+  AnimePlayerSource source,
+) {
+  final release = source.sourceTitle.trim();
+  final anime = source.animeTitle.trim();
+  final number = source.episodeNumber;
+  return (
+    // Saved torrents can carry their release name as the anime title too.
+    title: anime.isNotEmpty && anime != release
+        ? anime
+        : releaseDisplayTitle(release),
+    episode: number == null
+        ? fileDisplayName(source.fileName)
+        : l10n.playerEpisodeNumber(number),
+  );
+}
 
 /// The immersive player's titles for [source]: the anime (or release) over
 /// the episode, and the episode's place in the release.
@@ -17,11 +36,7 @@ PlayerChrome playerChromeFor(
   PlayerEpisodesBuilder? episodes,
 }) {
   final release = source.sourceTitle.trim();
-  final anime = source.animeTitle.trim();
-  // Saved torrents carry their release name as the anime title too.
-  final overline = anime.isNotEmpty && anime != release
-      ? anime
-      : releaseDisplayTitle(release);
+  final titles = playerTitlesFor(l10n, source);
   final episode = source.episodeNumber;
   final count = source.files.length;
   final position = source.files.indexWhere(
@@ -40,11 +55,9 @@ PlayerChrome playerChromeFor(
   ].join(' · ');
 
   return PlayerChrome(
-    title: episode == null
-        ? fileDisplayName(source.fileName)
-        : l10n.playerEpisodeNumber(episode),
+    title: titles.episode,
     titleDetail: placeIsNumber ? l10n.playerEpisodeOfTotal(count) : null,
-    overline: overline,
+    overline: titles.title,
     details: details,
     episodesCaption: episodesCaption,
     onBack: onBack,
