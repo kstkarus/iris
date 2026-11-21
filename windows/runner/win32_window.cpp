@@ -3,6 +3,8 @@
 #include <dwmapi.h>
 #include <flutter_windows.h>
 
+#include <algorithm>
+
 #include "resource.h"
 
 namespace {
@@ -28,12 +30,6 @@ constexpr const wchar_t kGetPreferredBrightnessRegValue[] = L"AppsUseLightTheme"
 static int g_active_window_count = 0;
 
 using EnableNonClientDpiScaling = BOOL __stdcall(HWND hwnd);
-
-// Scale helper to convert logical scaler values to physical using passed in
-// scale factor
-int Scale(int source, double scale_factor) {
-  return static_cast<int>(source * scale_factor);
-}
 
 // Dynamically loads the |EnableNonClientDpiScaling| from the User32 module.
 // This API is only needed for PerMonitor V1 awareness mode.
@@ -118,25 +114,45 @@ Win32Window::~Win32Window() {
   Destroy();
 }
 
-bool Win32Window::Create(const std::wstring& title,
-                         const Point& origin,
-                         const Size& size) {
+bool Win32Window::Create(
+    const std::wstring& title,
+    const std::optional<window_placement::MainWindowPlacement>& saved) {
   Destroy();
   title_bar_theme_.reset();
+  start_maximized_ = saved && saved->maximized;
 
   const wchar_t* window_class =
       WindowClassRegistrar::GetInstance()->GetWindowClass();
 
-  const POINT target_point = {static_cast<LONG>(origin.x),
-                              static_cast<LONG>(origin.y)};
-  HMONITOR monitor = MonitorFromPoint(target_point, MONITOR_DEFAULTTONEAREST);
-  UINT dpi = FlutterDesktopGetDpiForMonitor(monitor);
-  double scale_factor = dpi / 96.0;
+  const HMONITOR monitor = saved
+      ? MonitorFromRect(&saved->normal_bounds, MONITOR_DEFAULTTONEAREST)
+      : MonitorFromPoint({0, 0}, MONITOR_DEFAULTTOPRIMARY);
+  RECT bounds{10, 10, 1290, 730};
+  MONITORINFO info{sizeof(MONITORINFO)};
+  if (GetMonitorInfo(monitor, &info)) {
+    const UINT monitor_dpi = FlutterDesktopGetDpiForMonitor(monitor);
+    const int dpi = monitor_dpi == 0 ? 96 : static_cast<int>(monitor_dpi);
+    const RECT& work = info.rcWork;
+    if (saved) {
+      bounds = window_placement::ClampWindowBounds(
+          saved->normal_bounds, work,
+          {MulDiv(360, dpi, 96), MulDiv(300, dpi, 96)});
+    } else {
+      const LONG width =
+          std::min<LONG>(MulDiv(1280, dpi, 96), work.right - work.left);
+      const LONG height =
+          std::min<LONG>(MulDiv(720, dpi, 96), work.bottom - work.top);
+      const LONG x = work.left + (work.right - work.left - width) / 2;
+      const LONG y = work.top + (work.bottom - work.top - height) / 2;
+      bounds = {x, y, x + width, y + height};
+    }
+  }
 
+  // Lay out Flutter at the maximized size while the top-level window is hidden.
+  const DWORD style = WS_OVERLAPPEDWINDOW | (start_maximized_ ? WS_MAXIMIZE : 0);
   HWND window = CreateWindow(
-      window_class, title.c_str(), WS_OVERLAPPEDWINDOW,
-      Scale(origin.x, scale_factor), Scale(origin.y, scale_factor),
-      Scale(size.width, scale_factor), Scale(size.height, scale_factor),
+      window_class, title.c_str(), style, bounds.left, bounds.top,
+      bounds.right - bounds.left, bounds.bottom - bounds.top,
       nullptr, nullptr, GetModuleHandle(nullptr), this);
 
   if (!window) {
@@ -149,7 +165,15 @@ bool Win32Window::Create(const std::wstring& title,
 }
 
 bool Win32Window::Show() {
-  return ShowWindow(window_handle_, SW_SHOWNORMAL);
+  const int show_command = start_maximized_ ? SW_SHOWMAXIMIZED : SW_SHOWNORMAL;
+  WINDOWPLACEMENT placement{sizeof(WINDOWPLACEMENT)};
+  if (start_maximized_ && GetWindowPlacement(window_handle_, &placement)) {
+    // Windows has translated the clamped bounds to workspace coordinates.
+    placement.showCmd = show_command;
+    if (SetWindowPlacement(window_handle_, &placement)) return true;
+  }
+  ShowWindow(window_handle_, show_command);
+  return IsWindowVisible(window_handle_) != FALSE;
 }
 
 // static
@@ -179,8 +203,9 @@ Win32Window::MessageHandler(HWND hwnd,
                             LPARAM const lparam) noexcept {
   switch (message) {
     case WM_DESTROY:
+      OnDestroy();
       window_handle_ = nullptr;
-      Destroy();
+      child_content_ = nullptr;
       if (quit_on_close_) {
         PostQuitMessage(0);
       }
@@ -217,15 +242,12 @@ Win32Window::MessageHandler(HWND hwnd,
       return 0;
   }
 
-  return DefWindowProc(window_handle_, message, wparam, lparam);
+  return DefWindowProc(hwnd, message, wparam, lparam);
 }
 
 void Win32Window::Destroy() {
-  OnDestroy();
-
   if (window_handle_) {
     DestroyWindow(window_handle_);
-    window_handle_ = nullptr;
   }
   if (g_active_window_count == 0) {
     WindowClassRegistrar::GetInstance()->UnregisterWindowClass();

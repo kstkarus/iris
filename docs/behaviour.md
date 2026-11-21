@@ -159,6 +159,8 @@ Current behavior:
 
 - on Windows, the picture-in-picture button turns the same Iris window into a small, borderless, resizable window above other apps. The player route, decoder, stream, watch progress and subtitles stay alive; the main catalog is available again after returning from the small window. The compact controls reuse the player's play/pause in the center, Close in the upper-right corner and Return to player in the lower-right corner, and hide during playback; both the compact and restored controls auto-hide after 3 s of playback without interaction, including after switching modes with the mouse. Dragging the video moves the window within the monitor's work area, including when moved programmatically; invisible edge and corner hit zones keep native resizing available. Escape restores it. Restore keeps playback and returns the prior position, size, maximized or full-screen state; Close picture in picture (including Alt+F4 in that mode) restores the window and pauses playback. Leaving the player restores the window and removes its always-on-top state. Other applications keep working underneath; Windows picture in picture opens only when requested, without the automatic Home behavior of Android
 
+- On Windows, Iris remembers the main window's normal position and size and whether it was maximized. It also remembers the mini player's position and width between launches, and fits its height to the current video. When the display setup changes, saved windows are moved into the nearest available monitor's work area.
+
 ## Downloads
 
 Downloads use:

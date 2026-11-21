@@ -20,6 +20,8 @@ class FlutterWindow : public Win32Window {
   explicit FlutterWindow(const flutter::DartProject& project);
   virtual ~FlutterWindow();
 
+  bool Create(const std::wstring& title);
+
  protected:
   // Win32Window:
   bool OnCreate() override;
@@ -31,7 +33,8 @@ class FlutterWindow : public Win32Window {
   // Covers the monitor without a frame, or restores the window as it was.
   void SetFullscreen(bool fullscreen);
   bool EnterPictureInPicture();
-  void RestorePictureInPicture();
+  void RestorePictureInPicture(bool save_placement = true);
+  void SaveWindowPlacement(HWND window);
   void SetPictureInPicturePlayer(bool valid, double aspect_ratio);
   void NotifyPictureInPicture(bool active, bool dismissed);
   static LRESULT CALLBACK PictureInPictureChildProc(HWND window, UINT message,
@@ -54,6 +57,12 @@ class FlutterWindow : public Win32Window {
   std::unique_ptr<flutter::MethodChannel<flutter::EncodableValue>>
       app_update_channel_;
   std::unique_ptr<PlayerMediaControls> media_controls_;
+
+  std::filesystem::path placement_path_;
+  window_placement::WindowState window_state_;
+  bool track_placement_ = false;
+  bool moving_or_sizing_ = false;
+  bool changing_picture_in_picture_ = false;
 
   bool fullscreen_ = false;
   WINDOWPLACEMENT placement_before_fullscreen_{sizeof(WINDOWPLACEMENT)};

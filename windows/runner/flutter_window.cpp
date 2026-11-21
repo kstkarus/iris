@@ -2,6 +2,7 @@
 
 #include <commctrl.h>
 #include <flutter/standard_method_codec.h>
+#include <flutter_windows.h>
 #include <windowsx.h>
 
 #include <algorithm>
@@ -20,10 +21,8 @@ constexpr double kMaximumPictureInPictureAspectRatio = 2.38;
 constexpr int kMinimumPictureInPictureWidth = 240;
 constexpr int kMinimumPictureInPictureHeight = 135;
 
-struct PictureInPictureSize {
-  int width;
-  int height;
-};
+using window_placement::FitPictureInPictureClientSize;
+using window_placement::PictureInPictureSize;
 
 struct PictureInPictureLimits {
   RECT work_area;
@@ -40,6 +39,12 @@ UINT GetWindowDpi(HWND window) {
 
 int ScaleForDpi(int logical_size, UINT dpi) {
   return static_cast<int>(std::lround(logical_size * (dpi / 96.0)));
+}
+
+int MinimumPictureInPictureWidth(double aspect, UINT dpi) {
+  return std::max(ScaleForDpi(kMinimumPictureInPictureWidth, dpi),
+                  static_cast<int>(std::ceil(
+                      ScaleForDpi(kMinimumPictureInPictureHeight, dpi) * aspect)));
 }
 
 bool SetWindowLongPtrValue(HWND window, int index, LONG_PTR value) {
@@ -78,31 +83,12 @@ bool GetPictureInPictureLimits(HWND window, const RECT* bounds, double aspect,
                static_cast<int>(std::floor(limits->maximum_width / aspect)));
   limits->maximum_height = std::max(1, limits->maximum_height);
 
-  const int minimum_video_height =
-      ScaleForDpi(kMinimumPictureInPictureHeight, dpi);
-  const int requested_minimum_width =
-      std::max(ScaleForDpi(kMinimumPictureInPictureWidth, dpi),
-               static_cast<int>(std::ceil(minimum_video_height * aspect)));
   limits->minimum_width =
-      std::clamp(requested_minimum_width, 1, limits->maximum_width);
+      std::clamp(MinimumPictureInPictureWidth(aspect, dpi), 1,
+                 limits->maximum_width);
   limits->minimum_height =
       std::max(1, static_cast<int>(std::floor(limits->minimum_width / aspect)));
   return true;
-}
-
-PictureInPictureSize FitPictureInPictureClientSize(int desired_width,
-                                                   double aspect,
-                                                   int maximum_width,
-                                                   int maximum_height) {
-  int width = std::min({desired_width, maximum_width,
-                        static_cast<int>(std::floor(maximum_height * aspect))});
-  width = std::max(1, width);
-  int height = std::max(1, static_cast<int>(std::lround(width / aspect)));
-  if (height > maximum_height) {
-    height = maximum_height;
-    width = std::max(1, static_cast<int>(std::floor(height * aspect)));
-  }
-  return {width, height};
 }
 
 bool ClampPictureInPictureBounds(HWND window, double aspect, RECT* bounds) {
@@ -169,7 +155,15 @@ COLORREF GetTitleBarColor(const flutter::EncodableMap& arguments,
 FlutterWindow::FlutterWindow(const flutter::DartProject& project)
     : project_(project) {}
 
-FlutterWindow::~FlutterWindow() {}
+FlutterWindow::~FlutterWindow() {
+  Destroy();
+}
+
+bool FlutterWindow::Create(const std::wstring& title) {
+  placement_path_ = window_placement::StatePath();
+  window_state_ = window_placement::Load(placement_path_);
+  return Win32Window::Create(title, window_state_.main);
+}
 
 bool FlutterWindow::OnCreate() {
   if (!Win32Window::OnCreate()) {
@@ -284,7 +278,9 @@ bool FlutterWindow::OnCreate() {
                         PictureInPictureChildProc, 1,
                         reinterpret_cast<DWORD_PTR>(this)) != FALSE;
 
-  flutter_controller_->engine()->SetNextFrameCallback([&]() { this->Show(); });
+  flutter_controller_->engine()->SetNextFrameCallback([this]() {
+    track_placement_ = Show();
+  });
 
   // Flutter can complete the first frame before the "show window" callback is
   // registered. The following call ensures a frame is pending to ensure the
@@ -295,11 +291,8 @@ bool FlutterWindow::OnCreate() {
 }
 
 void FlutterWindow::OnDestroy() {
-  HWND window = GetHandle();
-  if (window != nullptr && IsWindow(window) && picture_in_picture_) {
-    RestorePictureInPicture();
-    NotifyPictureInPicture(false, false);
-  }
+  SaveWindowPlacement(GetHandle());
+  track_placement_ = false;
   picture_in_picture_channel_ = nullptr;
   media_controls_ = nullptr;
   app_update_channel_ = nullptr;
@@ -316,6 +309,44 @@ void FlutterWindow::OnDestroy() {
   Win32Window::OnDestroy();
 }
 
+void FlutterWindow::SaveWindowPlacement(HWND window) {
+  if (!track_placement_ || changing_picture_in_picture_ || window == nullptr) {
+    return;
+  }
+
+  const bool minimized = IsIconic(window) != FALSE;
+  RECT bounds{};
+  const bool have_bounds = !minimized && GetWindowRect(window, &bounds);
+  if (picture_in_picture_ && have_bounds && bounds.right > bounds.left) {
+    window_state_.pip = window_placement::PictureInPicturePlacement{
+        bounds.left, bounds.top, bounds.right - bounds.left};
+  }
+
+  WINDOWPLACEMENT current{sizeof(WINDOWPLACEMENT)};
+  const WINDOWPLACEMENT* placement = nullptr;
+  if (fullscreen_) {
+    placement = &placement_before_fullscreen_;
+  } else if (picture_in_picture_) {
+    placement = &placement_before_picture_in_picture_;
+  } else if (!minimized && GetWindowPlacement(window, &current)) {
+    placement = &current;
+  }
+
+  if (placement != nullptr) {
+    const RECT& normal = placement->rcNormalPosition;
+    MONITORINFO monitor{sizeof(MONITORINFO)};
+    GetMonitorInfo(MonitorFromRect(&normal, MONITOR_DEFAULTTONEAREST), &monitor);
+    auto main = window_placement::MainFromWindowPlacement(*placement, monitor);
+    if (placement == &current && !main.maximized && have_bounds) {
+      main.normal_bounds = bounds;
+    }
+    window_state_.main = main;
+  }
+  if (window_state_.main || window_state_.pip) {
+    window_placement::Save(placement_path_, window_state_);
+  }
+}
+
 void FlutterWindow::SetFullscreen(bool fullscreen) {
   HWND window = GetHandle();
   if (window == nullptr) {
@@ -326,14 +357,16 @@ void FlutterWindow::SetFullscreen(bool fullscreen) {
     NotifyPictureInPicture(false, false);
   }
   if (fullscreen == fullscreen_) return;
-  fullscreen_ = fullscreen;
 
   LONG_PTR style = GetWindowLongPtr(window, GWL_STYLE);
   if (fullscreen) {
-    GetWindowPlacement(window, &placement_before_fullscreen_);
+    if (!GetWindowPlacement(window, &placement_before_fullscreen_)) return;
     MONITORINFO monitor{sizeof(MONITORINFO)};
-    GetMonitorInfo(MonitorFromWindow(window, MONITOR_DEFAULTTONEAREST),
-                   &monitor);
+    if (!GetMonitorInfo(MonitorFromWindow(window, MONITOR_DEFAULTTONEAREST),
+                        &monitor)) {
+      return;
+    }
+    fullscreen_ = true;
     const RECT& bounds = monitor.rcMonitor;
     SetWindowLongPtr(window, GWL_STYLE, style & ~WS_OVERLAPPEDWINDOW);
     SetWindowPos(window, HWND_TOP, bounds.left, bounds.top,
@@ -347,6 +380,7 @@ void FlutterWindow::SetFullscreen(bool fullscreen) {
     SetWindowPos(window, nullptr, 0, 0, 0, 0,
                  SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOOWNERZORDER |
                      SWP_FRAMECHANGED);
+    fullscreen_ = false;
   }
   RedrawWindow(window, nullptr, nullptr,
                RDW_FRAME | RDW_INVALIDATE | RDW_ALLCHILDREN);
@@ -368,60 +402,82 @@ bool FlutterWindow::EnterPictureInPicture() {
   topmost_before_picture_in_picture_ =
       (ex_style_before_picture_in_picture_ & WS_EX_TOPMOST) != 0;
 
-  const UINT dpi = GetWindowDpi(window);
   // Keep the window's normal DWM frame style; only its client calculation
   // changes in PiP. Swapping to a popup needlessly changes frame rendering.
   const LONG_PTR style =
       (style_before_picture_in_picture_ & ~(WS_MAXIMIZE | WS_MINIMIZE)) |
       WS_THICKFRAME;
 
-  RECT work{};
-  if (!GetPictureInPictureWorkArea(window, nullptr, &work)) return false;
+  const auto& saved = window_state_.pip;
+  const HMONITOR monitor = saved
+      ? MonitorFromPoint({saved->left, saved->top}, MONITOR_DEFAULTTONEAREST)
+      : MonitorFromWindow(window, MONITOR_DEFAULTTONEAREST);
+  MONITORINFO info{sizeof(MONITORINFO)};
+  if (!GetMonitorInfo(monitor, &info)) return false;
+  const RECT& work = info.rcWork;
   const int work_width = work.right - work.left;
   const int work_height = work.bottom - work.top;
-  const int margin = std::min(
-      ScaleForDpi(16, dpi),
-      std::max(0, std::min((work_width - 1) / 2, (work_height - 1) / 2)));
-  const int max_outer_width =
-      std::min(work_width * 2 / 3, work_width - 2 * margin);
-  const int max_outer_height =
-      std::min(work_height * 2 / 3, work_height - 2 * margin);
-  if (max_outer_width < 1 || max_outer_height < 1) return false;
+  if (work_width < 1 || work_height < 1) return false;
 
-  const PictureInPictureSize outer = FitPictureInPictureClientSize(
-      ScaleForDpi(420, dpi), picture_in_picture_aspect_ratio_, max_outer_width,
-      max_outer_height);
-  const int x = std::max(work.left + margin, work.right - margin - outer.width);
-  const int y =
-      std::max(work.top + margin, work.bottom - margin - outer.height);
+  RECT bounds{};
+  if (saved) {
+    const UINT dpi = FlutterDesktopGetDpiForMonitor(monitor);
+    bounds = window_placement::RestorePictureInPictureBounds(
+        *saved, work, picture_in_picture_aspect_ratio_,
+        MinimumPictureInPictureWidth(picture_in_picture_aspect_ratio_,
+                                     dpi == 0 ? 96 : dpi));
+  } else {
+    const UINT dpi = GetWindowDpi(window);
+    const int margin = std::min(
+        ScaleForDpi(16, dpi),
+        std::min((work_width - 1) / 2, (work_height - 1) / 2));
+    const int max_outer_width =
+        std::min(work_width * 2 / 3, work_width - 2 * margin);
+    const int max_outer_height =
+        std::min(work_height * 2 / 3, work_height - 2 * margin);
+    if (max_outer_width < 1 || max_outer_height < 1) return false;
+    const auto outer = FitPictureInPictureClientSize(
+        ScaleForDpi(420, dpi), picture_in_picture_aspect_ratio_, max_outer_width,
+        max_outer_height);
+    const LONG right = work.right - margin;
+    const LONG bottom = work.bottom - margin;
+    bounds = {right - outer.width, bottom - outer.height, right, bottom};
+  }
 
   WINDOWPLACEMENT normal_placement = placement_before_picture_in_picture_;
   normal_placement.showCmd = SW_SHOWNORMAL;
 
+  changing_picture_in_picture_ = true;
   if (!SetWindowPlacement(window, &normal_placement)) {
+    changing_picture_in_picture_ = false;
     return false;
   }
   if (!SetWindowLongPtrValue(window, GWL_STYLE, style)) {
     SetWindowPlacement(window, &placement_before_picture_in_picture_);
+    changing_picture_in_picture_ = false;
     return false;
   }
   picture_in_picture_ = true;
-  const bool positioned =
-      SetWindowPos(window, HWND_TOPMOST, x, y, outer.width, outer.height,
-                   SWP_NOOWNERZORDER | SWP_FRAMECHANGED);
+  const bool positioned = SetWindowPos(
+      window, HWND_TOPMOST, bounds.left, bounds.top, bounds.right - bounds.left,
+      bounds.bottom - bounds.top, SWP_NOOWNERZORDER | SWP_FRAMECHANGED);
+  changing_picture_in_picture_ = false;
   if (!positioned) {
-    RestorePictureInPicture();
+    RestorePictureInPicture(false);
     return false;
   }
+  SaveWindowPlacement(window);
   RedrawWindow(window, nullptr, nullptr,
                RDW_FRAME | RDW_INVALIDATE | RDW_ALLCHILDREN);
   NotifyPictureInPicture(true, false);
   return true;
 }
 
-void FlutterWindow::RestorePictureInPicture() {
+void FlutterWindow::RestorePictureInPicture(bool save_placement) {
   HWND window = GetHandle();
   if (window == nullptr || !IsWindow(window) || !picture_in_picture_) return;
+  if (save_placement) SaveWindowPlacement(window);
+  changing_picture_in_picture_ = true;
   picture_in_picture_ = false;
   const LONG_PTR restored_style =
       style_before_picture_in_picture_ & ~(WS_MAXIMIZE | WS_MINIMIZE);
@@ -434,6 +490,7 @@ void FlutterWindow::RestorePictureInPicture() {
       window,
       topmost_before_picture_in_picture_ ? HWND_TOPMOST : HWND_NOTOPMOST, 0, 0,
       0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_FRAMECHANGED | SWP_NOOWNERZORDER);
+  changing_picture_in_picture_ = false;
   RedrawWindow(window, nullptr, nullptr,
                RDW_FRAME | RDW_INVALIDATE | RDW_ALLCHILDREN);
 }
@@ -534,6 +591,16 @@ FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
   if (media_controls_ && media_controls_->HandleMessage(message, wparam, lparam)) {
     return 0;
   }
+  if (message == WM_ENTERSIZEMOVE) {
+    moving_or_sizing_ = true;
+  } else if (message == WM_EXITSIZEMOVE) {
+    moving_or_sizing_ = false;
+    SaveWindowPlacement(hwnd);
+  } else if (message == WM_SIZE && !moving_or_sizing_ && !fullscreen_ &&
+             !picture_in_picture_ &&
+             (wparam == SIZE_MAXIMIZED || wparam == SIZE_RESTORED)) {
+    SaveWindowPlacement(hwnd);
+  }
   if (picture_in_picture_ && message == WM_NCCALCSIZE) return 0;
   if (picture_in_picture_ && message == WM_NCHITTEST) {
     RECT bounds{};
@@ -561,6 +628,7 @@ FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
     }
   }
   if (picture_in_picture_ && message == WM_WINDOWPOSCHANGING) {
+    if (changing_picture_in_picture_) return 0;
     // Let Windows apply track limits before fitting the final placement.
     DefWindowProc(hwnd, message, wparam, lparam);
     auto* position = reinterpret_cast<WINDOWPOS*>(lparam);
@@ -607,7 +675,6 @@ FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
     return 0;
   }
   if (message == kQuitForAppUpdate) {
-    picture_in_picture_ = false;
     DestroyWindow(hwnd);
     return 0;
   }
@@ -617,6 +684,8 @@ FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
     return 0;
   }
   if (picture_in_picture_ && message == WM_DPICHANGED) {
+    // Entry has already computed physical bounds for the destination monitor.
+    if (changing_picture_in_picture_) return 0;
     const auto* suggested = reinterpret_cast<const RECT*>(lparam);
     const UINT dpi = LOWORD(wparam);
     if (suggested != nullptr && dpi != 0) {
