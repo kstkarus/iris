@@ -92,7 +92,11 @@ internal class PlayerMediaSessionController(
                 override fun onSeekTo(pos: Long) = send(id, "seekTo", pos)
 
                 override fun onCustomAction(action: String, extras: Bundle?) {
-                    if (action == "seekForward" || action == "seekBackward") send(id, action)
+                    when (action) {
+                        "pause" -> onPause()
+                        "seekForward" -> onFastForward()
+                        "seekBackward" -> onRewind()
+                    }
                 }
             })
             setSessionActivity(
@@ -147,9 +151,15 @@ internal class PlayerMediaSessionController(
             )
         // Android 13 builds its buttons from PlaybackState. The standard
         // fast-forward/rewind actions still serve hardware and older devices.
-        if (canSeek && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            playback.addCustomAction("seekBackward", activity.getString(R.string.media_seek_backward), android.R.drawable.ic_media_rew)
-            playback.addCustomAction("seekForward", activity.getString(R.string.media_seek_forward), android.R.drawable.ic_media_ff)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (state == PlaybackState.STATE_BUFFERING) {
+                // The system puts a spinner in the normal play/pause slot.
+                playback.addCustomAction("pause", activity.getString(R.string.media_pause), R.drawable.ic_pip_pause)
+            }
+            if (canSeek) {
+                playback.addCustomAction("seekBackward", activity.getString(R.string.media_seek_backward), android.R.drawable.ic_media_rew)
+                playback.addCustomAction("seekForward", activity.getString(R.string.media_seek_forward), android.R.drawable.ic_media_ff)
+            }
         }
         active.setPlaybackState(playback.build())
         if (!active.isActive) active.isActive = true

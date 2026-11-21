@@ -58,6 +58,7 @@ class PlayerCubit extends Cubit<PlayerState> {
   final PlayerMediaControls _mediaControls;
   final PlayerMediaTitles Function(AnimePlayerSource)? _mediaTitles;
   PlayerMediaPlayback? _publishedMediaPlayback;
+  ({Duration target, DateTime expiresAt})? _pendingMediaSeek;
   final DateTime Function() _now;
   final _progressWrites = SerialQueue();
   final _whenClosed = Completer<void>();
@@ -180,6 +181,7 @@ class PlayerCubit extends Cubit<PlayerState> {
           _emitIfOpen(current.copyWith(started: true));
         }
       case PlayerEngineCompleted():
+        _pendingMediaSeek = null;
         markCompleted();
       case PlayerEngineWatched():
         final current = state;
@@ -236,6 +238,7 @@ class PlayerCubit extends Cubit<PlayerState> {
   }
 
   void _clearMediaControls() {
+    _pendingMediaSeek = null;
     if (_publishedMediaPlayback == null) return;
     _publishedMediaPlayback = null;
     unawaited(_mediaControls.deactivate());
@@ -265,19 +268,34 @@ class PlayerCubit extends Cubit<PlayerState> {
       case PlayerMediaCommand.next:
         final next = _source.nextFile;
         if (next != null) await playFile(next);
-      case PlayerMediaCommand.seekForward ||
-          PlayerMediaCommand.seekBackward ||
-          PlayerMediaCommand.seekTo:
-        if (playback.duration <= Duration.zero) return;
-        const step = Duration(seconds: 10);
-        final target = switch (command) {
-          PlayerMediaCommand.seekForward => playback.position + step,
-          PlayerMediaCommand.seekBackward => playback.position - step,
-          _ => position,
-        };
-        if (target != null) {
-          await _engine.seek(_boundedMediaPosition(target, playback.duration));
+      case PlayerMediaCommand.seekTo:
+        _pendingMediaSeek = null;
+        if (position != null && playback.duration > Duration.zero) {
+          await _engine.seek(
+            _boundedMediaPosition(position, playback.duration),
+          );
         }
+      case PlayerMediaCommand.seekForward || PlayerMediaCommand.seekBackward:
+        if (playback.duration <= Duration.zero) return;
+        final now = _now();
+        final pending = _pendingMediaSeek;
+        // mpv can still report the old clock while a seek is in flight.
+        final unsettled =
+            pending != null &&
+            now.isBefore(pending.expiresAt) &&
+            (pending.target - playback.position).abs() >
+                const Duration(milliseconds: 500);
+        final base = unsettled ? pending.target : playback.position;
+        const step = Duration(seconds: 10);
+        final target = _boundedMediaPosition(
+          command == PlayerMediaCommand.seekForward ? base + step : base - step,
+          playback.duration,
+        );
+        _pendingMediaSeek = (
+          target: target,
+          expiresAt: now.add(const Duration(milliseconds: 500)),
+        );
+        await _engine.seek(target);
     }
   }
 
@@ -371,6 +389,7 @@ class PlayerCubit extends Cubit<PlayerState> {
     if (current is! PlayerReady) return;
     final position = startOver ? Duration.zero : current.startPosition;
     if (position == null) return;
+    _pendingMediaSeek = null;
     unawaited(_engine.seek(position));
     _emitIfOpen(
       current.copyWith(

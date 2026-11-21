@@ -4,7 +4,7 @@ import 'package:iris/entities/watch_progress/domain/watch_progress.dart';
 import 'package:iris/entities/watch_progress/presentation/watch_progress_line.dart';
 import 'package:iris/features/player/domain/entities/player_video_file.dart';
 import 'package:iris/features/player/domain/player_episode_names.dart';
-import 'package:iris/features/player/presentation/widgets/episode_list_scroll_controller.dart';
+import 'package:iris/features/player/presentation/widgets/episode_list_scroll_view.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/utils/byte_size_formatter.dart';
 import 'package:iris/shared/utils/file_display_name.dart';
@@ -15,7 +15,7 @@ import 'package:iris/shared/widgets/pixel_icon.dart';
 /// The torrent's video files as numbered rows with watch progress; the
 /// playing one stays marked and scrolled into view so the list and the
 /// player read as one place.
-class PlayerEpisodesList extends StatefulWidget {
+class PlayerEpisodesList extends StatelessWidget {
   const PlayerEpisodesList({
     required this.files,
     required this.currentFileIndex,
@@ -44,43 +44,20 @@ class PlayerEpisodesList extends StatefulWidget {
   final bool showSizes;
 
   @override
-  State<PlayerEpisodesList> createState() => _PlayerEpisodesListState();
-}
-
-class _PlayerEpisodesListState extends State<PlayerEpisodesList> {
-  final _scroll = EpisodeListScrollController();
-
-  @override
-  void dispose() {
-    _scroll.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final names = distinctEpisodeNames(widget.files);
+    final names = distinctEpisodeNames(files);
     final scheme = Theme.of(context).colorScheme;
     final rule = BorderSide(color: DetailLayout.ruleColor(scheme));
-    final padding = widget.padding == EdgeInsets.zero
-        ? const EdgeInsets.only(bottom: 24)
-        : widget.padding;
-    final current = widget.currentFileIndex;
-    _scroll.reveal(
-      context,
-      fileIndex: current,
-      itemIndex: widget.files.indexWhere((file) => file.index == current),
-      topPadding: padding.resolve(Directionality.of(context)).top,
-    );
-    return ListView.builder(
-      controller: _scroll,
-      padding: padding,
-      itemCount: widget.files.length,
+    return EpisodeListScrollView(
+      targetIndex: files.indexWhere((file) => file.index == currentFileIndex),
+      padding: padding == EdgeInsets.zero
+          ? const EdgeInsets.only(bottom: 24)
+          : padding,
+      itemCount: files.length,
       itemBuilder: (context, position) {
-        _scroll.trackItems(context);
-        final file = widget.files[position];
-        final isCurrent = file.index == current;
+        final file = files[position];
+        final isCurrent = file.index == currentFileIndex;
         return Material(
-          key: isCurrent ? _scroll.targetKey : null,
           color: scheme.surfaceContainerLow,
           shape: Border(
             top: position == 0 ? rule : BorderSide.none,
@@ -93,10 +70,10 @@ class _PlayerEpisodesListState extends State<PlayerEpisodesList> {
             number: episodeNumberLabel(file, position),
             ownName: names[file.index],
             isCurrent: isCurrent,
-            progress: widget.progressByFile[file.index],
-            listed: widget.listed.contains(file.index),
-            showSize: widget.showSizes,
-            onTap: () => widget.onSelected(file),
+            progress: progressByFile[file.index],
+            listed: listed.contains(file.index),
+            showSize: showSizes,
+            onTap: () => onSelected(file),
           ),
         );
       },

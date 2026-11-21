@@ -5,7 +5,7 @@ import 'package:iris/entities/watch_progress/domain/watch_progress.dart';
 import 'package:iris/features/player/domain/entities/player_video_file.dart';
 import 'package:iris/features/player/domain/player_episode_names.dart';
 import 'package:iris/features/player/presentation/widgets/player_colors.dart';
-import 'package:iris/features/player/presentation/widgets/episode_list_scroll_controller.dart';
+import 'package:iris/features/player/presentation/widgets/episode_list_scroll_view.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/utils/duration_formatter.dart';
 import 'package:iris/shared/widgets/detail_layout.dart';
@@ -14,7 +14,7 @@ import 'package:iris/shared/widgets/pixel_icon.dart';
 /// The torrent's files as cards for the immersive player's drawer: the
 /// episode, its own name when the file has one, and how much is left. The
 /// playing card is tinted and scrolled into view.
-class PlayerEpisodeCards extends StatefulWidget {
+class PlayerEpisodeCards extends StatelessWidget {
   const PlayerEpisodeCards({
     required this.files,
     required this.currentFileIndex,
@@ -34,48 +34,31 @@ class PlayerEpisodeCards extends StatefulWidget {
   final ValueChanged<PlayerVideoFile> onSelected;
 
   @override
-  State<PlayerEpisodeCards> createState() => _PlayerEpisodeCardsState();
-}
-
-class _PlayerEpisodeCardsState extends State<PlayerEpisodeCards> {
-  final _scroll = EpisodeListScrollController();
-
-  @override
-  void dispose() {
-    _scroll.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final names = distinctEpisodeNames(widget.files);
-    final current = widget.currentFileIndex;
-    _scroll.reveal(
-      context,
-      fileIndex: current,
-      // A separator occupies its own sliver index between rows.
-      itemIndex: 2 * widget.files.indexWhere((file) => file.index == current),
-    );
-    return ListView.separated(
-      controller: _scroll,
+    final names = distinctEpisodeNames(files);
+    return EpisodeListScrollView(
+      targetIndex: files.indexWhere((file) => file.index == currentFileIndex),
       padding: const EdgeInsets.only(bottom: 16),
-      itemCount: widget.files.length,
-      separatorBuilder: (_, _) =>
-          const Divider(height: 1, thickness: 1, color: Colors.white10),
+      itemCount: files.length,
       itemBuilder: (context, position) {
-        _scroll.trackItems(context);
-        final file = widget.files[position];
-        final isCurrent = file.index == current;
-        return _EpisodeCard(
-          key: isCurrent ? _scroll.targetKey : null,
+        final file = files[position];
+        final card = _EpisodeCard(
           file: file,
           position: position + 1,
           name: names[file.index],
-          isCurrent: isCurrent,
-          progress: widget.progressByFile[file.index],
-          listed: widget.listed.contains(file.index),
-          onTap: () => widget.onSelected(file),
+          isCurrent: file.index == currentFileIndex,
+          progress: progressByFile[file.index],
+          listed: listed.contains(file.index),
+          onTap: () => onSelected(file),
         );
+        return position == files.length - 1
+            ? card
+            : Column(
+                children: [
+                  card,
+                  const Divider(height: 1, thickness: 1, color: Colors.white10),
+                ],
+              );
       },
     );
   }
@@ -90,7 +73,6 @@ class _EpisodeCard extends StatefulWidget {
     required this.progress,
     required this.listed,
     required this.onTap,
-    super.key,
   });
 
   final PlayerVideoFile file;

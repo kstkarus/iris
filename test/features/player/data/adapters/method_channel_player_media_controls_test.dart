@@ -28,15 +28,16 @@ void main() {
 
       Future<int> publish(
         MethodChannelPlayerMediaControls controls,
-        String player,
-      ) async {
+        String player, {
+        bool buffering = false,
+      }) async {
         await controls.update(
           titles: (title: player, episode: 'Episode 3'),
-          playback: const (
-            position: Duration(milliseconds: 750),
-            duration: Duration(minutes: 5),
+          playback: (
+            position: const Duration(milliseconds: 750),
+            duration: const Duration(minutes: 5),
             playing: true,
-            buffering: false,
+            buffering: buffering,
             rate: 1.25,
           ),
           canNext: true,
@@ -73,15 +74,18 @@ void main() {
         'durationMs': 300000,
         'rate': 1.25,
       });
-      final second = await publish(current, 'Second');
+      final second = await publish(current, 'Second', buffering: true);
+      expect(calls.last.arguments['buffering'], isTrue);
       await old.deactivate();
       expect(calls, hasLength(2));
 
       await receive('play', first);
       await receive('unknown', second);
+      await receive('pause', second);
       await receive('seekTo', second, 8000);
       await receive('pauseImmediately', second);
       expect(commands, [
+        (player: 'Second', command: PlayerMediaCommand.pause, position: null),
         (
           player: 'Second',
           command: PlayerMediaCommand.seekTo,
@@ -98,7 +102,7 @@ void main() {
       expect(calls.last.method, 'deactivate');
       expect(calls.last.arguments, {'session': second});
       await receive('pause', second);
-      expect(commands, hasLength(2));
+      expect(commands, hasLength(3));
     },
   );
 }

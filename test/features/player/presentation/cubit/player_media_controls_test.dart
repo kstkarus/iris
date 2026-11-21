@@ -31,9 +31,11 @@ void main() {
   late FakePlayerEngine engine;
   late _MediaControls controls;
   late StubPlayerRepository repository;
+  late DateTime now;
 
   setUp(() {
     engine = FakePlayerEngine();
+    now = DateTime.utc(2026);
     controls = _MediaControls();
     repository = StubPlayerRepository(
       launches: (index) => Stream.value(
@@ -59,6 +61,7 @@ void main() {
       engine: engine,
       repository: repository,
       mediaControls: controls,
+      now: () => now,
       mediaTitles: (source) => (
         title: source.animeTitle,
         episode: 'Episode ${source.episodeNumber}',
@@ -163,13 +166,15 @@ void main() {
       await command(PlayerMediaCommand.seekForward, null);
       await command(PlayerMediaCommand.seekTo, const Duration(seconds: -1));
       await command(PlayerMediaCommand.seekTo, const Duration(seconds: 9));
+      await command(PlayerMediaCommand.seekTo, const Duration(seconds: 30));
       expect(engine.calls.skip(1), [
         'play',
         'pause',
         'seek 0:00:10.000000',
-        'seek 0:00:25.000000',
+        'seek 0:00:20.000000',
         'seek 0:00:00.000000',
         'seek 0:00:09.000000',
+        'seek 0:00:25.000000',
       ]);
 
       await playback(playing: false, duration: 0);
@@ -188,6 +193,74 @@ void main() {
       await command(PlayerMediaCommand.pauseImmediately, null);
       expect(engine.calls.length, before + 1);
       expect(engine.calls.last, 'pause immediately');
+    },
+  );
+
+  test('a system Pause stops a buffering stream', () async {
+    final cubit = createCubit();
+    await cubit.loadPlayback();
+    await playback(buffering: true, duration: 0);
+    expect(controls.updates.single.playback.buffering, isTrue);
+    engine.allowsStartingMediaPlayback = false;
+    await controls.handler!(PlayerMediaCommand.pause, null);
+    expect(engine.calls.last, 'pause');
+  });
+
+  test('rapid system skips accumulate until the seek settles', () async {
+    final cubit = createCubit();
+    await cubit.loadPlayback();
+    await playback(position: 20);
+    final command = controls.handler!;
+    await Future.wait([
+      command(PlayerMediaCommand.seekForward, null),
+      command(PlayerMediaCommand.seekForward, null),
+    ]);
+    expect(engine.calls.skip(1), [
+      'seek 0:00:30.000000',
+      'seek 0:00:40.000000',
+    ]);
+
+    await playback(position: 40);
+    await command(PlayerMediaCommand.seekBackward, null);
+    expect(engine.calls.last, 'seek 0:00:30.000000');
+    // No reply arrived for the backward seek. Use the real clock again.
+    now = now.add(const Duration(seconds: 1));
+    await command(PlayerMediaCommand.seekForward, null);
+    expect(engine.calls.last, 'seek 0:00:50.000000');
+
+    await command(PlayerMediaCommand.seekTo, const Duration(seconds: 8));
+    await playback(position: 8);
+    await command(PlayerMediaCommand.seekForward, null);
+    expect(engine.calls.last, 'seek 0:00:18.000000');
+  });
+
+  test('switching files drops the previous file’s pending seek', () async {
+    final cubit = createCubit(files: const [_first, _second]);
+    await cubit.loadPlayback();
+    await playback(position: 60);
+    await controls.handler!(PlayerMediaCommand.seekForward, null);
+    expect(engine.calls.last, 'seek 0:01:10.000000');
+
+    await controls.handler!(PlayerMediaCommand.next, null);
+    await playback(position: 3);
+    await controls.handler!(PlayerMediaCommand.seekForward, null);
+    expect(engine.calls.last, 'seek 0:00:13.000000');
+  });
+
+  test(
+    'a completed file uses its end position for the next system seek',
+    () async {
+      final cubit = createCubit();
+      await cubit.loadPlayback();
+      await playback(position: 70, duration: 100);
+      await controls.handler!(PlayerMediaCommand.seekForward, null);
+      expect(engine.calls.last, 'seek 0:01:20.000000');
+
+      await playback(position: 100, duration: 100, playing: false);
+      engine.emit(const PlayerEngineCompleted());
+      await pumpEventQueue(times: 1);
+      await controls.handler!(PlayerMediaCommand.seekBackward, null);
+      expect(engine.calls.last, 'seek 0:01:30.000000');
     },
   );
 

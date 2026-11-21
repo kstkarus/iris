@@ -17,13 +17,12 @@ void main() {
       tester,
     ) async {
       setTestWindowSize(tester, const Size(360, 290));
+      var rowBuilds = 0;
       final files = List.generate(
         800,
-        (position) => PlayerVideoFile(
+        (position) => _CountedFile(
           index: position * 3,
-          name: 'episode.mkv',
-          size: 1024 * 1024,
-          extension: 'mkv',
+          onRowBuild: () => rowBuilds++,
           title: position < 100 || position > 650
               ? 'Short title'
               : 'A long episode title that takes more than a single line',
@@ -84,18 +83,44 @@ void main() {
         expect(row.bottom, lessThanOrEqualTo(viewport.bottom));
       }
 
-      await show(400);
-      expectLazy();
+      await show(750);
       await tester.pumpAndSettle();
-      expectVisible(400);
+      expectVisible(750);
+      expect(rowBuilds, inInclusiveRange(1, layout == _Layout.grid ? 90 : 45));
       expectLazy();
 
       for (final position in [files.length - 1, 4]) {
+        rowBuilds = 0;
         await show(position);
         await tester.pumpAndSettle();
         expectVisible(position);
+        if (layout != _Layout.grid) {
+          expect(rowBuilds, inInclusiveRange(1, 45));
+          if (position == files.length - 1) {
+            final scrollable = tester.state<ScrollableState>(
+              find.byType(Scrollable),
+            );
+            expect(scrollable.position.extentAfter, closeTo(0, 0.01));
+          }
+        }
         expectLazy();
       }
     });
+  }
+}
+
+class _CountedFile extends PlayerVideoFile {
+  const _CountedFile({
+    required super.index,
+    required super.title,
+    required this.onRowBuild,
+  }) : super(name: 'episode.mkv', size: 1024 * 1024, extension: 'mkv');
+
+  final VoidCallback onRowBuild;
+
+  @override
+  String? get numberLabel {
+    onRowBuild();
+    return super.numberLabel;
   }
 }

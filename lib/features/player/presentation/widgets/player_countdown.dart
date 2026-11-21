@@ -1,3 +1,6 @@
+import 'dart:math' as math;
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'package:iris/shared/utils/motion_duration.dart';
@@ -14,6 +17,7 @@ class PlayerCountdown extends StatefulWidget {
     required this.onElapsed,
     required this.child,
     this.running = true,
+    this.runningListenable,
     super.key,
   });
 
@@ -26,6 +30,9 @@ class PlayerCountdown extends StatefulWidget {
   final VoidCallback onElapsed;
   final Widget child;
   final bool running;
+
+  /// Receives playback changes even while Flutter is between frames.
+  final ValueListenable<bool>? runningListenable;
 
   @override
   State<PlayerCountdown> createState() => _PlayerCountdownState();
@@ -41,6 +48,9 @@ class _PlayerCountdownState extends State<PlayerCountdown>
     animationBehavior: AnimationBehavior.preserve,
   )..addListener(_onTick);
   final _holds = <Object>{};
+  final _clock = Stopwatch();
+  double _remainingAtStart = 1;
+  bool get _running => widget.runningListenable?.value ?? widget.running;
 
   /// Whether this count has run out and said so.
   bool _elapsed = false;
@@ -48,25 +58,32 @@ class _PlayerCountdownState extends State<PlayerCountdown>
   @override
   void initState() {
     super.initState();
+    widget.runningListenable?.addListener(_syncRunning);
     _start(widget.duration);
   }
 
   @override
   void didUpdateWidget(covariant PlayerCountdown oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.runningListenable != widget.runningListenable) {
+      oldWidget.runningListenable?.removeListener(_syncRunning);
+      widget.runningListenable?.addListener(_syncRunning);
+    }
     if (widget.duration == null) {
+      _clock.stop();
       _controller
         ..stop()
         ..value = 1;
     } else if (oldWidget.duration == null) {
       if (_holds.isEmpty) _start(widget.duration);
-    } else if (widget.running != oldWidget.running && _holds.isEmpty) {
-      widget.running ? _resume() : _controller.stop();
+    } else {
+      _syncRunning();
     }
   }
 
   @override
   void dispose() {
+    widget.runningListenable?.removeListener(_syncRunning);
     _controller.dispose();
     super.dispose();
   }
@@ -75,13 +92,38 @@ class _PlayerCountdownState extends State<PlayerCountdown>
     if (duration == null) return;
     _elapsed = false;
     _controller.value = 1;
-    if (widget.running) _controller.animateTo(0, duration: duration);
+    if (_running) _resume();
+  }
+
+  void _syncRunning() {
+    final duration = widget.duration;
+    if (duration == null ||
+        _elapsed ||
+        _holds.isNotEmpty ||
+        _running == _clock.isRunning) {
+      return;
+    }
+    if (_running) {
+      _resume();
+    } else {
+      _clock.stop();
+      final remaining =
+          _remainingAtStart -
+          _clock.elapsedMicroseconds / duration.inMicroseconds;
+      _controller
+        ..stop()
+        ..value = math.min(_controller.value, remaining).clamp(0.0, 1.0);
+    }
   }
 
   /// Goes on from where the count stood, with the time that was left.
   void _resume() {
     final duration = widget.duration;
     if (duration == null || _elapsed || _controller.value <= 0) return;
+    _remainingAtStart = _controller.value;
+    _clock
+      ..reset()
+      ..start();
     _controller.animateTo(0, duration: duration * _controller.value);
   }
 
@@ -90,6 +132,7 @@ class _PlayerCountdownState extends State<PlayerCountdown>
   void _onTick() {
     if (_elapsed || widget.duration == null || _controller.value > 0) return;
     _elapsed = true;
+    _clock.stop();
     widget.onElapsed();
   }
 
@@ -97,6 +140,7 @@ class _PlayerCountdownState extends State<PlayerCountdown>
     if (!mounted) return;
     if (held) {
       if (_holds.add(reason) && widget.duration != null && !_elapsed) {
+        _clock.stop();
         _controller.animateTo(
           1,
           duration: motionDuration(context, PlayerCountdown.refill),
@@ -106,7 +150,7 @@ class _PlayerCountdownState extends State<PlayerCountdown>
     } else if (_holds.remove(reason) && _holds.isEmpty) {
       // From as full as the bar got: all of it after a rest, a little
       // more after a brush past, and never a jump.
-      if (widget.running) _resume();
+      if (_running) _resume();
     }
   }
 

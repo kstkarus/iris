@@ -56,6 +56,7 @@ T? _match<T>(
   final candidates = tracks.toList();
   final wantedLanguage = _normalize(preferred.language);
   final wantedAlias = _languageAlias(wantedLanguage);
+  final wantedPrimary = _primaryLanguage(wantedLanguage);
   final wantedTitle = _normalize(preferred.title);
   if (wantedLanguage == null && wantedTitle == null) return null;
 
@@ -66,6 +67,9 @@ T? _match<T>(
       _languageAlias(_normalize(language(track))) == wantedAlias;
   bool sameTitle(T track) =>
       wantedTitle != null && _normalize(title(track)) == wantedTitle;
+  bool samePrimary(T track) =>
+      wantedPrimary != null &&
+      _primaryLanguage(_normalize(language(track))) == wantedPrimary;
 
   for (final track in candidates) {
     if ((wantedLanguage == null || sameLanguage(track)) &&
@@ -83,9 +87,22 @@ T? _match<T>(
     if (sameAlias(track)) return track;
   }
   for (final track in candidates) {
+    if (samePrimary(track) && sameTitle(track)) return track;
+  }
+  for (final track in candidates) {
+    if (samePrimary(track)) return track;
+  }
+  for (final track in candidates) {
     if (sameTitle(track)) return track;
   }
   return null;
+}
+
+final _subtagSeparator = RegExp('[-_]');
+
+String? _primaryLanguage(String? language) {
+  final primary = language?.split(_subtagSeparator).first;
+  return _languageAlias(primary) ?? primary;
 }
 
 String? _languageAlias(String? language) => switch (language) {

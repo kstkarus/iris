@@ -45,15 +45,10 @@ class _PlayerAutoHidingOfferState extends State<PlayerAutoHidingOffer> {
   @override
   Widget build(BuildContext context) {
     final pinned = widget.pinned;
-    final running = widget.running ?? _always;
-    return ValueListenableBuilder<bool>(
-      valueListenable: running,
-      builder: (context, running, child) => PlayerCountdown(
-        duration: _intro && !pinned ? PlayerAutoHidingOffer.shownAtStart : null,
-        onElapsed: _endIntro,
-        running: running,
-        child: child!,
-      ),
+    return PlayerCountdown(
+      duration: _intro && !pinned ? PlayerAutoHidingOffer.shownAtStart : null,
+      onElapsed: _endIntro,
+      runningListenable: widget.running,
       child: ValueListenableBuilder<bool>(
         valueListenable: widget.controlsVisible,
         builder: (context, controlsVisible, child) {
@@ -83,5 +78,3 @@ class _PlayerAutoHidingOfferState extends State<PlayerAutoHidingOffer> {
     );
   }
 }
-
-final ValueListenable<bool> _always = ValueNotifier(true);

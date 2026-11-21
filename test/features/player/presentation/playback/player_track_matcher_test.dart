@@ -102,4 +102,25 @@ void main() {
       exact,
     );
   });
+
+  for (final (tag, primary, alias) in [
+    ('ja-JP', 'ja', 'jpn'),
+    ('ru-RU', 'ru', 'rus'),
+    ('en-US', 'en', 'eng'),
+    ('pt_BR', 'pt', 'pt-PT'),
+  ]) {
+    test('matches $tag by primary subtag while preferring an exact tag', () {
+      final regional = AudioTrack('1', 'Studio Band', tag);
+      final exact = AudioTrack('2', 'Other dub', primary);
+      final preferred = PreferredTrack(language: primary, title: 'Studio Band');
+      expect(matchAudioTrack([regional], preferred), regional);
+      expect(matchAudioTrack([regional, exact], preferred), exact);
+
+      final subtitles = SubtitleTrack('1', null, alias);
+      expect(
+        matchSubtitleTrack([subtitles], PreferredTrack(language: tag)),
+        subtitles,
+      );
+    });
+  }
 }

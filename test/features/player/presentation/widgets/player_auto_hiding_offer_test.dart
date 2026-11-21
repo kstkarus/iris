@@ -13,12 +13,17 @@ void main() {
     ValueNotifier<bool> controls, {
     bool reducedMotion = false,
     Widget child = plate,
+    ValueNotifier<bool>? running,
   }) => tester.pumpWidget(
     MaterialApp(
       home: MediaQuery(
         data: MediaQueryData(disableAnimations: reducedMotion),
         child: Center(
-          child: PlayerAutoHidingOffer(controlsVisible: controls, child: child),
+          child: PlayerAutoHidingOffer(
+            controlsVisible: controls,
+            running: running,
+            child: child,
+          ),
         ),
       ),
     ),
@@ -78,5 +83,35 @@ void main() {
     await pumpOffer(tester, controls, reducedMotion: true);
     expect(revealedCells(tester), BayerMask.steps);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('a pause between frames keeps the skip offer during PiP', (
+    tester,
+  ) async {
+    final controls = ValueNotifier(false);
+    final running = ValueNotifier(true);
+    addTearDown(controls.dispose);
+    addTearDown(running.dispose);
+    await pumpOffer(tester, controls, running: running);
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 2));
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    running.value = false;
+    // No frame can rebuild the widget between the pause and this time jump.
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pump(const Duration(seconds: 20));
+    final opacity = find.ancestor(
+      of: find.byKey(plate.key!),
+      matching: find.byType(AnimatedOpacity),
+    );
+    expect(tester.widget<AnimatedOpacity>(opacity).opacity, 1);
+
+    running.value = true;
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 5));
+    expect(tester.widget<AnimatedOpacity>(opacity).opacity, 1);
+    await tester.pump(const Duration(seconds: 1));
+    expect(tester.widget<AnimatedOpacity>(opacity).opacity, 0);
   });
 }
