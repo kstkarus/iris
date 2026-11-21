@@ -5025,6 +5025,80 @@ void main() {
     });
 
     testWidgets(
+      'Windows picture in picture keeps the resume notice countdown running instead of resetting it on return',
+      (tester) async {
+        setTestWindowSize(tester, TestWindowSizes.landscape);
+        final window = _FakeWindowsPictureInPicture();
+        final platformPlayer = _FakePlatformPlayer(
+          configuration: const PlayerConfiguration(),
+        );
+        var timeouts = 0;
+        late StateSetter setNotice;
+        PlayerNotice? notice;
+        notice = PlayerNotice(
+          message: 'Resumed from 0:39',
+          actionLabel: 'Start over',
+          onAction: () {},
+          timeout: const Duration(seconds: 8),
+          onTimeout: () {
+            timeouts++;
+            setNotice(() => notice = null);
+          },
+        );
+
+        await tester.pumpWidget(
+          StatefulBuilder(
+            builder: (context, setState) {
+              setNotice = setState;
+              return _wrapViewport(
+                platformPlayer: platformPlayer,
+                pictureInPicture: window,
+                chrome: PlayerChrome(
+                  title: 'Episode 1',
+                  onBack: _stayOnPage,
+                  notice: notice,
+                ),
+              );
+            },
+          ),
+        );
+        await tester.pump();
+        platformPlayer
+          ..emitDuration(const Duration(minutes: 24))
+          ..emitPlaying(true);
+        await _deliverPlayerEvent(tester);
+
+        expect(find.byKey(const Key('player_notice')), findsOneWidget);
+
+        // 3s elapsed in full player, 2s in Windows PiP -> 3s left on return.
+        await tester.pump(const Duration(seconds: 3));
+        window.enterCompact();
+        await tester.pump();
+        expect(find.byKey(const Key('player_notice')), findsNothing);
+
+        await tester.pump(const Duration(seconds: 2));
+        expect(timeouts, 0);
+
+        window.active.value = false;
+        await tester.pump();
+        expect(find.byKey(const Key('player_notice')), findsOneWidget);
+
+        // Expires after the remaining 3s, not a fresh 8s countdown.
+        await tester.pump(const Duration(seconds: 3));
+        await tester.pump();
+        expect(timeouts, 1);
+        expect(find.byKey(const Key('player_notice')), findsNothing);
+
+        // Re-entering and leaving PiP never brings the dismissed notice back.
+        window.enterCompact();
+        await tester.pump();
+        window.active.value = false;
+        await tester.pump();
+        expect(find.byKey(const Key('player_notice')), findsNothing);
+      },
+    );
+
+    testWidgets(
       'Windows compact keyboard skips large actions and Escape restores',
       (tester) async {
         setTestWindowSize(tester, TestWindowSizes.landscape);

@@ -69,9 +69,9 @@ typedef PlayerPanelOpener = Future<void> Function(BuildContext anchor);
 /// F full screen, N next episode, S skip, E episodes, Esc closes the drawer
 /// or leaves full screen.
 ///
-/// In picture in picture only the video shows. The offers keep running
-/// unseen, so the next episode still starts; a notice waits for the full
-/// player and counts down from the start there.
+/// In picture in picture only the video shows. Offers and the resume notice
+/// keep counting down unseen so returning from picture in picture never
+/// resets them.
 class PlayerImmersiveControls extends StatefulWidget {
   const PlayerImmersiveControls({
     required this.engine,
@@ -699,11 +699,7 @@ class _PlayerImmersiveControlsState extends State<PlayerImmersiveControls> {
         // Above the controls: the message and its retry take the taps
         // where they are, and the controls keep the rest of the screen.
         ?widget.failure,
-        _buildOffers(
-          pictureInPicture ? null : widget.chrome.notice,
-          accent,
-          metrics,
-        ),
+        _buildOffers(widget.chrome.notice, accent, metrics),
         if (widget.chrome.mark case final mark?)
           Positioned(
             key: const ValueKey('player_mark_slot'),
@@ -1000,82 +996,104 @@ class _PlayerImmersiveControlsState extends State<PlayerImmersiveControls> {
   ) {
     final engine = widget.engine;
     final left = _insets.left + (_touch && widget.brightness != null ? 40 : 0);
+    final hidden = _locked || widget.pictureInPicture;
     return Positioned(
       left: left,
       right: _insets.right,
       bottom: _offerClearance,
       child: Offstage(
-        offstage: _locked,
-        child: LayoutBuilder(
-          builder: (context, constraints) => Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Expanded(
-                child: notice == null
-                    ? const SizedBox.shrink()
-                    : Padding(
-                        padding: EdgeInsets.only(
-                          bottom: _playing ? 0 : math.max(0, _titleHeight - 12),
-                        ),
-                        child: Align(
-                          key: const ValueKey('player_notice_slot'),
-                          alignment: Alignment.bottomLeft,
-                          child: ConstrainedBox(
-                            // Leave the centered play target clear even in a
-                            // short landscape viewport with large text.
-                            constraints: BoxConstraints(
-                              maxWidth: math.max(
-                                0,
-                                (constraints.maxWidth +
-                                            _insets.right -
-                                            left -
-                                            metrics.playBox) /
-                                        2 -
-                                    8,
+        offstage: hidden,
+        child: ExcludeFocus(
+          excluding: hidden,
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final layoutWidth = hidden
+                  ? math.max(constraints.maxWidth, 640.0)
+                  : constraints.maxWidth;
+              return OverflowBox(
+                alignment: AlignmentDirectional.bottomStart,
+                fit: OverflowBoxFit.deferToChild,
+                minWidth: 0,
+                maxWidth: layoutWidth,
+                child: SizedBox(
+                  width: layoutWidth,
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Expanded(
+                        child: notice == null
+                            ? const SizedBox.shrink()
+                            : Padding(
+                                padding: EdgeInsets.only(
+                                  bottom: _playing
+                                      ? 0
+                                      : math.max(0, _titleHeight - 12),
+                                ),
+                                child: Align(
+                                  key: const ValueKey('player_notice_slot'),
+                                  alignment: Alignment.bottomLeft,
+                                  child: ConstrainedBox(
+                                    // Leave the centered play target clear even in a
+                                    // short landscape viewport with large text.
+                                    constraints: BoxConstraints(
+                                      maxWidth: math.max(
+                                        0,
+                                        (layoutWidth +
+                                                    _insets.right -
+                                                    left -
+                                                    metrics.playBox) /
+                                                2 -
+                                            8,
+                                      ),
+                                    ),
+                                    child: _NoticeCard(
+                                      key: ValueKey((
+                                        notice.onTimeout,
+                                        notice.id,
+                                      )),
+                                      notice: notice,
+                                      accent: accent,
+                                    ),
+                                  ),
+                                ),
                               ),
+                      ),
+                      ConstrainedBox(
+                        constraints: BoxConstraints(
+                          maxWidth: notice == null
+                              ? layoutWidth
+                              : layoutWidth * .4,
+                        ),
+                        child: MouseRegion(
+                          onEnter: (_) => _setHold(#offers, true),
+                          onExit: (_) => _setHold(#offers, false),
+                          child: PlayerSkipSegmentOffer(
+                            segment: engine.skipSegment,
+                            controlsVisible: _visibility,
+                            running: engine.advancing,
+                            fallback: _SkipForwardOffer(
+                              engine: engine,
+                              controlsVisible: _visibility,
                             ),
-                            child: _NoticeCard(
-                              key: ValueKey((notice.onTimeout, notice.id)),
-                              notice: notice,
-                              accent: accent,
+                            plate: (label, _) => _OfferButton.outlined(
+                              key: const Key('player_skip_segment_button'),
+                              label: label,
+                              onPressed: () {
+                                if (engine.skipSegment.value?.kind ==
+                                    PlayerSkipKind.opening) {
+                                  AppHaptics.light();
+                                }
+                                unawaited(engine.skipCurrentSegment());
+                              },
                             ),
                           ),
                         ),
                       ),
-              ),
-              if (!widget.windowsPictureInPicture)
-                ConstrainedBox(
-                  constraints: BoxConstraints(
-                    maxWidth: notice == null
-                        ? constraints.maxWidth
-                        : constraints.maxWidth * .4,
-                  ),
-                  child: MouseRegion(
-                    onEnter: (_) => _setHold(#offers, true),
-                    onExit: (_) => _setHold(#offers, false),
-                    child: PlayerSkipSegmentOffer(
-                      segment: engine.skipSegment,
-                      controlsVisible: _visibility,
-                      running: engine.advancing,
-                      fallback: _SkipForwardOffer(
-                        engine: engine,
-                        controlsVisible: _visibility,
-                      ),
-                      plate: (label, _) => _OfferButton.outlined(
-                        key: const Key('player_skip_segment_button'),
-                        label: label,
-                        onPressed: () {
-                          if (engine.skipSegment.value?.kind ==
-                              PlayerSkipKind.opening) {
-                            AppHaptics.light();
-                          }
-                          unawaited(engine.skipCurrentSegment());
-                        },
-                      ),
-                    ),
+                    ],
                   ),
                 ),
-            ],
+              );
+            },
           ),
         ),
       ),
