@@ -6,6 +6,7 @@ import 'package:iris/features/app_update/presentation/widgets/update_notice.dart
 import 'package:iris/features/settings/presentation/widgets/settings_dialog.dart';
 import 'package:iris/features/settings/presentation/widgets/settings_icon_button.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
+import 'package:iris/shared/haptics/app_haptics.dart';
 import 'package:iris/shared/widgets/adaptive/window_size_class.dart';
 import 'package:iris/shared/widgets/marked_tab.dart';
 import 'package:iris/shared/widgets/pixel_icon.dart';
@@ -191,6 +192,7 @@ class _TopBar extends StatelessWidget {
                             MarkedTab(
                               label: labels[index],
                               selected: index == selectedIndex,
+                              selectionFeedback: false,
                               onTap: () => onSelected(index),
                             ),
                           Expanded(
@@ -328,7 +330,10 @@ class _BottomTab extends StatelessWidget {
       selected: selected,
       button: true,
       child: InkWell(
-        onTap: onTap,
+        onTap: () {
+          if (!selected) AppHaptics.selection();
+          onTap();
+        },
         child: Column(
           children: [
             const SizedBox(height: 2),

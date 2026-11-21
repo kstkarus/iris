@@ -37,7 +37,7 @@ class DownloadSelectionCubit extends Cubit<DownloadSelectionState> {
   StreamSubscription<Map<int, DownloadItem>>? _downloadsSubscription;
   Map<int, DownloadItem> _downloads = const {};
   bool _downloadsFailed = false;
-  Future<void>? _batch;
+  Future<bool>? _batch;
 
   Future<void> load() async {
     final attempt = ++_attempt;
@@ -246,33 +246,34 @@ class DownloadSelectionCubit extends Cubit<DownloadSelectionState> {
     return added;
   }
 
-  Future<void> downloadSelected() {
+  Future<bool> downloadSelected() {
     final current = state;
     if (current is! DownloadSelectionReady ||
         !current.selecting ||
         current.selected.isEmpty) {
-      return Future.value();
+      return Future.value(false);
     }
     return _batch ??= _downloadFiles(
       selected: current.selected,
     ).whenComplete(() => _batch = null);
   }
 
-  Future<void> _downloadFiles({required Set<int> selected}) async {
+  Future<bool> _downloadFiles({required Set<int> selected}) async {
     final current = state;
     if (current is! DownloadSelectionReady ||
         current.addingBatch ||
         current.adding.isNotEmpty) {
-      return;
+      return false;
     }
     emit(current.copyWith(addingBatch: true));
     final failed = <int>{};
     try {
       for (final file in current.source.files) {
         if (!selected.contains(file.index)) continue;
-        if (isClosed || !identical(_source, current.source)) return;
+        if (isClosed || !identical(_source, current.source)) return false;
         if (!await _download(file)) failed.add(file.index);
       }
+      return failed.isEmpty && !isClosed && identical(_source, current.source);
     } finally {
       final latest = state;
       if (!isClosed && latest is DownloadSelectionReady) {

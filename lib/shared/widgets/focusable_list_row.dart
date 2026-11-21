@@ -65,6 +65,8 @@ class _FocusableListRowState extends State<FocusableListRow> {
             type: MaterialType.transparency,
             child: InkWell(
               key: widget.inkKey,
+              // The long-press action supplies its own feedback.
+              enableFeedback: widget.onLongPress == null,
               focusNode: widget.focusNode,
               onTap: widget.onTap,
               onLongPress: widget.onLongPress,

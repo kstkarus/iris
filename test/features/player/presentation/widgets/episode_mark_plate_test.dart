@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:haptic_feedback/haptic_feedback.dart';
 
 import 'package:iris/app/theme/app_theme.dart';
 import 'package:iris/entities/user_rate/domain/mark_episode_watched.dart';
@@ -11,6 +12,7 @@ import 'package:iris/features/player/domain/entities/player_video_file.dart';
 import 'package:iris/features/player/presentation/cubit/episode_mark_cubit.dart';
 import 'package:iris/features/player/presentation/widgets/episode_mark_plate.dart';
 
+import '../../../../helpers/record_haptics.dart';
 import '../../../../helpers/test_app.dart';
 import '../../../../helpers/test_window.dart';
 
@@ -37,6 +39,47 @@ const _marked = EpisodeMarked(
 );
 
 void main() {
+  testWidgets('only an explicitly confirmed episode mark vibrates', (
+    tester,
+  ) async {
+    final effects = recordHaptics();
+    final cubit = EpisodeMarkCubit(
+      markEpisode: _Marker(),
+      userId: '42',
+      sessionGeneration: () => 0,
+    );
+    final visible = ValueNotifier(true);
+    addTearDown(cubit.close);
+    addTearDown(visible.dispose);
+    await tester.pumpWidget(_app(cubit, visible));
+
+    cubit.watched(_source);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.text('Episode 11 marked'), findsOneWidget);
+    expect(effects, isEmpty);
+
+    cubit.watched(
+      _source.withFile(
+        const PlayerVideoFile(
+          index: 1,
+          name: 'Episode 12.mkv',
+          size: 0,
+          extension: 'mkv',
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.text('Mark episode 12 on Shikimori?'), findsOneWidget);
+    expect(effects, isEmpty);
+    await tester.tap(find.text('Mark'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.text('Episode 12 marked'), findsOneWidget);
+    expect(effects, [HapticsType.success]);
+  });
+
   testWidgets('shows an indicator during undo, then allows restore', (
     tester,
   ) async {

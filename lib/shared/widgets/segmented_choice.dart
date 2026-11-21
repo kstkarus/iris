@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'package:iris/shared/haptics/app_haptics.dart';
 import 'package:iris/shared/widgets/detail_layout.dart';
 
 /// One option of a [SegmentedChoice].
@@ -108,7 +109,12 @@ class SegmentedChoice<T> extends StatelessWidget {
                             textStyle: textStyle,
                             onTap: onSelected == null
                                 ? null
-                                : () => onSelected(option.value),
+                                : () {
+                                    if (option.value != selected) {
+                                      AppHaptics.selection();
+                                    }
+                                    onSelected(option.value);
+                                  },
                           ),
                         ),
                     ],

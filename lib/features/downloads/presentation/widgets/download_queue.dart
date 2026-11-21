@@ -8,6 +8,7 @@ import 'package:iris/features/downloads/domain/entities/download_status.dart';
 import 'package:iris/features/downloads/presentation/cubit/download_manager_cubit.dart';
 import 'package:iris/features/downloads/presentation/cubit/download_manager_state.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
+import 'package:iris/shared/haptics/app_haptics.dart';
 import 'package:iris/shared/utils/byte_size_formatter.dart';
 import 'package:iris/shared/utils/motion_duration.dart';
 import 'package:iris/shared/widgets/detail_layout.dart';
@@ -153,6 +154,7 @@ class _DownloadQueueViewState extends State<DownloadQueueView> {
                 // A changed membership cancels a drag before an obsolete index can be applied.
                 key: ValueKey('queue_waiting_${membership.join(',')}'),
                 itemCount: waiting.length,
+                onReorderStart: (_) => AppHaptics.light(),
                 onReorderItem: (from, to) {
                   final ids = waiting.map((item) => item.id).toList();
                   if (from < 0 || from >= ids.length) return;

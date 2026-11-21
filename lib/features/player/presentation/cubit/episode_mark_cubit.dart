@@ -204,13 +204,14 @@ class EpisodeMarkCubit extends Cubit<EpisodeMarkState> {
     if (given) unawaited(_mark(item, EpisodeMarkAction.mark));
   }
 
-  void confirm() {
+  /// Reports whether this action saved a new mark from an explicit offer.
+  Future<bool> confirm() async {
     final item = _shown;
-    if (item == null) return;
+    if (item == null) return false;
     switch (item.state) {
       case EpisodeMarkOffered():
         item.keepResult = true;
-        unawaited(_mark(item, EpisodeMarkAction.mark));
+        return _mark(item, EpisodeMarkAction.mark);
       case EpisodeMarkFailed(:final action)
           when action != EpisodeMarkAction.undo:
         item.keepResult = true;
@@ -222,6 +223,7 @@ class EpisodeMarkCubit extends Cubit<EpisodeMarkState> {
         unawaited(_mark(item, EpisodeMarkAction.restore));
       default:
     }
+    return false;
   }
 
   Future<void> undo() async {
@@ -272,14 +274,14 @@ class EpisodeMarkCubit extends Cubit<EpisodeMarkState> {
     _revision.value++;
   }
 
-  Future<void> _mark(
+  Future<bool> _mark(
     _MarkItem item,
     EpisodeMarkAction action, {
     bool retry = false,
   }) async {
     final userId = _userId;
     final session = _session;
-    if (userId == null || !_isCurrent(session, userId)) return;
+    if (userId == null || !_isCurrent(session, userId)) return false;
     final previous = item.state;
     item.lastUpdate = null;
     _set(item, EpisodeMarkSaving(item.episode, action));
@@ -298,7 +300,7 @@ class EpisodeMarkCubit extends Cubit<EpisodeMarkState> {
               episode: item.episode,
               isCurrent: () => _isCurrent(session, userId),
             );
-      if (!_isCurrent(session, userId)) return;
+      if (!_isCurrent(session, userId)) return false;
       final update = item.lastUpdate;
       _applyResult(
         item,
@@ -309,11 +311,12 @@ class EpisodeMarkCubit extends Cubit<EpisodeMarkState> {
             : result,
         initial: action == EpisodeMarkAction.mark && !retry,
       );
+      return item.state is EpisodeMarkDone;
     } on Object {
       if (_isCurrent(session, userId)) {
         if (previous is EpisodeMarkQueued) {
           _set(item, EpisodeMarkQueued(item.episode, failed: true));
-          return;
+          return false;
         }
         final mark = switch (previous) {
           EpisodeMarkUndone(:final mark) => mark,
@@ -322,6 +325,7 @@ class EpisodeMarkCubit extends Cubit<EpisodeMarkState> {
         };
         _set(item, EpisodeMarkFailed(item.episode, action, mark: mark));
       }
+      return false;
     }
   }
 

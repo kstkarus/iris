@@ -15,6 +15,7 @@ import 'package:iris/features/player/presentation/widgets/player_overlay_prefere
 import 'package:iris/features/player/presentation/widgets/player_panel.dart';
 import 'package:iris/features/player/presentation/playback/player_subtitle_preferences_mapper.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
+import 'package:iris/shared/haptics/app_haptics.dart';
 import 'package:iris/shared/utils/motion_duration.dart';
 import 'package:iris/shared/widgets/detail_layout.dart';
 import 'package:iris/shared/widgets/pixel_icon.dart';
@@ -656,7 +657,10 @@ class _AdvancedContent extends StatelessWidget {
           PlayerChoiceRow(
             label: _decoderLabel(l10n, preset),
             selected: decoder == preset,
-            onTap: () => decodingCubit.setHwdecMode(preset),
+            onTap: () {
+              if (decoder != preset) AppHaptics.selection();
+              decodingCubit.setHwdecMode(preset);
+            },
           ),
         const SizedBox(height: 8),
         if (hasSubtitles)

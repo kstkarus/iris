@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:haptic_feedback/haptic_feedback.dart';
 
 import 'package:iris/app/theme/app_theme.dart';
 import 'package:iris/features/downloads/data/repositories/mock_downloads_repository.dart';
@@ -17,6 +18,7 @@ import 'package:iris/shared/widgets/focusable_list_row.dart';
 import 'package:flutter/rendering.dart';
 import 'package:iris/features/downloads/presentation/widgets/download_queue.dart';
 import 'package:iris/shared/widgets/adaptive/page_frame.dart';
+import '../../../../helpers/record_haptics.dart';
 import '../../../../helpers/test_app.dart';
 import '../../../../helpers/test_window.dart';
 
@@ -25,6 +27,7 @@ void main() {
     testWidgets(
       'confirmed queue deletion survives a removed row (failure: $fails)',
       (tester) async {
+        final effects = recordHaptics();
         setTestWindowSize(tester, const Size(390, 844));
         final active = _item('active', 1, DownloadStatus.downloading);
         final next = _item('next', 2, DownloadStatus.queued);
@@ -59,11 +62,13 @@ void main() {
         await tester.pumpAndSettle();
         expect(rowContext.mounted, isFalse);
         expect(manager.isClosed, isFalse);
+        expect(effects, isEmpty);
         await tester.tap(find.byKey(const Key('download_delete_confirm')));
         await tester.pumpAndSettle();
         expect(repository.deleted, ['active']);
         expect(repository.items.any((item) => item.id == active.id), fails);
         expect(find.byType(SnackBar), fails ? findsOneWidget : findsNothing);
+        expect(effects, [HapticsType.medium, if (fails) HapticsType.error]);
       },
     );
   }
@@ -361,6 +366,7 @@ void main() {
   testWidgets(
     'a single unlinked file supports selection, cancel, Back and delete',
     (tester) async {
+      final effects = recordHaptics();
       setTestWindowSize(tester, const Size(390, 844));
       final item = _item(
         'one',
@@ -395,10 +401,20 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await _select(tester);
+      await tester.longPress(find.byKey(const ValueKey('one')));
       await tester.pumpAndSettle();
+      expect(find.byKey(const Key('download_delete')), findsOneWidget);
+      expect(effects, [HapticsType.medium]);
+      await tester.tapAt(const Offset(8, 8));
+      await tester.pumpAndSettle();
+      await tester.longPress(
+        find.byKey(const Key('download_header_expanded_identity')),
+      );
+      await tester.pumpAndSettle();
+      expect(effects, [HapticsType.medium, HapticsType.medium]);
       await tester.tap(find.byKey(const Key('download_delete_all')));
       await tester.pumpAndSettle();
+      expect(effects.last, HapticsType.selection);
       await tester.binding.handlePopRoute();
       await tester.pumpAndSettle();
       expect(repository.deleted, isEmpty);

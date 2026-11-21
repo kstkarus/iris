@@ -5,6 +5,7 @@ import 'package:iris/features/downloads/domain/entities/download_item.dart';
 import 'package:iris/features/downloads/domain/entities/download_status.dart';
 import 'package:iris/features/downloads/presentation/cubit/download_manager_cubit.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
+import 'package:iris/shared/haptics/app_haptics.dart';
 import 'package:iris/shared/utils/byte_size_formatter.dart';
 import 'package:iris/shared/widgets/adaptive/show_app_dialog.dart';
 
@@ -58,6 +59,7 @@ Future<Set<String>?> confirmDownloadDeletion(
         FilledButton(
           key: const Key('download_delete_confirm'),
           onPressed: () {
+            AppHaptics.medium();
             dismissed = ModalRoute.of<bool>(dialogContext)?.completed;
             Navigator.pop(dialogContext, true);
           },
@@ -71,7 +73,9 @@ Future<Set<String>?> confirmDownloadDeletion(
   await dismissed;
   if (cubit.isClosed) return null;
   final failed = await cubit.deleteMany(items.map((item) => item.id));
-  if (failed.isNotEmpty && !selected && messenger.mounted) {
+  if (failed.isEmpty || !messenger.mounted) return failed;
+  AppHaptics.error();
+  if (!selected) {
     messenger.showSnackBar(
       SnackBar(
         content: Text(

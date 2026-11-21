@@ -211,7 +211,10 @@ class _SkipForwardOffer extends StatelessWidget {
             child: _OfferButton.outlined(
               key: const Key('player_skip_forward_button'),
               label: l10n.playerSkipForward(seconds),
-              onPressed: () => unawaited(engine.skipForward()),
+              onPressed: () {
+                AppHaptics.light();
+                unawaited(engine.skipForward());
+              },
             ),
           ),
         );

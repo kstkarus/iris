@@ -9,6 +9,7 @@ import 'package:iris/features/player/presentation/widgets/player_colors.dart';
 import 'package:iris/features/player/presentation/widgets/player_countdown.dart';
 import 'package:iris/features/player/presentation/widgets/player_wait_indicator.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
+import 'package:iris/shared/haptics/app_haptics.dart';
 import 'package:iris/shared/utils/motion_duration.dart';
 import 'package:iris/shared/widgets/active_layer.dart';
 import 'package:iris/shared/widgets/detail_layout.dart';
@@ -216,15 +217,15 @@ class _EpisodeMarkPlateState extends State<EpisodeMarkPlate> {
       EpisodeMarkConflict() => l10n.playerMarkDismiss,
       _ => null,
     };
-    void act() {
+    Future<void> act() async {
       if (state is EpisodeMarkDone ||
           state is EpisodeMarkFailed &&
               state.action == EpisodeMarkAction.undo) {
         unawaited(widget.cubit.undo());
       } else if (state is EpisodeMarkConflict) {
         widget.cubit.dismiss();
-      } else {
-        widget.cubit.confirm();
+      } else if (await widget.cubit.confirm() && mounted) {
+        AppHaptics.success();
       }
     }
 

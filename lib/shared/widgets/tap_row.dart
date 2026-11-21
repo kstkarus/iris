@@ -25,6 +25,8 @@ class TapRow extends StatelessWidget {
       type: MaterialType.transparency,
       child: InkWell(
         key: inkKey,
+        // The long-press action supplies its own feedback.
+        enableFeedback: onLongPress == null,
         onTap: onTap,
         onLongPress: onLongPress,
         child: child,

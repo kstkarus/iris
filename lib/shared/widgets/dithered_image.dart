@@ -5,6 +5,7 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 
+import 'package:iris/shared/haptics/app_haptics.dart';
 import 'package:iris/shared/utils/bayer_mask.dart';
 import 'package:iris/shared/utils/ordered_dither.dart';
 import 'package:iris/shared/widgets/pixel_noise.dart';
@@ -200,6 +201,9 @@ class _DitheredImageState extends State<DitheredImage>
   void _toggle() {
     final animate = !MediaQuery.disableAnimationsOf(context);
     final showOriginal = _reveal.value < 0.5;
+    if (showOriginal && _halftone != null && !_reveal.isForwardOrCompleted) {
+      AppHaptics.light();
+    }
     if (!animate) {
       _reveal.value = showOriginal ? 1 : 0;
     } else if (showOriginal) {

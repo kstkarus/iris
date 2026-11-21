@@ -12,6 +12,7 @@ import 'package:iris/features/anime_list/presentation/bloc/anime_search_bloc.dar
 import 'package:iris/features/anime_list/presentation/cubit/anime_genres_cubit.dart';
 import 'package:iris/features/anime_list/presentation/cubit/anime_list_preview_cubit.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
+import 'package:iris/shared/haptics/app_haptics.dart';
 import 'package:iris/shared/utils/motion_duration.dart';
 import 'package:iris/shared/widgets/adaptive/show_adaptive_sheet.dart';
 import 'package:iris/shared/widgets/app_skeleton.dart';
@@ -142,6 +143,9 @@ class _AnimeListCriteriaSheetState extends State<_AnimeListCriteriaSheet> {
   }
 
   void _reset() {
+    if (_filters.hasAny || _sort != AnimeListSortOption.popularity) {
+      AppHaptics.selection();
+    }
     _change(() {
       _sort = AnimeListSortOption.popularity;
       _kinds = {};
@@ -549,7 +553,10 @@ class _FilterTag extends StatelessWidget {
           final foreground = Color.lerp(scheme.onSurface, scheme.surface, t)!;
           final border = Color.lerp(unselectedBorder, scheme.onSurface, t)!;
           return OutlinedButton(
-            onPressed: () => onChanged(!selected),
+            onPressed: () {
+              AppHaptics.selection();
+              onChanged(!selected);
+            },
             style: OutlinedButton.styleFrom(
               minimumSize: const Size(48, 44),
               padding: const EdgeInsets.symmetric(horizontal: 12),

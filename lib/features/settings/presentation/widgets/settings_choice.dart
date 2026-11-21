@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import 'package:iris/features/settings/presentation/widgets/settings_row.dart';
+import 'package:iris/shared/haptics/app_haptics.dart';
 import 'package:iris/shared/widgets/checked_menu_item.dart';
 import 'package:iris/shared/widgets/detail_layout.dart';
 import 'package:iris/shared/widgets/focusable_list_row.dart';
@@ -52,7 +53,10 @@ class _SettingsMenuChoiceState<T> extends State<SettingsMenuChoice<T>> {
         for (final option in widget.options)
           CheckedMenuItem(
             checked: option.value == widget.selected,
-            onPressed: () => widget.onSelected(option.value),
+            onPressed: () {
+              if (option.value != widget.selected) AppHaptics.selection();
+              widget.onSelected(option.value);
+            },
             child: Text(
               option.label,
               style: const TextStyle(fontFamily: DetailLayout.sansFont),

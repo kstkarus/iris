@@ -6,6 +6,7 @@ import 'package:iris/features/settings/presentation/cubit/animejoy_account_cubit
 import 'package:iris/features/settings/presentation/cubit/animejoy_account_state.dart';
 import 'package:iris/features/settings/presentation/widgets/settings_row.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
+import 'package:iris/shared/haptics/app_haptics.dart';
 import 'package:iris/shared/widgets/adaptive/show_adaptive_sheet.dart';
 import 'package:iris/shared/widgets/adaptive/window_size_class.dart';
 import 'package:iris/shared/widgets/busy_button_child.dart';
@@ -187,17 +188,20 @@ class _AnimejoySignInFormState extends State<AnimejoySignInForm> {
 
   Future<void> _submit() async {
     final cubit = context.read<AnimejoyAccountCubit>();
-    if (cubit.state is! AnimejoyAccountSignedOut ||
-        !_formKey.currentState!.validate()) {
+    if (cubit.state is! AnimejoyAccountSignedOut) return;
+    if (!_formKey.currentState!.validate()) {
+      AppHaptics.error();
       return;
     }
     setState(() => _failure = null);
     await cubit.signIn(login: _login.text, password: _password.text);
     if (!mounted || ModalRoute.of(context)?.isCurrent != true) return;
     if (cubit.state is AnimejoyAccountSignedIn) {
+      AppHaptics.success();
       TextInput.finishAutofillContext();
       widget.onDone();
     } else if (cubit.state case AnimejoyAccountSignedOut(:final failure)) {
+      if (failure != null) AppHaptics.error();
       setState(() => _failure = failure);
     }
   }

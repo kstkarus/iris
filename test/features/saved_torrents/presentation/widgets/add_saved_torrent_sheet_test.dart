@@ -4,12 +4,15 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:haptic_feedback/haptic_feedback.dart';
 
 import 'package:iris/features/saved_torrents/domain/repositories/saved_torrents_repository.dart';
 import 'package:iris/features/saved_torrents/presentation/widgets/add_saved_torrent_sheet.dart';
 import 'package:iris/shared/torrent/torrent_file_picker.dart';
 
 import '../../../../helpers/bencode.dart';
+import '../../../../helpers/memory_saved_torrents_repository.dart';
+import '../../../../helpers/record_haptics.dart';
 import '../../../../helpers/test_app.dart';
 import '../../../../helpers/test_window.dart';
 
@@ -83,18 +86,29 @@ void main() {
   });
 
   testWidgets('adds the link of the torrent shown', (tester) async {
-    await pumpForm(tester, initialMagnet: _magnet);
+    final effects = recordHaptics();
+    final repository = MemorySavedTorrentsRepository();
+    await pumpForm(
+      tester,
+      initialMagnet: _magnet,
+      onSave: (magnet) {
+        saved.add(magnet);
+        return repository.add(animeId: '1', magnet: magnet);
+      },
+    );
 
     expect(find.text('Frieren BD'), findsOneWidget, reason: 'a paste');
     await tester.tap(find.byKey(AddSavedTorrentForm.saveButtonKey));
     await tester.pumpAndSettle();
 
     expect(saved, [_magnet]);
+    expect(effects, [HapticsType.success]);
   });
 
   testWidgets('a failed save keeps the draft and can be retried', (
     tester,
   ) async {
+    final effects = recordHaptics();
     await pumpForm(
       tester,
       initialMagnet: _magnet,
@@ -111,10 +125,12 @@ void main() {
     expect(find.text("Couldn't save the torrent. Try again."), findsOneWidget);
     expect(find.text('Frieren BD'), findsOneWidget);
     expect(canAdd(tester), isTrue);
+    expect(effects, [HapticsType.error]);
 
     await tester.tap(add);
     await tester.pumpAndSettle();
     expect(saved, [_magnet, _magnet]);
+    expect(effects, [HapticsType.error, HapticsType.warning]);
   });
 
   testWidgets('closing a saving sheet keeps the page beneath it open', (
@@ -168,6 +184,7 @@ void main() {
   testWidgets('says a text is not a link once the user is done with it', (
     tester,
   ) async {
+    final effects = recordHaptics();
     await pumpForm(tester);
     await tester.enterText(
       find.byKey(AddSavedTorrentForm.magnetFieldKey),
@@ -175,10 +192,12 @@ void main() {
     );
     await tester.pump();
     expect(find.textContaining('Not a magnet link'), findsNothing);
+    expect(effects, isEmpty);
 
     await tester.testTextInput.receiveAction(TextInputAction.done);
     await tester.pump();
     expect(find.textContaining('Not a magnet link'), findsOneWidget);
+    expect(effects, [HapticsType.warning]);
   });
 
   testWidgets('a paste that is not a link starts an empty form', (

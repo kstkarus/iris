@@ -7,6 +7,7 @@ import 'package:iris/features/anime_list/presentation/bloc/anime_list_bloc.dart'
 import 'package:iris/features/anime_list/presentation/bloc/anime_list_event.dart';
 import 'package:iris/features/anime_list/presentation/widgets/anime_list_criteria_sheet.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
+import 'package:iris/shared/haptics/app_haptics.dart';
 import 'package:iris/shared/widgets/dither_list.dart';
 import 'package:iris/shared/widgets/dither_switcher.dart';
 import 'package:iris/shared/widgets/pixel_icon.dart';
@@ -91,9 +92,13 @@ class AnimeListFilterChips extends StatelessWidget {
             ),
           ),
     ];
-    void apply(AnimeListFilters value) => context.read<AnimeListBloc>().add(
-      AnimeListCriteriaApplied(filters: value),
-    );
+    void apply(AnimeListFilters value) {
+      AppHaptics.selection();
+      context.read<AnimeListBloc>().add(
+        AnimeListCriteriaApplied(filters: value),
+      );
+    }
+
     return DitherSwitcher(
       collapse: true,
       reverseDuration: DitherList.horizontalRemovalDuration,

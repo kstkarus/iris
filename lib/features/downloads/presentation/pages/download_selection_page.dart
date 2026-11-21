@@ -7,6 +7,7 @@ import 'package:iris/features/downloads/presentation/models/download_selection_a
 import 'package:iris/features/downloads/presentation/widgets/download_selection_view.dart';
 import 'package:iris/features/downloads/domain/entities/download_item.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
+import 'package:iris/shared/haptics/app_haptics.dart';
 import 'package:iris/shared/widgets/adaptive/page_frame.dart';
 import 'package:iris/shared/widgets/page_title.dart';
 import 'package:iris/shared/widgets/adaptive/framed_app_bar.dart';
@@ -97,7 +98,13 @@ class _SelectionActions extends StatelessWidget {
           child: TextButton(
             key: const Key('download_selection_all'),
             style: style,
-            onPressed: state.addingBatch ? null : cubit.selectAll,
+            onPressed: state.addingBatch
+                ? null
+                : () {
+                    final before = cubit.state;
+                    cubit.selectAll();
+                    if (cubit.state != before) AppHaptics.selection();
+                  },
             child: Text(
               allSelected ? l10n.downloadDeselectAll : l10n.downloadSelectAll,
               maxLines: 2,

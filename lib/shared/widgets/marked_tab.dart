@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'package:iris/shared/haptics/app_haptics.dart';
 import 'package:iris/shared/utils/bayer_mask.dart';
 import 'package:iris/shared/utils/motion_duration.dart';
 import 'package:iris/shared/widgets/detail_layout.dart';
@@ -13,6 +14,7 @@ class MarkedTab extends StatelessWidget {
     required this.label,
     required this.selected,
     required this.onTap,
+    this.selectionFeedback = true,
     super.key,
   });
 
@@ -21,6 +23,7 @@ class MarkedTab extends StatelessWidget {
   final String label;
   final bool selected;
   final VoidCallback onTap;
+  final bool selectionFeedback;
 
   @override
   Widget build(BuildContext context) {
@@ -59,7 +62,10 @@ class MarkedTab extends StatelessWidget {
       selected: selected,
       button: true,
       child: InkWell(
-        onTap: onTap,
+        onTap: () {
+          if (!selected && selectionFeedback) AppHaptics.selection();
+          onTap();
+        },
         child: ConstrainedBox(
           constraints: const BoxConstraints(minHeight: 44),
           child: Padding(

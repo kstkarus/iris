@@ -7,6 +7,7 @@ import 'package:iris/features/downloads/domain/entities/download_title.dart';
 import 'package:iris/features/downloads/presentation/cubit/download_manager_cubit.dart';
 import 'package:iris/features/downloads/presentation/cubit/download_manager_state.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
+import 'package:iris/shared/haptics/app_haptics.dart';
 import 'package:iris/shared/utils/byte_size_formatter.dart';
 import 'package:iris/shared/utils/motion_duration.dart';
 import 'package:iris/shared/widgets/adaptive/show_adaptive_sheet.dart';
@@ -41,12 +42,14 @@ class _DownloadFilesState extends State<_DownloadFiles> {
   Future<void> _clear() async {
     final cubit = context.read<DownloadManagerCubit>();
     final l10n = AppLocalizations.of(context);
+    AppHaptics.medium();
     setState(() {
       _clearing = true;
       _clearMessage = null;
     });
     final cleared = await cubit.clearCache();
     if (!mounted) return;
+    if (!cleared) AppHaptics.error();
     setState(() {
       _clearing = false;
       _clearMessage = cleared

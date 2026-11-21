@@ -12,6 +12,7 @@ import 'package:iris/features/downloads/presentation/widgets/download_selection_
 import 'package:iris/features/downloads/presentation/widgets/download_status_label.dart';
 import 'package:iris/features/online_sources/domain/online_episode_files.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
+import 'package:iris/shared/haptics/app_haptics.dart';
 import 'package:iris/shared/utils/byte_size_formatter.dart';
 import 'package:iris/shared/utils/episode_number.dart';
 import 'package:iris/shared/utils/file_display_name.dart';
@@ -75,6 +76,7 @@ class _FileList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final files = state.source.files;
+    final cubit = context.read<DownloadSelectionCubit>();
     final scheme = Theme.of(context).colorScheme;
     final rule = DetailLayout.ruleColor(scheme);
     final list = ListView.builder(
@@ -101,14 +103,20 @@ class _FileList extends StatelessWidget {
             selected: state.selected.contains(file.index),
             selectable: state.canSelect(file.index),
             onSelect: !state.addingBatch && state.canSelect(file.index)
-                ? () => context.read<DownloadSelectionCubit>().toggleSelection(
-                    file.index,
-                  )
+                ? () {
+                    final before = cubit.state;
+                    cubit.toggleSelection(file.index);
+                    if (cubit.state != before) AppHaptics.selection();
+                  }
                 : null,
             onStartSelection: state.canStartSelection
-                ? () => context.read<DownloadSelectionCubit>().startSelection(
-                    index: state.canSelect(file.index) ? file.index : null,
-                  )
+                ? () {
+                    final before = cubit.state;
+                    cubit.startSelection(
+                      index: state.canSelect(file.index) ? file.index : null,
+                    );
+                    if (cubit.state != before) AppHaptics.medium();
+                  }
                 : null,
             onWatch: onWatch,
           ),
@@ -116,7 +124,6 @@ class _FileList extends StatelessWidget {
       },
     );
     final qualities = state.source.qualities;
-    final cubit = context.read<DownloadSelectionCubit>();
     final l10n = AppLocalizations.of(context);
     return PopScope(
       canPop: !state.selecting || state.addingBatch,
@@ -140,7 +147,18 @@ class _FileList extends StatelessWidget {
               style: busyButtonStyle(busy: state.addingBatch),
               onPressed: state.addingBatch || state.selected.isEmpty
                   ? null
-                  : cubit.downloadSelected,
+                  : () async {
+                      if (cubit.state case DownloadSelectionReady(
+                        addingBatch: true,
+                      )) {
+                        return;
+                      }
+                      if (await cubit.downloadSelected() &&
+                          context.mounted &&
+                          ModalRoute.of(context)?.isCurrent != false) {
+                        AppHaptics.success();
+                      }
+                    },
               child: BusyButtonChild(
                 cubit.args.isOnlineRelease
                     ? l10n.downloadSelectedEpisodes(state.selected.length)

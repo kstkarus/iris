@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:haptic_feedback/haptic_feedback.dart';
 
 import 'package:iris/app/theme/app_theme.dart';
 import 'package:iris/features/app_update/domain/entities/app_release.dart';
@@ -26,6 +27,7 @@ import 'package:iris/shared/widgets/pixel_noise.dart';
 import 'package:iris/shared/widgets/segmented_bar.dart';
 import 'package:iris/shared/widgets/status_views.dart';
 
+import '../../../../helpers/record_haptics.dart';
 import '../../../../helpers/test_app.dart';
 import '../../../../helpers/test_window.dart';
 import '../../../app_update/app_update_test_doubles.dart';
@@ -313,6 +315,7 @@ void main() {
   testWidgets(
     'AnimeJoy sign-in handles validation, failure, success and sign-out',
     (tester) async {
+      final effects = recordHaptics();
       final repo = FakeAnimejoyAccountRepository()
         ..signInSession = () async => throw const AnimejoySignInRejected();
       await pumpSettings(tester, animejoyRepo: repo);
@@ -337,6 +340,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(signIn.hitTestable(), findsOneWidget);
       expect(repo.credentials, isEmpty);
+      expect(effects, isEmpty);
 
       await tester.tap(signIn);
       await tester.pumpAndSettle();
@@ -347,6 +351,7 @@ void main() {
       expect(find.text('Enter username'), findsOneWidget);
       expect(find.text('Enter password'), findsOneWidget);
       expect(repo.credentials, isEmpty);
+      expect(effects, [HapticsType.error]);
 
       // Invalid credentials keep the sheet open and show the error.
       await tester.enterText(
@@ -362,6 +367,7 @@ void main() {
       expect(repo.credentials, [('user', 'wrong')]);
       expect(find.byKey(AnimejoyAccountSection.signInSheetKey), findsOneWidget);
       expect(find.text('Wrong username or password'), findsOneWidget);
+      expect(effects, [HapticsType.error, HapticsType.error]);
 
       // Valid credentials sign in and close the sheet.
       repo.signInSession = null;
@@ -388,6 +394,11 @@ void main() {
         findsOneWidget,
       );
       expect(tester.takeException(), isNull);
+      expect(effects, [
+        HapticsType.error,
+        HapticsType.error,
+        HapticsType.success,
+      ]);
     },
   );
 

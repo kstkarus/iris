@@ -1,3 +1,7 @@
+plugins {
+    id("org.jetbrains.kotlin.android") apply false
+}
+
 allprojects {
     repositories {
         google()
@@ -14,6 +18,12 @@ rootProject.layout.buildDirectory.value(newBuildDir)
 subprojects {
     val newSubprojectBuildDir: Directory = newBuildDir.dir(project.name)
     project.layout.buildDirectory.value(newSubprojectBuildDir)
+    // haptic_feedback expects built-in Kotlin. Supply Kotlin while Iris uses AGP 8.
+    if (name == "haptic_feedback") {
+        pluginManager.withPlugin("com.android.library") {
+            pluginManager.apply("org.jetbrains.kotlin.android")
+        }
+    }
 }
 subprojects {
     project.evaluationDependsOn(":app")

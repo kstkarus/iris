@@ -10,6 +10,7 @@ import 'package:iris/features/saved_torrents/domain/entities/saved_torrent.dart'
 import 'package:iris/features/saved_torrents/presentation/cubit/saved_torrents_cubit.dart';
 import 'package:iris/features/saved_torrents/presentation/widgets/saved_torrent_dialogs.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
+import 'package:iris/shared/haptics/app_haptics.dart';
 import 'package:iris/shared/torrent/torrent_key.dart';
 import 'package:iris/shared/utils/desktop_platform.dart';
 import 'package:iris/shared/utils/duration_formatter.dart';
@@ -139,7 +140,11 @@ class _TorrentRowState extends State<_TorrentRow> {
       // Also while its menu is open, which then plainly acts on this row.
       filled: widget.highlighted || _menuOpen,
       onTap: widget.onWatch,
-      onLongPress: _menu.open,
+      onLongPress: () {
+        if (_menu.isOpen) return;
+        _menu.open();
+        if (_menu.isOpen) AppHaptics.medium();
+      },
       onSecondaryTap: _menu.open,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(14, 14, 4, 14),
@@ -370,6 +375,7 @@ Future<void> _deleteWithUndo(BuildContext context, SavedTorrent torrent) async {
   final cubit = context.read<SavedTorrentsCubit>();
   final messenger = ScaffoldMessenger.of(context);
   final l10n = AppLocalizations.of(context);
+  AppHaptics.medium();
   await cubit.delete(torrent);
   messenger
     ..hideCurrentSnackBar()

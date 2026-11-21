@@ -1,9 +1,11 @@
+import 'package:flutter/foundation.dart' show defaultTargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+import 'package:haptic_feedback/haptic_feedback.dart';
 
 import 'package:iris/app/router/app_shell_page.dart';
 import 'package:iris/app/di/service_locator.dart';
@@ -19,6 +21,7 @@ import 'package:iris/features/settings/presentation/widgets/animejoy_account_sec
 import 'package:iris/shared/widgets/page_title.dart';
 
 import '../helpers/mock_app.dart';
+import '../helpers/record_haptics.dart';
 import '../helpers/test_window.dart';
 
 const _firstTitle = 'Fullmetal Alchemist: Brotherhood';
@@ -59,6 +62,36 @@ void _useRussianAtDoubleText(WidgetTester tester) {
 }
 
 void main() {
+  testWidgets(
+    'bottom navigation vibrates only for a different tab on mobile',
+    (tester) async {
+      final effects = recordHaptics();
+      await pumpMockApp(tester, size: TestWindowSizes.phone);
+      final bar = find.byKey(AppShellPage.navigationBarKey);
+      Finder tab(String label) =>
+          find.descendant(of: bar, matching: find.text(label));
+
+      await tester.tap(tab('Catalog'));
+      await tester.pumpAndSettle();
+      expect(effects, isEmpty);
+
+      await tester.tap(tab('Downloads'));
+      await tester.pumpAndSettle();
+      final router = GoRouter.of(tester.element(find.byType(AppShellPage)));
+      expect(router.state.uri.path, '/downloads');
+      await tester.tap(tab('Downloads'));
+      await tester.pumpAndSettle();
+      expect(effects, [
+        if (defaultTargetPlatform == TargetPlatform.android)
+          HapticsType.selection,
+      ]);
+    },
+    variant: const TargetPlatformVariant({
+      TargetPlatform.android,
+      TargetPlatform.windows,
+    }),
+  );
+
   testWidgets('queue Back returns to downloads and Files opens the title', (
     tester,
   ) async {

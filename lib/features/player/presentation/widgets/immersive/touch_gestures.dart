@@ -188,11 +188,16 @@ class _TouchGesturesState extends State<_TouchGestures> {
   }
 
   void _seek(_SeekStreak streak) {
-    setState(() => _streak = streak);
-    var target = streak.target;
     final duration = widget.duration();
-    if (target < Duration.zero) target = Duration.zero;
-    if (duration > Duration.zero && target > duration) target = duration;
+    Duration clamp(Duration target) {
+      if (target < Duration.zero) return Duration.zero;
+      return duration > Duration.zero && target > duration ? duration : target;
+    }
+
+    final previous = clamp(_streak?.target ?? streak.anchor);
+    final target = clamp(streak.target);
+    setState(() => _streak = streak);
+    if (target != previous) AppHaptics.light();
     widget.onSeek(target);
     _streakTimer?.cancel();
     _streakTimer = Timer(_TouchGestures.streakWindow, _endStreak);
@@ -222,6 +227,7 @@ class _TouchGesturesState extends State<_TouchGestures> {
     if (held == _fastForward) return;
     setState(() => _fastForward = held);
     widget.onFastForward(held);
+    if (held) AppHaptics.medium();
   }
 
   void _onScaleStart(ScaleStartDetails details) {
@@ -251,6 +257,7 @@ class _TouchGesturesState extends State<_TouchGestures> {
     _scaleDecided = true;
     final videoFit = widget.videoFit;
     if (videoFit == null) return;
+    if (videoFit.value != fit) AppHaptics.light();
     videoFit.value = fit;
     _fitPlateTimer?.cancel();
     setState(() => _fitPlate = fit);
@@ -282,7 +289,10 @@ class _TouchGesturesState extends State<_TouchGestures> {
                 GestureRecognizerFactoryWithHandlers<
                   LongPressGestureRecognizer
                 >(
-                  () => LongPressGestureRecognizer(debugOwner: this),
+                  () => LongPressGestureRecognizer(
+                    debugOwner: this,
+                    duration: const Duration(milliseconds: 300),
+                  ),
                   (recognizer) => recognizer
                     ..onLongPressStart = _onLongPressStart
                     ..onLongPressEnd = _onLongPressEnd

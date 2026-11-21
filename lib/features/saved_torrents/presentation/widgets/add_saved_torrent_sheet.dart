@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 
 import 'package:iris/features/saved_torrents/domain/repositories/saved_torrents_repository.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
+import 'package:iris/shared/haptics/app_haptics.dart';
 import 'package:iris/shared/torrent/magnet_link.dart';
 import 'package:iris/shared/torrent/torrent_file.dart';
 import 'package:iris/shared/torrent/torrent_file_picker.dart';
@@ -142,6 +143,7 @@ class _AddSavedTorrentFormState extends State<AddSavedTorrentForm> {
   /// Says the text is not a link only when the user is done with it.
   void _checkLink() {
     if (_draft != null || _magnetController.text.trim().isEmpty) return;
+    AppHaptics.warning();
     setState(() => _problem = _Problem.invalidLink);
   }
 
@@ -159,6 +161,7 @@ class _AddSavedTorrentFormState extends State<AddSavedTorrentForm> {
       bytes = await widget.pickFile();
     } on TorrentFileTooLargeException {
       if (!mounted) return;
+      AppHaptics.warning();
       setState(() {
         _draft = null;
         _problem = _Problem.fileTooLarge;
@@ -172,6 +175,7 @@ class _AddSavedTorrentFormState extends State<AddSavedTorrentForm> {
         stackTrace: stackTrace,
       );
       if (!mounted) return;
+      AppHaptics.warning();
       setState(() {
         _draft = null;
         _problem = _Problem.fileReadFailed;
@@ -180,6 +184,7 @@ class _AddSavedTorrentFormState extends State<AddSavedTorrentForm> {
     }
     if (!mounted || bytes == null) return;
     final torrent = TorrentFile.tryParse(bytes);
+    if (torrent == null) AppHaptics.warning();
     setState(() {
       _draft = torrent == null ? null : _FileDraft(torrent);
       _problem = torrent == null ? _Problem.notTorrent : null;
@@ -213,6 +218,7 @@ class _AddSavedTorrentFormState extends State<AddSavedTorrentForm> {
         stackTrace: stackTrace,
       );
       if (!mounted) return;
+      if (route?.isCurrent != false) AppHaptics.error();
       setState(() {
         _saving = false;
         _problem = _Problem.saveFailed;
@@ -223,6 +229,12 @@ class _AddSavedTorrentFormState extends State<AddSavedTorrentForm> {
     if (route?.isCurrent == false) {
       setState(() => _saving = false);
       return;
+    }
+    switch (result) {
+      case SaveTorrentAdded():
+        AppHaptics.success();
+      case SaveTorrentDuplicate() || SaveTorrentInvalidMagnet():
+        AppHaptics.warning();
     }
     Navigator.of(context).pop(result);
   }

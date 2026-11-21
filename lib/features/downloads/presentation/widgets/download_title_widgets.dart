@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart' show PointerDeviceKind;
 import 'package:flutter/material.dart';
 
 import 'package:iris/features/downloads/domain/entities/download_status.dart';
@@ -67,6 +68,7 @@ class DownloadAdaptiveTitleHeader extends StatefulWidget {
     required this.menu,
     required this.buildList,
     this.selectionActions,
+    this.onHoldToSelect,
     super.key,
   });
 
@@ -75,6 +77,7 @@ class DownloadAdaptiveTitleHeader extends StatefulWidget {
   final Widget? menu;
   final Widget Function(Widget? header) buildList;
   final Widget? selectionActions;
+  final VoidCallback? onHoldToSelect;
 
   @override
   State<DownloadAdaptiveTitleHeader> createState() =>
@@ -169,9 +172,11 @@ class _DownloadAdaptiveTitleHeaderState
           key: const Key('download_header_expanded_identity'),
           child: HeadlineAnchor(
             key: _expandedIdentityKey,
-            child: Semantics(
-              header: true,
-              child: DownloadTitleIdentity(title: title),
+            child: _holdToSelect(
+              Semantics(
+                header: true,
+                child: DownloadTitleIdentity(title: title),
+              ),
             ),
           ),
         ),
@@ -179,6 +184,13 @@ class _DownloadAdaptiveTitleHeaderState
       ],
     );
   }
+
+  Widget _holdToSelect(Widget child) => GestureDetector(
+    behavior: HitTestBehavior.opaque,
+    supportedDevices: const {PointerDeviceKind.touch},
+    onLongPress: widget.onHoldToSelect,
+    child: child,
+  );
 
   Widget _toolbar() {
     final title = widget.title;
@@ -228,9 +240,12 @@ class _DownloadAdaptiveTitleHeaderState
                 duration: const Duration(milliseconds: 300),
                 child: titleWidget,
               );
+              final identity = title != null && (shown || widget.desktop)
+                  ? _holdToSelect(switcher)
+                  : switcher;
               return widget.desktop
-                  ? switcher
-                  : ExcludeSemantics(child: switcher);
+                  ? identity
+                  : ExcludeSemantics(child: identity);
             },
           ),
         ),

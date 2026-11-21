@@ -7,6 +7,7 @@ import 'package:iris/entities/user_rate/presentation/user_rate_cubit.dart';
 import 'package:iris/entities/user_rate/presentation/user_rate_state.dart';
 import 'package:iris/entities/user_rate/presentation/user_rate_status_label.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
+import 'package:iris/shared/haptics/app_haptics.dart';
 import 'package:iris/shared/utils/motion_duration.dart';
 import 'package:iris/shared/widgets/app_skeleton.dart';
 import 'package:iris/shared/widgets/checked_menu_item.dart';
@@ -145,12 +146,17 @@ class _Controls extends StatelessWidget {
       context,
       const Duration(milliseconds: 200),
     );
-    if (sizeDuration == Duration.zero) return column;
-    return AnimatedSize(
-      duration: sizeDuration,
-      curve: Curves.easeOutCubic,
-      alignment: Alignment.topCenter,
-      child: column,
+    return BlocListener<UserRateCubit, UserRateState>(
+      listenWhen: (_, state) => state is UserRateLoaded && state.saveFailed,
+      listener: (_, _) => AppHaptics.error(),
+      child: sizeDuration == Duration.zero
+          ? column
+          : AnimatedSize(
+              duration: sizeDuration,
+              curve: Curves.easeOutCubic,
+              alignment: Alignment.topCenter,
+              child: column,
+            ),
     );
   }
 }
@@ -314,7 +320,7 @@ class _StatusMenu extends StatelessWidget {
             checked: status == rate?.status,
             onPressed: status == rate?.status
                 ? null
-                : () => cubit.setStatus(status),
+                : () => _selectRate(cubit, () => cubit.setStatus(status)),
             child: Text(userRateStatusLabel(l10n, status)),
           ),
         if (rate != null)
@@ -362,13 +368,15 @@ class _ScoreMenu extends StatelessWidget {
         for (var value = UserRate.maxScore; value >= 1; value--)
           CheckedMenuItem(
             checked: value == score,
-            onPressed: value == score ? null : () => cubit.setScore(value),
+            onPressed: value == score
+                ? null
+                : () => _selectRate(cubit, () => cubit.setScore(value)),
             child: Text('$value'),
           ),
         if (score > 0)
           CheckedMenuItem(
             checked: false,
-            onPressed: () => cubit.setScore(0),
+            onPressed: () => _selectRate(cubit, () => cubit.setScore(0)),
             child: Text(l10n.userRateNoScore),
           ),
       ],
@@ -486,7 +494,10 @@ class _SplitStepper extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 12),
               ),
               onPressed: rate.episodes > 0
-                  ? () => cubit.stepEpisodes(-1, total: total)
+                  ? () => _selectRate(
+                      cubit,
+                      () => cubit.stepEpisodes(-1, total: total),
+                    )
                   : null,
               icon: const PixelIcon(PixelGlyph.minus, size: 13),
             ),
@@ -499,7 +510,10 @@ class _SplitStepper extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 12),
               ),
               onPressed: total <= 0 || rate.episodes < total
-                  ? () => cubit.stepEpisodes(1, total: total)
+                  ? () => _selectRate(
+                      cubit,
+                      () => cubit.stepEpisodes(1, total: total),
+                    )
                   : null,
               icon: const PixelIcon(PixelGlyph.plus, size: 13),
             ),
@@ -507,5 +521,16 @@ class _SplitStepper extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+void _selectRate(UserRateCubit cubit, VoidCallback update) {
+  final previous = cubit.state;
+  update();
+  final current = cubit.state;
+  if (previous is UserRateLoaded &&
+      current is UserRateLoaded &&
+      current.rate != previous.rate) {
+    AppHaptics.selection();
   }
 }

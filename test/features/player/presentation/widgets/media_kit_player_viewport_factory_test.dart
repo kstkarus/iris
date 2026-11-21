@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:haptic_feedback/haptic_feedback.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 
@@ -40,6 +41,7 @@ import 'package:iris/shared/window/screen_brightness_control.dart';
 
 import '../../../../helpers/fake_player_repository.dart';
 import '../../../../helpers/memory_online_quality_preferences.dart';
+import '../../../../helpers/record_haptics.dart';
 import '../../../../helpers/test_app.dart';
 import '../../../../helpers/test_window.dart';
 import '../../player_test_doubles.dart';
@@ -3767,11 +3769,13 @@ void main() {
 
     testWidgets('seek 10 s on a double tap at a side and 10 s more on each '
         'tap after, from where the taps began', (tester) async {
+      final effects = recordHaptics();
       final platformPlayer = await playerAt(tester);
 
       await tester.tapAt(right);
       await tester.pump(const Duration(milliseconds: 100));
       expect(platformPlayer.seeks, isEmpty, reason: 'waits for a second tap');
+      expect(effects, isEmpty);
       await tester.tapAt(right);
       await tester.pump();
       expect(platformPlayer.seeks, [const Duration(minutes: 5, seconds: 10)]);
@@ -3794,6 +3798,7 @@ void main() {
         const Duration(minutes: 5, seconds: 30),
       );
       expect(find.text('+30'), findsOneWidget);
+      expect(effects, List.filled(3, HapticsType.light));
 
       await tester.pump(const Duration(milliseconds: 700));
       expect(plate('player_seek_streak_plate'), findsNothing);
@@ -3810,7 +3815,20 @@ void main() {
         const Duration(minutes: 4, seconds: 40),
       );
       expect(find.text('−20'), findsOneWidget);
+      expect(effects, List.filled(5, HapticsType.light));
       await tester.pump(const Duration(milliseconds: 700));
+
+      platformPlayer.emitPosition(const Duration(seconds: 5));
+      await _deliverPlayerEvent(tester);
+      await tester.tapAt(left);
+      await tester.pump(const Duration(milliseconds: 100));
+      await tester.tapAt(left);
+      await tester.pump();
+      expect(platformPlayer.seeks.last, Duration.zero);
+      expect(effects, List.filled(6, HapticsType.light));
+      await tester.tapAt(left);
+      await tester.pump(const Duration(milliseconds: 700));
+      expect(effects, List.filled(6, HapticsType.light));
     });
 
     testWidgets('answer a tap in the middle at once and one at a side after '
@@ -3863,20 +3881,26 @@ void main() {
     testWidgets('play at 2x while a long press holds, only during playback', (
       tester,
     ) async {
+      final effects = recordHaptics();
       final platformPlayer = await playerAt(tester);
 
       var press = await tester.startGesture(middle);
       await tester.pump(kLongPressTimeout + const Duration(milliseconds: 100));
       expect(platformPlayer.rates, isEmpty, reason: 'paused');
       expect(plate('player_fast_forward_plate'), findsNothing);
+      expect(effects, isEmpty);
       await press.up();
       await tester.pump();
 
       platformPlayer.emitPlaying(true);
       await _deliverPlayerEvent(tester);
       press = await tester.startGesture(middle);
-      await tester.pump(kLongPressTimeout + const Duration(milliseconds: 100));
+      await tester.pump(const Duration(milliseconds: 299));
+      expect(effects, isEmpty);
+      expect(platformPlayer.rates, isEmpty);
+      await tester.pump(const Duration(milliseconds: 1));
       expect(platformPlayer.rates, [2]);
+      expect(effects, [HapticsType.medium]);
       expect(
         find.descendant(
           of: plate('player_fast_forward_plate'),
@@ -3890,10 +3914,12 @@ void main() {
       expect(platformPlayer.rates, [2, 1]);
       expect(plate('player_fast_forward_plate'), findsNothing);
       expect(platformPlayer.seeks, isEmpty);
+      expect(effects, [HapticsType.medium]);
     });
 
     testWidgets('fill the screen on a pinch out and fit the video back on a '
         'pinch in', (tester) async {
+      final effects = recordHaptics();
       double zoom() => tester
           .widget<Transform>(
             find
@@ -3930,12 +3956,17 @@ void main() {
       );
       await tester.pump(const Duration(seconds: 1));
       expect(plate('player_fit_plate'), findsNothing);
+      expect(effects, [HapticsType.light]);
+
+      await _pinch(tester, middle, from: 40, to: 90);
+      expect(effects, [HapticsType.light]);
 
       await _pinch(tester, middle, from: 100, to: 40);
       expect(find.text('Fit to screen'), findsOneWidget);
       await tester.pump(const Duration(milliseconds: 300));
       expect(zoom(), moreOrLessEquals(1));
       await tester.pump(const Duration(seconds: 1));
+      expect(effects, [HapticsType.light, HapticsType.light]);
     });
 
     testWidgets('keep mpv subtitles on screen when a filled screen crops the '
@@ -3962,6 +3993,7 @@ void main() {
 
     testWidgets('lock the screen: no touch gets through and playback goes on '
         'until unlocked', (tester) async {
+      final effects = recordHaptics();
       setTestWindowSize(tester, phone);
       final platformPlayer = _FakePlatformPlayer(
         configuration: const PlayerConfiguration(),
@@ -3995,6 +4027,7 @@ void main() {
       expect(opacity(tester), 0);
       expect(find.byKey(const Key('player_notice')), findsNothing);
       expect(unlockPlate(), findsNothing);
+      expect(effects, [HapticsType.light]);
 
       await tester.tapAt(right);
       await tester.pump(const Duration(milliseconds: 100));
@@ -4010,6 +4043,7 @@ void main() {
       expect(platformPlayer.state.playing, isTrue, reason: 'it plays on');
       expect(opacity(tester), 0);
       expect(unlockPlate(), findsOneWidget, reason: 'a tap shows the way out');
+      expect(effects, [HapticsType.light, HapticsType.warning]);
 
       await tester.pump(const Duration(seconds: 3));
       expect(unlockPlate(), findsNothing);
@@ -4022,11 +4056,18 @@ void main() {
       expect(opacity(tester), 1);
       await tester.tap(find.byKey(const Key('player_notice_action')));
       expect(restarts, 1);
+      expect(effects, [
+        HapticsType.light,
+        HapticsType.warning,
+        HapticsType.warning,
+        HapticsType.light,
+      ]);
     });
 
     testWidgets('only show the way to unlock on Back while locked', (
       tester,
     ) async {
+      final effects = recordHaptics();
       setTestWindowSize(tester, phone);
       var leaves = 0;
       tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
@@ -4053,6 +4094,7 @@ void main() {
       await tester.pump();
       expect(leaves, 0, reason: 'the player stays');
       expect(unlockPlate(), findsOneWidget);
+      expect(effects, [HapticsType.light]);
 
       await tester.tap(unlockPlate());
       await tester.pump();

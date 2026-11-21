@@ -9,6 +9,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:media_kit/media_kit.dart';
 
+import 'package:iris/features/player/domain/entities/player_skip_segment.dart';
 import 'package:iris/features/player/domain/player_timeline_parts.dart';
 import 'package:iris/features/player/presentation/playback/media_kit_player_engine.dart';
 import 'package:iris/features/player/presentation/playback/player_track_availability.dart';
@@ -19,6 +20,7 @@ import 'package:iris/features/player/presentation/widgets/player_seek_bar.dart';
 import 'package:iris/features/player/presentation/widgets/player_viewport_factory.dart';
 import 'package:iris/features/player/presentation/widgets/player_wait_indicator.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
+import 'package:iris/shared/haptics/app_haptics.dart';
 import 'package:iris/shared/utils/duration_formatter.dart';
 import 'package:iris/shared/utils/motion_duration.dart';
 import 'package:iris/shared/window/screen_brightness_control.dart';
@@ -366,6 +368,7 @@ class _PlayerImmersiveControlsState extends State<PlayerImmersiveControls> {
   /// Everything over the video goes and takes no touches; playback goes
   /// on.
   void _lockScreen() {
+    AppHaptics.light();
     _hideTimer?.cancel();
     setState(() {
       _lock = _ScreenLock.locked;
@@ -376,7 +379,8 @@ class _PlayerImmersiveControlsState extends State<PlayerImmersiveControls> {
   }
 
   /// A touch on the locked screen shows the way out for a while.
-  void _revealUnlock() {
+  void _revealUnlock({bool fromTap = false}) {
+    if (fromTap && _lock == _ScreenLock.locked) AppHaptics.warning();
     _unlockPlateTimer?.cancel();
     setState(() => _lock = _ScreenLock.revealed);
     _unlockPlateTimer = Timer(_ScreenLock.plateShownFor, () {
@@ -387,6 +391,7 @@ class _PlayerImmersiveControlsState extends State<PlayerImmersiveControls> {
   }
 
   void _unlockScreen() {
+    AppHaptics.light();
     _unlockPlateTimer?.cancel();
     setState(() => _lock = _ScreenLock.unlocked);
     _showControls();
@@ -796,7 +801,7 @@ class _PlayerImmersiveControlsState extends State<PlayerImmersiveControls> {
               if (_locked)
                 _LockLayer(
                   revealed: _lock == _ScreenLock.revealed,
-                  onReveal: _revealUnlock,
+                  onReveal: () => _revealUnlock(fromTap: true),
                   onUnlock: _unlockScreen,
                 ),
             ],
@@ -1064,7 +1069,13 @@ class _PlayerImmersiveControlsState extends State<PlayerImmersiveControls> {
                       plate: (label, _) => _OfferButton.outlined(
                         key: const Key('player_skip_segment_button'),
                         label: label,
-                        onPressed: () => unawaited(engine.skipCurrentSegment()),
+                        onPressed: () {
+                          if (engine.skipSegment.value?.kind ==
+                              PlayerSkipKind.opening) {
+                            AppHaptics.light();
+                          }
+                          unawaited(engine.skipCurrentSegment());
+                        },
                       ),
                     ),
                   ),

@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:haptic_feedback/haptic_feedback.dart';
 
 import 'package:iris/shared/widgets/segmented_choice.dart';
+
+import '../../helpers/record_haptics.dart';
 
 void main() {
   Future<void> pump(
@@ -47,13 +50,24 @@ void main() {
     return fill.left - control.left;
   }
 
-  testWidgets('reports the tapped option', (tester) async {
+  testWidgets('reports the tapped option and vibrates for a changed choice', (
+    tester,
+  ) async {
+    final effects = recordHaptics();
     int? picked;
     await pump(tester, selected: 1, onSelected: (value) => picked = value);
 
+    await tester.tap(find.text('Standard'));
+    await tester.pump();
+    expect(effects, isEmpty);
     await tester.tap(find.text('Higher'));
+    await tester.pump();
 
     expect(picked, 2);
+    expect(effects, [HapticsType.selection]);
+    await pump(tester, selected: 0);
+    await tester.pumpAndSettle();
+    expect(effects, [HapticsType.selection]);
   });
 
   testWidgets('slides the fill to a new choice', (tester) async {

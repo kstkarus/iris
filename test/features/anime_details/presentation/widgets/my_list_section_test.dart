@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:haptic_feedback/haptic_feedback.dart';
 
 import 'package:iris/entities/user_rate/data/mock_user_rate_repository.dart';
 import 'package:iris/entities/user_rate/domain/user_rate.dart';
@@ -11,6 +12,7 @@ import 'package:iris/entities/user_rate/presentation/user_rate_cubit.dart';
 import 'package:iris/features/anime_details/presentation/widgets/my_list_section.dart';
 import 'package:iris/shared/widgets/app_skeleton.dart';
 
+import '../../../../helpers/record_haptics.dart';
 import '../../../../helpers/test_app.dart';
 
 void main() {
@@ -24,12 +26,16 @@ void main() {
 
   tearDown(() => cubit.close());
 
-  Future<void> pumpSection(WidgetTester tester, {int total = 12}) async {
+  Future<void> pumpSection(
+    WidgetTester tester, {
+    int total = 12,
+    UserRateCubit? rateCubit,
+  }) async {
     await tester.pumpWidget(
       testApp(
         Scaffold(
           body: BlocProvider.value(
-            value: cubit,
+            value: rateCubit ?? cubit,
             child: MyListSection(totalEpisodes: total),
           ),
         ),
@@ -120,6 +126,7 @@ void main() {
   });
 
   testWidgets('steps the episodes watched within the total', (tester) async {
+    final effects = recordHaptics();
     await repository.save(
       userId: '42',
       animeId: '1',
@@ -130,6 +137,9 @@ void main() {
     );
     await cubit.accountChanged('42');
     await pumpSection(tester, total: 1181);
+    cubit.setScore(7);
+    await tester.pumpAndSettle();
+    expect(effects, isEmpty);
 
     await tester.tap(find.byKey(MyListSection.episodeMoreKey));
     await tester.pumpAndSettle();
@@ -140,6 +150,9 @@ void main() {
           .onPressed,
       isNull,
     );
+    await tester.tap(find.byKey(MyListSection.episodeMoreKey));
+    await tester.pumpAndSettle();
+    expect(effects, [HapticsType.selection]);
 
     await tester.tap(find.byKey(MyListSection.episodeLessKey));
     await tester.pumpAndSettle();
@@ -148,6 +161,30 @@ void main() {
       find.bySemanticsLabel('Episodes watched: 1180 / 1181'),
       findsOneWidget,
     );
+    expect(effects, [HapticsType.selection, HapticsType.selection]);
+  });
+
+  testWidgets('a rejected list edit rolls back with an error haptic', (
+    tester,
+  ) async {
+    final effects = recordHaptics();
+    final rejectingCubit = UserRateCubit(
+      repository: _RejectingRates(),
+      animeId: '1',
+    );
+    addTearDown(rejectingCubit.close);
+    await rejectingCubit.accountChanged('42');
+    await pumpSection(tester, rateCubit: rejectingCubit);
+    expect(effects, isEmpty);
+
+    await tester.tap(find.byKey(MyListSection.statusButtonKey));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Watching'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Shikimori did not save the change.'), findsOneWidget);
+    expect(find.text('Add to list'), findsOneWidget);
+    expect(effects, [HapticsType.selection, HapticsType.error]);
   });
 
   testWidgets('takes the anime out of the list', (tester) async {
@@ -254,6 +291,19 @@ void main() {
     await tester.pump();
     expect(find.text('1 / 12'), findsOneWidget);
   });
+}
+
+class _RejectingRates extends MockUserRateRepository {
+  @override
+  Future<UserRate> save({
+    required String userId,
+    required String animeId,
+    required String? rateId,
+    UserRateStatus? status,
+    int? episodes,
+    int? score,
+    int? rewatches,
+  }) async => throw Exception('save failed');
 }
 
 /// [inner], with the entry held back until [gate] opens.

@@ -22,6 +22,7 @@ import 'package:iris/features/downloads/presentation/widgets/download_files.dart
 import 'package:iris/features/downloads/presentation/widgets/download_library_header.dart';
 import 'package:iris/features/downloads/presentation/widgets/download_selection_footer.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
+import 'package:iris/shared/haptics/app_haptics.dart';
 import 'package:iris/shared/utils/byte_size_formatter.dart';
 import 'package:iris/shared/utils/desktop_platform.dart';
 import 'package:iris/shared/utils/motion_duration.dart';
@@ -577,6 +578,13 @@ class _EpisodesState extends State<_Episodes> {
     });
   }
 
+  void _startSelection({bool fromHold = false}) {
+    if (_selecting || widget.title == null) return;
+    if (fromHold) AppHaptics.medium();
+    setState(() => _selecting = true);
+    _focus.requestFocus();
+  }
+
   void _cancelSelection() {
     if (_busy) return;
     setState(() {
@@ -595,6 +603,7 @@ class _EpisodesState extends State<_Episodes> {
     final anchor = ids.indexOf(_anchor ?? '');
     final end = ids.indexOf(id);
     if (end < 0) return;
+    final count = _selected.length;
     setState(() {
       _failureCount = 0;
       if (HardwareKeyboard.instance.isShiftPressed && anchor >= 0) {
@@ -606,11 +615,13 @@ class _EpisodesState extends State<_Episodes> {
       }
       _anchor = id;
     });
+    if (_selected.length != count) AppHaptics.selection();
   }
 
   void _toggleGroup(Iterable<DownloadItem> items) {
     if (_busy) return;
     final ids = items.map((item) => item.id).toSet();
+    if (ids.isEmpty) return;
     setState(() {
       _failureCount = 0;
       if (ids.every(_selected.contains)) {
@@ -620,6 +631,7 @@ class _EpisodesState extends State<_Episodes> {
       }
       _anchor = null;
     });
+    AppHaptics.selection();
   }
 
   Future<void> _deleteSelected() async {
@@ -677,10 +689,7 @@ class _EpisodesState extends State<_Episodes> {
             title: title,
             onOpenAnime: widget.onOpenAnime,
             onDownloadMore: downloadMore,
-            onSelect: () {
-              setState(() => _selecting = true);
-              _focus.requestFocus();
-            },
+            onSelect: _startSelection,
           )
         : _lastTitle != null
         ? const SizedBox(width: 48)
@@ -831,6 +840,9 @@ class _EpisodesState extends State<_Episodes> {
                   title: _lastTitle,
                   desktop: widget.desktop,
                   menu: menu,
+                  onHoldToSelect: title == null || _selecting
+                      ? null
+                      : () => _startSelection(fromHold: true),
                   selectionActions: _selecting
                       ? Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1109,7 +1121,13 @@ class _DownloadRowState extends State<_DownloadRow> {
           : completed
           ? () => widget.onWatch(item)
           : null,
-      onLongPress: widget.disabled || widget.selecting ? null : _menu.open,
+      onLongPress: widget.disabled || widget.selecting
+          ? null
+          : () {
+              if (_menu.isOpen) return;
+              _menu.open();
+              if (_menu.isOpen) AppHaptics.medium();
+            },
       onSecondaryTap: widget.disabled || widget.selecting ? null : _menu.open,
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 8),

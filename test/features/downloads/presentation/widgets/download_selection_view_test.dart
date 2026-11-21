@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:haptic_feedback/haptic_feedback.dart';
 
 import 'package:iris/features/downloads/data/repositories/mock_downloads_repository.dart';
 import 'package:iris/features/downloads/domain/entities/download_item.dart';
@@ -17,6 +18,7 @@ import 'package:iris/shared/widgets/segmented_choice.dart';
 import 'package:iris/shared/widgets/status_views.dart';
 
 import '../../../../helpers/memory_online_quality_preferences.dart';
+import '../../../../helpers/record_haptics.dart';
 import '../../../../helpers/test_app.dart';
 
 const _online = DownloadSelectionArgs(
@@ -126,6 +128,7 @@ void main() {
 
   testWidgets('holding an episode selects it without downloading, and '
       'selection can be entered again after leaving', (tester) async {
+    final effects = recordHaptics();
     final repository = _LoadingRepository();
     final cubit = DownloadSelectionCubit(args: _online, repository: repository);
     final semantics = tester.ensureSemantics();
@@ -163,11 +166,13 @@ void main() {
       [false, true],
     );
     expect(repository.queued, isEmpty);
+    expect(effects, [HapticsType.medium]);
     expect(find.text('Download 1 episode'), findsOneWidget);
     await tester.tap(find.byKey(const Key('download_selected')));
     await tester.pumpAndSettle();
     expect(repository.queued, [2]);
     expect(find.byType(Checkbox), findsNothing);
+    expect(effects, [HapticsType.medium, HapticsType.success]);
 
     await tester.longPress(find.text('01'));
     await tester.pump();
