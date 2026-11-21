@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -350,6 +351,53 @@ void main() {
       expect(tester.takeException(), isNull);
     });
   }
+
+  testWidgets('the overflowing desktop rail passes excess wheel scroll on', (
+    tester,
+  ) async {
+    setTestWindowSize(tester, const Size(1280, 420));
+    await _pumpPage(tester);
+
+    final rail = find.byType(ListView);
+    final railPosition = tester.widget<ListView>(rail).controller!.position;
+    final mainPosition = tester
+        .widget<SingleChildScrollView>(
+          find.byKey(const Key('anime_details_scroll')),
+        )
+        .controller!
+        .position;
+    final bottom = railPosition.maxScrollExtent;
+    expect(bottom, greaterThan(12));
+
+    Future<void> wheel(double delta) async {
+      await tester.sendEventToBinding(
+        PointerScrollEvent(
+          kind: PointerDeviceKind.mouse,
+          position: tester.getCenter(rail),
+          scrollDelta: Offset(0, delta),
+        ),
+      );
+      await tester.pump();
+    }
+
+    await wheel(bottom - 12);
+    expect(railPosition.pixels, closeTo(bottom - 12, 0.01));
+    expect(mainPosition.pixels, 0);
+
+    await wheel(36);
+    expect(railPosition.pixels, bottom);
+    expect(mainPosition.pixels, closeTo(24, 0.01));
+    await wheel(16);
+    expect(railPosition.pixels, bottom);
+    expect(mainPosition.pixels, closeTo(40, 0.01));
+
+    await wheel(-bottom);
+    expect(railPosition.pixels, 0);
+    expect(mainPosition.pixels, closeTo(40, 0.01));
+    await wheel(-16);
+    expect(railPosition.pixels, 0);
+    expect(mainPosition.pixels, closeTo(24, 0.01));
+  });
 
   testWidgets('collapses empty description smoothly without layout error', (
     tester,

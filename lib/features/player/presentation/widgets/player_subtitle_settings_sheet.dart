@@ -52,8 +52,7 @@ class PlayerQualitySetting {
 }
 
 /// Opens the settings; on wide windows as a popover of [anchor], the
-/// settings button. With [speed], they start with the playback speed, and
-/// with [quality] the quality follows.
+/// settings button. Playback controls are shown when the session offers them.
 Future<void> showPlayerSubtitleSettingsSheet(
   BuildContext context, {
   required ValueListenable<Tracks> tracks,
@@ -61,6 +60,7 @@ Future<void> showPlayerSubtitleSettingsSheet(
   BuildContext? anchor,
   PlayerSpeedSetting? speed,
   PlayerQualitySetting? quality,
+  ValueNotifier<BoxFit>? videoFit,
 }) {
   final subtitleCubit = context.read<PlayerSubtitlePreferencesCubit>();
   final decodingCubit = context.read<PlayerDecodingPreferencesCubit>();
@@ -90,6 +90,7 @@ Future<void> showPlayerSubtitleSettingsSheet(
             selectedSubtitleTrack: selected.subtitle,
             speed: speed,
             quality: quality,
+            videoFit: videoFit,
           ),
         ),
       ),
@@ -106,6 +107,7 @@ class PlayerSubtitleSettingsSheet extends StatelessWidget {
     this.selectedSubtitleTrack = const SubtitleTrack('auto', null, null),
     this.speed,
     this.quality,
+    this.videoFit,
     super.key,
   });
 
@@ -113,6 +115,7 @@ class PlayerSubtitleSettingsSheet extends StatelessWidget {
   final SubtitleTrack selectedSubtitleTrack;
   final PlayerSpeedSetting? speed;
   final PlayerQualitySetting? quality;
+  final ValueNotifier<BoxFit>? videoFit;
 
   @override
   Widget build(BuildContext context) {
@@ -120,7 +123,8 @@ class PlayerSubtitleSettingsSheet extends StatelessWidget {
     final theme = Theme.of(context);
     final rule = DetailLayout.ruleColor(theme.colorScheme);
     final showAppearance = tracks.canStyleSubtitles(selectedSubtitleTrack);
-    final hasPlaybackControls = speed != null || quality != null;
+    final hasPlaybackControls =
+        speed != null || quality != null || videoFit != null;
     return PlayerPanel(
       title: l10n.playerSettingsTitle,
       child: Column(
@@ -131,6 +135,7 @@ class PlayerSubtitleSettingsSheet extends StatelessWidget {
             _PlaybackSection(
               speed: speed,
               quality: quality,
+              videoFit: videoFit,
               showBottomDivider: showAppearance,
             ),
           if (showAppearance) const _Appearance(),
@@ -154,11 +159,13 @@ class _PlaybackSection extends StatelessWidget {
   const _PlaybackSection({
     required this.speed,
     required this.quality,
+    required this.videoFit,
     required this.showBottomDivider,
   });
 
   final PlayerSpeedSetting? speed;
   final PlayerQualitySetting? quality;
+  final ValueNotifier<BoxFit>? videoFit;
   final bool showBottomDivider;
 
   @override
@@ -175,7 +182,8 @@ class _PlaybackSection extends StatelessWidget {
 
   Widget _buildContent(BuildContext context, {PlayerQualityChoice? choice}) {
     final speed = this.speed;
-    if (speed == null && choice == null) {
+    final videoFit = this.videoFit;
+    if (speed == null && choice == null && videoFit == null) {
       return const SizedBox.shrink();
     }
     final l10n = AppLocalizations.of(context);
@@ -193,6 +201,27 @@ class _PlaybackSection extends StatelessWidget {
         if (speed != null) _Speed(speed: speed),
         if (choice != null)
           _Quality(choice: choice, onSelected: quality!.onSelected),
+        if (videoFit != null)
+          ValueListenableBuilder<BoxFit>(
+            valueListenable: videoFit,
+            builder: (context, fit, _) => _Labelled(
+              label: l10n.playerVideoFitTitle,
+              child: SegmentedChoice<BoxFit>(
+                selected: fit,
+                onSelected: (value) => videoFit.value = value,
+                options: [
+                  SegmentedOption(
+                    value: BoxFit.contain,
+                    label: l10n.playerZoomFit,
+                  ),
+                  SegmentedOption(
+                    value: BoxFit.cover,
+                    label: l10n.playerZoomFill,
+                  ),
+                ],
+              ),
+            ),
+          ),
         if (showBottomDivider) ...[
           const SizedBox(height: 4),
           Divider(

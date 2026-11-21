@@ -746,6 +746,12 @@ abstract class AppLocalizations {
   /// **'Downloads'**
   String get watchSourcesSortDownloads;
 
+  /// No description provided for @watchSourcesSortSize.
+  ///
+  /// In en, this message translates to:
+  /// **'Size'**
+  String get watchSourcesSortSize;
+
   /// No description provided for @watchSourcesSortTitle.
   ///
   /// In en, this message translates to:
@@ -949,6 +955,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Playback speed'**
   String get playerPlaybackSpeedTitle;
+
+  /// No description provided for @playerVideoFitTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Video fit'**
+  String get playerVideoFitTitle;
 
   /// A playback speed, as 1.5×.
   ///

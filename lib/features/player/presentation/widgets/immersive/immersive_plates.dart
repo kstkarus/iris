@@ -296,12 +296,36 @@ class _FastForwardHud extends StatelessWidget {
   }
 }
 
+const _defaultHudAlignment = Alignment(0, -0.45);
+
+class _FitHud extends StatelessWidget {
+  const _FitHud({
+    required this.fit,
+    this.alignment = _defaultHudAlignment,
+    super.key,
+  });
+
+  final BoxFit fit;
+  final Alignment alignment;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return _HudPlate(
+      alignment: alignment,
+      child: Text(
+        fit == BoxFit.cover ? l10n.playerZoomFill : l10n.playerZoomFit,
+      ),
+    );
+  }
+}
+
 /// A brief readout over the video of what a key or a gesture just did
 /// (the volume, a seek, the speed); it takes no touches.
 class _HudPlate extends StatelessWidget {
   const _HudPlate({
     required this.child,
-    this.alignment = const Alignment(0, -0.45),
+    this.alignment = _defaultHudAlignment,
     this.mono = false,
     super.key,
   });

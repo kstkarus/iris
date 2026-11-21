@@ -523,6 +523,47 @@ void main() {
   });
 
   testWidgets(
+    'settings change video fit and lift subtitles in the same player',
+    (tester) async {
+      setTestWindowSize(tester, const Size(1280, 600));
+      late _FakePlatformPlayer platformPlayer;
+      var playersCreated = 0;
+      await tester.pumpWidget(
+        _wrapViewport(
+          playerBuilder: (configuration) {
+            playersCreated++;
+            platformPlayer = _FakePlatformPlayer(configuration: configuration);
+            return Player(platformPlayer: platformPlayer);
+          },
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('player_settings_button')));
+      await tester.pumpAndSettle();
+      expect(find.text('Video fit'), findsOneWidget);
+      expect(_videoZoom(tester), 1);
+      final subtitlePosition = int.parse(
+        platformPlayer.nativeProperties['sub-pos']!,
+      );
+
+      await tester.tap(find.text('Fill screen'));
+      await tester.pumpAndSettle();
+      expect(_videoZoom(tester), moreOrLessEquals(1.2));
+      expect(
+        int.parse(platformPlayer.nativeProperties['sub-pos']!),
+        lessThan(subtitlePosition),
+      );
+
+      await tester.tap(find.text('Fit to screen'));
+      await tester.pumpAndSettle();
+      expect(_videoZoom(tester), 1);
+      expect(platformPlayer.nativeProperties['sub-pos'], '$subtitlePosition');
+      expect(platformPlayer.openCount, 1);
+      expect(playersCreated, 1);
+    },
+  );
+
+  testWidgets(
     'keeps viewport in local buffering state until the first frame is rendered',
     (tester) async {
       final firstFrameCompleter = Completer<void>();
@@ -3391,6 +3432,44 @@ void main() {
       expect(platformPlayer.state.playing, isTrue);
     });
 
+    testWidgets('Z toggles fit with a brief HUD and is ignored in the drawer', (
+      tester,
+    ) async {
+      setTestWindowSize(tester, const Size(1280, 600));
+      await tester.pumpWidget(
+        _wrapViewport(
+          chrome: chrome(episodes: (_, _) => const Text('Episode list')),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(_videoZoom(tester), 1);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyZ);
+      await tester.pumpAndSettle();
+      expect(_videoZoom(tester), moreOrLessEquals(1.2));
+      expect(
+        tester.getCenter(find.text('Fill screen')),
+        const Offset(640, 300),
+      );
+      await tester.pump(const Duration(milliseconds: 900));
+      expect(find.text('Fill screen'), findsNothing);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyE);
+      await tester.pumpAndSettle();
+      expect(find.text('Episode list'), findsOneWidget);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyZ);
+      await tester.pumpAndSettle();
+      expect(_videoZoom(tester), moreOrLessEquals(1.2));
+      expect(find.byKey(const Key('player_fit_plate')), findsNothing);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyZ);
+      await tester.pumpAndSettle();
+      expect(_videoZoom(tester), 1);
+      expect(find.text('Fit to screen'), findsOneWidget);
+    });
+
     testWidgets('keep waiting on screen until the first frame, also when '
         'the file header already made playback ready', (tester) async {
       final firstFrameCompleter = Completer<void>();
@@ -4167,17 +4246,7 @@ void main() {
     testWidgets('fill the screen on a pinch out and fit the video back on a '
         'pinch in', (tester) async {
       final effects = recordHaptics();
-      double zoom() => tester
-          .widget<Transform>(
-            find
-                .descendant(
-                  of: find.byKey(const Key('player_video_zoom')),
-                  matching: find.byType(Transform),
-                )
-                .first,
-          )
-          .transform
-          .getMaxScaleOnAxis();
+      double zoom() => _videoZoom(tester);
       // A 16:9 video on a wider phone grows by the shapes' ratio to fill it.
       const filled = (844 / 390) / (1920 / 1080);
       await playerAt(tester);
@@ -5180,6 +5249,7 @@ void main() {
 
         for (final key in const [
           LogicalKeyboardKey.keyF,
+          LogicalKeyboardKey.keyZ,
           LogicalKeyboardKey.keyE,
           LogicalKeyboardKey.keyN,
           LogicalKeyboardKey.keyS,
@@ -5187,6 +5257,15 @@ void main() {
           await tester.sendKeyEvent(key);
         }
         expect(fullscreenChanges, 0);
+        expect(
+          tester
+              .widget<PlayerImmersiveControls>(
+                find.byType(PlayerImmersiveControls),
+              )
+              .videoFit!
+              .value,
+          BoxFit.contain,
+        );
         expect(nextPlays, 0);
         expect(find.text('Episode list'), findsNothing);
         expect(window.restores, 0);
@@ -5413,6 +5492,18 @@ Future<_FakePlatformPlayer> _failMidStream(
 }
 
 /// Two fingers [from] dp either side of [centre] move to [to] dp.
+double _videoZoom(WidgetTester tester) => tester
+    .widget<Transform>(
+      find
+          .descendant(
+            of: find.byKey(const Key('player_video_zoom')),
+            matching: find.byType(Transform),
+          )
+          .first,
+    )
+    .transform
+    .getMaxScaleOnAxis();
+
 Future<void> _pinch(
   WidgetTester tester,
   Offset centre, {

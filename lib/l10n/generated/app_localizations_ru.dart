@@ -370,6 +370,9 @@ class AppLocalizationsRu extends AppLocalizations {
   String get watchSourcesSortDownloads => 'По загрузкам';
 
   @override
+  String get watchSourcesSortSize => 'По размеру';
+
+  @override
   String get watchSourcesSortTitle => 'По названию';
 
   @override
@@ -497,6 +500,9 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get playerPlaybackSpeedTitle => 'Скорость воспроизведения';
+
+  @override
+  String get playerVideoFitTitle => 'Масштаб кадра';
 
   @override
   String playerPlaybackRate(double rate) {

@@ -15,6 +15,34 @@ class WatchSourceItem {
   final int seeders;
   final int downloads;
 
+  static final _sizePattern = RegExp(
+    r'^(\d+(?:[.,]\d+)?)\s*([a-z]+)$',
+    caseSensitive: false,
+  );
+  static const _bytesPerUnit = {
+    'b': 1,
+    'kb': 1000,
+    'mb': 1000000,
+    'gb': 1000000000,
+    'tb': 1000000000000,
+    'pb': 1000000000000000,
+    'kib': 1 << 10,
+    'mib': 1 << 20,
+    'gib': 1 << 30,
+    'tib': 1 << 40,
+    'pib': 1 << 50,
+  };
+
+  /// The reported size in bytes, or null when the source gave no usable size.
+  double? get sizeInBytes {
+    final match = _sizePattern.firstMatch(size.trim());
+    if (match == null) return null;
+    final multiplier = _bytesPerUnit[match[2]!.toLowerCase()];
+    if (multiplier == null) return null;
+    final bytes = double.parse(match[1]!.replaceFirst(',', '.')) * multiplier;
+    return bytes.isFinite ? bytes : null;
+  }
+
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) {

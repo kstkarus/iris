@@ -55,8 +55,6 @@ class _TouchGestures extends StatefulWidget {
   static const zoomIn = 1.15;
   static const zoomOut = 0.87;
 
-  static const _fitPlateDuration = Duration(milliseconds: 900);
-
   /// Off while the screen is locked.
   final bool enabled;
 
@@ -261,7 +259,7 @@ class _TouchGesturesState extends State<_TouchGestures> {
     videoFit.value = fit;
     _fitPlateTimer?.cancel();
     setState(() => _fitPlate = fit);
-    _fitPlateTimer = Timer(_TouchGestures._fitPlateDuration, () {
+    _fitPlateTimer = Timer(_hudDuration, () {
       if (mounted) setState(() => _fitPlate = null);
     });
   }
@@ -331,14 +329,7 @@ class _TouchGesturesState extends State<_TouchGestures> {
             ),
           )
         else if (fitPlate != null)
-          _HudPlate(
-            key: const Key('player_fit_plate'),
-            child: Text(
-              fitPlate == BoxFit.cover
-                  ? l10n.playerZoomFill
-                  : l10n.playerZoomFit,
-            ),
-          ),
+          _FitHud(key: const Key('player_fit_plate'), fit: fitPlate),
       ],
     );
   }

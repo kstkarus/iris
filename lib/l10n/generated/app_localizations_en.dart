@@ -366,6 +366,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get watchSourcesSortDownloads => 'Downloads';
 
   @override
+  String get watchSourcesSortSize => 'Size';
+
+  @override
   String get watchSourcesSortTitle => 'Title';
 
   @override
@@ -489,6 +492,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get playerPlaybackSpeedTitle => 'Playback speed';
+
+  @override
+  String get playerVideoFitTitle => 'Video fit';
 
   @override
   String playerPlaybackRate(double rate) {

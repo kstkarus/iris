@@ -168,6 +168,7 @@
   "watchSourcesSortSeeders": "Seeders",
   "watchSourcesSortPublishedAt": "Date",
   "watchSourcesSortDownloads": "Downloads",
+  "watchSourcesSortSize": "Size",
   "watchSourcesSortTitle": "Title",
   "playerSourceTitle": "Choose File",
   "playerSourcePreparing": "Preparing torrent files",
@@ -263,6 +264,7 @@
   "playerDecoderSoftwareOnly": "Software only",
   "playerPlaybackSectionTitle": "Playback",
   "playerPlaybackSpeedTitle": "Playback speed",
+  "playerVideoFitTitle": "Video fit",
   "playerPlaybackRate": "{rate}×",
   "@playerPlaybackRate": {
     "description": "A playback speed, as 1.5×.",

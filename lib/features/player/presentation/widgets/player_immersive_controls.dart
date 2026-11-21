@@ -42,6 +42,7 @@ part 'immersive/brightness_slider.dart';
 
 /// How fast the controls, and what hides with them, fade.
 const _controlsFade = Duration(milliseconds: 250);
+const _hudDuration = Duration(milliseconds: 900);
 
 /// Opens a panel as a popover of [anchor], its button; completes when the
 /// panel closes.
@@ -66,7 +67,7 @@ typedef PlayerPanelOpener = Future<void> Function(BuildContext anchor);
 ///
 /// Keyboard: Space/K play-pause (Space held plays at 2× until let go),
 /// ←/→ and J/L ∓10 s, ↑/↓ volume, M mute,
-/// F full screen, N next episode, S skip, E episodes, Esc closes the drawer
+/// F full screen, Z fit/fill, N next episode, S skip, E episodes, Esc closes the drawer
 /// or leaves full screen.
 ///
 /// In picture in picture only the video shows. Offers and the resume notice
@@ -200,8 +201,8 @@ class _PlayerImmersiveControlsState extends State<PlayerImmersiveControls> {
   Size? _reportedViewSize;
   Timer? _lowerSubtitlesTimer;
 
-  double? _volumeHud;
-  Timer? _volumeHudTimer;
+  Widget? _hud;
+  Timer? _hudTimer;
   double _volumeBeforeMute = 100;
 
   /// Space is down; let go before [PlayerImmersiveControls.spaceHoldDelay]
@@ -244,7 +245,7 @@ class _PlayerImmersiveControlsState extends State<PlayerImmersiveControls> {
     _playingSubscription?.cancel();
     _hideTimer?.cancel();
     _lowerSubtitlesTimer?.cancel();
-    _volumeHudTimer?.cancel();
+    _hudTimer?.cancel();
     _unlockPlateTimer?.cancel();
     _visibility.dispose();
     _focusNode.dispose();
@@ -275,16 +276,16 @@ class _PlayerImmersiveControlsState extends State<PlayerImmersiveControls> {
   bool get _touch => widget.input == PlayerInputMode.touch;
 
   /// Nothing over the video in the small window: the controls, the drawer,
-  /// a panel and the volume go.
+  /// a panel and the HUD go.
   void _enterPictureInPicture() {
     _hideTimer?.cancel();
-    _volumeHudTimer?.cancel();
+    _hudTimer?.cancel();
     if (_openPanel != null) Navigator.of(context).maybePop();
     _controlsVisible = widget.windowsPictureInPicture;
     if (widget.windowsPictureInPicture) _restartHideTimer();
     _episodesOpen = false;
     _episodesMounted = false;
-    _volumeHud = null;
+    _hud = null;
   }
 
   /// The bottom controls' height once the titles finish showing or hiding.
@@ -439,11 +440,18 @@ class _PlayerImmersiveControlsState extends State<PlayerImmersiveControls> {
     if (_player == null) return;
     final clamped = volume.clamp(0.0, 100.0);
     unawaited(widget.engine.setUserVolume(clamped));
-    if (!showHud) return;
-    _volumeHudTimer?.cancel();
-    setState(() => _volumeHud = clamped);
-    _volumeHudTimer = Timer(const Duration(milliseconds: 900), () {
-      if (mounted) setState(() => _volumeHud = null);
+    if (showHud) {
+      _showHud(
+        _VolumeHud(key: const Key('player_volume_hud'), volume: clamped),
+      );
+    }
+  }
+
+  void _showHud(Widget hud) {
+    _hudTimer?.cancel();
+    setState(() => _hud = hud);
+    _hudTimer = Timer(_hudDuration, () {
+      if (mounted) setState(() => _hud = null);
     });
   }
 
@@ -584,6 +592,7 @@ class _PlayerImmersiveControlsState extends State<PlayerImmersiveControls> {
     }
     const step = PlayerImmersiveControls.seekStep;
     const volumeStep = PlayerImmersiveControls.volumeStep;
+    final videoFit = widget.videoFit;
 
     // Held keys repeat only for seeking and volume.
     if (key == LogicalKeyboardKey.arrowLeft || key == LogicalKeyboardKey.keyJ) {
@@ -606,6 +615,18 @@ class _PlayerImmersiveControlsState extends State<PlayerImmersiveControls> {
       _showControls();
     } else if (key == LogicalKeyboardKey.keyF && !_touch) {
       widget.onToggleFullscreen();
+    } else if (key == LogicalKeyboardKey.keyZ && !_touch && videoFit != null) {
+      final fit = videoFit.value == BoxFit.contain
+          ? BoxFit.cover
+          : BoxFit.contain;
+      videoFit.value = fit;
+      _showHud(
+        _FitHud(
+          key: const Key('player_fit_plate'),
+          fit: fit,
+          alignment: Alignment.center,
+        ),
+      );
     } else if (key == LogicalKeyboardKey.keyM) {
       _toggleMute();
     } else if (key == LogicalKeyboardKey.keyN && widget.next != null) {
@@ -742,8 +763,8 @@ class _PlayerImmersiveControlsState extends State<PlayerImmersiveControls> {
             ),
           ),
         if (!widget.windowsPictureInPicture) ...[
-          if (_volumeHud case final volume?)
-            _VolumeHud(key: const Key('player_volume_hud'), volume: volume)
+          if (_hud case final hud?)
+            hud
           else if (_spaceFastForward)
             const _FastForwardHud(key: Key('player_fast_forward_plate')),
         ],

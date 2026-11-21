@@ -58,13 +58,35 @@ class _AnimeDetailsDesktopLayoutState extends State<AnimeDetailsDesktopLayout> {
   void _forwardWheelToMain(PointerSignalEvent event) {
     if (event is! PointerScrollEvent) return;
     if (!_railScroll.hasClients || !_mainScroll.hasClients) return;
-    if (_railScroll.position.maxScrollExtent > 0) return;
-    final position = _mainScroll.position;
-    final next = (position.pixels + event.scrollDelta.dy).clamp(
-      position.minScrollExtent,
-      position.maxScrollExtent,
+    final rail = _railScroll.position;
+    final railPixels = rail.pixels.clamp(
+      rail.minScrollExtent,
+      rail.maxScrollExtent,
     );
-    if (next != position.pixels) position.jumpTo(next);
+    final delta = event.scrollDelta.dy;
+    final railDelta = delta.clamp(
+      rail.minScrollExtent - railPixels,
+      rail.maxScrollExtent - railPixels,
+    );
+    final remainder = delta - railDelta;
+    if (remainder == 0) return;
+
+    final main = _mainScroll.position;
+    final next = (main.pixels + remainder).clamp(
+      main.minScrollExtent,
+      main.maxScrollExtent,
+    );
+    if (next == main.pixels) return;
+
+    if (railDelta != 0) {
+      // The rail has already claimed this event and will use its share.
+      main.pointerScroll(remainder);
+    } else {
+      GestureBinding.instance.pointerSignalResolver.register(event, (_) {
+        main.pointerScroll(remainder);
+        event.respond(allowPlatformDefault: false);
+      });
+    }
   }
 
   @override

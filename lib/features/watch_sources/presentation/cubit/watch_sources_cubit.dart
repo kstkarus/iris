@@ -117,43 +117,38 @@ List<WatchSourceItem> _applyPresentationState({
     return item.title.toLowerCase().contains(normalizedQuery);
   }).toList();
 
+  final sizes = {
+    if (sortOption == WatchSourcesSortOption.sizeDesc)
+      for (final item in filtered) item.size: item.sizeInBytes,
+  };
   filtered.sort((left, right) {
-    switch (sortOption) {
-      case WatchSourcesSortOption.seedersDesc:
-        final seedersResult = right.seeders.compareTo(left.seeders);
-        if (seedersResult != 0) {
-          return seedersResult;
-        }
-        return left.title.toLowerCase().compareTo(right.title.toLowerCase());
-      case WatchSourcesSortOption.publishedAtDesc:
-        final rightDate = DateTime.tryParse(right.time);
-        final leftDate = DateTime.tryParse(left.time);
-
-        if (leftDate == null && rightDate == null) {
-          return left.title.toLowerCase().compareTo(right.title.toLowerCase());
-        }
-        if (leftDate == null) {
-          return 1;
-        }
-        if (rightDate == null) {
-          return -1;
-        }
-
-        final dateResult = rightDate.compareTo(leftDate);
-        if (dateResult != 0) {
-          return dateResult;
-        }
-        return left.title.toLowerCase().compareTo(right.title.toLowerCase());
-      case WatchSourcesSortOption.downloadsDesc:
-        final downloadsResult = right.downloads.compareTo(left.downloads);
-        if (downloadsResult != 0) {
-          return downloadsResult;
-        }
-        return left.title.toLowerCase().compareTo(right.title.toLowerCase());
-      case WatchSourcesSortOption.titleAsc:
-        return left.title.toLowerCase().compareTo(right.title.toLowerCase());
-    }
+    final byOption = switch (sortOption) {
+      WatchSourcesSortOption.seedersDesc => right.seeders.compareTo(
+        left.seeders,
+      ),
+      WatchSourcesSortOption.publishedAtDesc => _descending(
+        DateTime.tryParse(left.time),
+        DateTime.tryParse(right.time),
+      ),
+      WatchSourcesSortOption.downloadsDesc => right.downloads.compareTo(
+        left.downloads,
+      ),
+      WatchSourcesSortOption.sizeDesc => _descending<num>(
+        sizes[left.size],
+        sizes[right.size],
+      ),
+      WatchSourcesSortOption.titleAsc => 0,
+    };
+    return byOption == 0
+        ? left.title.toLowerCase().compareTo(right.title.toLowerCase())
+        : byOption;
   });
 
   return filtered;
+}
+
+int _descending<T extends Comparable<T>>(T? left, T? right) {
+  if (right == null) return left == null ? 0 : -1;
+  if (left == null) return 1;
+  return right.compareTo(left);
 }

@@ -14,7 +14,9 @@ import 'package:iris/features/player/presentation/models/anime_player_source_arg
 import 'package:iris/features/watch_sources/domain/entities/watch_source_item.dart';
 import 'package:iris/features/watch_sources/domain/repositories/watch_sources_repository.dart';
 import 'package:iris/features/watch_sources/presentation/cubit/watch_sources_cubit.dart';
+import 'package:iris/features/watch_sources/presentation/cubit/watch_sources_state.dart';
 import 'package:iris/features/watch_sources/presentation/models/anime_watch_sources_args.dart';
+import 'package:iris/features/watch_sources/presentation/models/watch_sources_sort_option.dart';
 import 'package:iris/features/watch_sources/presentation/pages/watch_sources_page.dart';
 import 'package:iris/features/watch_sources/presentation/widgets/watch_sources_view.dart';
 import 'package:iris/shared/widgets/search_field.dart';
@@ -189,7 +191,7 @@ void main() {
     },
   );
 
-  testWidgets('changes card order after selecting another sort option', (
+  testWidgets('sorts compact cards by size from the sort sheet', (
     tester,
   ) async {
     final cubit = frierenSourcesCubit(FixedWatchSourcesRepository());
@@ -201,14 +203,55 @@ void main() {
 
     await tester.tap(find.text('Sort'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Title'));
+    await tester.tap(find.text('Size'));
     await tester.pumpAndSettle();
     await tester.ensureVisible(find.text('Apply'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Apply'));
     await tester.pumpAndSettle();
 
-    expect(_topTitle(tester), '[ASW] Frieren - 27');
+    expect(_topTitle(tester), frierenMostDownloadedSource.title);
+  });
+
+  testWidgets('wide torrent headers sort the rows and announce the selection', (
+    tester,
+  ) async {
+    setTestWindowSize(tester, TestWindowSizes.landscape);
+    final cubit = frierenSourcesCubit(FixedWatchSourcesRepository());
+    addTearDown(cubit.close);
+    await _pumpView(tester, cubit: cubit..loadSources());
+    await tester.pumpAndSettle();
+
+    for (final (label, option, first) in const [
+      ('Release', WatchSourcesSortOption.titleAsc, frierenOldSource),
+      ('Size', WatchSourcesSortOption.sizeDesc, frierenMostDownloadedSource),
+      ('Seeders', WatchSourcesSortOption.seedersDesc, frierenMostSeededSource),
+      (
+        'Downloads',
+        WatchSourcesSortOption.downloadsDesc,
+        frierenMostDownloadedSource,
+      ),
+      (
+        'Date',
+        WatchSourcesSortOption.publishedAtDesc,
+        frierenMostDownloadedSource,
+      ),
+    ]) {
+      final header = find.text(label);
+      final bounds = tester.getRect(header);
+      await tester.tap(header);
+      await tester.pumpAndSettle();
+
+      expect((cubit.state as WatchSourcesLoaded).sortOption, option);
+      expect(_topTitle(tester), first.title);
+      expect(tester.getRect(header), bounds);
+      expect(
+        find.semantics.byLabel(label).evaluate(),
+        contains(
+          isSemantics(isButton: true, isSelected: true, hasTapAction: true),
+        ),
+      );
+    }
   });
 
   testWidgets('puts releases the user streamed first with a badge', (

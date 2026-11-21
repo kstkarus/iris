@@ -621,6 +621,7 @@ class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
         tracks: widget.engine.availableTracks,
         selectedTrack: widget.engine.selectedTrack,
         anchor: anchor,
+        videoFit: _videoFit,
         speed: PlayerSpeedSetting(
           rate: widget.engine.playbackRate,
           onSelected: widget.engine.setPlaybackRate,

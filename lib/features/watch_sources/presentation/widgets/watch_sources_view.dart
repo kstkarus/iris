@@ -110,6 +110,8 @@ class _LoadedState extends StatelessWidget {
           );
     return LayoutBuilder(
       builder: (context, constraints) {
+        final tabular =
+            constraints.maxWidth >= WindowSizeClass.expandedMinWidth;
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -120,6 +122,12 @@ class _LoadedState extends StatelessWidget {
               onSort: () => _openSortSheet(context),
             ),
             const SizedBox(height: 24),
+            // Keep focus on the column button while the rows change order.
+            if (tabular && items.isNotEmpty)
+              _TableHeader(
+                sortOption: state.sortOption,
+                onSort: context.read<WatchSourcesCubit>().updateSortOption,
+              ),
             Expanded(
               // A new order or empty-search swap dissolves in briskly;
               // filtering within non-empty results updates immediately.
@@ -138,9 +146,7 @@ class _LoadedState extends StatelessWidget {
                           items: items,
                           watchedKeys: watchedKeys,
                           posterUrl: posterUrl,
-                          tabular:
-                              constraints.maxWidth >=
-                              WindowSizeClass.expandedMinWidth,
+                          tabular: tabular,
                         ),
                 ),
               ),
@@ -348,23 +354,9 @@ class _SourcesTable extends StatelessWidget {
     final rule = DetailLayout.ruleColor(scheme);
     return ListView.builder(
       padding: const EdgeInsets.only(bottom: 24),
-      itemCount: items.length + (tabular ? 1 : 0),
+      itemCount: items.length,
       itemBuilder: (context, index) {
-        if (tabular && index == 0) {
-          return DecoratedBox(
-            decoration: BoxDecoration(
-              color: scheme.surfaceContainerLow,
-              border: Border(
-                top: BorderSide(color: rule),
-                left: BorderSide(color: rule),
-                right: BorderSide(color: rule),
-                bottom: BorderSide(color: rule),
-              ),
-            ),
-            child: const _TableHeader(),
-          );
-        }
-        final item = items[index - (tabular ? 1 : 0)];
+        final item = items[index];
         final row = _WatchSourceRow(
           item: item,
           tabular: tabular,
@@ -398,33 +390,116 @@ class _SourcesTable extends StatelessWidget {
 }
 
 class _TableHeader extends StatelessWidget {
-  const _TableHeader();
+  const _TableHeader({required this.sortOption, required this.onSort});
+
+  final WatchSourcesSortOption sortOption;
+  final ValueChanged<WatchSourcesSortOption> onSort;
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     final style = theme.textTheme.labelMedium?.copyWith(
       fontFamily: DetailLayout.sansFont,
       fontWeight: FontWeight.w500,
-      color: theme.colorScheme.onSurfaceVariant,
     );
-    Widget cell(String text, double width) => SizedBox(
-      width: width,
-      child: Text(text, textAlign: TextAlign.end, style: style),
-    );
-    return ExcludeSemantics(
+    Widget cell(String label, WatchSourcesSortOption option, {double? width}) {
+      final leading = width == null;
+      final selected = sortOption == option;
+      return SizedBox(
+        width: width,
+        child: Semantics(
+          button: true,
+          selected: selected,
+          child: InkWell(
+            onTap: () => onSort(option),
+            mouseCursor: SystemMouseCursors.click,
+            hoverColor: scheme.onSurface.withValues(alpha: 0.08),
+            focusColor: scheme.onSurface.withValues(alpha: 0.16),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: 44),
+              child: Stack(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(top: 10, bottom: 14),
+                    child: Align(
+                      alignment: leading
+                          ? AlignmentDirectional.centerStart
+                          : AlignmentDirectional.centerEnd,
+                      child: Text(
+                        label,
+                        textAlign: leading ? TextAlign.start : TextAlign.end,
+                        style: style?.copyWith(
+                          color: selected
+                              ? scheme.onSurface
+                              : scheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                  ),
+                  if (selected)
+                    PositionedDirectional(
+                      start: leading ? 0 : null,
+                      end: leading ? null : 0,
+                      bottom: 3,
+                      child: RotatedBox(
+                        quarterTurns: leading ? 2 : 0,
+                        child: PixelIcon(
+                          PixelGlyph.expand,
+                          size: 8,
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Material(
+      color: scheme.surfaceContainerLow,
+      shape: Border.fromBorderSide(
+        BorderSide(color: DetailLayout.ruleColor(scheme)),
+      ),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(14, 10, 4, 10),
-        child: Row(
-          children: [
-            Expanded(child: Text(l10n.watchSourcesColumnRelease, style: style)),
-            cell(l10n.watchSourcesColumnSize, _Columns.size),
-            cell(l10n.watchSourcesColumnSeeders, _Columns.seeders),
-            cell(l10n.watchSourcesColumnDownloads, _Columns.downloads),
-            cell(l10n.watchSourcesColumnDate, _Columns.date),
-            const SizedBox(width: _Columns.action),
-          ],
+        padding: const EdgeInsets.fromLTRB(14, 0, 4, 0),
+        child: IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(
+                child: cell(
+                  l10n.watchSourcesColumnRelease,
+                  WatchSourcesSortOption.titleAsc,
+                ),
+              ),
+              cell(
+                l10n.watchSourcesColumnSize,
+                WatchSourcesSortOption.sizeDesc,
+                width: _Columns.size,
+              ),
+              cell(
+                l10n.watchSourcesColumnSeeders,
+                WatchSourcesSortOption.seedersDesc,
+                width: _Columns.seeders,
+              ),
+              cell(
+                l10n.watchSourcesColumnDownloads,
+                WatchSourcesSortOption.downloadsDesc,
+                width: _Columns.downloads,
+              ),
+              cell(
+                l10n.watchSourcesColumnDate,
+                WatchSourcesSortOption.publishedAtDesc,
+                width: _Columns.date,
+              ),
+              const SizedBox(width: _Columns.action),
+            ],
+          ),
         ),
       ),
     );
@@ -578,6 +653,8 @@ String _formatSortLabel(AppLocalizations l10n, WatchSourcesSortOption option) {
       return l10n.watchSourcesSortPublishedAt;
     case WatchSourcesSortOption.downloadsDesc:
       return l10n.watchSourcesSortDownloads;
+    case WatchSourcesSortOption.sizeDesc:
+      return l10n.watchSourcesSortSize;
     case WatchSourcesSortOption.titleAsc:
       return l10n.watchSourcesSortTitle;
   }
