@@ -31,6 +31,9 @@ import 'package:iris/features/player/presentation/playback/player_video_sized.da
 import 'package:iris/features/player/presentation/playback/player_subtitle_preferences_mapper.dart';
 import 'package:iris/features/player/presentation/playback/player_track_matcher.dart';
 import 'package:iris/features/player/presentation/playback/player_track_availability.dart';
+import 'package:iris/shared/utils/serial_queue.dart';
+
+part 'media_kit_audio_transport.dart';
 
 typedef MediaKitPlayerBuilder =
     Player Function(PlayerConfiguration configuration);
@@ -125,6 +128,7 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
     this.startupTimeout = const Duration(seconds: 45),
     this.stopTimeout = const Duration(seconds: 3),
     this.errorGrace = const Duration(seconds: 2),
+    this.audioFadeDuration = const Duration(milliseconds: 60),
   }) : _repository = repository,
        _onlineQuality = onlineQuality,
        _playerBuilder = playerBuilder ?? _defaultPlayerBuilder,
@@ -164,12 +168,15 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
   /// How long after an error mpv logs the file is checked: the file it
   /// ends goes within that, a hiccup it gets over stays.
   final Duration errorGrace;
+  final Duration audioFadeDuration;
 
   final _events = StreamController<PlayerEngineEvent>.broadcast();
 
   SubtitlePreferences _subtitlePreferences;
   PlayerDecodingPreferences _decodingPreferences;
   Player? _player;
+  _MediaKitAudioTransport? _audioTransport;
+  final _userVolume = ValueNotifier<double>(100);
   VideoController? _videoController;
   bool _pictureInPictureSubtitles = false;
 
@@ -352,10 +359,22 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
       _allowsStartingMediaPlayback?.call() ?? true;
 
   @override
-  Future<void> setPlaying(bool playing) async {
-    final player = _player;
-    if (_closed || player == null) return;
-    await (playing ? player.play() : player.pause());
+  bool get wantsToPlay => _audioTransport?.wantsToPlay ?? false;
+
+  @override
+  Future<void> setPlaying(bool playing, {bool fade = true}) async {
+    if (_closed || (playing && _session == null)) return;
+    await _audioTransport?.setPlaying(playing, fade: fade);
+  }
+
+  Future<void> togglePlayPause() => setPlaying(!wantsToPlay);
+
+  ValueListenable<double> get userVolume => _userVolume;
+
+  Future<void> setUserVolume(double volume) async {
+    if (_closed) return;
+    _userVolume.value = volume.clamp(0.0, 100.0);
+    await _audioTransport?.applyUserVolume();
   }
 
   /// Created by the first [open]; replaced only when rendering preferences
@@ -712,6 +731,7 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
   Future<void> stop() async {
     if (_closed) return;
     final fileGeneration = ++_fileGeneration;
+    _audioTransport?.cancel();
     _startupGeneration++;
     _session = null;
     _ignoreEofTrackReset = false;
@@ -736,7 +756,15 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
     if (player == null) return;
 
     developer.log('Stopping media_kit playback.', name: 'iris.player.media');
-    if (await _stopAndWaitForIdle(player)) return;
+    final transport = _audioTransport;
+    await transport?.pending;
+    if (_closed || fileGeneration != _fileGeneration) return;
+    final stopped = await _stopAndWaitForIdle(player);
+    if (_closed || fileGeneration != _fileGeneration) return;
+    if (stopped) {
+      await transport?.restore();
+      return;
+    }
 
     // mpv may still hold the local stream connection; tearing that stream
     // down now could block in a native send(). Disposing the player is
@@ -746,8 +774,9 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
       name: 'iris.player.media',
     );
     await _disposePlayer();
-    if (_closed) return;
+    if (_closed || fileGeneration != _fileGeneration) return;
     _createPlayer();
+    await _audioTransport?.restore();
     notifyListeners();
   }
 
@@ -788,6 +817,7 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
     _cancelStartupTimeout();
     _cancelErrorCheck();
     _stopWatchingDiagnostics();
+    final disposingPlayer = _disposePlayer();
     await _subtitlePreferencesSubscription?.cancel();
     await _decodingPreferencesSubscription?.cancel();
     // Not awaited: a stats poll may end only at its next tick, and the
@@ -796,7 +826,7 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
     _subtitlePreferencesSubscription = null;
     _decodingPreferencesSubscription = null;
     _playbackStatsSubscription = null;
-    await _disposePlayer();
+    await disposingPlayer;
     await _events.close();
     playbackStats.dispose();
     phase.dispose();
@@ -813,6 +843,7 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
     timeline.dispose();
     skipForwardOffered.dispose();
     _playbackRate.dispose();
+    _userVolume.dispose();
     super.dispose();
   }
 
@@ -913,6 +944,11 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
     );
     final player = _playerBuilder(configuration.playerConfiguration);
     _player = player;
+    _audioTransport = _MediaKitAudioTransport(
+      player,
+      _userVolume,
+      audioFadeDuration,
+    );
     _videoController = _videoControllerBuilder(
       player,
       configuration.videoControllerConfiguration,
@@ -927,6 +963,7 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
     final session = _session;
     final player = _player;
     if (_closed || session == null || player == null) return;
+    final restoringVolume = _audioTransport?.restore(pauseIfFading: true);
     final startupGeneration = ++_startupGeneration;
     _ignoreEofTrackReset = false;
     _ignoreEofTracksReset = false;
@@ -952,6 +989,7 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
         ..._subtitleMpvProperties,
       });
       await _applyPlaybackRate();
+      await restoringVolume;
       if (_closed || startupGeneration != _startupGeneration) return;
       _preferredTracksApplied = false;
       _openTarget = _openPosition;
@@ -1520,11 +1558,19 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
   }
 
   Future<void> _recoverFromUnsupportedAudio(AudioTrack fallbackTrack) async {
-    if (_closed) return;
+    final transport = _audioTransport;
+    if (_closed || transport == null) return;
+    final generation = transport.generation;
+    final shouldResume = transport.wantsToPlay;
     _recoveringAudioTrack = true;
     try {
       await player.setAudioTrack(fallbackTrack);
-      await player.play();
+      if (shouldResume &&
+          identical(_audioTransport, transport) &&
+          transport.generation == generation &&
+          allowsStartingMediaPlayback) {
+        await setPlaying(true, fade: false);
+      }
       developer.log(
         'Audio fallback applied successfully. codec=${fallbackTrack.codec} trackId=${fallbackTrack.id}',
         name: 'iris.player.media',
@@ -1657,7 +1703,7 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
     final player = _player;
     if (player != null) {
       unawaited(
-        player.pause().catchError((Object error) {
+        setPlaying(false, fade: false).catchError((Object error) {
           developer.log(
             'media_kit failed to pause a failed file.',
             name: 'iris.player.media',
@@ -1809,6 +1855,11 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
   }
 
   Future<void> _disposePlayer() async {
+    final player = _player;
+    final restoringVolume = _audioTransport?.restore(pauseIfFading: true);
+    _audioTransport = null;
+    // The old controller stays until a new one replaces it.
+    _player = null;
     _pictureInPictureSubtitles = false;
     _cancelStartupTimeout();
     final subscriptions = List.of(_playerSubscriptions);
@@ -1817,10 +1868,7 @@ class MediaKitPlayerEngine extends ChangeNotifier implements PlayerEngine {
     for (final subscription in subscriptions) {
       await subscription.cancel();
     }
-    final player = _player;
-    // The old controller stays until a new one replaces it, so the viewport
-    // never renders without one.
-    _player = null;
+    await restoringVolume;
     await player?.dispose();
   }
 }

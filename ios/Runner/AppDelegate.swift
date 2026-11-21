@@ -150,14 +150,14 @@ private final class PlayerMediaControls {
         [weak self] notification in
         let reason = (notification.userInfo?[AVAudioSessionRouteChangeReasonKey] as? NSNumber)?.uintValue
         if reason == AVAudioSession.RouteChangeReason.oldDeviceUnavailable.rawValue {
-          self?.send("pause", session: id)
+          self?.send("pauseImmediately", session: id)
         }
       },
       center.addObserver(forName: AVAudioSession.interruptionNotification, object: audio, queue: .main) {
         [weak self] notification in
         let type = (notification.userInfo?[AVAudioSessionInterruptionTypeKey] as? NSNumber)?.uintValue
         if type == AVAudioSession.InterruptionType.began.rawValue {
-          self?.send("pause", session: id)
+          self?.send("pauseImmediately", session: id)
         }
       },
     ]

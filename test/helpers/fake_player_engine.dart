@@ -36,8 +36,11 @@ class FakePlayerEngine implements PlayerEngine {
   bool allowsStartingMediaPlayback = true;
 
   @override
-  Future<void> setPlaying(bool playing) async {
-    calls.add(playing ? 'play' : 'pause');
+  bool get wantsToPlay => mediaPlayback?.playing ?? false;
+
+  @override
+  Future<void> setPlaying(bool playing, {bool fade = true}) async {
+    calls.add(playing ? 'play' : (fade ? 'pause' : 'pause immediately'));
   }
 
   @override

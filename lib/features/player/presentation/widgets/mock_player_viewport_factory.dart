@@ -155,7 +155,10 @@ class MockPlayerEngine implements PlayerEngine {
   bool get allowsStartingMediaPlayback => true;
 
   @override
-  Future<void> setPlaying(bool playing) async {}
+  bool get wantsToPlay => false;
+
+  @override
+  Future<void> setPlaying(bool playing, {bool fade = true}) async {}
 
   @override
   Future<void> open(

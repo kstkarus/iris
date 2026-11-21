@@ -65,7 +65,10 @@ abstract interface class PlayerEngine {
   /// On phones a command may start video only in the app or in PiP.
   bool get allowsStartingMediaPlayback;
 
-  Future<void> setPlaying(bool playing);
+  /// Includes a play or pause whose audio transition is still in progress.
+  bool get wantsToPlay;
+
+  Future<void> setPlaying(bool playing, {bool fade = true});
 
   /// Opens a file's stream, at [startPosition] when resuming.
   Future<void> open(

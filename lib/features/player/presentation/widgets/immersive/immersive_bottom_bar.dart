@@ -9,6 +9,7 @@ class _BottomSection extends StatelessWidget {
     required this.onTitleHeight,
     required this.onBarHeight,
     required this.player,
+    required this.userVolume,
     required this.timeline,
     required this.accent,
     required this.next,
@@ -48,6 +49,7 @@ class _BottomSection extends StatelessWidget {
   /// The timeline and buttons' height.
   final ValueChanged<double> onBarHeight;
   final Player player;
+  final ValueListenable<double> userVolume;
 
   /// Where the bar is cut: the file's chapters, or its opening and ending.
   final ValueListenable<List<PlayerTimelinePart>> timeline;
@@ -93,7 +95,7 @@ class _BottomSection extends StatelessWidget {
             onSeekActive: onSeekActive,
           );
           final buttons = _BarButtons(
-            player: player,
+            userVolume: userVolume,
             metrics: metrics,
             next: next,
             finishing: finishing,
@@ -409,7 +411,7 @@ class _TimeReadoutState extends State<_TimeReadout> {
 
 class _BarButtons extends StatelessWidget {
   const _BarButtons({
-    required this.player,
+    required this.userVolume,
     required this.metrics,
     required this.next,
     required this.finishing,
@@ -425,7 +427,7 @@ class _BarButtons extends StatelessWidget {
     required this.onEpisodes,
   });
 
-  final Player player;
+  final ValueListenable<double> userVolume;
   final _ControlsMetrics metrics;
   final PlayerNextFile? next;
   final ValueListenable<bool> finishing;
@@ -519,7 +521,7 @@ class _BarButtons extends StatelessWidget {
       if (!touch)
         [
           _VolumeControl(
-            player: player,
+            userVolume: userVolume,
             metrics: metrics,
             onToggleMute: onToggleMute,
             onVolume: onVolume,
@@ -652,13 +654,13 @@ class _BarButton extends StatelessWidget {
 /// Mute button; hovering reveals a volume slider beside it.
 class _VolumeControl extends StatefulWidget {
   const _VolumeControl({
-    required this.player,
+    required this.userVolume,
     required this.metrics,
     required this.onToggleMute,
     required this.onVolume,
   });
 
-  final Player player;
+  final ValueListenable<double> userVolume;
   final _ControlsMetrics metrics;
   final VoidCallback onToggleMute;
   final ValueChanged<double> onVolume;
@@ -677,11 +679,9 @@ class _VolumeControlState extends State<_VolumeControl> {
     return MouseRegion(
       onEnter: (_) => setState(() => _expanded = true),
       onExit: (_) => setState(() => _expanded = false),
-      child: StreamBuilder<double>(
-        stream: widget.player.stream.volume,
-        initialData: widget.player.state.volume,
-        builder: (context, snapshot) {
-          final volume = snapshot.data ?? 100;
+      child: ValueListenableBuilder<double>(
+        valueListenable: widget.userVolume,
+        builder: (context, volume, _) {
           final muted = volume <= 0;
           return Row(
             mainAxisSize: MainAxisSize.min,

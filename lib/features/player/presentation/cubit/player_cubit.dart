@@ -252,9 +252,11 @@ class PlayerCubit extends Cubit<PlayerState> {
     if (playback == null) return;
 
     switch (command) {
+      case PlayerMediaCommand.pauseImmediately:
+        await _engine.setPlaying(false, fade: false);
       case PlayerMediaCommand.pause:
         await _engine.setPlaying(false);
-      case PlayerMediaCommand.togglePlayPause when playback.playing:
+      case PlayerMediaCommand.togglePlayPause when _engine.wantsToPlay:
         await _engine.setPlaying(false);
       case _ when _switchingFile || !_engine.allowsStartingMediaPlayback:
         return;

@@ -185,10 +185,9 @@ void main() {
       await command(PlayerMediaCommand.togglePlayPause, null);
       await command(PlayerMediaCommand.play, null);
       expect(engine.calls, hasLength(before));
-      // Android becoming noisy and the iOS route observer send pause.
-      await command(PlayerMediaCommand.pause, null);
+      await command(PlayerMediaCommand.pauseImmediately, null);
       expect(engine.calls.length, before + 1);
-      expect(engine.calls.last, 'pause');
+      expect(engine.calls.last, 'pause immediately');
     },
   );
 

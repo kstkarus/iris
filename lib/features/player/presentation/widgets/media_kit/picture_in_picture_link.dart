@@ -181,9 +181,9 @@ class _PictureInPictureLink {
   }
 
   void _setPlaying(bool playing) {
-    final player = _player;
-    if (_disposed || player == null || player.state.playing == playing) return;
-    _ignoreFailure(playing ? player.play() : player.pause());
+    if (!_disposed && _player != null) {
+      _ignoreFailure(_engine.setPlaying(playing));
+    }
   }
 
   Future<void> _seek(({int id, Duration interval}) request) async {
@@ -217,12 +217,14 @@ class _PictureInPictureLink {
 
   void _playOrPause() {
     if (!_disposed && _engine.hasPlayer) {
-      unawaited(_engine.player.playOrPause());
+      _ignoreFailure(_engine.togglePlayPause());
     }
   }
 
   void _pause() {
-    if (!_disposed && _engine.hasPlayer) unawaited(_engine.player.pause());
+    if (!_disposed && _engine.hasPlayer) {
+      _ignoreFailure(_engine.setPlaying(false, fade: false));
+    }
   }
 
   void dispose() {

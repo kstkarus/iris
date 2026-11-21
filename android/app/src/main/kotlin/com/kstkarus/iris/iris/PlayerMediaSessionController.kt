@@ -39,7 +39,7 @@ internal class PlayerMediaSessionController(
         override fun onReceive(context: Context, intent: Intent) {
             val id = sessionId ?: return
             when (intent.action) {
-                AudioManager.ACTION_AUDIO_BECOMING_NOISY -> send(id, "pause")
+                AudioManager.ACTION_AUDIO_BECOMING_NOISY -> send(id, "pauseImmediately")
                 ACTION_TRANSPORT -> {
                     if (intent.getLongExtra("session", 0) != id) return
                     val method = intent.getStringExtra("method") ?: return

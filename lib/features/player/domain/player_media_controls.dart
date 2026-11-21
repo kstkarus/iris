@@ -1,6 +1,7 @@
 enum PlayerMediaCommand {
   play,
   pause,
+  pauseImmediately,
   togglePlayPause,
   next,
   seekForward,

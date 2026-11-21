@@ -119,7 +119,9 @@ builds, with `audio` background mode configured for playback. The bridge and its
 device-validation limits are documented in
 [IRIS_PATCHES.md](../packages/media_kit_video/IRIS_PATCHES.md).
 
-- System media controls on Android, iOS and Windows show the current title and episode while the player is open. They play, pause, seek to a known position or skip ten seconds in either direction, and offer Next when the source has another episode. Disconnecting headphones pauses on Android and iOS. An audio interruption also pauses on iOS. On phones, Play and Next work while Iris is visible or in picture in picture. Closing the player clears its media session.
+- System media controls on Android, iOS and Windows show the current title and episode while the player is open. They play, pause, seek to a known position or skip ten seconds in either direction, and offer Next when the source has another episode. On phones, Play and Next work while Iris is visible or in picture in picture. Closing the player clears its media session.
+
+- Play and pause in Iris, picture in picture and system media controls use a short audio fade of about 60 ms. The volume control keeps showing the selected level throughout. Disconnecting headphones, an iOS audio interruption, or leaving the app on a phone without picture in picture pauses immediately.
 
 - The resume notice stays to the left of the play button, while skip offers sit on the right. Larger text can expand the buttons. On pause the notice sits above the title. In short viewports a notice leaves room by condensing the paused title to one line. Screen readers still get the complete title and details. The episode mark sits separately near the top, clear of brightness and the compact next button.
 

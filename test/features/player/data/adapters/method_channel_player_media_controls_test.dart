@@ -80,11 +80,17 @@ void main() {
       await receive('play', first);
       await receive('unknown', second);
       await receive('seekTo', second, 8000);
+      await receive('pauseImmediately', second);
       expect(commands, [
         (
           player: 'Second',
           command: PlayerMediaCommand.seekTo,
           position: const Duration(seconds: 8),
+        ),
+        (
+          player: 'Second',
+          command: PlayerMediaCommand.pauseImmediately,
+          position: null,
         ),
       ]);
 
@@ -92,7 +98,7 @@ void main() {
       expect(calls.last.method, 'deactivate');
       expect(calls.last.arguments, {'session': second});
       await receive('pause', second);
-      expect(commands, hasLength(1));
+      expect(commands, hasLength(2));
     },
   );
 }

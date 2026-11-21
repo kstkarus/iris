@@ -296,8 +296,7 @@ class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
   void _onAppHidden() {
     if (widget.input != PlayerInputMode.touch) return;
     if (_pictureInPicture?.active.value ?? false) return;
-    final engine = widget.engine;
-    if (engine.hasPlayer) unawaited(engine.player.pause());
+    unawaited(widget.engine.setPlaying(false, fade: false));
   }
 
   Future<void> _enterPictureInPicture() async {

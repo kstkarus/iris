@@ -417,9 +417,7 @@ class _PlayerImmersiveControlsState extends State<PlayerImmersiveControls> {
 
   void _togglePlay() {
     _focusNode.requestFocus();
-    final player = _player;
-    if (player == null) return;
-    unawaited(player.playOrPause());
+    unawaited(widget.engine.togglePlayPause());
   }
 
   void _seekBy(Duration delta) {
@@ -438,10 +436,9 @@ class _PlayerImmersiveControlsState extends State<PlayerImmersiveControls> {
   }
 
   void _setVolume(double volume, {bool showHud = true}) {
-    final player = _player;
-    if (player == null) return;
+    if (_player == null) return;
     final clamped = volume.clamp(0.0, 100.0);
-    unawaited(player.setVolume(clamped));
+    unawaited(widget.engine.setUserVolume(clamped));
     if (!showHud) return;
     _volumeHudTimer?.cancel();
     setState(() => _volumeHud = clamped);
@@ -451,15 +448,12 @@ class _PlayerImmersiveControlsState extends State<PlayerImmersiveControls> {
   }
 
   void _changeVolume(double delta) {
-    final player = _player;
-    if (player == null) return;
-    _setVolume(player.state.volume + delta);
+    _setVolume(widget.engine.userVolume.value + delta);
   }
 
   void _toggleMute() {
-    final player = _player;
-    if (player == null) return;
-    final volume = player.state.volume;
+    if (_player == null) return;
+    final volume = widget.engine.userVolume.value;
     if (volume > 0) {
       _volumeBeforeMute = volume;
       _setVolume(0);
@@ -880,6 +874,7 @@ class _PlayerImmersiveControlsState extends State<PlayerImmersiveControls> {
                 onTitleHeight: _onTitleHeight,
                 onBarHeight: _onBarHeight,
                 player: player,
+                userVolume: widget.engine.userVolume,
                 timeline: widget.engine.timeline,
                 accent: accent,
                 next: widget.next,

@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:fake_async/fake_async.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -52,6 +53,156 @@ const _availableTracks = Tracks(
 );
 
 void main() {
+  group('audio transport', () {
+    _testAudioTransport('fades out before pausing and fades in after play', (
+      clock,
+      engine,
+      player,
+    ) {
+      unawaited(engine.setPlaying(false));
+      clock.elapse(const Duration(milliseconds: 59));
+      expect(player.state.playing, isTrue);
+      expect(player.audioCommands, [
+        ('volume', 60),
+        ('volume', 40),
+        ('volume', 20),
+      ]);
+      clock.elapse(const Duration(milliseconds: 1));
+      expect(player.audioCommands.skip(3), [
+        ('volume', 0),
+        ('pause', 0),
+        ('volume', 80),
+      ]);
+      expect(player.state.playing, isFalse);
+      expect(player.state.volume, 80);
+
+      player.audioCommands.clear();
+      unawaited(engine.setPlaying(true));
+      clock.flushMicrotasks();
+      expect(player.audioCommands, [('volume', 0), ('play', 0)]);
+      clock.elapse(const Duration(milliseconds: 60));
+      expect(player.audioCommands.skip(2), [
+        ('volume', 20),
+        ('volume', 40),
+        ('volume', 60),
+        ('volume', 80),
+      ]);
+      expect(player.state.playing, isTrue);
+    });
+
+    _testAudioTransport(
+      'a new play cancels pause even with a volume write in flight',
+      (clock, engine, player) {
+        unawaited(engine.togglePlayPause());
+        clock.elapse(const Duration(milliseconds: 45));
+        final write = player.nextVolumeWrite = Completer<void>();
+        clock.elapse(const Duration(milliseconds: 15));
+        expect(engine.wantsToPlay, isFalse);
+        expect(player.state.volume, 20);
+        unawaited(engine.togglePlayPause());
+        expect(engine.wantsToPlay, isTrue);
+        write.complete();
+        clock.elapse(const Duration(milliseconds: 60));
+        expect(player.pauseCount, 0);
+        expect(player.state.playing, isTrue);
+        expect(player.state.volume, 80);
+      },
+    );
+
+    _testAudioTransport('muted play and pause take effect without ramping', (
+      clock,
+      engine,
+      player,
+    ) {
+      unawaited(engine.setUserVolume(0));
+      clock.flushMicrotasks();
+      player.audioCommands.clear();
+      unawaited(engine.setPlaying(false));
+      clock.flushMicrotasks();
+      unawaited(engine.setPlaying(true));
+      clock.flushMicrotasks();
+      expect(player.audioCommands, [('pause', 0), ('play', 0)]);
+      expect(player.state.volume, 0);
+    });
+
+    _testAudioTransport(
+      'adjusting volume mid-fade applies it and honors transport',
+      (clock, engine, player) {
+        unawaited(engine.setPlaying(false));
+        clock.elapse(const Duration(milliseconds: 15));
+        unawaited(engine.setUserVolume(36));
+        clock.flushMicrotasks();
+        expect(player.audioCommands, [
+          ('volume', 60),
+          ('pause', 60),
+          ('volume', 36),
+        ]);
+        expect(player.state.playing, isFalse);
+
+        player.audioCommands.clear();
+        unawaited(engine.setPlaying(true));
+        clock.elapse(const Duration(milliseconds: 15));
+        unawaited(engine.setUserVolume(0));
+        clock.flushMicrotasks();
+        expect(player.state.volume, 0);
+        expect(player.state.playing, isTrue);
+        clock.elapse(const Duration(milliseconds: 60));
+        expect(player.audioCommands, [
+          ('volume', 0),
+          ('play', 0),
+          ('volume', 9),
+          ('volume', 0),
+        ]);
+      },
+    );
+
+    _testAudioTransport(
+      'an immediate pause interrupts the fade without raising live audio',
+      (clock, engine, player) {
+        unawaited(engine.setPlaying(false));
+        clock.elapse(const Duration(milliseconds: 15));
+        unawaited(engine.setPlaying(false, fade: false));
+        clock.flushMicrotasks();
+        expect(player.audioCommands, [
+          ('volume', 60),
+          ('pause', 60),
+          ('volume', 80),
+        ]);
+        clock.elapse(const Duration(milliseconds: 60));
+        expect(player.audioCommands, hasLength(3));
+      },
+    );
+
+    for (final action in ['stop', 'open', 'close']) {
+      _testAudioTransport('$action restores the chosen volume during a fade', (
+        clock,
+        engine,
+        player,
+      ) {
+        unawaited(engine.setPlaying(false, fade: false));
+        clock.flushMicrotasks();
+        unawaited(engine.setPlaying(true));
+        clock.flushMicrotasks();
+        expect(player.state.volume, 0);
+        player.audioCommands.clear();
+
+        unawaited(switch (action) {
+          'stop' => engine.stop(),
+          'open' => engine.open(_onlineSession),
+          _ => engine.close(),
+        });
+        clock.elapse(Duration.zero);
+        expect(player.state.volume, 80);
+        if (action == 'open') {
+          expect(player.audioCommands.last, ('open', 80));
+        }
+        final commandCount = player.audioCommands.length;
+        clock.elapse(const Duration(milliseconds: 60));
+        expect(player.audioCommands, hasLength(commandCount));
+      });
+    }
+  });
+
   testWidgets('retains track snapshots at EOF until the file changes', (
     tester,
   ) async {
@@ -1396,8 +1547,9 @@ void main() {
     },
   );
 
-  testWidgets('plays at the chosen speed, also in a new native player for '
-      'a decoder change', (tester) async {
+  testWidgets('keeps the chosen speed and volume across a decoder change', (
+    tester,
+  ) async {
     final decodingCubit = PlayerDecodingPreferencesCubit(
       repository: MemoryDecodingPreferencesRepository(),
     );
@@ -1423,6 +1575,11 @@ void main() {
     expect(engine.playbackRate.value, 1.5);
     expect(createdPlayers.single.rates, [1.5]);
 
+    await engine.setUserVolume(65);
+    unawaited(engine.setPlaying(true));
+    await tester.pump();
+    expect(createdPlayers.single.state.volume, 0);
+
     await decodingCubit.setHwdecMode(PlayerHwdecModePreset.softwareOnly);
     await tester.runAsync(() async {
       await Future<void>.delayed(const Duration(milliseconds: 1));
@@ -1439,6 +1596,8 @@ void main() {
     expect(createdPlayers, hasLength(2));
     expect(createdPlayers.last.rates, [1.5]);
     expect(engine.playbackRate.value, 1.5);
+    expect(createdPlayers.first.state.volume, 65);
+    expect(createdPlayers.last.audioCommands.last, ('open', 65));
   });
 
   testWidgets('plays at 2x while fast forward is held, then at the chosen '
@@ -2536,7 +2695,8 @@ void main() {
       await _deliverPlayerEvent(tester);
 
       await tester.sendKeyEvent(LogicalKeyboardKey.space);
-      expect(platformPlayer.playOrPauseCount, 1);
+      await tester.pump();
+      expect(platformPlayer.state.playing, isTrue);
 
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
       expect(
@@ -2561,6 +2721,51 @@ void main() {
       expect(platformPlayer.volumes.last, 95);
       await tester.pump(const Duration(seconds: 1));
       expect(find.byKey(const Key('player_volume_hud')), findsNothing);
+    });
+
+    testWidgets('slider and HUD keep the selected volume during both fades', (
+      tester,
+    ) async {
+      setTestWindowSize(tester, TestWindowSizes.landscape);
+      final platform = _FakePlatformPlayer(
+        configuration: const PlayerConfiguration(),
+      );
+      late MediaKitPlayerEngine engine;
+      await tester.pumpWidget(
+        _wrapViewport(
+          platformPlayer: platform,
+          onEngine: (value) => engine = value,
+        ),
+      );
+      platform
+        ..emitDuration(const Duration(minutes: 24))
+        ..emitPlaying(true);
+      await _deliverPlayerEvent(tester);
+      await engine.setUserVolume(70);
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+
+      final mute = find.byKey(const Key('player_mute_button'));
+      final slider = find.byKey(const Key('player_volume_slider'));
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await mouse.addPointer(location: tester.getCenter(mute));
+      await tester.pump(const Duration(milliseconds: 150));
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyK);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 30));
+      expect(platform.state.volume, 32.5);
+      expect(tester.widget<Slider>(slider).value, 65);
+      expect(find.text('65%'), findsOneWidget);
+
+      await tester.pump(const Duration(milliseconds: 30));
+      expect(platform.state.playing, isFalse);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyK);
+      await tester.pump();
+      expect(platform.state.volume, 0);
+      expect(tester.widget<Slider>(slider).value, 65);
+      expect(find.text('65%'), findsOneWidget);
+      await tester.pump(const Duration(milliseconds: 60));
+      expect(platform.state.volume, 65);
+      await mouse.removePointer();
     });
 
     testWidgets('leave the keys to the open episodes, but Escape', (
@@ -2669,17 +2874,20 @@ void main() {
         await tester.pump();
         expect(platformPlayer.rates, [2, 1]);
         expect(fastForwardPlate(), findsNothing);
-        expect(platformPlayer.playOrPauseCount, 0);
+        expect(platformPlayer.state.playing, isTrue);
+        expect(platformPlayer.volumes, isEmpty);
       });
 
       testWidgets('tapped plays or pauses as it is let go', (tester) async {
         final platformPlayer = await playing(tester);
 
         await tester.sendKeyDownEvent(LogicalKeyboardKey.space);
-        expect(platformPlayer.playOrPauseCount, 0);
+        expect(platformPlayer.state.playing, isTrue);
         await tester.pump(const Duration(milliseconds: 100));
         await tester.sendKeyUpEvent(LogicalKeyboardKey.space);
-        expect(platformPlayer.playOrPauseCount, 1);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 60));
+        expect(platformPlayer.state.playing, isFalse);
 
         await tester.pump(PlayerImmersiveControls.spaceHoldDelay);
         expect(platformPlayer.rates, isEmpty);
@@ -2695,8 +2903,10 @@ void main() {
         await tester.sendKeyDownEvent(LogicalKeyboardKey.space);
         await tester.pump(PlayerImmersiveControls.spaceHoldDelay * 2);
         expect(platformPlayer.rates, isEmpty);
+        expect(platformPlayer.state.playing, isFalse);
         await tester.sendKeyUpEvent(LogicalKeyboardKey.space);
-        expect(platformPlayer.playOrPauseCount, 1);
+        await tester.pump();
+        expect(platformPlayer.state.playing, isTrue);
       });
 
       testWidgets('held as the window loses the focus goes back to speed', (
@@ -2717,7 +2927,8 @@ void main() {
           AppLifecycleState.resumed,
         );
         await tester.sendKeyUpEvent(LogicalKeyboardKey.space);
-        expect(platformPlayer.playOrPauseCount, 0);
+        expect(platformPlayer.state.playing, isTrue);
+        expect(platformPlayer.volumes, isEmpty);
       });
     });
 
@@ -3142,7 +3353,8 @@ void main() {
       await tester.tap(mute);
       await tester.pump();
       await tester.sendKeyEvent(LogicalKeyboardKey.space);
-      expect(platformPlayer.playOrPauseCount, 1);
+      await tester.pump();
+      expect(platformPlayer.state.playing, isTrue);
     });
 
     testWidgets('keep waiting on screen until the first frame, also when '
@@ -3447,7 +3659,8 @@ void main() {
       );
       await tester.sendKeyEvent(LogicalKeyboardKey.space);
       await tester.sendKeyEvent(LogicalKeyboardKey.keyK);
-      expect(platformPlayer.playOrPauseCount, 0);
+      expect(platformPlayer.state.playing, isFalse);
+      expect(platformPlayer.volumes, isEmpty);
 
       expect(platformPlayer.openCount, 1);
       await tester.tap(find.widgetWithText(FilledButton, 'Try Again'));
@@ -3536,7 +3749,7 @@ void main() {
       await tester.tapAt(middle);
       await tester.pump();
       expect(opacity(tester), 0, reason: 'hidden at once, though paused');
-      expect(platformPlayer.playOrPauseCount, 0, reason: 'a tap only shows');
+      expect(platformPlayer.state.playing, isFalse, reason: 'a tap only shows');
 
       await tester.tapAt(middle);
       await tester.pump();
@@ -4039,7 +4252,7 @@ void main() {
       await tester.pump();
       expect(platformPlayer.seeks, isEmpty);
       expect(platformPlayer.rates, isEmpty);
-      expect(platformPlayer.playOrPauseCount, 0);
+      expect(platformPlayer.volumes, isEmpty);
       expect(platformPlayer.state.playing, isTrue, reason: 'it plays on');
       expect(opacity(tester), 0);
       expect(unlockPlate(), findsOneWidget, reason: 'a tap shows the way out');
@@ -4368,6 +4581,7 @@ void main() {
         await iosEvent('modeChanged', {'active': true});
         await iosEvent('setPlaying', {'playing': false});
         await tester.pump();
+        await tester.pump(const Duration(milliseconds: 60));
         await iosEvent('setPlaying', {'playing': false});
         await tester.pump();
         expect(fixture.player.pauseCount, 1);
@@ -4632,6 +4846,7 @@ void main() {
 
         window.active.value = false;
         leaveApp();
+        await tester.pump();
         expect(platformPlayer.pauseCount, 1);
         expect(engine.allowsStartingMediaPlayback, isFalse);
         comeBack();
@@ -4650,13 +4865,16 @@ void main() {
 
       window.pressPlayPause();
       await _deliverPlayerEvent(tester);
-      expect(platformPlayer.playOrPauseCount, 1);
+      await tester.pump(const Duration(milliseconds: 60));
+      expect(platformPlayer.state.playing, isFalse);
 
       window.pressPlayPause();
       await _deliverPlayerEvent(tester);
+      expect(platformPlayer.state.playing, isTrue);
       window.dismiss();
       await _deliverPlayerEvent(tester);
-      expect(platformPlayer.pauseCount, 1);
+      expect(platformPlayer.pauseCount, 2);
+      expect(platformPlayer.state.volume, 100);
     });
 
     testWidgets('show only the video in the window, and the controls on '
@@ -4777,7 +4995,7 @@ void main() {
       await tester.dragFrom(const Offset(100, 180), const Offset(48, 0));
       await tester.pump(const Duration(milliseconds: 50));
       expect(window.dragStarts, 1);
-      expect(platformPlayer.playOrPauseCount, 0);
+      expect(platformPlayer.volumes, isEmpty);
 
       setTestWindowSize(tester, TestWindowSizes.landscape);
       await tester.pump();
@@ -4871,7 +5089,8 @@ void main() {
           const Duration(minutes: 5, seconds: 10),
         );
         await tester.sendKeyEvent(LogicalKeyboardKey.keyK);
-        expect(platformPlayer.playOrPauseCount, 1);
+        await tester.pump();
+        expect(platformPlayer.state.playing, isTrue);
 
         await tester.sendKeyEvent(LogicalKeyboardKey.escape);
         await tester.pump();
@@ -5037,7 +5256,7 @@ void main() {
       await tester.dragFrom(const Offset(100, 122), const Offset(48, 0));
       await tester.pump(const Duration(milliseconds: 50));
       expect(window.dragStarts, 1);
-      expect(platformPlayer.playOrPauseCount, 0);
+      expect(platformPlayer.volumes, isEmpty);
 
       setTestWindowSize(tester, TestWindowSizes.landscape);
       await tester.pump();
@@ -5228,6 +5447,54 @@ Widget _wrapViewport({
   );
 }
 
+void _testAudioTransport(
+  String name,
+  void Function(
+    FakeAsync clock,
+    MediaKitPlayerEngine engine,
+    _FakePlatformPlayer player,
+  )
+  verify,
+) {
+  test(name, () {
+    fakeAsync((clock) {
+      final subtitles = PlayerSubtitlePreferencesCubit(
+        repository: MemorySubtitlePreferencesRepository(),
+      );
+      final decoding = PlayerDecodingPreferencesCubit(
+        repository: MemoryDecodingPreferencesRepository(),
+      );
+      final player = _FakePlatformPlayer(
+        configuration: const PlayerConfiguration(),
+      );
+      final engine = MediaKitPlayerEngine(
+        repository: StubPlayerRepository(),
+        subtitlePreferences: subtitles,
+        decodingPreferences: decoding,
+        playerBuilder: (_) => Player(platformPlayer: player),
+        videoControllerBuilder: (player, _) => _FakeVideoController(
+          player: player,
+          firstFrameFuture: Future<void>.value(),
+        ),
+      );
+      unawaited(engine.open(_session));
+      clock.flushMicrotasks();
+      player.emitPlaying(true);
+      unawaited(engine.setUserVolume(80));
+      clock.flushMicrotasks();
+      player.audioCommands.clear();
+      try {
+        verify(clock, engine, player);
+      } finally {
+        unawaited(engine.close());
+        unawaited(subtitles.close());
+        unawaited(decoding.close());
+        clock.flushMicrotasks();
+      }
+    });
+  });
+}
+
 void _stayOnPage() {}
 
 const _plainChrome = PlayerChrome(title: 'Episode 11', onBack: _stayOnPage);
@@ -5415,9 +5682,11 @@ class _FakePlatformPlayer extends PlatformPlayer {
   int openCount = 0;
   Playable? lastOpened;
   void Function(Playable)? onOpen;
+  final audioCommands = <(String, double)>[];
 
   @override
   Future<void> open(Playable playable, {bool play = true}) async {
+    audioCommands.add(('open', state.volume));
     openCount++;
     lastOpened = playable;
     onOpen?.call(playable);
@@ -5483,10 +5752,14 @@ class _FakePlatformPlayer extends PlatformPlayer {
   int pauseCount = 0;
 
   @override
-  Future<void> play() async => emitPlaying(true);
+  Future<void> play() async {
+    audioCommands.add(('play', state.volume));
+    emitPlaying(true);
+  }
 
   @override
   Future<void> pause() async {
+    audioCommands.add(('pause', state.volume));
     pauseCount++;
     emitPlaying(false);
   }
@@ -5517,14 +5790,6 @@ class _FakePlatformPlayer extends PlatformPlayer {
     playingController.add(playing);
   }
 
-  int playOrPauseCount = 0;
-
-  @override
-  Future<void> playOrPause() async {
-    playOrPauseCount++;
-    emitPlaying(!state.playing);
-  }
-
   final rates = <double>[];
 
   @override
@@ -5535,9 +5800,14 @@ class _FakePlatformPlayer extends PlatformPlayer {
   }
 
   final volumes = <double>[];
+  Completer<void>? nextVolumeWrite;
 
   @override
   Future<void> setVolume(double volume) async {
+    final pendingWrite = nextVolumeWrite;
+    nextVolumeWrite = null;
+    if (pendingWrite != null) await pendingWrite.future;
+    audioCommands.add(('volume', volume));
     volumes.add(volume);
     state = state.copyWith(volume: volume);
     volumeController.add(volume);
