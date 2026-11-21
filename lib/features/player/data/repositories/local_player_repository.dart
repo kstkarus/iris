@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:iris/features/downloads/domain/entities/download_item.dart';
 import 'package:iris/features/downloads/domain/entities/download_status.dart';
+import 'package:iris/features/downloads/domain/entities/download_title.dart';
 import 'package:iris/features/downloads/domain/repositories/downloads_repository.dart';
 import 'package:iris/features/player/data/adapters/player_runtime_memory_adapter.dart';
 import 'package:iris/features/player/domain/downloaded_player_source.dart';
@@ -44,31 +45,48 @@ class LocalPlayerRepository implements PlayerRepository {
     required String sessionId,
     required int fileIndex,
   }) async* {
-    var downloadId = sessionId;
-    final scoped = sessionId.startsWith(downloadedSourcePrefix);
-    bool matchesSource(DownloadItem item) =>
-        item.status == DownloadStatus.completed &&
-        item.fileIndex == fileIndex &&
-        downloadedSourceSessionId(item.animeId, item.magnet) == sessionId;
-    if (scoped) {
-      final items = await _downloadsRepository.watchDownloads().first;
-      final item = items.where(matchesSource).firstOrNull;
-      if (item == null) {
-        yield const PlayerLaunchFailureUpdate();
-        return;
-      }
-      downloadId = item.id;
-    }
-    final download = await _downloadsRepository.findCompletedById(
-      id: downloadId,
-    );
-    if (download == null || (scoped && !matchesSource(download))) {
+    final download = sessionId.startsWith(downloadedSourcePrefix)
+        ? await _findSourceDownload(sessionId, fileIndex)
+        : await _downloadsRepository.findCompletedById(id: sessionId);
+    if (download == null) {
       yield const PlayerLaunchFailureUpdate();
       return;
     }
     yield PlayerLaunchReadyUpdate(
       PlayerSession(sessionId: sessionId, streamUrl: download.localPath),
     );
+  }
+
+  Future<DownloadItem?> _findSourceDownload(
+    String sessionId,
+    int fileIndex,
+  ) async {
+    final scopeEnd = sessionId.indexOf(':', downloadedSourcePrefix.length);
+    if (scopeEnd < 0) return null;
+    final scope = sessionId
+        .substring(downloadedSourcePrefix.length, scopeEnd)
+        .split('/');
+    final sourceKey = sessionId.substring(scopeEnd + 1);
+    final shared = scope.length == 2 && scope.last == '$fileIndex';
+    bool matchesTitle(DownloadItem item) =>
+        Uri.encodeComponent(item.animeId) == scope.first;
+    bool matchesFile(DownloadItem item) =>
+        item.status == DownloadStatus.completed &&
+        item.fileIndex == fileIndex &&
+        downloadSourceKey(item.magnet) == sourceKey;
+    final candidates = (await _downloadsRepository.watchDownloads().first)
+        .where(matchesFile);
+    final item =
+        candidates.where(matchesTitle).firstOrNull ??
+        (shared
+            ? candidates.where((item) => !item.isOnline).firstOrNull
+            : null);
+    if (item == null) return null;
+    final download = await _downloadsRepository.findCompletedById(id: item.id);
+    if (download == null || !matchesFile(download)) return null;
+    return matchesTitle(download) || (shared && !download.isOnline)
+        ? download
+        : null;
   }
 
   @override

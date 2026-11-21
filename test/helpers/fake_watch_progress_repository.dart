@@ -14,6 +14,7 @@ class FixedWatchProgressRepository implements WatchProgressRepository {
   Future<WatchProgress?> find({
     required String torrentKey,
     required int fileIndex,
+    String animeId = '',
   }) async => null;
 
   @override

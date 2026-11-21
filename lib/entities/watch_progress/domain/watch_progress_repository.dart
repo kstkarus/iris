@@ -4,12 +4,15 @@ abstract interface class WatchProgressRepository {
   /// Emits every record, most recently updated first, then again on change.
   Stream<List<WatchProgress>> watchAll();
 
+  /// A linked title prefers its own record, then older unlinked history.
+  /// Without a title, returns the latest position for this file.
   Future<WatchProgress?> find({
     required String torrentKey,
     required int fileIndex,
+    String animeId = '',
   });
 
-  /// Inserts or replaces the record with the same torrent and file.
+  /// Inserts or replaces the record with the same torrent, file and anime.
   Future<void> save(WatchProgress progress);
 
   /// Hides the anime (or standalone source) from Continue watching without

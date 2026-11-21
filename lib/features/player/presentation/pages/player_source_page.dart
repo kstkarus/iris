@@ -73,6 +73,7 @@ class PlayerSourcePage extends StatelessWidget {
                     progressByFile: progressByFile(
                       context.watchWatchProgress(),
                       sourceProgressKey(args.magnet),
+                      animeId: args.animeId,
                     ),
                     listedEpisodes: listedEpisodes,
                     onFileSelected: (file) {

@@ -66,6 +66,64 @@ void main() {
     expect(items.first.duration, const Duration(seconds: 1440));
   });
 
+  test(
+    'keeps independent history for two anime on a previously saved file',
+    () async {
+      final older = _progress(animeId: '1', positionSeconds: 320);
+      final newer = _progress(animeId: '2', positionSeconds: 120, minute: 1);
+      await preferences.setString(
+        'watch_progress.items',
+        jsonEncode([WatchProgressModel.toJson(older)]),
+      );
+      await repository.save(newer);
+      final reopened = SharedPreferencesWatchProgressRepository(preferences);
+      addTearDown(reopened.close);
+      final items = await reopened.watchAll().first;
+      expect(items, [newer, older]);
+      expect(
+        await reopened.find(torrentKey: 'abc', fileIndex: 0, animeId: '1'),
+        older,
+      );
+      expect(
+        await reopened.find(torrentKey: 'abc', fileIndex: 0, animeId: '2'),
+        newer,
+      );
+      expect(await reopened.find(torrentKey: 'abc', fileIndex: 0), newer);
+      expect(
+        await reopened.find(torrentKey: 'abc', fileIndex: 0, animeId: '3'),
+        isNull,
+      );
+      expect(progressByFile(items, 'abc', animeId: '1')[0], older);
+      expect(progressByFile(items, 'abc')[0], newer);
+
+      await reopened.dismissFromContinueWatching(newer);
+      expect(
+        (await reopened.watchAll().first).where(
+          (item) => !item.hiddenFromContinueWatching,
+        ),
+        [older],
+      );
+    },
+  );
+
+  test(
+    'uses unlinked history until a linked title has its own position',
+    () async {
+      final legacy = _progress(positionSeconds: 180, minute: 2);
+      await repository.save(legacy);
+      expect(
+        await repository.find(torrentKey: 'abc', fileIndex: 0, animeId: '1'),
+        legacy,
+      );
+      final linked = _progress(animeId: '1', positionSeconds: 360, minute: 1);
+      await repository.save(linked);
+      expect(
+        await repository.find(torrentKey: 'abc', fileIndex: 0, animeId: '1'),
+        linked,
+      );
+    },
+  );
+
   test('removes every record of a torrent and notifies watchers', () async {
     await repository.save(_progress(fileIndex: 0));
     await repository.save(_progress(fileIndex: 1));

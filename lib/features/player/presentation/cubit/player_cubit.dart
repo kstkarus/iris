@@ -484,6 +484,7 @@ class PlayerCubit extends Cubit<PlayerState> {
         _savedProgress = await progressRepository.find(
           torrentKey: torrentKey,
           fileIndex: _source.fileIndex,
+          animeId: _source.animeId,
         );
         _startPosition = _savedProgress?.resumePosition;
       } catch (error, stackTrace) {

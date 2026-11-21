@@ -242,5 +242,9 @@ Map<int, WatchProgress> _sourceProgress(
   final torrentKey = source.torrentKey;
   return torrentKey == null
       ? const {}
-      : progressByFile(context.watchWatchProgress(), torrentKey);
+      : progressByFile(
+          context.watchWatchProgress(),
+          torrentKey,
+          animeId: source.animeId,
+        );
 }

@@ -70,12 +70,8 @@ class PlayerSourceCubit extends Cubit<PlayerSourceState> {
             await downloads.watchDownloads().first,
             magnet,
             animeId: animeId,
+            preferredFileIndex: preferredFileIndex,
           );
-          if (preferredFileIndex != null &&
-              !(local?.files.any((file) => file.index == preferredFileIndex) ??
-                  false)) {
-            local = null;
-          }
         } on Object catch (error, stackTrace) {
           developer.log(
             'Unable to read downloaded episodes.',

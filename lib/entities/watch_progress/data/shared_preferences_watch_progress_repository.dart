@@ -25,7 +25,7 @@ class SharedPreferencesWatchProgressRepository
 
   final JsonListPreference<WatchProgress> _storage;
 
-  /// Oldest records are dropped beyond this many files.
+  /// Oldest records are dropped beyond this many entries.
   final int maxEntries;
   final StreamController<List<WatchProgress>> _changes =
       StreamController<List<WatchProgress>>.broadcast();
@@ -41,20 +41,19 @@ class SharedPreferencesWatchProgressRepository
   Future<WatchProgress?> find({
     required String torrentKey,
     required int fileIndex,
-  }) async {
-    final id = watchProgressId(torrentKey: torrentKey, fileIndex: fileIndex);
-    for (final item in _items()) {
-      if (item.id == id) return item;
-    }
-    return null;
-  }
+    String animeId = '',
+  }) async => progressByFile(
+    _items().where((item) => item.fileIndex == fileIndex),
+    torrentKey,
+    animeId: animeId,
+  )[fileIndex];
 
   @override
   Future<void> save(WatchProgress progress) {
     return _write([
       progress,
       for (final item in _items())
-        if (item.id != progress.id) item,
+        if (item.recordKey != progress.recordKey) item,
     ]);
   }
 
@@ -94,7 +93,7 @@ class SharedPreferencesWatchProgressRepository
   Future<void> close() => _changes.close();
 
   List<WatchProgress> _items() =>
-      _cache ??= _sorted(_latestPerFile(_storage.read()));
+      _cache ??= _sorted(_latestPerRecord(_storage.read()));
 
   Future<void> _write(List<WatchProgress> items) async {
     final sorted = _sorted(items);
@@ -107,13 +106,13 @@ class SharedPreferencesWatchProgressRepository
   }
 
   /// Records saved under the base32 and the hex key of one torrent meet once
-  /// the key is canonical; the newer one stands.
-  List<WatchProgress> _latestPerFile(List<WatchProgress> items) {
-    final latest = <String, WatchProgress>{};
+  /// the key is canonical; the newer record for each title stands.
+  List<WatchProgress> _latestPerRecord(List<WatchProgress> items) {
+    final latest = <(String, int, String), WatchProgress>{};
     for (final item in items) {
-      final kept = latest[item.id];
+      final kept = latest[item.recordKey];
       if (kept == null || item.updatedAt.isAfter(kept.updatedAt)) {
-        latest[item.id] = item;
+        latest[item.recordKey] = item;
       }
     }
     return latest.values.toList();

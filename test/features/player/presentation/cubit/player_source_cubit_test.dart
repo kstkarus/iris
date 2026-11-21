@@ -1,17 +1,24 @@
 import 'dart:async';
+import 'package:iris/entities/watch_progress/domain/watch_progress.dart';
 import 'package:iris/features/downloads/data/repositories/mock_downloads_repository.dart';
 import 'package:iris/features/downloads/domain/entities/downloadable_file.dart';
 import 'package:iris/features/downloads/domain/entities/prepared_download_source.dart';
 
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:iris/features/player/data/repositories/local_player_repository.dart';
+import 'package:iris/features/player/data/repositories/streaming_or_local_player_repository.dart';
+import 'package:iris/features/player/domain/entities/anime_player_source.dart';
 import 'package:iris/features/player/domain/entities/no_playable_video_exception.dart';
+import 'package:iris/features/player/domain/entities/player_launch_update.dart';
 import 'package:iris/features/player/domain/entities/player_video_file.dart';
 import 'package:iris/features/player/domain/entities/prepared_player_source.dart';
 import 'package:iris/features/player/presentation/cubit/player_source_cubit.dart';
 import 'package:iris/features/player/presentation/cubit/player_source_state.dart';
+import 'package:iris/features/player/presentation/models/anime_player_source_args.dart';
 
 import '../../../../helpers/fake_player_repository.dart';
+import '../../player_test_doubles.dart';
 
 void main() {
   test(
@@ -58,11 +65,97 @@ void main() {
         repository: remote,
         downloadsRepository: downloads,
         preferDownloads: true,
-        preferredFileIndex: 1,
+        preferredFileIndex: 4,
       );
       await missing.loadSource();
       expect(remote.preparations, 1);
       await missing.close();
+    },
+  );
+
+  test(
+    'Continue Watching opens a shared download and keeps Next on the active title',
+    () async {
+      final downloads = MockDownloadsRepository();
+      const magnet = 'mock-magnet';
+      for (final (index, animeId) in [(0, '1'), (1, '1'), (2, '2')]) {
+        await downloads.enqueueDownload(
+          source: const PreparedDownloadSource(sourceToken: 's', files: []),
+          file: DownloadableFile(
+            index: index,
+            name: 'episode-${index + 1}.mkv',
+            relativePath: 'episode-${index + 1}.mkv',
+            size: 1,
+          ),
+          animeId: animeId,
+          animeTitle: 'Anime $animeId',
+          sourceTitle: 'Release',
+        );
+      }
+      final args = AnimePlayerSourceArgs.resume(
+        WatchProgress(
+          torrentKey: magnet,
+          fileIndex: 0,
+          fileName: 'episode-1.mkv',
+          magnet: magnet,
+          sourceTitle: 'Release',
+          position: const Duration(minutes: 5),
+          duration: const Duration(minutes: 24),
+          updatedAt: DateTime.utc(2026),
+          animeId: '2',
+          animeTitle: 'Anime 2',
+        ),
+      );
+      final streaming = _UnsupportedSourceRepository();
+      final repository = StreamingOrLocalPlayerRepository(
+        streaming: streaming,
+        online: streaming,
+        local: LocalPlayerRepository(
+          downloadsRepository: downloads,
+          memoryAdapter: const FixedMemoryAdapter(0),
+        ),
+      );
+      final cubit = PlayerSourceCubit(
+        magnet: args.magnet,
+        animeId: args.animeId,
+        repository: repository,
+        downloadsRepository: downloads,
+        preferDownloads: args.preferDownloads,
+        preferredFileIndex: args.autoOpenFileIndex,
+      );
+      addTearDown(cubit.close);
+      await cubit.loadSource();
+
+      final prepared = (cubit.state as PlayerSourceReady).preparedSource;
+      final source = AnimePlayerSource(
+        animeId: args.animeId,
+        animeTitle: args.animeTitle,
+        sourceTitle: args.sourceTitle,
+        sessionId: prepared.sessionId,
+        fileIndex: args.autoOpenFileIndex!,
+        fileName: prepared.files.first.name,
+        files: prepared.files,
+      );
+      expect(source.files.map((file) => file.index), [0, 2]);
+      expect(source.nextFile?.index, 2);
+      for (final (index, path) in [
+        (0, 'episode-1.mkv'),
+        (2, 'episode-3.mkv'),
+      ]) {
+        final updates = await repository
+            .startPlayback(sessionId: source.sessionId, fileIndex: index)
+            .toList();
+        expect(
+          (updates.single as PlayerLaunchReadyUpdate).session.streamUrl,
+          path,
+        );
+      }
+      expect(
+        await repository
+            .startPlayback(sessionId: source.sessionId, fileIndex: 1)
+            .single,
+        const PlayerLaunchFailureUpdate(),
+      );
     },
   );
 

@@ -1,8 +1,10 @@
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:iris/app/bootstrap/windows_update_restart.dart';
+import 'package:iris/entities/watch_progress/data/shared_preferences_watch_progress_repository.dart';
 import 'package:iris/entities/watch_progress/domain/watch_progress.dart';
 import 'package:iris/entities/watch_progress/domain/watch_progress_repository.dart';
 import 'package:iris/features/player/domain/entities/anime_player_source.dart';
@@ -59,12 +61,13 @@ void main() {
     AnimePlayerSource source = _source,
     FakePlayerEngine? playerEngine,
     PlayerTrackPreferences? defaultTrackPreferences,
+    WatchProgressRepository? history,
   }) {
     return PlayerCubit(
       source: source,
       repository: repository,
       engine: playerEngine ?? engine,
-      progressRepository: progress,
+      progressRepository: history ?? progress,
       trackPreferencesRepository: tracks,
       defaultTrackPreferences: defaultTrackPreferences,
       skipTimesRepository: skipTimes,
@@ -87,6 +90,52 @@ void main() {
       animeTitle: 'Fullmetal Alchemist',
     );
   }
+
+  test(
+    'resumes and saves the linked title independently on a shared file',
+    () async {
+      SharedPreferences.setMockInitialValues({});
+      final history = SharedPreferencesWatchProgressRepository(
+        await SharedPreferences.getInstance(),
+      );
+      addTearDown(history.close);
+      final original = saved();
+      await history.save(original);
+      const other = AnimePlayerSource(
+        animeId: '2',
+        animeTitle: 'Other anime',
+        sourceTitle: '[Group] FMA',
+        sessionId: '42',
+        fileIndex: 0,
+        fileName: 'ep-01.mkv',
+        magnet: _magnet,
+        files: _files,
+      );
+      final player = createCubit(source: other, history: history);
+      await player.loadPlayback();
+      expect((player.state as PlayerReady).startPosition, isNull);
+      const position = Duration(minutes: 3);
+      player.reportProgress(position, original.duration);
+      await player.close();
+
+      final rows = await history.watchAll().first;
+      expect(rows.map((item) => item.animeId), [
+        other.animeId,
+        original.animeId,
+      ]);
+      expect(rows.map((item) => item.resumePosition), [
+        position,
+        original.position,
+      ]);
+      final resumed = createCubit(
+        history: history,
+        playerEngine: FakePlayerEngine(),
+      );
+      addTearDown(resumed.close);
+      await resumed.loadPlayback();
+      expect((resumed.state as PlayerReady).startPosition, original.position);
+    },
+  );
 
   test('resumes from the saved position and offers to start over', () async {
     progress.seed(saved());
@@ -799,8 +848,8 @@ class _RecordingPlayerRepository extends StubPlayerRepository {
 }
 
 class _MemoryWatchProgressRepository implements WatchProgressRepository {
-  final Map<String, WatchProgress> _items = {};
-  final Map<String, WatchProgress> _persisted = {};
+  final Map<(String, int, String), WatchProgress> _items = {};
+  final Map<(String, int, String), WatchProgress> _persisted = {};
   final List<WatchProgress> saves = [];
   Completer<void>? saveGate;
   bool failSaves = false;
@@ -812,29 +861,31 @@ class _MemoryWatchProgressRepository implements WatchProgressRepository {
   Future<WatchProgress?> find({
     required String torrentKey,
     required int fileIndex,
+    String animeId = '',
   }) async {
     _cacheLoaded = true;
-    return _items[watchProgressId(
-      torrentKey: torrentKey,
-      fileIndex: fileIndex,
-    )];
+    return progressByFile(
+      _items.values,
+      torrentKey,
+      animeId: animeId,
+    )[fileIndex];
   }
 
   /// Stores a record without counting it as a save by the cubit.
   void seed(WatchProgress progress) {
     _cacheLoaded = true;
-    _items[progress.id] = progress;
-    _persisted[progress.id] = progress;
+    _items[progress.recordKey] = progress;
+    _persisted[progress.recordKey] = progress;
   }
 
   @override
   Future<void> save(WatchProgress progress) async {
     _cacheLoaded = true;
-    _items[progress.id] = progress;
+    _items[progress.recordKey] = progress;
     await saveGate?.future;
     if (failSaves) throw StateError('watch progress storage failed');
     saves.add(progress);
-    _persisted[progress.id] = progress;
+    _persisted[progress.recordKey] = progress;
   }
 
   @override

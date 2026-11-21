@@ -1,9 +1,8 @@
 /// How far one file of one torrent has been watched.
 ///
-/// Identity is the torrent (info-hash key) plus the file index, so streaming
-/// and a downloaded copy of the same file share one record. The anime fields
-/// are filled only when playback was started from that anime's page; they are
-/// never guessed from names.
+/// Streaming and a downloaded copy share progress for the same anime.
+/// A torrent and file can have separate records when linked to several anime.
+/// The anime is never guessed from names.
 class WatchProgress {
   const WatchProgress({
     required this.torrentKey,
@@ -43,6 +42,8 @@ class WatchProgress {
 
   String get id =>
       watchProgressId(torrentKey: torrentKey, fileIndex: fileIndex);
+
+  (String, int, String) get recordKey => (torrentKey, fileIndex, animeId);
 
   bool get hasAnime => animeId.isNotEmpty;
 
@@ -137,15 +138,28 @@ List<WatchProgress> latestPerTorrent(Iterable<WatchProgress> progress) {
   ];
 }
 
-/// Records of one torrent keyed by file index.
+/// Newest records keyed by file index. A linked title uses its own records
+/// first and can fall back to older history without an anime link.
 Map<int, WatchProgress> progressByFile(
   Iterable<WatchProgress> progress,
-  String torrentKey,
-) {
-  return {
-    for (final item in progress)
-      if (item.torrentKey == torrentKey) item.fileIndex: item,
-  };
+  String torrentKey, {
+  String animeId = '',
+}) {
+  final files = <int, WatchProgress>{};
+  for (final item in progress) {
+    if (item.torrentKey != torrentKey ||
+        (animeId.isNotEmpty && item.hasAnime && item.animeId != animeId)) {
+      continue;
+    }
+    final existing = files[item.fileIndex];
+    if (existing == null ||
+        (animeId.isNotEmpty && item.hasAnime != existing.hasAnime
+            ? item.hasAnime
+            : item.updatedAt.isAfter(existing.updatedAt))) {
+      files[item.fileIndex] = item;
+    }
+  }
+  return files;
 }
 
 /// The latest record of each torrent watched from one anime's page.
