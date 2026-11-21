@@ -61,12 +61,24 @@ class AppUpdateCubit extends Cubit<AppUpdateState> {
       if (!_current(operation)) return;
       final installed = await _repository.installedVersion();
       if (!_current(operation) || installed == null) return;
-      emit(state.copyWith(installedVersion: installed));
-      if (latest == null ||
-          !latest.version.isNewerThan(installed) ||
-          latest.version == _repository.dismissedVersion) {
+      if (latest == null || !latest.version.isNewerThan(installed)) {
+        emit(
+          state.copyWith(installedVersion: installed, dismissedRelease: null),
+        );
         return;
       }
+      if (latest.version == _repository.dismissedVersion) {
+        _preparedPath = null;
+        emit(
+          AppUpdateState(
+            installedVersion: installed,
+            dismissedRelease: latest,
+            checkStatus: state.checkStatus,
+          ),
+        );
+        return;
+      }
+      emit(state.copyWith(installedVersion: installed));
       _preparedPath = null;
       _emitRelease(latest);
       final path = await _downloads?.restore(latest);
@@ -107,6 +119,7 @@ class AppUpdateCubit extends Cubit<AppUpdateState> {
         emit(
           state.copyWith(
             installedVersion: installed,
+            dismissedRelease: null,
             checkStatus: AppUpdateCheckStatus.upToDate,
           ),
         );
@@ -136,18 +149,23 @@ class AppUpdateCubit extends Cubit<AppUpdateState> {
 
   /// Puts the offered release off until a newer one comes out.
   Future<void> dismiss() async {
-    final release = state.release;
+    final release = state.availableRelease;
     if (release == null || state.busy || state.phase == AppUpdatePhase.ready) {
       return;
     }
     ++_operation;
-    emit(AppUpdateState(installedVersion: state.installedVersion));
+    emit(
+      AppUpdateState(
+        installedVersion: state.installedVersion,
+        dismissedRelease: release,
+      ),
+    );
     await _repository.dismiss(release.version);
   }
 
   Future<void> download() async {
     final downloads = _downloads;
-    final release = state.release;
+    final release = state.availableRelease;
     if (downloads == null ||
         release == null ||
         state.busy ||

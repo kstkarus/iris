@@ -117,6 +117,9 @@ class AppLocalizationsRu extends AppLocalizations {
   String get navigationDownloads => 'Загрузки';
 
   @override
+  String get navigationDownloadsActive => 'идёт скачивание';
+
+  @override
   String get downloadsOpenButton => 'Скачать';
 
   @override
@@ -1971,4 +1974,7 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get settingsUpdateOpenDetails => 'Подробнее';
+
+  @override
+  String get settingsUpdateAvailableHint => 'Доступно обновление';
 }

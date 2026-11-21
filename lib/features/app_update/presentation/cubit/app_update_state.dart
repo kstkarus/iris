@@ -13,9 +13,12 @@ enum AppUpdatePhase {
   failed,
 }
 
+const _keep = Object();
+
 final class AppUpdateState {
   const AppUpdateState({
     this.release,
+    this.dismissedRelease,
     this.phase = AppUpdatePhase.available,
     this.receivedBytes = 0,
     this.totalBytes = 0,
@@ -26,6 +29,10 @@ final class AppUpdateState {
   });
 
   final AppRelease? release;
+
+  /// A newer release the user put off with Later: hidden from the top strip,
+  /// but still surfaced quietly on Settings and directly actionable in About.
+  final AppRelease? dismissedRelease;
   final AppUpdatePhase phase;
   final int receivedBytes;
   final int totalBytes;
@@ -33,6 +40,10 @@ final class AppUpdateState {
   final bool cancelling;
   final AppUpdateCheckStatus checkStatus;
   final AppVersion? installedVersion;
+
+  bool get hasDismissedUpdate => release == null && dismissedRelease != null;
+
+  AppRelease? get availableRelease => release ?? dismissedRelease;
 
   double get progress =>
       totalBytes > 0 ? (receivedBytes / totalBytes).clamp(0.0, 1.0) : 0;
@@ -55,6 +66,7 @@ final class AppUpdateState {
 
   AppUpdateState copyWith({
     AppRelease? release,
+    Object? dismissedRelease = _keep,
     AppUpdatePhase? phase,
     int? receivedBytes,
     int? totalBytes,
@@ -64,6 +76,9 @@ final class AppUpdateState {
     AppVersion? installedVersion,
   }) => AppUpdateState(
     release: release ?? this.release,
+    dismissedRelease: identical(dismissedRelease, _keep)
+        ? this.dismissedRelease
+        : dismissedRelease as AppRelease?,
     phase: phase ?? this.phase,
     receivedBytes: receivedBytes ?? this.receivedBytes,
     totalBytes: totalBytes ?? this.totalBytes,
@@ -77,6 +92,7 @@ final class AppUpdateState {
   bool operator ==(Object other) =>
       other is AppUpdateState &&
       other.release == release &&
+      other.dismissedRelease == dismissedRelease &&
       other.phase == phase &&
       other.receivedBytes == receivedBytes &&
       other.totalBytes == totalBytes &&
@@ -88,6 +104,7 @@ final class AppUpdateState {
   @override
   int get hashCode => Object.hash(
     release,
+    dismissedRelease,
     phase,
     receivedBytes,
     totalBytes,

@@ -44,6 +44,7 @@
   "commonSignOut": "Sign out",
   "navigationCatalog": "Catalog",
   "navigationDownloads": "Downloads",
+  "navigationDownloadsActive": "downloading",
   "downloadsOpenButton": "Download",
   "downloadsEmptyTitle": "No downloads yet",
   "downloadsEmpty": "Download episodes from an anime’s page to watch offline.",
@@ -1128,5 +1129,6 @@
   "settingsUpdateUpToDate": "Up to date",
   "settingsUpdateCheckFailed": "Couldn’t check",
   "settingsUpdateOpen": "Update",
-  "settingsUpdateOpenDetails": "Details"
+  "settingsUpdateOpenDetails": "Details",
+  "settingsUpdateAvailableHint": "Update available"
 }

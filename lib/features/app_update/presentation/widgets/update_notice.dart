@@ -37,7 +37,7 @@ Future<void> showAppUpdateSheet(
   OpenExternalUrl? open,
 }) async {
   final cubit = context.read<AppUpdateCubit>();
-  final release = cubit.state.release;
+  final release = cubit.state.availableRelease;
   if (release == null) return;
   if (!cubit.supportsInAppUpdate) {
     final failed = AppLocalizations.of(context).appUpdateOpenFailed;
@@ -71,10 +71,12 @@ String appUpdatePhaseLabel(
   bool includeDownloadVersion = false,
 }) => switch (state.phase) {
   AppUpdatePhase.available => l10n.appUpdateNoticeAvailable(
-    '${state.release!.version}',
+    '${state.availableRelease!.version}',
   ),
   AppUpdatePhase.downloading when includeDownloadVersion =>
-    l10n.appUpdateNoticeDownloadingVersion('${state.release!.version}'),
+    l10n.appUpdateNoticeDownloadingVersion(
+      '${state.availableRelease!.version}',
+    ),
   AppUpdatePhase.downloading => l10n.appUpdateNoticeDownloading,
   AppUpdatePhase.verifying => l10n.appUpdateNoticeVerifying,
   AppUpdatePhase.ready => switch (state.failure) {

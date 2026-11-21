@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:iris/app/theme/app_theme.dart';
 import 'package:iris/features/downloads/domain/repositories/downloads_repository.dart';
+import 'package:iris/features/downloads/presentation/cubit/download_activity_cubit.dart';
 import 'package:iris/features/downloads/presentation/widgets/download_announcements.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/window/windows_title_bar_theme.dart';
@@ -28,6 +31,26 @@ class IrisApp extends StatefulWidget {
 
 class _IrisAppState extends State<IrisApp> {
   final _titleBarTheme = WindowsTitleBarTheme();
+  late DownloadActivityCubit _downloadActivity = DownloadActivityCubit(
+    repository: widget.downloadsRepository,
+  );
+
+  @override
+  void didUpdateWidget(IrisApp oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.downloadsRepository, widget.downloadsRepository)) {
+      unawaited(_downloadActivity.close());
+      _downloadActivity = DownloadActivityCubit(
+        repository: widget.downloadsRepository,
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    unawaited(_downloadActivity.close());
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -48,9 +71,12 @@ class _IrisAppState extends State<IrisApp> {
         _titleBarTheme.setAppTheme(Theme.of(context).colorScheme);
         return RepositoryProvider.value(
           value: _titleBarTheme,
-          child: DownloadAnnouncements(
-            repository: widget.downloadsRepository,
-            child: child!,
+          child: BlocProvider.value(
+            value: _downloadActivity,
+            child: DownloadAnnouncements(
+              repository: widget.downloadsRepository,
+              child: child!,
+            ),
           ),
         );
       },

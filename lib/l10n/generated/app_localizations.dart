@@ -296,6 +296,12 @@ abstract class AppLocalizations {
   /// **'Downloads'**
   String get navigationDownloads;
 
+  /// No description provided for @navigationDownloadsActive.
+  ///
+  /// In en, this message translates to:
+  /// **'downloading'**
+  String get navigationDownloadsActive;
+
   /// No description provided for @downloadsOpenButton.
   ///
   /// In en, this message translates to:
@@ -3367,6 +3373,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Details'**
   String get settingsUpdateOpenDetails;
+
+  /// No description provided for @settingsUpdateAvailableHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Update available'**
+  String get settingsUpdateAvailableHint;
 }
 
 class _AppLocalizationsDelegate

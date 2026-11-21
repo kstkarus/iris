@@ -51,15 +51,65 @@ void main() {
 
     await cubit.dismiss();
     expect(cubit.state.release, isNull);
+    expect(cubit.state.dismissedRelease, testRelease(3));
+    expect(cubit.state.hasDismissedUpdate, isTrue);
     expect(repository.dismissed, const AppVersion(1, 3, 0));
 
     await cubit.check();
     expect(cubit.state.release, isNull);
+    expect(cubit.state.dismissedRelease, testRelease(3));
+    expect(cubit.state.hasDismissedUpdate, isTrue);
 
     repository.latest = testRelease(4);
     await cubit.check();
     expect(cubit.state.release, testRelease(4));
+    expect(cubit.state.dismissedRelease, isNull);
+    expect(cubit.state.hasDismissedUpdate, isFalse);
   });
+
+  test(
+    'dismissed release clears once installed and can start downloading directly',
+    () async {
+      final release = testRelease(3);
+      final repository = FakeAppUpdateRepository(
+        latest: release,
+        installed: const AppVersion(1, 2, 0),
+      );
+      final downloads = _Downloads();
+      final cubit = AppUpdateCubit(
+        repository: repository,
+        downloads: downloads,
+      );
+      addTearDown(cubit.close);
+
+      await cubit.check();
+      await cubit.dismiss();
+      expect(cubit.state.release, isNull);
+      expect(cubit.state.dismissedRelease, release);
+
+      final pending = cubit.download();
+      expect(cubit.state.release, release);
+      expect(cubit.state.dismissedRelease, isNull);
+      expect(cubit.state.phase, AppUpdatePhase.downloading);
+      downloads.result.complete('/tmp/update.apk');
+      await pending;
+      expect(cubit.state.phase, AppUpdatePhase.ready);
+
+      // A relaunched cubit on the updated version does not flag a dismissed update.
+      final updated = AppUpdateCubit(
+        repository: FakeAppUpdateRepository(
+          latest: release,
+          installed: release.version,
+          dismissed: release.version,
+        ),
+      );
+      addTearDown(updated.close);
+      await updated.check();
+      expect(updated.state.release, isNull);
+      expect(updated.state.dismissedRelease, isNull);
+      expect(updated.state.hasDismissedUpdate, isFalse);
+    },
+  );
 
   test('a failed check offers nothing', () async {
     final cubit = await checked(

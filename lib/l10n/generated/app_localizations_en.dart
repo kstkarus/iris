@@ -117,6 +117,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get navigationDownloads => 'Downloads';
 
   @override
+  String get navigationDownloadsActive => 'downloading';
+
+  @override
   String get downloadsOpenButton => 'Download';
 
   @override
@@ -1942,4 +1945,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get settingsUpdateOpenDetails => 'Details';
+
+  @override
+  String get settingsUpdateAvailableHint => 'Update available';
 }

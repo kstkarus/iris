@@ -33,6 +33,7 @@
   "commonSignOut": "Выйти",
   "navigationCatalog": "Каталог",
   "navigationDownloads": "Загрузки",
+  "navigationDownloadsActive": "идёт скачивание",
   "downloadsOpenButton": "Скачать",
   "downloadsEmptyTitle": "Пока нет загрузок",
   "downloadsEmpty": "Скачивайте серии со страницы аниме, чтобы смотреть без интернета.",
@@ -658,5 +659,6 @@
   "settingsUpdateUpToDate": "Актуальная версия",
   "settingsUpdateCheckFailed": "Не удалось проверить",
   "settingsUpdateOpen": "Обновить",
-  "settingsUpdateOpenDetails": "Подробнее"
+  "settingsUpdateOpenDetails": "Подробнее",
+  "settingsUpdateAvailableHint": "Доступно обновление"
 }

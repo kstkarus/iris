@@ -5,6 +5,7 @@ import 'package:iris/shared/utils/bayer_mask.dart';
 import 'package:iris/shared/utils/motion_duration.dart';
 import 'package:iris/shared/widgets/detail_layout.dart';
 import 'package:iris/shared/widgets/dither_transition.dart';
+import 'package:iris/shared/widgets/signal_badge.dart';
 
 /// One of a row of text tabs, the app's sections or a page's views: the
 /// current one is marked with a square, not boxed, so the tabs stay as
@@ -15,6 +16,9 @@ class MarkedTab extends StatelessWidget {
     required this.selected,
     required this.onTap,
     this.selectionFeedback = true,
+    this.signal = false,
+    this.signalLabel,
+    this.signalKey,
     super.key,
   });
 
@@ -24,6 +28,9 @@ class MarkedTab extends StatelessWidget {
   final bool selected;
   final VoidCallback onTap;
   final bool selectionFeedback;
+  final bool signal;
+  final String? signalLabel;
+  final Key? signalKey;
 
   @override
   Widget build(BuildContext context) {
@@ -58,9 +65,22 @@ class MarkedTab extends StatelessWidget {
             style: labelStyle,
             child: Text(label),
           );
+    final semanticLabel = signal && signalLabel != null
+        ? '$label, $signalLabel'
+        : null;
+    final badgedLabel = SignalBadge(
+      visible: signal,
+      size: 5,
+      top: 0,
+      end: -8,
+      dotKey: signalKey,
+      child: styledLabel,
+    );
     return Semantics(
       selected: selected,
       button: true,
+      label: semanticLabel,
+      excludeSemantics: semanticLabel != null,
       child: InkWell(
         onTap: () {
           if (!selected && selectionFeedback) AppHaptics.selection();
@@ -72,7 +92,7 @@ class MarkedTab extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
             child: Row(
               mainAxisSize: MainAxisSize.min,
-              children: [marker, const SizedBox(width: 8), styledLabel],
+              children: [marker, const SizedBox(width: 8), badgedLabel],
             ),
           ),
         ),

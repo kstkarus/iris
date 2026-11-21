@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:iris/features/app_update/presentation/widgets/update_notice.dart';
+import 'package:iris/features/downloads/presentation/cubit/download_activity_cubit.dart';
 import 'package:iris/features/settings/presentation/widgets/settings_dialog.dart';
 import 'package:iris/features/settings/presentation/widgets/settings_icon_button.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
@@ -11,6 +13,7 @@ import 'package:iris/shared/widgets/adaptive/window_size_class.dart';
 import 'package:iris/shared/widgets/marked_tab.dart';
 import 'package:iris/shared/widgets/pixel_icon.dart';
 import 'package:iris/shared/widgets/adaptive/adaptive_content_width.dart';
+import 'package:iris/shared/widgets/signal_badge.dart';
 
 /// Top-level shell with adaptive navigation.
 ///
@@ -27,6 +30,7 @@ class AppShellPage extends StatefulWidget {
   static const topBarKey = Key('app_shell_top_bar');
   static const wordmarkKey = Key('app_shell_wordmark');
   static const settingsButtonKey = Key('app_shell_settings_button');
+  static const downloadsSignalKey = Key('app_shell_downloads_signal');
 
   final StatefulNavigationShell navigationShell;
 
@@ -64,6 +68,11 @@ class _AppShellPageState extends State<AppShellPage> {
       l10n.navigationDownloads,
       l10n.navigationProfile,
     ];
+    final showDownloadsSignal =
+        navigationShell.currentIndex != 1 &&
+        context.select<DownloadActivityCubit?, bool>(
+          (cubit) => cubit?.state ?? false,
+        );
 
     if (WindowSizeClass.of(context).isCompact) {
       return Scaffold(
@@ -76,6 +85,8 @@ class _AppShellPageState extends State<AppShellPage> {
           key: AppShellPage.navigationBarKey,
           labels: labels,
           selectedIndex: navigationShell.currentIndex,
+          showDownloadsSignal: showDownloadsSignal,
+          downloadsSignalLabel: l10n.navigationDownloadsActive,
           onSelected: _select,
         ),
       );
@@ -102,6 +113,8 @@ class _AppShellPageState extends State<AppShellPage> {
                 appName: l10n.appName,
                 labels: labels,
                 selectedIndex: navigationShell.currentIndex,
+                showDownloadsSignal: showDownloadsSignal,
+                downloadsSignalLabel: l10n.navigationDownloadsActive,
                 onSelected: _select,
                 onOpenSettings: _openSettings,
               ),
@@ -132,6 +145,8 @@ class _TopBar extends StatelessWidget {
     required this.appName,
     required this.labels,
     required this.selectedIndex,
+    required this.showDownloadsSignal,
+    required this.downloadsSignalLabel,
     required this.onSelected,
     required this.onOpenSettings,
     super.key,
@@ -142,6 +157,8 @@ class _TopBar extends StatelessWidget {
   final String appName;
   final List<String> labels;
   final int selectedIndex;
+  final bool showDownloadsSignal;
+  final String downloadsSignalLabel;
   final ValueChanged<int> onSelected;
   final VoidCallback onOpenSettings;
 
@@ -193,6 +210,13 @@ class _TopBar extends StatelessWidget {
                               label: labels[index],
                               selected: index == selectedIndex,
                               selectionFeedback: false,
+                              signal: index == 1 && showDownloadsSignal,
+                              signalLabel: index == 1
+                                  ? downloadsSignalLabel
+                                  : null,
+                              signalKey: index == 1
+                                  ? AppShellPage.downloadsSignalKey
+                                  : null,
                               onTap: () => onSelected(index),
                             ),
                           Expanded(
@@ -253,12 +277,16 @@ class _BottomTabs extends StatelessWidget {
   const _BottomTabs({
     required this.labels,
     required this.selectedIndex,
+    required this.showDownloadsSignal,
+    required this.downloadsSignalLabel,
     required this.onSelected,
     super.key,
   });
 
   final List<String> labels;
   final int selectedIndex;
+  final bool showDownloadsSignal;
+  final String downloadsSignalLabel;
   final ValueChanged<int> onSelected;
 
   @override
@@ -283,6 +311,11 @@ class _BottomTabs extends StatelessWidget {
                       child: _BottomTab(
                         label: labels[index],
                         selected: index == selectedIndex,
+                        signal: index == 1 && showDownloadsSignal,
+                        signalLabel: index == 1 ? downloadsSignalLabel : null,
+                        signalKey: index == 1
+                            ? AppShellPage.downloadsSignalKey
+                            : null,
                         onTap: () => onSelected(index),
                       ),
                     ),
@@ -316,19 +349,30 @@ class _BottomTab extends StatelessWidget {
     required this.label,
     required this.selected,
     required this.onTap,
+    this.signal = false,
+    this.signalLabel,
+    this.signalKey,
   });
 
   final String label;
   final bool selected;
   final VoidCallback onTap;
+  final bool signal;
+  final String? signalLabel;
+  final Key? signalKey;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    final semanticLabel = signal && signalLabel != null
+        ? '$label, $signalLabel'
+        : null;
     return Semantics(
       selected: selected,
       button: true,
+      label: semanticLabel,
+      excludeSemantics: semanticLabel != null,
       child: InkWell(
         onTap: () {
           if (!selected) AppHaptics.selection();
@@ -343,16 +387,23 @@ class _BottomTab extends StatelessWidget {
                 // little, rather than cutting the word off; at usual sizes
                 // every label fits as it is.
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
                   child: FittedBox(
                     fit: BoxFit.scaleDown,
-                    child: Text(
-                      label,
-                      maxLines: 1,
-                      style: theme.textTheme.labelMedium?.copyWith(
-                        color: selected
-                            ? scheme.onSurface
-                            : scheme.onSurfaceVariant,
+                    child: SignalBadge(
+                      visible: signal,
+                      size: 5,
+                      top: -1,
+                      end: -8,
+                      dotKey: signalKey,
+                      child: Text(
+                        label,
+                        maxLines: 1,
+                        style: theme.textTheme.labelMedium?.copyWith(
+                          color: selected
+                              ? scheme.onSurface
+                              : scheme.onSurfaceVariant,
+                        ),
                       ),
                     ),
                   ),

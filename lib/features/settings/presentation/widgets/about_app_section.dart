@@ -39,7 +39,8 @@ class AboutAppSection extends StatelessWidget {
             _ => l10n.settingsUpdateOpenDetails,
           };
 
-    final feedback = state.release != null
+    final release = state.availableRelease;
+    final feedback = release != null
         ? _updateFeedback(l10n, state, scheme, windows: windows)
         : switch (state.checkStatus) {
             AppUpdateCheckStatus.checking => SettingsStatus.loading(
@@ -55,7 +56,7 @@ class AboutAppSection extends StatelessWidget {
             AppUpdateCheckStatus.idle || AppUpdateCheckStatus.available => null,
           };
     void openUpdate() => showAppUpdateSheet(context, open: openExternalUrl);
-    final action = state.release != null
+    final action = release != null
         ? inApp && state.phase == AppUpdatePhase.installing
               ? null
               : FilledButton(
@@ -113,7 +114,7 @@ class AboutAppSection extends StatelessWidget {
                 resizeDuration: const Duration(milliseconds: 200),
                 child: KeyedSubtree(
                   key: ValueKey(
-                    state.release == null ? state.checkStatus : state.phase,
+                    release == null ? state.checkStatus : state.phase,
                   ),
                   child: feedback == null
                       ? const SizedBox.shrink()
