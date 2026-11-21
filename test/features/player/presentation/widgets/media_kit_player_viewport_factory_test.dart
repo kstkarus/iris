@@ -485,7 +485,41 @@ void main() {
     await tester.tap(find.text('Off'));
     await tester.pumpAndSettle();
     expect(platformPlayer.subtitles.single.id, 'no');
-    expect(find.byKey(const Key('player_tracks_button')), findsOneWidget);
+    expect(find.byType(PlayerTrackSelectorSheet), findsOneWidget);
+  });
+
+  testWidgets('selects audio and subtitles in the same open panel', (
+    tester,
+  ) async {
+    setTestWindowSize(tester, TestWindowSizes.landscape);
+    final platformPlayer = _FakePlatformPlayer(
+      configuration: const PlayerConfiguration(),
+    );
+    await tester.pumpWidget(_wrapViewport(platformPlayer: platformPlayer));
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('player_tracks_button')));
+    await tester.pumpAndSettle();
+
+    ListTile trackRow(String label) => tester.widget(
+      find.ancestor(of: find.text(label), matching: find.byType(ListTile)),
+    );
+
+    expect(trackRow('English').selected, isFalse);
+    await tester.tap(find.text('English'));
+    await _deliverPlayerEvent(tester);
+    expect(platformPlayer.state.track.audio, _availableTracks.audio.last);
+    expect(trackRow('English').selected, isTrue);
+
+    expect(trackRow('Russian').selected, isFalse);
+    await tester.tap(find.text('Russian'));
+    await _deliverPlayerEvent(tester);
+    expect(platformPlayer.subtitles.single, _availableTracks.subtitle.single);
+    expect(trackRow('Russian').selected, isTrue);
+    expect(trackRow('English').selected, isTrue);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    expect(find.byType(PlayerTrackSelectorSheet), findsNothing);
   });
 
   testWidgets(
@@ -5749,8 +5783,16 @@ class _FakePlatformPlayer extends PlatformPlayer {
   final subtitles = <SubtitleTrack>[];
 
   @override
-  Future<void> setSubtitleTrack(SubtitleTrack track) async =>
-      subtitles.add(track);
+  Future<void> setAudioTrack(AudioTrack track) async {
+    emitTrack(Track(audio: track, subtitle: state.track.subtitle));
+  }
+
+  @override
+  Future<void> setSubtitleTrack(SubtitleTrack track) async {
+    subtitles.add(track);
+    emitTrack(Track(audio: state.track.audio, subtitle: track));
+  }
+
   Completer<void>? nextPropertyGate;
 
   int openCount = 0;

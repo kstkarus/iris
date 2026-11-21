@@ -641,7 +641,7 @@ class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
       anchor: anchor,
       popoverWidth: PlayerTrackSelectorSheet.popoverWidth,
       semanticsLabel: AppLocalizations.of(context).playerAudioAndSubtitles,
-      builder: (sheetContext) => ValueListenableBuilder<Tracks>(
+      builder: (_) => ValueListenableBuilder<Tracks>(
         valueListenable: engine.availableTracks,
         builder: (context, tracks, _) => ValueListenableBuilder<Track>(
           valueListenable: engine.selectedTrack,
@@ -650,14 +650,10 @@ class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
             selectedAudioTrack: selected.audio,
             subtitleTracks: tracks.subtitle,
             selectedSubtitleTrack: selected.subtitle,
-            onAudioTrackSelected: (track) async {
-              await engine.selectAudioTrack(track);
-              if (sheetContext.mounted) Navigator.of(sheetContext).pop();
-            },
-            onSubtitleTrackSelected: (track) async {
-              await engine.selectSubtitleTrack(track);
-              if (sheetContext.mounted) Navigator.of(sheetContext).pop();
-            },
+            onAudioTrackSelected: (track) =>
+                unawaited(engine.selectAudioTrack(track)),
+            onSubtitleTrackSelected: (track) =>
+                unawaited(engine.selectSubtitleTrack(track)),
           ),
         ),
       ),
