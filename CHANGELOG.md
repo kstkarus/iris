@@ -4,6 +4,8 @@ Notable changes to iris, newest first. The format follows [Keep a Changelog](htt
 
 ## [Unreleased]
 
+## [1.6.0] - 2026-11-21
+
 ### Настройки
 
 - Появились настройки: на телефоне они открываются из профиля, а на ПК — окном поверх текущей вкладки по кнопке в верхней панели или `Ctrl+,`.
@@ -399,7 +401,8 @@ First published release.
 - Update notice on Android and Windows when a newer release is published.
 - App icon.
 
-[Unreleased]: https://github.com/kstkarus/iris/compare/v1.5.1...HEAD
+[Unreleased]: https://github.com/kstkarus/iris/compare/v1.6.0...HEAD
+[1.6.0]: https://github.com/kstkarus/iris/compare/v1.5.1...v1.6.0
 [1.5.1]: https://github.com/kstkarus/iris/compare/v1.5.0...v1.5.1
 [1.5.0]: https://github.com/kstkarus/iris/compare/v1.4.12...v1.5.0
 [1.4.12]: https://github.com/kstkarus/iris/compare/v1.4.11...v1.4.12
