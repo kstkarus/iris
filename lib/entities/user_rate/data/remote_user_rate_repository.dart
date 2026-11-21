@@ -46,7 +46,7 @@ class RemoteUserRateRepository implements UserRateRepository {
   final ShikimoriSessionStore _session;
   final StreamController<UserRateChange> _changes;
   final SerialQueue _requests;
-  final Map<String, UserRateStatus> _statuses;
+  final Map<String, UserRateStatus?> _statuses;
   final int? _editGeneration;
   int? _statusesGeneration;
 
@@ -184,13 +184,12 @@ class RemoteUserRateRepository implements UserRateRepository {
         await _session.read() != null &&
         _session.generation == sessionGeneration) {
       final previousStatus = _statuses[animeId];
-      if (rate == null) {
-        _statuses.remove(animeId);
-      } else {
-        _statuses[animeId] = rate.status;
-      }
+      final status = rate?.status;
+      final statusChanged =
+          _statuses.containsKey(animeId) && previousStatus != status;
+      _statuses[animeId] = status;
       _changes.add(
-        mutation
+        mutation || statusChanged
             ? UserRateMutation(animeId, rate, previousStatus: previousStatus)
             : UserRateChange(animeId, rate),
       );

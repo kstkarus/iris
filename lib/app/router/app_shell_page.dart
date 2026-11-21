@@ -105,29 +105,17 @@ class _AppShellPageState extends State<AppShellPage> {
       child: FocusScope(
         autofocus: true,
         child: Scaffold(
-          body: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _TopBar(
-                key: AppShellPage.topBarKey,
-                appName: l10n.appName,
-                labels: labels,
-                selectedIndex: navigationShell.currentIndex,
-                showDownloadsSignal: showDownloadsSignal,
-                downloadsSignalLabel: l10n.navigationDownloadsActive,
-                onSelected: _select,
-                onOpenSettings: _openSettings,
-              ),
-              Expanded(
-                // The top bar has taken the status bar's inset.
-                child: MediaQuery.removePadding(
-                  context: context,
-                  removeTop: true,
-                  child: UpdateNotice(child: navigationShell),
-                ),
-              ),
-            ],
+          appBar: _TopBar(
+            key: AppShellPage.topBarKey,
+            appName: l10n.appName,
+            labels: labels,
+            selectedIndex: navigationShell.currentIndex,
+            showDownloadsSignal: showDownloadsSignal,
+            downloadsSignalLabel: l10n.navigationDownloadsActive,
+            onSelected: _select,
+            onOpenSettings: _openSettings,
           ),
+          body: UpdateNotice(child: navigationShell),
         ),
       ),
     );
@@ -140,7 +128,7 @@ const _sectionKeys = [
   LogicalKeyboardKey.digit3,
 ];
 
-class _TopBar extends StatelessWidget {
+class _TopBar extends StatelessWidget implements PreferredSizeWidget {
   const _TopBar({
     required this.appName,
     required this.labels,
@@ -161,6 +149,9 @@ class _TopBar extends StatelessWidget {
   final String downloadsSignalLabel;
   final ValueChanged<int> onSelected;
   final VoidCallback onOpenSettings;
+
+  @override
+  Size get preferredSize => const Size.fromHeight(height);
 
   @override
   Widget build(BuildContext context) {
@@ -372,7 +363,6 @@ class _BottomTab extends StatelessWidget {
       selected: selected,
       button: true,
       label: semanticLabel,
-      excludeSemantics: semanticLabel != null,
       child: InkWell(
         onTap: () {
           if (!selected) AppHaptics.selection();
@@ -396,13 +386,16 @@ class _BottomTab extends StatelessWidget {
                       top: -1,
                       end: -8,
                       dotKey: signalKey,
-                      child: Text(
-                        label,
-                        maxLines: 1,
-                        style: theme.textTheme.labelMedium?.copyWith(
-                          color: selected
-                              ? scheme.onSurface
-                              : scheme.onSurfaceVariant,
+                      child: ExcludeSemantics(
+                        excluding: semanticLabel != null,
+                        child: Text(
+                          label,
+                          maxLines: 1,
+                          style: theme.textTheme.labelMedium?.copyWith(
+                            color: selected
+                                ? scheme.onSurface
+                                : scheme.onSurfaceVariant,
+                          ),
                         ),
                       ),
                     ),

@@ -67,7 +67,27 @@ class AppUpdateCubit extends Cubit<AppUpdateState> {
         );
         return;
       }
-      if (latest.version == _repository.dismissedVersion) {
+      final dismissed = latest.version == _repository.dismissedVersion;
+      emit(state.copyWith(installedVersion: installed));
+      if (!dismissed) {
+        _preparedPath = null;
+        _emitRelease(latest);
+      }
+      String? path;
+      try {
+        path = await _downloads?.restore(latest);
+      } on Object catch (error, stackTrace) {
+        _logFailure(
+          'Unable to restore the prepared update.',
+          error,
+          stackTrace,
+        );
+      }
+      if (!_current(operation)) return;
+      if (path != null) {
+        _preparedPath = path;
+        _emitRelease(latest, phase: AppUpdatePhase.ready);
+      } else if (dismissed) {
         _preparedPath = null;
         emit(
           AppUpdateState(
@@ -76,15 +96,7 @@ class AppUpdateCubit extends Cubit<AppUpdateState> {
             checkStatus: state.checkStatus,
           ),
         );
-        return;
       }
-      emit(state.copyWith(installedVersion: installed));
-      _preparedPath = null;
-      _emitRelease(latest);
-      final path = await _downloads?.restore(latest);
-      if (!_current(operation) || path == null) return;
-      _preparedPath = path;
-      _emitRelease(latest, phase: AppUpdatePhase.ready);
     } on Object catch (error, stackTrace) {
       _logFailure('Update check failed.', error, stackTrace);
     }

@@ -40,6 +40,16 @@ class MainActivity : FlutterActivity() {
 
         MethodChannel(
             flutterEngine.dartExecutor.binaryMessenger,
+            "iris/haptics",
+        ).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "touchFeedbackEnabled" -> result.success(touchFeedbackEnabled())
+                else -> result.notImplemented()
+            }
+        }
+
+        MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
             "iris/player_runtime_stats",
         ).setMethodCallHandler { call, result ->
             when (call.method) {
@@ -172,6 +182,11 @@ class MainActivity : FlutterActivity() {
         val totalPssKb = memoryInfo.firstOrNull()?.totalPss ?: 0
         return totalPssKb.toLong() * 1024L
     }
+
+    @Suppress("DEPRECATION")
+    private fun touchFeedbackEnabled(): Boolean =
+        Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU ||
+            Settings.System.getInt(contentResolver, Settings.System.HAPTIC_FEEDBACK_ENABLED, 1) != 0
 
     private fun requestNotificationPermissionIfNeeded() {
         if (

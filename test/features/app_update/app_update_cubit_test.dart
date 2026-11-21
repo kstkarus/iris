@@ -95,6 +95,27 @@ void main() {
       await pending;
       expect(cubit.state.phase, AppUpdatePhase.ready);
 
+      // The verified download survives relaunch even though Later was saved.
+      downloads.restored = '/tmp/update.apk';
+      final relaunched = AppUpdateCubit(
+        repository: repository,
+        downloads: downloads,
+      );
+      addTearDown(relaunched.close);
+      final offered = <AppUpdatePhase>[];
+      final subscription = relaunched.stream.listen((state) {
+        if (state.release != null) offered.add(state.phase);
+      });
+      addTearDown(subscription.cancel);
+      await relaunched.check();
+      expect(relaunched.state.release, release);
+      expect(relaunched.state.dismissedRelease, isNull);
+      expect(relaunched.state.phase, AppUpdatePhase.ready);
+      await pumpEventQueue();
+      expect(offered, [AppUpdatePhase.ready]);
+      await relaunched.install();
+      expect(downloads.installed, ['/tmp/update.apk']);
+
       // A relaunched cubit on the updated version does not flag a dismissed update.
       final updated = AppUpdateCubit(
         repository: FakeAppUpdateRepository(

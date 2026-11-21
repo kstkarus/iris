@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
@@ -390,6 +391,12 @@ void main() {
     await wheel(16);
     expect(railPosition.pixels, bottom);
     expect(mainPosition.pixels, closeTo(40, 0.01));
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+    await wheel(16);
+    expect(railPosition.pixels, bottom);
+    expect(mainPosition.pixels, closeTo(40, 0.01));
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
 
     await wheel(-bottom);
     expect(railPosition.pixels, 0);

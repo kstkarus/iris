@@ -40,45 +40,52 @@ class AboutAppSection extends StatelessWidget {
           };
 
     final release = state.availableRelease;
-    final feedback = release != null
-        ? _updateFeedback(l10n, state, scheme, windows: windows)
+    final showCheck =
+        cubit.supportsCheck &&
+        (release == null || state.phase == AppUpdatePhase.available);
+    final checkFeedback = !showCheck
+        ? null
         : switch (state.checkStatus) {
             AppUpdateCheckStatus.checking => SettingsStatus.loading(
               l10n.settingsUpdateChecking,
             ),
-            AppUpdateCheckStatus.upToDate => SettingsStatus(
-              l10n.settingsUpdateUpToDate,
-            ),
+            AppUpdateCheckStatus.upToDate when release == null =>
+              SettingsStatus(l10n.settingsUpdateUpToDate),
             AppUpdateCheckStatus.failed => SettingsStatus(
               l10n.settingsUpdateCheckFailed,
               color: scheme.error,
             ),
-            AppUpdateCheckStatus.idle || AppUpdateCheckStatus.available => null,
+            _ => null,
           };
+    final feedback = [
+      if (release != null)
+        _updateFeedback(l10n, state, scheme, windows: windows),
+      ?checkFeedback,
+    ];
     void openUpdate() => showAppUpdateSheet(context, open: openExternalUrl);
-    final action = release != null
-        ? inApp && state.phase == AppUpdatePhase.installing
+    final actions = [
+      if (showCheck)
+        TextButton(
+          key: checkUpdatesButtonKey,
+          onPressed: state.checkStatus == AppUpdateCheckStatus.checking
               ? null
-              : FilledButton(
-                  key: openUpdateButtonKey,
-                  onPressed: !inApp
-                      ? openUpdate
-                      : switch (state.phase) {
-                          AppUpdatePhase.ready => cubit.install,
-                          _ => onOpenUpdate ?? openUpdate,
-                        },
-                  child: Text(actionLabel, textAlign: TextAlign.center),
-                )
-        : cubit.supportsCheck
-        ? TextButton(
-            key: checkUpdatesButtonKey,
-            onPressed: state.checkStatus == AppUpdateCheckStatus.checking
-                ? null
-                : cubit.checkManually,
-            style: settingsActionStyle(context),
-            child: Text(l10n.settingsCheckUpdates, textAlign: TextAlign.end),
-          )
-        : null;
+              : cubit.checkManually,
+          style: settingsActionStyle(context),
+          child: Text(l10n.settingsCheckUpdates, textAlign: TextAlign.end),
+        ),
+      if (release != null &&
+          (!inApp || state.phase != AppUpdatePhase.installing))
+        FilledButton(
+          key: openUpdateButtonKey,
+          onPressed: !inApp
+              ? openUpdate
+              : switch (state.phase) {
+                  AppUpdatePhase.ready => cubit.install,
+                  _ => onOpenUpdate ?? openUpdate,
+                },
+          child: Text(actionLabel, textAlign: TextAlign.center),
+        ),
+    ];
 
     final version = Row(
       mainAxisSize: MainAxisSize.min,
@@ -104,7 +111,14 @@ class AboutAppSection extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         SettingsRow(
-          action: action,
+          action: actions.isEmpty
+              ? null
+              : Wrap(
+                  alignment: WrapAlignment.end,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 8,
+                  children: actions,
+                ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -113,14 +127,22 @@ class AboutAppSection extends StatelessWidget {
                 duration: const Duration(milliseconds: 300),
                 resizeDuration: const Duration(milliseconds: 200),
                 child: KeyedSubtree(
-                  key: ValueKey(
-                    release == null ? state.checkStatus : state.phase,
-                  ),
-                  child: feedback == null
+                  key: ValueKey((
+                    release == null ? null : state.phase,
+                    state.checkStatus,
+                  )),
+                  child: feedback.isEmpty
                       ? const SizedBox.shrink()
                       : Padding(
                           padding: const EdgeInsets.only(top: 4),
-                          child: Semantics(liveRegion: true, child: feedback),
+                          child: Semantics(
+                            liveRegion: true,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              spacing: 4,
+                              children: feedback,
+                            ),
+                          ),
                         ),
                 ),
               ),

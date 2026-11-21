@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' show SemanticsAction;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -202,6 +203,13 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byKey(AppShellPage.downloadsSignalKey), findsOneWidget);
+      expect(
+        tester
+            .getSemantics(find.bySemanticsLabel('Downloads, downloading'))
+            .getSemanticsData()
+            .hasAction(SemanticsAction.tap),
+        isTrue,
+      );
       expect(tester.getTopLeft(find.text('Catalog')), catalogBefore);
       expect(tester.getTopLeft(find.text('Downloads')), downloadsBefore);
       expect(tester.getTopLeft(find.text('Profile')), profileBefore);
@@ -249,6 +257,13 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byKey(AppShellPage.downloadsSignalKey), findsOneWidget);
+      expect(
+        tester
+            .getSemantics(find.bySemanticsLabel('Downloads, downloading'))
+            .getSemanticsData()
+            .hasAction(SemanticsAction.tap),
+        isTrue,
+      );
       expect(tester.getTopLeft(find.text('Catalog')), catalogBefore);
       expect(tester.getTopLeft(find.text('Profile')), profileBefore);
       expect(tester.takeException(), isNull);

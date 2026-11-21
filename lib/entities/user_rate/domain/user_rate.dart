@@ -53,7 +53,7 @@ class UserRateChange {
   final UserRate? rate;
 }
 
-/// A confirmed write, with the last known status before it.
+/// A confirmed write or status change, with the last known status before it.
 final class UserRateMutation extends UserRateChange {
   const UserRateMutation(
     super.animeId,

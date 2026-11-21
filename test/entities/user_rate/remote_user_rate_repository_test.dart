@@ -9,6 +9,9 @@ import 'package:iris/entities/user_rate/domain/mark_episode_watched.dart';
 import 'package:iris/entities/user_rate/domain/user_rate.dart';
 import 'package:iris/entities/user_rate/presentation/user_rate_cubit.dart';
 import 'package:iris/entities/user_rate/presentation/user_rate_state.dart';
+import 'package:iris/features/anime_list/domain/entities/anime_list_query.dart';
+import 'package:iris/features/anime_list/presentation/bloc/anime_list_bloc.dart';
+import 'package:iris/features/anime_list/presentation/bloc/anime_list_event.dart';
 import 'package:iris/shared/network/network_exceptions.dart';
 import 'package:iris/shared/network/shikimori_auth_interceptor.dart';
 import 'package:iris/shared/network/shikimori_graph_ql_client.dart';
@@ -17,6 +20,7 @@ import 'package:iris/shared/network/shikimori_oauth_config.dart';
 import 'package:iris/shared/network/shikimori_rest_client.dart';
 import 'package:iris/shared/storage/shikimori_session_store.dart';
 
+import '../../features/anime_list/anime_list_test_doubles.dart';
 import '../../helpers/fake_http_adapter.dart';
 import '../../helpers/fake_secure_storage.dart';
 
@@ -526,6 +530,61 @@ void main() {
     );
     await subscription.cancel();
   });
+
+  for (final initialStatus in ['watching', null]) {
+    test('recovery after a timed-out write refreshes Hide Completed from '
+        '$initialStatus', () async {
+      var status = initialStatus;
+      server = (request) {
+        if (request.path.startsWith('/api/v2/user_rates')) {
+          status = 'completed';
+          throw DioException(
+            requestOptions: request,
+            type: DioExceptionType.receiveTimeout,
+          );
+        }
+        return FakeReply(200, {
+          'data': {
+            'animes': [
+              {
+                'id': '1',
+                'userRate': status == null
+                    ? null
+                    : {'id': 16, 'status': status},
+              },
+            ],
+          },
+        });
+      };
+      final repo = repository();
+      await session.write(tokens('a'));
+      final catalog = RecordingAnimeListRepository();
+      final bloc = AnimeListBloc(repository: catalog, rateChanges: repo.changes)
+        ..add(const AnimeListAccountChanged(signedIn: true, reload: false))
+        ..add(
+          const AnimeListCriteriaApplied(
+            filters: AnimeListFilters(hideCompleted: true),
+          ),
+        );
+      addTearDown(bloc.close);
+      final cubit = UserRateCubit(repository: repo, animeId: '1');
+      addTearDown(cubit.close);
+
+      await cubit.accountChanged('42');
+      await repo.fetch('1');
+      await pumpEventQueue();
+      final query = catalog.queries.single;
+
+      cubit.setStatus(UserRateStatus.completed);
+      await pumpEventQueue();
+
+      expect(
+        (cubit.state as UserRateLoaded).rate?.status,
+        UserRateStatus.completed,
+      );
+      expect(catalog.queries, [query, query]);
+    });
+  }
 
   test(
     'queued requests never use the next account after a session switch',

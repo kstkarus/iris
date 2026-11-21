@@ -581,6 +581,47 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  for (final (layout, size, platform) in const [
+    ('phone', Size(320, 700), TargetPlatform.android),
+    ('desktop', Size(1280, 800), TargetPlatform.windows),
+  ]) {
+    testWidgets('About can check for a newer release after Later on $layout', (
+      tester,
+    ) async {
+      final release = testRelease(6);
+      final repository = FakeAppUpdateRepository(
+        installed: const AppVersion(1, 5, 1),
+        latest: release,
+        dismissed: release.version,
+      );
+      await pumpSettings(
+        tester,
+        size: size,
+        textScale: 2,
+        platform: platform,
+        updateDownloads: _UpdateDownloads(),
+        updateRepo: repository,
+      );
+      final about = find.byType(AboutAppSection);
+      await tester.element(about).read<AppUpdateCubit>().check();
+      await tester.pumpAndSettle();
+      final check = find.byKey(AboutAppSection.checkUpdatesButtonKey);
+      final open = find.byKey(AboutAppSection.openUpdateButtonKey);
+      await tester.ensureVisible(about);
+      await tester.pumpAndSettle();
+      expect(check.hitTestable(), findsOneWidget);
+      expect(open.hitTestable(), findsOneWidget);
+      expect(find.text('Version 1.6.0 available'), findsOneWidget);
+
+      repository.latest = testRelease(7);
+      await tester.tap(check);
+      await tester.pumpAndSettle();
+      expect(repository.latestReads, 2);
+      expect(find.text('Version 1.7.0 available'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   testWidgets(
     'About shows Windows verification, Restart and restart progress',
     (tester) async {

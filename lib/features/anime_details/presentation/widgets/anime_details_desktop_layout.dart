@@ -1,5 +1,6 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'package:iris/features/anime_details/domain/entities/related_anime.dart';
 import 'package:iris/features/anime_details/presentation/models/anime_details_preview.dart';
@@ -63,7 +64,12 @@ class _AnimeDetailsDesktopLayoutState extends State<AnimeDetailsDesktopLayout> {
       rail.minScrollExtent,
       rail.maxScrollExtent,
     );
-    final delta = event.scrollDelta.dy;
+    final flipAxes =
+        event.kind == PointerDeviceKind.mouse &&
+        HardwareKeyboard.instance.logicalKeysPressed.any(
+          ScrollConfiguration.of(context).pointerAxisModifiers.contains,
+        );
+    final delta = flipAxes ? event.scrollDelta.dx : event.scrollDelta.dy;
     final railDelta = delta.clamp(
       rail.minScrollExtent - railPixels,
       rail.maxScrollExtent - railPixels,

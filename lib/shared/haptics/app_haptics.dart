@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:haptic_feedback/haptic_feedback.dart';
 
 abstract final class AppHaptics {
+  static const _android = MethodChannel('iris/haptics');
   static Future<bool>? _capability;
 
   static ({
@@ -52,6 +53,10 @@ abstract final class AppHaptics {
       if (backend != null) {
         await backend.vibrate(type);
       } else {
+        if (defaultTargetPlatform == TargetPlatform.android &&
+            await _android.invokeMethod<bool>('touchFeedbackEnabled') != true) {
+          return;
+        }
         await Haptics.vibrate(
           type,
           usage: HapticsUsage.touch,

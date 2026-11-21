@@ -9,6 +9,7 @@ import 'package:haptic_feedback/haptic_feedback.dart';
 import 'package:iris/shared/haptics/app_haptics.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
   late TargetPlatform? originalPlatform;
 
   setUp(() {
@@ -89,6 +90,49 @@ void main() {
         HapticsType.error,
       ]);
     });
+  });
+
+  test('Android checks touch feedback again after it is toggled', () async {
+    const settings = MethodChannel('iris/haptics');
+    const plugin = MethodChannel('haptic_feedback');
+    final messenger =
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    final calls = <String>[];
+    var enabled = false;
+    var checks = 0;
+    messenger.setMockMethodCallHandler(settings, (call) async {
+      expect(call.method, 'touchFeedbackEnabled');
+      checks++;
+      return enabled;
+    });
+    messenger.setMockMethodCallHandler(plugin, (call) async {
+      calls.add(call.method);
+      return call.method == 'canVibrate' ? true : null;
+    });
+    addTearDown(() {
+      messenger.setMockMethodCallHandler(settings, null);
+      messenger.setMockMethodCallHandler(plugin, null);
+    });
+
+    AppHaptics.warning();
+    AppHaptics.success();
+    AppHaptics.error();
+    await pumpEventQueue();
+    expect(calls, ['canVibrate']);
+    expect(checks, 3);
+
+    enabled = true;
+    AppHaptics.warning();
+    await pumpEventQueue();
+    expect(calls, ['canVibrate', 'warning']);
+    expect(checks, 4);
+
+    enabled = false;
+    debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+    AppHaptics.error();
+    await pumpEventQueue();
+    expect(calls, ['canVibrate', 'warning', 'error']);
+    expect(checks, 4);
   });
 
   test('caches lack of capability and refreshes for a new test backend', () {

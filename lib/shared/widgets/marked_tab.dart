@@ -57,17 +57,21 @@ class MarkedTab extends StatelessWidget {
                   BayerMasked(open: open, cell: 1, child: child),
             ),
     );
+    final semanticLabel = signal && signalLabel != null
+        ? '$label, $signalLabel'
+        : null;
+    final text = ExcludeSemantics(
+      excluding: semanticLabel != null,
+      child: Text(label),
+    );
     final styledLabel = anim == Duration.zero
-        ? DefaultTextStyle(style: labelStyle, child: Text(label))
+        ? DefaultTextStyle(style: labelStyle, child: text)
         : AnimatedDefaultTextStyle(
             duration: anim,
             curve: Curves.easeOutCubic,
             style: labelStyle,
-            child: Text(label),
+            child: text,
           );
-    final semanticLabel = signal && signalLabel != null
-        ? '$label, $signalLabel'
-        : null;
     final badgedLabel = SignalBadge(
       visible: signal,
       size: 5,
@@ -80,7 +84,6 @@ class MarkedTab extends StatelessWidget {
       selected: selected,
       button: true,
       label: semanticLabel,
-      excludeSemantics: semanticLabel != null,
       child: InkWell(
         onTap: () {
           if (!selected && selectionFeedback) AppHaptics.selection();
