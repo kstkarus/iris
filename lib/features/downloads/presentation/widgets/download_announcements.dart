@@ -7,6 +7,7 @@ import 'package:flutter/semantics.dart';
 import 'package:iris/features/downloads/domain/entities/download_item.dart';
 import 'package:iris/features/downloads/domain/entities/download_status.dart';
 import 'package:iris/features/downloads/domain/repositories/downloads_repository.dart';
+import 'package:iris/features/downloads/presentation/cubit/download_activity_cubit.dart';
 import 'package:iris/features/downloads/presentation/widgets/download_labels.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 
@@ -14,10 +15,12 @@ class DownloadAnnouncements extends StatefulWidget {
   const DownloadAnnouncements({
     required this.repository,
     required this.child,
+    this.activityCubit,
     super.key,
   });
 
   final DownloadsRepository repository;
+  final DownloadActivityCubit? activityCubit;
   final Widget child;
 
   @override
@@ -41,6 +44,7 @@ class _DownloadAnnouncementsState extends State<DownloadAnnouncements> {
     if (!identical(oldWidget.repository, widget.repository)) {
       unawaited(_subscription?.cancel());
       _statuses = {};
+      widget.activityCubit?.clear();
       _subscription = _listen();
     }
   }
@@ -50,6 +54,7 @@ class _DownloadAnnouncementsState extends State<DownloadAnnouncements> {
     return widget.repository.watchDownloads().listen(
       (items) {
         if (!mounted || generation != _generation) return;
+        widget.activityCubit?.sync(items);
         final previous = _statuses;
         _statuses = {for (final item in items) item.id: item.status};
         final l10n = AppLocalizations.of(context);
@@ -75,6 +80,7 @@ class _DownloadAnnouncementsState extends State<DownloadAnnouncements> {
         }
       },
       onError: (Object error, StackTrace stackTrace) {
+        widget.activityCubit?.clear();
         developer.log(
           'Unable to watch download announcements.',
           name: 'iris.downloads.announcements',

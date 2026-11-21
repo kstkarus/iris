@@ -31,20 +31,7 @@ class IrisApp extends StatefulWidget {
 
 class _IrisAppState extends State<IrisApp> {
   final _titleBarTheme = WindowsTitleBarTheme();
-  late DownloadActivityCubit _downloadActivity = DownloadActivityCubit(
-    repository: widget.downloadsRepository,
-  );
-
-  @override
-  void didUpdateWidget(IrisApp oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (!identical(oldWidget.downloadsRepository, widget.downloadsRepository)) {
-      unawaited(_downloadActivity.close());
-      _downloadActivity = DownloadActivityCubit(
-        repository: widget.downloadsRepository,
-      );
-    }
-  }
+  final _downloadActivity = DownloadActivityCubit();
 
   @override
   void dispose() {
@@ -75,6 +62,7 @@ class _IrisAppState extends State<IrisApp> {
             value: _downloadActivity,
             child: DownloadAnnouncements(
               repository: widget.downloadsRepository,
+              activityCubit: _downloadActivity,
               child: child!,
             ),
           ),
