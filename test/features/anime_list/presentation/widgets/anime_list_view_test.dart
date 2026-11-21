@@ -310,36 +310,42 @@ void main() {
     expect(repository.calls.last.query.filters, const AnimeListFilters());
   });
 
-  testWidgets('recent queries reopen a search and can be deleted', (
-    tester,
-  ) async {
-    final repository = _TrackingAnimeListRepository(
-      resultsByQuery: {'': _pageOneResult, 'fullmetal': _searchResult},
-    );
-    await _pumpCatalog(tester, repository);
-    final history = tester
-        .element(find.byType(TextField))
-        .read<SearchHistoryCubit>();
-    history.record('fullmetal');
-    await tester.tap(find.byType(TextField));
-    await tester.pumpAndSettle();
-    expect(find.byKey(const Key('catalog_recent_searches')), findsOneWidget);
-    await tester.tap(find.text('fullmetal'));
-    await tester.pumpAndSettle();
-    expect(find.text('Fullmetal Alchemist: Brotherhood'), findsOneWidget);
-    expect(_firstPages(repository, 'fullmetal'), 1);
-    await tester.tap(find.byKey(SearchField.clearButtonKey));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('Remove “fullmetal”'));
-    expect(history.state, isEmpty);
-    await tester.pumpAndSettle();
-    expect(find.text('fullmetal'), findsNothing);
-    expect(find.text('Your recent searches will appear here.'), findsOneWidget);
-    await tester.enterText(find.byType(TextField), 'fullmetal');
-    await tester.testTextInput.receiveAction(TextInputAction.search);
-    await tester.pumpAndSettle();
-    expect(history.state, ['fullmetal']);
-  });
+  testWidgets(
+    'recent queries run the search, release focus and can be deleted',
+    (tester) async {
+      final repository = _TrackingAnimeListRepository(
+        resultsByQuery: {'': _pageOneResult, 'fullmetal': _searchResult},
+      );
+      await _pumpCatalog(tester, repository);
+      final search = find.byType(TextField);
+      final focus = tester.widget<TextField>(search).focusNode!;
+      final history = tester.element(search).read<SearchHistoryCubit>();
+      history.record('fullmetal');
+      await tester.tap(search);
+      await tester.pumpAndSettle();
+      expect(focus.hasFocus, isTrue);
+      expect(find.byKey(const Key('catalog_recent_searches')), findsOneWidget);
+      await tester.tap(find.text('fullmetal'));
+      await tester.pumpAndSettle();
+      expect(focus.hasFocus, isFalse);
+      expect(find.text('Fullmetal Alchemist: Brotherhood'), findsOneWidget);
+      expect(_firstPages(repository, 'fullmetal'), 1);
+      await tester.tap(find.byKey(SearchField.clearButtonKey));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Remove “fullmetal”'));
+      expect(history.state, isEmpty);
+      await tester.pumpAndSettle();
+      expect(find.text('fullmetal'), findsNothing);
+      expect(
+        find.text('Your recent searches will appear here.'),
+        findsOneWidget,
+      );
+      await tester.enterText(find.byType(TextField), 'fullmetal');
+      await tester.testTextInput.receiveAction(TextInputAction.search);
+      await tester.pumpAndSettle();
+      expect(history.state, ['fullmetal']);
+    },
+  );
 
   testWidgets('individual chips and reset preserve the chosen sort', (
     tester,

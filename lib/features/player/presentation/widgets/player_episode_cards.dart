@@ -5,7 +5,7 @@ import 'package:iris/entities/watch_progress/domain/watch_progress.dart';
 import 'package:iris/features/player/domain/entities/player_video_file.dart';
 import 'package:iris/features/player/domain/player_episode_names.dart';
 import 'package:iris/features/player/presentation/widgets/player_colors.dart';
-import 'package:iris/features/player/presentation/widgets/reveal_after_layout.dart';
+import 'package:iris/features/player/presentation/widgets/episode_list_scroll_controller.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/utils/duration_formatter.dart';
 import 'package:iris/shared/widgets/detail_layout.dart';
@@ -38,39 +38,45 @@ class PlayerEpisodeCards extends StatefulWidget {
 }
 
 class _PlayerEpisodeCardsState extends State<PlayerEpisodeCards> {
-  final _currentKey = GlobalKey();
+  final _scroll = EpisodeListScrollController();
 
   @override
-  void initState() {
-    super.initState();
-    revealAfterLayout(_currentKey);
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final names = distinctEpisodeNames(widget.files);
-    // Short enough to build eagerly, so the current card can be revealed.
-    return SingleChildScrollView(
+    final current = widget.currentFileIndex;
+    _scroll.reveal(
+      context,
+      fileIndex: current,
+      // A separator occupies its own sliver index between rows.
+      itemIndex: 2 * widget.files.indexWhere((file) => file.index == current),
+    );
+    return ListView.separated(
+      controller: _scroll,
       padding: const EdgeInsets.only(bottom: 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          for (final (position, file) in widget.files.indexed) ...[
-            if (position > 0)
-              const Divider(height: 1, thickness: 1, color: Colors.white10),
-            _EpisodeCard(
-              key: file.index == widget.currentFileIndex ? _currentKey : null,
-              file: file,
-              position: position + 1,
-              name: names[file.index],
-              isCurrent: file.index == widget.currentFileIndex,
-              progress: widget.progressByFile[file.index],
-              listed: widget.listed.contains(file.index),
-              onTap: () => widget.onSelected(file),
-            ),
-          ],
-        ],
-      ),
+      itemCount: widget.files.length,
+      separatorBuilder: (_, _) =>
+          const Divider(height: 1, thickness: 1, color: Colors.white10),
+      itemBuilder: (context, position) {
+        _scroll.trackItems(context);
+        final file = widget.files[position];
+        final isCurrent = file.index == current;
+        return _EpisodeCard(
+          key: isCurrent ? _scroll.targetKey : null,
+          file: file,
+          position: position + 1,
+          name: names[file.index],
+          isCurrent: isCurrent,
+          progress: widget.progressByFile[file.index],
+          listed: widget.listed.contains(file.index),
+          onTap: () => widget.onSelected(file),
+        );
+      },
     );
   }
 }

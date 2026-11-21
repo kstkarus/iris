@@ -4,7 +4,7 @@ import 'package:iris/entities/watch_progress/domain/watch_progress.dart';
 import 'package:iris/entities/watch_progress/presentation/watch_progress_line.dart';
 import 'package:iris/features/player/domain/entities/player_video_file.dart';
 import 'package:iris/features/player/domain/player_episode_names.dart';
-import 'package:iris/features/player/presentation/widgets/reveal_after_layout.dart';
+import 'package:iris/features/player/presentation/widgets/episode_list_scroll_controller.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/utils/byte_size_formatter.dart';
 import 'package:iris/shared/utils/file_display_name.dart';
@@ -48,63 +48,58 @@ class PlayerEpisodesList extends StatefulWidget {
 }
 
 class _PlayerEpisodesListState extends State<PlayerEpisodesList> {
-  final _currentKey = GlobalKey();
+  final _scroll = EpisodeListScrollController();
 
   @override
-  void initState() {
-    super.initState();
-    _revealCurrent(animate: false);
-  }
-
-  @override
-  void didUpdateWidget(covariant PlayerEpisodesList oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.currentFileIndex != widget.currentFileIndex) {
-      _revealCurrent(animate: true);
-    }
-  }
-
-  void _revealCurrent({required bool animate}) {
-    revealAfterLayout(
-      _currentKey,
-      duration: animate ? const Duration(milliseconds: 250) : Duration.zero,
-    );
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final names = distinctEpisodeNames(widget.files);
     final scheme = Theme.of(context).colorScheme;
-    final rule = DetailLayout.ruleColor(scheme);
-    // Episode lists are short enough to build eagerly, which lets the
-    // current item be scrolled to directly.
-    return SingleChildScrollView(
-      padding: widget.padding == EdgeInsets.zero
-          ? const EdgeInsets.only(bottom: 24)
-          : widget.padding,
-      child: Material(
-        color: scheme.surfaceContainerLow,
-        shape: RoundedRectangleBorder(side: BorderSide(color: rule)),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            for (final (position, file) in widget.files.indexed) ...[
-              if (position > 0) Divider(height: 1, thickness: 1, color: rule),
-              _EpisodeRow(
-                key: file.index == widget.currentFileIndex ? _currentKey : null,
-                file: file,
-                number: episodeNumberLabel(file, position),
-                ownName: names[file.index],
-                isCurrent: file.index == widget.currentFileIndex,
-                progress: widget.progressByFile[file.index],
-                listed: widget.listed.contains(file.index),
-                showSize: widget.showSizes,
-                onTap: () => widget.onSelected(file),
-              ),
-            ],
-          ],
-        ),
-      ),
+    final rule = BorderSide(color: DetailLayout.ruleColor(scheme));
+    final padding = widget.padding == EdgeInsets.zero
+        ? const EdgeInsets.only(bottom: 24)
+        : widget.padding;
+    final current = widget.currentFileIndex;
+    _scroll.reveal(
+      context,
+      fileIndex: current,
+      itemIndex: widget.files.indexWhere((file) => file.index == current),
+      topPadding: padding.resolve(Directionality.of(context)).top,
+    );
+    return ListView.builder(
+      controller: _scroll,
+      padding: padding,
+      itemCount: widget.files.length,
+      itemBuilder: (context, position) {
+        _scroll.trackItems(context);
+        final file = widget.files[position];
+        final isCurrent = file.index == current;
+        return Material(
+          key: isCurrent ? _scroll.targetKey : null,
+          color: scheme.surfaceContainerLow,
+          shape: Border(
+            top: position == 0 ? rule : BorderSide.none,
+            left: rule,
+            right: rule,
+            bottom: rule,
+          ),
+          child: _EpisodeRow(
+            file: file,
+            number: episodeNumberLabel(file, position),
+            ownName: names[file.index],
+            isCurrent: isCurrent,
+            progress: widget.progressByFile[file.index],
+            listed: widget.listed.contains(file.index),
+            showSize: widget.showSizes,
+            onTap: () => widget.onSelected(file),
+          ),
+        );
+      },
     );
   }
 }
@@ -119,7 +114,6 @@ class _EpisodeRow extends StatelessWidget {
     required this.listed,
     required this.showSize,
     required this.onTap,
-    super.key,
   });
 
   final PlayerVideoFile file;

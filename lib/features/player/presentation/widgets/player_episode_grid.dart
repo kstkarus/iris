@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:iris/entities/watch_progress/domain/watch_progress.dart';
 import 'package:iris/features/player/domain/entities/player_video_file.dart';
 import 'package:iris/features/player/domain/player_episode_names.dart';
-import 'package:iris/features/player/presentation/widgets/reveal_after_layout.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
+import 'package:iris/shared/utils/motion_duration.dart';
 import 'package:iris/shared/widgets/adaptive/adaptive_grid_row.dart';
 import 'package:iris/shared/widgets/detail_layout.dart';
 import 'package:iris/shared/widgets/pixel_icon.dart';
@@ -33,61 +33,77 @@ class PlayerEpisodeGrid extends StatefulWidget {
 }
 
 class _PlayerEpisodeGridState extends State<PlayerEpisodeGrid> {
-  final _highlightedKey = GlobalKey();
+  final _scroll = ScrollController();
+  (int?, int)? _target;
 
   @override
-  void initState() {
-    super.initState();
-    revealAfterLayout(_highlightedKey);
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
   }
 
-  @override
-  void didUpdateWidget(covariant PlayerEpisodeGrid oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.highlightedFileIndex != widget.highlightedFileIndex) {
-      revealAfterLayout(_highlightedKey);
-    }
+  void _revealHighlighted(int columns, double rowStride) {
+    final highlighted = widget.highlightedFileIndex;
+    final index = widget.files.indexWhere((file) => file.index == highlighted);
+    final target = (highlighted, index);
+    if (_target == target) return;
+    _target = target;
+    if (index < 0) return;
+
+    final animate = _scroll.hasClients;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_scroll.hasClients || _target != target) return;
+      final position = _scroll.position;
+      final offset =
+          (index ~/ columns * rowStride - 0.3 * position.viewportDimension)
+              .clamp(position.minScrollExtent, position.maxScrollExtent);
+      final duration = animate
+          ? motionDuration(context, const Duration(milliseconds: 250))
+          : Duration.zero;
+      if (duration == Duration.zero) {
+        _scroll.jumpTo(offset);
+      } else {
+        _scroll.animateTo(offset, duration: duration, curve: Curves.easeOut);
+      }
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          const spacing = 8.0;
-          final scaler = MediaQuery.textScalerOf(context);
-          final columns = adaptiveColumnCount(
-            availableWidth: constraints.maxWidth,
-            minItemWidth: scaler.scale(52),
-            spacing: spacing,
-            maxColumns: 16,
-          );
-          final width =
-              (constraints.maxWidth - spacing * (columns - 1)) / columns;
-          return Wrap(
-            spacing: spacing,
-            runSpacing: spacing,
-            children: [
-              for (final (position, file) in widget.files.indexed)
-                SizedBox(
-                  key: file.index == widget.highlightedFileIndex
-                      ? _highlightedKey
-                      : null,
-                  width: width,
-                  height: scaler.scale(52),
-                  child: _EpisodeTile(
-                    file: file,
-                    number: episodeNumberLabel(file, position),
-                    highlighted: file.index == widget.highlightedFileIndex,
-                    progress: widget.progressByFile[file.index],
-                    listed: widget.listed.contains(file.index),
-                    onTap: () => widget.onSelected(file),
-                  ),
-                ),
-            ],
-          );
-        },
-      ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        const spacing = 8.0;
+        final rowHeight = MediaQuery.textScalerOf(context).scale(52);
+        final columns = adaptiveColumnCount(
+          availableWidth: constraints.maxWidth,
+          minItemWidth: rowHeight,
+          spacing: spacing,
+          maxColumns: 16,
+        );
+        _revealHighlighted(columns, rowHeight + spacing);
+        return GridView.builder(
+          controller: _scroll,
+          padding: EdgeInsets.zero,
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: columns,
+            mainAxisSpacing: spacing,
+            crossAxisSpacing: spacing,
+            mainAxisExtent: rowHeight,
+          ),
+          itemCount: widget.files.length,
+          itemBuilder: (context, position) {
+            final file = widget.files[position];
+            return _EpisodeTile(
+              file: file,
+              number: episodeNumberLabel(file, position),
+              highlighted: file.index == widget.highlightedFileIndex,
+              progress: widget.progressByFile[file.index],
+              listed: widget.listed.contains(file.index),
+              onTap: () => widget.onSelected(file),
+            );
+          },
+        );
+      },
     );
   }
 }

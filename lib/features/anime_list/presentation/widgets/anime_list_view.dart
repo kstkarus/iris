@@ -120,6 +120,7 @@ class _AnimeListViewState extends State<AnimeListView>
     _recordQuery(query);
     _searchDebounceTimer?.cancel();
     context.read<AnimeSearchBloc>().add(AnimeListSearchChanged(query));
+    _searchFocus.unfocus();
   }
 
   void _exitSearch() {
