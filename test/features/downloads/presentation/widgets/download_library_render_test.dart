@@ -7,6 +7,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:iris/entities/anime/domain/anime_titles.dart';
 import 'package:iris/app/router/app_shell_page.dart';
 import 'package:iris/app/theme/app_theme.dart';
 import 'package:iris/features/downloads/domain/entities/download_item.dart';
@@ -335,7 +336,7 @@ void main() {
     _textScaler = const TextScaler.linear(2);
     const args = DownloadSelectionArgs(
       animeId: '52991',
-      animeTitle: 'Frieren',
+      animeTitles: AnimeTitles(name: 'Frieren'),
       sourceTitle: 'AniLibria · Frieren',
       magnet: 'online:anilibria/9542?anime=52991',
     );
@@ -397,6 +398,8 @@ class _SeasonDownloads extends MockDownloadsRepository {
     required String animeId,
     required String animeTitle,
     required String sourceTitle,
+    String animeRussian = '',
+    String animeEnglish = '',
     String posterUrl = '',
     int? quality,
   }) async {

@@ -12,6 +12,7 @@ import 'package:iris/features/profile/presentation/cubit/user_list_cubit.dart';
 import 'package:iris/features/profile/presentation/cubit/user_list_state.dart';
 import 'package:iris/features/profile/presentation/widgets/friend_list.dart';
 import 'package:iris/features/profile/presentation/widgets/list_grid.dart';
+import 'package:iris/features/settings/presentation/anime_title_labels.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/utils/anime_metadata_formatter.dart';
 import 'package:iris/shared/utils/motion_duration.dart';
@@ -977,7 +978,7 @@ class _EntryRow extends StatelessWidget {
     final scheme = theme.colorScheme;
     final l10n = AppLocalizations.of(context);
     final muted = scheme.onSurfaceVariant;
-    final russian = anime.russian.trim();
+    final titles = watchAnimeTitleLabels(context, anime.titles);
     final episodes = _episodes(l10n, rate, anime);
     final next = _nextEpisode(l10n, anime);
     final sansMeta = theme.textTheme.bodySmall?.copyWith(
@@ -1010,7 +1011,7 @@ class _EntryRow extends StatelessWidget {
         ),
     ];
     final titleWidget = Text(
-      anime.name,
+      titles.primary,
       maxLines: 2,
       overflow: TextOverflow.ellipsis,
       style: theme.textTheme.titleSmall?.copyWith(
@@ -1075,10 +1076,10 @@ class _EntryRow extends StatelessWidget {
                             )
                           else
                             titleWidget,
-                          if (russian.isNotEmpty) ...[
+                          if (titles.secondary case final secondary?) ...[
                             const SizedBox(height: 2),
                             Text(
-                              russian,
+                              secondary,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: theme.textTheme.bodySmall?.copyWith(

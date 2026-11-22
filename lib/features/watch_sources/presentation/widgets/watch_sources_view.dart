@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 
 import 'package:iris/shared/widgets/pixel_icon.dart';
 import 'package:iris/entities/watch_progress/presentation/watch_progress_cubit.dart';
+import 'package:iris/entities/anime/domain/anime_titles.dart';
 import 'package:iris/features/downloads/presentation/models/download_selection_args.dart';
 import 'package:iris/features/player/presentation/models/anime_player_source_args.dart';
 import 'package:iris/features/watch_sources/domain/entities/watch_source_item.dart';
@@ -362,7 +363,7 @@ class _SourcesTable extends StatelessWidget {
           tabular: tabular,
           watched: watchedKeys.contains(torrentKeyFromMagnet(item.magnet)),
           animeId: cubit.animeId,
-          animeTitle: cubit.animeTitle,
+          animeTitles: cubit.animeTitles,
           posterUrl: posterUrl,
         );
         if (!tabular) {
@@ -512,7 +513,7 @@ class _WatchSourceRow extends StatelessWidget {
     required this.tabular,
     required this.watched,
     required this.animeId,
-    required this.animeTitle,
+    required this.animeTitles,
     required this.posterUrl,
   });
 
@@ -522,7 +523,7 @@ class _WatchSourceRow extends StatelessWidget {
   /// The user streamed this release before.
   final bool watched;
   final String animeId;
-  final String animeTitle;
+  final AnimeTitles animeTitles;
   final String posterUrl;
 
   @override
@@ -622,7 +623,7 @@ class _WatchSourceRow extends StatelessWidget {
       'torrent-stream-files',
       extra: AnimePlayerSourceArgs(
         animeId: animeId,
-        animeTitle: animeTitle,
+        animeTitles: animeTitles,
         sourceTitle: item.title,
         magnet: item.magnet,
       ),
@@ -634,7 +635,7 @@ class _WatchSourceRow extends StatelessWidget {
       'torrent-download-files',
       extra: DownloadSelectionArgs(
         animeId: animeId,
-        animeTitle: animeTitle,
+        animeTitles: animeTitles,
         sourceTitle: item.title,
         magnet: item.magnet,
         posterUrl: posterUrl,

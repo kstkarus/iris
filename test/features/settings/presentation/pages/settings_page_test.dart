@@ -38,6 +38,7 @@ const _audio = Key('settings_default_audio_choice');
 const _subtitles = Key('settings_default_subtitles_choice');
 const _theme = Key('settings_theme_choice');
 const _language = Key('settings_language_choice');
+const _animeTitles = Key('settings_anime_title_language_choice');
 
 void main() {
   Future<AppSettingsCubit> pumpSettings(
@@ -160,42 +161,53 @@ void main() {
     });
   }
 
-  testWidgets(
-    'toggling theme, locale, default audio and subtitles updates cubit',
-    (tester) async {
-      final settings = await pumpSettings(tester, size: const Size(1280, 800));
+  testWidgets('changing theme and language preferences updates settings', (
+    tester,
+  ) async {
+    final settings = await pumpSettings(tester, size: const Size(1280, 800));
 
-      Future<void> tapOption(Key groupKey, String label) async {
-        final target = find.descendant(
-          of: find.byKey(groupKey),
-          matching: find.text(label),
-        );
-        await tester.ensureVisible(target);
-        await tester.pumpAndSettle();
-        await tester.tap(target);
-        await tester.pumpAndSettle();
-      }
-
-      await chooseFromMenu(tester, _audio, 'Japanese');
-      expect(
-        settings.state.defaultAudioLanguage,
-        DefaultAudioLanguage.japanese,
+    Future<void> tapOption(Key groupKey, String label) async {
+      final target = find.descendant(
+        of: find.byKey(groupKey),
+        matching: find.text(label),
       );
+      await tester.ensureVisible(target);
+      await tester.pumpAndSettle();
+      await tester.tap(target);
+      await tester.pumpAndSettle();
+    }
 
-      await chooseFromMenu(tester, _subtitles, 'Off');
-      expect(
-        settings.state.defaultSubtitleLanguage,
-        DefaultSubtitleLanguage.off,
-      );
+    await chooseFromMenu(tester, _audio, 'Japanese');
+    expect(settings.state.defaultAudioLanguage, DefaultAudioLanguage.japanese);
 
-      await tapOption(_theme, 'Dark');
-      expect(settings.state.themeMode, AppThemePreference.dark);
+    await chooseFromMenu(tester, _subtitles, 'Off');
+    expect(settings.state.defaultSubtitleLanguage, DefaultSubtitleLanguage.off);
 
-      await tapOption(_language, 'Русский');
-      expect(settings.state.locale, AppLocalePreference.russian);
-      expect(tester.takeException(), isNull);
-    },
-  );
+    await tapOption(_theme, 'Dark');
+    expect(settings.state.themeMode, AppThemePreference.dark);
+
+    await tapOption(_language, 'Русский');
+    expect(settings.state.locale, AppLocalePreference.russian);
+
+    expect(
+      find.descendant(
+        of: find.byKey(_animeTitles),
+        matching: find.text('App language'),
+      ),
+      findsOneWidget,
+    );
+    await chooseFromMenu(tester, _animeTitles, 'Romaji');
+    expect(settings.state.animeTitleLanguage, AnimeTitleLanguage.romaji);
+    expect(settings.state.locale, AppLocalePreference.russian);
+    expect(
+      find.descendant(
+        of: find.byKey(_animeTitles),
+        matching: find.text('Romaji'),
+      ),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('AnimeJoy login works with the keyboard and 200% text', (
     tester,
@@ -788,7 +800,10 @@ void main() {
     await tester.pumpAndSettle();
 
     final update = find.byKey(UpdateNotice.sheetKey);
-    await tester.tap(find.byKey(AboutAppSection.openUpdateButtonKey));
+    final open = find.byKey(AboutAppSection.openUpdateButtonKey);
+    await tester.ensureVisible(open);
+    await tester.pumpAndSettle();
+    await tester.tap(open);
     await tester.pump();
     expect(update, findsNothing);
     await tester.pumpAndSettle();

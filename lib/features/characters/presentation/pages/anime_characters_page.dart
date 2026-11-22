@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import 'package:iris/entities/anime/domain/anime_titles.dart';
 import 'package:iris/features/characters/domain/entities/anime_character.dart';
 import 'package:iris/features/characters/domain/entities/character_summary.dart';
 import 'package:iris/features/characters/presentation/character_names.dart';
 import 'package:iris/features/characters/presentation/cubit/anime_characters_cubit.dart';
 import 'package:iris/features/characters/presentation/cubit/anime_characters_state.dart';
 import 'package:iris/features/characters/presentation/widgets/character_tile.dart';
+import 'package:iris/features/settings/presentation/anime_title_labels.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/widgets/adaptive/adaptive_grid_row.dart';
 import 'package:iris/shared/widgets/adaptive/framed_app_bar.dart';
@@ -22,19 +24,22 @@ import 'package:iris/shared/widgets/status_views.dart';
 /// Every character of an anime as portraits, main ones first: it needs an
 /// [AnimeCharactersCubit] for the anime.
 class AnimeCharactersPage extends StatelessWidget {
-  const AnimeCharactersPage({required this.animeName, super.key});
+  const AnimeCharactersPage({this.animeTitles, super.key});
 
-  /// Empty when the page was opened by a link.
-  final String animeName;
+  /// Absent when the page was opened by a link.
+  final AnimeTitles? animeTitles;
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
+    final titles = animeTitles;
     return Scaffold(
       appBar: FramedAppBar(
         title: PageTitle(
           title: l10n.charactersTitle,
-          subtitle: animeName.isEmpty ? null : animeName,
+          subtitle: titles == null
+              ? null
+              : watchAnimeTitleLabels(context, titles).primary,
         ),
       ),
       body: SafeArea(

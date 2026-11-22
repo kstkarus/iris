@@ -56,7 +56,8 @@ class PlayerCubit extends Cubit<PlayerState> {
   final PlayerTrackPreferences? _defaultTrackPreferences;
   final PlayerSkipTimesRepository? _skipTimesRepository;
   final PlayerMediaControls _mediaControls;
-  final PlayerMediaTitles Function(AnimePlayerSource)? _mediaTitles;
+  PlayerMediaTitles Function(AnimePlayerSource)? _mediaTitles;
+  PlayerMediaTitles? _publishedMediaTitles;
   PlayerMediaPlayback? _publishedMediaPlayback;
   ({Duration target, DateTime expiresAt})? _pendingMediaSeek;
   final DateTime Function() _now;
@@ -90,6 +91,13 @@ class PlayerCubit extends Cubit<PlayerState> {
   AnimePlayerSource get source => _source;
 
   PlayerEngine get engine => _engine;
+
+  void setMediaTitleResolver(
+    PlayerMediaTitles Function(AnimePlayerSource) resolve,
+  ) {
+    _mediaTitles = resolve;
+    _syncMediaControls();
+  }
 
   /// The release's choices, with app defaults for tracks it has no choice for.
   PlayerTrackPreferences? get trackPreferences {
@@ -196,15 +204,18 @@ class PlayerCubit extends Cubit<PlayerState> {
   }
 
   void _syncMediaControls({Duration? seekPosition}) {
-    final titles = _mediaTitles;
-    if (titles == null || _closing) return;
+    final resolveTitles = _mediaTitles;
+    if (resolveTitles == null || _closing) return;
     final playback = state is PlayerReady ? _engine.mediaPlayback : null;
     if (playback == null) {
       _clearMediaControls();
       return;
     }
+    final source = _source;
+    final titles = resolveTitles(source);
     final previous = _publishedMediaPlayback;
     if (seekPosition == null &&
+        titles == _publishedMediaTitles &&
         previous != null &&
         previous.playing == playback.playing &&
         previous.buffering == playback.buffering &&
@@ -212,11 +223,11 @@ class PlayerCubit extends Cubit<PlayerState> {
         previous.rate == playback.rate) {
       return;
     }
-    final source = _source;
+    _publishedMediaTitles = titles;
     _publishedMediaPlayback = playback;
     unawaited(
       _mediaControls.update(
-        titles: titles(source),
+        titles: titles,
         playback: (
           position: _boundedMediaPosition(
             seekPosition ?? playback.position,
@@ -240,6 +251,7 @@ class PlayerCubit extends Cubit<PlayerState> {
   void _clearMediaControls() {
     _pendingMediaSeek = null;
     if (_publishedMediaPlayback == null) return;
+    _publishedMediaTitles = null;
     _publishedMediaPlayback = null;
     unawaited(_mediaControls.deactivate());
   }
@@ -544,6 +556,8 @@ class PlayerCubit extends Cubit<PlayerState> {
     final source = _source;
     // Keep a known anime link when the same file is reopened elsewhere.
     final keepAnime = source.animeId.isEmpty && saved != null;
+    final animeId = keepAnime ? saved.animeId : source.animeId;
+    final savedAnime = saved?.animeId == animeId ? saved : null;
     final progress = WatchProgress(
       torrentKey: torrentKey,
       fileIndex: source.fileIndex,
@@ -553,8 +567,14 @@ class PlayerCubit extends Cubit<PlayerState> {
       position: position,
       duration: duration,
       updatedAt: _now(),
-      animeId: keepAnime ? saved.animeId : source.animeId,
+      animeId: animeId,
       animeTitle: keepAnime ? saved.animeTitle : source.animeTitle,
+      animeRussian: !keepAnime && source.animeRussian.trim().isNotEmpty
+          ? source.animeRussian
+          : savedAnime?.animeRussian ?? '',
+      animeEnglish: !keepAnime && source.animeEnglish.trim().isNotEmpty
+          ? source.animeEnglish
+          : savedAnime?.animeEnglish ?? '',
     );
     _savedProgress = progress;
     _lastSavedAt = progress.updatedAt;

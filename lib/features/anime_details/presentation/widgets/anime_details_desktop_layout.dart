@@ -178,7 +178,7 @@ class _AnimeDetailsDesktopLayoutState extends State<AnimeDetailsDesktopLayout> {
                     RelatedAnimeSection(related: widget.related),
                     CharactersSection(
                       animeId: widget.head.anime.id,
-                      animeName: widget.head.anime.name,
+                      animeTitles: widget.head.anime.titles,
                       labelStyle: DetailLayout.sectionTitleStyle(
                         Theme.of(context),
                       ),

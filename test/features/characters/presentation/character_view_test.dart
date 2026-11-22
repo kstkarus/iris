@@ -120,7 +120,9 @@ void main() {
     await pumpView(
       tester,
       FakeCharactersRepository(
-        details: details(appearances: [testAppearance('5114')]),
+        details: details(
+          appearances: [testAppearance('5114', russian: 'Стальной алхимик')],
+        ),
       ),
     );
 

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:iris/entities/anime/domain/anime_titles.dart';
 import 'package:iris/features/characters/domain/entities/anime_character.dart';
 import 'package:iris/features/characters/domain/entities/character_details.dart';
 import 'package:iris/features/characters/domain/repositories/characters_repository.dart';
@@ -25,7 +26,12 @@ void main() {
       testApp(
         BlocProvider.value(
           value: cubit,
-          child: const AnimeCharactersPage(animeName: 'Sousou no Frieren'),
+          child: const AnimeCharactersPage(
+            animeTitles: AnimeTitles(
+              name: 'Sousou no Frieren',
+              english: 'Frieren Beyond Journey’s End',
+            ),
+          ),
         ),
       ),
     );
@@ -47,7 +53,7 @@ void main() {
     );
 
     expect(find.text('Characters'), findsOneWidget);
-    expect(find.text('Sousou no Frieren'), findsOneWidget);
+    expect(find.text('Frieren Beyond Journey’s End'), findsOneWidget);
     final main = tester.getTopLeft(find.text('Main'));
     final frieren = tester.getTopLeft(find.text('Frieren'));
     final supporting = tester.getTopLeft(find.text('Supporting'));
@@ -88,7 +94,9 @@ void main() {
       testApp(
         BlocProvider.value(
           value: cubit,
-          child: const AnimeCharactersPage(animeName: 'Sousou no Frieren'),
+          child: const AnimeCharactersPage(
+            animeTitles: AnimeTitles(name: 'Sousou no Frieren'),
+          ),
         ),
       ),
     );

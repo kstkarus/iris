@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 
 import 'package:iris/features/anime_details/presentation/models/anime_details_preview.dart';
+import 'package:iris/features/settings/presentation/anime_title_labels.dart';
 import 'package:iris/features/watch_sources/presentation/models/anime_watch_sources_args.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/models/details_description.dart';
@@ -35,7 +36,10 @@ class AnimeDetailsFramedPoster extends StatelessWidget {
         ? ColoredBox(color: scheme.surfaceContainer)
         : DitheredImage(
             image: networkImage(url),
-            semanticLabel: head.anime.name,
+            semanticLabel: watchAnimeTitleLabels(
+              context,
+              head.anime.titles,
+            ).primary,
             showOriginalLabel: l10n.animeDetailsShowCover,
             showHalftoneLabel: l10n.animeDetailsShowHalftone,
           );
@@ -67,14 +71,17 @@ class AnimeDetailsTitles extends StatelessWidget {
   final double? maxHeight;
 
   @override
-  Widget build(BuildContext context) => DetailHeroTitles(
-    title: head.anime.name,
-    subtitle: head.anime.russian,
-    maxSize: maxSize,
-    minSize: minSize,
-    maxLines: maxLines,
-    maxHeight: maxHeight,
-  );
+  Widget build(BuildContext context) {
+    final titles = watchAnimeTitleLabels(context, head.anime.titles);
+    return DetailHeroTitles(
+      title: titles.primary,
+      subtitle: titles.secondary,
+      maxSize: maxSize,
+      minSize: minSize,
+      maxLines: maxLines,
+      maxHeight: maxHeight,
+    );
+  }
 }
 
 /// Primary action button that opens online and torrent watch sources.
@@ -92,8 +99,7 @@ class AnimeDetailsWatchSourcesButton extends StatelessWidget {
           pathParameters: {'id': head.anime.id},
           extra: AnimeWatchSourcesArgs.forAnime(
             animeId: head.anime.id,
-            name: head.anime.name,
-            english: head.anime.english,
+            animeTitles: head.anime.titles,
             posterUrl: head.anime.posterUrl,
           ),
         ),

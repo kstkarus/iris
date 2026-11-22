@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:iris/entities/anime/domain/anime_titles.dart';
 import 'package:iris/features/downloads/data/repositories/mock_downloads_repository.dart';
 import 'package:iris/features/downloads/domain/entities/download_item.dart';
 import 'package:iris/features/downloads/domain/entities/download_status.dart';
@@ -16,7 +17,11 @@ import '../../../../helpers/memory_online_quality_preferences.dart';
 
 const _args = DownloadSelectionArgs(
   animeId: '154587',
-  animeTitle: 'Sousou no Frieren',
+  animeTitles: AnimeTitles(
+    name: 'Sousou no Frieren',
+    russian: 'Фрирен',
+    english: 'Frieren',
+  ),
   sourceTitle: 'Release',
   magnet: 'magnet:?xt=urn:btih:test-selection',
   posterUrl: 'https://shikimori.one/posters/1/main.jpg',
@@ -161,6 +166,10 @@ void main() {
         expect(repository.queued, [0, 1]);
         expect(ready().downloads.keys, unorderedEquals([0, 1]));
         expect(
+          ready().downloads.values.map((item) => item.animeTitles),
+          everyElement(_args.animeTitles),
+        );
+        expect(
           ready().downloads.values.map((item) => item.posterUrl),
           everyElement('https://shikimori.one/posters/1/main.jpg'),
         );
@@ -296,7 +305,7 @@ void main() {
   group('an online release', () {
     const online = DownloadSelectionArgs(
       animeId: '52991',
-      animeTitle: 'Frieren',
+      animeTitles: AnimeTitles(name: 'Frieren'),
       sourceTitle: 'AniLibria',
       magnet: 'online:anilibria/9542?anime=52991',
     );
@@ -386,6 +395,8 @@ class _QualityRepository extends MockDownloadsRepository {
     required String animeId,
     required String animeTitle,
     required String sourceTitle,
+    String animeRussian = '',
+    String animeEnglish = '',
     String posterUrl = '',
     int? quality,
   }) {
@@ -395,6 +406,8 @@ class _QualityRepository extends MockDownloadsRepository {
       file: file,
       animeId: animeId,
       animeTitle: animeTitle,
+      animeRussian: animeRussian,
+      animeEnglish: animeEnglish,
       sourceTitle: sourceTitle,
       posterUrl: posterUrl,
       quality: quality,
@@ -478,6 +491,8 @@ class _PickingRepository extends MockDownloadsRepository {
     required String animeId,
     required String animeTitle,
     required String sourceTitle,
+    String animeRussian = '',
+    String animeEnglish = '',
     String posterUrl = '',
     int? quality,
   }) async {
@@ -488,6 +503,8 @@ class _PickingRepository extends MockDownloadsRepository {
       id: 'mock-${file.index}',
       animeId: animeId,
       animeTitle: animeTitle,
+      animeRussian: animeRussian,
+      animeEnglish: animeEnglish,
       posterUrl: posterUrl,
       sourceTitle: sourceTitle,
       magnet: 'mock-magnet',

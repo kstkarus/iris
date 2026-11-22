@@ -238,7 +238,7 @@ class _StackedLayout extends StatelessWidget {
           RelatedAnimeSection(related: related),
           CharactersSection(
             animeId: head.anime.id,
-            animeName: head.anime.name,
+            animeTitles: head.anime.titles,
             labelStyle: DetailLayout.sectionTitleStyle(Theme.of(context)),
             uppercase: false,
             hairlineDivider: true,

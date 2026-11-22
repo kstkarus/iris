@@ -1929,6 +1929,21 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsLanguageEnglish => 'English';
 
   @override
+  String get settingsAnimeTitleLanguageLabel => 'Anime titles';
+
+  @override
+  String get settingsAnimeTitleLanguageAuto => 'App language';
+
+  @override
+  String get settingsAnimeTitleLanguageRussian => 'Russian';
+
+  @override
+  String get settingsAnimeTitleLanguageRomaji => 'Romaji';
+
+  @override
+  String get settingsAnimeTitleLanguageEnglish => 'English';
+
+  @override
   String get settingsAppVersion => 'Version';
 
   @override

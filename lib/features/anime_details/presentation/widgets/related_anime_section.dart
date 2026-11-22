@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:iris/entities/anime/domain/anime_kind.dart';
 import 'package:iris/features/anime_details/domain/entities/related_anime.dart';
 import 'package:iris/features/anime_details/presentation/models/anime_details_preview.dart';
+import 'package:iris/features/settings/presentation/anime_title_labels.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/utils/anime_metadata_formatter.dart';
 import 'package:iris/shared/utils/incomplete_date.dart';
@@ -151,7 +152,7 @@ class _RelatedRow extends StatelessWidget {
       if (anime.kind.isNotEmpty) formatAnimeKind(l10n, anime.kind),
       if (year.isNotEmpty) year,
     ];
-    final russian = anime.russian.trim();
+    final titles = watchAnimeTitleLabels(context, anime.titles);
     return TapRow(
       inkKey: ValueKey('related_anime_${anime.id}'),
       onTap: () => context.pushNamed(
@@ -185,18 +186,17 @@ class _RelatedRow extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    anime.name,
+                    titles.primary,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: theme.textTheme.titleSmall?.copyWith(
                       fontFamily: DetailLayout.sansFont,
                     ),
                   ),
-                  if (russian.isNotEmpty &&
-                      russian.toLowerCase() != anime.name.toLowerCase()) ...[
+                  if (titles.secondary case final secondary?) ...[
                     const SizedBox(height: 2),
                     Text(
-                      russian,
+                      secondary,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.bodySmall?.copyWith(

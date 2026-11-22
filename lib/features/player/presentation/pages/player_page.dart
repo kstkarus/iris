@@ -16,6 +16,8 @@ import 'package:iris/features/player/presentation/widgets/player_episode_cards.d
 import 'package:iris/features/player/presentation/widgets/episode_mark_plate.dart';
 import 'package:iris/features/player/presentation/widgets/player_view.dart';
 import 'package:iris/features/player/presentation/widgets/player_viewport_factory.dart';
+import 'package:iris/features/settings/domain/entities/app_settings.dart';
+import 'package:iris/features/settings/presentation/cubit/app_settings_cubit.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/utils/duration_formatter.dart';
 import 'package:iris/shared/utils/desktop_platform.dart';
@@ -46,6 +48,7 @@ class _PlayerPageState extends State<PlayerPage> {
   late final AppLifecycleListener _lifecycle;
   WindowsTitleBarTheme? _titleBarTheme;
   late ThemeData _overVideoTheme;
+  late AnimeTitleLanguage _titleLanguage;
 
   /// The resume message.
   PlayerNotice? _notice;
@@ -65,6 +68,17 @@ class _PlayerPageState extends State<PlayerPage> {
     _overVideoTheme = OverVideoTheme.of(Theme.of(context));
     _titleBarTheme = context.read<WindowsTitleBarTheme?>();
     _titleBarTheme?.setPlayerTheme(this, _overVideoTheme.colorScheme);
+    final l10n = AppLocalizations.of(context);
+    final language =
+        context.watch<AppSettingsCubit?>()?.state.animeTitleLanguage ??
+        AnimeTitleLanguage.auto;
+    _titleLanguage = language;
+    context.read<PlayerCubit>().setMediaTitleResolver((source) {
+      final titles = playerTitlesFor(l10n, source, titleLanguage: language);
+      return titles.title.isEmpty
+          ? (title: titles.episode, episode: '')
+          : titles;
+    });
   }
 
   @override
@@ -133,6 +147,7 @@ class _PlayerPageState extends State<PlayerPage> {
     return playerChromeFor(
       AppLocalizations.of(context),
       source,
+      titleLanguage: _titleLanguage,
       onBack: () => Navigator.of(context).maybePop(),
       notice: _notice,
       mark: switch (context.read<EpisodeMarkCubit?>()) {

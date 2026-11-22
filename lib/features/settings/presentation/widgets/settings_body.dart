@@ -164,6 +164,30 @@ class _SettingsBodyState extends State<SettingsBody> {
                 ),
               ],
             ),
+            SettingsMenuChoice(
+              key: const Key('settings_anime_title_language_choice'),
+              label: l10n.settingsAnimeTitleLanguageLabel,
+              selected: settings.animeTitleLanguage,
+              onSelected: cubit.setAnimeTitleLanguage,
+              options: [
+                SegmentedOption(
+                  value: AnimeTitleLanguage.auto,
+                  label: l10n.settingsAnimeTitleLanguageAuto,
+                ),
+                SegmentedOption(
+                  value: AnimeTitleLanguage.russian,
+                  label: l10n.settingsAnimeTitleLanguageRussian,
+                ),
+                SegmentedOption(
+                  value: AnimeTitleLanguage.romaji,
+                  label: l10n.settingsAnimeTitleLanguageRomaji,
+                ),
+                SegmentedOption(
+                  value: AnimeTitleLanguage.english,
+                  label: l10n.settingsAnimeTitleLanguageEnglish,
+                ),
+              ],
+            ),
           ],
         ),
       ),

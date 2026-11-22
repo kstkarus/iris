@@ -3,8 +3,10 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:iris/features/player/domain/entities/anime_player_source.dart';
+import 'package:iris/features/player/domain/entities/player_launch_update.dart';
 import 'package:iris/features/player/domain/entities/player_session.dart';
 import 'package:iris/features/player/domain/entities/player_video_file.dart';
+import 'package:iris/features/player/domain/player_media_controls.dart';
 import 'package:iris/entities/user_rate/data/mock_user_rate_repository.dart';
 import 'package:iris/entities/user_rate/domain/mark_episode_watched.dart';
 import 'package:iris/entities/user_rate/domain/user_rate.dart';
@@ -12,11 +14,16 @@ import 'package:iris/features/player/presentation/cubit/episode_mark_cubit.dart'
 import 'package:iris/features/player/presentation/cubit/player_cubit.dart';
 import 'package:iris/features/player/presentation/cubit/player_state.dart';
 import 'package:iris/features/player/presentation/pages/player_page.dart';
+import 'package:iris/features/settings/domain/entities/app_settings.dart';
+import 'package:iris/features/settings/presentation/cubit/app_settings_cubit.dart';
 import 'package:iris/shared/utils/desktop_platform.dart';
 import 'package:iris/shared/window/player_screen_mode.dart';
 
+import '../../../../helpers/fake_player_engine.dart';
+import '../../../../helpers/fake_player_repository.dart';
 import '../../../../helpers/test_app.dart';
 import '../../../../helpers/test_window.dart';
+import '../../../settings/settings_test_doubles.dart';
 import '../../player_test_doubles.dart';
 
 void main() {
@@ -167,6 +174,86 @@ void main() {
       reason: 'the full release name heads the drawer',
     );
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('the player and system titles update while paused', (
+    tester,
+  ) async {
+    setTestWindowSize(tester, TestWindowSizes.landscape);
+    final settings = AppSettingsCubit(
+      repository: MemoryAppSettingsRepository(const AppSettings()),
+    );
+    final engine = FakePlayerEngine();
+    final media = _RecordingMediaControls();
+    final player = PlayerCubit(
+      source: const AnimePlayerSource(
+        animeId: '52991',
+        animeTitle: 'Sousou no Frieren',
+        animeRussian: 'Фрирен',
+        animeEnglish: 'Frieren Beyond Journey’s End',
+        sourceTitle: '[Group] Frieren',
+        sessionId: '1',
+        fileIndex: 1,
+        fileName: 'episode-02.mkv',
+      ),
+      engine: engine,
+      repository: StubPlayerRepository(
+        launches: (_) => Stream.value(
+          const PlayerLaunchReadyUpdate(
+            PlayerSession(sessionId: '1', streamUrl: 'http://localhost/2'),
+          ),
+        ),
+      ),
+      mediaControls: media,
+    );
+    addTearDown(settings.close);
+    addTearDown(player.close);
+    await tester.runAsync(player.loadPlayback);
+    engine.mediaPlayback = (
+      position: const Duration(minutes: 5),
+      duration: const Duration(minutes: 24),
+      playing: false,
+      buffering: false,
+      rate: 1,
+    );
+
+    Future<void> pumpPlayer(Locale locale) async {
+      await tester.pumpWidget(
+        testApp(
+          MultiBlocProvider(
+            providers: [
+              BlocProvider.value(value: settings),
+              BlocProvider.value(value: player),
+            ],
+            child: const PlayerPage(
+              viewportFactory: FakePlayerViewportFactory(),
+            ),
+          ),
+          locale: locale,
+        ),
+      );
+      await tester.pump();
+    }
+
+    await pumpPlayer(const Locale('en'));
+    expect(find.text('overline: Frieren Beyond Journey’s End'), findsOneWidget);
+    expect(media.titles.last, (
+      title: 'Frieren Beyond Journey’s End',
+      episode: 'Episode 2',
+    ));
+
+    await pumpPlayer(const Locale('ru'));
+    expect(find.text('overline: Фрирен'), findsOneWidget);
+    expect(media.titles.last, (title: 'Фрирен', episode: 'Серия 2'));
+
+    await settings.setAnimeTitleLanguage(AnimeTitleLanguage.romaji);
+    await tester.pump();
+    expect(find.text('overline: Sousou no Frieren'), findsOneWidget);
+    expect(media.titles.last, (title: 'Sousou no Frieren', episode: 'Серия 2'));
+    expect(
+      engine.calls.where((call) => call.startsWith('open ')),
+      hasLength(1),
+    );
   });
 
   testWidgets('a queued mark is shown as waiting to sync', (tester) async {
@@ -371,6 +458,18 @@ class _FakeScreenMode implements PlayerScreenMode {
 
   @override
   Future<void> leave() async => calls.add('leave');
+}
+
+class _RecordingMediaControls extends NoPlayerMediaControls {
+  final titles = <PlayerMediaTitles>[];
+
+  @override
+  Future<void> update({
+    required PlayerMediaTitles titles,
+    required PlayerMediaPlayback playback,
+    required bool canNext,
+    required PlayerMediaCommandHandler onCommand,
+  }) async => this.titles.add(titles);
 }
 
 /// An online release: its episodes come numbered.

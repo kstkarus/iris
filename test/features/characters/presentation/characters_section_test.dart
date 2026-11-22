@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:iris/entities/anime/domain/anime_titles.dart';
 import 'package:iris/features/characters/domain/entities/anime_character.dart';
 import 'package:iris/features/characters/domain/entities/character_summary.dart';
 import 'package:iris/features/characters/presentation/cubit/anime_characters_cubit.dart';
@@ -11,6 +12,12 @@ import 'package:iris/features/characters/presentation/widgets/characters_section
 import '../../../helpers/test_app.dart';
 import '../../../helpers/test_window.dart';
 import '../characters_test_doubles.dart';
+
+const _titles = AnimeTitles(
+  name: 'Sousou no Frieren',
+  russian: 'Провожающая в последний путь Фрирен',
+  english: 'Frieren Beyond Journey’s End',
+);
 
 void main() {
   late FakeCharactersRepository repository;
@@ -47,7 +54,7 @@ void main() {
               child: const SingleChildScrollView(
                 child: CharactersSection(
                   animeId: '52991',
-                  animeName: 'Sousou no Frieren',
+                  animeTitles: _titles,
                 ),
               ),
             ),
@@ -81,7 +88,7 @@ void main() {
 
     await tester.tap(find.byKey(const Key('characters_all')));
     await tester.pumpAndSettle();
-    expect(opened['anime-characters'], 'Sousou no Frieren');
+    expect(opened['anime-characters'], _titles);
   });
 
   testWidgets('a portrait opens the character', (tester) async {

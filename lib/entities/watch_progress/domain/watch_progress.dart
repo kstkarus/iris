@@ -1,3 +1,5 @@
+import 'package:iris/entities/anime/domain/anime_titles.dart';
+
 /// How far one file of one torrent has been watched.
 ///
 /// Streaming and a downloaded copy share progress for the same anime.
@@ -15,6 +17,8 @@ class WatchProgress {
     required this.updatedAt,
     this.animeId = '',
     this.animeTitle = '',
+    this.animeRussian = '',
+    this.animeEnglish = '',
     this.hiddenFromContinueWatching = false,
   });
 
@@ -38,6 +42,8 @@ class WatchProgress {
   final DateTime updatedAt;
   final String animeId;
   final String animeTitle;
+  final String animeRussian;
+  final String animeEnglish;
   final bool hiddenFromContinueWatching;
 
   String get id =>
@@ -66,13 +72,21 @@ class WatchProgress {
       updatedAt: updatedAt,
       animeId: animeId,
       animeTitle: animeTitle,
+      animeRussian: animeRussian,
+      animeEnglish: animeEnglish,
       hiddenFromContinueWatching:
           hiddenFromContinueWatching ?? this.hiddenFromContinueWatching,
     );
   }
 
-  /// Anime title when known, otherwise the torrent's own title.
-  String get displayTitle => hasAnime ? animeTitle : sourceTitle;
+  /// Anime titles when linked, otherwise the source's own title.
+  AnimeTitles get displayTitles => hasAnime
+      ? AnimeTitles(
+          name: animeTitle,
+          russian: animeRussian,
+          english: animeEnglish,
+        )
+      : AnimeTitles(name: sourceTitle);
 
   double get fraction {
     if (duration <= Duration.zero) return 0;
@@ -105,6 +119,8 @@ class WatchProgress {
         other.updatedAt == updatedAt &&
         other.animeId == animeId &&
         other.animeTitle == animeTitle &&
+        other.animeRussian == animeRussian &&
+        other.animeEnglish == animeEnglish &&
         other.hiddenFromContinueWatching == hiddenFromContinueWatching;
   }
 
@@ -120,6 +136,8 @@ class WatchProgress {
     updatedAt,
     animeId,
     animeTitle,
+    animeRussian,
+    animeEnglish,
     hiddenFromContinueWatching,
   );
 }

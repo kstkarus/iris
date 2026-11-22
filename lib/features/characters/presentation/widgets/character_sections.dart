@@ -4,6 +4,7 @@ import 'package:iris/entities/anime/domain/anime_kind.dart';
 import 'package:iris/entities/anime/domain/anime_summary.dart';
 import 'package:iris/features/characters/domain/entities/character_details.dart';
 import 'package:iris/features/characters/presentation/character_names.dart';
+import 'package:iris/features/settings/presentation/anime_title_labels.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/models/details_description.dart';
 import 'package:iris/shared/theme/cjk_font.dart';
@@ -292,7 +293,7 @@ class _AppearanceRow extends StatelessWidget {
       if (year.isNotEmpty) year,
       formatCharacterRole(l10n, appearance.role),
     ];
-    final russian = anime.russian.trim();
+    final titles = watchAnimeTitleLabels(context, anime.titles);
     return TapRow(
       inkKey: ValueKey('character_anime_${anime.id}'),
       onTap: onOpen,
@@ -322,18 +323,17 @@ class _AppearanceRow extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    anime.name,
+                    titles.primary,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: theme.textTheme.titleSmall?.copyWith(
                       fontFamily: DetailLayout.sansFont,
                     ),
                   ),
-                  if (russian.isNotEmpty &&
-                      russian.toLowerCase() != anime.name.toLowerCase()) ...[
+                  if (titles.secondary case final secondary?) ...[
                     const SizedBox(height: 2),
                     Text(
-                      russian,
+                      secondary,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.bodySmall?.copyWith(

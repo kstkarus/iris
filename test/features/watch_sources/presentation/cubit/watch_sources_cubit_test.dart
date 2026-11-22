@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:iris/entities/anime/domain/anime_titles.dart';
 import 'package:iris/features/watch_sources/domain/entities/watch_source_item.dart';
 import 'package:iris/features/watch_sources/domain/repositories/watch_sources_repository.dart';
 import 'package:iris/features/watch_sources/presentation/cubit/watch_sources_cubit.dart';
@@ -150,7 +151,7 @@ void main() {
   test('emits loading then empty when service returns no items', () async {
     final cubit = WatchSourcesCubit(
       animeId: '1',
-      animeTitle: 'Unknown Title',
+      animeTitles: const AnimeTitles(name: 'Unknown Title'),
       searchTitles: ['Unknown Title'],
       repository: FixedWatchSourcesRepository([]),
     );
@@ -166,7 +167,7 @@ void main() {
   test('emits failure when title is empty', () async {
     final cubit = WatchSourcesCubit(
       animeId: '1',
-      animeTitle: '',
+      animeTitles: const AnimeTitles(name: ''),
       searchTitles: const [],
       repository: FixedWatchSourcesRepository(),
     );
@@ -182,7 +183,7 @@ void main() {
   test('emits failure when repository throws', () async {
     final cubit = WatchSourcesCubit(
       animeId: '1535',
-      animeTitle: 'Death Note',
+      animeTitles: const AnimeTitles(name: 'Death Note'),
       searchTitles: ['Death Note'],
       repository: _FailingWatchSourcesRepository(),
     );

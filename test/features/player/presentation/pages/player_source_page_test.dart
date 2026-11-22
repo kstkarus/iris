@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:iris/entities/anime/domain/anime_titles.dart';
 import 'package:iris/features/player/domain/entities/player_video_file.dart';
 import 'package:iris/features/player/domain/entities/prepared_player_source.dart';
 import 'package:iris/features/player/presentation/cubit/player_source_cubit.dart';
@@ -81,7 +82,9 @@ Future<FakePlayerSourceCubit> _pumpFilesPage(
             child: PlayerSourcePage(
               args: AnimePlayerSourceArgs(
                 animeId: '5114',
-                animeTitle: 'Fullmetal Alchemist: Brotherhood',
+                animeTitles: AnimeTitles(
+                  name: 'Fullmetal Alchemist: Brotherhood',
+                ),
                 sourceTitle: '[Mock] Fullmetal Alchemist: Brotherhood Batch',
                 magnet: 'magnet:?xt=urn:btih:test-source',
                 preferDownloads: preferDownloads,

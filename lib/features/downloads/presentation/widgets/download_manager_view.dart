@@ -21,6 +21,7 @@ import 'package:iris/features/downloads/presentation/widgets/download_deletion_d
 import 'package:iris/features/downloads/presentation/widgets/download_files.dart';
 import 'package:iris/features/downloads/presentation/widgets/download_library_header.dart';
 import 'package:iris/features/downloads/presentation/widgets/download_selection_footer.dart';
+import 'package:iris/features/settings/presentation/anime_title_labels.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/haptics/app_haptics.dart';
 import 'package:iris/shared/utils/byte_size_formatter.dart';
@@ -377,6 +378,9 @@ class _DownloadsMenuState extends State<_DownloadsMenu> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final title = widget.title;
+    final name = title == null
+        ? ''
+        : watchAnimeTitleLabels(context, title.animeTitles).primary;
     final canOpenAnime =
         title != null &&
         widget.onOpenAnime != null &&
@@ -421,12 +425,7 @@ class _DownloadsMenuState extends State<_DownloadsMenu> {
                   .downloads
                   .where((item) => downloadTitleKey(item) == title.key)
                   .toList();
-              await confirmDownloadDeletion(
-                context,
-                items,
-                title.name,
-                all: true,
-              );
+              await confirmDownloadDeletion(context, items, name, all: true);
             },
             child: Text(asksForMore(l10n.downloadDeleteAll)),
           ),
@@ -641,11 +640,16 @@ class _EpisodesState extends State<_Episodes> {
         .toList();
     final title = widget.title;
     if (items.isEmpty || title == null) return;
+    final name = resolveAnimeTitles(
+      AppLocalizations.of(context),
+      title.animeTitles,
+      readAnimeTitleLanguage(context),
+    ).primary;
     setState(() => _deletingCount = items.length);
     final failed = await confirmDownloadDeletion(
       context,
       items,
-      title.name,
+      name,
       selected: true,
     );
     if (!mounted) return;
@@ -1030,8 +1034,13 @@ class _DownloadRowState extends State<_DownloadRow> {
     final item = widget.item;
     final status = item.status;
     final completed = status == DownloadStatus.completed;
-    final name = downloadName(l10n, item);
-    final semanticName = downloadSemanticName(l10n, item);
+    final titleLanguage = watchAnimeTitleLanguage(context);
+    final name = downloadName(l10n, item, titleLanguage: titleLanguage);
+    final semanticName = downloadSemanticName(
+      l10n,
+      item,
+      titleLanguage: titleLanguage,
+    );
     final episodeLabel = downloadEpisode(l10n, item);
     final episodeVideoHeight =
         widget.videoHeight == null || widget.videoHeight! <= 0
@@ -1110,7 +1119,7 @@ class _DownloadRowState extends State<_DownloadRow> {
         if (widget.selecting) {
           widget.onDeleteSelected();
         } else {
-          _confirmDelete(context);
+          _confirmDelete(context, name);
         }
       },
       filled: _menuOpen || (widget.selecting && widget.selected),
@@ -1291,7 +1300,7 @@ class _DownloadRowState extends State<_DownloadRow> {
                     key: const Key('download_delete'),
                     onPressed: widget.disabled
                         ? null
-                        : () => _confirmDelete(context),
+                        : () => _confirmDelete(context, name),
                     child: Text(asksForMore(l10n.downloadDeleteButton)),
                   ),
                 ],
@@ -1356,10 +1365,8 @@ class _DownloadRowState extends State<_DownloadRow> {
     );
   }
 
-  Future<void> _confirmDelete(BuildContext context) async {
-    await confirmDownloadDeletion(context, [
-      widget.item,
-    ], downloadName(AppLocalizations.of(context), widget.item));
+  Future<void> _confirmDelete(BuildContext context, String name) async {
+    await confirmDownloadDeletion(context, [widget.item], name);
   }
 }
 

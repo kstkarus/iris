@@ -20,6 +20,9 @@ final class AppSettingsCubit extends Cubit<AppSettings> {
   Future<void> setLocale(AppLocalePreference locale) =>
       _save(state.copyWith(locale: locale));
 
+  Future<void> setAnimeTitleLanguage(AnimeTitleLanguage language) =>
+      _save(state.copyWith(animeTitleLanguage: language));
+
   Future<void> setDefaultAudioLanguage(DefaultAudioLanguage language) =>
       _save(state.copyWith(defaultAudioLanguage: language));
 

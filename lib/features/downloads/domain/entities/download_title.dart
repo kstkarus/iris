@@ -1,3 +1,4 @@
+import 'package:iris/entities/anime/domain/anime_titles.dart';
 import 'package:iris/features/downloads/domain/entities/download_item.dart';
 import 'package:iris/features/downloads/domain/entities/download_status.dart';
 import 'package:iris/shared/online/online_source_link.dart';
@@ -20,9 +21,21 @@ class DownloadTitle {
 
   final String key;
   final List<DownloadItem> items;
-  String get name => items.first.animeTitle.isNotEmpty
-      ? items.first.animeTitle
-      : items.first.sourceTitle;
+  late final AnimeTitles animeTitles = _collectTitles();
+
+  AnimeTitles _collectTitles() {
+    String firstTitle(String Function(DownloadItem) read) => items
+        .map(read)
+        .firstWhere((title) => title.trim().isNotEmpty, orElse: () => '');
+
+    final name = firstTitle((item) => item.animeTitle);
+    return AnimeTitles(
+      name: name.isNotEmpty ? name : items.first.sourceTitle,
+      russian: firstTitle((item) => item.animeRussian),
+      english: firstTitle((item) => item.animeEnglish),
+    );
+  }
+
   String get posterUrl => items
       .map((item) => item.posterUrl)
       .firstWhere((url) => url.isNotEmpty, orElse: () => '');

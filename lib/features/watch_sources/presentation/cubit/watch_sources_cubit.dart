@@ -1,5 +1,6 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import 'package:iris/entities/anime/domain/anime_titles.dart';
 import 'package:iris/features/watch_sources/domain/entities/watch_source_item.dart';
 import 'package:iris/features/watch_sources/domain/repositories/watch_sources_repository.dart';
 import 'package:iris/features/watch_sources/presentation/cubit/watch_sources_state.dart';
@@ -8,7 +9,7 @@ import 'package:iris/features/watch_sources/presentation/models/watch_sources_so
 class WatchSourcesCubit extends Cubit<WatchSourcesState> {
   WatchSourcesCubit({
     required this.animeId,
-    required this.animeTitle,
+    required this.animeTitles,
     required this.searchTitles,
     required WatchSourcesRepository repository,
   }) : _repository = repository,
@@ -16,8 +17,7 @@ class WatchSourcesCubit extends Cubit<WatchSourcesState> {
 
   final String animeId;
 
-  /// How history names the anime of a release played from here.
-  final String animeTitle;
+  final AnimeTitles animeTitles;
 
   /// What releases are searched by.
   final List<String> searchTitles;

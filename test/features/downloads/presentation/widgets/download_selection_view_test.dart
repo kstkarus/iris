@@ -6,6 +6,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:haptic_feedback/haptic_feedback.dart';
 
+import 'package:iris/entities/anime/domain/anime_titles.dart';
 import 'package:iris/features/downloads/data/repositories/mock_downloads_repository.dart';
 import 'package:iris/features/downloads/domain/entities/download_item.dart';
 import 'package:iris/features/downloads/domain/entities/download_status.dart';
@@ -23,7 +24,7 @@ import '../../../../helpers/test_app.dart';
 
 const _online = DownloadSelectionArgs(
   animeId: '52991',
-  animeTitle: 'Frieren',
+  animeTitles: AnimeTitles(name: 'Frieren'),
   sourceTitle: 'AniLibria',
   magnet: 'online:anilibria/9542?anime=52991',
 );
@@ -35,7 +36,7 @@ void main() {
       (
         DownloadSelectionArgs(
           animeId: '52991',
-          animeTitle: 'Frieren',
+          animeTitles: AnimeTitles(name: 'Frieren'),
           sourceTitle: 'Torrent',
           magnet: 'magnet:?xt=urn:btih:abc',
         ),
@@ -65,7 +66,7 @@ void main() {
   ) async {
     const args = DownloadSelectionArgs(
       animeId: '1',
-      animeTitle: '91 Days',
+      animeTitles: AnimeTitles(name: '91 Days'),
       sourceTitle: 'Release',
       magnet: 'magnet:?xt=urn:btih:0123456789012345678901234567890123456789',
     );
@@ -499,6 +500,8 @@ class _GatedEpisodesRepository extends _EpisodesRepository {
     required String animeId,
     required String animeTitle,
     required String sourceTitle,
+    String animeRussian = '',
+    String animeEnglish = '',
     String posterUrl = '',
     int? quality,
   }) async {
@@ -538,6 +541,8 @@ class _LoadingRepository extends _EpisodesRepository {
     required String animeId,
     required String animeTitle,
     required String sourceTitle,
+    String animeRussian = '',
+    String animeEnglish = '',
     String posterUrl = '',
     int? quality,
   }) async {

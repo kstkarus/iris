@@ -311,22 +311,23 @@ void main() {
     expect(find.text(fmaDetails.description.text), findsOneWidget);
   });
 
-  testWidgets('screen readers hear the name once', (tester) async {
+  testWidgets('the collapsed bar keeps the localized title available', (
+    tester,
+  ) async {
     final semantics = tester.ensureSemantics();
     setTestWindowSize(tester, TestWindowSizes.phone);
-    await _pumpPage(tester);
+    await _pumpPage(tester, locale: const Locale('ru'));
+    final title = _longDetails.anime.russian;
     // The heading, and the cover named after the anime.
-    final before = find
-        .bySemanticsLabel(_longDetails.anime.name)
-        .evaluate()
-        .length;
-    await _scrollBy(tester, _nameBelowBar(tester) + 4);
+    final before = find.bySemanticsLabel(title).evaluate().length;
+    expect(before, greaterThan(0));
+    await _scrollBy(tester, _nameBelowBar(tester, title) + 4);
 
-    expect(_barTitle, findsOneWidget);
     expect(
-      find.bySemanticsLabel(_longDetails.anime.name),
-      findsNWidgets(before),
+      find.descendant(of: find.byType(AppBar), matching: find.text(title)),
+      findsOneWidget,
     );
+    expect(find.bySemanticsLabel(title), findsNWidgets(before));
     semantics.dispose();
   });
 
@@ -434,13 +435,17 @@ void main() {
   });
 }
 
-Future<void> _pumpPage(WidgetTester tester) async {
+Future<void> _pumpPage(
+  WidgetTester tester, {
+  Locale locale = const Locale('en'),
+}) async {
   final cubit = AnimeDetailsCubit(
     animeId: '5114',
     repository: FixedAnimeDetailsRepository(_longDetails),
   );
   await tester.pumpWidget(
     testApp(
+      locale: locale,
       BlocProvider.value(
         value: cubit..loadAnime(),
         child: const AnimeDetailsPage(),
@@ -449,12 +454,6 @@ Future<void> _pumpPage(WidgetTester tester) async {
   );
   await tester.pumpAndSettle();
 }
-
-/// The anime name in the bar, not on the page.
-Finder get _barTitle => find.descendant(
-  of: find.byType(AppBar),
-  matching: find.text(_longDetails.anime.name),
-);
 
 /// Scrolls the page by [dy] and waits for the bar to settle.
 Future<void> _scrollBy(WidgetTester tester, double dy) async {
@@ -470,11 +469,11 @@ Future<void> _scrollBy(WidgetTester tester, double dy) async {
 }
 
 /// How far the page name's lower edge is below the bar.
-double _nameBelowBar(WidgetTester tester) {
+double _nameBelowBar(WidgetTester tester, String title) {
   final name = tester.getRect(
     find.descendant(
       of: find.byType(SingleChildScrollView).first,
-      matching: find.text(_longDetails.anime.name),
+      matching: find.text(title),
     ),
   );
   return name.bottom - tester.getRect(find.byType(AppBar)).bottom;

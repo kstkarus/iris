@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:iris/entities/anime/domain/anime_titles.dart';
 import 'package:iris/features/watch_sources/presentation/cubit/watch_sources_tab_cubit.dart';
 import 'package:iris/entities/watch_progress/domain/watch_progress.dart';
 import 'package:iris/entities/watch_progress/presentation/watch_progress_cubit.dart';
@@ -51,7 +52,7 @@ void main() {
     expect(find.text('Streaming Files Route'), findsOneWidget);
     final args = navigation.extra as AnimePlayerSourceArgs;
     expect(args.animeId, '52991');
-    expect(args.animeTitle, "Frieren: Beyond Journey's End");
+    expect(args.animeTitles.name, "Frieren: Beyond Journey's End");
     expect(args.sourceTitle, '[SubsPlease] Frieren - 28 (1080p)');
     expect(args.magnet, 'magnet:?xt=urn:btih:test-1');
   });
@@ -69,7 +70,7 @@ void main() {
     expect(find.text('Download Files Route'), findsOneWidget);
     final args = navigation.extra as DownloadSelectionArgs;
     expect(args.animeId, '52991');
-    expect(args.animeTitle, "Frieren: Beyond Journey's End");
+    expect(args.animeTitles.name, "Frieren: Beyond Journey's End");
     expect(args.sourceTitle, '[SubsPlease] Frieren - 28 (1080p)');
     expect(args.magnet, 'magnet:?xt=urn:btih:test-1');
   });
@@ -92,7 +93,7 @@ void main() {
           child: const WatchSourcesPage(
             args: AnimeWatchSourcesArgs(
               animeId: '52991',
-              animeTitle: "Frieren: Beyond Journey's End",
+              animeTitles: AnimeTitles(name: "Frieren: Beyond Journey's End"),
               searchTitles: ["Frieren: Beyond Journey's End"],
             ),
           ),
@@ -300,7 +301,7 @@ void main() {
   ) async {
     final cubit = WatchSourcesCubit(
       animeId: '52991',
-      animeTitle: 'Unknown Title',
+      animeTitles: const AnimeTitles(name: 'Unknown Title'),
       searchTitles: ['Unknown Title'],
       repository: FixedWatchSourcesRepository([]),
     );
@@ -348,7 +349,7 @@ void main() {
             child: const WatchSourcesPage(
               args: AnimeWatchSourcesArgs(
                 animeId: '52991',
-                animeTitle: "Frieren: Beyond Journey's End",
+                animeTitles: AnimeTitles(name: "Frieren: Beyond Journey's End"),
                 searchTitles: ["Frieren: Beyond Journey's End"],
               ),
             ),

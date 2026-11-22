@@ -47,6 +47,8 @@ class MockDownloadsRepository implements DownloadsRepository {
     required String animeId,
     required String animeTitle,
     required String sourceTitle,
+    String animeRussian = '',
+    String animeEnglish = '',
     String posterUrl = '',
     int? quality,
   }) async {
@@ -54,6 +56,8 @@ class MockDownloadsRepository implements DownloadsRepository {
       id: 'mock-${file.index}',
       animeId: animeId,
       animeTitle: animeTitle,
+      animeRussian: animeRussian,
+      animeEnglish: animeEnglish,
       posterUrl: posterUrl,
       sourceTitle: sourceTitle,
       magnet: 'mock-magnet',

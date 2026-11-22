@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:iris/features/downloads/domain/entities/download_status.dart';
 import 'package:iris/features/downloads/domain/entities/download_title.dart';
 import 'package:iris/features/downloads/presentation/widgets/download_status_label.dart';
+import 'package:iris/features/settings/presentation/anime_title_labels.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/utils/byte_size_formatter.dart';
 import 'package:iris/shared/utils/motion_duration.dart';
@@ -32,6 +33,7 @@ class DownloadTitleIdentity extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final l10n = AppLocalizations.of(context);
+    final name = watchAnimeTitleLabels(context, title.animeTitles).primary;
     final poster = showPoster
         ? DownloadTitlePoster(title: title, width: 56)
         : null;
@@ -43,7 +45,7 @@ class DownloadTitleIdentity extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(title.name, style: theme.textTheme.headlineSmall),
+              Text(name, style: theme.textTheme.headlineSmall),
               const SizedBox(height: 8),
               PixelSeparatedText.parts([
                 l10n.downloadTitleReady(
@@ -212,7 +214,10 @@ class _DownloadAdaptiveTitleHeaderState
                   child: widget.desktop
                       ? Semantics(
                           header: true,
-                          label: title.name,
+                          label: watchAnimeTitleLabels(
+                            context,
+                            title.animeTitles,
+                          ).primary,
                           child: _CollapsedDownloadTitle(
                             title: title,
                             showPoster: false,
@@ -354,6 +359,7 @@ class _CollapsedDownloadTitle extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final style = Theme.of(context).textTheme.titleMedium;
+    final name = watchAnimeTitleLabels(context, title.animeTitles).primary;
     return Row(
       children: [
         if (showPoster) ...[
@@ -366,13 +372,13 @@ class _CollapsedDownloadTitle extends StatelessWidget {
         ],
         Expanded(
           child: Tooltip(
-            message: title.name,
+            message: name,
             child: ExcludeSemantics(
               child: DefaultTextStyle(
                 style: style ?? const TextStyle(),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                child: PageTitle(title: title.name),
+                child: PageTitle(title: name),
               ),
             ),
           ),
@@ -400,7 +406,11 @@ class DownloadTitlePoster extends StatelessWidget {
     child: ExcludeSemantics(
       child: PosterImage(
         url: title.posterUrl,
-        fallback: showFallbackTitle ? _PosterFallback(title.name) : null,
+        fallback: showFallbackTitle
+            ? _PosterFallback(
+                watchAnimeTitleLabels(context, title.animeTitles).primary,
+              )
+            : null,
       ),
     ),
   );
@@ -425,10 +435,11 @@ class DownloadPosterOption extends StatelessWidget {
     final statusColor = downloadTitleStatusColor(context, title);
     final l10n = AppLocalizations.of(context);
     final activity = downloadTitleActivity(l10n, title);
+    final name = watchAnimeTitleLabels(context, title.animeTitles).primary;
     return Tooltip(
-      message: title.name,
+      message: name,
       child: Semantics(
-        label: '${title.name}, $activity',
+        label: '$name, $activity',
         selected: selected,
         button: true,
         child: TapRow(
@@ -539,6 +550,7 @@ class _GalleryTitle extends StatelessWidget {
     final theme = Theme.of(context);
     final l10n = AppLocalizations.of(context);
     final activity = downloadTitleActivity(l10n, title);
+    final name = watchAnimeTitleLabels(context, title.animeTitles).primary;
     final badgeStatus = _galleryBadgeStatus(title);
     final badgeColor = badgeStatus == DownloadStatus.failed
         ? theme.colorScheme.error
@@ -561,9 +573,9 @@ class _GalleryTitle extends StatelessWidget {
       button: true,
       excludeSemantics: true,
       onTap: onTap,
-      label: '${title.name}, $titleCount, $activity',
+      label: '$name, $titleCount, $activity',
       child: Tooltip(
-        message: '${title.name}\n$titleCount\n$activity',
+        message: '$name\n$titleCount\n$activity',
         child: TapRow(
           inkKey: ValueKey('download_title_${title.key}'),
           onTap: onTap,
@@ -582,7 +594,7 @@ class _GalleryTitle extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(title.name, style: titleStyle),
+                          Text(name, style: titleStyle),
                           const SizedBox(height: 5),
                           Text(
                             titleCount,
@@ -609,7 +621,7 @@ class _GalleryTitle extends StatelessWidget {
                     SizedBox(
                       height: _lineHeight(context, titleStyle, lines: 2),
                       child: Text(
-                        title.name,
+                        name,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: titleStyle,

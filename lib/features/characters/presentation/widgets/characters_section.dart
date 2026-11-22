@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:iris/entities/anime/domain/anime_titles.dart';
 import 'package:iris/features/characters/domain/entities/anime_character.dart';
 import 'package:iris/features/characters/presentation/character_names.dart';
 import 'package:iris/features/characters/presentation/cubit/anime_characters_cubit.dart';
@@ -23,7 +24,7 @@ import 'package:iris/shared/widgets/tap_row.dart';
 class CharactersSection extends StatelessWidget {
   const CharactersSection({
     required this.animeId,
-    required this.animeName,
+    required this.animeTitles,
     this.labelStyle,
     this.uppercase = true,
     this.hairlineDivider = false,
@@ -35,8 +36,7 @@ class CharactersSection extends StatelessWidget {
 
   final String animeId;
 
-  /// The subtitle of the page of all the characters.
-  final String animeName;
+  final AnimeTitles animeTitles;
 
   /// Optional override for the section heading style.
   final TextStyle? labelStyle;
@@ -118,7 +118,7 @@ class CharactersSection extends StatelessWidget {
                           onTap: () => context.pushNamed(
                             'anime-characters',
                             pathParameters: {'id': animeId},
-                            extra: animeName,
+                            extra: animeTitles,
                           ),
                         ),
                       ],

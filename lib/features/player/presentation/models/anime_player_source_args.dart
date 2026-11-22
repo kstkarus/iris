@@ -1,9 +1,10 @@
+import 'package:iris/entities/anime/domain/anime_titles.dart';
 import 'package:iris/entities/watch_progress/domain/watch_progress.dart';
 
 class AnimePlayerSourceArgs {
   const AnimePlayerSourceArgs({
     required this.animeId,
-    required this.animeTitle,
+    required this.animeTitles,
     required this.sourceTitle,
     required this.magnet,
     this.autoOpenFileIndex,
@@ -15,7 +16,7 @@ class AnimePlayerSourceArgs {
   AnimePlayerSourceArgs.resume(WatchProgress progress)
     : this(
         animeId: progress.animeId,
-        animeTitle: progress.displayTitle,
+        animeTitles: progress.displayTitles,
         sourceTitle: progress.sourceTitle,
         magnet: progress.magnet,
         autoOpenFileIndex: progress.isFinished ? null : progress.fileIndex,
@@ -23,7 +24,7 @@ class AnimePlayerSourceArgs {
       );
 
   final String animeId;
-  final String animeTitle;
+  final AnimeTitles animeTitles;
   final String sourceTitle;
   final String magnet;
 

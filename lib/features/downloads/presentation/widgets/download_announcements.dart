@@ -9,6 +9,7 @@ import 'package:iris/features/downloads/domain/entities/download_status.dart';
 import 'package:iris/features/downloads/domain/repositories/downloads_repository.dart';
 import 'package:iris/features/downloads/presentation/cubit/download_activity_cubit.dart';
 import 'package:iris/features/downloads/presentation/widgets/download_labels.dart';
+import 'package:iris/features/settings/presentation/anime_title_labels.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 
 class DownloadAnnouncements extends StatefulWidget {
@@ -58,15 +59,16 @@ class _DownloadAnnouncementsState extends State<DownloadAnnouncements> {
         final previous = _statuses;
         _statuses = {for (final item in items) item.id: item.status};
         final l10n = AppLocalizations.of(context);
+        final titleLanguage = readAnimeTitleLanguage(context);
         for (final item in items) {
           final before = previous[item.id];
           if (before == null || before == item.status) continue;
           final message = switch (item.status) {
             DownloadStatus.completed => l10n.downloadAnnounceCompleted(
-              downloadName(l10n, item),
+              downloadName(l10n, item, titleLanguage: titleLanguage),
             ),
             DownloadStatus.failed => l10n.downloadAnnounceFailed(
-              downloadName(l10n, item),
+              downloadName(l10n, item, titleLanguage: titleLanguage),
             ),
             _ => null,
           };

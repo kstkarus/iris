@@ -59,6 +59,7 @@ query UserList(
       id
       name
       russian
+      english
       kind
       score
       status

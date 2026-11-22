@@ -14,6 +14,8 @@ abstract final class WatchProgressModel {
     'updatedAt': progress.updatedAt.toUtc().toIso8601String(),
     'animeId': progress.animeId,
     'animeTitle': progress.animeTitle,
+    if (progress.animeRussian.isNotEmpty) 'animeRussian': progress.animeRussian,
+    if (progress.animeEnglish.isNotEmpty) 'animeEnglish': progress.animeEnglish,
     if (progress.hiddenFromContinueWatching) 'hiddenFromContinueWatching': true,
   };
 
@@ -44,6 +46,8 @@ abstract final class WatchProgressModel {
       updatedAt: updatedAt,
       animeId: jsonString(json['animeId']),
       animeTitle: jsonString(json['animeTitle']),
+      animeRussian: jsonString(json['animeRussian']),
+      animeEnglish: jsonString(json['animeEnglish']),
       hiddenFromContinueWatching: json['hiddenFromContinueWatching'] == true,
     );
   }

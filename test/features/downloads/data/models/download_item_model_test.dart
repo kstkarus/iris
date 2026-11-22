@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:iris/entities/anime/domain/anime_titles.dart';
 import 'package:iris/features/downloads/data/models/download_item_model.dart';
 import 'package:iris/features/downloads/domain/entities/download_item.dart';
 import 'package:iris/features/downloads/domain/entities/download_status.dart';
@@ -9,6 +10,8 @@ void main() {
     id: 'hash:2',
     animeId: '1',
     animeTitle: 'Anime',
+    animeRussian: 'Аниме',
+    animeEnglish: 'English title',
     sourceTitle: 'Release',
     magnet: 'magnet:?xt=urn:btih:hash',
     fileIndex: 2,
@@ -34,6 +37,8 @@ void main() {
     expect(restored, item.copyWith(localPath: ''));
     expect(json, isNot(contains('localPath')));
     expect(json['status'], 'completed');
+    expect(json['animeRussian'], 'Аниме');
+    expect(json['animeEnglish'], 'English title');
 
     json['localPath'] = item.localPath;
     expect(DownloadItemModel.fromJson(json), item);
@@ -75,28 +80,15 @@ void main() {
     }
   });
 
-  test('reads older records without a poster URL', () {
-    final json = DownloadItemModel.toJson(
-      DownloadItem(
-        id: 'id',
-        animeId: '1',
-        animeTitle: 'Anime',
-        sourceTitle: 'Release',
-        magnet: 'magnet',
-        fileIndex: 0,
-        fileName: 'episode.mkv',
-        relativePath: 'episode.mkv',
-        localPath: '/episode.mkv',
-        totalBytes: 1,
-        downloadedBytes: 0,
-        downloadRateBytesPerSecond: 0,
-        peers: 0,
-        status: DownloadStatus.queued,
-        createdAt: DateTime.utc(2026),
-      ),
-    )..remove('posterUrl');
+  test('reads older records with only one title and no poster URL', () {
+    final json = DownloadItemModel.toJson(item)
+      ..remove('posterUrl')
+      ..remove('animeRussian')
+      ..remove('animeEnglish');
 
-    expect(DownloadItemModel.fromJson(json).posterUrl, isEmpty);
+    final restored = DownloadItemModel.fromJson(json);
+    expect(restored.posterUrl, isEmpty);
+    expect(restored.animeTitles, const AnimeTitles(name: 'Anime'));
   });
 
   test(

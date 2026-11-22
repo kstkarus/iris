@@ -1726,7 +1726,7 @@ void main() {
         item('a', 'AoT', 'AoT - 01.mkv', DownloadStatus.completed, 2),
       ]);
 
-      expect(ordered.map((title) => title.name), [
+      expect(ordered.map((title) => title.animeTitles.name), [
         'Kusuriya',
         'Frieren',
         'AoT',

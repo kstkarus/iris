@@ -1,3 +1,4 @@
+import 'package:iris/entities/anime/domain/anime_titles.dart';
 import 'package:iris/features/player/domain/entities/player_video_file.dart';
 import 'package:iris/shared/online/online_source_link.dart';
 import 'package:iris/shared/utils/episode_number.dart';
@@ -10,6 +11,8 @@ class AnimePlayerSource {
     required this.sessionId,
     required this.fileIndex,
     required this.fileName,
+    this.animeRussian = '',
+    this.animeEnglish = '',
     this.magnet = '',
     this.files = const [],
     this.listedEpisodes = 0,
@@ -18,6 +21,8 @@ class AnimePlayerSource {
   /// Empty when playback was not started from an anime page.
   final String animeId;
   final String animeTitle;
+  final String animeRussian;
+  final String animeEnglish;
   final String sourceTitle;
   final String sessionId;
   final int fileIndex;
@@ -33,6 +38,12 @@ class AnimePlayerSource {
   /// Episodes of the anime the user's Shikimori list counted when playback
   /// started; 0 when unknown.
   final int listedEpisodes;
+
+  AnimeTitles get animeTitles => AnimeTitles(
+    name: animeTitle,
+    russian: animeRussian,
+    english: animeEnglish,
+  );
 
   /// Identity of the source for watch progress: the torrent, or the anime
   /// for an online release; null without a magnet.
@@ -58,6 +69,8 @@ class AnimePlayerSource {
     return AnimePlayerSource(
       animeId: animeId,
       animeTitle: animeTitle,
+      animeRussian: animeRussian,
+      animeEnglish: animeEnglish,
       sourceTitle: sourceTitle,
       sessionId: sessionId,
       fileIndex: file.index,
@@ -77,6 +90,8 @@ class AnimePlayerSource {
     return other is AnimePlayerSource &&
         other.animeId == animeId &&
         other.animeTitle == animeTitle &&
+        other.animeRussian == animeRussian &&
+        other.animeEnglish == animeEnglish &&
         other.sourceTitle == sourceTitle &&
         other.sessionId == sessionId &&
         other.fileIndex == fileIndex &&
@@ -90,6 +105,8 @@ class AnimePlayerSource {
   int get hashCode => Object.hash(
     animeId,
     animeTitle,
+    animeRussian,
+    animeEnglish,
     sourceTitle,
     sessionId,
     fileIndex,

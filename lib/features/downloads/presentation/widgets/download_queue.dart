@@ -7,6 +7,7 @@ import 'package:iris/features/downloads/domain/entities/download_item.dart';
 import 'package:iris/features/downloads/domain/entities/download_status.dart';
 import 'package:iris/features/downloads/presentation/cubit/download_manager_cubit.dart';
 import 'package:iris/features/downloads/presentation/cubit/download_manager_state.dart';
+import 'package:iris/features/settings/presentation/anime_title_labels.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/haptics/app_haptics.dart';
 import 'package:iris/shared/utils/byte_size_formatter.dart';
@@ -297,7 +298,13 @@ class _WaitingRowState extends State<_WaitingRow> {
       (cubit) => cubit.state.deletingIds.contains(widget.item.id),
     );
     final item = widget.item;
-    final semanticName = downloadSemanticName(l10n, item);
+    final titleLanguage = watchAnimeTitleLanguage(context);
+    final name = downloadName(l10n, item, titleLanguage: titleLanguage);
+    final semanticName = downloadSemanticName(
+      l10n,
+      item,
+      titleLanguage: titleLanguage,
+    );
     final index = widget.index;
     final first = index == 0 || deleting;
     final last = index == widget.count - 1 || deleting;
@@ -347,9 +354,7 @@ class _WaitingRowState extends State<_WaitingRow> {
           key: ValueKey('queue_delete_${item.id}'),
           onPressed: deleting
               ? null
-              : () => confirmDownloadDeletion(context, [
-                  item,
-                ], downloadName(l10n, item)),
+              : () => confirmDownloadDeletion(context, [item], name),
           child: Text(l10n.downloadDeleteButton),
         ),
       ],
@@ -359,7 +364,7 @@ class _WaitingRowState extends State<_WaitingRow> {
       enabled: !deleting,
       key: ValueKey('queue_handle_${item.id}'),
       child: Tooltip(
-        message: '${l10n.downloadQueueMove}: ${downloadName(l10n, item)}',
+        message: '${l10n.downloadQueueMove}: $name',
         excludeFromSemantics: true,
         child: MouseRegion(
           cursor: SystemMouseCursors.grab,
@@ -425,15 +430,19 @@ class _EpisodeIdentity extends StatelessWidget {
     final l10n = AppLocalizations.of(context);
     final number = downloadEpisodeNumber(item);
     final episode = downloadEpisode(l10n, item);
-    final title = item.animeTitle.isNotEmpty
-        ? item.animeTitle
-        : item.sourceTitle.isNotEmpty
-        ? item.sourceTitle
+    final anime = watchAnimeTitleLabels(context, item.animeTitles).primary;
+    final source = item.sourceTitle.trim();
+    final title = anime.isNotEmpty
+        ? anime
+        : source.isNotEmpty
+        ? source
         : episode;
     final facts = downloadSourceFacts(item);
     final showSource =
         facts.source.isNotEmpty &&
-        facts.source.toLowerCase() != title.toLowerCase();
+        ![title, item.animeTitle, item.animeRussian, item.animeEnglish].any(
+          (name) => name.trim().toLowerCase() == facts.source.toLowerCase(),
+        );
     return Tooltip(
       message: [
         title,
@@ -626,6 +635,11 @@ class _QueueProgress extends StatelessWidget {
     );
     final disableAnimations = MediaQuery.disableAnimationsOf(context);
     final progress = downloadDisplayProgress(item);
+    final semanticName = downloadSemanticName(
+      l10n,
+      item,
+      titleLanguage: watchAnimeTitleLanguage(context),
+    );
     return Padding(
       padding: const EdgeInsetsDirectional.only(start: 56),
       child: Column(
@@ -661,7 +675,7 @@ class _QueueProgress extends StatelessWidget {
                   color: active
                       ? theme.colorScheme.tertiary
                       : theme.colorScheme.onSurfaceVariant,
-                  semanticsLabel: downloadSemanticName(l10n, item),
+                  semanticsLabel: semanticName,
                 ),
               )
             else
@@ -673,7 +687,7 @@ class _QueueProgress extends StatelessWidget {
                 color: active
                     ? theme.colorScheme.tertiary
                     : theme.colorScheme.onSurfaceVariant,
-                semanticsLabel: downloadSemanticName(l10n, item),
+                semanticsLabel: semanticName,
               ),
           ],
         ],
@@ -703,7 +717,12 @@ class _StatusRowState extends State<_StatusRow> {
     final noSpace = item.failure == DownloadFailure.noSpace;
     final cubit = context.read<DownloadManagerCubit>();
     final l10n = AppLocalizations.of(context);
-    final semanticName = downloadSemanticName(l10n, item);
+    final titleLanguage = watchAnimeTitleLanguage(context);
+    final semanticName = downloadSemanticName(
+      l10n,
+      item,
+      titleLanguage: titleLanguage,
+    );
     final deleting = context.select<DownloadManagerCubit, bool>(
       (cubit) => cubit.state.deletingIds.contains(item.id),
     );
@@ -765,7 +784,7 @@ class _StatusRowState extends State<_StatusRow> {
                   ? null
                   : () => confirmDownloadDeletion(context, [
                       item,
-                    ], downloadName(l10n, item)),
+                    ], downloadName(l10n, item, titleLanguage: titleLanguage)),
               child: Text(l10n.downloadDeleteButton),
             ),
           ],

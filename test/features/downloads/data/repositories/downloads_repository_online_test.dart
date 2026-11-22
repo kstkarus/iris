@@ -64,6 +64,8 @@ void main() {
   Future<DownloadItem> enqueueEpisode(
     int index, {
     int? quality,
+    String animeRussian = '',
+    String animeEnglish = '',
     String posterUrl = '',
   }) async {
     final source = await repository.prepareSource(magnet: _link);
@@ -72,6 +74,8 @@ void main() {
       file: source.files.firstWhere((file) => file.index == index),
       animeId: '52991',
       animeTitle: 'Frieren',
+      animeRussian: animeRussian,
+      animeEnglish: animeEnglish,
       sourceTitle: 'AniLibria',
       posterUrl: posterUrl,
       quality: quality,
@@ -193,15 +197,20 @@ void main() {
   });
 
   test(
-    'persists the anime poster with a newly queued online episode',
+    'saves the anime poster and titles with a newly queued online episode',
     () async {
       final item = await enqueueEpisode(
         1,
+        animeRussian: 'Фрирен',
+        animeEnglish: 'Frieren Beyond Journey’s End',
         posterUrl: 'https://shikimori.one/posters/1/main.jpg',
       );
 
       expect(item.posterUrl, 'https://shikimori.one/posters/1/main.jpg');
-      expect((await latest(item.id)).posterUrl, item.posterUrl);
+      final saved = await latest(item.id);
+      expect(saved.posterUrl, item.posterUrl);
+      expect(saved.animeRussian, 'Фрирен');
+      expect(saved.animeEnglish, 'Frieren Beyond Journey’s End');
     },
   );
 

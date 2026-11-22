@@ -1958,6 +1958,21 @@ class AppLocalizationsRu extends AppLocalizations {
   String get settingsLanguageEnglish => 'English';
 
   @override
+  String get settingsAnimeTitleLanguageLabel => 'Названия аниме';
+
+  @override
+  String get settingsAnimeTitleLanguageAuto => 'По языку';
+
+  @override
+  String get settingsAnimeTitleLanguageRussian => 'Русские';
+
+  @override
+  String get settingsAnimeTitleLanguageRomaji => 'Ромадзи';
+
+  @override
+  String get settingsAnimeTitleLanguageEnglish => 'Английские';
+
+  @override
   String get settingsAppVersion => 'Версия';
 
   @override

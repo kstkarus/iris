@@ -21,9 +21,12 @@ import 'package:iris/features/downloads/presentation/pages/download_queue_page.d
 import 'package:iris/features/downloads/presentation/pages/download_title_page.dart';
 import 'package:iris/features/downloads/presentation/widgets/download_manager_view.dart';
 import 'package:iris/features/downloads/presentation/widgets/download_labels.dart';
+import 'package:iris/features/settings/domain/entities/app_settings.dart';
+import 'package:iris/features/settings/presentation/cubit/app_settings_cubit.dart';
 import 'package:iris/l10n/generated/app_localizations_en.dart';
 
 import '../../../../helpers/test_window.dart';
+import '../../../settings/settings_test_doubles.dart';
 
 DownloadItem _item(String id, DownloadStatus status) => DownloadItem(
   id: id,
@@ -157,6 +160,7 @@ Future<({DownloadManagerCubit cubit, GoRouter router})> _mount(
   WidgetTester tester,
   _Downloads repository, {
   Size size = const Size(390, 844),
+  AppSettingsCubit? settings,
 }) async {
   setTestWindowSize(tester, size);
   final cubit = DownloadManagerCubit(repository: repository)..load();
@@ -197,12 +201,13 @@ Future<({DownloadManagerCubit cubit, GoRouter router})> _mount(
       ),
     ],
   );
+  final app = IrisApp(
+    router: router,
+    downloadsRepository: repository,
+    locale: const Locale('en'),
+  );
   await tester.pumpWidget(
-    IrisApp(
-      router: router,
-      downloadsRepository: repository,
-      locale: const Locale('en'),
-    ),
+    settings == null ? app : BlocProvider.value(value: settings, child: app),
   );
   await tester.pumpAndSettle();
   return (cubit: cubit, router: router);
@@ -279,6 +284,66 @@ void main() {
       ),
       'Frieren, Episode 01, SUBSPLEASE · 1080P, 720p',
     );
+  });
+
+  test(
+    'removes title variants from the release label without cutting source names',
+    () {
+      final item = _item('1', DownloadStatus.paused).copyWith(
+        animeTitle: 'Sousou no Frieren',
+        animeRussian: 'Фрирен',
+        animeEnglish: 'Frieren',
+      );
+      for (final title in ['Sousou no Frieren', 'фрирен', 'FRIEREN']) {
+        expect(
+          downloadSourceLabel(
+            item.copyWith(sourceTitle: '$title · [SubsPlease]'),
+          ),
+          'SUBSPLEASE',
+        );
+      }
+      final short = item.copyWith(animeEnglish: 'K', sourceTitle: 'Kodik');
+      expect(downloadSourceLabel(short), 'KODIK');
+    },
+  );
+
+  testWidgets('download library and queue follow the title preference', (
+    tester,
+  ) async {
+    final settings = AppSettingsCubit(
+      repository: MemoryAppSettingsRepository(const AppSettings()),
+    );
+    addTearDown(settings.close);
+    final repository = _Downloads(count: 0);
+    repository.items = [
+      _item(
+        'legacy',
+        DownloadStatus.completed,
+      ).copyWith(animeTitle: 'Sousou no Frieren'),
+      _item('0', DownloadStatus.downloading).copyWith(
+        animeTitle: 'Sousou no Frieren',
+        animeRussian: 'Фрирен',
+        animeEnglish: 'Frieren',
+        sourceTitle: 'Sousou no Frieren · AniLibria',
+      ),
+    ];
+    final harness = await _mount(tester, repository, settings: settings);
+    expect(find.text('Frieren'), findsOneWidget);
+
+    await settings.setAnimeTitleLanguage(AnimeTitleLanguage.russian);
+    await tester.pump();
+    expect(find.text('Фрирен'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('download_queue_open')));
+    await tester.pumpAndSettle();
+    expect(find.text('Фрирен'), findsOneWidget);
+    expect(find.text('ANILIBRIA'), findsOneWidget);
+
+    await settings.setAnimeTitleLanguage(AnimeTitleLanguage.romaji);
+    await tester.pump();
+    expect(find.text('Sousou no Frieren'), findsOneWidget);
+    expect(find.text('ANILIBRIA'), findsOneWidget);
+    await _close(tester, repository, harness);
   });
 
   testWidgets('announcements have one owner across library, title and queue', (

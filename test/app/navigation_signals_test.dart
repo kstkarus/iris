@@ -81,6 +81,8 @@ class _FakeDownloadsRepository implements DownloadsRepository {
     required String animeId,
     required String animeTitle,
     required String sourceTitle,
+    String animeRussian = '',
+    String animeEnglish = '',
     String posterUrl = '',
     int? quality,
   }) => throw UnimplementedError();

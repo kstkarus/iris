@@ -10,20 +10,25 @@ import 'package:iris/entities/user_rate/domain/user_rate.dart';
 import 'package:iris/entities/user_rate/presentation/user_rate_book_cubit.dart';
 import 'package:iris/features/anime_list/domain/entities/anime_list_item.dart';
 import 'package:iris/features/anime_list/presentation/widgets/anime_card.dart';
+import 'package:iris/features/settings/domain/entities/app_settings.dart';
+import 'package:iris/features/settings/presentation/cubit/app_settings_cubit.dart';
 import 'package:iris/shared/widgets/adaptive/adaptive_grid_row.dart';
 
 import '../../../../helpers/test_app.dart';
+import '../../../settings/settings_test_doubles.dart';
 
 void main() {
   AnimeListItem item({
     UserRate? userRate,
     String name = 'Frieren',
     String russian = '',
+    String english = '',
   }) => AnimeListItem(
     anime: AnimeSummary(
       id: '1',
       name: name,
       russian: russian,
+      english: english,
       kind: 'tv',
       score: 9.1,
       status: 'released',
@@ -51,6 +56,51 @@ void main() {
       ),
     );
   }
+
+  testWidgets('the catalog reorders titles when the preference changes', (
+    tester,
+  ) async {
+    final settings = AppSettingsCubit(
+      repository: MemoryAppSettingsRepository(const AppSettings()),
+    );
+    addTearDown(settings.close);
+    await tester.pumpWidget(
+      testApp(
+        Scaffold(
+          body: BlocProvider.value(
+            value: settings,
+            child: SizedBox(
+              width: 200,
+              child: AnimeCard(
+                item: item(
+                  name: 'Sousou no Frieren',
+                  russian: 'Фрирен',
+                  english: 'Frieren Beyond Journey’s End',
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    double top(String title) => tester.getTopLeft(find.text(title)).dy;
+    expect(
+      top('Frieren Beyond Journey’s End'),
+      lessThan(top('Sousou no Frieren')),
+    );
+
+    await settings.setAnimeTitleLanguage(AnimeTitleLanguage.russian);
+    await tester.pump();
+    expect(top('Фрирен'), lessThan(top('Sousou no Frieren')));
+
+    await settings.setAnimeTitleLanguage(AnimeTitleLanguage.romaji);
+    await tester.pump();
+    expect(
+      top('Sousou no Frieren'),
+      lessThan(top('Frieren Beyond Journey’s End')),
+    );
+  });
 
   for (final scale in [1.0, 2.0]) {
     testWidgets('cards with long titles fit at text scale $scale', (

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'package:iris/entities/watch_progress/domain/watch_progress.dart';
 import 'package:iris/entities/watch_progress/presentation/watch_progress_line.dart';
+import 'package:iris/features/settings/presentation/anime_title_labels.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 
 import 'package:iris/shared/utils/file_display_name.dart';
@@ -109,6 +110,10 @@ class _ProgressEntryRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final l10n = AppLocalizations.of(context);
+    final title = watchAnimeTitleLabels(
+      context,
+      progress.displayTitles,
+    ).primary;
     return Tooltip(
       message: progress.isFinished
           ? l10n.watchProgressPlayNextButton
@@ -141,7 +146,7 @@ class _ProgressEntryRow extends StatelessWidget {
                     SizedBox(
                       height: titleHeight,
                       child: Text(
-                        progress.displayTitle,
+                        title,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: titleStyle,

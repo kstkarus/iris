@@ -3,16 +3,23 @@ import 'package:flutter/foundation.dart';
 import 'package:iris/features/player/domain/entities/anime_player_source.dart';
 import 'package:iris/features/player/domain/player_media_controls.dart';
 import 'package:iris/features/player/presentation/widgets/player_viewport_factory.dart';
+import 'package:iris/features/settings/domain/entities/app_settings.dart';
+import 'package:iris/features/settings/presentation/anime_title_labels.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/utils/file_display_name.dart';
 import 'package:iris/shared/utils/release_title.dart';
 
 PlayerMediaTitles playerTitlesFor(
   AppLocalizations l10n,
-  AnimePlayerSource source,
-) {
+  AnimePlayerSource source, {
+  AnimeTitleLanguage titleLanguage = AnimeTitleLanguage.auto,
+}) {
   final release = source.sourceTitle.trim();
-  final anime = source.animeTitle.trim();
+  final anime = resolveAnimeTitles(
+    l10n,
+    source.animeTitles,
+    titleLanguage,
+  ).primary;
   final number = source.episodeNumber;
   return (
     // Saved torrents can carry their release name as the anime title too.
@@ -31,12 +38,13 @@ PlayerChrome playerChromeFor(
   AppLocalizations l10n,
   AnimePlayerSource source, {
   required VoidCallback onBack,
+  AnimeTitleLanguage titleLanguage = AnimeTitleLanguage.auto,
   PlayerNotice? notice,
   PlayerMarkBuilder? mark,
   PlayerEpisodesBuilder? episodes,
 }) {
   final release = source.sourceTitle.trim();
-  final titles = playerTitlesFor(l10n, source);
+  final titles = playerTitlesFor(l10n, source, titleLanguage: titleLanguage);
   final episode = source.episodeNumber;
   final count = source.files.length;
   final position = source.files.indexWhere(

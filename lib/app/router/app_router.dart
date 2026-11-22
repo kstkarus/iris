@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:iris/app/bootstrap/windows_update_restart.dart';
 import 'package:iris/app/di/service_locator.dart';
 import 'package:iris/app/router/app_shell_page.dart';
+import 'package:iris/entities/anime/domain/anime_titles.dart';
 import 'package:iris/entities/friend/domain/friend.dart';
 import 'package:iris/entities/friend/domain/friends_repository.dart';
 import 'package:iris/entities/watch_progress/domain/watch_progress_repository.dart';
@@ -67,7 +68,6 @@ import 'package:iris/features/player/presentation/cubit/player_source_cubit.dart
 import 'package:iris/features/player/presentation/cubit/player_subtitle_preferences_cubit.dart';
 import 'package:iris/features/player/presentation/models/anime_player_args.dart';
 import 'package:iris/features/player/presentation/models/anime_player_source_args.dart';
-import 'package:iris/features/player/presentation/models/player_chrome_mapper.dart';
 import 'package:iris/features/player/presentation/pages/player_page.dart';
 import 'package:iris/features/player/presentation/pages/player_source_page.dart';
 import 'package:iris/features/player/presentation/widgets/player_viewport_factory.dart';
@@ -112,7 +112,7 @@ void _downloadMore(BuildContext context, DownloadItem item) {
     'torrent-download-files',
     extra: DownloadSelectionArgs(
       animeId: item.animeId,
-      animeTitle: item.animeTitle,
+      animeTitles: item.animeTitles,
       sourceTitle: item.sourceTitle,
       magnet: item.magnet,
       posterUrl: item.posterUrl,
@@ -160,6 +160,8 @@ abstract final class AppRouter {
         AnimePlayerSource(
           animeId: item.animeId,
           animeTitle: item.animeTitle,
+          animeRussian: item.animeRussian,
+          animeEnglish: item.animeEnglish,
           sourceTitle: item.sourceTitle,
           sessionId:
               local?.sessionId ??
@@ -471,7 +473,7 @@ abstract final class AppRouter {
                 BlocProvider(
                   create: (_) => WatchSourcesCubit(
                     animeId: args.animeId,
-                    animeTitle: args.animeTitle,
+                    animeTitles: args.animeTitles,
                     searchTitles: args.searchTitles,
                     repository: serviceLocator<WatchSourcesRepository>(),
                   )..loadSources(),
@@ -510,9 +512,10 @@ abstract final class AppRouter {
             )..load(),
             // A link knows only the id.
             child: AnimeCharactersPage(
-              animeName: switch (state.extra) {
-                final String name => name,
-                _ => '',
+              animeTitles: switch (state.extra) {
+                final AnimeTitles titles => titles,
+                final String name => AnimeTitles(name: name),
+                _ => null,
               },
             ),
           ),
@@ -619,7 +622,6 @@ abstract final class AppRouter {
             }
 
             final viewportFactory = serviceLocator<PlayerViewportFactory>();
-            final l10n = AppLocalizations.of(context);
             return MultiBlocProvider(
               providers: [
                 BlocProvider(
@@ -656,12 +658,6 @@ abstract final class AppRouter {
                       skipTimesRepository:
                           serviceLocator<PlayerSkipTimesRepository>(),
                       mediaControls: serviceLocator<PlayerMediaControls>(),
-                      mediaTitles: (source) {
-                        final titles = playerTitlesFor(l10n, source);
-                        return titles.title.isEmpty
-                            ? (title: titles.episode, episode: '')
-                            : titles;
-                      },
                     );
                     if (serviceLocator.isRegistered<WindowsUpdateRestart>()) {
                       serviceLocator<WindowsUpdateRestart>().trackPlayer(cubit);

@@ -20,6 +20,7 @@ void main() {
     SharedPreferences.setMockInitialValues({
       'settings.theme_mode': 'future-theme',
       'settings.locale': 'russian',
+      'settings.anime_title_language': 'future-language',
       'settings.default_audio_language': 42,
       'settings.default_subtitle_language': ['english'],
     });
@@ -40,6 +41,7 @@ void main() {
     const settings = AppSettings(
       themeMode: AppThemePreference.dark,
       locale: AppLocalePreference.english,
+      animeTitleLanguage: AnimeTitleLanguage.romaji,
       defaultAudioLanguage: DefaultAudioLanguage.japanese,
       defaultSubtitleLanguage: DefaultSubtitleLanguage.off,
     );
@@ -49,6 +51,7 @@ void main() {
 
     expect(preferences.getString('settings.theme_mode'), 'dark');
     expect(preferences.getString('settings.locale'), 'english');
+    expect(preferences.getString('settings.anime_title_language'), 'romaji');
     expect(
       preferences.getString('settings.default_audio_language'),
       'japanese',

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:iris/entities/anime/domain/anime_titles.dart';
 import 'package:iris/entities/watch_progress/presentation/watch_progress_cubit.dart';
 import 'package:iris/features/online_sources/domain/entities/online_episode.dart';
 import 'package:iris/features/online_sources/domain/entities/online_provider.dart';
@@ -120,7 +121,10 @@ Future<void> _pumpList(
           BlocProvider.value(value: history),
         ],
         child: const Scaffold(
-          body: OnlineReleasesList(animeId: '52991', animeTitle: 'Frieren'),
+          body: OnlineReleasesList(
+            animeId: '52991',
+            animeTitles: AnimeTitles(name: 'Frieren'),
+          ),
         ),
       ),
     ),

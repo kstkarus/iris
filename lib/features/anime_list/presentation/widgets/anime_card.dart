@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:iris/entities/user_rate/presentation/user_rate_badge.dart';
 import 'package:iris/entities/user_rate/presentation/user_rate_book_cubit.dart';
 import 'package:iris/features/anime_list/domain/entities/anime_list_item.dart';
+import 'package:iris/features/settings/presentation/anime_title_labels.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/utils/anime_metadata_formatter.dart';
 import 'package:iris/shared/utils/incomplete_date.dart';
@@ -26,6 +27,7 @@ class AnimeCard extends StatelessWidget {
     final scheme = theme.colorScheme;
     final l10n = AppLocalizations.of(context);
     final anime = item.anime;
+    final titles = watchAnimeTitleLabels(context, anime.titles);
     final rate = context.watchUserRate(anime.id, item.userRate);
     final airing = anime.status == 'ongoing';
     final year = yearOfIsoDate(anime.airedOn);
@@ -100,7 +102,7 @@ class AnimeCard extends StatelessWidget {
                 minHeight: lineHeight(titleStyle) * 2,
               ),
               child: Text(
-                anime.name,
+                titles.primary,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: titleStyle,
@@ -112,7 +114,7 @@ class AnimeCard extends StatelessWidget {
                 minHeight: lineHeight(alternateStyle),
               ),
               child: Text(
-                anime.russian,
+                titles.secondary ?? '',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: alternateStyle,

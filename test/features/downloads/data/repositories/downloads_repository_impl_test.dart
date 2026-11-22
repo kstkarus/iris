@@ -104,6 +104,8 @@ void main() {
         file: source.files[1],
         animeId: '154587',
         animeTitle: 'Sousou no Frieren',
+        animeRussian: 'Фрирен',
+        animeEnglish: 'Frieren',
         sourceTitle: 'Release',
         posterUrl: 'https://shikimori.one/posters/1/main.jpg',
       );
@@ -112,6 +114,8 @@ void main() {
       final downloads = await repository.currentDownloads();
 
       expect(item.fileIndex, 2);
+      expect(downloads.single.animeRussian, 'Фрирен');
+      expect(downloads.single.animeEnglish, 'Frieren');
       expect(item.posterUrl, 'https://shikimori.one/posters/1/main.jpg');
       expect(downloads.single.status, DownloadStatus.downloading);
       expect(engine.addCalls.last.metadataOnly, isFalse);
@@ -2492,6 +2496,8 @@ extension on DownloadsRepositoryImpl {
     required String animeId,
     required String animeTitle,
     required String sourceTitle,
+    String animeRussian = '',
+    String animeEnglish = '',
     String posterUrl = '',
     int? quality,
   }) async {
@@ -2500,6 +2506,8 @@ extension on DownloadsRepositoryImpl {
       file: file,
       animeId: animeId,
       animeTitle: animeTitle,
+      animeRussian: animeRussian,
+      animeEnglish: animeEnglish,
       sourceTitle: sourceTitle,
       posterUrl: posterUrl,
       quality: quality,

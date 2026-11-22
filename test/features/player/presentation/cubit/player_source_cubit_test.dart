@@ -129,7 +129,7 @@ void main() {
       final prepared = (cubit.state as PlayerSourceReady).preparedSource;
       final source = AnimePlayerSource(
         animeId: args.animeId,
-        animeTitle: args.animeTitle,
+        animeTitle: args.animeTitles.name,
         sourceTitle: args.sourceTitle,
         sessionId: prepared.sessionId,
         fileIndex: args.autoOpenFileIndex!,

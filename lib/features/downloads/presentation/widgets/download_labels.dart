@@ -1,14 +1,26 @@
 import 'package:iris/features/downloads/domain/entities/download_item.dart';
 import 'package:iris/features/online_sources/domain/online_episode_files.dart';
+import 'package:iris/features/settings/domain/entities/app_settings.dart';
+import 'package:iris/features/settings/presentation/anime_title_labels.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/utils/episode_number.dart';
 import 'package:iris/shared/utils/file_display_name.dart';
 
-String downloadName(AppLocalizations l10n, DownloadItem item) {
-  final title = item.animeTitle.trim().isNotEmpty
-      ? item.animeTitle.trim()
-      : item.sourceTitle.trim().isNotEmpty
-      ? item.sourceTitle.trim()
+String downloadName(
+  AppLocalizations l10n,
+  DownloadItem item, {
+  AnimeTitleLanguage titleLanguage = AnimeTitleLanguage.auto,
+}) {
+  final anime = resolveAnimeTitles(
+    l10n,
+    item.animeTitles,
+    titleLanguage,
+  ).primary;
+  final source = item.sourceTitle.trim();
+  final title = anime.isNotEmpty
+      ? anime
+      : source.isNotEmpty
+      ? source
       : fileDisplayName(item.fileName).trim();
   final episode = downloadEpisode(l10n, item);
   return title.isEmpty || title.toLowerCase() == episode.toLowerCase()
@@ -16,11 +28,20 @@ String downloadName(AppLocalizations l10n, DownloadItem item) {
       : '$title, $episode';
 }
 
-String downloadSemanticName(AppLocalizations l10n, DownloadItem item) {
-  final name = downloadName(l10n, item);
+String downloadSemanticName(
+  AppLocalizations l10n,
+  DownloadItem item, {
+  AnimeTitleLanguage titleLanguage = AnimeTitleLanguage.auto,
+}) {
+  final name = downloadName(l10n, item, titleLanguage: titleLanguage);
   final facts = downloadSourceFacts(item);
   final separateRelease =
-      item.animeTitle.trim().isNotEmpty && item.sourceTitle.trim().isNotEmpty;
+      item.sourceTitle.trim().isNotEmpty &&
+      resolveAnimeTitles(
+        l10n,
+        item.animeTitles,
+        titleLanguage,
+      ).primary.isNotEmpty;
   return [
     name,
     if (separateRelease && facts.source.isNotEmpty) facts.source,
@@ -49,12 +70,26 @@ String downloadEpisode(AppLocalizations l10n, DownloadItem item) {
 }
 
 String downloadSourceLabel(DownloadItem item) {
-  final name = item.animeTitle;
-  var label = name.isEmpty
-      ? item.sourceTitle
-      : item.sourceTitle
-            .replaceAll(RegExp(RegExp.escape(name), caseSensitive: false), '')
-            .trim();
+  final titles =
+      [
+          item.animeTitle.trim(),
+          item.animeRussian.trim(),
+          item.animeEnglish.trim(),
+        ]
+        ..removeWhere((title) => title.isEmpty)
+        ..sort((a, b) => b.length.compareTo(a.length));
+  var label = item.sourceTitle;
+  if (titles.isNotEmpty) {
+    final variants = titles.map(RegExp.escape).join('|');
+    label = label.replaceAll(
+      RegExp(
+        r'(?<![\p{L}\p{N}])(?:' + variants + r')(?![\p{L}\p{N}])',
+        caseSensitive: false,
+        unicode: true,
+      ),
+      '',
+    );
+  }
   label = label
       .replaceAll(RegExp(r'[\[\]()]'), '')
       .replaceAll(RegExp(r'^\s*[·|—-]+|[·|—-]+\s*$'), '')

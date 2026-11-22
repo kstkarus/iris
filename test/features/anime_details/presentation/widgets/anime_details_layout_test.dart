@@ -65,6 +65,7 @@ void main() {
 
       await tester.pumpWidget(
         testApp(
+          locale: const Locale('ru'),
           theme: buildAppTheme(brightness: Brightness.dark),
           const MediaQuery(
             data: MediaQueryData(devicePixelRatio: 2.0),
@@ -96,8 +97,8 @@ void main() {
           ),
         );
       }
-      final title = tester.getRect(find.text(head.anime.name));
-      final subtitle = tester.getRect(find.text(head.anime.russian));
+      final title = tester.getRect(find.text(head.anime.russian));
+      final subtitle = tester.getRect(find.text(head.anime.name));
       expect(title.bottom, lessThanOrEqualTo(subtitle.top));
     },
   );

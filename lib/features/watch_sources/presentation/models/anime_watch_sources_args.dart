@@ -1,7 +1,9 @@
+import 'package:iris/entities/anime/domain/anime_titles.dart';
+
 class AnimeWatchSourcesArgs {
   const AnimeWatchSourcesArgs({
     required this.animeId,
-    required this.animeTitle,
+    required this.animeTitles,
     required this.searchTitles,
     this.posterUrl = '',
   });
@@ -10,16 +12,15 @@ class AnimeWatchSourcesArgs {
   /// and the English one.
   factory AnimeWatchSourcesArgs.forAnime({
     required String animeId,
-    required String name,
-    String english = '',
+    required AnimeTitles animeTitles,
     String posterUrl = '',
   }) {
     final seen = <String>{};
     return AnimeWatchSourcesArgs(
       animeId: animeId,
-      animeTitle: name,
+      animeTitles: animeTitles,
       searchTitles: [
-        for (final title in [name, english])
+        for (final title in [animeTitles.name, animeTitles.english])
           if (title.trim().isNotEmpty && seen.add(title.trim().toLowerCase()))
             title.trim(),
       ],
@@ -29,8 +30,7 @@ class AnimeWatchSourcesArgs {
 
   final String animeId;
 
-  /// How the page names the anime.
-  final String animeTitle;
+  final AnimeTitles animeTitles;
   final String posterUrl;
 
   /// What releases are searched by.

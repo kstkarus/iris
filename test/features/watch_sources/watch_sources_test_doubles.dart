@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:iris/entities/anime/domain/anime_titles.dart';
 import 'package:iris/features/watch_sources/domain/entities/watch_source_item.dart';
 import 'package:iris/features/watch_sources/domain/entities/watch_sources_tab.dart';
 import 'package:iris/features/watch_sources/domain/repositories/watch_sources_repository.dart';
@@ -44,7 +45,7 @@ const frierenSources = [
 WatchSourcesCubit frierenSourcesCubit(WatchSourcesRepository repository) {
   return WatchSourcesCubit(
     animeId: '52991',
-    animeTitle: "Frieren: Beyond Journey's End",
+    animeTitles: const AnimeTitles(name: "Frieren: Beyond Journey's End"),
     searchTitles: ["Frieren: Beyond Journey's End"],
     repository: repository,
   );

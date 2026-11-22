@@ -59,6 +59,7 @@ void main() {
           AnimeRelation.sequel,
           name: 'Sousou no Frieren 2nd Season',
           russian: 'Провожающая в последний путь Фрирен 2',
+          english: 'Frieren Season 2',
           airedOn: '2026-01-16',
         ),
       ], onOpen: (extra) => opened = extra),
@@ -68,9 +69,14 @@ void main() {
       find.textContaining(RegExp(r'Sequel.*TV.*2026'), findRichText: true),
       findsOneWidget,
     );
-    expect(find.text('Провожающая в последний путь Фрирен 2'), findsOneWidget);
+    final primary = find.text('Frieren Season 2');
+    final secondary = find.text('Sousou no Frieren 2nd Season');
+    expect(
+      tester.getTopLeft(primary).dy,
+      lessThan(tester.getTopLeft(secondary).dy),
+    );
 
-    await tester.tap(find.text('Sousou no Frieren 2nd Season'));
+    await tester.tap(primary);
     await tester.pumpAndSettle();
 
     expect(
@@ -125,6 +131,7 @@ RelatedAnime _anime(
   AnimeRelation relation, {
   String name = '',
   String russian = '',
+  String english = '',
   String kind = 'tv',
   String airedOn = '2023-01-01',
 }) => RelatedAnime(
@@ -133,6 +140,7 @@ RelatedAnime _anime(
     id: id,
     name: name.isEmpty ? 'Title $id' : name,
     russian: russian,
+    english: english,
     kind: kind,
     score: 0,
     status: 'released',

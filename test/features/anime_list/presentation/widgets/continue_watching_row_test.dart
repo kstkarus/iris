@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:iris/entities/watch_progress/domain/watch_progress.dart';
 import 'package:iris/features/anime_list/presentation/widgets/continue_watching_row.dart';
+import 'package:iris/features/settings/domain/entities/app_settings.dart';
+import 'package:iris/features/settings/presentation/cubit/app_settings_cubit.dart';
 
 import '../../../../helpers/test_app.dart';
 import '../../../../helpers/test_window.dart';
+import '../../../settings/settings_test_doubles.dart';
 
 void main() {
   test('changing a torrent keeps one continuation for the same anime', () {
@@ -91,6 +95,46 @@ void main() {
       );
     },
   );
+
+  testWidgets('saved history uses the title preference when available', (
+    tester,
+  ) async {
+    final settings = AppSettingsCubit(
+      repository: MemoryAppSettingsRepository(const AppSettings()),
+    );
+    addTearDown(settings.close);
+    final items = [
+      _progress(
+        'a',
+        seconds: 120,
+        minute: 2,
+        animeEnglish: 'English title',
+        animeRussian: 'Русское название',
+      ),
+      _progress('legacy', seconds: 120, minute: 1),
+    ];
+    await tester.pumpWidget(
+      _app(
+        BlocProvider.value(
+          value: settings,
+          child: ContinueWatchingRow(
+            items: items,
+            onOpen: (_) {},
+            onOpenAnime: (_) {},
+            onRemove: (_) {},
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('English title'), findsOneWidget);
+    expect(find.text('Anime legacy'), findsOneWidget);
+
+    await settings.setAnimeTitleLanguage(AnimeTitleLanguage.russian);
+    await tester.pump();
+    expect(find.text('Русское название'), findsOneWidget);
+    expect(find.text('Anime legacy'), findsOneWidget);
+  });
 
   testWidgets('shows all five compact entries and opens the selected one', (
     tester,
@@ -241,6 +285,8 @@ Widget _app(Widget child) {
 WatchProgress _progress(
   String torrent, {
   String? animeId,
+  String animeRussian = '',
+  String animeEnglish = '',
   int file = 0,
   required int seconds,
   required int minute,
@@ -256,5 +302,7 @@ WatchProgress _progress(
     updatedAt: DateTime.utc(2026, 10, 7, 12, minute),
     animeId: animeId ?? torrent,
     animeTitle: 'Anime $torrent',
+    animeRussian: animeRussian,
+    animeEnglish: animeEnglish,
   );
 }

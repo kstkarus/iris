@@ -1,3 +1,5 @@
+import 'package:iris/entities/anime/domain/anime_titles.dart';
+
 /// What every list of anime knows of a title, and what its title page can
 /// show before the details load.
 class AnimeSummary {
@@ -35,6 +37,9 @@ class AnimeSummary {
   /// When the next episode airs, while the anime is airing; lists that do
   /// not ask for it leave it null.
   final DateTime? nextEpisodeAt;
+
+  AnimeTitles get titles =>
+      AnimeTitles(name: name, russian: russian, english: english);
 
   AnimeSummary copyWith({int? episodesAired}) => AnimeSummary(
     id: id,

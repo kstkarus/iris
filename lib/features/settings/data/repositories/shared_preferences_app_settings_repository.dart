@@ -11,6 +11,7 @@ final class SharedPreferencesAppSettingsRepository
 
   static const _themeModeKey = 'settings.theme_mode';
   static const _localeKey = 'settings.locale';
+  static const _animeTitleLanguageKey = 'settings.anime_title_language';
   static const _audioKey = 'settings.default_audio_language';
   static const _subtitleKey = 'settings.default_subtitle_language';
 
@@ -27,6 +28,11 @@ final class SharedPreferencesAppSettingsRepository
       AppLocalePreference.values,
       jsonString(_preferences.get(_localeKey)),
       AppLocalePreference.system,
+    ),
+    animeTitleLanguage: enumByName(
+      AnimeTitleLanguage.values,
+      jsonString(_preferences.get(_animeTitleLanguageKey)),
+      AnimeTitleLanguage.auto,
     ),
     defaultAudioLanguage: enumByName(
       DefaultAudioLanguage.values,
@@ -45,6 +51,10 @@ final class SharedPreferencesAppSettingsRepository
     final saved = await Future.wait([
       _preferences.setString(_themeModeKey, settings.themeMode.name),
       _preferences.setString(_localeKey, settings.locale.name),
+      _preferences.setString(
+        _animeTitleLanguageKey,
+        settings.animeTitleLanguage.name,
+      ),
       _preferences.setString(_audioKey, settings.defaultAudioLanguage.name),
       _preferences.setString(
         _subtitleKey,

@@ -1,3 +1,4 @@
+import 'package:iris/entities/anime/domain/anime_titles.dart';
 import 'package:iris/features/downloads/domain/entities/download_failure.dart';
 import 'package:iris/features/downloads/domain/entities/download_status.dart';
 import 'package:iris/shared/online/online_source_link.dart';
@@ -21,6 +22,8 @@ class DownloadItem {
     required this.peers,
     required this.status,
     required this.createdAt,
+    this.animeRussian = '',
+    this.animeEnglish = '',
     this.posterUrl = '',
     this.errorMessage,
     this.completedAt,
@@ -31,6 +34,8 @@ class DownloadItem {
   final String id;
   final String animeId;
   final String animeTitle;
+  final String animeRussian;
+  final String animeEnglish;
   final String sourceTitle;
 
   /// The torrent, or an online release's [OnlineSourceLink], whose file
@@ -61,6 +66,12 @@ class DownloadItem {
   /// The selected stream or playlist's reported height; null when unknown.
   final int? videoHeight;
 
+  AnimeTitles get animeTitles => AnimeTitles(
+    name: animeTitle,
+    russian: animeRussian,
+    english: animeEnglish,
+  );
+
   /// The loaded share of the file, from 0 to 1; 0 while its size is unknown.
   double get progress => totalBytes <= 0
       ? 0
@@ -83,6 +94,8 @@ class DownloadItem {
     String? id,
     String? animeId,
     String? animeTitle,
+    String? animeRussian,
+    String? animeEnglish,
     String? sourceTitle,
     String? magnet,
     int? fileIndex,
@@ -118,6 +131,8 @@ class DownloadItem {
       id: id ?? this.id,
       animeId: animeId ?? this.animeId,
       animeTitle: animeTitle ?? this.animeTitle,
+      animeRussian: animeRussian ?? this.animeRussian,
+      animeEnglish: animeEnglish ?? this.animeEnglish,
       sourceTitle: sourceTitle ?? this.sourceTitle,
       magnet: magnet ?? this.magnet,
       fileIndex: fileIndex ?? this.fileIndex,
@@ -155,6 +170,8 @@ class DownloadItem {
         other.id == id &&
         other.animeId == animeId &&
         other.animeTitle == animeTitle &&
+        other.animeRussian == animeRussian &&
+        other.animeEnglish == animeEnglish &&
         other.sourceTitle == sourceTitle &&
         other.magnet == magnet &&
         other.fileIndex == fileIndex &&
@@ -178,7 +195,7 @@ class DownloadItem {
   int get hashCode => Object.hash(
     id,
     animeId,
-    animeTitle,
+    Object.hash(animeTitle, animeRussian, animeEnglish),
     sourceTitle,
     magnet,
     fileIndex,

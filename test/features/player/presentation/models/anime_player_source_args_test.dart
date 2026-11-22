@@ -15,6 +15,8 @@ void main() {
     updatedAt: DateTime(2026),
     animeId: '52991',
     animeTitle: 'Sousou no Frieren',
+    animeRussian: 'Фрирен',
+    animeEnglish: 'Frieren Beyond Journey’s End',
   );
 
   test('resuming opens the file it stopped in', () {
@@ -23,7 +25,9 @@ void main() {
     );
 
     expect(args.animeId, '52991');
-    expect(args.animeTitle, 'Sousou no Frieren');
+    expect(args.animeTitles.name, 'Sousou no Frieren');
+    expect(args.animeTitles.russian, 'Фрирен');
+    expect(args.animeTitles.english, 'Frieren Beyond Journey’s End');
     expect(args.sourceTitle, '[Group] Frieren');
     expect(args.magnet, 'magnet:?xt=urn:btih:hash');
     expect(args.autoOpenFileIndex, 3);

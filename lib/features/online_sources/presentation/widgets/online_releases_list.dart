@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:iris/entities/anime/domain/anime_titles.dart';
 import 'package:iris/entities/watch_progress/presentation/watch_progress_cubit.dart';
 import 'package:iris/features/downloads/presentation/models/download_selection_args.dart';
 import 'package:iris/features/online_sources/domain/entities/online_provider.dart';
@@ -34,7 +35,7 @@ import 'package:iris/shared/widgets/tap_row.dart';
 class OnlineReleasesList extends StatelessWidget {
   const OnlineReleasesList({
     required this.animeId,
-    required this.animeTitle,
+    required this.animeTitles,
     this.posterUrl = '',
     super.key,
   });
@@ -47,8 +48,7 @@ class OnlineReleasesList extends StatelessWidget {
 
   final String animeId;
 
-  /// How history names the anime of a release played from here.
-  final String animeTitle;
+  final AnimeTitles animeTitles;
   final String posterUrl;
 
   @override
@@ -160,7 +160,7 @@ class OnlineReleasesList extends StatelessWidget {
       'torrent-stream-files',
       extra: AnimePlayerSourceArgs(
         animeId: animeId,
-        animeTitle: animeTitle,
+        animeTitles: animeTitles,
         sourceTitle: release.dub,
         magnet: _link(release),
       ),
@@ -172,7 +172,7 @@ class OnlineReleasesList extends StatelessWidget {
       'torrent-download-files',
       extra: DownloadSelectionArgs(
         animeId: animeId,
-        animeTitle: animeTitle,
+        animeTitles: animeTitles,
         sourceTitle: release.dub,
         magnet: _link(release),
         posterUrl: posterUrl,

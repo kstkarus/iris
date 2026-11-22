@@ -6,6 +6,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:iris/entities/anime/domain/anime_titles.dart';
 import 'package:iris/entities/watch_progress/domain/watch_progress.dart';
 import 'package:iris/entities/watch_progress/presentation/watch_progress_cubit.dart';
 import 'package:iris/features/downloads/presentation/models/download_selection_args.dart';
@@ -15,6 +16,8 @@ import 'package:iris/features/online_sources/domain/entities/online_release.dart
 import 'package:iris/features/online_sources/domain/repositories/online_releases_search.dart';
 import 'package:iris/features/online_sources/presentation/cubit/online_releases_cubit.dart';
 import 'package:iris/features/player/presentation/models/anime_player_source_args.dart';
+import 'package:iris/features/settings/domain/entities/app_settings.dart';
+import 'package:iris/features/settings/presentation/cubit/app_settings_cubit.dart';
 import 'package:iris/features/watch_sources/domain/entities/watch_source_item.dart';
 import 'package:iris/features/watch_sources/domain/entities/watch_sources_tab.dart';
 import 'package:iris/features/watch_sources/domain/repositories/watch_sources_repository.dart';
@@ -34,6 +37,7 @@ import 'package:iris/shared/online/online_source_link.dart';
 import '../../../../helpers/fake_watch_progress_repository.dart';
 import '../../../../helpers/test_app.dart';
 import '../../../../helpers/test_window.dart';
+import '../../../settings/settings_test_doubles.dart';
 import '../../watch_sources_test_doubles.dart';
 
 const _link = 'online:anilibria/9542?anime=52991';
@@ -76,6 +80,39 @@ void main() {
     expect(find.text('28 episodes', findRichText: true), findsOneWidget);
     expect(find.text('UP TO 1080P'), findsOneWidget);
     expect(find.text('[SubsPlease] Frieren'), findsNothing);
+  });
+
+  testWidgets('changing the subtitle keeps the source search names', (
+    tester,
+  ) async {
+    final settings = AppSettingsCubit(
+      repository: MemoryAppSettingsRepository(const AppSettings()),
+    );
+    addTearDown(settings.close);
+    const titles = AnimeTitles(
+      name: 'Sousou no Frieren',
+      russian: 'Фрирен',
+      english: 'Frieren Beyond Journey’s End',
+    );
+    final online = _FakeOnlineSources.found();
+    final navigation = await _pumpPage(
+      tester,
+      online: online,
+      animeTitles: titles,
+      settings: settings,
+    );
+    expect(find.text(titles.english), findsOneWidget);
+    expect(online.searchedTitles, [titles.name, titles.english]);
+
+    await settings.setAnimeTitleLanguage(AnimeTitleLanguage.russian);
+    await tester.pump();
+    expect(find.text(titles.russian), findsOneWidget);
+    expect(online.searches, 1);
+    expect(online.searchedTitles, [titles.name, titles.english]);
+
+    await tester.tap(find.text('AniLibria'));
+    await tester.pumpAndSettle();
+    expect((navigation.extra as AnimePlayerSourceArgs).animeTitles, titles);
   });
 
   testWidgets('a tap shows the torrents and is remembered', (tester) async {
@@ -223,7 +260,7 @@ void main() {
     expect(args.magnet, _link);
     expect(args.sourceTitle, 'AniLibria');
     expect(args.animeId, '52991');
-    expect(args.animeTitle, 'Frieren');
+    expect(args.animeTitles.name, 'Frieren');
   });
 
   testWidgets('opens the release episodes in the download picker', (
@@ -245,7 +282,7 @@ void main() {
     expect(args.isOnlineRelease, isTrue);
     expect(args.sourceTitle, 'AniLibria');
     expect(args.animeId, '52991');
-    expect(args.animeTitle, 'Frieren');
+    expect(args.animeTitles.name, 'Frieren');
   });
 
   testWidgets('marks a release the user has watched from', (tester) async {
@@ -525,7 +562,7 @@ void main() {
 
       final args = navigation.extra! as AnimePlayerSourceArgs;
       expect(args.animeId, '52991');
-      expect(args.animeTitle, 'Frieren');
+      expect(args.animeTitles.name, 'Frieren');
       expect(args.sourceTitle, 'Frieren BD');
       expect(args.magnet, magnet);
     });
@@ -652,6 +689,8 @@ Future<_RecordedNavigation> _pumpPage(
   List<WatchProgress> history = const [],
   List<String> mine = const [],
   TorrentFilePicker? pickFile,
+  AnimeTitles animeTitles = const AnimeTitles(name: 'Frieren'),
+  AppSettingsCubit? settings,
 }) async {
   final navigation = _RecordedNavigation();
   SharedPreferences.setMockInitialValues({});
@@ -662,10 +701,9 @@ Future<_RecordedNavigation> _pumpPage(
   for (final magnet in mine) {
     await saved.add(animeId: '52991', magnet: magnet);
   }
-  const args = AnimeWatchSourcesArgs(
+  final args = AnimeWatchSourcesArgs.forAnime(
     animeId: '52991',
-    animeTitle: 'Frieren',
-    searchTitles: ['Frieren'],
+    animeTitles: animeTitles,
   );
   final router = GoRouter(
     initialLocation: '/sources',
@@ -677,7 +715,7 @@ Future<_RecordedNavigation> _pumpPage(
             BlocProvider(
               create: (_) => WatchSourcesCubit(
                 animeId: args.animeId,
-                animeTitle: args.animeTitle,
+                animeTitles: args.animeTitles,
                 searchTitles: args.searchTitles,
                 repository: torrents,
               )..loadSources(),
@@ -731,7 +769,10 @@ Future<_RecordedNavigation> _pumpPage(
   );
   addTearDown(router.dispose);
 
-  await tester.pumpWidget(testRouterApp(router));
+  final app = testRouterApp(router);
+  await tester.pumpWidget(
+    settings == null ? app : BlocProvider.value(value: settings, child: app),
+  );
   await tester.pump();
   await tester.pump(const Duration(seconds: 1));
   return navigation;
@@ -750,6 +791,7 @@ class _FakeOnlineSources implements OnlineReleasesSearch {
   bool pendingAnswer = false;
   bool fail = false;
   int searches = 0;
+  List<String> searchedTitles = [];
 
   /// The servers' answers while [pendingAnswer]; closing it ends the
   /// search.
@@ -761,6 +803,7 @@ class _FakeOnlineSources implements OnlineReleasesSearch {
     required List<String> titles,
   }) {
     searches++;
+    searchedTitles = titles;
     if (pendingAnswer) return answers.stream;
     if (fail) return Stream.error(StateError('offline'));
     return releases.isEmpty ? const Stream.empty() : Stream.value(releases);

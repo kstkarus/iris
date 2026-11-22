@@ -36,6 +36,7 @@ void main() {
           'id': id,
           'name': 'Dandadan',
           'russian': 'Дандадан',
+          'english': 'DAN DA DAN',
           'kind': 'tv',
           'score': 8.38,
           'status': 'ongoing',
@@ -75,6 +76,7 @@ void main() {
       ),
     );
     expect(listed.anime.russian, 'Дандадан');
+    expect(listed.anime.english, 'DAN DA DAN');
     expect(listed.anime.airedOn, '2026-07');
     expect(listed.anime.posterUrl, 'https://shikimori.io/main.webp');
     expect(listed.anime.nextEpisodeAt, DateTime.utc(2026, 10, 12, 12));
@@ -83,6 +85,7 @@ void main() {
     final body =
         jsonDecode(jsonEncode(adapter.requests.single.data))
             as Map<String, dynamic>;
+    expect(body['query'], contains(RegExp(r'\brussian\s+english\b')));
     expect(body['variables'], {
       'userId': '42',
       'status': 'on_hold',

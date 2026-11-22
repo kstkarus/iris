@@ -3338,6 +3338,36 @@ abstract class AppLocalizations {
   /// **'English'**
   String get settingsLanguageEnglish;
 
+  /// No description provided for @settingsAnimeTitleLanguageLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Anime titles'**
+  String get settingsAnimeTitleLanguageLabel;
+
+  /// No description provided for @settingsAnimeTitleLanguageAuto.
+  ///
+  /// In en, this message translates to:
+  /// **'App language'**
+  String get settingsAnimeTitleLanguageAuto;
+
+  /// No description provided for @settingsAnimeTitleLanguageRussian.
+  ///
+  /// In en, this message translates to:
+  /// **'Russian'**
+  String get settingsAnimeTitleLanguageRussian;
+
+  /// No description provided for @settingsAnimeTitleLanguageRomaji.
+  ///
+  /// In en, this message translates to:
+  /// **'Romaji'**
+  String get settingsAnimeTitleLanguageRomaji;
+
+  /// No description provided for @settingsAnimeTitleLanguageEnglish.
+  ///
+  /// In en, this message translates to:
+  /// **'English'**
+  String get settingsAnimeTitleLanguageEnglish;
+
   /// No description provided for @settingsAppVersion.
   ///
   /// In en, this message translates to:

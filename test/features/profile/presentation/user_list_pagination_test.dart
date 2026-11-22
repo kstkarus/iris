@@ -11,12 +11,15 @@ import 'package:iris/features/profile/domain/entities/user_list_entry.dart';
 import 'package:iris/features/profile/presentation/cubit/friends_cubit.dart';
 import 'package:iris/features/profile/presentation/cubit/user_list_cubit.dart';
 import 'package:iris/features/profile/presentation/widgets/user_list_view.dart';
+import 'package:iris/features/settings/domain/entities/app_settings.dart';
+import 'package:iris/features/settings/presentation/cubit/app_settings_cubit.dart';
 import 'package:iris/shared/widgets/adaptive/page_frame.dart';
 import 'package:iris/shared/widgets/status_views.dart';
 
 import '../../../entities/friend/friend_test_doubles.dart';
 import '../../../helpers/test_app.dart';
 import '../../../helpers/test_window.dart';
+import '../../settings/settings_test_doubles.dart';
 import 'user_list_test_doubles.dart';
 
 void main() {
@@ -39,6 +42,34 @@ void main() {
       },
     );
   }
+
+  testWidgets('a friend list updates its primary and secondary titles', (
+    tester,
+  ) async {
+    final repository = FakeUserListRepository({
+      UserRateStatus.watching: [
+        listEntry('1', russian: 'Русское название', english: 'English title'),
+      ],
+    });
+    final cubit = UserListCubit(repository: repository)..show('friend');
+    final settings = AppSettingsCubit(
+      repository: MemoryAppSettingsRepository(const AppSettings()),
+    );
+    addTearDown(cubit.close);
+    addTearDown(settings.close);
+    await tester.pumpWidget(
+      BlocProvider.value(value: settings, child: _page(cubit)),
+    );
+    await tester.pumpAndSettle();
+
+    double top(String title) => tester.getTopLeft(find.text(title)).dy;
+    expect(top('English title'), lessThan(top('Anime 1')));
+
+    await settings.setAnimeTitleLanguage(AnimeTitleLanguage.russian);
+    await tester.pump();
+    expect(top('Русское название'), lessThan(top('Anime 1')));
+    expect(repository.requests, hasLength(1));
+  });
 
   testWidgets('a wider window fetches the next page without scrolling', (
     tester,

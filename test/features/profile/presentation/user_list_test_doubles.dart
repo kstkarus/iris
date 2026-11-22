@@ -10,6 +10,8 @@ UserListEntry listEntry(
   UserRateStatus status = UserRateStatus.watching,
   int episodes = 3,
   int score = 0,
+  String russian = '',
+  String english = '',
   String animeStatus = 'released',
   DateTime? nextEpisodeAt,
 }) => UserListEntry(
@@ -17,7 +19,8 @@ UserListEntry listEntry(
   anime: AnimeSummary(
     id: id,
     name: 'Anime $id',
-    russian: '',
+    russian: russian,
+    english: english,
     kind: 'tv',
     score: 8,
     status: animeStatus,

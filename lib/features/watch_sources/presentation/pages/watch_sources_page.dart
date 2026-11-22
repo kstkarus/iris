@@ -14,6 +14,7 @@ import 'package:iris/features/saved_torrents/domain/repositories/saved_torrents_
 import 'package:iris/features/saved_torrents/presentation/cubit/saved_torrents_cubit.dart';
 import 'package:iris/features/saved_torrents/presentation/widgets/add_saved_torrent_sheet.dart';
 import 'package:iris/features/saved_torrents/presentation/widgets/saved_torrents_list.dart';
+import 'package:iris/features/settings/presentation/anime_title_labels.dart';
 import 'package:iris/features/watch_sources/domain/entities/watch_sources_tab.dart';
 import 'package:iris/features/watch_sources/presentation/cubit/watch_sources_cubit.dart';
 import 'package:iris/features/watch_sources/presentation/cubit/watch_sources_state.dart';
@@ -81,6 +82,7 @@ class _WatchSourcesPageState extends State<WatchSourcesPage> {
       (cubit) => cubit.state.torrents.isNotEmpty,
     );
     final l10n = AppLocalizations.of(context);
+    final title = watchAnimeTitleLabels(context, args.animeTitles).primary;
     final chosen = context.watch<WatchSourcesTabCubit>().state;
     final tabs = [
       if (hasOnline) WatchSourcesTab.online,
@@ -114,10 +116,7 @@ class _WatchSourcesPageState extends State<WatchSourcesPage> {
           autofocus: true,
           child: Scaffold(
             appBar: FramedAppBar(
-              title: PageTitle(
-                title: l10n.watchSourcesTitle,
-                subtitle: args.animeTitle,
-              ),
+              title: PageTitle(title: l10n.watchSourcesTitle, subtitle: title),
               trailing: IconButton(
                 key: WatchSourcesPage.addButtonKey,
                 tooltip: isDesktopPlatform
@@ -157,7 +156,7 @@ class _WatchSourcesPageState extends State<WatchSourcesPage> {
                           child: hasOnline
                               ? OnlineReleasesList(
                                   animeId: args.animeId,
-                                  animeTitle: args.animeTitle,
+                                  animeTitles: args.animeTitles,
                                   posterUrl: args.posterUrl,
                                 )
                               : const SizedBox.shrink(),
@@ -238,7 +237,7 @@ class _WatchSourcesPageState extends State<WatchSourcesPage> {
       'torrent-stream-files',
       extra: AnimePlayerSourceArgs(
         animeId: args.animeId,
-        animeTitle: args.animeTitle,
+        animeTitles: args.animeTitles,
         sourceTitle: torrent.title,
         magnet: torrent.magnet,
         autoOpenFileIndex: fileIndex,
@@ -252,7 +251,7 @@ class _WatchSourcesPageState extends State<WatchSourcesPage> {
       'torrent-download-files',
       extra: DownloadSelectionArgs(
         animeId: args.animeId,
-        animeTitle: args.animeTitle,
+        animeTitles: args.animeTitles,
         posterUrl: args.posterUrl,
         sourceTitle: torrent.title,
         magnet: torrent.magnet,

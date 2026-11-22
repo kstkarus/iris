@@ -88,6 +88,8 @@ void main() {
       updatedAt: DateTime.utc(2026, 10, 3),
       animeId: '5114',
       animeTitle: 'Fullmetal Alchemist',
+      animeRussian: 'Стальной алхимик',
+      animeEnglish: 'Fullmetal Alchemist: Brotherhood',
     );
   }
 
@@ -127,6 +129,8 @@ void main() {
         position,
         original.position,
       ]);
+      expect(rows.first.animeRussian, isEmpty);
+      expect(rows.first.animeEnglish, isEmpty);
       final resumed = createCubit(
         history: history,
         playerEngine: FakePlayerEngine(),
@@ -449,29 +453,48 @@ void main() {
     expect(progress.saves, isEmpty);
   });
 
-  test('keeps the anime link when reopened from saved torrents', () async {
-    progress.seed(saved());
-    final cubit = createCubit(
-      source: const AnimePlayerSource(
-        animeId: '',
-        animeTitle: 'My torrent',
-        sourceTitle: 'My torrent',
-        sessionId: '42',
-        fileIndex: 0,
-        fileName: 'ep-01.mkv',
-        magnet: _magnet,
-      ),
-    );
+  test(
+    'keeps the anime and its titles when reopened from saved torrents',
+    () async {
+      progress.seed(saved());
+      final cubit = createCubit(
+        source: const AnimePlayerSource(
+          animeId: '',
+          animeTitle: 'My torrent',
+          sourceTitle: 'My torrent',
+          sessionId: '42',
+          fileIndex: 0,
+          fileName: 'ep-01.mkv',
+          magnet: _magnet,
+        ),
+      );
+      await cubit.loadPlayback();
+      cubit.reportProgress(
+        const Duration(seconds: 700),
+        const Duration(minutes: 24),
+        flush: true,
+      );
+      await cubit.close();
+
+      expect(progress.saves.last.animeId, '5114');
+      expect(progress.saves.last.animeTitle, 'Fullmetal Alchemist');
+      expect(progress.saves.last.animeRussian, 'Стальной алхимик');
+      expect(
+        progress.saves.last.animeEnglish,
+        'Fullmetal Alchemist: Brotherhood',
+      );
+    },
+  );
+
+  test('keeps saved translations when the linked source lacks them', () async {
+    final previous = saved();
+    progress.seed(previous);
+    final cubit = createCubit();
     await cubit.loadPlayback();
-    cubit.reportProgress(
-      const Duration(seconds: 700),
-      const Duration(minutes: 24),
-      flush: true,
-    );
+    cubit.reportProgress(const Duration(seconds: 700), previous.duration);
     await cubit.close();
 
-    expect(progress.saves.last.animeId, '5114');
-    expect(progress.saves.last.animeTitle, 'Fullmetal Alchemist');
+    expect(progress.saves.last.displayTitles, previous.displayTitles);
   });
 
   test('marks the end of the file as watched', () async {

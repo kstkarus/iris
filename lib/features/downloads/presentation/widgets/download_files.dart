@@ -6,6 +6,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:iris/features/downloads/domain/entities/download_title.dart';
 import 'package:iris/features/downloads/presentation/cubit/download_manager_cubit.dart';
 import 'package:iris/features/downloads/presentation/cubit/download_manager_state.dart';
+import 'package:iris/features/settings/presentation/anime_title_labels.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/haptics/app_haptics.dart';
 import 'package:iris/shared/utils/byte_size_formatter.dart';
@@ -105,6 +106,7 @@ class _DownloadFilesState extends State<_DownloadFiles> {
           Flexible(
             child: BlocBuilder<DownloadManagerCubit, DownloadManagerState>(
               builder: (context, state) {
+                final titleLanguage = watchAnimeTitleLanguage(context);
                 int size(DownloadTitle title) => title.items.fold(
                   0,
                   (total, item) => total + item.downloadedBytes,
@@ -113,7 +115,11 @@ class _DownloadFilesState extends State<_DownloadFiles> {
                   ..sort((a, b) => size(b).compareTo(size(a)));
                 Widget fileRow(DownloadTitle title) {
                   final identity = Text(
-                    title.name,
+                    resolveAnimeTitles(
+                      l10n,
+                      title.animeTitles,
+                      titleLanguage,
+                    ).primary,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: theme.textTheme.bodyMedium?.copyWith(

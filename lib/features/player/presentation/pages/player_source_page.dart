@@ -130,7 +130,9 @@ class PlayerSourcePage extends StatelessWidget {
         extra: AnimePlayerArgs(
           AnimePlayerSource(
             animeId: args.animeId,
-            animeTitle: args.animeTitle,
+            animeTitle: args.animeTitles.name,
+            animeRussian: args.animeTitles.russian,
+            animeEnglish: args.animeTitles.english,
             sourceTitle: args.sourceTitle,
             sessionId: sessionId,
             fileIndex: file.index,

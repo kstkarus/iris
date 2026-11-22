@@ -1,16 +1,17 @@
+import 'package:iris/entities/anime/domain/anime_titles.dart';
 import 'package:iris/shared/online/online_source_link.dart';
 
 class DownloadSelectionArgs {
   const DownloadSelectionArgs({
     required this.animeId,
-    required this.animeTitle,
+    required this.animeTitles,
     required this.sourceTitle,
     required this.magnet,
     this.posterUrl = '',
   });
 
   final String animeId;
-  final String animeTitle;
+  final AnimeTitles animeTitles;
   final String sourceTitle;
   final String posterUrl;
 
