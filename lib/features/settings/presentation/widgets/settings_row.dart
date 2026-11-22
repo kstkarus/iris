@@ -76,10 +76,6 @@ class SettingsRow extends StatelessWidget {
 ButtonStyle settingsActionStyle(BuildContext context, {bool primary = false}) {
   final scheme = Theme.of(context).colorScheme;
   return ButtonStyle(
-    alignment: AlignmentDirectional.centerEnd,
-    padding: const WidgetStatePropertyAll(
-      EdgeInsetsDirectional.only(start: 12),
-    ),
     foregroundColor: WidgetStateProperty.resolveWith(
       (states) =>
           !states.contains(WidgetState.disabled) &&

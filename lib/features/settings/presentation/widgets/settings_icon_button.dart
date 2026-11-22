@@ -34,10 +34,8 @@ class SettingsIconButton extends StatelessWidget {
     return IconButton(
       onPressed: onPressed,
       tooltip: tooltip,
-      padding: inTopBar
-          ? const EdgeInsetsDirectional.only(start: 20)
-          : EdgeInsets.zero,
-      alignment: inTopBar ? null : AlignmentDirectional.centerEnd,
+      padding: EdgeInsets.zero,
+      alignment: inTopBar ? Alignment.center : AlignmentDirectional.centerEnd,
       icon: SignalBadge(
         visible: hasDismissedUpdate,
         size: 6,

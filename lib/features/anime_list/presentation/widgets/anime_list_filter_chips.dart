@@ -140,9 +140,8 @@ class AnimeListFilterChips extends StatelessWidget {
                 footer: TextButton(
                   onPressed: () => apply(const AnimeListFilters()),
                   style: TextButton.styleFrom(
-                    padding: EdgeInsets.zero,
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
                     minimumSize: const Size(0, 44),
-                    alignment: AlignmentDirectional.centerStart,
                   ),
                   child: Text(l10n.animeListResetButton),
                 ),

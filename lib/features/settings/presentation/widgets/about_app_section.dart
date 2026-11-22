@@ -71,7 +71,7 @@ class AboutAppSection extends StatelessWidget {
               ? null
               : cubit.checkManually,
           style: settingsActionStyle(context),
-          child: Text(l10n.settingsCheckUpdates, textAlign: TextAlign.end),
+          child: Text(l10n.settingsCheckUpdates, textAlign: TextAlign.center),
         ),
       if (release != null &&
           (!inApp || state.phase != AppUpdatePhase.installing))
