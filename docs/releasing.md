@@ -4,13 +4,13 @@ For maintainers: how versions are numbered and how a release is published.
 
 ## Versioning
 
-Versions follow [Semantic Versioning](https://semver.org), read from the user's side:
+Versions follow [Semantic Versioning](https://semver.org), judged by user-facing impact rather than commit prefixes alone:
 
-- **Patch** (1.2.**1**): fixes only.
-- **Minor** (1.**3**.0): new features or noticeable changes; everything that worked keeps working.
+- **Patch** (1.2.**1**): fixes, polish, and small additions or settings that fit within the current release.
+- **Minor** (1.**3**.0): meaningful new capabilities, major screens, or significant redesigns; everything that worked keeps working.
 - **Major** (**2**.0.0): changes that break something for existing users, such as a reset or migration of stored data, a raised minimum OS version or a dropped platform.
 
-The version is raised per release, not per commit. Since commits follow [Conventional Commits](https://www.conventionalcommits.org), the weightiest commit since the last release decides: a `feat` makes a minor release, only `fix` commits a patch, and a breaking change a major one. Notable changes are recorded in [CHANGELOG.md](../CHANGELOG.md).
+The version is raised per release, not per commit, by the maintainer's judgment. Commits still follow [Conventional Commits](https://www.conventionalcommits.org) for a clean history, but a single `feat` commit does not automatically require a minor bump. Notable changes are recorded in [CHANGELOG.md](../CHANGELOG.md).
 
 ## Releasing
 
