@@ -22,13 +22,18 @@ void main() {
   /// the API path moved.
   KodikDataSource source({
     String page = '',
+    String? apiBody,
     int refusals = 0,
     String apiPath = '/ftor',
+    int headStatus = 404,
   }) {
     final dio = createVideoServerDio();
     var refused = 0;
     dio.httpClientAdapter = FakeHttpAdapter((options) {
       requests.add(options);
+      if (options.method == 'HEAD') {
+        return FakeReply.text(headStatus, '');
+      }
       final path = options.uri.path;
       if (path.startsWith('/season/') ||
           path.startsWith('/serial/') ||
@@ -37,7 +42,7 @@ void main() {
       } else if (path.startsWith('/assets/js/')) {
         return FakeReply.text(200, _fixture('player.js'));
       } else if (path == apiPath && refused++ >= refusals) {
-        return FakeReply.text(200, _fixture('api.json'));
+        return FakeReply.text(200, apiBody ?? _fixture('api.json'));
       }
       return const FakeReply.text(404, 'Not Found');
     });
@@ -177,19 +182,67 @@ void main() {
     );
   });
 
-  test('swaps back the 480 file Kodik gives under its 720 key', () {
-    final links = parseKodikLinks(
-      '{"links":{"720":[{"src":"//cdn.example.test/a/480.mp4:hls:manifest.m3u8"}],'
-      '"480":[{"src":"//cdn.example.test/a/480.mp4:hls:manifest.m3u8"}]}}',
-    );
+  test('upgrades an aliased 480 file under 720 only when 720 exists', () async {
+    const aliasedApi =
+        '{"links":{"720":[{"src":"//cdn.example.test/a/480.mp4:hls:manifest.m3u8"}],'
+        '"480":[{"src":"//cdn.example.test/a/480.mp4:hls:manifest.m3u8"}],'
+        '"360":[{"src":"//cdn.example.test/a/360.mp4:hls:manifest.m3u8"}]}}';
 
+    final with720 = await source(
+      apiBody: aliasedApi,
+      headStatus: 200,
+    ).links(_player);
     expect(
-      [for (final l in links) (l.quality, l.url)],
+      [for (final l in with720) (l.quality, l.url)],
       [
         (720, 'https://cdn.example.test/a/720.mp4:hls:manifest.m3u8'),
         (480, 'https://cdn.example.test/a/480.mp4:hls:manifest.m3u8'),
+        (360, 'https://cdn.example.test/a/360.mp4:hls:manifest.m3u8'),
       ],
     );
+
+    requests.clear();
+    final without720 = await source(
+      apiBody: aliasedApi,
+      headStatus: 404,
+    ).links(_player);
+    expect(
+      [for (final l in without720) (l.quality, l.url)],
+      [
+        (480, 'https://cdn.example.test/a/480.mp4:hls:manifest.m3u8'),
+        (360, 'https://cdn.example.test/a/360.mp4:hls:manifest.m3u8'),
+      ],
+    );
+    expect(
+      requests.where((r) => r.method == 'HEAD').map((r) => r.uri.toString()),
+      ['https://cdn.example.test/a/720.mp4:hls:manifest.m3u8'],
+    );
+  });
+
+  test(
+    'keeps a 480 fallback when 720 is aliased and no 480 key exists',
+    () async {
+      const onlyAliased720 =
+          '{"links":{"720":[{"src":"//cdn.example.test/a/480.mp4:hls:manifest.m3u8"}],'
+          '"360":[{"src":"//cdn.example.test/a/360.mp4:hls:manifest.m3u8"}]}}';
+
+      final links = await source(
+        apiBody: onlyAliased720,
+        headStatus: 404,
+      ).links(_player);
+      expect(
+        [for (final l in links) (l.quality, l.url)],
+        [
+          (480, 'https://cdn.example.test/a/480.mp4:hls:manifest.m3u8'),
+          (360, 'https://cdn.example.test/a/360.mp4:hls:manifest.m3u8'),
+        ],
+      );
+    },
+  );
+
+  test('does not probe CDN when Kodik already returns a 720 file', () async {
+    await source().links(_player);
+    expect(requests.where((r) => r.method == 'HEAD'), isEmpty);
   });
 
   test('decodes hidden, plain and schemeless links', () {

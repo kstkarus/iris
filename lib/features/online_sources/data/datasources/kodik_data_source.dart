@@ -112,7 +112,56 @@ class KodikDataSource {
     if (!_isSuccess(response)) {
       throw RemoteResponseException('Kodik answered ${response.statusCode}.');
     }
-    return parseKodikLinks(response.data ?? '');
+    return _resolveAliased720(parseKodikLinks(response.data ?? ''));
+  }
+
+  /// Kodik sometimes serves the 480p file under its 720p key — either because
+  /// the episode tops out at 480p or because the 720p stream is hidden behind
+  /// the 480p filename. Probe the rewritten 720p URL before advertising it so
+  /// 480p-only episodes do not fail with 404.
+  Future<List<VideoLinkDto>> _resolveAliased720(
+    List<VideoLinkDto> links,
+  ) async {
+    final result = <VideoLinkDto>[];
+    for (final link in links) {
+      if (link.quality == 720 && link.url.contains('/480.mp4:')) {
+        final upgraded = link.url.replaceFirst('/480.mp4:', '/720.mp4:');
+        final uri = Uri.tryParse(upgraded);
+        if (uri != null && await _exists(uri)) {
+          result.add(
+            VideoLinkDto(url: upgraded, quality: 720, kind: link.kind),
+          );
+          continue;
+        }
+        final hasSameUrl = links.any(
+          (other) => !identical(other, link) && other.url == link.url,
+        );
+        if (!hasSameUrl) {
+          result.add(
+            VideoLinkDto(url: link.url, quality: 480, kind: link.kind),
+          );
+        }
+        continue;
+      }
+      result.add(link);
+    }
+    return result;
+  }
+
+  Future<bool> _exists(Uri uri) async {
+    try {
+      final response = await _dio.headUri<void>(
+        uri,
+        options: Options(
+          sendTimeout: const Duration(seconds: 5),
+          receiveTimeout: const Duration(seconds: 5),
+        ),
+      );
+      final status = response.statusCode ?? 0;
+      return status >= 200 && status < 300;
+    } on DioException {
+      return false;
+    }
   }
 
   Map<String, String>? _payload(String html) {
@@ -204,7 +253,7 @@ List<VideoLinkDto> parseKodikLinks(String body) {
     if (quality == null || source is! String || source.isEmpty) continue;
     result.add(
       VideoLinkDto(
-        url: _fixKodikQuality(decodeKodikLink(source), quality),
+        url: decodeKodikLink(source),
         quality: quality,
         kind: VideoLinkKind.hls,
       ),
@@ -212,13 +261,6 @@ List<VideoLinkDto> parseKodikLinks(String body) {
   }
   result.sort((left, right) => right.quality.compareTo(left.quality));
   return result;
-}
-
-/// Kodik has answered its 720 key with the 480 file; anicli-api swaps the
-/// file name back, and so does this.
-String _fixKodikQuality(String link, int quality) {
-  if (quality != 720) return link;
-  return link.replaceFirst('/480.mp4:', '/720.mp4:');
 }
 
 /// A link as Kodik hides it: ROT18 over base64, or plain since 2025 for
