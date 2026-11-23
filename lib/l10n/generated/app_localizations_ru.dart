@@ -130,18 +130,7 @@ class AppLocalizationsRu extends AppLocalizations {
       'Скачивайте серии со страницы аниме, чтобы смотреть без интернета.';
 
   @override
-  String get downloadSelectionTitle => 'Скачать файл';
-
-  @override
-  String get downloadSelectionPreparing => 'Получаем список файлов торрента';
-
-  @override
-  String get downloadSelectionUnsupported =>
-      'В этом источнике нет поддерживаемых видеофайлов.';
-
-  @override
-  String get downloadSelectionUnableToPrepare =>
-      'Не удалось получить файлы из этого источника.';
+  String get downloadSelectionTitle => 'Скачать файлы';
 
   @override
   String get downloadUnableToQueue =>
@@ -1573,9 +1562,6 @@ class AppLocalizationsRu extends AppLocalizations {
   String get downloadSelectionEpisodeTitle => 'Скачать серии';
 
   @override
-  String get downloadSelectionPreparingEpisodes => 'Получаем список серий';
-
-  @override
   String get downloadFailedConnectionLost =>
       'Сервер с видео перестал отвечать. Повторите — загрузка продолжится с того же места.';
 
@@ -1783,16 +1769,84 @@ class AppLocalizationsRu extends AppLocalizations {
   }
 
   @override
-  String get downloadSelectEpisodes => 'Выбрать серии';
+  String get downloadSelectEpisodes => 'Выберите серии';
 
   @override
-  String get downloadSelectFiles => 'Выбрать файлы';
+  String get downloadSelectFiles => 'Выберите файлы';
 
   @override
   String get downloadSelectAll => 'Выбрать все';
 
   @override
   String get downloadDeselectAll => 'Снять выбор';
+
+  @override
+  String playerSourceSelectedCount(int count) {
+    return 'Выбрано $count';
+  }
+
+  @override
+  String playerSourceNextEpisodes(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Следующие $count серии',
+      many: 'Следующие $count серий',
+      few: 'Следующие $count серии',
+      one: 'Следующая серия',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String playerSourceNextFiles(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Следующие $count файла',
+      many: 'Следующие $count файлов',
+      few: 'Следующие $count файла',
+      one: 'Следующий файл',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get playerSourceAllUnwatched => 'Непросмотренные';
+
+  @override
+  String get playerSourceDownloadQuality => 'Качество скачивания';
+
+  @override
+  String get playerSourceDownloaded => 'Скачано';
+
+  @override
+  String playerSourceDownloadedCount(int count) {
+    return 'Скачано $count';
+  }
+
+  @override
+  String get playerSourceOpenDownloads => 'В загрузки';
+
+  @override
+  String get playerSourceQueueFailed =>
+      'Не удалось добавить в очередь. Попробуйте ещё раз.';
+
+  @override
+  String get playerSourceWatchAgain => 'Смотреть снова';
+
+  @override
+  String get playerSourceUnwatched => 'Не просмотрено';
+
+  @override
+  String playerSourceEpisodeLabel(String number) {
+    return 'Серия $number';
+  }
+
+  @override
+  String playerSourceFileLabel(String number) {
+    return 'Файл $number';
+  }
 
   @override
   String downloadSelectedEpisodes(int count) {

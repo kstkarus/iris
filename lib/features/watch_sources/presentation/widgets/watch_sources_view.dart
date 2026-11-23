@@ -6,7 +6,6 @@ import 'package:intl/intl.dart';
 import 'package:iris/shared/widgets/pixel_icon.dart';
 import 'package:iris/entities/watch_progress/presentation/watch_progress_cubit.dart';
 import 'package:iris/entities/anime/domain/anime_titles.dart';
-import 'package:iris/features/downloads/presentation/models/download_selection_args.dart';
 import 'package:iris/features/player/presentation/models/anime_player_source_args.dart';
 import 'package:iris/features/watch_sources/domain/entities/watch_source_item.dart';
 import 'package:iris/features/watch_sources/presentation/cubit/watch_sources_cubit.dart';
@@ -34,6 +33,7 @@ class WatchSourcesView extends StatelessWidget {
   const WatchSourcesView({
     required this.onAddTorrent,
     this.posterUrl = '',
+    this.downloadedCounts = const {},
     super.key,
   });
 
@@ -41,6 +41,7 @@ class WatchSourcesView extends StatelessWidget {
 
   final VoidCallback onAddTorrent;
   final String posterUrl;
+  final Map<String, int> downloadedCounts;
 
   @override
   Widget build(BuildContext context) {
@@ -54,14 +55,22 @@ class WatchSourcesView extends StatelessWidget {
             AppSkeleton(
               enabled: true,
               semanticLabel: l10n.watchSourcesLoading,
-              child: _LoadedState(state: _standInState, posterUrl: posterUrl),
+              child: _LoadedState(
+                state: _standInState,
+                posterUrl: posterUrl,
+                downloadedCounts: const {},
+              ),
             ),
           ),
           WatchSourcesLoaded() => (
             'loaded',
             AppSkeleton(
               enabled: false,
-              child: _LoadedState(state: state, posterUrl: posterUrl),
+              child: _LoadedState(
+                state: state,
+                posterUrl: posterUrl,
+                downloadedCounts: downloadedCounts,
+              ),
             ),
           ),
           WatchSourcesEmpty() => (
@@ -93,10 +102,15 @@ class WatchSourcesView extends StatelessWidget {
 }
 
 class _LoadedState extends StatelessWidget {
-  const _LoadedState({required this.state, required this.posterUrl});
+  const _LoadedState({
+    required this.state,
+    required this.posterUrl,
+    required this.downloadedCounts,
+  });
 
   final WatchSourcesLoaded state;
   final String posterUrl;
+  final Map<String, int> downloadedCounts;
 
   @override
   Widget build(BuildContext context) {
@@ -147,6 +161,7 @@ class _LoadedState extends StatelessWidget {
                           items: items,
                           watchedKeys: watchedKeys,
                           posterUrl: posterUrl,
+                          downloadedCounts: downloadedCounts,
                           tabular: tabular,
                         ),
                 ),
@@ -329,23 +344,23 @@ abstract final class _Columns {
   static const seeders = 80.0;
   static const downloads = 104.0;
   static const date = 120.0;
-  static const action = 52.0;
 }
 
-/// Releases are text, so they read best as rows: tapping one streams it,
-/// the trailing button downloads it. Wide windows line the numbers up in
-/// columns under a header.
+/// Each row opens the release. Wide windows line the tracker numbers up
+/// in columns under a header.
 class _SourcesTable extends StatelessWidget {
   const _SourcesTable({
     required this.items,
     required this.watchedKeys,
     required this.posterUrl,
+    required this.downloadedCounts,
     required this.tabular,
   });
 
   final List<WatchSourceItem> items;
   final Set<String> watchedKeys;
   final String posterUrl;
+  final Map<String, int> downloadedCounts;
   final bool tabular;
 
   @override
@@ -358,10 +373,12 @@ class _SourcesTable extends StatelessWidget {
       itemCount: items.length,
       itemBuilder: (context, index) {
         final item = items[index];
+        final key = torrentKeyFromMagnet(item.magnet);
         final row = _WatchSourceRow(
           item: item,
           tabular: tabular,
-          watched: watchedKeys.contains(torrentKeyFromMagnet(item.magnet)),
+          watched: watchedKeys.contains(key),
+          downloadedCount: downloadedCounts[key] ?? 0,
           animeId: cubit.animeId,
           animeTitles: cubit.animeTitles,
           posterUrl: posterUrl,
@@ -467,7 +484,7 @@ class _TableHeader extends StatelessWidget {
         BorderSide(color: DetailLayout.ruleColor(scheme)),
       ),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(14, 0, 4, 0),
+        padding: const EdgeInsets.symmetric(horizontal: 14),
         child: IntrinsicHeight(
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -498,7 +515,6 @@ class _TableHeader extends StatelessWidget {
                 WatchSourcesSortOption.publishedAtDesc,
                 width: _Columns.date,
               ),
-              const SizedBox(width: _Columns.action),
             ],
           ),
         ),
@@ -512,6 +528,7 @@ class _WatchSourceRow extends StatelessWidget {
     required this.item,
     required this.tabular,
     required this.watched,
+    required this.downloadedCount,
     required this.animeId,
     required this.animeTitles,
     required this.posterUrl,
@@ -522,6 +539,7 @@ class _WatchSourceRow extends StatelessWidget {
 
   /// The user streamed this release before.
   final bool watched;
+  final int downloadedCount;
   final String animeId;
   final AnimeTitles animeTitles;
   final String posterUrl;
@@ -542,6 +560,23 @@ class _WatchSourceRow extends StatelessWidget {
     final cellStyle = DetailLayout.monoTelemetryStyle(
       theme.textTheme.bodyMedium,
     );
+    final facts = [
+      if (downloadedCount > 0)
+        _unbreakable(l10n.playerSourceDownloadedCount(downloadedCount)),
+      if (!tabular) ...[
+        if (item.size.isNotEmpty) _unbreakable(item.size),
+        _unbreakable(
+          l10n.watchSourceSeeders(numbers.format(item.seeders), item.seeders),
+        ),
+        _unbreakable(
+          l10n.watchSourceDownloads(
+            numbers.format(item.downloads),
+            item.downloads,
+          ),
+        ),
+        if (date.isNotEmpty) _unbreakable(date),
+      ],
+    ];
 
     final title = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -556,30 +591,13 @@ class _WatchSourceRow extends StatelessWidget {
             height: 1.32,
           ),
         ),
-        if (watched || !tabular) ...[
+        if (watched || facts.isNotEmpty) ...[
           const SizedBox(height: 5),
           SourceFactsLine(
             key: watched ? const Key('watch_source_used_badge') : null,
             watched: watched,
-            cleanLineWrap: !tabular,
-            facts: tabular
-                ? null
-                : [
-                    if (item.size.isNotEmpty) _unbreakable(item.size),
-                    _unbreakable(
-                      l10n.watchSourceSeeders(
-                        numbers.format(item.seeders),
-                        item.seeders,
-                      ),
-                    ),
-                    _unbreakable(
-                      l10n.watchSourceDownloads(
-                        numbers.format(item.downloads),
-                        item.downloads,
-                      ),
-                    ),
-                    if (date.isNotEmpty) _unbreakable(date),
-                  ].join(' · '),
+            cleanLineWrap: true,
+            facts: facts.isEmpty ? null : facts.join(' · '),
           ),
         ],
       ],
@@ -592,9 +610,9 @@ class _WatchSourceRow extends StatelessWidget {
 
     return TapRow(
       inkKey: const Key('watch_source_watch_button'),
-      onTap: () => _openStreaming(context),
+      onTap: () => _open(context),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(14, 12, 4, 12),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         child: Row(
           children: [
             Expanded(child: title),
@@ -603,37 +621,17 @@ class _WatchSourceRow extends StatelessWidget {
               cell(numbers.format(item.seeders), _Columns.seeders),
               cell(numbers.format(item.downloads), _Columns.downloads),
               cell(date, _Columns.date),
-              const SizedBox(width: 4),
-            ] else
-              const SizedBox(width: 8),
-            IconButton(
-              key: const Key('watch_source_download_button'),
-              tooltip: l10n.downloadsOpenButton,
-              icon: const PixelIcon(PixelGlyph.download, size: 18),
-              onPressed: () => _openDownload(context),
-            ),
+            ],
           ],
         ),
       ),
     );
   }
 
-  void _openStreaming(BuildContext context) {
+  void _open(BuildContext context) {
     context.pushNamed(
       'torrent-stream-files',
       extra: AnimePlayerSourceArgs(
-        animeId: animeId,
-        animeTitles: animeTitles,
-        sourceTitle: item.title,
-        magnet: item.magnet,
-      ),
-    );
-  }
-
-  void _openDownload(BuildContext context) {
-    context.pushNamed(
-      'torrent-download-files',
-      extra: DownloadSelectionArgs(
         animeId: animeId,
         animeTitles: animeTitles,
         sourceTitle: item.title,

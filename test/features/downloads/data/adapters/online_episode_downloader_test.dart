@@ -32,7 +32,12 @@ const _release = OnlineRelease(
   id: '9542',
   dub: 'AniLibria',
   episodes: [
-    OnlineEpisode(id: 'e1', number: 1, title: '«Конец приключений»'),
+    OnlineEpisode(
+      id: 'e1',
+      number: 1,
+      title: '«Конец приключений»',
+      duration: Duration(minutes: 24),
+    ),
     OnlineEpisode(id: 'e2', number: 2),
   ],
 );
@@ -119,7 +124,7 @@ void main() {
     expect(await task.done, isNull);
   }
 
-  test('offers the episodes as files, by number, of no known size', () async {
+  test('keeps episode metadata and offers downloadable qualities', () async {
     sources.streams = [
       _hls('https://cdn.test/e1/1080.m3u8', quality: 1080),
       const OnlineStream(
@@ -147,8 +152,17 @@ void main() {
         name: '01 «Конец приключений»',
         relativePath: '',
         size: 0,
+        episodeNumber: 1,
+        title: '«Конец приключений»',
+        duration: Duration(minutes: 24),
       ),
-      DownloadableFile(index: 2, name: '02', relativePath: '', size: 0),
+      DownloadableFile(
+        index: 2,
+        name: '02',
+        relativePath: '',
+        size: 0,
+        episodeNumber: 2,
+      ),
     ]);
   });
 

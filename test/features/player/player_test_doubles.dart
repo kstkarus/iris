@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'package:iris/entities/anime/domain/anime_titles.dart';
+import 'package:iris/features/downloads/data/repositories/mock_downloads_repository.dart';
 import 'package:iris/features/player/data/adapters/player_runtime_memory_adapter.dart';
 import 'package:iris/features/player/domain/entities/anime_player_source.dart';
 import 'package:iris/features/player/domain/entities/player_decoding_preferences.dart';
@@ -13,6 +15,7 @@ import 'package:iris/features/player/presentation/cubit/player_source_cubit.dart
 import 'package:iris/features/player/presentation/cubit/player_source_state.dart';
 import 'package:iris/features/player/presentation/cubit/player_state.dart';
 import 'package:iris/features/player/presentation/cubit/player_subtitle_preferences_cubit.dart';
+import 'package:iris/features/player/presentation/models/anime_player_source_args.dart';
 import 'package:iris/features/player/presentation/playback/player_engine.dart';
 import 'package:iris/features/player/presentation/widgets/player_countdown.dart';
 import 'package:iris/features/player/presentation/widgets/player_viewport_factory.dart';
@@ -55,33 +58,23 @@ class FakePlayerCubit extends PlayerCubit {
   }
 }
 
-/// A [PlayerSourceCubit] whose state the test pushes, recording session
-/// ownership hand-offs.
+/// A [PlayerSourceCubit] whose state the test pushes.
 class FakePlayerSourceCubit extends PlayerSourceCubit {
   FakePlayerSourceCubit([PlayerSourceState? initialState])
     : super(
-        magnet: 'magnet:?xt=urn:btih:test-source',
-        repository: StubPlayerRepository(),
+        args: const AnimePlayerSourceArgs(
+          animeId: '',
+          animeTitles: AnimeTitles(name: ''),
+          sourceTitle: 'Release',
+          magnet: 'magnet:?xt=urn:btih:test-source',
+        ),
+        downloadsRepository: MockDownloadsRepository(),
+        playerRepository: StubPlayerRepository(),
       ) {
     if (initialState != null) emit(initialState);
   }
 
-  bool didTransferOwnership = false;
-  bool didReclaimOwnership = false;
-
   void push(PlayerSourceState next) => emit(next);
-
-  @override
-  void transferSessionOwnership() {
-    didTransferOwnership = true;
-    super.transferSessionOwnership();
-  }
-
-  @override
-  void reclaimSessionOwnership() {
-    didReclaimOwnership = true;
-    super.reclaimSessionOwnership();
-  }
 }
 
 /// Builds a black `player_video_surface` and writes the chrome and the

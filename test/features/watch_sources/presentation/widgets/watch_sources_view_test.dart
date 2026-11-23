@@ -10,7 +10,6 @@ import 'package:iris/entities/watch_progress/presentation/watch_progress_cubit.d
 import 'package:iris/features/online_sources/data/repositories/mock_online_sources_repository.dart';
 import 'package:iris/features/online_sources/presentation/cubit/online_releases_cubit.dart';
 import 'package:iris/shared/torrent/torrent_key.dart';
-import 'package:iris/features/downloads/presentation/models/download_selection_args.dart';
 import 'package:iris/features/player/presentation/models/anime_player_source_args.dart';
 import 'package:iris/features/watch_sources/domain/entities/watch_source_item.dart';
 import 'package:iris/features/watch_sources/domain/repositories/watch_sources_repository.dart';
@@ -41,7 +40,7 @@ void main() {
     semantics.dispose();
   });
 
-  testWidgets('Watch opens the streaming file picker for the source', (
+  testWidgets('a torrent row opens the release with its poster', (
     tester,
   ) async {
     final navigation = await _pumpRoutedView(tester);
@@ -49,30 +48,13 @@ void main() {
     await tester.tap(find.byKey(const Key('watch_source_watch_button')).first);
     await tester.pumpAndSettle();
 
-    expect(find.text('Streaming Files Route'), findsOneWidget);
+    expect(find.text('Release Route'), findsOneWidget);
     final args = navigation.extra as AnimePlayerSourceArgs;
     expect(args.animeId, '52991');
     expect(args.animeTitles.name, "Frieren: Beyond Journey's End");
     expect(args.sourceTitle, '[SubsPlease] Frieren - 28 (1080p)');
     expect(args.magnet, 'magnet:?xt=urn:btih:test-1');
-  });
-
-  testWidgets('Download opens the download file selection for the source', (
-    tester,
-  ) async {
-    final navigation = await _pumpRoutedView(tester);
-
-    await tester.tap(
-      find.byKey(const Key('watch_source_download_button')).first,
-    );
-    await tester.pumpAndSettle();
-
-    expect(find.text('Download Files Route'), findsOneWidget);
-    final args = navigation.extra as DownloadSelectionArgs;
-    expect(args.animeId, '52991');
-    expect(args.animeTitles.name, "Frieren: Beyond Journey's End");
-    expect(args.sourceTitle, '[SubsPlease] Frieren - 28 (1080p)');
-    expect(args.magnet, 'magnet:?xt=urn:btih:test-1');
+    expect(args.posterUrl, 'https://example.test/poster.png');
   });
 
   testWidgets('fits source rows on very narrow phones without overflow', (
@@ -103,7 +85,10 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.byTooltip('Скачать'), findsWidgets);
+    expect(
+      find.byKey(const Key('watch_source_watch_button')).hitTestable(),
+      findsWidgets,
+    );
     expect(tester.takeException(), isNull);
   });
 
@@ -409,19 +394,18 @@ Future<_RecordedNavigation> _pumpRoutedView(WidgetTester tester) async {
         path: '/sources',
         builder: (context, state) => BlocProvider.value(
           value: cubit,
-          child: Scaffold(body: WatchSourcesView(onAddTorrent: () {})),
+          child: Scaffold(
+            body: WatchSourcesView(
+              onAddTorrent: () {},
+              posterUrl: 'https://example.test/poster.png',
+            ),
+          ),
         ),
       ),
       GoRoute(
         path: '/torrent/watch',
         name: 'torrent-stream-files',
-        builder: (context, state) =>
-            recordRoute(state, 'Streaming Files Route'),
-      ),
-      GoRoute(
-        path: '/torrent/download',
-        name: 'torrent-download-files',
-        builder: (context, state) => recordRoute(state, 'Download Files Route'),
+        builder: (context, state) => recordRoute(state, 'Release Route'),
       ),
     ],
   );

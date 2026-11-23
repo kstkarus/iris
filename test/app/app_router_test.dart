@@ -13,6 +13,7 @@ import 'package:iris/features/downloads/data/repositories/mock_downloads_reposit
 import 'package:iris/features/downloads/domain/entities/downloadable_file.dart';
 import 'package:iris/features/downloads/domain/entities/prepared_download_source.dart';
 import 'package:iris/features/downloads/domain/repositories/downloads_repository.dart';
+import 'package:iris/features/player/presentation/pages/player_source_page.dart';
 
 import '../helpers/test_app.dart';
 
@@ -107,6 +108,43 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  testWidgets('Download more opens the same release in selection mode', (
+    tester,
+  ) async {
+    final repository = serviceLocator<DownloadsRepository>();
+    const magnet =
+        'magnet:?xt=urn:btih:0123456789abcdef0123456789abcdef01234567';
+    final source = await repository.prepareSource(magnet: magnet);
+    await repository.enqueueDownload(
+      source: source,
+      file: source.files.first,
+      animeId: '5114',
+      animeTitle: 'Fullmetal Alchemist: Brotherhood',
+      sourceTitle: 'Downloaded batch',
+    );
+    await repository.disposePreparedSource(sourceToken: source.sourceToken);
+
+    final router = AppRouter.createRouter();
+    addTearDown(router.dispose);
+    await tester.pumpWidget(_app(router));
+    router.goNamed('downloads');
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('download_title_anime:5114')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('download_title_menu')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('download_title_download_more')));
+    await tester.pumpAndSettle();
+
+    final page = tester.widget<PlayerSourcePage>(find.byType(PlayerSourcePage));
+    expect(page.args.magnet, magnet);
+    expect(page.args.initialDownloadMode, isTrue);
+    expect(find.text('Download files'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('player_episode_1')));
+    await tester.pumpAndSettle();
+    expect(find.text('1 selected'), findsOneWidget);
+  });
 }
 
 /// The router under the session every page can read, as in the app.

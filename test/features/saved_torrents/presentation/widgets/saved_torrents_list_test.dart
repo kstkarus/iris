@@ -140,12 +140,7 @@ Future<void> _pumpList(
           BlocProvider.value(value: saved),
           BlocProvider.value(value: history),
         ],
-        child: Scaffold(
-          body: SavedTorrentsList(
-            onWatch: (torrent, {autoOpenFileIndex}) {},
-            onDownload: (torrent) {},
-          ),
-        ),
+        child: Scaffold(body: SavedTorrentsList(onWatch: (torrent) {})),
       ),
     ),
   );

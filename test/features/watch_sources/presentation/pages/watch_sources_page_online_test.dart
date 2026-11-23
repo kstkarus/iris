@@ -9,7 +9,7 @@ import 'package:go_router/go_router.dart';
 import 'package:iris/entities/anime/domain/anime_titles.dart';
 import 'package:iris/entities/watch_progress/domain/watch_progress.dart';
 import 'package:iris/entities/watch_progress/presentation/watch_progress_cubit.dart';
-import 'package:iris/features/downloads/presentation/models/download_selection_args.dart';
+import 'package:iris/features/downloads/data/repositories/mock_downloads_repository.dart';
 import 'package:iris/features/online_sources/domain/entities/online_episode.dart';
 import 'package:iris/features/online_sources/domain/entities/online_provider.dart';
 import 'package:iris/features/online_sources/domain/entities/online_release.dart';
@@ -41,6 +41,9 @@ import '../../../settings/settings_test_doubles.dart';
 import '../../watch_sources_test_doubles.dart';
 
 const _link = 'online:anilibria/9542?anime=52991';
+const _torrentMagnet =
+    'magnet:?xt=urn:btih:0123456789abcdef0123456789abcdef01234567';
+const _poster = 'https://example.test/frieren.png';
 
 final _release = OnlineRelease(
   provider: OnlineProvider.anilibria,
@@ -78,7 +81,7 @@ void main() {
     expect(find.text('Torrents'), findsOneWidget);
     expect(find.text('AniLibria'), findsOneWidget);
     expect(find.text('28 episodes', findRichText: true), findsOneWidget);
-    expect(find.text('UP TO 1080P'), findsOneWidget);
+    expect(find.text('up to 1080p', findRichText: true), findsOneWidget);
     expect(find.text('[SubsPlease] Frieren'), findsNothing);
   });
 
@@ -244,7 +247,9 @@ void main() {
     expect(find.text('Mine'), findsOneWidget);
   });
 
-  testWidgets('opens the release episodes in the file picker', (tester) async {
+  testWidgets('an online row opens the release with its poster', (
+    tester,
+  ) async {
     final navigation = await _pumpPage(
       tester,
       online: _FakeOnlineSources.found(),
@@ -261,29 +266,63 @@ void main() {
     expect(args.sourceTitle, 'AniLibria');
     expect(args.animeId, '52991');
     expect(args.animeTitles.name, 'Frieren');
+    expect(args.posterUrl, _poster);
+    expect(args.autoOpenFileIndex, isNull);
+    expect(navigation.opens, 1);
   });
 
-  testWidgets('opens the release episodes in the download picker', (
-    tester,
-  ) async {
-    final navigation = await _pumpPage(
-      tester,
-      online: _FakeOnlineSources.found(),
-    );
+  testWidgets(
+    'source rows update completed counts separately from tracker totals',
+    (tester) async {
+      setTestWindowSize(tester, TestWindowSizes.phone);
+      final downloads = MockDownloadsRepository();
+      await _pumpPage(
+        tester,
+        online: _FakeOnlineSources.found(),
+        downloads: downloads,
+      );
+      await tester.pumpAndSettle();
 
-    await tester.tap(
-      find.byKey(const ValueKey('online_release_download_anilibria_9542')),
-    );
-    await tester.pumpAndSettle();
-
-    expect(find.text('Download picker'), findsOneWidget);
-    final args = navigation.extra! as DownloadSelectionArgs;
-    expect(args.magnet, _link);
-    expect(args.isOnlineRelease, isTrue);
-    expect(args.sourceTitle, 'AniLibria');
-    expect(args.animeId, '52991');
-    expect(args.animeTitles.name, 'Frieren');
-  });
+      for (final link in [_link, _torrentMagnet]) {
+        final source = await downloads.prepareSource(magnet: link);
+        await downloads.enqueueDownload(
+          source: source,
+          file: source.files[0],
+          animeId: '52991',
+          animeTitle: 'Frieren',
+          sourceTitle: 'Release',
+        );
+        final paused = await downloads.enqueueDownload(
+          source: source,
+          file: source.files[1],
+          animeId: '52991',
+          animeTitle: 'Frieren',
+          sourceTitle: 'Release',
+        );
+        await downloads.pause(id: paused.id);
+      }
+      await tester.pumpAndSettle();
+      expect(find.text('1 downloaded', findRichText: true), findsOneWidget);
+      expect(find.text('28 episodes', findRichText: true), findsOneWidget);
+      await tester.tap(find.text('Torrents'));
+      await tester.pumpAndSettle();
+      expect(
+        find.text('1\u00a0downloaded', findRichText: true),
+        findsOneWidget,
+      );
+      expect(
+        find.text('269\u00a0downloads', findRichText: true),
+        findsOneWidget,
+      );
+      tester.view.physicalSize = TestWindowSizes.landscape;
+      await tester.pumpAndSettle();
+      expect(
+        find.text('1\u00a0downloaded', findRichText: true),
+        findsOneWidget,
+      );
+      expect(find.text('269'), findsOneWidget);
+    },
+  );
 
   testWidgets('marks a release the user has watched from', (tester) async {
     await _pumpPage(
@@ -565,6 +604,8 @@ void main() {
       expect(args.animeTitles.name, 'Frieren');
       expect(args.sourceTitle, 'Frieren BD');
       expect(args.magnet, magnet);
+      expect(args.posterUrl, _poster);
+      expect(args.autoOpenFileIndex, isNull);
     });
 
     testWidgets('Mine stays open until its last visible row leaves', (
@@ -679,6 +720,7 @@ void main() {
 
 class _RecordedNavigation {
   Object? extra;
+  int opens = 0;
 }
 
 Future<_RecordedNavigation> _pumpPage(
@@ -691,6 +733,7 @@ Future<_RecordedNavigation> _pumpPage(
   TorrentFilePicker? pickFile,
   AnimeTitles animeTitles = const AnimeTitles(name: 'Frieren'),
   AppSettingsCubit? settings,
+  MockDownloadsRepository? downloads,
 }) async {
   final navigation = _RecordedNavigation();
   SharedPreferences.setMockInitialValues({});
@@ -704,6 +747,7 @@ Future<_RecordedNavigation> _pumpPage(
   final args = AnimeWatchSourcesArgs.forAnime(
     animeId: '52991',
     animeTitles: animeTitles,
+    posterUrl: _poster,
   );
   final router = GoRouter(
     initialLocation: '/sources',
@@ -745,6 +789,7 @@ Future<_RecordedNavigation> _pumpPage(
           ],
           child: WatchSourcesPage(
             args: args,
+            downloadsRepository: downloads,
             pickFile: pickFile ?? () async => null,
           ),
         ),
@@ -753,16 +798,9 @@ Future<_RecordedNavigation> _pumpPage(
         path: '/torrent/watch',
         name: 'torrent-stream-files',
         builder: (context, state) {
+          navigation.opens++;
           navigation.extra = state.extra;
           return const Scaffold(body: Text('File picker'));
-        },
-      ),
-      GoRoute(
-        path: '/torrent/download',
-        name: 'torrent-download-files',
-        builder: (context, state) {
-          navigation.extra = state.extra;
-          return const Scaffold(body: Text('Download picker'));
         },
       ),
     ],
@@ -822,7 +860,7 @@ class _Torrents implements WatchSourcesRepository {
     if (found)
       const WatchSourceItem(
         title: '[SubsPlease] Frieren',
-        magnet: 'magnet:?xt=urn:btih:0123456789abcdef0123456789abcdef01234567',
+        magnet: _torrentMagnet,
         size: '1.4 GiB',
         time: '2026-04-14',
         seeders: 33,

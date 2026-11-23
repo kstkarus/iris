@@ -1,456 +1,260 @@
 import 'dart:async';
-import 'package:iris/entities/watch_progress/domain/watch_progress.dart';
-import 'package:iris/features/downloads/data/repositories/mock_downloads_repository.dart';
-import 'package:iris/features/downloads/domain/entities/downloadable_file.dart';
-import 'package:iris/features/downloads/domain/entities/prepared_download_source.dart';
 
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:iris/features/downloads/domain/entities/download_status.dart';
+import 'package:iris/features/downloads/domain/entities/prepared_download_source.dart';
 import 'package:iris/features/player/data/repositories/local_player_repository.dart';
-import 'package:iris/features/player/data/repositories/streaming_or_local_player_repository.dart';
-import 'package:iris/features/player/domain/entities/anime_player_source.dart';
-import 'package:iris/features/player/domain/entities/no_playable_video_exception.dart';
 import 'package:iris/features/player/domain/entities/player_launch_update.dart';
-import 'package:iris/features/player/domain/entities/player_video_file.dart';
-import 'package:iris/features/player/domain/entities/prepared_player_source.dart';
 import 'package:iris/features/player/presentation/cubit/player_source_cubit.dart';
 import 'package:iris/features/player/presentation/cubit/player_source_state.dart';
-import 'package:iris/features/player/presentation/models/anime_player_source_args.dart';
 
 import '../../../../helpers/fake_player_repository.dart';
+import '../../../../helpers/memory_online_quality_preferences.dart';
+import '../../player_source_test_fixtures.dart';
 import '../../player_test_doubles.dart';
 
 void main() {
+  test('one downloaded episode keeps all 28 in the release', () async {
+    final downloads = ReleaseDownloadsFixture(
+      files: testReleaseFiles(28, named: true),
+      downloads: [testReleaseDownload(1, DownloadStatus.completed)],
+    );
+    final cubit = PlayerSourceCubit(
+      args: testReleaseArgs(online: true, preferDownloads: true),
+      downloadsRepository: downloads,
+      playerRepository: StubPlayerRepository(),
+    );
+    await cubit.loadSource();
+
+    final ready = cubit.state as PlayerSourceReady;
+    expect(
+      ready.files.map((file) => file.index),
+      List.generate(28, (i) => i + 1),
+    );
+    expect(ready.files.first.title, 'Story of episode 1');
+    expect(ready.files.first.duration, const Duration(minutes: 24));
+    expect(ready.downloadFor(1)?.status, DownloadStatus.completed);
+    expect(ready.localSessionId, isNull);
+    expect(downloads.preparations, 1);
+    await cubit.close();
+    expect(downloads.disposed, ['release']);
+    await downloads.closeFixture();
+  });
+
   test(
-    'resume uses only completed files for the selected title in a shared torrent',
+    'explicit resume can play a shared local copy and keep Next on the active title',
     () async {
-      final downloads = MockDownloadsRepository();
-      for (final (index, animeId) in [(0, '1'), (1, '2'), (2, '')]) {
-        await downloads.enqueueDownload(
-          source: const PreparedDownloadSource(sourceToken: 's', files: []),
-          file: DownloadableFile(
-            index: index,
-            name: 'episode-$index.mkv',
-            relativePath: 'episode-$index.mkv',
-            size: 1,
-          ),
-          animeId: animeId,
-          animeTitle: 'Anime',
-          sourceTitle: 'Release',
-        );
-      }
-      final remote = _PreparedSourceRepository(
-        const PreparedPlayerSource(sessionId: 'remote', files: []),
+      final downloads = ReleaseDownloadsFixture(
+        files: testReleaseFiles(28),
+        downloads: [
+          for (final (index, animeId) in [
+            (1, 'other'),
+            (2, 'other'),
+            (3, '52991'),
+          ])
+            testReleaseDownload(
+              index,
+              DownloadStatus.completed,
+              animeId: animeId,
+              magnet: testReleaseMagnet,
+            ),
+        ],
       );
       final cubit = PlayerSourceCubit(
-        magnet: 'mock-magnet',
-        animeId: '1',
-        repository: remote,
+        args: testReleaseArgs(preferDownloads: true, autoOpenFileIndex: 1),
         downloadsRepository: downloads,
-        preferDownloads: true,
-        preferredFileIndex: 0,
+        playerRepository: StubPlayerRepository(),
       );
       await cubit.loadSource();
-      expect(remote.preparations, 0);
-      expect(
-        (cubit.state as PlayerSourceReady).preparedSource.files.map(
-          (file) => file.index,
-        ),
-        [0],
-      );
-      await cubit.close();
-      final missing = PlayerSourceCubit(
-        magnet: 'mock-magnet',
-        animeId: '1',
-        repository: remote,
+
+      final ready = cubit.state as PlayerSourceReady;
+      expect(ready.files.map((file) => file.index), [1, 3]);
+      expect(downloads.preparations, 0);
+      final repository = LocalPlayerRepository(
         downloadsRepository: downloads,
-        preferDownloads: true,
-        preferredFileIndex: 4,
+        memoryAdapter: const FixedMemoryAdapter(0),
       );
-      await missing.loadSource();
-      expect(remote.preparations, 1);
-      await missing.close();
+      for (final index in [1, 3]) {
+        final update =
+            await repository
+                    .startPlayback(
+                      sessionId: ready.localSessionId!,
+                      fileIndex: index,
+                    )
+                    .single
+                as PlayerLaunchReadyUpdate;
+        expect(update.session.streamUrl, 'local/episode-$index.mkv');
+      }
+      await cubit.close();
+      expect(downloads.disposed, isEmpty);
+      await downloads.closeFixture();
     },
   );
 
   test(
-    'Continue Watching opens a shared download and keeps Next on the active title',
+    'explicit resume with a missing local file prepares the full release',
     () async {
-      final downloads = MockDownloadsRepository();
-      const magnet = 'mock-magnet';
-      for (final (index, animeId) in [(0, '1'), (1, '1'), (2, '2')]) {
-        await downloads.enqueueDownload(
-          source: const PreparedDownloadSource(sourceToken: 's', files: []),
-          file: DownloadableFile(
-            index: index,
-            name: 'episode-${index + 1}.mkv',
-            relativePath: 'episode-${index + 1}.mkv',
-            size: 1,
-          ),
-          animeId: animeId,
-          animeTitle: 'Anime $animeId',
-          sourceTitle: 'Release',
-        );
-      }
-      final args = AnimePlayerSourceArgs.resume(
-        WatchProgress(
-          torrentKey: magnet,
-          fileIndex: 0,
-          fileName: 'episode-1.mkv',
-          magnet: magnet,
-          sourceTitle: 'Release',
-          position: const Duration(minutes: 5),
-          duration: const Duration(minutes: 24),
-          updatedAt: DateTime.utc(2026),
-          animeId: '2',
-          animeTitle: 'Anime 2',
+      final downloads = ReleaseDownloadsFixture(
+        files: testReleaseFiles(4),
+        downloads: [testReleaseDownload(1, DownloadStatus.completed)],
+      )..filesMissingOnDisk.add(1);
+      final cubit = PlayerSourceCubit(
+        args: testReleaseArgs(
+          online: true,
+          preferDownloads: true,
+          autoOpenFileIndex: 1,
         ),
+        downloadsRepository: downloads,
+        playerRepository: StubPlayerRepository(),
       );
-      final streaming = _UnsupportedSourceRepository();
-      final repository = StreamingOrLocalPlayerRepository(
-        streaming: streaming,
-        online: streaming,
-        local: LocalPlayerRepository(
+      await cubit.loadSource();
+      final ready = cubit.state as PlayerSourceReady;
+      expect(ready.localSessionId, isNull);
+      expect(ready.files, hasLength(4));
+      await cubit.close();
+      await downloads.closeFixture();
+    },
+  );
+
+  test(
+    'closing cancels preparation and releases a token returned late',
+    () async {
+      final downloads = _DelayedDownloads();
+      final cubit = PlayerSourceCubit(
+        args: testReleaseArgs(),
+        downloadsRepository: downloads,
+        playerRepository: StubPlayerRepository(),
+      );
+      final load = cubit.loadSource();
+      await cubit.close();
+      await downloads.cancellations.single;
+      downloads.results.single.complete(
+        const PreparedDownloadSource(sourceToken: 'late', files: []),
+      );
+      await load;
+      expect(downloads.disposed, ['late']);
+      await downloads.closeFixture();
+    },
+  );
+
+  test(
+    'retry cancels the old preparation and keeps only the new token',
+    () async {
+      final downloads = _DelayedDownloads();
+      final cubit = PlayerSourceCubit(
+        args: testReleaseArgs(),
+        downloadsRepository: downloads,
+        playerRepository: StubPlayerRepository(),
+      );
+      final old = cubit.loadSource();
+      final retry = cubit.loadSource();
+      await downloads.cancellations.first;
+      downloads.results.last.complete(
+        PreparedDownloadSource(sourceToken: 'new', files: testReleaseFiles(2)),
+      );
+      await retry;
+      downloads.results.first.complete(
+        const PreparedDownloadSource(sourceToken: 'stale', files: []),
+      );
+      await old;
+      expect((cubit.state as PlayerSourceReady).files, hasLength(2));
+      expect(downloads.disposed, ['stale']);
+      await cubit.close();
+      expect(downloads.disposed, ['stale', 'new']);
+      await downloads.closeFixture();
+    },
+  );
+
+  test(
+    'only new files are queued, and a partial failure stays selected',
+    () async {
+      final downloads = ReleaseDownloadsFixture(
+        files: testReleaseFiles(7),
+        downloads: [
+          for (final (index, status) in DownloadStatus.values.indexed)
+            testReleaseDownload(index + 1, status),
+        ],
+        qualities: [1080, 720],
+      )..reject.add(6);
+      final preferences = MemoryOnlineQualityPreferences(downloading: 800);
+      final cubit = PlayerSourceCubit(
+        args: testReleaseArgs(online: true, selectDownloads: true),
+        downloadsRepository: downloads,
+        playerRepository: StubPlayerRepository(),
+        qualityPreferences: preferences,
+      );
+      await cubit.loadSource();
+      PlayerSourceReady ready() => cubit.state as PlayerSourceReady;
+      expect(ready().quality, 720);
+      cubit.chooseQuality(1080);
+      expect(preferences.downloading, 1080);
+      cubit.replaceSelection({7, 1, 2, 3, 4, 5, 6, 999});
+      expect(ready().selected, {6, 7});
+      expect(await cubit.enqueue(), isFalse);
+      expect(downloads.enqueued, [
+        (index: 7, quality: 1080, posterUrl: testReleasePoster),
+      ]);
+      expect(downloads.inventoryActions, 0);
+      expect(ready().selecting, isTrue);
+      expect(ready().selected, {6});
+
+      downloads.reject.clear();
+      expect(await cubit.enqueue(), isTrue);
+      expect(downloads.enqueued.map((request) => request.index), [7, 6]);
+      expect(ready().selecting, isFalse);
+      expect(ready().downloadFor(6)?.status, DownloadStatus.queued);
+      await cubit.close();
+      await downloads.closeFixture();
+    },
+  );
+
+  for (final single in [false, true]) {
+    test(
+      'close lets a pending ${single ? 'single enqueue' : 'batch'} finish before releasing its token',
+      () async {
+        final gate = Completer<void>();
+        final downloads = ReleaseDownloadsFixture(
+          files: testReleaseFiles(single ? 1 : 3),
+        )..enqueueGate = gate.future;
+        final cubit = PlayerSourceCubit(
+          args: testReleaseArgs(selectDownloads: !single),
           downloadsRepository: downloads,
-          memoryAdapter: const FixedMemoryAdapter(0),
-        ),
-      );
-      final cubit = PlayerSourceCubit(
-        magnet: args.magnet,
-        animeId: args.animeId,
-        repository: repository,
-        downloadsRepository: downloads,
-        preferDownloads: args.preferDownloads,
-        preferredFileIndex: args.autoOpenFileIndex,
-      );
-      addTearDown(cubit.close);
-      await cubit.loadSource();
-
-      final prepared = (cubit.state as PlayerSourceReady).preparedSource;
-      final source = AnimePlayerSource(
-        animeId: args.animeId,
-        animeTitle: args.animeTitles.name,
-        sourceTitle: args.sourceTitle,
-        sessionId: prepared.sessionId,
-        fileIndex: args.autoOpenFileIndex!,
-        fileName: prepared.files.first.name,
-        files: prepared.files,
-      );
-      expect(source.files.map((file) => file.index), [0, 2]);
-      expect(source.nextFile?.index, 2);
-      for (final (index, path) in [
-        (0, 'episode-1.mkv'),
-        (2, 'episode-3.mkv'),
-      ]) {
-        final updates = await repository
-            .startPlayback(sessionId: source.sessionId, fileIndex: index)
-            .toList();
-        expect(
-          (updates.single as PlayerLaunchReadyUpdate).session.streamUrl,
-          path,
+          playerRepository: StubPlayerRepository(),
         );
-      }
-      expect(
-        await repository
-            .startPlayback(sessionId: source.sessionId, fileIndex: 1)
-            .single,
-        const PlayerLaunchFailureUpdate(),
-      );
-    },
-  );
-
-  test('emits loading then success when source files are prepared', () async {
-    final cubit = PlayerSourceCubit(
-      magnet: 'magnet:?xt=urn:btih:test-source',
-      repository: _PreparedSourceRepository(
-        const PreparedPlayerSource(
-          sessionId: '42',
-          files: [
-            PlayerVideoFile(
-              index: 1,
-              name: 'episode-01.mkv',
-              size: 700,
-              extension: 'mkv',
-            ),
-            PlayerVideoFile(
-              index: 2,
-              name: 'episode-02.mkv',
-              size: 800,
-              extension: 'mkv',
-            ),
-          ],
-        ),
-      ),
+        await cubit.loadSource();
+        if (!single) cubit.replaceSelection({3, 2, 1});
+        final enqueue = cubit.enqueue(singleIndex: single ? 1 : null);
+        final close = cubit.close();
+        expect(downloads.disposed, isEmpty);
+        gate.complete();
+        expect(await enqueue, isTrue);
+        await close;
+        expect(
+          downloads.enqueued.map((request) => request.index),
+          single ? [1] : [1, 2, 3],
+        );
+        expect(downloads.disposed, ['release']);
+        await downloads.closeFixture();
+      },
     );
-
-    expectLater(
-      cubit.stream,
-      emitsInOrder([
-        const PlayerSourceLoading(),
-        const PlayerSourceReady(
-          PreparedPlayerSource(
-            sessionId: '42',
-            files: [
-              PlayerVideoFile(
-                index: 1,
-                name: 'episode-01.mkv',
-                size: 700,
-                extension: 'mkv',
-              ),
-              PlayerVideoFile(
-                index: 2,
-                name: 'episode-02.mkv',
-                size: 800,
-                extension: 'mkv',
-              ),
-            ],
-          ),
-        ),
-      ]),
-    );
-
-    await cubit.loadSource();
-  });
-
-  test(
-    'emits unsupported-source failure when repository finds no video files',
-    () async {
-      final cubit = PlayerSourceCubit(
-        magnet: 'magnet:?xt=urn:btih:test-source',
-        repository: _UnsupportedSourceRepository(),
-      );
-
-      expectLater(
-        cubit.stream,
-        emitsInOrder([
-          const PlayerSourceLoading(),
-          const PlayerSourceFailure(PlayerSourceFailureType.unsupportedSource),
-        ]),
-      );
-
-      await cubit.loadSource();
-    },
-  );
-
-  test(
-    'disposes prepared source on close when ownership was not transferred',
-    () async {
-      final repository = _PreparedSourceRepository(
-        const PreparedPlayerSource(
-          sessionId: '42',
-          files: [
-            PlayerVideoFile(
-              index: 1,
-              name: 'episode-01.mkv',
-              size: 700,
-              extension: 'mkv',
-            ),
-          ],
-        ),
-      );
-      final cubit = PlayerSourceCubit(
-        magnet: 'magnet:?xt=urn:btih:test-source',
-        repository: repository,
-      );
-
-      await cubit.loadSource();
-      await cubit.close();
-
-      expect(repository.disposedSessionIds, ['42']);
-    },
-  );
-
-  test('does not dispose prepared source after ownership transfer', () async {
-    final repository = _PreparedSourceRepository(
-      const PreparedPlayerSource(
-        sessionId: '42',
-        files: [
-          PlayerVideoFile(
-            index: 1,
-            name: 'episode-01.mkv',
-            size: 700,
-            extension: 'mkv',
-          ),
-        ],
-      ),
-    );
-    final cubit = PlayerSourceCubit(
-      magnet: 'magnet:?xt=urn:btih:test-source',
-      repository: repository,
-    );
-
-    await cubit.loadSource();
-    cubit.transferSessionOwnership();
-    await cubit.close();
-
-    expect(repository.disposedSessionIds, isEmpty);
-  });
-
-  test('disposes prepared source after reclaimed ownership on close', () async {
-    final repository = _PreparedSourceRepository(
-      const PreparedPlayerSource(
-        sessionId: '42',
-        files: [
-          PlayerVideoFile(
-            index: 1,
-            name: 'episode-01.mkv',
-            size: 700,
-            extension: 'mkv',
-          ),
-        ],
-      ),
-    );
-    final cubit = PlayerSourceCubit(
-      magnet: 'magnet:?xt=urn:btih:test-source',
-      repository: repository,
-    );
-
-    await cubit.loadSource();
-    cubit.transferSessionOwnership();
-    cubit.reclaimSessionOwnership();
-    await cubit.close();
-
-    expect(repository.disposedSessionIds, ['42']);
-  });
-
-  test(
-    'does not emit after close and disposes a late prepared source',
-    () async {
-      final repository = _DeferredSourceRepository();
-      final cubit = PlayerSourceCubit(
-        magnet: 'magnet:?xt=urn:btih:test-source',
-        repository: repository,
-      );
-
-      final loadFuture = cubit.loadSource();
-      await cubit.close();
-
-      repository.completeWith(
-        const PreparedPlayerSource(
-          sessionId: '42',
-          files: [
-            PlayerVideoFile(
-              index: 1,
-              name: 'episode-01.mkv',
-              size: 700,
-              extension: 'mkv',
-            ),
-          ],
-        ),
-      );
-
-      await expectLater(loadFuture, completes);
-      expect(repository.disposedSessionIds, ['42']);
-    },
-  );
-
-  test(
-    'does not emit after close when source preparation fails late',
-    () async {
-      final repository = _DeferredSourceRepository();
-      final cubit = PlayerSourceCubit(
-        magnet: 'magnet:?xt=urn:btih:test-source',
-        repository: repository,
-      );
-
-      final loadFuture = cubit.loadSource();
-      await cubit.close();
-
-      repository.completeWithError(Exception('late failure'));
-
-      await expectLater(loadFuture, completes);
-      expect(repository.disposedSessionIds, isEmpty);
-    },
-  );
-
-  test('closing during a preparation cancels it', () async {
-    final repository = _DeferredSourceRepository();
-    final cubit = PlayerSourceCubit(
-      magnet: 'magnet:?xt=urn:btih:test-source',
-      repository: repository,
-    );
-
-    unawaited(cubit.loadSource());
-    var isCancelled = false;
-    unawaited(repository.cancellations.single!.then((_) => isCancelled = true));
-
-    await cubit.close();
-    await Future<void>.delayed(Duration.zero);
-
-    expect(isCancelled, isTrue);
-  });
-
-  test('loading again cancels the preparation it replaces', () async {
-    final repository = _DeferredSourceRepository();
-    final cubit = PlayerSourceCubit(
-      magnet: 'magnet:?xt=urn:btih:test-source',
-      repository: repository,
-    );
-
-    unawaited(cubit.loadSource());
-    var firstCancelled = false;
-    unawaited(
-      repository.cancellations.single!.then((_) => firstCancelled = true),
-    );
-
-    unawaited(cubit.loadSource());
-    await Future<void>.delayed(Duration.zero);
-
-    expect(firstCancelled, isTrue);
-    expect(repository.cancellations, hasLength(2));
-    await cubit.close();
-  });
-}
-
-class _PreparedSourceRepository extends StubPlayerRepository {
-  _PreparedSourceRepository(this.preparedSource);
-
-  final PreparedPlayerSource preparedSource;
-  int preparations = 0;
-
-  @override
-  Future<PreparedPlayerSource> prepareSource({
-    required String magnet,
-    Future<void>? cancelled,
-  }) async {
-    preparations++;
-    return preparedSource;
   }
 }
 
-class _UnsupportedSourceRepository extends StubPlayerRepository {
-  @override
-  Future<PreparedPlayerSource> prepareSource({
-    required String magnet,
-    Future<void>? cancelled,
-  }) async {
-    throw const NoPlayableVideoException();
-  }
-}
+class _DelayedDownloads extends ReleaseDownloadsFixture {
+  _DelayedDownloads() : super(files: []);
 
-class _DeferredSourceRepository extends StubPlayerRepository {
-  final Completer<PreparedPlayerSource> _prepareCompleter =
-      Completer<PreparedPlayerSource>();
-  final List<Future<void>?> cancellations = [];
-
-  void completeWith(PreparedPlayerSource preparedSource) {
-    if (!_prepareCompleter.isCompleted) {
-      _prepareCompleter.complete(preparedSource);
-    }
-  }
-
-  void completeWithError(Object error) {
-    if (!_prepareCompleter.isCompleted) {
-      _prepareCompleter.completeError(error);
-    }
-  }
+  final cancellations = <Future<void>>[];
+  final results = <Completer<PreparedDownloadSource>>[];
 
   @override
-  Future<PreparedPlayerSource> prepareSource({
+  Future<PreparedDownloadSource> prepareSource({
     required String magnet,
     Future<void>? cancelled,
   }) {
-    cancellations.add(cancelled);
-    return _prepareCompleter.future;
+    cancellations.add(cancelled!);
+    final result = Completer<PreparedDownloadSource>();
+    results.add(result);
+    return result.future;
   }
 }

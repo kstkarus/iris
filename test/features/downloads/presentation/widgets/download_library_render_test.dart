@@ -21,9 +21,10 @@ import 'package:iris/features/downloads/domain/entities/download_title.dart';
 import 'package:iris/features/downloads/data/repositories/mock_downloads_repository.dart';
 import 'package:iris/features/downloads/domain/entities/downloadable_file.dart';
 import 'package:iris/features/downloads/domain/entities/prepared_download_source.dart';
-import 'package:iris/features/downloads/presentation/cubit/download_selection_cubit.dart';
-import 'package:iris/features/downloads/presentation/models/download_selection_args.dart';
-import 'package:iris/features/downloads/presentation/pages/download_selection_page.dart';
+import 'package:iris/features/player/data/repositories/mock_player_repository.dart';
+import 'package:iris/features/player/presentation/cubit/player_source_cubit.dart';
+import 'package:iris/features/player/presentation/models/anime_player_source_args.dart';
+import 'package:iris/features/player/presentation/pages/player_source_page.dart';
 import 'package:iris/entities/watch_progress/domain/watch_progress.dart';
 import 'package:iris/entities/watch_progress/presentation/watch_progress_cubit.dart';
 import 'package:iris/shared/online/online_source_link.dart';
@@ -334,15 +335,18 @@ void main() {
     addTearDown(tester.view.reset);
     debugDefaultTargetPlatformOverride = TargetPlatform.android;
     _textScaler = const TextScaler.linear(2);
-    const args = DownloadSelectionArgs(
+    const args = AnimePlayerSourceArgs(
       animeId: '52991',
       animeTitles: AnimeTitles(name: 'Frieren'),
       sourceTitle: 'AniLibria · Frieren',
       magnet: 'online:anilibria/9542?anime=52991',
     );
     final repository = _SeasonDownloads();
-    final cubit = DownloadSelectionCubit(args: args, repository: repository)
-      ..load();
+    final cubit = PlayerSourceCubit(
+      args: args,
+      downloadsRepository: repository,
+      playerRepository: const MockPlayerRepository(),
+    )..loadSource();
     try {
       await tester.pumpWidget(
         MaterialApp(
@@ -356,16 +360,18 @@ void main() {
           ),
           home: BlocProvider.value(
             value: cubit,
-            child: DownloadSelectionPage(args: args, onWatch: (_) {}),
+            child: PlayerSourcePage(args: args),
           ),
         ),
       );
       await tester.pumpAndSettle();
       await tester.longPress(find.text('01'));
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const Key('download_selection_all')));
+      await tester.tap(find.text('Выбрать', findRichText: true));
       await tester.pumpAndSettle();
-      final download = find.byKey(const Key('download_selected'));
+      await tester.tap(find.text('Выбрать все'));
+      await tester.pumpAndSettle();
+      final download = find.widgetWithText(FilledButton, 'Скачать 3 серии');
       await tester.ensureVisible(download);
       await tester.tap(download);
       await tester.pump();

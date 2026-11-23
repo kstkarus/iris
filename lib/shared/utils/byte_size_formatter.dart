@@ -10,6 +10,7 @@ String formatByteSize(
   AppLocalizations l10n,
   int bytes, {
   bool compact = false,
+  int decimalDigits = 1,
 }) {
   final units = [
     l10n.byteUnitB,
@@ -26,7 +27,7 @@ String formatByteSize(
   final whole = unit < 2 || (compact && value >= 10);
   final number = NumberFormat.decimalPatternDigits(
     locale: l10n.localeName,
-    decimalDigits: whole ? 0 : 1,
+    decimalDigits: whole ? 0 : decimalDigits,
   ).format(value);
   return '$number ${units[unit]}';
 }

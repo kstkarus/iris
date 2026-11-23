@@ -1034,9 +1034,9 @@ void main() {
           ),
         );
 
-        expect(find.text('1080P'), findsOneWidget);
-        expect(find.text('720P'), findsOneWidget);
-        expect(find.text('1440P'), findsNothing);
+        expect(find.text('1080p', findRichText: true), findsOneWidget);
+        expect(find.text('720p', findRichText: true), findsOneWidget);
+        expect(find.text('1440p', findRichText: true), findsNothing);
         expect(tester.takeException(), isNull);
       });
     });

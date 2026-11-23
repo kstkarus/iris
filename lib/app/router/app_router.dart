@@ -46,11 +46,8 @@ import 'package:iris/features/player/domain/downloaded_player_source.dart';
 import 'package:iris/features/downloads/domain/entities/download_title.dart';
 import 'package:iris/features/downloads/presentation/pages/download_title_page.dart';
 import 'package:iris/features/downloads/presentation/cubit/download_manager_cubit.dart';
-import 'package:iris/features/downloads/presentation/cubit/download_selection_cubit.dart';
-import 'package:iris/features/downloads/presentation/models/download_selection_args.dart';
 import 'package:iris/features/downloads/presentation/pages/download_manager_page.dart';
 import 'package:iris/features/downloads/presentation/pages/download_queue_page.dart';
-import 'package:iris/features/downloads/presentation/pages/download_selection_page.dart';
 import 'package:iris/features/online_sources/domain/repositories/online_releases_search.dart';
 import 'package:iris/features/online_sources/presentation/cubit/online_releases_cubit.dart';
 import 'package:iris/features/player/domain/entities/anime_player_source.dart';
@@ -109,13 +106,14 @@ void _openDownloaded(BuildContext context, DownloadTitle title) {
 
 void _downloadMore(BuildContext context, DownloadItem item) {
   context.pushNamed(
-    'torrent-download-files',
-    extra: DownloadSelectionArgs(
+    'torrent-stream-files',
+    extra: AnimePlayerSourceArgs(
       animeId: item.animeId,
       animeTitles: item.animeTitles,
       sourceTitle: item.sourceTitle,
       magnet: item.magnet,
       posterUrl: item.posterUrl,
+      initialDownloadMode: true,
     ),
   );
 }
@@ -498,7 +496,10 @@ abstract final class AppRouter {
                   )..load(),
                 ),
               ],
-              child: WatchSourcesPage(args: args),
+              child: WatchSourcesPage(
+                args: args,
+                downloadsRepository: serviceLocator<DownloadsRepository>(),
+              ),
             );
           },
         ),
@@ -546,35 +547,8 @@ abstract final class AppRouter {
             );
           },
         ),
-        // Torrent routes take a magnet, not a catalog title: they serve both
-        // catalog sources and the user's saved torrents. The file picker
-        // also takes an online release's link in place of a magnet.
-        GoRoute(
-          path: '/torrent/download',
-          name: 'torrent-download-files',
-          builder: (context, state) {
-            final args = state.extra;
-            if (args is! DownloadSelectionArgs || args.magnet.trim().isEmpty) {
-              _reportInvalidRouteArgs(
-                routeName: 'torrent-download-files',
-                extra: state.extra,
-              );
-              return const _InvalidRoutePage();
-            }
-
-            return BlocProvider(
-              create: (_) => DownloadSelectionCubit(
-                args: args,
-                repository: serviceLocator<DownloadsRepository>(),
-                qualityPreferences: serviceLocator<OnlineQualityPreferences>(),
-              )..load(),
-              child: DownloadSelectionPage(
-                args: args,
-                onWatch: (item) => _watchDownload(context, item),
-              ),
-            );
-          },
-        ),
+        // The release link identifies an online source or a torrent, including
+        // the user's saved torrents without a catalog title.
         GoRoute(
           path: '/torrent/watch',
           name: 'torrent-stream-files',
@@ -590,12 +564,10 @@ abstract final class AppRouter {
 
             final page = BlocProvider(
               create: (_) => PlayerSourceCubit(
-                magnet: args.magnet,
-                animeId: args.animeId,
-                repository: serviceLocator<PlayerRepository>(),
+                args: args,
+                playerRepository: serviceLocator<PlayerRepository>(),
                 downloadsRepository: serviceLocator<DownloadsRepository>(),
-                preferDownloads: args.preferDownloads,
-                preferredFileIndex: args.autoOpenFileIndex,
+                qualityPreferences: serviceLocator<OnlineQualityPreferences>(),
               )..loadSource(),
               child: PlayerSourcePage(args: args),
             );
@@ -640,7 +612,9 @@ abstract final class AppRouter {
                   create: (context) {
                     final cubit = PlayerCubit(
                       source: args.source,
-                      repository: serviceLocator<PlayerRepository>(),
+                      repository: args.playFromRelease
+                          ? createReleasePlayerRepository(args.source.magnet)
+                          : serviceLocator<PlayerRepository>(),
                       engine: viewportFactory.createEngine(
                         subtitlePreferences: context
                             .read<PlayerSubtitlePreferencesCubit>(),

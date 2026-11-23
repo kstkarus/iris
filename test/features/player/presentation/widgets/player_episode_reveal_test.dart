@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:iris/features/player/domain/entities/player_video_file.dart';
+import 'package:iris/features/player/presentation/cubit/player_source_state.dart';
 import 'package:iris/features/player/presentation/widgets/player_episode_cards.dart';
 import 'package:iris/features/player/presentation/widgets/player_episode_grid.dart';
 import 'package:iris/features/player/presentation/widgets/player_episodes_list.dart';
@@ -36,13 +37,13 @@ void main() {
         final fileIndex = files[position].index;
         final episodes = switch (layout) {
           _Layout.list => PlayerEpisodesList(
-            files: files,
-            currentFileIndex: fileIndex,
+            source: PlayerSourceReady(files),
+            highlightedFileIndex: fileIndex,
             progressByFile: const {},
             onSelected: (_) {},
           ),
           _Layout.grid => PlayerEpisodeGrid(
-            files: files,
+            source: PlayerSourceReady(files),
             highlightedFileIndex: fileIndex,
             progressByFile: const {},
             listed: const {},

@@ -4,7 +4,6 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:iris/entities/watch_progress/domain/watch_progress.dart';
 import 'package:iris/features/player/domain/entities/player_video_file.dart';
-import 'package:iris/features/player/domain/entities/prepared_player_source.dart';
 import 'package:iris/features/player/presentation/cubit/player_source_cubit.dart';
 import 'package:iris/features/player/presentation/cubit/player_source_state.dart';
 import 'package:iris/features/player/presentation/widgets/player_source_view.dart';
@@ -31,25 +30,20 @@ void main() {
     tester,
   ) async {
     final cubit = FakePlayerSourceCubit(
-      const PlayerSourceReady(
-        PreparedPlayerSource(
-          sessionId: '42',
-          files: [
-            PlayerVideoFile(
-              index: 1,
-              name: 'episode-01 - First.mkv',
-              size: 734003200,
-              extension: 'mkv',
-            ),
-            PlayerVideoFile(
-              index: 2,
-              name: 'episode-02 - Second.mp4',
-              size: 524288000,
-              extension: 'mp4',
-            ),
-          ],
+      const PlayerSourceReady([
+        PlayerVideoFile(
+          index: 1,
+          name: 'episode-01 - First.mkv',
+          size: 734003200,
+          extension: 'mkv',
         ),
-      ),
+        PlayerVideoFile(
+          index: 2,
+          name: 'episode-02 - Second.mp4',
+          size: 524288000,
+          extension: 'mp4',
+        ),
+      ]),
     );
 
     final selected = <int>[];
@@ -57,12 +51,12 @@ void main() {
       _wrap(cubit: cubit, onFileSelected: (file) => selected.add(file.index)),
     );
 
-    expect(find.text('episode-01 - First'), findsOneWidget);
-    expect(find.text('700.0 MB'), findsOneWidget);
-    expect(find.text('episode-02 - Second'), findsOneWidget);
-    expect(find.text('500.0 MB'), findsOneWidget);
+    expect(find.text('First'), findsOneWidget);
+    expect(find.text('700.0 MB', findRichText: true), findsOneWidget);
+    expect(find.text('Second'), findsOneWidget);
+    expect(find.text('500.0 MB', findRichText: true), findsOneWidget);
 
-    await tester.tap(find.text('episode-02 - Second'));
+    await tester.tap(find.text('Second'));
     expect(selected, [2]);
   });
 
@@ -72,31 +66,26 @@ void main() {
     await tester.pumpWidget(
       _wrap(
         cubit: FakePlayerSourceCubit(
-          const PlayerSourceReady(
-            PreparedPlayerSource(
-              sessionId: 'online:anilibria/9542',
-              files: [
-                PlayerVideoFile(
-                  index: 0,
-                  name: '01 «Конец приключений»',
-                  size: 0,
-                  extension: '',
-                  episodeNumber: 1,
-                  title: '«Конец приключений»',
-                  duration: Duration(minutes: 25, seconds: 50),
-                ),
-                PlayerVideoFile(
-                  index: 1,
-                  name: '02 «Дело-то вовсе не в магии!»',
-                  size: 0,
-                  extension: '',
-                  episodeNumber: 2,
-                  title: '«Дело-то вовсе не в магии!»',
-                  duration: Duration(minutes: 26),
-                ),
-              ],
+          const PlayerSourceReady([
+            PlayerVideoFile(
+              index: 0,
+              name: '01 «Конец приключений»',
+              size: 0,
+              extension: '',
+              episodeNumber: 1,
+              title: '«Конец приключений»',
+              duration: Duration(minutes: 25, seconds: 50),
             ),
-          ),
+            PlayerVideoFile(
+              index: 1,
+              name: '02 «Дело-то вовсе не в магии!»',
+              size: 0,
+              extension: '',
+              episodeNumber: 2,
+              title: '«Дело-то вовсе не в магии!»',
+              duration: Duration(minutes: 26),
+            ),
+          ]),
         ),
       ),
     );
@@ -106,7 +95,7 @@ void main() {
     expect(find.text('«Дело-то вовсе не в магии!»'), findsOneWidget);
     // The name history keeps is not repeated under the title.
     expect(find.text('01 «Конец приключений»'), findsNothing);
-    expect(find.text('26 min'), findsNWidgets(2));
+    expect(find.text('26 min', findRichText: true), findsNWidgets(2));
     expect(find.text('0 B'), findsNothing);
   });
 
@@ -116,27 +105,22 @@ void main() {
     await tester.pumpWidget(
       _wrap(
         cubit: FakePlayerSourceCubit(
-          const PlayerSourceReady(
-            PreparedPlayerSource(
-              sessionId: 'online:yummy_anime/10661:AniDUB',
-              files: [
-                PlayerVideoFile(
-                  index: 1,
-                  name: '1',
-                  size: 0,
-                  extension: '',
-                  episodeNumber: 1,
-                ),
-                PlayerVideoFile(
-                  index: 100050,
-                  name: '0.5',
-                  size: 0,
-                  extension: '',
-                  episodeNumber: 0.5,
-                ),
-              ],
+          const PlayerSourceReady([
+            PlayerVideoFile(
+              index: 1,
+              name: '1',
+              size: 0,
+              extension: '',
+              episodeNumber: 1,
             ),
-          ),
+            PlayerVideoFile(
+              index: 100050,
+              name: '0.5',
+              size: 0,
+              extension: '',
+              episodeNumber: 0.5,
+            ),
+          ]),
         ),
       ),
     );
@@ -167,11 +151,7 @@ void main() {
     final selected = <int>[];
     await tester.pumpWidget(
       _wrap(
-        cubit: FakePlayerSourceCubit(
-          const PlayerSourceReady(
-            PreparedPlayerSource(sessionId: '42', files: _episodes),
-          ),
-        ),
+        cubit: FakePlayerSourceCubit(const PlayerSourceReady(_episodes)),
         progressByFile: {2: _progress(2, 300)},
         onFileSelected: (file) => selected.add(file.index),
       ),
@@ -179,7 +159,10 @@ void main() {
 
     // The Continue card keeps the time; the grid tile shows its progress bar.
     expect(find.widgetWithText(FilledButton, 'Continue'), findsOneWidget);
-    expect(find.text('Stopped at 5:00 of 24:00'), findsOneWidget);
+    expect(
+      find.text('Stopped at 5:00 of 24:00', findRichText: true),
+      findsOneWidget,
+    );
 
     await tester.tap(find.byKey(PlayerSourceView.continueButtonKey));
     expect(selected, [2]);
@@ -189,11 +172,7 @@ void main() {
     final selected = <int>[];
     await tester.pumpWidget(
       _wrap(
-        cubit: FakePlayerSourceCubit(
-          const PlayerSourceReady(
-            PreparedPlayerSource(sessionId: '42', files: _episodes),
-          ),
-        ),
+        cubit: FakePlayerSourceCubit(const PlayerSourceReady(_episodes)),
         progressByFile: {1: _progress(1, 1400)},
         onFileSelected: (file) => selected.add(file.index),
       ),
@@ -214,11 +193,7 @@ void main() {
   ) async {
     await tester.pumpWidget(
       _wrap(
-        cubit: FakePlayerSourceCubit(
-          const PlayerSourceReady(
-            PreparedPlayerSource(sessionId: '42', files: _online),
-          ),
-        ),
+        cubit: FakePlayerSourceCubit(const PlayerSourceReady(_online)),
         progressByFile: {1: _progress(1, 1400)},
         isOnline: true,
       ),
@@ -234,11 +209,7 @@ void main() {
   ) async {
     await tester.pumpWidget(
       _wrap(
-        cubit: FakePlayerSourceCubit(
-          const PlayerSourceReady(
-            PreparedPlayerSource(sessionId: '42', files: _online),
-          ),
-        ),
+        cubit: FakePlayerSourceCubit(const PlayerSourceReady(_online)),
         listedEpisodes: 2,
         isOnline: true,
       ),
@@ -254,11 +225,7 @@ void main() {
   testWidgets('progress here shows over the list mark', (tester) async {
     await tester.pumpWidget(
       _wrap(
-        cubit: FakePlayerSourceCubit(
-          const PlayerSourceReady(
-            PreparedPlayerSource(sessionId: '42', files: _online),
-          ),
-        ),
+        cubit: FakePlayerSourceCubit(const PlayerSourceReady(_online)),
         progressByFile: {2: _progress(2, 600, minute: 5)},
         listedEpisodes: 2,
         isOnline: true,
@@ -267,7 +234,10 @@ void main() {
 
     expect(_watchedMarks, findsOneWidget);
     expect(find.widgetWithText(FilledButton, 'Continue'), findsOneWidget);
-    expect(find.text('Stopped at 10:00 of 24:00'), findsWidgets);
+    expect(
+      find.text('Stopped at 10:00 of 24:00', findRichText: true),
+      findsWidgets,
+    );
   });
 
   testWidgets('unnamed episodes use a grid and keep progress and replay', (
@@ -277,29 +247,24 @@ void main() {
     await tester.pumpWidget(
       _wrap(
         cubit: FakePlayerSourceCubit(
-          PlayerSourceReady(
-            PreparedPlayerSource(
-              sessionId: 'online:test',
-              files: [
-                for (var number = 1; number <= 3; number++)
-                  PlayerVideoFile(
-                    index: number,
-                    name: '$number',
-                    size: 0,
-                    extension: 'm3u8',
-                    episodeNumber: number,
-                    title: 'Серия $number',
-                  ),
-                const PlayerVideoFile(
-                  index: 10,
-                  name: '12.5',
-                  size: 0,
-                  extension: 'm3u8',
-                  episodeNumber: 12.5,
-                ),
-              ],
+          PlayerSourceReady([
+            for (var number = 1; number <= 3; number++)
+              PlayerVideoFile(
+                index: number,
+                name: '$number',
+                size: 0,
+                extension: 'm3u8',
+                episodeNumber: number,
+                title: 'Серия $number',
+              ),
+            const PlayerVideoFile(
+              index: 10,
+              name: '12.5',
+              size: 0,
+              extension: 'm3u8',
+              episodeNumber: 12.5,
             ),
-          ),
+          ]),
         ),
         isOnline: true,
         listedEpisodes: 2,

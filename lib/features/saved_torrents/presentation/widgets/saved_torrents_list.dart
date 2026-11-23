@@ -26,22 +26,12 @@ import 'package:iris/shared/widgets/pixel_separated_text.dart';
 import 'package:iris/shared/widgets/row_menu_button.dart';
 import 'package:iris/shared/widgets/segmented_bar.dart';
 
-/// Opens a torrent for watching; [autoOpenFileIndex] continues a file.
-typedef SavedTorrentWatchCallback =
-    void Function(SavedTorrent torrent, {int? autoOpenFileIndex});
-
 /// The torrents the user added to an anime, most recently used first. Rows
 /// added or deleted while the list shows come and go cell by cell.
 class SavedTorrentsList extends StatelessWidget {
-  const SavedTorrentsList({
-    required this.onWatch,
-    required this.onDownload,
-    this.onEmptied,
-    super.key,
-  });
+  const SavedTorrentsList({required this.onWatch, this.onEmptied, super.key});
 
-  final SavedTorrentWatchCallback onWatch;
-  final ValueChanged<SavedTorrent> onDownload;
+  final ValueChanged<SavedTorrent> onWatch;
   final VoidCallback? onEmptied;
 
   @override
@@ -75,15 +65,7 @@ class SavedTorrentsList extends StatelessWidget {
                   progress: progress,
                   highlighted: torrent.infoHash == state.highlightedInfoHash,
                   wide: wide,
-                  // A finished file opens the picker, which offers the
-                  // next one.
-                  onWatch: () => onWatch(
-                    torrent,
-                    autoOpenFileIndex: progress == null || progress.isFinished
-                        ? null
-                        : progress.fileIndex,
-                  ),
-                  onDownload: () => onDownload(torrent),
+                  onWatch: () => onWatch(torrent),
                 ),
               ),
             );
@@ -94,7 +76,7 @@ class SavedTorrentsList extends StatelessWidget {
   }
 }
 
-/// One saved torrent. The row itself watches (or continues) it; the rarer
+/// One saved torrent. The row opens its release; the rarer
 /// actions sit in its menu, which a long press or a right click also opens.
 /// The Delete key deletes it, as the menu does.
 class _TorrentRow extends StatefulWidget {
@@ -104,7 +86,6 @@ class _TorrentRow extends StatefulWidget {
     required this.highlighted,
     required this.wide,
     required this.onWatch,
-    required this.onDownload,
   });
 
   final SavedTorrent torrent;
@@ -117,7 +98,6 @@ class _TorrentRow extends StatefulWidget {
   /// leave the width to the title.
   final bool wide;
   final VoidCallback onWatch;
-  final VoidCallback onDownload;
 
   @override
   State<_TorrentRow> createState() => _TorrentRowState();
@@ -174,7 +154,6 @@ class _TorrentRowState extends State<_TorrentRow> {
             _RowMenu(
               controller: _menu,
               torrent: widget.torrent,
-              onDownload: widget.onDownload,
               onOpenChanged: _setMenuOpen,
             ),
             if (widget.wide)
@@ -308,19 +287,17 @@ class _Status extends StatelessWidget {
   }
 }
 
-enum _MenuAction { download, rename, copyLink, delete }
+enum _MenuAction { rename, copyLink, delete }
 
 class _RowMenu extends StatelessWidget {
   const _RowMenu({
     required this.controller,
     required this.torrent,
-    required this.onDownload,
     required this.onOpenChanged,
   });
 
   final MenuController controller;
   final SavedTorrent torrent;
-  final VoidCallback onDownload;
   final ValueChanged<bool> onOpenChanged;
 
   @override
@@ -336,7 +313,6 @@ class _RowMenu extends StatelessWidget {
       tooltip: l10n.commonMoreActions,
       onOpenChanged: onOpenChanged,
       menuChildren: [
-        item(_MenuAction.download, l10n.downloadsOpenButton),
         item(_MenuAction.rename, asksForMore(l10n.savedTorrentsRename)),
         item(_MenuAction.copyLink, l10n.savedTorrentsCopyLink),
         // Apart from the rest, so it is not hit on the way to them.
@@ -351,8 +327,6 @@ class _RowMenu extends StatelessWidget {
     final messenger = ScaffoldMessenger.of(context);
     final l10n = AppLocalizations.of(context);
     switch (action) {
-      case _MenuAction.download:
-        onDownload();
       case _MenuAction.rename:
         final title = await showRenameSavedTorrentDialog(
           context: context,

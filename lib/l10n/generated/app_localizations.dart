@@ -323,26 +323,8 @@ abstract class AppLocalizations {
   /// No description provided for @downloadSelectionTitle.
   ///
   /// In en, this message translates to:
-  /// **'Download a file'**
+  /// **'Download files'**
   String get downloadSelectionTitle;
-
-  /// No description provided for @downloadSelectionPreparing.
-  ///
-  /// In en, this message translates to:
-  /// **'Loading torrent file list'**
-  String get downloadSelectionPreparing;
-
-  /// No description provided for @downloadSelectionUnsupported.
-  ///
-  /// In en, this message translates to:
-  /// **'This source has no supported video files.'**
-  String get downloadSelectionUnsupported;
-
-  /// No description provided for @downloadSelectionUnableToPrepare.
-  ///
-  /// In en, this message translates to:
-  /// **'Unable to load files from this source.'**
-  String get downloadSelectionUnableToPrepare;
 
   /// No description provided for @downloadUnableToQueue.
   ///
@@ -2774,12 +2756,6 @@ abstract class AppLocalizations {
   /// **'Download episodes'**
   String get downloadSelectionEpisodeTitle;
 
-  /// No description provided for @downloadSelectionPreparingEpisodes.
-  ///
-  /// In en, this message translates to:
-  /// **'Loading the episode list'**
-  String get downloadSelectionPreparingEpisodes;
-
   /// No description provided for @downloadFailedConnectionLost.
   ///
   /// In en, this message translates to:
@@ -3061,6 +3037,84 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Deselect all'**
   String get downloadDeselectAll;
+
+  /// No description provided for @playerSourceSelectedCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} selected'**
+  String playerSourceSelectedCount(int count);
+
+  /// No description provided for @playerSourceNextEpisodes.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, one{Next episode} other{Next {count} episodes}}'**
+  String playerSourceNextEpisodes(int count);
+
+  /// No description provided for @playerSourceNextFiles.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, one{Next file} other{Next {count} files}}'**
+  String playerSourceNextFiles(int count);
+
+  /// No description provided for @playerSourceAllUnwatched.
+  ///
+  /// In en, this message translates to:
+  /// **'Unwatched'**
+  String get playerSourceAllUnwatched;
+
+  /// No description provided for @playerSourceDownloadQuality.
+  ///
+  /// In en, this message translates to:
+  /// **'Download quality'**
+  String get playerSourceDownloadQuality;
+
+  /// No description provided for @playerSourceDownloaded.
+  ///
+  /// In en, this message translates to:
+  /// **'Downloaded'**
+  String get playerSourceDownloaded;
+
+  /// No description provided for @playerSourceDownloadedCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} downloaded'**
+  String playerSourceDownloadedCount(int count);
+
+  /// No description provided for @playerSourceOpenDownloads.
+  ///
+  /// In en, this message translates to:
+  /// **'Go to Downloads'**
+  String get playerSourceOpenDownloads;
+
+  /// No description provided for @playerSourceQueueFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn’t add to the queue. Try again.'**
+  String get playerSourceQueueFailed;
+
+  /// No description provided for @playerSourceWatchAgain.
+  ///
+  /// In en, this message translates to:
+  /// **'Watch again'**
+  String get playerSourceWatchAgain;
+
+  /// No description provided for @playerSourceUnwatched.
+  ///
+  /// In en, this message translates to:
+  /// **'Unwatched'**
+  String get playerSourceUnwatched;
+
+  /// No description provided for @playerSourceEpisodeLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Episode {number}'**
+  String playerSourceEpisodeLabel(String number);
+
+  /// No description provided for @playerSourceFileLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'File {number}'**
+  String playerSourceFileLabel(String number);
 
   /// No description provided for @downloadSelectedEpisodes.
   ///

@@ -7,7 +7,7 @@ import 'package:iris/app/di/service_locator.dart';
 import 'package:iris/entities/user_rate/domain/user_rate.dart';
 import 'package:iris/entities/user_rate/domain/user_rate_repository.dart';
 import 'package:iris/features/player/presentation/cubit/player_cubit.dart';
-import 'package:iris/features/downloads/presentation/pages/download_selection_page.dart';
+import 'package:iris/features/player/presentation/pages/player_source_page.dart';
 
 import 'helpers/mock_app.dart';
 
@@ -47,21 +47,24 @@ void main() {
     await tester.pump();
     await _openWatchSources(tester);
 
-    await _tapVisible(tester, find.byKey(_sourceDownloadButton).last);
-    await pumpUntilVisible(tester, find.text('Download a file'));
+    await _tapVisible(tester, find.byKey(_sourceRow).last);
+    await pumpUntilVisible(tester, find.byKey(_firstEpisode));
     await tester.pumpAndSettle();
-    expect(find.text('episode-01'), findsOneWidget);
 
-    await tester.tap(find.byTooltip('Download').first);
-    // The picker stays, and the file shows its download there.
-    await pumpUntilVisible(
+    await tester.longPress(find.byKey(_firstEpisode));
+    await tester.pumpAndSettle();
+    await _tapVisible(
       tester,
-      find.byKey(const ValueKey('download_file_watch_0')),
+      find.widgetWithText(FilledButton, 'Download 1 file · 700.00 MB'),
     );
-    expect(find.text('Download a file'), findsOneWidget);
+    await tester.pumpAndSettle();
+    expect(
+      find.bySemanticsLabel(RegExp(r'File 01, .*Downloaded')),
+      findsOneWidget,
+    );
 
     GoRouter.of(
-      tester.element(find.byType(DownloadSelectionPage)),
+      tester.element(find.byType(PlayerSourcePage)),
     ).goNamed('downloads');
     await pumpUntilVisible(
       tester,
@@ -125,6 +128,9 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('player_back_button')));
     await tester.pumpAndSettle();
+    expect(find.widgetWithText(FilledButton, 'Continue'), findsOneWidget);
+    await tester.pageBack();
+    await tester.pumpAndSettle();
     expect(
       find.descendant(
         of: find.byKey(const Key('saved_torrent_watch_button')),
@@ -184,7 +190,8 @@ void main() {
 }
 
 final _playerSurface = find.byKey(const Key('mock_player_surface'));
-const _sourceDownloadButton = Key('watch_source_download_button');
+const _sourceRow = Key('watch_source_watch_button');
+const _firstEpisode = ValueKey('player_episode_0');
 
 Future<void> _tapVisible(WidgetTester tester, Finder finder) async {
   await tester.ensureVisible(finder);

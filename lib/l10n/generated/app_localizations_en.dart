@@ -130,18 +130,7 @@ class AppLocalizationsEn extends AppLocalizations {
       'Download episodes from an anime’s page to watch offline.';
 
   @override
-  String get downloadSelectionTitle => 'Download a file';
-
-  @override
-  String get downloadSelectionPreparing => 'Loading torrent file list';
-
-  @override
-  String get downloadSelectionUnsupported =>
-      'This source has no supported video files.';
-
-  @override
-  String get downloadSelectionUnableToPrepare =>
-      'Unable to load files from this source.';
+  String get downloadSelectionTitle => 'Download files';
 
   @override
   String get downloadUnableToQueue =>
@@ -1558,9 +1547,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get downloadSelectionEpisodeTitle => 'Download episodes';
 
   @override
-  String get downloadSelectionPreparingEpisodes => 'Loading the episode list';
-
-  @override
   String get downloadFailedConnectionLost =>
       'The video server stopped answering. Try again to pick up where it stopped.';
 
@@ -1767,6 +1753,69 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get downloadDeselectAll => 'Deselect all';
+
+  @override
+  String playerSourceSelectedCount(int count) {
+    return '$count selected';
+  }
+
+  @override
+  String playerSourceNextEpisodes(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Next $count episodes',
+      one: 'Next episode',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String playerSourceNextFiles(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Next $count files',
+      one: 'Next file',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get playerSourceAllUnwatched => 'Unwatched';
+
+  @override
+  String get playerSourceDownloadQuality => 'Download quality';
+
+  @override
+  String get playerSourceDownloaded => 'Downloaded';
+
+  @override
+  String playerSourceDownloadedCount(int count) {
+    return '$count downloaded';
+  }
+
+  @override
+  String get playerSourceOpenDownloads => 'Go to Downloads';
+
+  @override
+  String get playerSourceQueueFailed => 'Couldn’t add to the queue. Try again.';
+
+  @override
+  String get playerSourceWatchAgain => 'Watch again';
+
+  @override
+  String get playerSourceUnwatched => 'Unwatched';
+
+  @override
+  String playerSourceEpisodeLabel(String number) {
+    return 'Episode $number';
+  }
+
+  @override
+  String playerSourceFileLabel(String number) {
+    return 'File $number';
+  }
 
   @override
   String downloadSelectedEpisodes(int count) {

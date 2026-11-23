@@ -10,7 +10,7 @@ import 'package:haptic_feedback/haptic_feedback.dart';
 import 'package:iris/app/router/app_shell_page.dart';
 import 'package:iris/app/di/service_locator.dart';
 import 'package:iris/features/downloads/domain/repositories/downloads_repository.dart';
-import 'package:iris/features/downloads/presentation/pages/download_selection_page.dart';
+import 'package:iris/features/player/presentation/pages/player_source_page.dart';
 import 'package:iris/features/downloads/presentation/widgets/download_queue.dart';
 import 'package:iris/features/anime_list/presentation/bloc/anime_list_bloc.dart';
 import 'package:iris/features/anime_list/domain/entities/anime_list_query.dart';
@@ -34,7 +34,6 @@ Future<void> _tapAndSettle(WidgetTester tester, Finder finder) async {
 }
 
 const _sourceWatchButton = Key('watch_source_watch_button');
-const _sourceDownloadButton = Key('watch_source_download_button');
 const _firstPlayerEpisode = ValueKey('player_episode_0');
 
 Future<void> _openWatchSources(WidgetTester tester) async {
@@ -337,24 +336,25 @@ void main() {
       await _openWatchSources(tester);
       expect(tester.takeException(), isNull);
 
-      await _tapAndSettle(tester, find.byKey(_sourceDownloadButton).first);
-      await pumpUntilVisible(
-        tester,
-        find.byKey(const ValueKey('download_file_button_0')),
-      );
+      await _tapAndSettle(tester, find.byKey(_sourceWatchButton).first);
+      await pumpUntilVisible(tester, find.byKey(_firstPlayerEpisode));
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
 
-      await _tapAndSettle(tester, find.byTooltip('Download').first);
-      // The picker stays, its row done, at every width.
-      await pumpUntilVisible(
+      await tester.longPress(find.byKey(_firstPlayerEpisode));
+      await tester.pumpAndSettle();
+      await _tapAndSettle(
         tester,
-        find.byKey(const ValueKey('download_file_watch_0')),
+        find.widgetWithText(FilledButton, 'Download 1 file · 700.00 MB'),
+      );
+      expect(
+        find.bySemanticsLabel('File 01, Unwatched, Downloaded'),
+        findsOneWidget,
       );
       expect(tester.takeException(), isNull);
 
       GoRouter.of(
-        tester.element(find.byType(DownloadSelectionPage)),
+        tester.element(find.byType(PlayerSourcePage)),
       ).goNamed('downloads');
       await pumpUntilVisible(
         tester,

@@ -4,7 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import 'package:iris/entities/anime/domain/anime_titles.dart';
 import 'package:iris/entities/watch_progress/presentation/watch_progress_cubit.dart';
-import 'package:iris/features/downloads/presentation/models/download_selection_args.dart';
+import 'package:iris/features/downloads/domain/entities/download_title.dart';
 import 'package:iris/features/online_sources/domain/entities/online_provider.dart';
 import 'package:iris/features/online_sources/domain/entities/online_release.dart';
 import 'package:iris/features/online_sources/presentation/cubit/online_releases_cubit.dart';
@@ -25,9 +25,7 @@ import 'package:iris/shared/widgets/status_views.dart';
 import 'package:iris/shared/widgets/tap_row.dart';
 
 /// The anime's releases on video servers, one row per dub, the dubs the
-/// user watched from first. A row opens the release's episodes in the
-/// file picker, and its download button in the download picker, as a
-/// torrent row does.
+/// user watched from first. Each row opens the release's episodes.
 ///
 /// Rows come as the servers answer, updating the same list after its first
 /// reveal. While a server is still searching a noise row waits at the end.
@@ -37,6 +35,7 @@ class OnlineReleasesList extends StatelessWidget {
     required this.animeId,
     required this.animeTitles,
     this.posterUrl = '',
+    this.downloadedCounts = const {},
     super.key,
   });
 
@@ -50,6 +49,7 @@ class OnlineReleasesList extends StatelessWidget {
 
   final AnimeTitles animeTitles;
   final String posterUrl;
+  final Map<String, int> downloadedCounts;
 
   @override
   Widget build(BuildContext context) {
@@ -119,8 +119,9 @@ class OnlineReleasesList extends StatelessWidget {
             _ReleaseItem(:final release, :final watched) => _ReleaseRow(
               release: release,
               watched: watched,
+              downloadedCount:
+                  downloadedCounts[downloadSourceKey(_link(release))] ?? 0,
               onTap: () => _open(context, release),
-              onDownload: () => _download(context, release),
             ),
             _StandInItem() => const _StandInRow(),
           },
@@ -159,18 +160,6 @@ class OnlineReleasesList extends StatelessWidget {
     context.pushNamed(
       'torrent-stream-files',
       extra: AnimePlayerSourceArgs(
-        animeId: animeId,
-        animeTitles: animeTitles,
-        sourceTitle: release.dub,
-        magnet: _link(release),
-      ),
-    );
-  }
-
-  void _download(BuildContext context, OnlineRelease release) {
-    context.pushNamed(
-      'torrent-download-files',
-      extra: DownloadSelectionArgs(
         animeId: animeId,
         animeTitles: animeTitles,
         sourceTitle: release.dub,
@@ -224,8 +213,8 @@ class _StandInRow extends StatelessWidget {
       child: _ReleaseRow(
         release: _standIn,
         watched: false,
+        downloadedCount: 0,
         onTap: () {},
-        onDownload: () {},
       ),
     );
   }
@@ -235,16 +224,16 @@ class _ReleaseRow extends StatelessWidget {
   const _ReleaseRow({
     required this.release,
     required this.watched,
+    required this.downloadedCount,
     required this.onTap,
-    required this.onDownload,
   });
 
   final OnlineRelease release;
 
   /// The user watched from this dub before.
   final bool watched;
+  final int downloadedCount;
   final VoidCallback onTap;
-  final VoidCallback onDownload;
 
   @override
   Widget build(BuildContext context) {
@@ -252,12 +241,17 @@ class _ReleaseRow extends StatelessWidget {
     final l10n = AppLocalizations.of(context);
     final count = release.episodes.length;
     final quality = release.bestQuality;
+    final facts = [
+      if (count > 0) l10n.animeEpisodeCount('$count', count),
+      if (downloadedCount > 0)
+        l10n.playerSourceDownloadedCount(downloadedCount),
+    ];
 
     return TapRow(
       inkKey: ValueKey('online_release_${release.provider.name}_${release.id}'),
       onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(14, 12, 4, 12),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         child: Row(
           children: [
             Expanded(
@@ -278,12 +272,11 @@ class _ReleaseRow extends StatelessWidget {
                     runSpacing: 4,
                     crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
-                      if (watched || count > 0)
+                      if (watched || facts.isNotEmpty)
                         SourceFactsLine(
                           watched: watched,
-                          facts: count > 0
-                              ? l10n.animeEpisodeCount('$count', count)
-                              : null,
+                          facts: facts.isEmpty ? null : facts.join(' · '),
+                          cleanLineWrap: true,
                         ),
                       if (quality != null && quality > 0)
                         QualityBadge(
@@ -294,14 +287,11 @@ class _ReleaseRow extends StatelessWidget {
                 ],
               ),
             ),
-            const SizedBox(width: 8),
-            IconButton(
-              key: ValueKey(
-                'online_release_download_${release.provider.name}_${release.id}',
-              ),
-              tooltip: l10n.downloadsOpenButton,
-              icon: const PixelIcon(PixelGlyph.download, size: 18),
-              onPressed: onDownload,
+            const SizedBox(width: 12),
+            PixelIcon(
+              PixelGlyph.arrowRight,
+              size: 14,
+              color: theme.colorScheme.onSurfaceVariant,
             ),
           ],
         ),

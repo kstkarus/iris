@@ -7,8 +7,10 @@ class AnimePlayerSourceArgs {
     required this.animeTitles,
     required this.sourceTitle,
     required this.magnet,
+    this.posterUrl = '',
     this.autoOpenFileIndex,
     this.preferDownloads = false,
+    this.initialDownloadMode = false,
   });
 
   /// Back to the torrent of [progress]; a finished file opens the picker,
@@ -27,10 +29,13 @@ class AnimePlayerSourceArgs {
   final AnimeTitles animeTitles;
   final String sourceTitle;
   final String magnet;
+  final String posterUrl;
 
   /// Opens this file right after the torrent is ready ("Continue").
   final int? autoOpenFileIndex;
 
-  /// Resume this release from its completed downloads when available.
+  /// Lets an explicit history jump open a completed file without metadata.
   final bool preferDownloads;
+
+  final bool initialDownloadMode;
 }

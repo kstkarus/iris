@@ -4,7 +4,9 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
-import 'package:iris/features/downloads/presentation/models/download_selection_args.dart';
+import 'package:iris/features/downloads/domain/entities/download_status.dart';
+import 'package:iris/features/downloads/domain/entities/download_title.dart';
+import 'package:iris/features/downloads/domain/repositories/downloads_repository.dart';
 import 'package:iris/features/online_sources/presentation/cubit/online_releases_cubit.dart';
 import 'package:iris/features/online_sources/presentation/cubit/online_releases_state.dart';
 import 'package:iris/features/online_sources/presentation/widgets/online_releases_list.dart';
@@ -24,6 +26,7 @@ import 'package:iris/features/watch_sources/presentation/widgets/watch_sources_v
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/torrent/torrent_file_picker.dart';
 import 'package:iris/shared/utils/desktop_platform.dart';
+import 'package:iris/shared/utils/equality.dart';
 import 'package:iris/shared/widgets/active_layer.dart';
 import 'package:iris/shared/widgets/adaptive/framed_app_bar.dart';
 import 'package:iris/shared/widgets/adaptive/page_frame.dart';
@@ -45,6 +48,7 @@ import 'package:iris/shared/widgets/pixel_icon.dart';
 class WatchSourcesPage extends StatefulWidget {
   const WatchSourcesPage({
     required this.args,
+    this.downloadsRepository,
     this.pickFile = pickTorrentFile,
     super.key,
   });
@@ -52,6 +56,7 @@ class WatchSourcesPage extends StatefulWidget {
   static const addButtonKey = Key('watch_sources_add_torrent_button');
 
   final AnimeWatchSourcesArgs args;
+  final DownloadsRepository? downloadsRepository;
   final TorrentFilePicker pickFile;
 
   @override
@@ -60,6 +65,19 @@ class WatchSourcesPage extends StatefulWidget {
 
 class _WatchSourcesPageState extends State<WatchSourcesPage> {
   bool _keepMineUntilEmpty = false;
+  late final _downloadedCounts = widget.downloadsRepository
+      ?.watchDownloads()
+      .map((items) {
+        final counts = <String, int>{};
+        for (final item in items) {
+          if (item.status == DownloadStatus.completed) {
+            final key = downloadSourceKey(item.magnet);
+            counts.update(key, (count) => count + 1, ifAbsent: () => 1);
+          }
+        }
+        return counts;
+      })
+      .distinct(sameMap);
 
   AnimeWatchSourcesArgs get args => widget.args;
 
@@ -148,43 +166,46 @@ class _WatchSourcesPageState extends State<WatchSourcesPage> {
                   ),
                   // Hidden tabs keep their scroll and the torrent search.
                   Expanded(
-                    child: Stack(
-                      fit: StackFit.expand,
-                      children: [
-                        _TabPane(
-                          active: tab == WatchSourcesTab.online,
-                          child: hasOnline
-                              ? OnlineReleasesList(
-                                  animeId: args.animeId,
-                                  animeTitles: args.animeTitles,
-                                  posterUrl: args.posterUrl,
-                                )
-                              : const SizedBox.shrink(),
-                        ),
-                        _TabPane(
-                          active: tab == WatchSourcesTab.torrents,
-                          child: WatchSourcesView(
-                            onAddTorrent: () => _add(context),
-                            posterUrl: args.posterUrl,
-                          ),
-                        ),
-                        _TabPane(
-                          active: tab == WatchSourcesTab.mine,
-                          child: showMine
-                              ? SavedTorrentsList(
-                                  onEmptied: _onMineEmptied,
-                                  onWatch: (torrent, {autoOpenFileIndex}) =>
-                                      _watch(
-                                        context,
-                                        torrent,
-                                        autoOpenFileIndex,
-                                      ),
-                                  onDownload: (torrent) =>
-                                      _download(context, torrent),
-                                )
-                              : const SizedBox.shrink(),
-                        ),
-                      ],
+                    child: StreamBuilder<Map<String, int>>(
+                      stream: _downloadedCounts,
+                      builder: (context, snapshot) {
+                        final downloadedCounts =
+                            snapshot.data ?? const <String, int>{};
+                        return Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            _TabPane(
+                              active: tab == WatchSourcesTab.online,
+                              child: hasOnline
+                                  ? OnlineReleasesList(
+                                      animeId: args.animeId,
+                                      animeTitles: args.animeTitles,
+                                      posterUrl: args.posterUrl,
+                                      downloadedCounts: downloadedCounts,
+                                    )
+                                  : const SizedBox.shrink(),
+                            ),
+                            _TabPane(
+                              active: tab == WatchSourcesTab.torrents,
+                              child: WatchSourcesView(
+                                onAddTorrent: () => _add(context),
+                                posterUrl: args.posterUrl,
+                                downloadedCounts: downloadedCounts,
+                              ),
+                            ),
+                            _TabPane(
+                              active: tab == WatchSourcesTab.mine,
+                              child: showMine
+                                  ? SavedTorrentsList(
+                                      onEmptied: _onMineEmptied,
+                                      onWatch: (torrent) =>
+                                          _watch(context, torrent),
+                                    )
+                                  : const SizedBox.shrink(),
+                            ),
+                          ],
+                        );
+                      },
                     ),
                   ),
                 ],
@@ -231,7 +252,7 @@ class _WatchSourcesPageState extends State<WatchSourcesPage> {
     }
   }
 
-  void _watch(BuildContext context, SavedTorrent torrent, int? fileIndex) {
+  void _watch(BuildContext context, SavedTorrent torrent) {
     context.read<SavedTorrentsCubit>().markOpened(torrent);
     context.pushNamed(
       'torrent-stream-files',
@@ -240,21 +261,7 @@ class _WatchSourcesPageState extends State<WatchSourcesPage> {
         animeTitles: args.animeTitles,
         sourceTitle: torrent.title,
         magnet: torrent.magnet,
-        autoOpenFileIndex: fileIndex,
-      ),
-    );
-  }
-
-  void _download(BuildContext context, SavedTorrent torrent) {
-    context.read<SavedTorrentsCubit>().markOpened(torrent);
-    context.pushNamed(
-      'torrent-download-files',
-      extra: DownloadSelectionArgs(
-        animeId: args.animeId,
-        animeTitles: args.animeTitles,
         posterUrl: args.posterUrl,
-        sourceTitle: torrent.title,
-        magnet: torrent.magnet,
       ),
     );
   }

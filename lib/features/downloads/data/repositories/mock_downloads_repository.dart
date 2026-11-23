@@ -4,11 +4,13 @@ import 'package:iris/features/downloads/domain/entities/download_item.dart';
 import 'package:iris/features/downloads/domain/entities/download_queue_order.dart';
 import 'package:iris/features/downloads/domain/entities/download_status.dart';
 import 'package:iris/features/downloads/domain/entities/download_storage_usage.dart';
+import 'package:iris/features/downloads/domain/entities/download_title.dart';
 import 'package:iris/features/downloads/domain/entities/downloadable_file.dart';
 import 'package:iris/features/downloads/domain/entities/prepared_download_source.dart';
 import 'package:iris/features/downloads/domain/repositories/downloads_repository.dart';
 
 class MockDownloadsRepository implements DownloadsRepository {
+  static const _sourcePrefix = 'mock-source:';
   final StreamController<List<DownloadItem>> _controller =
       StreamController<List<DownloadItem>>.broadcast();
   final List<DownloadItem> _items = [];
@@ -52,15 +54,24 @@ class MockDownloadsRepository implements DownloadsRepository {
     String posterUrl = '',
     int? quality,
   }) async {
+    final token = source.sourceToken;
+    final magnet = token.startsWith(_sourcePrefix)
+        ? token.substring(_sourcePrefix.length)
+        : 'mock-magnet';
+    final id = magnet == 'mock-magnet'
+        ? 'mock-${file.index}'
+        : 'mock-${downloadSourceKey(magnet)}-${file.index}';
+    final existing = _items.where((item) => item.id == id).firstOrNull;
+    if (existing != null) return existing;
     final item = DownloadItem(
-      id: 'mock-${file.index}',
+      id: id,
       animeId: animeId,
       animeTitle: animeTitle,
       animeRussian: animeRussian,
       animeEnglish: animeEnglish,
       posterUrl: posterUrl,
       sourceTitle: sourceTitle,
-      magnet: 'mock-magnet',
+      magnet: magnet,
       fileIndex: file.index,
       fileName: file.name,
       relativePath: file.relativePath,
@@ -72,6 +83,7 @@ class MockDownloadsRepository implements DownloadsRepository {
       status: DownloadStatus.completed,
       createdAt: DateTime(2026),
       completedAt: DateTime(2026, 1, 2),
+      quality: quality,
     );
     _items.add(item);
     _emit();
@@ -95,14 +107,20 @@ class MockDownloadsRepository implements DownloadsRepository {
     required String magnet,
     Future<void>? cancelled,
   }) async {
-    return const PreparedDownloadSource(
-      sourceToken: 'mock-source',
-      files: [
+    return PreparedDownloadSource(
+      sourceToken: '$_sourcePrefix$magnet',
+      files: const [
         DownloadableFile(
           index: 0,
           name: 'episode-01.mkv',
           relativePath: 'episode-01.mkv',
           size: 734003200,
+        ),
+        DownloadableFile(
+          index: 1,
+          name: 'episode-02.mkv',
+          relativePath: 'episode-02.mkv',
+          size: 754974720,
         ),
       ],
     );
@@ -135,13 +153,16 @@ class MockDownloadsRepository implements DownloadsRepository {
     _emit();
   }
 
-  /// Every mock download is of the one mock source.
   @override
   Stream<Map<int, DownloadItem>> watchSourceDownloads({
     required String magnet,
   }) {
+    final key = downloadSourceKey(magnet);
     return watchDownloads().map(
-      (items) => {for (final item in items) item.fileIndex: item},
+      (items) => {
+        for (final item in items)
+          if (downloadSourceKey(item.magnet) == key) item.fileIndex: item,
+      },
     );
   }
 

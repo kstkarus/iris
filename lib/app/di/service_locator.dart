@@ -72,6 +72,7 @@ import 'package:iris/features/player/data/adapters/player_runtime_memory_adapter
 import 'package:iris/features/player/data/datasources/libtorrent_player_data_source.dart';
 import 'package:iris/features/player/data/repositories/aniskip_skip_times_repository.dart';
 import 'package:iris/features/player/data/repositories/mock_player_repository.dart';
+import 'package:iris/features/player/data/repositories/release_player_repository.dart';
 import 'package:iris/features/player/data/repositories/mock_player_skip_times_repository.dart';
 import 'package:iris/features/player/data/repositories/local_player_repository.dart';
 import 'package:iris/features/player/data/repositories/online_player_repository.dart';
@@ -143,6 +144,13 @@ import 'package:iris/shared/window/screen_brightness_control.dart';
 import 'package:iris/shared/window/windows_fullscreen.dart';
 
 final serviceLocator = GetIt.instance;
+
+PlayerRepository createReleasePlayerRepository(String magnet) =>
+    ReleasePlayerRepository(
+      magnet: magnet,
+      player: serviceLocator<PlayerRepository>(),
+      downloads: serviceLocator<DownloadsRepository>(),
+    );
 
 Future<void> configureDependencies({
   bool useMocks = false,

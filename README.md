@@ -8,7 +8,7 @@ The interface is in English and Russian, with bundled Medeo Mono and Medeo Sans 
 
 - **Catalog.** Popular titles, search, and filters by type, status, genre, season, rating and episode length. Results fill the available window and load more as you scroll. When signed in, covers show the title's status in your list. Applied filters can be removed individually, and search keeps a local history of recent queries.
 - **Title pages.** Details, description, dubs, related titles, characters with their own pages, and the Shikimori friends who have the title in their lists.
-- **Sources.** Online releases from AniLibria, yummy_anime and AnimeJoy, and torrents from Nyaa through a public API mirror. AnimeJoy uses its own player and AllVideo, with Alloha and then Kodik as subtitle fallbacks; access to otakujoy.fun may require a VPN. You can add your own torrent to an anime, as a magnet link or a `.torrent` file.
+- **Sources.** Online releases from AniLibria, yummy_anime and AnimeJoy, and torrents from Nyaa through a public API mirror. Each release lets you watch and download from the same screen. The player uses a completed local copy when it is available. AnimeJoy uses its own player and AllVideo, with Alloha and then Kodik as subtitle fallbacks; access to otakujoy.fun may require a VPN. You can add your own torrent to an anime, as a magnet link or a `.torrent` file.
 - **Player.** mpv through `media_kit`, with the same full-screen controls on every platform:
   - audio selection when multiple tracks are available, controls for separate subtitle tracks, playback speed and decoder choice;
   - a timeline divided by the file's chapters or by the opening and ending;
