@@ -6,38 +6,40 @@ import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:iris/shared/widgets/adaptive/show_app_dialog.dart';
+import 'package:iris/entities/watch_progress/presentation/watch_progress_cubit.dart';
 import 'package:iris/features/downloads/domain/entities/download_item.dart';
 import 'package:iris/features/downloads/domain/entities/download_status.dart';
 import 'package:iris/features/downloads/domain/entities/download_title.dart';
-import 'package:iris/entities/watch_progress/presentation/watch_progress_cubit.dart';
-import 'package:iris/shared/utils/duration_formatter.dart';
-import 'package:iris/shared/online/online_source_link.dart';
 import 'package:iris/features/downloads/presentation/cubit/download_manager_cubit.dart';
 import 'package:iris/features/downloads/presentation/cubit/download_manager_state.dart';
-import 'package:iris/features/downloads/presentation/widgets/download_status_label.dart';
-import 'package:iris/features/downloads/presentation/widgets/download_labels.dart';
 import 'package:iris/features/downloads/presentation/widgets/download_deletion_dialog.dart';
 import 'package:iris/features/downloads/presentation/widgets/download_files.dart';
+import 'package:iris/features/downloads/presentation/widgets/download_labels.dart';
 import 'package:iris/features/downloads/presentation/widgets/download_library_header.dart';
 import 'package:iris/features/downloads/presentation/widgets/download_selection_footer.dart';
+import 'package:iris/features/downloads/presentation/widgets/download_status_label.dart';
+import 'package:iris/features/downloads/presentation/widgets/download_title_widgets.dart';
 import 'package:iris/features/settings/presentation/anime_title_labels.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/haptics/app_haptics.dart';
+import 'package:iris/shared/online/online_source_link.dart';
 import 'package:iris/shared/utils/byte_size_formatter.dart';
 import 'package:iris/shared/utils/desktop_platform.dart';
+import 'package:iris/shared/utils/duration_formatter.dart';
 import 'package:iris/shared/utils/motion_duration.dart';
+import 'package:iris/shared/widgets/adaptive/show_app_dialog.dart';
+import 'package:iris/shared/widgets/adaptive/window_size_class.dart';
 import 'package:iris/shared/widgets/busy_button_child.dart';
+import 'package:iris/shared/widgets/detail_layout.dart';
+import 'package:iris/shared/widgets/dither_list.dart';
 import 'package:iris/shared/widgets/dither_switcher.dart';
-import 'package:iris/features/downloads/presentation/widgets/download_title_widgets.dart';
 import 'package:iris/shared/widgets/focusable_list_row.dart';
-import 'package:iris/shared/widgets/pixel_separated_text.dart';
 import 'package:iris/shared/widgets/pixel_icon.dart';
+import 'package:iris/shared/widgets/pixel_separated_text.dart';
 import 'package:iris/shared/widgets/quality_badge.dart';
 import 'package:iris/shared/widgets/row_menu_button.dart';
 import 'package:iris/shared/widgets/segmented_bar.dart';
 import 'package:iris/shared/widgets/status_views.dart';
-import 'package:iris/shared/widgets/dither_list.dart';
 
 const _episodeRemovalDuration = Duration(milliseconds: 320);
 
@@ -80,6 +82,10 @@ class _DownloadManagerViewState extends State<DownloadManagerView> {
 
   @override
   Widget build(BuildContext context) {
+    final splitView = WindowSizeClass.of(
+      context,
+    ).isAtLeast(WindowSizeClass.expanded);
+    final scheme = Theme.of(context).colorScheme;
     return BlocBuilder<DownloadManagerCubit, DownloadManagerState>(
       builder: (context, state) {
         final l10n = AppLocalizations.of(context);
@@ -113,20 +119,21 @@ class _DownloadManagerViewState extends State<DownloadManagerView> {
         }
         if (placeholder != null) {
           _hadGalleryTitles = false;
-        } else if (!isDesktopPlatform && titles.isNotEmpty) {
+        } else if (!splitView && titles.isNotEmpty) {
           _hadGalleryTitles = true;
         }
         final holdGallery =
-            !isDesktopPlatform &&
+            !splitView &&
             titles.isEmpty &&
             _hadGalleryTitles &&
             !MediaQuery.disableAnimationsOf(context);
+        final showSplit = splitView && placeholder == null && titles.isNotEmpty;
         final (Object libraryKey, Widget library) = placeholder != null
             ? (placeholderKey!, placeholder)
-            : isDesktopPlatform
+            : splitView
             ? (
-                'desktop',
-                _DesktopLibrary(
+                'split',
+                _SplitLibrary(
                   titles: titles,
                   onWatch: widget.onWatch,
                   onOpenAnime: widget.onOpenAnime,
@@ -144,6 +151,12 @@ class _DownloadManagerViewState extends State<DownloadManagerView> {
                   onEmptied: _galleryEmptied,
                 ),
               );
+        final hasActive = state.downloads.any(
+          (item) => item.status == DownloadStatus.downloading,
+        );
+        final hasFailed = state.downloads.any(
+          (item) => item.status == DownloadStatus.failed,
+        );
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -152,13 +165,23 @@ class _DownloadManagerViewState extends State<DownloadManagerView> {
               showQueue: state.downloads.any(
                 (item) => item.status != DownloadStatus.completed,
               ),
+              hasActive: hasActive,
+              hasFailed: hasFailed,
               onQueue: widget.onOpenQueue,
               onFiles: () async {
                 final title = await showDownloadFiles(context);
                 if (title != null && context.mounted) widget.onOpenTitle(title);
               },
             ),
-            const SizedBox(height: 16),
+            if (showSplit) ...[
+              const SizedBox(height: 12),
+              Divider(
+                height: 1,
+                thickness: 1,
+                color: DetailLayout.ruleColor(scheme),
+              ),
+            ] else
+              const SizedBox(height: 16),
             Expanded(
               child: DitherSwitcher(
                 expand: true,
@@ -209,7 +232,10 @@ class _EmptyLibrary extends StatelessWidget {
                             child: Text(
                               l10n.downloadsEmptyTitle,
                               textAlign: TextAlign.center,
-                              style: theme.textTheme.headlineSmall,
+                              style: theme.textTheme.headlineSmall?.copyWith(
+                                fontFamily: DetailLayout.sansFont,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
                           ),
                           const SizedBox(height: 12),
@@ -217,6 +243,7 @@ class _EmptyLibrary extends StatelessWidget {
                             l10n.downloadsEmpty,
                             textAlign: TextAlign.center,
                             style: theme.textTheme.bodyMedium?.copyWith(
+                              fontFamily: DetailLayout.sansFont,
                               color: theme.colorScheme.onSurfaceVariant,
                             ),
                           ),
@@ -240,8 +267,8 @@ class _EmptyLibrary extends StatelessWidget {
   }
 }
 
-class _DesktopLibrary extends StatefulWidget {
-  const _DesktopLibrary({
+class _SplitLibrary extends StatefulWidget {
+  const _SplitLibrary({
     required this.titles,
     required this.onWatch,
     required this.onBrowseCatalog,
@@ -255,14 +282,14 @@ class _DesktopLibrary extends StatefulWidget {
   final ValueChanged<DownloadItem>? onDownloadMore;
 
   @override
-  State<_DesktopLibrary> createState() => _DesktopLibraryState();
+  State<_SplitLibrary> createState() => _SplitLibraryState();
 }
 
-class _DesktopLibraryState extends State<_DesktopLibrary> {
+class _SplitLibraryState extends State<_SplitLibrary> {
   late String? _selectedKey = widget.titles.firstOrNull?.key;
 
   @override
-  void didUpdateWidget(covariant _DesktopLibrary oldWidget) {
+  void didUpdateWidget(covariant _SplitLibrary oldWidget) {
     super.didUpdateWidget(oldWidget);
     _selectedKey ??= widget.titles.firstOrNull?.key;
   }
@@ -273,17 +300,13 @@ class _DesktopLibraryState extends State<_DesktopLibrary> {
     if (selectedKey == null) {
       return _EmptyLibrary(onBrowseCatalog: widget.onBrowseCatalog);
     }
+    final scheme = Theme.of(context).colorScheme;
     final selected = widget.titles
         .where((title) => title.key == selectedKey)
         .firstOrNull;
     return LayoutBuilder(
       builder: (context, constraints) {
-        final narrow = constraints.maxWidth < 800;
-        Widget option(DownloadTitle title) => DownloadPosterOption(
-          title: title,
-          selected: title.key == selectedKey,
-          onTap: () => setState(() => _selectedKey = title.key),
-        );
+        final sidebarWidth = constraints.maxWidth >= 1000 ? 276.0 : 244.0;
         final details = DitherSwitcher(
           expand: true,
           duration: const Duration(milliseconds: 240),
@@ -304,50 +327,45 @@ class _DesktopLibraryState extends State<_DesktopLibrary> {
             },
           ),
         );
-        return Column(
+        return Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            if (narrow) ...[
-              SizedBox(
-                height: 124,
-                child: SingleChildScrollView(
-                  key: const Key('download_poster_list'),
-                  scrollDirection: Axis.horizontal,
-                  child: DitherList<DownloadTitle>.horizontal(
-                    items: widget.titles,
-                    keyOf: (title) => title.key,
-                    spacing: 12,
-                    itemBuilder: (context, title) => option(title),
+            SizedBox(
+              width: sidebarWidth,
+              child: DitherList<DownloadTitle>(
+                key: const Key('download_poster_list'),
+                padding: const EdgeInsets.only(top: 16, right: 16, bottom: 32),
+                items: widget.titles,
+                keyOf: (title) => title.key,
+                itemBuilder: (context, title) => DownloadPosterOption(
+                  title: title,
+                  selected: title.key == selectedKey,
+                  onTap: () {
+                    if (_selectedKey == title.key) return;
+                    AppHaptics.selection();
+                    setState(() => _selectedKey = title.key);
+                  },
+                ),
+                rowSpacing: 6,
+              ),
+            ),
+            VerticalDivider(
+              width: 1,
+              thickness: 1,
+              color: DetailLayout.ruleColor(scheme),
+            ),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.only(top: 16, left: 24),
+                child: Align(
+                  alignment: AlignmentDirectional.topStart,
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 780),
+                    child: details,
                   ),
                 ),
               ),
-              const SizedBox(height: 20),
-              Expanded(child: details),
-            ] else
-              Expanded(
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    SizedBox(
-                      width: 100,
-                      child: DitherList<DownloadTitle>(
-                        key: const Key('download_poster_list'),
-                        padding: const EdgeInsets.only(bottom: 32),
-                        items: widget.titles,
-                        keyOf: (title) => title.key,
-                        itemBuilder: (context, title) => Align(
-                          alignment: Alignment.topCenter,
-                          child: option(title),
-                        ),
-                        rowSpacing: 12,
-                      ),
-                    ),
-                    const SizedBox(width: 28),
-                    Expanded(child: details),
-                  ],
-                ),
-              ),
-            const SizedBox(height: 32),
+            ),
           ],
         );
       },
@@ -456,6 +474,8 @@ class _DownloadStatusDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     return AlertDialog(
       key: const Key('download_status_dialog'),
       scrollable: true,
@@ -467,8 +487,24 @@ class _DownloadStatusDialog extends StatelessWidget {
             final item = state.downloads
                 .where((item) => item.id == itemId)
                 .firstOrNull;
-            if (item == null) return Text(l10n.downloadTitleEmpty);
+            if (item == null) {
+              return Text(
+                l10n.downloadTitleEmpty,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  fontFamily: DetailLayout.sansFont,
+                ),
+              );
+            }
             final number = downloadEpisodeNumber(item);
+            final factsText = _facts(l10n, item);
+            final factsSans = theme.textTheme.bodySmall?.copyWith(
+              fontFamily: DetailLayout.sansFont,
+              color: scheme.onSurfaceVariant,
+            );
+            final factsMono = DetailLayout.monoTelemetryStyle(
+              theme.textTheme.bodySmall,
+              color: scheme.onSurfaceVariant,
+            );
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -477,25 +513,38 @@ class _DownloadStatusDialog extends StatelessWidget {
                     l10n.downloadEpisodeLabel(
                       number.toString().padLeft(2, '0'),
                     ),
-                    style: Theme.of(context).textTheme.titleSmall,
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontFamily: DetailLayout.sansFont,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                   const SizedBox(height: 8),
                 ],
                 Text(
                   downloadStatusLabel(l10n, item.status),
-                  style: Theme.of(context).textTheme.labelLarge,
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    fontFamily: DetailLayout.sansFont,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
-                const SizedBox(height: 4),
-                PixelSeparatedText(
-                  _facts(l10n, item),
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-                if (item.failure case final failure?) ...[
+                if (factsText.isNotEmpty) ...[
                   const SizedBox(height: 4),
+                  PixelSeparatedText.spans([
+                    for (final part in factsText.split(' · '))
+                      DetailLayout.mixedDataSpan(
+                        part,
+                        sansStyle: factsSans,
+                        monoStyle: factsMono,
+                      ),
+                  ], style: factsSans),
+                ],
+                if (item.failure case final failure?) ...[
+                  const SizedBox(height: 8),
                   Text(
                     downloadFailureMessage(l10n, failure),
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Theme.of(context).colorScheme.error,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      fontFamily: DetailLayout.sansFont,
+                      color: scheme.error,
                     ),
                   ),
                 ],
@@ -676,6 +725,8 @@ class _EpisodesState extends State<_Episodes> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final rule = BorderSide(color: DetailLayout.ruleColor(scheme));
     final title = widget.title;
     final downloads = widget.downloads;
     final onDownloadMore = widget.onDownloadMore;
@@ -712,7 +763,8 @@ class _EpisodesState extends State<_Episodes> {
                 l10n.downloadTitleEmpty,
                 textAlign: TextAlign.center,
                 style: theme.textTheme.bodyMedium?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
+                  fontFamily: DetailLayout.sansFont,
+                  color: scheme.onSurfaceVariant,
                 ),
               ),
             )
@@ -720,59 +772,71 @@ class _EpisodesState extends State<_Episodes> {
       keyOf: (row) => row.$1,
       itemBuilder: (context, row) => row.$2,
       items: [
-        for (final release in releases) ...[
+        for (var r = 0; r < releases.length; r++) ...[
           (
-            'release:${downloadSourceKey(release.first.magnet)}',
+            'release:${downloadSourceKey(releases[r].first.magnet)}',
             Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8),
+              padding: EdgeInsets.only(top: r == 0 ? 0 : 20, bottom: 8),
               child: Row(
                 children: [
                   Expanded(
                     child: _ReleaseFacts(
-                      item: release.first,
+                      item: releases[r].first,
                       videoHeight:
                           sharedHeights[downloadSourceKey(
-                            release.first.magnet,
+                            releases[r].first.magnet,
                           )],
                     ),
                   ),
                   if (releases.length > 1)
                     SizedBox(
-                      height: 48,
+                      height: 40,
                       child: DitherSwitcher(
                         duration: const Duration(milliseconds: 200),
                         child: _selecting
                             ? Checkbox(
                                 key: ValueKey(
-                                  'download_group_select_${downloadSourceKey(release.first.magnet)}',
+                                  'download_group_select_${downloadSourceKey(releases[r].first.magnet)}',
                                 ),
                                 tristate: true,
                                 value:
-                                    release.every(
+                                    releases[r].every(
                                       (item) => _selected.contains(item.id),
                                     )
                                     ? true
-                                    : release.any(
+                                    : releases[r].any(
                                         (item) => _selected.contains(item.id),
                                       )
                                     ? null
                                     : false,
                                 semanticLabel: downloadSourceLabel(
-                                  release.first,
+                                  releases[r].first,
                                 ),
                                 onChanged: _busy
                                     ? null
-                                    : (_) => _toggleGroup(release),
+                                    : (_) => _toggleGroup(releases[r]),
                               )
                             : onDownloadMore != null
                             ? TextButton.icon(
                                 key: ValueKey(
-                                  'download_more_${downloadSourceKey(release.first.magnet)}',
+                                  'download_more_${downloadSourceKey(releases[r].first.magnet)}',
                                 ),
-                                onPressed: () => onDownloadMore(release.first),
-                                icon: const PixelIcon(
+                                style: TextButton.styleFrom(
+                                  foregroundColor: scheme.onSurfaceVariant,
+                                  padding: const EdgeInsets.only(left: 8),
+                                  minimumSize: const Size(0, 40),
+                                  textStyle: theme.textTheme.bodySmall
+                                      ?.copyWith(
+                                        fontFamily: DetailLayout.sansFont,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                ),
+                                onPressed: () =>
+                                    onDownloadMore(releases[r].first),
+                                icon: PixelIcon(
                                   PixelGlyph.download,
-                                  size: 14,
+                                  size: 13,
+                                  color: scheme.onSurfaceVariant,
                                 ),
                                 label: Text(l10n.downloadMore),
                               )
@@ -785,30 +849,33 @@ class _EpisodesState extends State<_Episodes> {
               ),
             ),
           ),
-          for (final item in release)
+          for (var i = 0; i < releases[r].length; i++)
             (
-              'file:${item.id}',
-              Column(
-                children: [
-                  const SegmentedRule(),
-                  _DownloadRow(
-                    key: ValueKey(item.id),
-                    item: item,
-                    videoHeight:
-                        sharedHeights[downloadSourceKey(
-                              release.first.magnet,
-                            )] ==
-                            null
-                        ? item.videoHeight
-                        : null,
-                    onWatch: widget.onWatch,
-                    selecting: _selecting,
-                    selected: _selected.contains(item.id),
-                    disabled: _busy || manager.deletingIds.contains(item.id),
-                    onSelect: () => _toggle(item.id),
-                    onDeleteSelected: _deleteSelected,
+              'file:${releases[r][i].id}',
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  border: Border(
+                    top: BorderSide(color: rule.color.withValues(alpha: 0.75)),
                   ),
-                ],
+                ),
+                child: _DownloadRow(
+                  key: ValueKey(releases[r][i].id),
+                  item: releases[r][i],
+                  videoHeight:
+                      sharedHeights[downloadSourceKey(
+                            releases[r].first.magnet,
+                          )] ==
+                          null
+                      ? releases[r][i].videoHeight
+                      : null,
+                  onWatch: widget.onWatch,
+                  selecting: _selecting,
+                  selected: _selected.contains(releases[r][i].id),
+                  disabled:
+                      _busy || manager.deletingIds.contains(releases[r][i].id),
+                  onSelect: () => _toggle(releases[r][i].id),
+                  onDeleteSelected: _deleteSelected,
+                ),
               ),
             ),
         ],
@@ -897,7 +964,8 @@ class _EpisodesState extends State<_Episodes> {
                             l10n.downloadDeleteSelectionFailed(_failureCount),
                             textAlign: TextAlign.end,
                             style: theme.textTheme.bodySmall?.copyWith(
-                              color: theme.colorScheme.error,
+                              fontFamily: DetailLayout.sansFont,
+                              color: scheme.error,
                             ),
                           ),
                         )
@@ -946,7 +1014,11 @@ class _ReleaseFacts extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final label = downloadSourceLabel(item);
+    final theme = Theme.of(context);
+    final label = displayReleaseLabel(
+      downloadSourceLabel(item),
+      shownVideoHeight: videoHeight,
+    );
     return Tooltip(
       message: item.sourceTitle,
       child: Semantics(
@@ -958,7 +1030,11 @@ class _ReleaseFacts extends StatelessWidget {
                 label,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.bodySmall,
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontFamily: DetailLayout.sansFont,
+                  fontWeight: FontWeight.w600,
+                  color: theme.colorScheme.onSurface,
+                ),
               ),
             ),
             if (videoHeight case final height?) ...[
@@ -990,9 +1066,7 @@ List<List<DownloadItem>> _releases(List<DownloadItem> downloads) {
   return [for (final release in groups.values) release..sort(_byEpisode)];
 }
 
-/// One file. The row plays a finished file; its one button does what the
-/// status calls for, and the rest (delete) is in its menu, which a long
-/// press, a right click and the Delete key also reach.
+/// One downloaded or queued file inside a release block.
 class _DownloadRow extends StatefulWidget {
   const _DownloadRow({
     required this.item,
@@ -1030,6 +1104,8 @@ class _DownloadRowState extends State<_DownloadRow> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     final cubit = context.read<DownloadManagerCubit>();
     final item = widget.item;
     final status = item.status;
@@ -1056,13 +1132,11 @@ class _DownloadRowState extends State<_DownloadRow> {
               progress.fileIndex == item.fileIndex,
         )
         .firstOrNull;
+    final watched = completed && (watchProgress?.isFinished ?? false);
+    final partialWatch = watchProgress != null && !watchProgress.isFinished;
 
     final (actionIcon, actionLabel, onAction) = switch (status) {
-      DownloadStatus.completed => (
-        PixelGlyph.play,
-        l10n.downloadWatchButton,
-        () => widget.onWatch(item),
-      ),
+      DownloadStatus.completed => (null, null, null),
       DownloadStatus.downloading || DownloadStatus.queued => (
         PixelGlyph.pause,
         l10n.downloadPauseButton,
@@ -1091,14 +1165,74 @@ class _DownloadRowState extends State<_DownloadRow> {
     final numericProgress =
         status == DownloadStatus.downloading && item.totalBytes > 0;
     final detailColor = switch ((status, numericProgress)) {
-      (DownloadStatus.downloading, true) => Theme.of(
-        context,
-      ).colorScheme.tertiary,
-      (DownloadStatus.failed, _) => Theme.of(context).colorScheme.error,
-      _ => Theme.of(context).colorScheme.onSurfaceVariant,
+      (DownloadStatus.downloading, true) => scheme.tertiary,
+      (DownloadStatus.failed, _) => scheme.error,
+      _ => scheme.onSurfaceVariant,
     };
-    final titleStyle = Theme.of(context).textTheme.titleSmall;
-    final detailStyle = Theme.of(context).textTheme.labelMedium;
+
+    final sizeDetail = switch (status) {
+      DownloadStatus.completed when item.totalBytes > 0 => formatByteSize(
+        l10n,
+        item.totalBytes,
+        compact: true,
+      ),
+      DownloadStatus.downloading when item.totalBytes > 0 =>
+        '${formatByteSize(l10n, item.downloadedBytes, compact: true)} / '
+            '${item.isOnline ? '~' : ''}${formatByteSize(l10n, item.totalBytes, compact: true)}',
+      DownloadStatus.paused
+          when item.totalBytes > 0 && item.downloadedBytes > 0 =>
+        '${formatByteSize(l10n, item.downloadedBytes, compact: true)} / '
+            '${item.isOnline ? '~' : ''}${formatByteSize(l10n, item.totalBytes, compact: true)}',
+      DownloadStatus.queued when item.totalBytes > 0 => formatByteSize(
+        l10n,
+        item.totalBytes,
+        compact: true,
+      ),
+      _ => null,
+    };
+    final speedDetail =
+        status == DownloadStatus.downloading &&
+            item.downloadRateBytesPerSecond > 0
+        ? formatTransferRate(l10n, item.downloadRateBytesPerSecond)
+        : null;
+    final watchTimeText = partialWatch
+        ? [
+            formatPlaybackPosition(watchProgress.position),
+            if (watchProgress.duration != Duration.zero)
+              formatPlaybackPosition(watchProgress.duration),
+          ].join(' / ')
+        : null;
+
+    final titleStyle = theme.textTheme.bodyMedium?.copyWith(
+      fontFamily: DetailLayout.sansFont,
+      fontSize: 15,
+      fontWeight: watched ? FontWeight.w400 : FontWeight.w500,
+      color: watched ? scheme.onSurfaceVariant : scheme.onSurface,
+    );
+    final detailSans = theme.textTheme.bodySmall?.copyWith(
+      fontFamily: DetailLayout.sansFont,
+      color: scheme.onSurfaceVariant,
+    );
+    final detailMono = DetailLayout.monoTelemetryStyle(
+      theme.textTheme.bodySmall,
+      color: scheme.onSurfaceVariant,
+    );
+
+    final double? barProgress = switch (status) {
+      DownloadStatus.downloading when item.totalBytes > 0 => progress,
+      DownloadStatus.paused
+          when item.totalBytes > 0 && item.downloadedBytes > 0 =>
+        progress,
+      DownloadStatus.completed
+          when partialWatch && watchProgress.duration > Duration.zero =>
+        watchProgress.fraction,
+      _ => null,
+    };
+    final barColor = status == DownloadStatus.downloading
+        ? scheme.tertiary
+        : scheme.onSurfaceVariant;
+    final barHeight = status == DownloadStatus.downloading ? 3.0 : 2.0;
+
     final summary = [
       semanticName,
       statusLabel,
@@ -1112,6 +1246,62 @@ class _DownloadRowState extends State<_DownloadRow> {
                 formatPlaybackPosition(watchProgress.duration),
               ),
     ].join(', ');
+
+    final metadataItems = <Widget>[
+      if (inlineDetail != null)
+        Text(
+          inlineDetail,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: numericProgress
+              ? detailMono?.copyWith(
+                  color: detailColor,
+                  fontWeight: FontWeight.w500,
+                )
+              : detailSans?.copyWith(color: detailColor),
+        ),
+      if (sizeDetail != null)
+        Text(
+          sizeDetail,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: detailMono,
+        ),
+      if (speedDetail != null)
+        Text(
+          speedDetail,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: detailMono,
+        ),
+      if (watchTimeText != null)
+        Text(
+          watchTimeText,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: detailMono,
+        ),
+    ];
+    final showMetaDots =
+        MediaQuery.textScalerOf(context).scale(16) < 22 &&
+        metadataItems.length > 1;
+    final hasMetadata = metadataItems.isNotEmpty;
+
+    final menuChildren = [
+      if (!completed)
+        MenuItemButton(
+          key: const Key('download_status'),
+          onPressed: widget.disabled
+              ? null
+              : () => _showDownloadStatus(context, itemId: item.id),
+          child: Text(l10n.downloadStatusDetails),
+        ),
+      MenuItemButton(
+        key: const Key('download_delete'),
+        onPressed: widget.disabled ? null : () => _confirmDelete(context, name),
+        child: Text(asksForMore(l10n.downloadDeleteButton)),
+      ),
+    ];
 
     final row = FocusableListRow(
       onDelete: () {
@@ -1129,6 +1319,8 @@ class _DownloadRowState extends State<_DownloadRow> {
           ? widget.onSelect
           : completed
           ? () => widget.onWatch(item)
+          : status == DownloadStatus.failed
+          ? () => _showDownloadStatus(context, itemId: item.id)
           : null,
       onLongPress: widget.disabled || widget.selecting
           ? null
@@ -1138,221 +1330,171 @@ class _DownloadRowState extends State<_DownloadRow> {
               if (_menu.isOpen) AppHaptics.medium();
             },
       onSecondaryTap: widget.disabled || widget.selecting ? null : _menu.open,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        child: SizedBox(
-          height: _downloadRowContentHeight(context, titleStyle, detailStyle),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Expanded(
-                child: Semantics(
-                  container: true,
-                  label: summary,
-                  customSemanticsActions: widget.disabled
-                      ? null
-                      : {
-                          CustomSemanticsAction(label: l10n.commonMoreActions):
-                              _menu.open,
-                        },
-                  child: ExcludeSemantics(
-                    child: LayoutBuilder(
-                      builder: (context, constraints) {
-                        final progressWidth =
-                            numericProgress && watchProgress != null
-                            ? _textSize(
-                                    context,
-                                    detailStyle,
-                                    text: inlineDetail!,
-                                  ).width +
-                                  8
-                            : 0.0;
-                        final watchWidth = math.max(
-                          0.0,
-                          numericProgress
-                              ? (constraints.maxWidth - progressWidth - 8) / 2
-                              : constraints.maxWidth / 2,
-                        );
-                        return Row(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 62),
+        child: Stack(
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 10),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Expanded(
+                    child: Semantics(
+                      container: true,
+                      label: summary,
+                      customSemanticsActions: widget.disabled
+                          ? null
+                          : {
+                              CustomSemanticsAction(
+                                label: l10n.commonMoreActions,
+                              ): _menu.open,
+                            },
+                      child: ExcludeSemantics(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
                           children: [
-                            Expanded(
-                              child: Row(
-                                children: [
-                                  Flexible(
-                                    fit: FlexFit.loose,
-                                    child: Tooltip(
-                                      // Long press belongs to the row's actions menu.
-                                      triggerMode: TooltipTriggerMode.manual,
-                                      message: name,
-                                      child: Text(
-                                        episodeLabel,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: titleStyle,
-                                      ),
+                            Row(
+                              children: [
+                                Flexible(
+                                  child: Tooltip(
+                                    // Long press belongs to the row's actions menu.
+                                    triggerMode: TooltipTriggerMode.manual,
+                                    message: name,
+                                    child: Text(
+                                      episodeLabel,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: titleStyle,
                                     ),
                                   ),
-                                  if (episodeVideoHeight != null) ...[
-                                    const SizedBox(width: 8),
-                                    QualityBadge(episodeVideoHeight),
+                                ),
+                                if (episodeVideoHeight != null) ...[
+                                  const SizedBox(width: 8),
+                                  QualityBadge(episodeVideoHeight),
+                                ],
+                                if (watched) ...[
+                                  const SizedBox(width: 8),
+                                  PixelIcon(
+                                    PixelGlyph.check,
+                                    size: 14,
+                                    color: scheme.onSurfaceVariant,
+                                  ),
+                                ],
+                              ],
+                            ),
+                            if (hasMetadata) ...[
+                              const SizedBox(height: 3),
+                              Wrap(
+                                spacing: showMetaDots ? 6 : 10,
+                                runSpacing: 2,
+                                crossAxisAlignment: WrapCrossAlignment.center,
+                                children: [
+                                  for (
+                                    var i = 0;
+                                    i < metadataItems.length;
+                                    i++
+                                  ) ...[
+                                    if (showMetaDots && i > 0)
+                                      SizedBox.square(
+                                        dimension: 2,
+                                        child: ColoredBox(
+                                          color: scheme.onSurfaceVariant,
+                                        ),
+                                      ),
+                                    metadataItems[i],
                                   ],
                                 ],
                               ),
-                            ),
-                            if (inlineDetail != null) ...[
-                              const SizedBox(width: 8),
-                              if (numericProgress)
-                                Text(
-                                  inlineDetail,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  textAlign: TextAlign.end,
-                                  style: detailStyle?.copyWith(
-                                    color: detailColor,
-                                  ),
-                                )
-                              else
-                                Flexible(
-                                  fit: FlexFit.tight,
-                                  child: Text(
-                                    inlineDetail,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    textAlign: TextAlign.end,
-                                    style: detailStyle?.copyWith(
-                                      color: detailColor,
-                                    ),
-                                  ),
-                                ),
-                            ],
-                            if (watchProgress != null) ...[
-                              const SizedBox(width: 8),
-                              ConstrainedBox(
-                                constraints: BoxConstraints(
-                                  maxWidth: watchWidth,
-                                ),
-                                child: Tooltip(
-                                  triggerMode: TooltipTriggerMode.manual,
-                                  message: watchProgress.isFinished
-                                      ? l10n.watchProgressWatched
-                                      : l10n.watchProgressStoppedAt(
-                                          formatPlaybackPosition(
-                                            watchProgress.position,
-                                          ),
-                                          formatPlaybackPosition(
-                                            watchProgress.duration,
-                                          ),
-                                        ),
-                                  child: watchProgress.isFinished
-                                      ? PixelIcon(
-                                          PixelGlyph.check,
-                                          size: 14,
-                                          color: Theme.of(
-                                            context,
-                                          ).colorScheme.onSurfaceVariant,
-                                        )
-                                      : Text(
-                                          [
-                                            formatPlaybackPosition(
-                                              watchProgress.position,
-                                            ),
-                                            if (watchProgress.duration !=
-                                                Duration.zero)
-                                              formatPlaybackPosition(
-                                                watchProgress.duration,
-                                              ),
-                                          ].join(' / '),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                          textAlign: TextAlign.end,
-                                          style: detailStyle?.copyWith(
-                                            color: Theme.of(
-                                              context,
-                                            ).colorScheme.onSurfaceVariant,
-                                          ),
-                                        ),
-                                ),
-                              ),
                             ],
                           ],
-                        );
-                      },
+                        ),
+                      ),
                     ),
                   ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              MenuAnchor(
-                controller: _menu,
-                onOpen: () => _setMenuOpen(true),
-                onClose: () => _setMenuOpen(false),
-                alignmentOffset: const Offset(-176, 0),
-                menuChildren: [
-                  if (!completed)
-                    MenuItemButton(
-                      key: const Key('download_status'),
-                      onPressed: widget.disabled
-                          ? null
-                          : () => _showDownloadStatus(context, itemId: item.id),
-                      child: Text(l10n.downloadStatusDetails),
-                    ),
-                  MenuItemButton(
-                    key: const Key('download_delete'),
-                    onPressed: widget.disabled
-                        ? null
-                        : () => _confirmDelete(context, name),
-                    child: Text(asksForMore(l10n.downloadDeleteButton)),
-                  ),
-                ],
-                child: SizedBox(
-                  width: 48,
-                  height: 48,
-                  child: DitherSwitcher(
+                  const SizedBox(width: 4),
+                  DitherSwitcher(
                     duration: const Duration(milliseconds: 200),
                     child: widget.selecting
-                        ? Checkbox(
-                            key: ValueKey('download_delete_check_${item.id}'),
-                            value: widget.selected,
-                            onChanged: widget.disabled
-                                ? null
-                                : (_) => widget.onSelect(),
+                        ? SizedBox(
+                            key: const ValueKey('selecting'),
+                            width: 48,
+                            height: 48,
+                            child: Checkbox(
+                              key: ValueKey('download_delete_check_${item.id}'),
+                              value: widget.selected,
+                              onChanged: widget.disabled
+                                  ? null
+                                  : (_) => widget.onSelect(),
+                            ),
                           )
-                        : Semantics(
+                        : Row(
                             key: ValueKey(
                               'action_${switch (status) {
                                 DownloadStatus.queued || DownloadStatus.downloading => 'active',
                                 _ => status.name,
                               }}',
                             ),
-                            label: '$actionLabel: $semanticName',
-                            button: true,
-                            excludeSemantics: true,
-                            onTap: widget.disabled ? null : onAction,
-                            child: IconButton(
-                              key: ValueKey('download_action_${item.id}'),
-                              constraints: const BoxConstraints.tightFor(
-                                width: 48,
-                                height: 48,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (actionIcon != null &&
+                                  actionLabel != null &&
+                                  onAction != null)
+                                Semantics(
+                                  label: '$actionLabel: $semanticName',
+                                  button: true,
+                                  excludeSemantics: true,
+                                  onTap: widget.disabled ? null : onAction,
+                                  child: IconButton(
+                                    key: ValueKey('download_action_${item.id}'),
+                                    constraints: const BoxConstraints.tightFor(
+                                      width: 48,
+                                      height: 48,
+                                    ),
+                                    padding: EdgeInsets.zero,
+                                    tooltip: actionLabel,
+                                    icon: PixelIcon(
+                                      actionIcon,
+                                      size: 16,
+                                      color: scheme.onSurface,
+                                    ),
+                                    onPressed: widget.disabled
+                                        ? null
+                                        : onAction,
+                                  ),
+                                ),
+                              RowMenuButton(
+                                key: ValueKey('download_row_menu_${item.id}'),
+                                controller: _menu,
+                                onOpenChanged: _setMenuOpen,
+                                iconColor: scheme.onSurfaceVariant,
+                                tooltip: l10n.commonMoreActions,
+                                semanticLabel:
+                                    '$semanticName, ${l10n.commonMoreActions}',
+                                menuChildren: menuChildren,
                               ),
-                              padding: EdgeInsets.zero,
-                              tooltip: actionLabel,
-                              icon: PixelIcon(
-                                actionIcon,
-                                size: 16,
-                                color: completed
-                                    ? null
-                                    : Theme.of(
-                                        context,
-                                      ).colorScheme.onSurfaceVariant,
-                              ),
-                              onPressed: widget.disabled ? null : onAction,
-                            ),
+                            ],
                           ),
                   ),
+                ],
+              ),
+            ),
+            if (barProgress != null && !widget.selecting)
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: SegmentedBar(
+                  value: barProgress,
+                  height: barHeight,
+                  segment: 6,
+                  gap: 0,
+                  color: barColor,
+                  trackColor: Colors.transparent,
                 ),
               ),
-            ],
-          ),
+          ],
         ),
       ),
     );
@@ -1367,33 +1509,6 @@ class _DownloadRowState extends State<_DownloadRow> {
 
   Future<void> _confirmDelete(BuildContext context, String name) async {
     await confirmDownloadDeletion(context, [widget.item], name);
-  }
-}
-
-double _downloadRowContentHeight(
-  BuildContext context,
-  TextStyle? titleStyle,
-  TextStyle? detailStyle,
-) => math.max(
-  48.0,
-  math.max(
-    _textSize(context, titleStyle).height,
-    _textSize(context, detailStyle).height,
-  ),
-);
-
-Size _textSize(BuildContext context, TextStyle? style, {String text = 'Mg'}) {
-  final painter = TextPainter(
-    text: TextSpan(text: text, style: style),
-    textDirection: Directionality.of(context),
-    textScaler: MediaQuery.textScalerOf(context),
-    maxLines: 1,
-  );
-  try {
-    painter.layout();
-    return painter.size;
-  } finally {
-    painter.dispose();
   }
 }
 

@@ -9,18 +9,29 @@ class DownloadLibraryHeader extends StatelessWidget {
     required this.queueCount,
     required this.showQueue,
     required this.onFiles,
+    this.hasActive = false,
+    this.hasFailed = false,
     this.onQueue,
     super.key,
   });
 
   final int queueCount;
   final bool showQueue;
+  final bool hasActive;
+  final bool hasFailed;
   final VoidCallback? onQueue;
   final VoidCallback onFiles;
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final indicatorColor = hasFailed
+        ? scheme.error
+        : hasActive
+        ? scheme.tertiary
+        : null;
     return LayoutBuilder(
       builder: (context, constraints) {
         final compact =
@@ -39,7 +50,9 @@ class DownloadLibraryHeader extends StatelessWidget {
                   child: Text(
                     l10n.navigationDownloads,
                     key: const Key('download_library_heading'),
-                    style: Theme.of(context).textTheme.titleLarge,
+                    style: theme.textTheme.titleLarge?.copyWith(
+                      wordSpacing: -3.6,
+                    ),
                   ),
                 ),
               ),
@@ -57,7 +70,11 @@ class DownloadLibraryHeader extends StatelessWidget {
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                const PixelIcon(PixelGlyph.download, size: 14),
+                                PixelIcon(
+                                  PixelGlyph.download,
+                                  size: 14,
+                                  color: indicatorColor,
+                                ),
                                 if (queueCount > 0) ...[
                                   const SizedBox(width: 8),
                                   Text('$queueCount'),
@@ -66,7 +83,26 @@ class DownloadLibraryHeader extends StatelessWidget {
                             ),
                           ),
                         )
-                      : PixelSeparatedText(queueLabel),
+                      : Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (hasFailed) ...[
+                              PixelIcon(
+                                PixelGlyph.close,
+                                size: 10,
+                                color: scheme.error,
+                              ),
+                              const SizedBox(width: 8),
+                            ] else if (hasActive) ...[
+                              SizedBox.square(
+                                dimension: 6,
+                                child: ColoredBox(color: scheme.tertiary),
+                              ),
+                              const SizedBox(width: 8),
+                            ],
+                            PixelSeparatedText(queueLabel),
+                          ],
+                        ),
                 ),
               if (compact)
                 IconButton(

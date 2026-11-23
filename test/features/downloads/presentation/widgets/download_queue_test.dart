@@ -255,14 +255,14 @@ void main() {
     final l10n = AppLocalizationsEn();
     for (final (source, reported, label, height)
         in <(String, int?, String, int?)>[
-          ('SubsPlease · 1080p', null, 'SUBSPLEASE · 1080P', null),
-          ('SubsPlease (720P) HEVC', null, 'SUBSPLEASE 720P HEVC', null),
-          ('SubsPlease · 1080p · HEVC', 720, 'SUBSPLEASE · 1080P · HEVC', 720),
-          ('Dub · 1080p/720p', null, 'DUB · 1080P/720P', null),
-          ('Dub · 1080p/720p', 720, 'DUB · 1080P/720P', 720),
-          ('Dub 1080', null, 'DUB 1080', null),
-          ('Local release', null, 'LOCAL RELEASE', null),
-          ('Local release 1080p', 0, 'LOCAL RELEASE 1080P', null),
+          ('SubsPlease · 1080p', null, 'SubsPlease · 1080p', null),
+          ('SubsPlease (720P) HEVC', null, 'SubsPlease 720P HEVC', null),
+          ('SubsPlease · 1080p · HEVC', 720, 'SubsPlease · 1080p · HEVC', 720),
+          ('Dub · 1080p/720p', null, 'Dub · 1080p/720p', null),
+          ('Dub · 1080p/720p', 720, 'Dub · 1080p/720p', 720),
+          ('Dub 1080', null, 'Dub 1080', null),
+          ('Local release', null, 'Local release', null),
+          ('Local release 1080p', 0, 'Local release 1080p', null),
         ]) {
       final item = _item(
         'metadata',
@@ -282,7 +282,7 @@ void main() {
           videoHeight: 720,
         ),
       ),
-      'Frieren, Episode 01, SUBSPLEASE · 1080P, 720p',
+      'Frieren, Episode 01, SubsPlease · 1080p, 720p',
     );
   });
 
@@ -299,11 +299,11 @@ void main() {
           downloadSourceLabel(
             item.copyWith(sourceTitle: '$title · [SubsPlease]'),
           ),
-          'SUBSPLEASE',
+          'SubsPlease',
         );
       }
       final short = item.copyWith(animeEnglish: 'K', sourceTitle: 'Kodik');
-      expect(downloadSourceLabel(short), 'KODIK');
+      expect(downloadSourceLabel(short), 'Kodik');
     },
   );
 
@@ -337,12 +337,12 @@ void main() {
     await tester.tap(find.byKey(const Key('download_queue_open')));
     await tester.pumpAndSettle();
     expect(find.text('Фрирен'), findsOneWidget);
-    expect(find.text('ANILIBRIA'), findsOneWidget);
+    expect(find.text('AniLibria'), findsOneWidget);
 
     await settings.setAnimeTitleLanguage(AnimeTitleLanguage.romaji);
     await tester.pump();
     expect(find.text('Sousou no Frieren'), findsOneWidget);
-    expect(find.text('ANILIBRIA'), findsOneWidget);
+    expect(find.text('AniLibria'), findsOneWidget);
     await _close(tester, repository, harness);
   });
 
@@ -506,19 +506,19 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(
-        find.bySemanticsLabel('1. Frieren, Episode 01, FIRST RELEASE'),
+        find.bySemanticsLabel('1. Frieren, Episode 01, First release'),
         findsOneWidget,
       );
       expect(
-        find.bySemanticsLabel('2. Frieren, Episode 01, SECOND RELEASE'),
+        find.bySemanticsLabel('2. Frieren, Episode 01, Second release'),
         findsOneWidget,
       );
       for (final label in [
-        'Frieren, Episode 01, FIRST RELEASE, More actions',
-        'Frieren, Episode 01, SECOND RELEASE, More actions',
-        'Pause: Frieren, Episode 01, ACTIVE RELEASE',
-        'Resume: Frieren, Episode 01, PAUSED RELEASE',
-        'Try Again: Frieren, Episode 01, FAILED RELEASE',
+        'Frieren, Episode 01, First release, More actions',
+        'Frieren, Episode 01, Second release, More actions',
+        'Pause: Frieren, Episode 01, Active release',
+        'Resume: Frieren, Episode 01, Paused release',
+        'Try Again: Frieren, Episode 01, Failed release',
         'Resume: Local release, Episode 01',
         'Resume: Local movie',
       ]) {
@@ -532,7 +532,7 @@ void main() {
         isEmpty,
       );
       tester.semantics.customAction(
-        find.semantics.byLabel('1. Frieren, Episode 01, FIRST RELEASE'),
+        find.semantics.byLabel('1. Frieren, Episode 01, First release'),
         const CustomSemanticsAction(label: 'Move down'),
       );
       await tester.pumpAndSettle();

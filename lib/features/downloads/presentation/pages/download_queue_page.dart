@@ -7,8 +7,10 @@ import 'package:iris/features/downloads/presentation/cubit/download_manager_stat
 import 'package:iris/features/downloads/presentation/widgets/download_files.dart';
 import 'package:iris/features/downloads/presentation/widgets/download_queue.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
+import 'package:iris/shared/widgets/adaptive/framed_app_bar.dart';
 import 'package:iris/shared/widgets/adaptive/page_frame.dart';
 import 'package:iris/shared/widgets/dither_switcher.dart';
+import 'package:iris/shared/widgets/page_title.dart';
 import 'package:iris/shared/widgets/status_views.dart';
 
 class DownloadQueuePage extends StatelessWidget {
@@ -21,82 +23,53 @@ class DownloadQueuePage extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) => ScaffoldMessenger(
-    child: Scaffold(
-      key: const Key('download_queue_page'),
-      body: SafeArea(
-        child: PageFrame(
-          child: Align(
-            alignment: Alignment.topCenter,
-            child: SizedBox(
-              width: 800,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Row(
-                    children: [
-                      const BackButton(),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Semantics(
-                          header: true,
-                          child: Text(
-                            AppLocalizations.of(context).downloadQueueTitle,
-                            maxLines: 2,
-                            style: Theme.of(
-                              context,
-                            ).textTheme.titleLarge?.copyWith(wordSpacing: -3.6),
-                          ),
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return ScaffoldMessenger(
+      child: Scaffold(
+        key: const Key('download_queue_page'),
+        appBar: FramedAppBar(title: PageTitle(title: l10n.downloadQueueTitle)),
+        body: SafeArea(
+          top: false,
+          child: PageFrame.subPage(
+            child: Align(
+              alignment: AlignmentDirectional.topStart,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 800),
+                child: BlocBuilder<DownloadManagerCubit, DownloadManagerState>(
+                  builder: (context, state) {
+                    final Widget view;
+                    if (state.downloads.isEmpty && state.isLoading) {
+                      view = LoadingView(
+                        key: const ValueKey('download_queue_loading'),
+                        semanticsLabel: l10n.downloadsLoading,
+                      );
+                    } else if (state.downloads.isEmpty && state.hasError) {
+                      view = RetryView(
+                        key: const ValueKey('download_queue_error'),
+                        message: l10n.downloadManagerUnableToLoad,
+                        onRetry: context.read<DownloadManagerCubit>().load,
+                      );
+                    } else {
+                      view = KeyedSubtree(
+                        key: const ValueKey('download_queue_ready'),
+                        child: DownloadQueueView(
+                          onFiles: () => _files(context),
                         ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  Expanded(
-                    child:
-                        BlocBuilder<DownloadManagerCubit, DownloadManagerState>(
-                          builder: (context, state) {
-                            final Widget view;
-                            if (state.downloads.isEmpty && state.isLoading) {
-                              view = LoadingView(
-                                key: const ValueKey('download_queue_loading'),
-                                semanticsLabel: AppLocalizations.of(
-                                  context,
-                                ).downloadsLoading,
-                              );
-                            } else if (state.downloads.isEmpty &&
-                                state.hasError) {
-                              view = RetryView(
-                                key: const ValueKey('download_queue_error'),
-                                message: AppLocalizations.of(
-                                  context,
-                                ).downloadManagerUnableToLoad,
-                                onRetry: context
-                                    .read<DownloadManagerCubit>()
-                                    .load,
-                              );
-                            } else {
-                              view = KeyedSubtree(
-                                key: const ValueKey('download_queue_ready'),
-                                child: DownloadQueueView(
-                                  onFiles: () => _files(context),
-                                ),
-                              );
-                            }
-                            return DitherSwitcher(
-                              expand: true,
-                              duration: const Duration(milliseconds: 220),
-                              child: view,
-                            );
-                          },
-                        ),
-                  ),
-                ],
+                      );
+                    }
+                    return DitherSwitcher(
+                      expand: true,
+                      duration: const Duration(milliseconds: 220),
+                      child: view,
+                    );
+                  },
+                ),
               ),
             ),
           ),
         ),
       ),
-    ),
-  );
+    );
+  }
 }

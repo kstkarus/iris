@@ -44,6 +44,7 @@ class _DownloadQueueViewState extends State<DownloadQueueView> {
     final before = _waitingIds;
     final changed = await cubit.reorderQueue(order);
     if (!mounted) return;
+    if (!changed) AppHaptics.error();
     final l10n = AppLocalizations.of(context);
     final messenger = ScaffoldMessenger.of(context);
     messenger.hideCurrentSnackBar();
@@ -231,7 +232,7 @@ class _QueueSectionHeading extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      padding: const EdgeInsets.only(top: 4, bottom: 8),
       child: Semantics(
         header: true,
         child: Row(
@@ -438,16 +439,23 @@ class _EpisodeIdentity extends StatelessWidget {
         ? source
         : episode;
     final facts = downloadSourceFacts(item);
+    final sourceLabel = displayReleaseLabel(
+      facts.source,
+      shownVideoHeight: facts.videoHeight,
+    );
     final showSource =
-        facts.source.isNotEmpty &&
-        ![title, item.animeTitle, item.animeRussian, item.animeEnglish].any(
-          (name) => name.trim().toLowerCase() == facts.source.toLowerCase(),
-        );
+        sourceLabel.isNotEmpty &&
+        ![
+          title,
+          item.animeTitle,
+          item.animeRussian,
+          item.animeEnglish,
+        ].any((name) => name.trim().toLowerCase() == sourceLabel.toLowerCase());
     return Tooltip(
       message: [
         title,
         item.fileName,
-        if (showSource) facts.source,
+        if (showSource) sourceLabel,
         if (facts.videoHeight case final height?)
           l10n.onlineQualityHeight(height),
       ].join('\n'),
@@ -520,13 +528,12 @@ class _EpisodeIdentity extends StatelessWidget {
                       if (showSource)
                         Flexible(
                           child: Text(
-                            facts.source,
+                            sourceLabel,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: theme.textTheme.bodySmall?.copyWith(
-                              fontFamily: DetailLayout.monoFont,
+                              fontFamily: DetailLayout.sansFont,
                               color: theme.colorScheme.onSurfaceVariant,
-                              wordSpacing: -2.0,
                             ),
                           ),
                         ),
@@ -570,13 +577,13 @@ class _QueueRow extends StatelessWidget {
         duration: motionDuration(context, const Duration(milliseconds: 150)),
         curve: Curves.easeOutCubic,
         decoration: BoxDecoration(
-          color: failed ? scheme.error.withValues(alpha: 0.07) : null,
+          color: scheme.surfaceContainerLow,
           border: Border.all(
             color: focused
                 ? scheme.onSurface
                 : failed
                 ? scheme.error.withValues(alpha: 0.55)
-                : Colors.transparent,
+                : DetailLayout.ruleColor(scheme),
           ),
         ),
         child: Padding(
@@ -592,7 +599,7 @@ class _QueueRow extends StatelessWidget {
                       child: _EpisodeIdentity(item: item),
                     ),
                   ),
-                  if (!actionsBelow) controls,
+                  if (!actionsBelow) ...[const SizedBox(width: 4), controls],
                 ],
               ),
               if (actionsBelow)
@@ -628,10 +635,15 @@ class _QueueProgress extends StatelessWidget {
     final details = knownTotal
         ? l10n.downloadBytesProgress(loaded, total)
         : l10n.downloadBytesDownloaded(loaded);
-    final style = theme.textTheme.bodySmall?.copyWith(
-      fontFamily: DetailLayout.sansFont,
-      color: active ? theme.colorScheme.tertiary : null,
-      fontFeatures: const [FontFeature.tabularFigures()],
+    final style = DetailLayout.monoTelemetryStyle(
+      theme.textTheme.bodySmall,
+      color: active
+          ? theme.colorScheme.tertiary
+          : theme.colorScheme.onSurfaceVariant,
+    );
+    final rateStyle = DetailLayout.monoTelemetryStyle(
+      theme.textTheme.bodySmall,
+      color: theme.colorScheme.onSurfaceVariant,
     );
     final disableAnimations = MediaQuery.disableAnimationsOf(context);
     final progress = downloadDisplayProgress(item);
@@ -653,7 +665,7 @@ class _QueueProgress extends StatelessWidget {
               if (active)
                 Text(
                   formatTransferRate(l10n, item.downloadRateBytesPerSecond),
-                  style: style,
+                  style: rateStyle,
                 ),
             ],
           ),
@@ -754,7 +766,7 @@ class _StatusRowState extends State<_StatusRow> {
             active
                 ? PixelGlyph.pause
                 : paused
-                ? PixelGlyph.play
+                ? PixelGlyph.download
                 : PixelGlyph.refresh,
             key: ValueKey(item.status),
             size: 18,
@@ -765,7 +777,7 @@ class _StatusRowState extends State<_StatusRow> {
     final controls = Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        SizedBox.square(dimension: 48, child: action),
+        SizedBox(width: 40, height: 48, child: action),
         RowMenuButton(
           key: ValueKey('queue_menu_${item.id}'),
           controller: _menu,
@@ -804,14 +816,41 @@ class _StatusRowState extends State<_StatusRow> {
             if (active || paused || item.downloadedBytes > 0)
               _QueueProgress(item: item),
             if (failed) ...[
-              if (item.downloadedBytes > 0) const SizedBox(height: 12),
-              Text(
-                downloadFailureMessage(
-                  l10n,
-                  item.failure ?? DownloadFailure.other,
-                ),
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Theme.of(context).colorScheme.error,
+              if (item.downloadedBytes > 0) const SizedBox(height: 10),
+              Padding(
+                padding: const EdgeInsetsDirectional.only(start: 56),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      downloadFailureMessage(
+                        l10n,
+                        item.failure ?? DownloadFailure.other,
+                      ),
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        fontFamily: DetailLayout.sansFont,
+                        color: Theme.of(context).colorScheme.error,
+                      ),
+                    ),
+                    if (noSpace) ...[
+                      const SizedBox(height: 8),
+                      OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 10),
+                          minimumSize: const Size(0, 34),
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          side: BorderSide(
+                            color: DetailLayout.ruleColor(
+                              Theme.of(context).colorScheme,
+                            ),
+                          ),
+                        ),
+                        onPressed: widget.onFiles,
+                        icon: const PixelIcon(PixelGlyph.file, size: 13),
+                        label: Text(l10n.downloadFilesButton),
+                      ),
+                    ],
+                  ],
                 ),
               ),
             ],

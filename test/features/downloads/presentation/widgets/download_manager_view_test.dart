@@ -942,8 +942,8 @@ void main() {
         ),
       );
 
-      expect(find.textContaining('FIRST RELEASE'), findsOneWidget);
-      expect(find.textContaining('SECOND RELEASE'), findsOneWidget);
+      expect(find.textContaining('First release'), findsOneWidget);
+      expect(find.textContaining('Second release'), findsOneWidget);
     });
 
     testWidgets('episode order is stable when a release has unnamed extras', (
@@ -1064,18 +1064,29 @@ void main() {
             for (final status in DownloadStatus.values) {
               repository.push([item.copyWith(status: status)]);
               await tester.pumpAndSettle();
-              expect(
-                tester.getSize(action).shortestSide,
-                greaterThanOrEqualTo(48),
-              );
-              expect(
-                tester
-                    .getSemantics(action)
-                    .getSemanticsData()
-                    .hasAction(SemanticsAction.tap),
-                isTrue,
-                reason: status.name,
-              );
+              if (status == DownloadStatus.completed) {
+                expect(action, findsNothing);
+                final menu = find.byKey(
+                  const Key('download_row_menu_frieren-6'),
+                );
+                expect(
+                  tester.getSize(menu).shortestSide,
+                  greaterThanOrEqualTo(48),
+                );
+              } else {
+                expect(
+                  tester.getSize(action).shortestSide,
+                  greaterThanOrEqualTo(48),
+                );
+                expect(
+                  tester
+                      .getSemantics(action)
+                      .getSemanticsData()
+                      .hasAction(SemanticsAction.tap),
+                  isTrue,
+                  reason: status.name,
+                );
+              }
               expect(tester.takeException(), isNull);
             }
           });
@@ -1588,28 +1599,40 @@ void main() {
 
         expect(
           find.bySemanticsLabel(
-            RegExp(r'^Frieren, Episode 06, FIRST RELEASE, '),
+            RegExp(r'^Frieren, Episode 06, First release, Downloading'),
           ),
           findsOneWidget,
         );
         expect(
           find.bySemanticsLabel(
-            RegExp(r'^Frieren, Episode 06, SECOND RELEASE, '),
+            RegExp(r'^Frieren, Episode 06, Second release, Paused'),
           ),
           findsOneWidget,
         );
         expect(
-          find.bySemanticsLabel('Pause: Frieren, Episode 06, FIRST RELEASE'),
+          find.bySemanticsLabel(
+            'Frieren, Episode 06, First release, More actions',
+          ),
           findsOneWidget,
         );
         expect(
-          find.bySemanticsLabel('Resume: Frieren, Episode 06, SECOND RELEASE'),
+          find.bySemanticsLabel(
+            'Frieren, Episode 06, Second release, More actions',
+          ),
+          findsOneWidget,
+        );
+        expect(
+          find.bySemanticsLabel('Pause: Frieren, Episode 06, First release'),
+          findsOneWidget,
+        );
+        expect(
+          find.bySemanticsLabel('Resume: Frieren, Episode 06, Second release'),
           findsOneWidget,
         );
 
         tester.semantics.customAction(
           find.semantics.byLabel(
-            RegExp(r'^Frieren, Episode 06, FIRST RELEASE, '),
+            RegExp(r'^Frieren, Episode 06, First release, Downloading'),
           ),
           const CustomSemanticsAction(label: 'More actions'),
         );

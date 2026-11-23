@@ -22,19 +22,26 @@ class DownloadTitlePage extends StatelessWidget {
   Widget build(BuildContext context) => Scaffold(
     body: SafeArea(
       child: PageFrame(
-        child: DownloadManagerView(
-          titleKey: title.key,
-          onWatch: onWatch,
-          onOpenTitle: (_) {},
-          onOpenAnime: onOpenAnime,
-          onDownloadMore: onDownloadMore,
-          onBrowseCatalog: () {},
-          onTitleDeleted: () {
-            if (!context.mounted || ModalRoute.of(context)?.isCurrent != true) {
-              return false;
-            }
-            return Navigator.of(context).maybePop();
-          },
+        child: Align(
+          alignment: AlignmentDirectional.topStart,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 800),
+            child: DownloadManagerView(
+              titleKey: title.key,
+              onWatch: onWatch,
+              onOpenTitle: (_) {},
+              onOpenAnime: onOpenAnime,
+              onDownloadMore: onDownloadMore,
+              onBrowseCatalog: () {},
+              onTitleDeleted: () {
+                if (!context.mounted ||
+                    ModalRoute.of(context)?.isCurrent != true) {
+                  return false;
+                }
+                return Navigator.of(context).maybePop();
+              },
+            ),
+          ),
         ),
       ),
     ),

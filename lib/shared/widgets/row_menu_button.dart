@@ -14,6 +14,7 @@ class RowMenuButton extends StatelessWidget {
     this.semanticLabel,
     this.onOpenChanged,
     this.focusNode,
+    this.iconColor,
     super.key,
   });
 
@@ -32,6 +33,7 @@ class RowMenuButton extends StatelessWidget {
   /// Lets the row show which item its open menu acts on.
   final ValueChanged<bool>? onOpenChanged;
   final FocusNode? focusNode;
+  final Color? iconColor;
 
   @override
   Widget build(BuildContext context) {
@@ -58,7 +60,7 @@ class RowMenuButton extends StatelessWidget {
         child: IconButton(
           focusNode: focusNode,
           tooltip: tooltip,
-          icon: const PixelIcon(PixelGlyph.more, size: 18),
+          icon: PixelIcon(PixelGlyph.more, size: 18, color: iconColor),
           onPressed: controller.toggle,
         ),
       ),

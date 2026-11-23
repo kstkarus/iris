@@ -104,7 +104,7 @@ String downloadSourceLabel(DownloadItem item) {
         '',
       )
       .trim();
-  return label.toUpperCase();
+  return label;
 }
 
 /// A title's text is not a measurement of the file's resolution.
@@ -114,4 +114,23 @@ String downloadSourceLabel(DownloadItem item) {
     source: downloadSourceLabel(item),
     videoHeight: reported != null && reported > 0 ? reported : null,
   );
+}
+
+/// Drops a redundant resolution tag (e.g. `1080p`) from [source] when an
+/// identical [shownVideoHeight] badge is rendered right beside it.
+String displayReleaseLabel(String source, {int? shownVideoHeight}) {
+  if (shownVideoHeight == null || shownVideoHeight <= 0) return source;
+  final stripped = source
+      .replaceAll(
+        RegExp(
+          '(?<![\\p{L}\\p{N}])${shownVideoHeight}p(?![\\p{L}\\p{N}])',
+          caseSensitive: false,
+          unicode: true,
+        ),
+        '',
+      )
+      .replaceAll(RegExp(r'\s{2,}'), ' ')
+      .replaceAll(RegExp(r'^\s*[·|—-]+|[·|—-]+\s*$'), '')
+      .trim();
+  return stripped.isEmpty ? source : stripped;
 }

@@ -74,10 +74,10 @@ void main() {
       tester,
       find.byKey(const ValueKey('download_title_anime:5114')),
     );
-    await pumpUntilVisible(tester, find.byTooltip('Watch'));
+    await pumpUntilVisible(tester, find.text('Episode 01'));
     // Let the route transition back to the shell finish before tapping.
     await tester.pumpAndSettle();
-    await _tapVisible(tester, find.byTooltip('Watch'));
+    await _tapVisible(tester, find.text('Episode 01'));
     await pumpUntilVisible(tester, _playerSurface);
 
     expect(find.byKey(const Key('mock_player_surface')), findsOneWidget);

@@ -18,6 +18,7 @@ import 'package:iris/features/anime_list/presentation/widgets/anime_list_view.da
 import 'package:iris/features/profile/presentation/pages/profile_page.dart';
 import 'package:iris/features/settings/presentation/pages/settings_page.dart';
 import 'package:iris/features/settings/presentation/widgets/animejoy_account_section.dart';
+import 'package:iris/shared/widgets/adaptive/window_size_class.dart';
 import 'package:iris/shared/widgets/page_title.dart';
 
 import '../helpers/mock_app.dart';
@@ -366,15 +367,23 @@ void main() {
         tester,
         find.byKey(const ValueKey('download_title_anime:5114')),
       );
-      await pumpUntilVisible(tester, find.byType(BackButton));
-      await tester.pumpAndSettle();
-      expect(find.byType(BackButton), findsOneWidget);
-      await _tapAndSettle(tester, find.byType(BackButton));
-      await tester.pumpAndSettle();
-      expect(
-        find.byKey(const ValueKey('download_title_anime:5114')),
-        findsOneWidget,
-      );
+      if (size.width >= WindowSizeClass.expandedMinWidth) {
+        expect(
+          find.byKey(const ValueKey('download_episodes_list_anime:5114')),
+          findsOneWidget,
+        );
+        expect(find.byType(BackButton), findsNothing);
+      } else {
+        await pumpUntilVisible(tester, find.byType(BackButton));
+        await tester.pumpAndSettle();
+        expect(find.byType(BackButton), findsOneWidget);
+        await _tapAndSettle(tester, find.byType(BackButton));
+        await tester.pumpAndSettle();
+        expect(
+          find.byKey(const ValueKey('download_title_anime:5114')),
+          findsOneWidget,
+        );
+      }
       expect(tester.takeException(), isNull);
     });
   }
