@@ -13,7 +13,7 @@ class AppRelease {
 
   final AppVersion version;
 
-  /// This platform's build: an APK, Windows installer or portable archive.
+  /// This platform's build: an APK, iOS IPA, Windows installer or portable archive.
   final Uri downloadUrl;
 
   final String notes;

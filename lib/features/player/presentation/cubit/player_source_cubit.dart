@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:developer' as developer;
+import 'dart:math' as math;
 
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -43,6 +44,7 @@ class PlayerSourceCubit extends Cubit<PlayerSourceState> {
   bool _downloadsFailed = false;
   bool _closing = false;
   Future<bool>? _batch;
+  int? _selectionAnchor;
 
   Future<void> loadSource() async {
     if (_closing || state is PlayerSourceReady) return;
@@ -109,7 +111,7 @@ class PlayerSourceCubit extends Cubit<PlayerSourceState> {
               : closestQuality(source.qualities, wanted),
           selecting:
               args.initialDownloadMode &&
-              files.length > 1 &&
+              files.isNotEmpty &&
               source != null &&
               (_downloads == null ||
                   files.any((file) => _downloads![file.index] == null)),
@@ -224,19 +226,21 @@ class PlayerSourceCubit extends Cubit<PlayerSourceState> {
     final current = state;
     if (current is! PlayerSourceReady ||
         current.addingBatch ||
-        current.files.length < 2 ||
+        current.files.isEmpty ||
         !current.hasNewDownloads ||
         (index != null &&
             (!current.files.any((file) => file.index == index) ||
                 !current.canDownload(index)))) {
       return;
     }
+    _selectionAnchor = index;
     emit(current.copyWith(selecting: true, selected: {?index}));
   }
 
   void cancelSelection() {
     final current = state;
     if (current is! PlayerSourceReady || current.addingBatch) return;
+    _selectionAnchor = null;
     emit(
       current.copyWith(
         selecting: false,
@@ -246,12 +250,32 @@ class PlayerSourceCubit extends Cubit<PlayerSourceState> {
     );
   }
 
-  void toggleSelection(int index) {
+  void toggleSelection(int index, {bool range = false}) {
     final current = state;
-    if (current is! PlayerSourceReady) return;
+    if (current is! PlayerSourceReady ||
+        !current.selecting ||
+        current.addingBatch ||
+        !current.canDownload(index)) {
+      return;
+    }
     final selected = {...current.selected};
-    if (!selected.remove(index)) selected.add(index);
+    final anchorPos = _selectionAnchor == null
+        ? -1
+        : current.files.indexWhere((file) => file.index == _selectionAnchor);
+    final endPos = current.files.indexWhere((file) => file.index == index);
+    if (endPos < 0) return;
+    if (range && anchorPos >= 0) {
+      final start = math.min(anchorPos, endPos);
+      final end = math.max(anchorPos, endPos);
+      for (var pos = start; pos <= end; pos++) {
+        final fileIndex = current.files[pos].index;
+        if (current.canDownload(fileIndex)) selected.add(fileIndex);
+      }
+    } else if (!selected.remove(index)) {
+      selected.add(index);
+    }
     replaceSelection(selected);
+    _selectionAnchor = index;
   }
 
   void replaceSelection(Set<int> selected) {
@@ -261,6 +285,7 @@ class PlayerSourceCubit extends Cubit<PlayerSourceState> {
         current.addingBatch) {
       return;
     }
+    _selectionAnchor = null;
     emit(
       current.copyWith(
         selected: {

@@ -14,6 +14,12 @@ final _release = {
   'body': 'Bug fixes and performance improvements.',
   'assets': [
     {
+      'name': 'iris-1.3.0-ios-unsigned.ipa',
+      'browser_download_url': 'https://example.org/iris-1.3.0-ios-unsigned.ipa',
+      'size': 3072,
+      'digest': 'sha256:${'c' * 64}',
+    },
+    {
       'name': 'iris-1.3.0-windows-x64.zip',
       'browser_download_url': 'https://example.org/iris-1.3.0-windows-x64.zip',
     },
@@ -70,6 +76,16 @@ void main() {
       (await arm.latestRelease())?.downloadUrl.path,
       '/iris-1.3.0-android-armeabi-v7a.apk',
     );
+
+    final ios = await repository(
+      FakeReply(200, _release),
+      target: const AppBuildTarget.ios(),
+    );
+    final iosRelease = await ios.latestRelease();
+    expect(iosRelease?.downloadUrl.path, '/iris-1.3.0-ios-unsigned.ipa');
+    expect(iosRelease?.assetName, 'iris-1.3.0-ios-unsigned.ipa');
+    expect(iosRelease?.sizeBytes, 3072);
+    expect(iosRelease?.sha256, 'c' * 64);
 
     final windows = await repository(
       FakeReply(200, _release),

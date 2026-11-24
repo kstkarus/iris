@@ -2,11 +2,14 @@ import 'package:flutter/material.dart';
 
 import 'package:iris/entities/watch_progress/domain/watch_progress.dart';
 import 'package:iris/features/downloads/domain/entities/download_item.dart';
+import 'package:iris/features/player/domain/entities/episode_metadata.dart';
 import 'package:iris/features/player/domain/entities/player_video_file.dart';
 import 'package:iris/features/player/domain/player_episode_names.dart';
 import 'package:iris/features/player/presentation/cubit/player_source_state.dart';
+import 'package:iris/features/player/presentation/widgets/episode_tag_badge.dart';
 import 'package:iris/features/player/presentation/widgets/player_source_download_status.dart';
 import 'package:iris/features/player/presentation/widgets/release_episode_tap_row.dart';
+import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/utils/motion_duration.dart';
 import 'package:iris/shared/widgets/adaptive/adaptive_grid_row.dart';
 import 'package:iris/shared/widgets/detail_layout.dart';
@@ -22,6 +25,9 @@ class PlayerEpisodeGrid extends StatefulWidget {
     required this.progressByFile,
     required this.listed,
     required this.onSelected,
+    this.metadataByFile = const {},
+    this.topPadding = 0,
+    this.desktop = false,
     this.isOnline = false,
     this.onLongPressed,
     super.key,
@@ -32,6 +38,9 @@ class PlayerEpisodeGrid extends StatefulWidget {
   final int? highlightedFileIndex;
   final Map<int, WatchProgress> progressByFile;
   final Set<int> listed;
+  final Map<int, EpisodeMetadata> metadataByFile;
+  final double topPadding;
+  final bool desktop;
   final ValueChanged<PlayerVideoFile> onSelected;
   final ValueChanged<PlayerVideoFile>? onLongPressed;
   final bool isOnline;
@@ -80,18 +89,20 @@ class _PlayerEpisodeGridState extends State<PlayerEpisodeGrid> {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        const spacing = 8.0;
-        final rowHeight = MediaQuery.textScalerOf(context).scale(52);
+        final textScaler = MediaQuery.textScalerOf(context);
+        final spacing = widget.desktop ? 10.0 : 8.0;
+        final rowHeight = textScaler.scale(widget.desktop ? 58 : 52);
+        final minWidth = widget.desktop ? textScaler.scale(64) : rowHeight;
         final columns = adaptiveColumnCount(
           availableWidth: constraints.maxWidth,
-          minItemWidth: rowHeight,
+          minItemWidth: minWidth,
           spacing: spacing,
-          maxColumns: 16,
+          maxColumns: widget.desktop ? 10 : 16,
         );
         _revealHighlighted(columns, rowHeight + spacing);
         return GridView.builder(
           controller: _scroll,
-          padding: EdgeInsets.zero,
+          padding: EdgeInsets.only(top: widget.topPadding, bottom: 24),
           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: columns,
             mainAxisSpacing: spacing,
@@ -107,6 +118,7 @@ class _PlayerEpisodeGridState extends State<PlayerEpisodeGrid> {
             return _EpisodeTile(
               index: index,
               number: episodeNumberLabel(file, position),
+              metadata: widget.metadataByFile[index],
               isOnline: widget.isOnline,
               highlighted:
                   !source.selecting && index == widget.highlightedFileIndex,
@@ -126,6 +138,13 @@ class _PlayerEpisodeGridState extends State<PlayerEpisodeGrid> {
                       widget.onLongPressed != null
                   ? () => widget.onLongPressed!(file)
                   : null,
+              onSecondaryTap:
+                  !source.selecting &&
+                      available &&
+                      !source.addingBatch &&
+                      widget.onLongPressed != null
+                  ? () => widget.onLongPressed!(file)
+                  : null,
             );
           },
         );
@@ -138,6 +157,7 @@ class _EpisodeTile extends StatelessWidget {
   const _EpisodeTile({
     required this.index,
     required this.number,
+    required this.metadata,
     required this.isOnline,
     required this.highlighted,
     required this.progress,
@@ -148,10 +168,12 @@ class _EpisodeTile extends StatelessWidget {
     required this.unavailable,
     required this.onTap,
     required this.onLongPress,
+    required this.onSecondaryTap,
   });
 
   final int index;
   final String number;
+  final EpisodeMetadata? metadata;
   final bool isOnline;
   final bool highlighted;
   final WatchProgress? progress;
@@ -162,13 +184,17 @@ class _EpisodeTile extends StatelessWidget {
   final bool unavailable;
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;
+  final VoidCallback? onSecondaryTap;
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final light = theme.brightness == Brightness.light;
     final rule = DetailLayout.ruleColor(scheme);
+    final tags = episodeTags(metadata);
+    final tagLabels = episodeTagLabels(l10n, metadata);
     final download = this.download;
     final progress = this.progress;
     final finished = progress?.isFinished ?? listed;
@@ -217,27 +243,52 @@ class _EpisodeTile extends StatelessWidget {
         index: index,
         number: number,
         isOnline: isOnline,
+        tags: tagLabels,
         progress: progress,
         finished: finished,
         download: download,
         selecting: selecting,
         selected: selected,
         highlighted: highlighted,
+        showTooltip: true,
         onTap: onTap,
         onLongPress: onLongPress,
+        onSecondaryTap: onSecondaryTap,
         child: Padding(
           padding: const EdgeInsets.all(5),
           child: Stack(
             fit: StackFit.expand,
             children: [
               Center(
-                child: AnimatedDefaultTextStyle(
-                  duration: anim,
-                  curve: Curves.easeOutCubic,
-                  style: numberStyle,
-                  child: Text(number, maxLines: 1),
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: AnimatedDefaultTextStyle(
+                    duration: anim,
+                    curve: Curves.easeOutCubic,
+                    style: numberStyle,
+                    child: Text(number, maxLines: 1),
+                  ),
                 ),
               ),
+              if (tags.isNotEmpty)
+                Positioned(
+                  left: 1,
+                  top: 1,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      for (final (i, tag) in tags.indexed) ...[
+                        if (i > 0) const SizedBox(width: 2),
+                        EpisodeTagMark(
+                          tag,
+                          color: selected
+                              ? scheme.surface
+                              : scheme.onSurfaceVariant,
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
               if (download != null)
                 Positioned(
                   right: 0,

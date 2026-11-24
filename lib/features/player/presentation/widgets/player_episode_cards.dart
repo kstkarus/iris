@@ -2,12 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'package:iris/entities/watch_progress/domain/watch_progress.dart';
+import 'package:iris/features/player/domain/entities/episode_metadata.dart';
 import 'package:iris/features/player/domain/entities/player_video_file.dart';
 import 'package:iris/features/player/domain/player_episode_names.dart';
+import 'package:iris/features/player/presentation/widgets/episode_tag_badge.dart';
 import 'package:iris/features/player/presentation/widgets/player_colors.dart';
 import 'package:iris/features/player/presentation/widgets/episode_list_scroll_view.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/utils/duration_formatter.dart';
+import 'package:iris/shared/utils/motion_duration.dart';
 import 'package:iris/shared/widgets/detail_layout.dart';
 import 'package:iris/shared/widgets/pixel_icon.dart';
 
@@ -21,6 +24,7 @@ class PlayerEpisodeCards extends StatelessWidget {
     required this.progressByFile,
     required this.onSelected,
     this.listed = const {},
+    this.metadataByFile = const {},
     super.key,
   });
 
@@ -31,11 +35,14 @@ class PlayerEpisodeCards extends StatelessWidget {
   /// Files the user's Shikimori list counts as watched, by index; a file
   /// with progress here shows that instead.
   final Set<int> listed;
+
+  /// Optional episode metadata (titles, filler/recap), keyed by `file.index`.
+  final Map<int, EpisodeMetadata> metadataByFile;
   final ValueChanged<PlayerVideoFile> onSelected;
 
   @override
   Widget build(BuildContext context) {
-    final names = distinctEpisodeNames(files);
+    final names = distinctEpisodeNames(files, metadata: metadataByFile);
     return EpisodeListScrollView(
       targetIndex: files.indexWhere((file) => file.index == currentFileIndex),
       padding: const EdgeInsets.only(bottom: 16),
@@ -46,6 +53,7 @@ class PlayerEpisodeCards extends StatelessWidget {
           file: file,
           position: position + 1,
           name: names[file.index],
+          episodeMetadata: metadataByFile[file.index],
           isCurrent: file.index == currentFileIndex,
           progress: progressByFile[file.index],
           listed: listed.contains(file.index),
@@ -69,6 +77,7 @@ class _EpisodeCard extends StatefulWidget {
     required this.file,
     required this.position,
     required this.name,
+    required this.episodeMetadata,
     required this.isCurrent,
     required this.progress,
     required this.listed,
@@ -82,6 +91,7 @@ class _EpisodeCard extends StatefulWidget {
 
   /// The episode's own name, when the file has one.
   final String? name;
+  final EpisodeMetadata? episodeMetadata;
   final bool isCurrent;
   final WatchProgress? progress;
 
@@ -112,11 +122,16 @@ class _EpisodeCardState extends State<_EpisodeCard> {
         !finished && progress != null && progress.duration > Duration.zero;
     final numberText = episodeNumberLabel(file, widget.position - 1);
     final name = widget.name;
-    final titleText = name != null && name.isNotEmpty
+    final tags = episodeTags(widget.episodeMetadata);
+    final hasName =
+        name != null && name.isNotEmpty && !nameIsJustNumber(name, numberText);
+    final titleText = hasName
         ? name
-        : episode == null
-        ? file.displayName
-        : l10n.playerEpisodeNumber(episode);
+        : episode != null
+        ? l10n.playerEpisodeNumber(episode)
+        : file.episodeNumber != null
+        ? l10n.playerSourceEpisodeLabel(numberText)
+        : file.displayName;
 
     final Color background;
     if (widget.isCurrent) {
@@ -153,7 +168,7 @@ class _EpisodeCardState extends State<_EpisodeCard> {
         key: ValueKey('player_episode_card_${file.index}'),
         onTap: widget.isCurrent ? null : widget.onTap,
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 150),
+          duration: motionDuration(context, const Duration(milliseconds: 150)),
           constraints: const BoxConstraints(minHeight: _minHeight),
           decoration: BoxDecoration(color: background),
           // Keyboard focus as an outline: a fill this faint would not show.
@@ -190,51 +205,82 @@ class _EpisodeCardState extends State<_EpisodeCard> {
                   vertical: 13,
                 ),
                 child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     SizedBox(
-                      width: 36,
-                      child: Text(
-                        numberText,
-                        style: DetailLayout.monoTelemetryStyle(
-                          const TextStyle(fontSize: 13.5),
-                          fontWeight: widget.isCurrent
-                              ? FontWeight.w700
-                              : FontWeight.w500,
-                          color: widget.isCurrent
-                              ? accent
-                              : finished
-                              ? Colors.white38
-                              : Colors.white60,
+                      width: 48,
+                      child: Padding(
+                        padding: const EdgeInsets.only(top: 2, right: 10),
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: AlignmentDirectional.centerStart,
+                          child: Text(
+                            numberText,
+                            maxLines: 1,
+                            style: DetailLayout.monoTelemetryStyle(
+                              const TextStyle(fontSize: 13.5),
+                              fontWeight: widget.isCurrent
+                                  ? FontWeight.w700
+                                  : FontWeight.w500,
+                              color: widget.isCurrent
+                                  ? accent
+                                  : finished
+                                  ? Colors.white38
+                                  : Colors.white60,
+                            ),
+                          ),
                         ),
                       ),
                     ),
                     Expanded(
-                      child: Text(
-                        titleText,
-                        maxLines: episode == null ? 2 : 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          fontFamily: DetailLayout.sansFont,
-                          fontSize: 14.5,
-                          fontWeight: widget.isCurrent
-                              ? FontWeight.w600
-                              : FontWeight.w400,
-                          color: widget.isCurrent
-                              ? playerPlateText
-                              : finished
-                              ? Colors.white54
-                              : Colors.white,
-                        ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            titleText,
+                            maxLines: episode == null ? 2 : 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              fontFamily: DetailLayout.sansFont,
+                              fontSize: 14.5,
+                              fontWeight: widget.isCurrent
+                                  ? FontWeight.w600
+                                  : FontWeight.w400,
+                              color: widget.isCurrent
+                                  ? playerPlateText
+                                  : finished
+                                  ? Colors.white54
+                                  : Colors.white,
+                            ),
+                          ),
+                          if (tags.isNotEmpty) ...[
+                            const SizedBox(height: 5),
+                            Wrap(
+                              spacing: 6,
+                              runSpacing: 4,
+                              children: [
+                                for (final tag in tags)
+                                  EpisodeTagBadge(tag, overVideo: true),
+                              ],
+                            ),
+                          ],
+                        ],
                       ),
                     ),
                     const SizedBox(width: 12),
-                    _Status(
-                      isCurrent: widget.isCurrent,
-                      finished: finished,
-                      left: partial
-                          ? progress.duration - progress.position
-                          : null,
-                      accent: accent,
+                    Padding(
+                      padding: EdgeInsets.only(
+                        top: !widget.isCurrent && finished ? 3 : 2,
+                      ),
+                      child: _Status(
+                        isCurrent: widget.isCurrent,
+                        finished: finished,
+                        left: partial
+                            ? progress.duration - progress.position
+                            : null,
+                        accent: accent,
+                      ),
                     ),
                   ],
                 ),

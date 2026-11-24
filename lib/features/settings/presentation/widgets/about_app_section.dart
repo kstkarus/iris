@@ -30,14 +30,12 @@ class AboutAppSection extends StatelessWidget {
     final labelStyle = SettingsRow.labelStyle(theme);
     final windows = theme.platform == TargetPlatform.windows;
     final inApp = cubit.supportsInAppUpdate;
-    final actionLabel = !inApp
-        ? l10n.appUpdateDownload
-        : switch (state.phase) {
-            AppUpdatePhase.available => l10n.settingsUpdateOpen,
-            AppUpdatePhase.ready =>
-              windows ? l10n.appUpdateRestart : l10n.appUpdateInstall,
-            _ => l10n.settingsUpdateOpenDetails,
-          };
+    final actionLabel = switch (state.phase) {
+      AppUpdatePhase.available => l10n.settingsUpdateOpen,
+      AppUpdatePhase.ready =>
+        windows ? l10n.appUpdateRestart : l10n.appUpdateInstall,
+      _ => l10n.settingsUpdateOpenDetails,
+    };
 
     final release = state.availableRelease;
     final showCheck =
@@ -77,12 +75,10 @@ class AboutAppSection extends StatelessWidget {
           (!inApp || state.phase != AppUpdatePhase.installing))
         FilledButton(
           key: openUpdateButtonKey,
-          onPressed: !inApp
-              ? openUpdate
-              : switch (state.phase) {
-                  AppUpdatePhase.ready => cubit.install,
-                  _ => onOpenUpdate ?? openUpdate,
-                },
+          onPressed: switch (state.phase) {
+            AppUpdatePhase.ready when inApp => cubit.install,
+            _ => onOpenUpdate ?? openUpdate,
+          },
           child: Text(actionLabel, textAlign: TextAlign.center),
         ),
     ];

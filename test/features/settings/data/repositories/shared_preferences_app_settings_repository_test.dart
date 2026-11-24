@@ -21,6 +21,7 @@ void main() {
       'settings.theme_mode': 'future-theme',
       'settings.locale': 'russian',
       'settings.anime_title_language': 'future-language',
+      'settings.episode_list_layout': 'future-layout',
       'settings.default_audio_language': 42,
       'settings.default_subtitle_language': ['english'],
     });
@@ -42,6 +43,7 @@ void main() {
       themeMode: AppThemePreference.dark,
       locale: AppLocalePreference.english,
       animeTitleLanguage: AnimeTitleLanguage.romaji,
+      episodeListLayout: EpisodeListLayout.grid,
       defaultAudioLanguage: DefaultAudioLanguage.japanese,
       defaultSubtitleLanguage: DefaultSubtitleLanguage.off,
     );
@@ -52,6 +54,7 @@ void main() {
     expect(preferences.getString('settings.theme_mode'), 'dark');
     expect(preferences.getString('settings.locale'), 'english');
     expect(preferences.getString('settings.anime_title_language'), 'romaji');
+    expect(preferences.getString('settings.episode_list_layout'), 'grid');
     expect(
       preferences.getString('settings.default_audio_language'),
       'japanese',

@@ -25,11 +25,15 @@ void main() {
   late List<Uri> opened;
   late bool opens;
 
-  Future<FakeAppUpdateRepository> pumpNotice(WidgetTester tester) async {
+  Future<(FakeAppUpdateRepository, AppUpdateCubit)> pumpNotice(
+    WidgetTester tester, {
+    AppRelease? release,
+    TargetPlatform? platform,
+  }) async {
     opened = [];
     opens = true;
     final repository = FakeAppUpdateRepository(
-      latest: testRelease(3),
+      latest: release ?? testRelease(3),
       installed: const AppVersion(1, 2, 0),
     );
     final cubit = AppUpdateCubit(repository: repository);
@@ -48,33 +52,91 @@ void main() {
             ),
           ),
         ),
+        theme: platform == null ? null : ThemeData(platform: platform),
       ),
     );
     expect(find.text('Version 1.3.0 available'), findsNothing);
     await tester.runAsync(cubit.check);
     await tester.pumpAndSettle();
-    return repository;
+    return (repository, cubit);
   }
 
-  testWidgets('Download opens the build for this platform', (tester) async {
+  testWidgets('Download opens the build for this platform from the sheet', (
+    tester,
+  ) async {
     await pumpNotice(tester);
 
     expect(find.text('Version 1.3.0 available'), findsOneWidget);
-    await tester.tap(find.byKey(UpdateNotice.downloadKey));
+    await tester.tap(find.byKey(UpdateNotice.noticeKey));
+    await tester.pumpAndSettle();
+    expect(find.byKey(UpdateNotice.sheetKey), findsOneWidget);
+
+    await tester.tap(find.byKey(UpdateNotice.downloadActionKey));
     await tester.pumpAndSettle();
 
     expect(opened, [testRelease(3).downloadUrl]);
     expect(find.text('Could not open the download.'), findsNothing);
   });
 
-  testWidgets('a download nothing could open says so', (tester) async {
+  testWidgets('iOS notice opens release notes sheet and launches the IPA URL', (
+    tester,
+  ) async {
+    _usePhoneSize(tester);
+    final ipaRelease = AppRelease(
+      version: const AppVersion(1, 3, 0),
+      downloadUrl: Uri.parse('https://example.org/iris-1.3.0-ios-unsigned.ipa'),
+      notes: '## iOS\n\n- Check for updates in app.',
+      sizeBytes: 31 * 1024 * 1024,
+      assetName: 'iris-1.3.0-ios-unsigned.ipa',
+    );
+    await pumpNotice(tester, release: ipaRelease, platform: TargetPlatform.iOS);
+
+    await tester.tap(find.byKey(UpdateNotice.noticeKey));
+    await tester.pumpAndSettle();
+
+    final sheet = find.byKey(UpdateNotice.sheetKey);
+    expect(sheet, findsOneWidget);
+    expect(
+      find.descendant(of: sheet, matching: find.text('1.3.0')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: sheet,
+        matching: find.text('Check for updates in app.'),
+      ),
+      findsOneWidget,
+    );
+    final download = find.byKey(UpdateNotice.downloadActionKey);
+    expect(
+      find.descendant(of: download, matching: find.textContaining('31 MB')),
+      findsOneWidget,
+    );
+
+    await tester.tap(download);
+    await tester.pumpAndSettle();
+    expect(opened, [ipaRelease.downloadUrl]);
+    expect(find.text('Could not open the download.'), findsNothing);
+  });
+
+  testWidgets('a download nothing could open says so inside the sheet', (
+    tester,
+  ) async {
     await pumpNotice(tester);
     opens = false;
 
-    await tester.tap(find.byKey(UpdateNotice.downloadKey));
+    await tester.tap(find.byKey(UpdateNotice.noticeKey));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(UpdateNotice.downloadActionKey));
     await tester.pumpAndSettle();
 
-    expect(find.text('Could not open the download.'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(UpdateNotice.footerKey),
+        matching: find.text('Could not open the download.'),
+      ),
+      findsOneWidget,
+    );
   });
 
   testWidgets('the strip takes the status bar inset from the page below', (
@@ -90,6 +152,8 @@ void main() {
       greaterThan(24),
     );
 
+    await tester.tap(find.byKey(UpdateNotice.noticeKey));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(UpdateNotice.laterKey));
     await tester.pumpAndSettle();
 
@@ -97,11 +161,14 @@ void main() {
   });
 
   testWidgets('Later puts the release off', (tester) async {
-    final repository = await pumpNotice(tester);
+    final (repository, _) = await pumpNotice(tester);
 
+    await tester.tap(find.byKey(UpdateNotice.noticeKey));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(UpdateNotice.laterKey));
     await tester.pumpAndSettle();
 
+    expect(find.byKey(UpdateNotice.sheetKey), findsNothing);
     expect(find.text('Version 1.3.0 available'), findsNothing);
     expect(repository.dismissed, const AppVersion(1, 3, 0));
   });
@@ -738,9 +805,9 @@ void main() {
   testWidgets('Later dismisses the update notice snappily within 240ms', (
     tester,
   ) async {
-    await pumpNotice(tester);
+    final (_, cubit) = await pumpNotice(tester);
 
-    await tester.tap(find.byKey(UpdateNotice.laterKey));
+    await cubit.dismiss();
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 240));
     await tester.pump(const Duration(milliseconds: 1));

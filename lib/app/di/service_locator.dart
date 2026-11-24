@@ -71,6 +71,8 @@ import 'package:iris/features/player/data/adapters/method_channel_player_media_c
 import 'package:iris/features/player/data/adapters/player_runtime_memory_adapter.dart';
 import 'package:iris/features/player/data/datasources/libtorrent_player_data_source.dart';
 import 'package:iris/features/player/data/repositories/aniskip_skip_times_repository.dart';
+import 'package:iris/features/player/data/repositories/mock_episode_metadata_repository.dart';
+import 'package:iris/features/player/data/repositories/tenrai_episode_metadata_repository.dart';
 import 'package:iris/features/player/data/repositories/mock_player_repository.dart';
 import 'package:iris/features/player/data/repositories/release_player_repository.dart';
 import 'package:iris/features/player/data/repositories/mock_player_skip_times_repository.dart';
@@ -82,6 +84,7 @@ import 'package:iris/features/player/data/repositories/shared_preferences_track_
 import 'package:iris/features/player/data/repositories/streaming_or_local_player_repository.dart';
 import 'package:iris/features/player/data/repositories/torrent_player_repository.dart';
 import 'package:iris/features/player/domain/player_media_controls.dart';
+import 'package:iris/features/player/domain/repositories/episode_metadata_repository.dart';
 import 'package:iris/features/player/domain/repositories/player_decoding_preferences_repository.dart';
 import 'package:iris/features/player/domain/repositories/player_repository.dart';
 import 'package:iris/features/player/domain/repositories/player_skip_times_repository.dart';
@@ -125,6 +128,8 @@ import 'package:iris/shared/network/anilibria_api_client.dart';
 import 'package:iris/shared/network/dio_factory.dart';
 import 'package:iris/shared/network/aniskip_api_client.dart';
 import 'package:iris/shared/network/aniskip_dio_factory.dart';
+import 'package:iris/shared/network/tenrai_api_client.dart';
+import 'package:iris/shared/network/tenrai_dio_factory.dart';
 import 'package:iris/shared/network/nyaa_api.dart';
 import 'package:iris/shared/network/nyaa_api_client.dart';
 import 'package:iris/shared/network/shikimori_graph_ql_client.dart';
@@ -234,6 +239,9 @@ void _registerNetwork() {
     )
     ..registerLazySingleton<AniSkipApiClient>(
       () => AniSkipApiClient(dio: createAniSkipDio()),
+    )
+    ..registerLazySingleton<TenraiApiClient>(
+      () => TenraiApiClient(dio: createTenraiDio()),
     );
 }
 
@@ -299,6 +307,9 @@ void _registerMocks() {
     ..registerFactory<PlayerMediaControls>(NoPlayerMediaControls.new)
     ..registerLazySingleton<PlayerSkipTimesRepository>(
       MockPlayerSkipTimesRepository.new,
+    )
+    ..registerLazySingleton<EpisodeMetadataRepository>(
+      MockEpisodeMetadataRepository.new,
     )
     ..registerLazySingleton<PlayerViewportFactory>(
       MockPlayerViewportFactory.new,
@@ -544,6 +555,11 @@ Future<void> _registerReal() async {
         client: serviceLocator<AniSkipApiClient>(),
       ),
     )
+    ..registerLazySingleton<EpisodeMetadataRepository>(
+      () => TenraiEpisodeMetadataRepository(
+        client: serviceLocator<TenraiApiClient>(),
+      ),
+    )
     ..registerFactory<PlayerMediaControls>(
       () =>
           !kIsWeb &&
@@ -730,12 +746,14 @@ void _registerCommon() {
 }
 
 /// The release file this build updates from, or null where releases carry
-/// none (iOS, an ABI without an APK).
+/// none (an ABI without an APK, or an unsupported platform).
 AppBuildTarget? _appBuildTarget() {
   switch (defaultTargetPlatform) {
     case TargetPlatform.android:
       final abi = AppBuildTarget.androidAbiName(Abi.current());
       return abi == null ? null : AppBuildTarget.android(abi);
+    case TargetPlatform.iOS:
+      return const AppBuildTarget.ios();
     case TargetPlatform.windows:
       return serviceLocator.isRegistered<AppUpdateDownloadRepository>()
           ? const AppBuildTarget.windowsInstaller()

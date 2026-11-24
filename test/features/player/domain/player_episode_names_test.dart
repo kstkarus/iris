@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:iris/features/player/domain/entities/episode_metadata.dart';
 import 'package:iris/features/player/domain/entities/player_video_file.dart';
 import 'package:iris/features/player/domain/player_episode_names.dart';
 
@@ -57,6 +58,83 @@ void main() {
         ),
       );
       expect(hasEpisodeTitles(files), isTrue);
+    });
+
+    test('does not mix external titles into a release with own titles', () {
+      const files = [
+        PlayerVideoFile(
+          index: 0,
+          name: '01',
+          size: 0,
+          extension: 'm3u8',
+          episodeNumber: 1,
+          title: '«Конец приключений»',
+        ),
+        PlayerVideoFile(
+          index: 1,
+          name: '02',
+          size: 0,
+          extension: 'm3u8',
+          episodeNumber: 2,
+          title: 'Episode 2',
+        ),
+      ];
+      const metadata = {
+        0: EpisodeMetadata(number: 1, title: "The Journey's End"),
+        1: EpisodeMetadata(
+          number: 2,
+          title: "It Didn't Have to Be Magic...",
+          filler: true,
+        ),
+      };
+
+      expect(distinctEpisodeNames(files, metadata: metadata), {
+        0: '«Конец приключений»',
+        1: 'Episode 2',
+      });
+    });
+
+    test('uses external titles when the release only has numeric labels', () {
+      const files = [
+        PlayerVideoFile(
+          index: 0,
+          name: '01',
+          size: 0,
+          extension: 'm3u8',
+          episodeNumber: 1,
+          title: 'Episode 1',
+        ),
+        PlayerVideoFile(
+          index: 1,
+          name: '02',
+          size: 0,
+          extension: 'm3u8',
+          episodeNumber: 2,
+          title: 'Серия 2',
+        ),
+      ];
+      const metadata = {
+        0: EpisodeMetadata(number: 1, title: "The Journey's End"),
+        1: EpisodeMetadata(number: 2, title: "It Didn't Have to Be Magic..."),
+      };
+
+      expect(distinctEpisodeNames(files, metadata: metadata), {
+        0: "The Journey's End",
+        1: "It Didn't Have to Be Magic...",
+      });
+    });
+
+    test('marks untitled releases as titled when metadata supplies names', () {
+      final files = [
+        _file(0, '[Group] Naruto - 01.mkv'),
+        _file(1, '[Group] Naruto - 02.mkv'),
+      ];
+      const metadata = {
+        0: EpisodeMetadata(number: 1, title: 'Enter: Naruto Uzumaki!'),
+      };
+
+      expect(hasEpisodeTitles(files), isFalse);
+      expect(hasEpisodeTitles(files, metadata: metadata), isTrue);
     });
   });
 

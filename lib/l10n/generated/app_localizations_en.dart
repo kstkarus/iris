@@ -1796,13 +1796,7 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get playerSourceOpenDownloads => 'Go to Downloads';
-
-  @override
   String get playerSourceQueueFailed => 'Couldn’t add to the queue. Try again.';
-
-  @override
-  String get playerSourceWatchAgain => 'Watch again';
 
   @override
   String get playerSourceUnwatched => 'Unwatched';
@@ -1816,6 +1810,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String playerSourceFileLabel(String number) {
     return 'File $number';
   }
+
+  @override
+  String get playerEpisodeFiller => 'Filler';
+
+  @override
+  String get playerEpisodeRecap => 'Recap';
 
   @override
   String downloadSelectedEpisodes(int count) {
@@ -1991,6 +1991,18 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get settingsAnimeTitleLanguageEnglish => 'English';
+
+  @override
+  String get settingsEpisodeListLayoutLabel => 'Episodes view';
+
+  @override
+  String get settingsEpisodeListLayoutAuto => 'Auto';
+
+  @override
+  String get settingsEpisodeListLayoutList => 'List';
+
+  @override
+  String get settingsEpisodeListLayoutGrid => 'Grid';
 
   @override
   String get settingsAppVersion => 'Version';

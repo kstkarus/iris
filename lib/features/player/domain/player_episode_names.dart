@@ -1,3 +1,4 @@
+import 'package:iris/features/player/domain/entities/episode_metadata.dart';
 import 'package:iris/features/player/domain/entities/player_video_file.dart';
 import 'package:iris/shared/utils/file_display_name.dart';
 
@@ -16,7 +17,36 @@ final _episodeLabel = RegExp(r'^(?:episode|серия)\s+', caseSensitive: false
 /// Each file's own episode name, where its name says more than the series
 /// and the number every file shares: `Frieren - 11 - The Hero's Party`
 /// gives `The Hero's Party`, `Death Note 19` gives nothing.
-Map<int, String> distinctEpisodeNames(List<PlayerVideoFile> files) {
+///
+/// When the release has no real episode titles of its own, [metadata] (keyed
+/// by `file.index`) supplies fallback titles. Releases that already name their
+/// episodes keep their own titles without mixing languages in gaps.
+Map<int, String> distinctEpisodeNames(
+  List<PlayerVideoFile> files, {
+  Map<int, EpisodeMetadata> metadata = const {},
+}) {
+  final own = _ownEpisodeNames(files);
+  if (metadata.isEmpty || _hasRealNames(files, own)) return own;
+  return {
+    for (final (position, file) in files.indexed)
+      if (metadata[file.index]?.title?.trim() case final external?
+          when external.isNotEmpty &&
+              !nameIsJustNumber(external, episodeNumberLabel(file, position)))
+        file.index: external,
+  };
+}
+
+bool _hasRealNames(List<PlayerVideoFile> files, Map<int, String> names) {
+  return files.indexed.any((entry) {
+    final (position, file) = entry;
+    final name = names[file.index]?.trim();
+    return name != null &&
+        name.isNotEmpty &&
+        !nameIsJustNumber(name, episodeNumberLabel(file, position));
+  });
+}
+
+Map<int, String> _ownEpisodeNames(List<PlayerVideoFile> files) {
   // An online release names its episodes itself.
   if (files.any((file) => file.title.isNotEmpty)) {
     return {
@@ -40,15 +70,27 @@ Map<int, String> distinctEpisodeNames(List<PlayerVideoFile> files) {
 }
 
 /// Whether any episode has a title beyond a fallback such as `Episode 1`.
-bool hasEpisodeTitles(List<PlayerVideoFile> files) {
-  final names = distinctEpisodeNames(files);
-  return files.indexed.any((entry) {
+bool hasEpisodeTitles(
+  List<PlayerVideoFile> files, {
+  Map<int, EpisodeMetadata> metadata = const {},
+}) {
+  final names = distinctEpisodeNames(files, metadata: metadata);
+  if (files.indexed.any((entry) {
     final (position, file) = entry;
     final name = names[file.index]?.trim();
     return name != null &&
         name.isNotEmpty &&
         !nameIsJustNumber(name, episodeNumberLabel(file, position));
-  });
+  })) {
+    return true;
+  }
+  if (files.length == 1) {
+    final file = files.single;
+    final display = file.displayName.trim();
+    return display.isNotEmpty &&
+        !nameIsJustNumber(display, episodeNumberLabel(file, 0));
+  }
+  return false;
 }
 
 String? _ownName(String name, int prefix, int suffix) {

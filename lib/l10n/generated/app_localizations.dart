@@ -3080,23 +3080,11 @@ abstract class AppLocalizations {
   /// **'{count} downloaded'**
   String playerSourceDownloadedCount(int count);
 
-  /// No description provided for @playerSourceOpenDownloads.
-  ///
-  /// In en, this message translates to:
-  /// **'Go to Downloads'**
-  String get playerSourceOpenDownloads;
-
   /// No description provided for @playerSourceQueueFailed.
   ///
   /// In en, this message translates to:
   /// **'Couldn’t add to the queue. Try again.'**
   String get playerSourceQueueFailed;
-
-  /// No description provided for @playerSourceWatchAgain.
-  ///
-  /// In en, this message translates to:
-  /// **'Watch again'**
-  String get playerSourceWatchAgain;
 
   /// No description provided for @playerSourceUnwatched.
   ///
@@ -3115,6 +3103,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'File {number}'**
   String playerSourceFileLabel(String number);
+
+  /// No description provided for @playerEpisodeFiller.
+  ///
+  /// In en, this message translates to:
+  /// **'Filler'**
+  String get playerEpisodeFiller;
+
+  /// No description provided for @playerEpisodeRecap.
+  ///
+  /// In en, this message translates to:
+  /// **'Recap'**
+  String get playerEpisodeRecap;
 
   /// No description provided for @downloadSelectedEpisodes.
   ///
@@ -3421,6 +3421,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'English'**
   String get settingsAnimeTitleLanguageEnglish;
+
+  /// No description provided for @settingsEpisodeListLayoutLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Episodes view'**
+  String get settingsEpisodeListLayoutLabel;
+
+  /// No description provided for @settingsEpisodeListLayoutAuto.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto'**
+  String get settingsEpisodeListLayoutAuto;
+
+  /// No description provided for @settingsEpisodeListLayoutList.
+  ///
+  /// In en, this message translates to:
+  /// **'List'**
+  String get settingsEpisodeListLayoutList;
+
+  /// No description provided for @settingsEpisodeListLayoutGrid.
+  ///
+  /// In en, this message translates to:
+  /// **'Grid'**
+  String get settingsEpisodeListLayoutGrid;
 
   /// No description provided for @settingsAppVersion.
   ///

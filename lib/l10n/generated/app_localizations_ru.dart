@@ -1826,14 +1826,8 @@ class AppLocalizationsRu extends AppLocalizations {
   }
 
   @override
-  String get playerSourceOpenDownloads => 'В загрузки';
-
-  @override
   String get playerSourceQueueFailed =>
       'Не удалось добавить в очередь. Попробуйте ещё раз.';
-
-  @override
-  String get playerSourceWatchAgain => 'Смотреть снова';
 
   @override
   String get playerSourceUnwatched => 'Не просмотрено';
@@ -1847,6 +1841,12 @@ class AppLocalizationsRu extends AppLocalizations {
   String playerSourceFileLabel(String number) {
     return 'Файл $number';
   }
+
+  @override
+  String get playerEpisodeFiller => 'Филлер';
+
+  @override
+  String get playerEpisodeRecap => 'Рекап';
 
   @override
   String downloadSelectedEpisodes(int count) {
@@ -2025,6 +2025,18 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get settingsAnimeTitleLanguageEnglish => 'Английские';
+
+  @override
+  String get settingsEpisodeListLayoutLabel => 'Список серий';
+
+  @override
+  String get settingsEpisodeListLayoutAuto => 'Авто';
+
+  @override
+  String get settingsEpisodeListLayoutList => 'Список';
+
+  @override
+  String get settingsEpisodeListLayoutGrid => 'Сетка';
 
   @override
   String get settingsAppVersion => 'Версия';

@@ -38,6 +38,7 @@ const _audio = Key('settings_default_audio_choice');
 const _subtitles = Key('settings_default_subtitles_choice');
 const _theme = Key('settings_theme_choice');
 const _language = Key('settings_language_choice');
+const _episodeLayout = Key('settings_episode_list_layout_choice');
 const _animeTitles = Key('settings_anime_title_language_choice');
 
 void main() {
@@ -189,6 +190,9 @@ void main() {
     await tapOption(_language, 'Русский');
     expect(settings.state.locale, AppLocalePreference.russian);
 
+    await tapOption(_episodeLayout, 'Grid');
+    expect(settings.state.episodeListLayout, EpisodeListLayout.grid);
+
     expect(
       find.descendant(
         of: find.byKey(_animeTitles),
@@ -260,6 +264,8 @@ void main() {
     expect(settings.state.themeMode, AppThemePreference.dark);
     await chooseFromMenu(tester, _language, 'English');
     expect(settings.state.locale, AppLocalePreference.english);
+    await chooseFromMenu(tester, _episodeLayout, 'Сетка');
+    expect(settings.state.episodeListLayout, EpisodeListLayout.grid);
     expect(tester.takeException(), isNull);
   });
 
@@ -582,12 +588,15 @@ void main() {
 
     final openButton = find.byKey(AboutAppSection.openUpdateButtonKey);
     expect(
-      find.descendant(of: openButton, matching: find.text('Download')),
+      find.descendant(of: openButton, matching: find.text('Update')),
       findsOneWidget,
     );
     await tester.ensureVisible(openButton);
     await tester.pumpAndSettle();
     await tester.tap(openButton);
+    await tester.pumpAndSettle();
+    expect(find.byKey(UpdateNotice.sheetKey), findsOneWidget);
+    await tester.tap(find.byKey(UpdateNotice.downloadActionKey));
     await tester.pumpAndSettle();
     expect(opened, [release.downloadUrl]);
     expect(tester.takeException(), isNull);
@@ -796,7 +805,10 @@ void main() {
       updateDownloads: _UpdateDownloads(),
       platform: TargetPlatform.windows,
     );
-    await tester.tap(find.byKey(AboutAppSection.checkUpdatesButtonKey));
+    final check = find.byKey(AboutAppSection.checkUpdatesButtonKey);
+    await tester.ensureVisible(check);
+    await tester.pumpAndSettle();
+    await tester.tap(check);
     await tester.pumpAndSettle();
 
     final update = find.byKey(UpdateNotice.sheetKey);

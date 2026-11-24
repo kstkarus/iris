@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:iris/features/player/domain/entities/episode_metadata.dart';
 import 'package:iris/features/player/domain/entities/player_video_file.dart';
 import 'package:iris/features/player/domain/listed_episodes.dart';
 
@@ -53,5 +54,30 @@ void main() {
     ];
 
     expect(filesCountedInList(files, 1), isEmpty);
+  });
+
+  test('matches episode metadata only when files use the anime numbering', () {
+    const metadata = {
+      1: EpisodeMetadata(number: 1, title: 'First'),
+      2: EpisodeMetadata(number: 2, title: 'Second', filler: true),
+      13: EpisodeMetadata(number: 13, title: 'Thirteenth'),
+    };
+    final online = [
+      _file(10, '01', number: 1),
+      _file(11, '01.5', number: 1.5),
+      _file(12, '02', number: 2),
+    ];
+    expect(episodeMetadataForFiles(online, metadata), {
+      10: metadata[1],
+      12: metadata[2],
+    });
+    expect(maxAnimeEpisodeNumber(online), 2);
+
+    final sequelTorrent = [
+      _file(0, '[Group] Title - 13 [1080p].mkv'),
+      _file(1, '[Group] Title - 14 [1080p].mkv'),
+    ];
+    expect(episodeMetadataForFiles(sequelTorrent, metadata), isEmpty);
+    expect(maxAnimeEpisodeNumber(sequelTorrent), isNull);
   });
 }

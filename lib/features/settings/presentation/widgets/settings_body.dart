@@ -164,6 +164,26 @@ class _SettingsBodyState extends State<SettingsBody> {
                 ),
               ],
             ),
+            SettingsAppearanceChoice(
+              key: const Key('settings_episode_list_layout_choice'),
+              label: l10n.settingsEpisodeListLayoutLabel,
+              selected: settings.episodeListLayout,
+              onSelected: cubit.setEpisodeListLayout,
+              options: [
+                SegmentedOption(
+                  value: EpisodeListLayout.auto,
+                  label: l10n.settingsEpisodeListLayoutAuto,
+                ),
+                SegmentedOption(
+                  value: EpisodeListLayout.list,
+                  label: l10n.settingsEpisodeListLayoutList,
+                ),
+                SegmentedOption(
+                  value: EpisodeListLayout.grid,
+                  label: l10n.settingsEpisodeListLayoutGrid,
+                ),
+              ],
+            ),
             SettingsMenuChoice(
               key: const Key('settings_anime_title_language_choice'),
               label: l10n.settingsAnimeTitleLanguageLabel,

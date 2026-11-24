@@ -209,6 +209,38 @@ void main() {
     },
   );
 
+  test(
+    'range selection adds downloadable files between anchor and target and resets on cancel',
+    () async {
+      final downloads = ReleaseDownloadsFixture(
+        files: testReleaseFiles(6),
+        downloads: [testReleaseDownload(3, DownloadStatus.completed)],
+      );
+      final cubit = PlayerSourceCubit(
+        args: testReleaseArgs(online: true),
+        downloadsRepository: downloads,
+        playerRepository: StubPlayerRepository(),
+      );
+      await cubit.loadSource();
+      PlayerSourceReady ready() => cubit.state as PlayerSourceReady;
+
+      cubit.startSelection(index: 2);
+      expect(ready().selected, {2});
+      cubit.toggleSelection(5, range: true);
+      expect(ready().selected, {2, 4, 5});
+
+      cubit.cancelSelection();
+      cubit.startSelection();
+      cubit.toggleSelection(4, range: true);
+      expect(ready().selected, {4});
+      cubit.toggleSelection(1, range: true);
+      expect(ready().selected, {1, 2, 4});
+
+      await cubit.close();
+      await downloads.closeFixture();
+    },
+  );
+
   for (final single in [false, true]) {
     test(
       'close lets a pending ${single ? 'single enqueue' : 'batch'} finish before releasing its token',

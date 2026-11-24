@@ -21,14 +21,16 @@ String downloadSelectionTitle(AppLocalizations l10n, bool isOnline) =>
 String downloadSelectionPrompt(AppLocalizations l10n, bool isOnline) =>
     isOnline ? l10n.downloadSelectEpisodes : l10n.downloadSelectFiles;
 
-ButtonStyle releaseDownloadOutline(BuildContext context) =>
-    OutlinedButton.styleFrom(
-      padding: const EdgeInsets.symmetric(horizontal: 14),
-      minimumSize: const Size(0, 44),
-      side: BorderSide(
-        color: DetailLayout.ruleColor(Theme.of(context).colorScheme),
-      ),
-    );
+ButtonStyle releaseDownloadOutline(
+  BuildContext context, {
+  bool compact = false,
+}) => OutlinedButton.styleFrom(
+  padding: EdgeInsets.symmetric(horizontal: compact ? 12 : 14),
+  minimumSize: Size(0, compact ? 38 : 44),
+  side: BorderSide(
+    color: DetailLayout.ruleColor(Theme.of(context).colorScheme),
+  ),
+);
 
 Future<void> enqueueReleaseDownloads(
   BuildContext context, {
@@ -70,6 +72,7 @@ class DownloadPresetsMenu extends StatelessWidget {
     required this.progressByFile,
     required this.listed,
     required this.outlined,
+    this.compact = false,
     super.key,
   });
 
@@ -78,6 +81,7 @@ class DownloadPresetsMenu extends StatelessWidget {
   final Map<int, WatchProgress> progressByFile;
   final Set<int> listed;
   final bool outlined;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
@@ -137,7 +141,7 @@ class DownloadPresetsMenu extends StatelessWidget {
         return outlined
             ? OutlinedButton(
                 onPressed: open,
-                style: releaseDownloadOutline(context),
+                style: releaseDownloadOutline(context, compact: compact),
                 child: label,
               )
             : TextButton(
@@ -153,9 +157,14 @@ class DownloadPresetsMenu extends StatelessWidget {
 }
 
 class DownloadQualityMenu extends StatelessWidget {
-  const DownloadQualityMenu({required this.state, super.key});
+  const DownloadQualityMenu({
+    required this.state,
+    this.compact = false,
+    super.key,
+  });
 
   final PlayerSourceReady state;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
@@ -193,7 +202,7 @@ class DownloadQualityMenu extends StatelessWidget {
       ],
       builder: (context, controller, _) => OutlinedButton(
         onPressed: state.addingBatch ? null : controller.toggle,
-        style: releaseDownloadOutline(context),
+        style: releaseDownloadOutline(context, compact: compact),
         child: _MenuLabel(label(state.quality), isQuality: true),
       ),
     );
@@ -238,12 +247,16 @@ class ReleaseDownloadActions extends StatelessWidget {
     required this.state,
     required this.isOnline,
     this.inline = false,
+    this.compact = false,
+    this.showError = true,
     super.key,
   });
 
   final PlayerSourceReady state;
   final bool isOnline;
   final bool inline;
+  final bool compact;
+  final bool showError;
 
   @override
   Widget build(BuildContext context) {
@@ -264,7 +277,15 @@ class ReleaseDownloadActions extends StatelessWidget {
         ? '$actionLabel · ${formatByteSize(l10n, size, decimalDigits: 2)}'
         : actionLabel;
     final button = FilledButton(
-      style: busyButtonStyle(busy: state.addingBatch),
+      style: busyButtonStyle(
+        busy: state.addingBatch,
+        base: compact
+            ? FilledButton.styleFrom(
+                minimumSize: const Size(0, 38),
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+              )
+            : null,
+      ),
       onPressed: count == 0 || state.addingBatch
           ? null
           : () => enqueueReleaseDownloads(context),
@@ -277,18 +298,20 @@ class ReleaseDownloadActions extends StatelessWidget {
     final Widget action;
     if (isOnline && state.downloadSource?.qualities.isNotEmpty == true) {
       action = Row(
+        mainAxisSize: inline ? MainAxisSize.min : MainAxisSize.max,
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
-          DownloadQualityMenu(state: state),
+          DownloadQualityMenu(state: state, compact: compact),
           const SizedBox(width: 10),
           Flexible(fit: inline ? FlexFit.loose : FlexFit.tight, child: button),
         ],
       );
     } else {
       action = inline
-          ? Align(alignment: Alignment.centerRight, child: button)
+          ? button
           : SizedBox(width: double.infinity, child: button);
     }
+    if (!showError) return action;
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: inline

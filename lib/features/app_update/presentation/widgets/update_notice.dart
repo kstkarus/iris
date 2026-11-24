@@ -4,6 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import 'package:iris/features/app_update/domain/entities/app_release.dart';
 import 'package:iris/features/app_update/domain/entities/app_update_failure.dart';
+import 'package:iris/features/app_update/domain/entities/app_version.dart';
 import 'package:iris/features/app_update/presentation/cubit/app_update_cubit.dart';
 import 'package:iris/features/app_update/presentation/cubit/app_update_state.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
@@ -39,27 +40,16 @@ Future<void> showAppUpdateSheet(
   final cubit = context.read<AppUpdateCubit>();
   final release = cubit.state.availableRelease;
   if (release == null) return;
-  if (!cubit.supportsInAppUpdate) {
-    final failed = AppLocalizations.of(context).appUpdateOpenFailed;
-    bool opened;
-    try {
-      opened = await (open ?? _openInBrowser)(release.downloadUrl);
-    } on Exception {
-      opened = false;
-    }
-    if (!opened && context.mounted) {
-      ScaffoldMessenger.maybeOf(
-        context,
-      )?.showSnackBar(SnackBar(content: Text(failed)));
-    }
-    return;
-  }
   final windows = Theme.of(context).platform == TargetPlatform.windows;
   await showAdaptiveSheet<void>(
     context: context,
     builder: (_) => BlocProvider.value(
       value: cubit,
-      child: _UpdateSheet(release: release, windows: windows),
+      child: _UpdateSheet(
+        release: release,
+        windows: windows,
+        open: open ?? _openInBrowser,
+      ),
     ),
   );
 }
@@ -92,8 +82,9 @@ String appUpdatePhaseLabel(
         : l10n.appUpdateNoticeFailed,
 };
 
-/// An update strip above [child]. Android and installed Windows open an update;
-/// platforms without in-app updates keep their existing external download.
+/// An update strip above [child]. Tapping it opens the adaptive update modal
+/// with release notes and actions: in-app download/install on Android and
+/// installed Windows, or an external build download on iOS and portable Windows.
 ///
 /// The strip takes the status bar inset from [child] while it is visible, so
 /// the page below keeps its position as the strip opens and closes.
@@ -110,7 +101,6 @@ class UpdateNotice extends StatelessWidget {
   static const headerKey = Key('update_sheet_header');
   static const notesScrollKey = Key('update_sheet_notes_scroll');
   static const footerKey = Key('update_sheet_footer');
-  static const downloadKey = Key('update_notice_download');
   static const laterKey = Key('update_notice_later');
   static const downloadActionKey = Key('update_download_action');
   static const cancelDownloadKey = Key('update_cancel_download');
@@ -229,7 +219,6 @@ class _DevelopingNoticeState extends State<_DevelopingNotice>
                       open: (developed * BayerMask.steps).round(),
                       child: _Strip(
                         state: shown,
-                        inAppUpdate: widget.inAppUpdate,
                         open: widget.open,
                         topInset: media.padding.top,
                       ),
@@ -262,13 +251,11 @@ class _DevelopingNoticeState extends State<_DevelopingNotice>
 class _Strip extends StatelessWidget {
   const _Strip({
     required this.state,
-    required this.inAppUpdate,
     required this.open,
     required this.topInset,
   });
 
   final AppUpdateState state;
-  final bool inAppUpdate;
   final OpenExternalUrl open;
   final double topInset;
 
@@ -288,57 +275,38 @@ class _Strip extends StatelessWidget {
         padding: EdgeInsets.fromLTRB(margin, topInset + 4, margin, 4),
         child: MaxWidthBox(
           maxWidth: AdaptiveContentWidth.page,
-          child: inAppUpdate
-              ? Semantics(
-                  button: tappable,
-                  child: TapRow(
-                    inkKey: UpdateNotice.noticeKey,
-                    onTap: tappable
-                        ? () => showAppUpdateSheet(context, open: open)
-                        : null,
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(minHeight: 48),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: DitherSwitcher(
-                              key: UpdateNotice.noticeLabelSwitcherKey,
-                              duration: const Duration(milliseconds: 300),
-                              resizeDuration: const Duration(milliseconds: 200),
-                              alignment: AlignmentDirectional.centerStart,
-                              child: _NoticeLabel(
-                                key: ValueKey(state.phase),
-                                state: state,
-                              ),
-                            ),
-                          ),
-                          if (tappable) ...[
-                            const SizedBox(width: 16),
-                            const PixelIcon(PixelGlyph.arrowRight, size: 16),
-                          ],
-                        ],
-                      ),
-                    ),
-                  ),
-                )
-              : Row(
+          child: Semantics(
+            button: tappable,
+            child: TapRow(
+              inkKey: UpdateNotice.noticeKey,
+              onTap: tappable
+                  ? () => showAppUpdateSheet(context, open: open)
+                  : null,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(minHeight: 48),
+                child: Row(
                   children: [
-                    Expanded(child: _NoticeLabel(state: state)),
-                    const SizedBox(width: 8),
-                    TextButton(
-                      key: UpdateNotice.laterKey,
-                      onPressed: () => context.read<AppUpdateCubit>().dismiss(),
-                      child: Text(AppLocalizations.of(context).appUpdateLater),
-                    ),
-                    TextButton(
-                      key: UpdateNotice.downloadKey,
-                      onPressed: () => showAppUpdateSheet(context, open: open),
-                      child: Text(
-                        AppLocalizations.of(context).appUpdateDownload,
+                    Expanded(
+                      child: DitherSwitcher(
+                        key: UpdateNotice.noticeLabelSwitcherKey,
+                        duration: const Duration(milliseconds: 300),
+                        resizeDuration: const Duration(milliseconds: 200),
+                        alignment: AlignmentDirectional.centerStart,
+                        child: _NoticeLabel(
+                          key: ValueKey(state.phase),
+                          state: state,
+                        ),
                       ),
                     ),
+                    if (tappable) ...[
+                      const SizedBox(width: 16),
+                      const PixelIcon(PixelGlyph.arrowRight, size: 16),
+                    ],
                   ],
                 ),
+              ),
+            ),
+          ),
         ),
       ),
     );
@@ -414,10 +382,15 @@ class _NoticeLabel extends StatelessWidget {
 }
 
 class _UpdateSheet extends StatefulWidget {
-  const _UpdateSheet({required this.release, required this.windows});
+  const _UpdateSheet({
+    required this.release,
+    required this.windows,
+    required this.open,
+  });
 
   final AppRelease release;
   final bool windows;
+  final OpenExternalUrl open;
 
   @override
   State<_UpdateSheet> createState() => _UpdateSheetState();
@@ -425,6 +398,8 @@ class _UpdateSheet extends StatefulWidget {
 
 class _UpdateSheetState extends State<_UpdateSheet> {
   final _notesScroll = ScrollController();
+  bool _openingExternal = false;
+  AppVersion? _failedExternalVersion;
 
   @override
   void dispose() {
@@ -432,13 +407,37 @@ class _UpdateSheetState extends State<_UpdateSheet> {
     super.dispose();
   }
 
+  Future<void> _openExternalDownload(AppRelease release) async {
+    if (_openingExternal) return;
+    setState(() {
+      _openingExternal = true;
+      _failedExternalVersion = null;
+    });
+    bool opened;
+    try {
+      opened = await widget.open(release.downloadUrl);
+    } on Exception {
+      opened = false;
+    }
+    if (!mounted) return;
+    setState(() {
+      _openingExternal = false;
+      _failedExternalVersion = opened ? null : release.version;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final windows = widget.windows;
+    final pinnedHeader = windows || !WindowSizeClass.of(context).isCompact;
+    final inAppUpdate = context.read<AppUpdateCubit>().supportsInAppUpdate;
     return BlocBuilder<AppUpdateCubit, AppUpdateState>(
       builder: (context, state) {
-        final currentRelease = state.release ?? widget.release;
-        final header = _UpdateHeader(release: currentRelease, windows: windows);
+        final currentRelease = state.availableRelease ?? widget.release;
+        final header = _UpdateHeader(
+          release: currentRelease,
+          showCloseButton: pinnedHeader,
+        );
         return SizedBox(
           key: UpdateNotice.sheetKey,
           width: double.infinity,
@@ -446,7 +445,7 @@ class _UpdateSheetState extends State<_UpdateSheet> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              if (windows)
+              if (pinnedHeader)
                 Padding(
                   key: UpdateNotice.headerKey,
                   padding: const EdgeInsetsDirectional.fromSTEB(24, 16, 16, 16),
@@ -463,11 +462,19 @@ class _UpdateSheetState extends State<_UpdateSheet> {
                     child: SingleChildScrollView(
                       key: UpdateNotice.notesScrollKey,
                       controller: _notesScroll,
-                      padding: EdgeInsets.fromLTRB(24, windows ? 0 : 4, 24, 24),
+                      padding: EdgeInsets.fromLTRB(
+                        24,
+                        pinnedHeader ? 0 : 4,
+                        24,
+                        24,
+                      ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          if (!windows) ...[header, const SizedBox(height: 16)],
+                          if (!pinnedHeader) ...[
+                            header,
+                            const SizedBox(height: 16),
+                          ],
                           _ReleaseNotes(notes: currentRelease.notes),
                         ],
                       ),
@@ -479,6 +486,12 @@ class _UpdateSheetState extends State<_UpdateSheet> {
                 release: currentRelease,
                 state: state,
                 windows: windows,
+                inAppUpdate: inAppUpdate,
+                openingExternal: _openingExternal,
+                externalOpenFailed:
+                    !inAppUpdate &&
+                    _failedExternalVersion == currentRelease.version,
+                onExternalDownload: () => _openExternalDownload(currentRelease),
               ),
             ],
           ),
@@ -489,10 +502,10 @@ class _UpdateSheetState extends State<_UpdateSheet> {
 }
 
 class _UpdateHeader extends StatelessWidget {
-  const _UpdateHeader({required this.release, required this.windows});
+  const _UpdateHeader({required this.release, required this.showCloseButton});
 
   final AppRelease release;
-  final bool windows;
+  final bool showCloseButton;
 
   @override
   Widget build(BuildContext context) {
@@ -512,7 +525,7 @@ class _UpdateHeader extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       spacing: 16,
       children: [
-        if (windows)
+        if (showCloseButton)
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -539,11 +552,19 @@ class _UpdateFooter extends StatelessWidget {
     required this.release,
     required this.state,
     required this.windows,
+    required this.inAppUpdate,
+    required this.openingExternal,
+    required this.externalOpenFailed,
+    required this.onExternalDownload,
   });
 
   final AppRelease release;
   final AppUpdateState state;
   final bool windows;
+  final bool inAppUpdate;
+  final bool openingExternal;
+  final bool externalOpenFailed;
+  final VoidCallback onExternalDownload;
 
   @override
   Widget build(BuildContext context) {
@@ -554,23 +575,27 @@ class _UpdateFooter extends StatelessWidget {
         ? formatByteSize(l10n, release.sizeBytes, compact: true)
         : null;
     final failure = _failureMessage(l10n, state.failure);
-    final status = switch (state.phase) {
-      AppUpdatePhase.available when windows && size != null => MixedDataText(
-        size,
-        sansStyle: theme.textTheme.bodySmall?.copyWith(
-          color: scheme.onSurfaceVariant,
-        ),
-      ),
-      AppUpdatePhase.installing => _BusyLabel(
-        label: appUpdatePhaseLabel(l10n, state, windows: windows),
-      ),
-      AppUpdatePhase.failed || AppUpdatePhase.ready when failure != null =>
-        _FailureBanner(message: failure),
-      AppUpdatePhase.failed => _FailureBanner(
-        message: l10n.appUpdateNoticeFailed,
-      ),
-      _ => null,
-    };
+    final status = externalOpenFailed
+        ? _FailureBanner(message: l10n.appUpdateOpenFailed)
+        : switch (state.phase) {
+            AppUpdatePhase.available when windows && size != null =>
+              MixedDataText(
+                size,
+                sansStyle: theme.textTheme.bodySmall?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                ),
+              ),
+            AppUpdatePhase.installing => _BusyLabel(
+              label: appUpdatePhaseLabel(l10n, state, windows: windows),
+            ),
+            AppUpdatePhase.failed || AppUpdatePhase.ready
+                when failure != null =>
+              _FailureBanner(message: failure),
+            AppUpdatePhase.failed => _FailureBanner(
+              message: l10n.appUpdateNoticeFailed,
+            ),
+            _ => null,
+          };
     final actions = _actions(context, l10n, size);
     return DecoratedBox(
       key: UpdateNotice.footerKey,
@@ -587,9 +612,10 @@ class _UpdateFooter extends StatelessWidget {
             resizeDuration: const Duration(milliseconds: 200),
             alignment: AlignmentDirectional.bottomStart,
             child: ConstrainedBox(
-              key: ValueKey(
+              key: ValueKey((
                 state.showsProgress ? AppUpdatePhase.downloading : state.phase,
-              ),
+                externalOpenFailed,
+              )),
               constraints: const BoxConstraints(minHeight: 48),
               child: LayoutBuilder(
                 builder: (context, constraints) {
@@ -685,7 +711,7 @@ class _UpdateFooter extends StatelessWidget {
       _ => null,
     };
     if (label == null) return const [];
-    final installing = state.phase == AppUpdatePhase.ready;
+    final installing = inAppUpdate && state.phase == AppUpdatePhase.ready;
     return [
       if (!installing)
         TextButton(
@@ -704,7 +730,13 @@ class _UpdateFooter extends StatelessWidget {
         key: installing
             ? UpdateNotice.installKey
             : UpdateNotice.downloadActionKey,
-        onPressed: installing ? cubit.install : cubit.download,
+        onPressed: installing
+            ? cubit.install
+            : inAppUpdate
+            ? cubit.download
+            : openingExternal
+            ? null
+            : onExternalDownload,
         style: FilledButton.styleFrom(
           minimumSize: const Size(64, 48),
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),

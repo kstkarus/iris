@@ -12,6 +12,7 @@ final class SharedPreferencesAppSettingsRepository
   static const _themeModeKey = 'settings.theme_mode';
   static const _localeKey = 'settings.locale';
   static const _animeTitleLanguageKey = 'settings.anime_title_language';
+  static const _episodeListLayoutKey = 'settings.episode_list_layout';
   static const _audioKey = 'settings.default_audio_language';
   static const _subtitleKey = 'settings.default_subtitle_language';
 
@@ -34,6 +35,11 @@ final class SharedPreferencesAppSettingsRepository
       jsonString(_preferences.get(_animeTitleLanguageKey)),
       AnimeTitleLanguage.auto,
     ),
+    episodeListLayout: enumByName(
+      EpisodeListLayout.values,
+      jsonString(_preferences.get(_episodeListLayoutKey)),
+      EpisodeListLayout.auto,
+    ),
     defaultAudioLanguage: enumByName(
       DefaultAudioLanguage.values,
       jsonString(_preferences.get(_audioKey)),
@@ -54,6 +60,10 @@ final class SharedPreferencesAppSettingsRepository
       _preferences.setString(
         _animeTitleLanguageKey,
         settings.animeTitleLanguage.name,
+      ),
+      _preferences.setString(
+        _episodeListLayoutKey,
+        settings.episodeListLayout.name,
       ),
       _preferences.setString(_audioKey, settings.defaultAudioLanguage.name),
       _preferences.setString(

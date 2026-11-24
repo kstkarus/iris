@@ -24,6 +24,9 @@ final class AppBuildTarget {
   /// installed from the universal APK is offered its own ABI's next time.
   AppBuildTarget.android(String abi) : _suffix = '-android-$abi.apk';
 
+  /// `iris-1.2.3-ios-unsigned.ipa`: unsigned IPA for sideloading on iOS.
+  const AppBuildTarget.ios() : _suffix = '-ios-unsigned.ipa';
+
   /// `iris-1.2.3-windows-x64.zip`
   const AppBuildTarget.windows() : _suffix = '-windows-x64.zip';
 

@@ -3,15 +3,20 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:iris/entities/watch_progress/domain/watch_progress.dart';
+import 'package:iris/features/player/domain/entities/episode_metadata.dart';
 import 'package:iris/features/player/domain/entities/player_video_file.dart';
 import 'package:iris/features/player/presentation/cubit/player_source_cubit.dart';
 import 'package:iris/features/player/presentation/cubit/player_source_state.dart';
 import 'package:iris/features/player/presentation/widgets/player_source_view.dart';
 import 'package:iris/features/player/presentation/widgets/player_episode_grid.dart';
+import 'package:iris/features/player/presentation/widgets/player_episodes_list.dart';
+import 'package:iris/features/settings/domain/entities/app_settings.dart';
+import 'package:iris/features/settings/presentation/cubit/app_settings_cubit.dart';
 import 'package:iris/shared/widgets/pixel_icon.dart';
 import 'package:iris/shared/widgets/segmented_bar.dart';
 
 import '../../../../helpers/test_app.dart';
+import '../../../settings/settings_test_doubles.dart';
 import '../../player_test_doubles.dart';
 
 void main() {
@@ -180,7 +185,10 @@ void main() {
 
     expect(find.widgetWithText(FilledButton, 'Play next'), findsOneWidget);
     expect(
-      find.descendant(of: find.byType(Card), matching: find.text('episode-02')),
+      find.descendant(
+        of: find.byKey(PlayerSourceView.continueBarKey),
+        matching: find.text('episode-02'),
+      ),
       findsOneWidget,
     );
     expect(_watchedMarks, findsOneWidget);
@@ -217,7 +225,10 @@ void main() {
 
     expect(_watchedMarks, findsNWidgets(2));
     expect(
-      find.descendant(of: find.byType(Card), matching: find.text('03')),
+      find.descendant(
+        of: find.byKey(PlayerSourceView.continueBarKey),
+        matching: find.text('03'),
+      ),
       findsOneWidget,
     );
   });
@@ -302,6 +313,89 @@ void main() {
       findsOneWidget,
     );
   });
+  testWidgets(
+    'shows Tenrai titles and filler/recap tags on rows and the continue card',
+    (tester) async {
+      final semantics = tester.ensureSemantics();
+      try {
+        await tester.pumpWidget(
+          _wrap(
+            cubit: FakePlayerSourceCubit(const PlayerSourceReady(_online)),
+            progressByFile: {1: _progress(1, 1400)},
+            episodeMetadata: const {
+              1: EpisodeMetadata(number: 1, title: 'Enter: Naruto Uzumaki!'),
+              2: EpisodeMetadata(
+                number: 2,
+                title: 'Special Report',
+                filler: true,
+                recap: true,
+              ),
+              3: EpisodeMetadata(number: 3, title: 'Sasuke and Sakura'),
+            },
+            isOnline: true,
+          ),
+        );
+
+        expect(find.text('Enter: Naruto Uzumaki!'), findsOneWidget);
+        expect(find.text('Special Report'), findsNWidgets(2));
+        expect(find.text('Filler'), findsNWidgets(2));
+        expect(find.text('Recap'), findsNWidgets(2));
+        expect(
+          find.bySemanticsLabel(RegExp('Episode 02.*Filler.*Recap')),
+          findsOneWidget,
+        );
+      } finally {
+        semantics.dispose();
+      }
+    },
+  );
+
+  testWidgets('follows the episode list layout setting across list and grid', (
+    tester,
+  ) async {
+    final settings = AppSettingsCubit(
+      repository: MemoryAppSettingsRepository(
+        const AppSettings(episodeListLayout: EpisodeListLayout.grid),
+      ),
+    );
+    addTearDown(settings.close);
+
+    await tester.pumpWidget(
+      BlocProvider<AppSettingsCubit>.value(
+        value: settings,
+        child: _wrap(
+          cubit: FakePlayerSourceCubit(const PlayerSourceReady(_online)),
+          episodeMetadata: const {
+            1: EpisodeMetadata(number: 1, title: 'Enter: Naruto Uzumaki!'),
+            2: EpisodeMetadata(number: 2, title: 'My Name is Konohamaru!'),
+          },
+          isOnline: true,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byType(PlayerEpisodeGrid), findsOneWidget);
+    expect(find.byType(PlayerEpisodesList), findsNothing);
+
+    await settings.setEpisodeListLayout(EpisodeListLayout.list);
+    await tester.pumpAndSettle();
+    expect(find.byType(PlayerEpisodesList), findsOneWidget);
+    expect(find.byType(PlayerEpisodeGrid), findsNothing);
+
+    // List mode also forces rows when no episode has a title.
+    await tester.pumpWidget(
+      BlocProvider<AppSettingsCubit>.value(
+        value: settings,
+        child: _wrap(
+          cubit: FakePlayerSourceCubit(const PlayerSourceReady(_online)),
+          isOnline: true,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byType(PlayerEpisodesList), findsOneWidget);
+    expect(find.byType(PlayerEpisodeGrid), findsNothing);
+  });
 }
 
 Widget _wrap({
@@ -309,6 +403,7 @@ Widget _wrap({
   Map<int, WatchProgress> progressByFile = const {},
   ValueChanged<PlayerVideoFile>? onFileSelected,
   int listedEpisodes = 0,
+  Map<int, EpisodeMetadata> episodeMetadata = const {},
   bool isOnline = false,
 }) {
   return testApp(
@@ -318,6 +413,7 @@ Widget _wrap({
         body: PlayerSourceView(
           progressByFile: progressByFile,
           listedEpisodes: listedEpisodes,
+          episodeMetadata: episodeMetadata,
           isOnline: isOnline,
           onFileSelected: onFileSelected ?? (_) {},
         ),

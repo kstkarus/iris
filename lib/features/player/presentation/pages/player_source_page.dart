@@ -11,8 +11,10 @@ import 'package:iris/entities/watch_progress/domain/watch_progress.dart';
 import 'package:iris/entities/watch_progress/presentation/watch_progress_cubit.dart';
 import 'package:iris/shared/online/online_source_link.dart';
 import 'package:iris/features/player/domain/entities/anime_player_source.dart';
+import 'package:iris/features/player/domain/entities/episode_metadata.dart';
 import 'package:iris/features/player/domain/entities/player_video_file.dart';
 import 'package:iris/features/player/domain/listed_episodes.dart';
+import 'package:iris/features/player/presentation/cubit/episode_metadata_cubit.dart';
 import 'package:iris/features/player/presentation/cubit/player_source_cubit.dart';
 import 'package:iris/features/player/presentation/cubit/player_source_state.dart';
 import 'package:iris/features/player/presentation/models/anime_player_args.dart';
@@ -21,8 +23,8 @@ import 'package:iris/features/player/presentation/widgets/player_source_download
 import 'package:iris/features/player/presentation/widgets/player_source_view.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/haptics/app_haptics.dart';
+import 'package:iris/shared/widgets/adaptive/adaptive_content_width.dart';
 import 'package:iris/shared/widgets/adaptive/framed_app_bar.dart';
-import 'package:iris/shared/widgets/adaptive/page_frame.dart';
 import 'package:iris/shared/widgets/adaptive/window_size_class.dart';
 import 'package:iris/shared/widgets/dither_switcher.dart';
 import 'package:iris/shared/widgets/page_title.dart';
@@ -47,6 +49,9 @@ class PlayerSourcePage extends StatelessWidget {
         _ => 0,
       },
     );
+    final episodeMetadata =
+        context.watch<EpisodeMetadataCubit?>()?.state ??
+        const <int, EpisodeMetadata>{};
     final progress = progressByFile(
       context.watchWatchProgress(),
       sourceProgressKey(args.magnet),
@@ -56,9 +61,21 @@ class PlayerSourcePage extends StatelessWidget {
     final state = cubit.state;
     final ready = state is PlayerSourceReady ? state : null;
     final selecting = ready?.selecting ?? false;
-    final singleFile = ready?.files.length == 1;
+    final desktopSplit = PlayerSourceView.isDesktopSplit(context);
+    final desktopAppBarSelection =
+        selecting && PlayerSourceView.usesDesktopAppBarSelection(context);
     final canCancelSelection = selecting && !ready!.addingBatch;
     final cancel = canCancelSelection ? cubit.cancelSelection : null;
+    final selectAll = canCancelSelection
+        ? () {
+            final before = cubit.state;
+            cubit.replaceSelection({
+              for (final file in ready.files)
+                if (ready.canDownload(file.index)) file.index,
+            });
+            if (cubit.state != before) AppHaptics.selection();
+          }
+        : null;
     final compactSelection = selecting && !expanded;
     final selectionTitle = downloadSelectionTitle(l10n, isOnline);
     final appBar = compactSelection
@@ -97,21 +114,69 @@ class PlayerSourcePage extends StatelessWidget {
               outlined: false,
             ),
           )
+        : desktopAppBarSelection
+        ? FramedAppBar(
+            key: const ValueKey('desktop_select_downloads'),
+            showBackButton: false,
+            title: Row(
+              children: [
+                Transform.translate(
+                  offset: const Offset(-10, 0),
+                  child: IconButton(
+                    tooltip: l10n.commonCancel,
+                    icon: const PixelIcon(PixelGlyph.close, size: 16),
+                    onPressed: cancel,
+                  ),
+                ),
+                Flexible(
+                  child: Transform.translate(
+                    offset: const Offset(-6, 0),
+                    child: PageTitle(
+                      title: ready!.selected.isEmpty
+                          ? selectionTitle
+                          : l10n.playerSourceSelectedCount(
+                              ready.selected.length,
+                            ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                DownloadPresetsMenu(
+                  state: ready,
+                  isOnline: isOnline,
+                  progressByFile: progress,
+                  listed: filesCountedInList(ready.files, listedEpisodes),
+                  outlined: true,
+                  compact: true,
+                ),
+              ],
+            ),
+            // Compensate FramedAppBar's +10 px text-button inset so the
+            // filled button's right edge aligns flush with the page frame.
+            trailing: Padding(
+              padding: const EdgeInsets.only(right: 10),
+              child: ReleaseDownloadActions(
+                state: ready,
+                isOnline: isOnline,
+                inline: true,
+                compact: true,
+                showError: false,
+              ),
+            ),
+          )
         : FramedAppBar(
             key: ValueKey(selecting ? 'download_toolbar' : 'watch_release'),
             title: PageTitle(
               title: selecting
                   ? selectionTitle
-                  : isOnline && singleFile
-                  ? args.sourceTitle
                   : isOnline
                   ? l10n.playerSourceEpisodesTitle
                   : l10n.playerSourceTitle,
-              subtitle: isOnline && singleFile ? null : args.sourceTitle,
+              subtitle: desktopSplit ? null : args.sourceTitle,
             ),
             trailing: selecting
                 ? TextButton(onPressed: cancel, child: Text(l10n.commonCancel))
-                : !singleFile && ready?.hasNewDownloads == true
+                : ready?.hasNewDownloads == true
                 ? TextButton.icon(
                     style: TextButton.styleFrom(
                       padding: const EdgeInsets.symmetric(horizontal: 10),
@@ -131,9 +196,12 @@ class PlayerSourcePage extends StatelessWidget {
       listenWhen: (previous, next) =>
           previous is! PlayerSourceReady && next is PlayerSourceReady,
       listener: (context, state) {
+        final source = state as PlayerSourceReady;
+        context.read<EpisodeMetadataCubit?>()?.ensureLoadedUpTo(
+          maxAnimeEpisodeNumber(source.files),
+        );
         final wanted = args.autoOpenFileIndex;
         if (wanted == null || ModalRoute.isCurrentOf(context) == false) return;
-        final source = state as PlayerSourceReady;
         final file = source.files
             .where((file) => file.index == wanted)
             .firstOrNull;
@@ -152,7 +220,13 @@ class PlayerSourcePage extends StatelessWidget {
           if (!didPop) cancel?.call();
         },
         child: CallbackShortcuts(
-          bindings: {const SingleActivator(LogicalKeyboardKey.escape): ?cancel},
+          bindings: {
+            const SingleActivator(LogicalKeyboardKey.escape): ?cancel,
+            const SingleActivator(LogicalKeyboardKey.keyA, control: true):
+                ?selectAll,
+            const SingleActivator(LogicalKeyboardKey.keyA, meta: true):
+                ?selectAll,
+          },
           child: FocusScope(
             autofocus: true,
             child: Scaffold(
@@ -165,23 +239,33 @@ class PlayerSourcePage extends StatelessWidget {
                 ),
               ),
               body: SafeArea(
-                child: PageFrame.subPage(
-                  child: PlayerSourceView(
-                    isOnline: isOnline,
-                    progressByFile: progress,
-                    listedEpisodes: listedEpisodes,
-                    onOpenDownloads: () => context.goNamed('downloads'),
-                    onFileSelected: (file) {
-                      if (cubit.state case final PlayerSourceReady source) {
-                        _openPlayer(
-                          context,
-                          file: file,
-                          source: source,
-                          listedEpisodes: listedEpisodes,
-                        );
-                      }
-                    },
-                  ),
+                child: Builder(
+                  builder: (context) {
+                    final margin = WindowSizeClass.of(context).pageMargin;
+                    return MaxWidthBox(
+                      maxWidth: AdaptiveContentWidth.page + margin * 2,
+                      child: PlayerSourceView(
+                        isOnline: isOnline,
+                        horizontalPadding: margin,
+                        animeTitles: args.animeTitles,
+                        sourceTitle: args.sourceTitle,
+                        posterUrl: args.posterUrl,
+                        progressByFile: progress,
+                        listedEpisodes: listedEpisodes,
+                        episodeMetadata: episodeMetadata,
+                        onFileSelected: (file) {
+                          if (cubit.state case final PlayerSourceReady source) {
+                            _openPlayer(
+                              context,
+                              file: file,
+                              source: source,
+                              listedEpisodes: listedEpisodes,
+                            );
+                          }
+                        },
+                      ),
+                    );
+                  },
                 ),
               ),
             ),

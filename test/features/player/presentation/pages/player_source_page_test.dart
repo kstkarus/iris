@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
@@ -11,7 +12,6 @@ import 'package:iris/app/theme/app_theme.dart';
 import 'package:iris/entities/watch_progress/domain/watch_progress.dart';
 import 'package:iris/entities/watch_progress/presentation/watch_progress_cubit.dart';
 import 'package:iris/features/downloads/domain/entities/download_status.dart';
-import 'package:iris/features/downloads/domain/entities/downloadable_file.dart';
 import 'package:iris/features/player/presentation/cubit/player_source_cubit.dart';
 import 'package:iris/features/player/presentation/cubit/player_source_state.dart';
 import 'package:iris/features/player/presentation/models/anime_player_args.dart';
@@ -19,7 +19,6 @@ import 'package:iris/features/player/presentation/pages/player_source_page.dart'
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/online/online_source_link.dart';
 import 'package:iris/shared/widgets/pixel_icon.dart';
-import 'package:iris/shared/widgets/segmented_bar.dart';
 
 import '../../../../helpers/fake_player_repository.dart';
 import '../../../../helpers/fake_watch_progress_repository.dart';
@@ -247,7 +246,11 @@ void main() {
       final tileRect = tester.getRect(_episode(1));
       if (width >= 840) {
         expect(buttonRect.bottom, lessThan(tileRect.top));
-        expect(find.widgetWithText(TextButton, 'Cancel'), findsOneWidget);
+        if (width >= 1000) {
+          expect(find.byTooltip('Cancel'), findsOneWidget);
+        } else {
+          expect(find.widgetWithText(TextButton, 'Cancel'), findsOneWidget);
+        }
       } else {
         expect(buttonRect.top, greaterThan(tileRect.bottom));
         expect(find.byTooltip('Cancel'), findsOneWidget);
@@ -285,96 +288,76 @@ void main() {
     expect(fixture.disposed, ['release']);
   });
 
-  testWidgets('a finished single file offers to watch again', (tester) async {
-    final page = await _openRelease(
-      tester,
-      ReleaseDownloadsFixture(files: testReleaseFiles(1, named: true)),
-      history: [_progress(1, 1440)],
-    );
-    await tester.tap(_button('Watch again'));
-    await tester.pumpAndSettle();
-    expect(page.opened.single.source.fileIndex, 1);
-  });
-
   testWidgets(
-    'one online file shows its watch progress, local quality and Downloads link',
+    'desktop split shows dossier rail and supports hover download, right-click, Shift+Click and Ctrl+A selection',
     (tester) async {
-      setTestWindowSize(tester, TestWindowSizes.phone);
+      setTestWindowSize(tester, TestWindowSizes.desktop);
       final fixture = ReleaseDownloadsFixture(
-        files: testReleaseFiles(1, named: true),
-        qualities: [1080, 720],
+        files: testReleaseFiles(8, named: true),
+        downloads: [testReleaseDownload(4, DownloadStatus.completed)],
       );
       final page = await _openRelease(
         tester,
         fixture,
-        locale: const Locale('ru'),
-        history: [_progress(1, 600)],
+        history: [_progress(2, 300)],
       );
-      expect(page.opened, isEmpty);
-      expect(_button('Продолжить'), findsOneWidget);
-      expect(_text('до 1080p'), findsOneWidget);
-      expect(find.bySemanticsLabel('до 1080p'), findsOneWidget);
-      expect(_text('Авто'), findsOneWidget);
-      expect(find.byType(SegmentedBar), findsOneWidget);
 
-      await tester.tap(find.widgetWithText(OutlinedButton, 'Скачать'));
-      await tester.pumpAndSettle();
-      expect(fixture.enqueued.single.index, 1);
-      expect(_text('В очереди'), findsOneWidget);
-      for (final (status, label) in [
-        (DownloadStatus.downloading, '48 %'),
-        (DownloadStatus.paused, 'На паузе'),
-        (DownloadStatus.failed, 'Ошибка'),
-        (DownloadStatus.completed, 'Скачано'),
-      ]) {
-        fixture.update(
-          testReleaseDownload(
-            1,
-            status,
-            totalBytes: status == DownloadStatus.completed ? 1524713390 : 100,
-            videoHeight: status == DownloadStatus.completed ? 720 : null,
-          ),
-        );
-        await tester.pumpAndSettle();
-        expect(_text(label), findsOneWidget);
-        expect(find.byType(SegmentedBar), findsOneWidget);
-      }
-      expect(_text('1,42 ГБ'), findsOneWidget);
-      expect(_text('720p'), findsOneWidget);
-      await tester.tap(_text('В загрузки'));
-      await tester.pumpAndSettle();
-      expect(_text('Downloads landing'), findsOneWidget);
-    },
-  );
-
-  testWidgets(
-    'a single torrent is playable from its card and Back returns to it',
-    (tester) async {
-      final page = await _openRelease(
-        tester,
-        ReleaseDownloadsFixture(
-          files: const [
-            DownloadableFile(
-              index: 5,
-              name: 'Feature Film.mkv',
-              relativePath: 'Feature Film.mkv',
-              size: 4294967296,
-            ),
-          ],
+      expect(_text('Frieren'), findsOneWidget);
+      // Release subtitle lives in the left dossier rail, not repeated in the bar.
+      expect(
+        find.descendant(
+          of: find.byType(AppBar),
+          matching: find.text('AniLibria'),
         ),
-        online: false,
-        selectDownloads: true,
+        findsNothing,
       );
-      expect(page.opened, isEmpty);
-      expect(_text('Feature Film'), findsOneWidget);
-      expect(_text('4.00 GB'), findsOneWidget);
-      await tester.tap(_button('Watch'));
+      final continueRect = tester.getRect(_button('Continue'));
+      final episodeRect = tester.getRect(_episode(1));
+      expect(continueRect.right, lessThan(episodeRect.left));
+
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await mouse.addPointer(location: Offset.zero);
+      addTearDown(mouse.removePointer);
+      await mouse.moveTo(tester.getCenter(_episode(1)));
       await tester.pumpAndSettle();
-      expect(page.opened.single.source.fileIndex, 5);
-      expect(page.opened.single.playFromRelease, isTrue);
-      await tester.pageBack();
+      await tester.tap(find.byKey(const ValueKey('player_episode_download_1')));
       await tester.pumpAndSettle();
-      expect(_button('Watch'), findsOneWidget);
+      expect(fixture.enqueued.map((entry) => entry.index), [1]);
+
+      final episodeBeforeSelection = tester.getTopLeft(_episode(2));
+      await tester.tap(_episode(2), buttons: kSecondaryButton);
+      await tester.pumpAndSettle();
+      expect(page.ready.selecting, isTrue);
+      expect(page.ready.selected, {2});
+      // Selection lives in the app bar, so rows never jump under the cursor.
+      expect(tester.getTopLeft(_episode(2)), episodeBeforeSelection);
+      expect(
+        find.descendant(
+          of: find.byType(AppBar),
+          matching: find.byTooltip('Cancel'),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: find.byType(AppBar),
+          matching: _button('Download 1 episode'),
+        ),
+        findsOneWidget,
+      );
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+      await tester.tap(_episode(6));
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+      await tester.pumpAndSettle();
+      expect(page.ready.selected, {2, 3, 5, 6});
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyA);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await tester.pumpAndSettle();
+      expect(page.ready.selected, {2, 3, 5, 6, 7, 8});
+      expect(tester.takeException(), isNull);
     },
   );
 

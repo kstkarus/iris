@@ -52,13 +52,16 @@ import 'package:iris/features/online_sources/domain/repositories/online_releases
 import 'package:iris/features/online_sources/presentation/cubit/online_releases_cubit.dart';
 import 'package:iris/features/player/domain/entities/anime_player_source.dart';
 import 'package:iris/features/player/domain/entities/player_track_preferences.dart';
+import 'package:iris/features/player/domain/listed_episodes.dart';
 import 'package:iris/features/player/domain/player_media_controls.dart';
+import 'package:iris/features/player/domain/repositories/episode_metadata_repository.dart';
 import 'package:iris/features/player/domain/repositories/player_decoding_preferences_repository.dart';
 import 'package:iris/features/player/domain/repositories/player_repository.dart';
 import 'package:iris/features/player/domain/repositories/player_skip_times_repository.dart';
 import 'package:iris/features/player/domain/repositories/player_track_preferences_repository.dart';
 import 'package:iris/features/player/domain/repositories/subtitle_preferences_repository.dart';
 import 'package:iris/features/player/presentation/cubit/episode_mark_cubit.dart';
+import 'package:iris/features/player/presentation/cubit/episode_metadata_cubit.dart';
 import 'package:iris/features/player/presentation/cubit/player_cubit.dart';
 import 'package:iris/features/player/presentation/cubit/player_decoding_preferences_cubit.dart';
 import 'package:iris/features/player/presentation/cubit/player_source_cubit.dart';
@@ -571,13 +574,27 @@ abstract final class AppRouter {
               )..loadSource(),
               child: PlayerSourcePage(args: args),
             );
-            // Episodes the list counts as watched, for a title's sources.
+            // Episodes the list counts as watched, and optional episode
+            // titles / filler flags, for a title's sources.
             if (args.animeId.isEmpty) return page;
-            return BlocProvider(
-              create: (context) => UserRateCubit(
-                animeId: args.animeId,
-                repository: serviceLocator<UserRateRepository>(),
-              )..accountChanged(accountIdOf(context.read<AuthCubit>().state)),
+            return MultiBlocProvider(
+              providers: [
+                BlocProvider(
+                  create: (context) =>
+                      UserRateCubit(
+                        animeId: args.animeId,
+                        repository: serviceLocator<UserRateRepository>(),
+                      )..accountChanged(
+                        accountIdOf(context.read<AuthCubit>().state),
+                      ),
+                ),
+                BlocProvider(
+                  create: (_) => EpisodeMetadataCubit(
+                    animeId: args.animeId,
+                    repository: serviceLocator<EpisodeMetadataRepository>(),
+                  )..load(),
+                ),
+              ],
               child: page,
             );
           },
@@ -650,6 +667,17 @@ abstract final class AppRouter {
                         serviceLocator<ShikimoriSessionStore>().generation,
                   ),
                 ),
+                if (args.source.animeId.isNotEmpty)
+                  BlocProvider(
+                    create: (_) =>
+                        EpisodeMetadataCubit(
+                          animeId: args.source.animeId,
+                          repository:
+                              serviceLocator<EpisodeMetadataRepository>(),
+                        )..load(
+                          upToEpisode: maxAnimeEpisodeNumber(args.source.files),
+                        ),
+                  ),
               ],
               child: AccountListener(
                 onChanged: (context, accountId) {

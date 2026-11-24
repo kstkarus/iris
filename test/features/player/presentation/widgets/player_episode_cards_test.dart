@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:iris/entities/watch_progress/domain/watch_progress.dart';
+import 'package:iris/features/player/domain/entities/episode_metadata.dart';
 import 'package:iris/features/player/domain/entities/player_video_file.dart';
 import 'package:iris/features/player/presentation/widgets/player_episode_cards.dart';
 import 'package:iris/features/player/presentation/widgets/player_episodes_drawer.dart';
@@ -281,5 +282,87 @@ void main() {
     await tester.tap(find.byKey(const Key('player_episodes_close_button')));
     await tester.tapAt(const Offset(20, 300));
     expect(closed, 2);
+  });
+
+  testWidgets('shows fallback titles and filler/recap tags in the drawer', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _wrap(
+        PlayerEpisodeCards(
+          files: const [
+            PlayerVideoFile(
+              index: 0,
+              name: '01',
+              size: 0,
+              extension: '',
+              episodeNumber: 1,
+            ),
+            PlayerVideoFile(
+              index: 1,
+              name: '02',
+              size: 0,
+              extension: '',
+              episodeNumber: 2,
+            ),
+          ],
+          currentFileIndex: 0,
+          progressByFile: const {},
+          metadataByFile: const {
+            0: EpisodeMetadata(number: 1, title: "The Journey's End"),
+            1: EpisodeMetadata(
+              number: 2,
+              title: 'Beach Episode',
+              filler: true,
+              recap: true,
+            ),
+          },
+          onSelected: (_) {},
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text("The Journey's End"), findsOneWidget);
+    expect(find.text('Beach Episode'), findsOneWidget);
+    expect(find.text('Filler'), findsOneWidget);
+    expect(find.text('Recap'), findsOneWidget);
+  });
+
+  testWidgets('labels fractional episodes without repeating the bare number', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _wrap(
+        PlayerEpisodeCards(
+          files: const [
+            PlayerVideoFile(
+              index: 0,
+              name: '01',
+              size: 0,
+              extension: '',
+              episodeNumber: 1,
+            ),
+            PlayerVideoFile(
+              index: 1,
+              name: '100.5',
+              size: 0,
+              extension: '',
+              episodeNumber: 100.5,
+            ),
+          ],
+          currentFileIndex: 0,
+          progressByFile: const {},
+          metadataByFile: const {
+            0: EpisodeMetadata(number: 1, title: "The Journey's End"),
+          },
+          onSelected: (_) {},
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('100.5'), findsOneWidget);
+    expect(find.text('Episode 100.5'), findsOneWidget);
   });
 }
