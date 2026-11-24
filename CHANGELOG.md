@@ -4,6 +4,8 @@ Notable changes to iris, newest first. The format follows [Keep a Changelog](htt
 
 ## [Unreleased]
 
+## [1.6.3] - 2026-11-24
+
 ### Обновления
 
 - На iOS заработала проверка обновлений: при выходе новой версии появляется верхняя плашка и пункт проверки в разделе «Настройки → О приложении». Нажатие открывает шторку «Что нового» со списком изменений и кнопкой скачивания напрямую на файл `.ipa` в браузере (portable-версия на Windows теперь также показывает шторку «Что нового» перед переходом на скачивание).
@@ -433,7 +435,8 @@ First published release.
 - Update notice on Android and Windows when a newer release is published.
 - App icon.
 
-[Unreleased]: https://github.com/kstkarus/iris/compare/v1.6.2...HEAD
+[Unreleased]: https://github.com/kstkarus/iris/compare/v1.6.3...HEAD
+[1.6.3]: https://github.com/kstkarus/iris/compare/v1.6.2...v1.6.3
 [1.6.2]: https://github.com/kstkarus/iris/compare/v1.6.1...v1.6.2
 [1.6.1]: https://github.com/kstkarus/iris/compare/v1.6.0...v1.6.1
 [1.6.0]: https://github.com/kstkarus/iris/compare/v1.5.1...v1.6.0
