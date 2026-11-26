@@ -52,17 +52,20 @@ class SignalBadge extends StatelessWidget {
           )
         : ColoredBox(color: dotColor);
     final dot = SizedBox.square(
-      key: visible ? dotKey : null,
       dimension: size,
       child: anim == Duration.zero
-          ? (visible ? square : null)
+          ? (visible ? KeyedSubtree(key: dotKey, child: square) : null)
           : TweenAnimationBuilder<int>(
               tween: IntTween(end: visible ? BayerMask.steps : 0),
               duration: anim,
               curve: Curves.easeOutCubic,
               child: square,
-              builder: (_, open, child) =>
-                  BayerMasked(open: open, cell: 1, child: child),
+              builder: (_, open, child) => BayerMasked(
+                key: visible ? dotKey : null,
+                open: open,
+                cell: 1,
+                child: child,
+              ),
             ),
     );
     return Stack(

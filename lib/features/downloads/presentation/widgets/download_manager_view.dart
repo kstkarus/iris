@@ -183,6 +183,7 @@ class _DownloadManagerViewState extends State<DownloadManagerView> {
             ] else
               const SizedBox(height: 16),
             Expanded(
+              key: const ValueKey('downloads_library_body'),
               child: DitherSwitcher(
                 expand: true,
                 duration: const Duration(milliseconds: 220),

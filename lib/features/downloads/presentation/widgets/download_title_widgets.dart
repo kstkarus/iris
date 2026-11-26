@@ -10,11 +10,13 @@ import 'package:iris/shared/utils/byte_size_formatter.dart';
 import 'package:iris/shared/utils/motion_duration.dart';
 import 'package:iris/shared/widgets/detail_layout.dart';
 import 'package:iris/shared/widgets/dither_list.dart';
+import 'package:iris/shared/widgets/dither_scroll_edge.dart';
 import 'package:iris/shared/widgets/dither_switcher.dart';
 import 'package:iris/shared/widgets/headline_anchor.dart';
 import 'package:iris/shared/widgets/pixel_icon.dart';
 import 'package:iris/shared/widgets/pixel_separated_text.dart';
 import 'package:iris/shared/widgets/poster_image.dart';
+import 'package:iris/shared/widgets/poster_tap_surface.dart';
 import 'package:iris/shared/widgets/tap_row.dart';
 
 class DownloadTitleIdentity extends StatelessWidget {
@@ -156,7 +158,7 @@ class _DownloadAdaptiveTitleHeaderState
       _headlineCheckQueued = false;
       if (!mounted) return;
       if (widget.desktop) {
-        _headlineGone.value = _scrollPixels > 0;
+        _headlineGone.value = false;
         return;
       }
 
@@ -213,10 +215,10 @@ class _DownloadAdaptiveTitleHeaderState
     );
   }
 
-  Widget _holdToSelect(Widget child) => GestureDetector(
+  Widget _holdToSelect(Widget child, {bool enabled = true}) => GestureDetector(
     behavior: HitTestBehavior.opaque,
     supportedDevices: const {PointerDeviceKind.touch},
-    onLongPress: widget.onHoldToSelect,
+    onLongPress: enabled ? widget.onHoldToSelect : null,
     child: child,
   );
 
@@ -239,24 +241,7 @@ class _DownloadAdaptiveTitleHeaderState
             valueListenable: _headlineGone,
             builder: (context, shown, _) {
               final Widget titleWidget;
-              if (shown && title != null) {
-                titleWidget = KeyedSubtree(
-                  key: const Key('download_header_compact_identity'),
-                  child: widget.desktop
-                      ? Semantics(
-                          header: true,
-                          label: watchAnimeTitleLabels(
-                            context,
-                            title.animeTitles,
-                          ).primary,
-                          child: _CollapsedDownloadTitle(
-                            title: title,
-                            showPoster: false,
-                          ),
-                        )
-                      : _CollapsedDownloadTitle(title: title, showPoster: true),
-                );
-              } else if (widget.desktop && title != null) {
+              if (widget.desktop && title != null) {
                 titleWidget = KeyedSubtree(
                   key: const Key('download_header_expanded_identity'),
                   child: Semantics(
@@ -267,18 +252,29 @@ class _DownloadAdaptiveTitleHeaderState
                     ),
                   ),
                 );
+              } else if (shown && title != null) {
+                titleWidget = KeyedSubtree(
+                  key: const Key('download_header_compact_identity'),
+                  child: _CollapsedDownloadTitle(
+                    title: title,
+                    showPoster: true,
+                  ),
+                );
               } else {
                 titleWidget = const SizedBox.shrink(
                   key: ValueKey('download_header_empty'),
                 );
               }
-              final switcher = DitherSwitcher(
-                duration: const Duration(milliseconds: 300),
-                child: titleWidget,
+              // Keep GestureDetector permanently above DitherSwitcher so
+              // toggling `shown` never remounts DitherSwitcher and skips its
+              // dissolve animation on phone.
+              final identity = _holdToSelect(
+                DitherSwitcher(
+                  duration: const Duration(milliseconds: 300),
+                  child: titleWidget,
+                ),
+                enabled: title != null && (shown || widget.desktop),
               );
-              final identity = title != null && (shown || widget.desktop)
-                  ? _holdToSelect(switcher)
-                  : switcher;
               return widget.desktop
                   ? identity
                   : ExcludeSemantics(child: identity);
@@ -288,85 +284,81 @@ class _DownloadAdaptiveTitleHeaderState
         if (widget.menu != null) ...[const SizedBox(width: 8), widget.menu!],
       ],
     );
-    return ValueListenableBuilder<bool>(
-      valueListenable: _headlineGone,
-      builder: (context, shown, child) => DecoratedBox(
-        key: _toolbarKey,
-        decoration: BoxDecoration(
-          border: Border(
-            bottom: BorderSide(
-              color: !widget.desktop || shown || selecting
-                  ? DetailLayout.ruleColor(scheme)
-                  : Colors.transparent,
-            ),
+    return DecoratedBox(
+      key: _toolbarKey,
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(
+            color: !widget.desktop || selecting
+                ? DetailLayout.ruleColor(scheme)
+                : Colors.transparent,
           ),
-        ),
-        child: Padding(
-          padding: EdgeInsets.only(bottom: widget.desktop ? 12 : 4),
-          child: child,
         ),
       ),
-      child: Stack(
-        children: [
-          // Keep measuring the original toolbar: entering selection must
-          // not move the episodes, including with a wrapped desktop title.
-          ExcludeFocus(
-            excluding: selecting,
-            child: IgnorePointer(
-              ignoring: selecting,
-              child: ExcludeSemantics(
-                excluding: selecting,
-                child: AnimatedOpacity(
-                  opacity: selecting ? 0 : 1,
-                  duration: motionDuration(
-                    context,
-                    const Duration(milliseconds: 200),
-                  ),
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(
-                      minHeight: _lineHeight(context, actionTextStyle),
+      child: Padding(
+        padding: EdgeInsets.only(bottom: widget.desktop ? 12 : 4),
+        child: Stack(
+          children: [
+            // Keep measuring the original toolbar: entering selection must
+            // not move the episodes, including with a wrapped desktop title.
+            ExcludeFocus(
+              excluding: selecting,
+              child: IgnorePointer(
+                ignoring: selecting,
+                child: ExcludeSemantics(
+                  excluding: selecting,
+                  child: AnimatedOpacity(
+                    opacity: selecting ? 0 : 1,
+                    duration: motionDuration(
+                      context,
+                      const Duration(milliseconds: 200),
                     ),
-                    child: toolbar,
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        minHeight: _lineHeight(context, actionTextStyle),
+                      ),
+                      child: toolbar,
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
-          Positioned.fill(
-            child: IgnorePointer(
-              ignoring: !selecting,
-              child: ExcludeSemantics(
-                excluding: !selecting,
-                child: DitherSwitcher(
-                  expand: true,
-                  duration: const Duration(milliseconds: 200),
-                  child: selecting
-                      ? Row(
-                          key: const ValueKey('download_delete_actions'),
-                          children: [
-                            if (widget.desktop && title != null) ...[
-                              Expanded(
-                                child: _CollapsedDownloadTitle(
-                                  title: title,
-                                  showPoster: false,
+            Positioned.fill(
+              child: IgnorePointer(
+                ignoring: !selecting,
+                child: ExcludeSemantics(
+                  excluding: !selecting,
+                  child: DitherSwitcher(
+                    expand: true,
+                    duration: const Duration(milliseconds: 200),
+                    child: selecting
+                        ? Row(
+                            key: const ValueKey('download_delete_actions'),
+                            children: [
+                              if (widget.desktop && title != null) ...[
+                                Expanded(
+                                  child: _CollapsedDownloadTitle(
+                                    title: title,
+                                    showPoster: false,
+                                  ),
                                 ),
+                                const SizedBox(width: 16),
+                              ],
+                              Flexible(
+                                fit: FlexFit.tight,
+                                child: widget.selectionActions!,
                               ),
-                              const SizedBox(width: 16),
                             ],
-                            Flexible(
-                              fit: FlexFit.tight,
-                              child: widget.selectionActions!,
-                            ),
-                          ],
-                        )
-                      : const SizedBox.shrink(
-                          key: ValueKey('download_delete_no_actions'),
-                        ),
+                          )
+                        : const SizedBox.shrink(
+                            key: ValueKey('download_delete_no_actions'),
+                          ),
+                  ),
                 ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -375,6 +367,7 @@ class _DownloadAdaptiveTitleHeaderState
   Widget build(BuildContext context) {
     _queueHeadlineCheck();
     final list = widget.buildList(_listHeader());
+    final body = widget.desktop ? DitherScrollEdge(child: list) : list;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -384,7 +377,7 @@ class _DownloadAdaptiveTitleHeaderState
             onNotification: _checkHeadline,
             child: NotificationListener<ScrollNotification>(
               onNotification: _checkHeadline,
-              child: HeadlineScope(tracker: _headline, child: list),
+              child: HeadlineScope(tracker: _headline, child: body),
             ),
           ),
         ),
@@ -721,11 +714,11 @@ class _GalleryTitle extends StatelessWidget {
       label: '$name, $titleCount, $activity',
       child: Tooltip(
         message: '$name\n$titleCount\n$activity',
-        child: TapRow(
-          inkKey: ValueKey('download_title_${title.key}'),
-          onTap: onTap,
-          child: horizontal
-              ? Row(
+        child: horizontal
+            ? TapRow(
+                inkKey: ValueKey('download_title_${title.key}'),
+                onTap: onTap,
+                child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     _galleryPoster(context, posterWidth, status),
@@ -741,11 +734,21 @@ class _GalleryTitle extends StatelessWidget {
                       ),
                     ),
                   ],
-                )
-              : Column(
+                ),
+              )
+            : PosterTapSurface(
+                inkKey: ValueKey('download_title_${title.key}'),
+                onTap: onTap,
+                builder: (context, hovered, focused) => Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _galleryPoster(context, posterWidth, status),
+                    _galleryPoster(
+                      context,
+                      posterWidth,
+                      status,
+                      hovered: hovered,
+                      focused: focused,
+                    ),
                     const SizedBox(height: 10),
                     SizedBox(
                       height: _lineHeight(context, titleStyle, lines: 2),
@@ -760,7 +763,7 @@ class _GalleryTitle extends StatelessWidget {
                     factsRow,
                   ],
                 ),
-        ),
+              ),
       ),
     );
   }
@@ -768,31 +771,51 @@ class _GalleryTitle extends StatelessWidget {
   Widget _galleryPoster(
     BuildContext context,
     double width,
-    DownloadStatus status,
-  ) {
+    DownloadStatus status, {
+    bool hovered = false,
+    bool focused = false,
+  }) {
     final scheme = Theme.of(context).colorScheme;
     final downloading = status == DownloadStatus.downloading;
     final progress = downloading ? _titleProgress(title) : 0.0;
-    return SizedBox(
-      width: width,
-      child: Stack(
-        children: [
-          DownloadTitlePoster(title: title, width: width),
-          if (downloading && progress > 0)
-            Positioned(
-              left: 1,
-              right: 1,
-              bottom: 1,
-              child: ExcludeSemantics(
-                child: _ThinProgressBar(
-                  value: progress,
-                  height: 3,
-                  color: scheme.tertiary,
-                  trackColor: DetailLayout.progressTrackColor(scheme),
-                ),
+    final progressOverlay = downloading && progress > 0
+        ? Positioned(
+            left: 1,
+            right: 1,
+            bottom: 1,
+            child: ExcludeSemantics(
+              child: _ThinProgressBar(
+                value: progress,
+                height: 3,
+                color: scheme.tertiary,
+                trackColor: DetailLayout.progressTrackColor(scheme),
               ),
             ),
-        ],
+          )
+        : null;
+    if (horizontal) {
+      return SizedBox(
+        width: width,
+        child: Stack(
+          children: [
+            DownloadTitlePoster(title: title, width: width),
+            ?progressOverlay,
+          ],
+        ),
+      );
+    }
+    return SizedBox(
+      width: width,
+      child: PosterHoverFrame(
+        hovered: hovered,
+        focused: focused,
+        poster: ExcludeSemantics(
+          child: PosterImage(
+            url: title.posterUrl,
+            borderColor: Colors.transparent,
+          ),
+        ),
+        overlay: progressOverlay,
       ),
     );
   }

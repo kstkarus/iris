@@ -287,6 +287,54 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
     expect(find.text('Undo'), findsOneWidget);
   });
+
+  testWidgets(
+    'keeps plate animations mounted across toggle and state changes',
+    (tester) async {
+      final marker = _Marker();
+      final cubit = EpisodeMarkCubit(
+        markEpisode: marker,
+        userId: '42',
+        sessionGeneration: () => 0,
+      );
+      final visible = ValueNotifier(true);
+      addTearDown(cubit.close);
+      addTearDown(visible.dispose);
+
+      await tester.pumpWidget(_app(cubit, visible));
+      cubit.watched(_source);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 350));
+
+      final initialSize = tester.element(find.byType(AnimatedSize));
+      final initialPlate = tester.element(
+        find.byKey(const Key('player_mark_plate')),
+      );
+
+      // Collapsing via toggle restarts countdown without remounting the plate.
+      await tester.tap(find.byKey(const Key('player_mark_toggle')));
+      await tester.pump();
+      expect(tester.element(find.byType(AnimatedSize)), same(initialSize));
+      expect(
+        tester.element(find.byKey(const Key('player_mark_plate'))),
+        same(initialPlate),
+      );
+
+      // Expanding again and triggering undo keeps the same plate elements.
+      await tester.tap(find.byKey(const Key('player_mark_toggle')));
+      await tester.pump();
+      await tester.tap(find.text('Undo'));
+      await tester.pump();
+      expect(tester.element(find.byType(AnimatedSize)), same(initialSize));
+      expect(
+        tester.element(find.byKey(const Key('player_mark_plate'))),
+        same(initialPlate),
+      );
+
+      marker.undoReply.complete(true);
+      await tester.pumpAndSettle();
+    },
+  );
 }
 
 Widget _app(

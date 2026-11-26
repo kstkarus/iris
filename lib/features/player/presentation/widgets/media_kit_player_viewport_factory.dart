@@ -286,7 +286,7 @@ class _MediaKitPlayerViewportState extends State<_MediaKitPlayerViewport> {
     _subtitleBase = base;
     view.setPadding(
       base.copyWith(bottom: base.bottom + _subtitleLift.value),
-      duration: const Duration(milliseconds: 200),
+      duration: motionDuration(context, const Duration(milliseconds: 200)),
     );
   }
 

@@ -464,12 +464,14 @@ class _GenresSectionState extends State<_GenresSection> {
               options: [
                 for (final genre in visible)
                   _FilterTag(
+                    key: ValueKey(genre),
                     label: animeGenreLabel(l10n, genre),
                     selected: widget.selected.contains(genre),
                     onChanged: (selected) => widget.onChanged(genre, selected),
                   ),
                 if (visible.length < all.length || expanded)
                   TextButton.icon(
+                    key: ValueKey(('toggle_more', kind)),
                     style: TextButton.styleFrom(
                       textStyle: const TextStyle(
                         fontFamily: DetailLayout.sansFont,
@@ -520,6 +522,7 @@ class _GenresSectionState extends State<_GenresSection> {
         }
         return DitherSwitcher(
           collapse: true,
+          resizeDuration: const Duration(milliseconds: 200),
           duration: const Duration(milliseconds: 220),
           child: child,
         );
@@ -533,6 +536,7 @@ class _FilterTag extends StatelessWidget {
     required this.label,
     required this.selected,
     required this.onChanged,
+    super.key,
   });
   final String label;
   final bool selected;

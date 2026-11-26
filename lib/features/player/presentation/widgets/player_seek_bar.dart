@@ -7,6 +7,7 @@ import 'package:iris/features/player/domain/player_timeline_parts.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/utils/duration_formatter.dart';
 import 'package:iris/shared/utils/equality.dart';
+import 'package:iris/shared/utils/motion_duration.dart';
 import 'package:iris/shared/widgets/pixel_separated_text.dart';
 
 /// Times over the video: beside the timeline and above its thumb.
@@ -302,7 +303,10 @@ class _PlayerSeekBarState extends State<PlayerSeekBar>
                       left: played * width - thumbSize / 2,
                       top: _trackTop - thumbSize / 2,
                       child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 120),
+                        duration: motionDuration(
+                          context,
+                          const Duration(milliseconds: 120),
+                        ),
                         width: thumbSize,
                         height: thumbSize,
                         decoration: BoxDecoration(

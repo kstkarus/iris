@@ -669,7 +669,7 @@ class _PlayerImmersiveControlsState extends State<PlayerImmersiveControls> {
           child: AnimatedOpacity(
             key: const Key('player_pause_dim'),
             opacity: !_playing && widget.startupLabel == null ? 1 : 0,
-            duration: _BottomSection.titleAnimation,
+            duration: motionDuration(context, _BottomSection.titleAnimation),
             child: const ColoredBox(color: Color(0x59000000)),
           ),
         ),
@@ -711,7 +711,7 @@ class _PlayerImmersiveControlsState extends State<PlayerImmersiveControls> {
           child: AnimatedOpacity(
             key: const Key('player_immersive_controls'),
             opacity: visible ? 1 : 0,
-            duration: _controlsFade,
+            duration: motionDuration(context, _controlsFade),
             child: player == null
                 ? const SizedBox.shrink()
                 : _buildControls(context, player, accent, metrics),
@@ -922,7 +922,7 @@ class _PlayerImmersiveControlsState extends State<PlayerImmersiveControls> {
           // Between the back button and the bottom controls, beside the
           // titles' column.
           AnimatedPositioned(
-            duration: _BottomSection.titleAnimation,
+            duration: motionDuration(context, _BottomSection.titleAnimation),
             left: _insets.left - _BrightnessSlider.glyphInset,
             top: _insets.top + metrics.backButton + 12,
             bottom: _bottomHeight + 12,

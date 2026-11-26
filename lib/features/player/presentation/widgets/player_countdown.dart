@@ -18,6 +18,7 @@ class PlayerCountdown extends StatefulWidget {
     required this.child,
     this.running = true,
     this.runningListenable,
+    this.restartToken,
     super.key,
   });
 
@@ -33,6 +34,10 @@ class PlayerCountdown extends StatefulWidget {
 
   /// Receives playback changes even while Flutter is between frames.
   final ValueListenable<bool>? runningListenable;
+
+  /// Changing this value restarts the countdown without remounting [child], so
+  /// animations inside [child] survive state transitions.
+  final Object? restartToken;
 
   @override
   State<PlayerCountdown> createState() => _PlayerCountdownState();
@@ -74,7 +79,13 @@ class _PlayerCountdownState extends State<PlayerCountdown>
       _controller
         ..stop()
         ..value = 1;
-    } else if (oldWidget.duration == null) {
+    } else if (oldWidget.duration == null ||
+        oldWidget.restartToken != widget.restartToken) {
+      _clock.stop();
+      _controller
+        ..stop()
+        ..value = 1;
+      _elapsed = false;
       if (_holds.isEmpty) _start(widget.duration);
     } else {
       _syncRunning();

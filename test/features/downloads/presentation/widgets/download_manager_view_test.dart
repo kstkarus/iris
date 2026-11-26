@@ -26,6 +26,7 @@ import 'package:iris/features/downloads/presentation/widgets/download_title_widg
 import 'package:iris/entities/watch_progress/domain/watch_progress.dart';
 import 'package:iris/entities/watch_progress/presentation/watch_progress_cubit.dart';
 import 'package:iris/shared/online/online_source_link.dart';
+import 'package:iris/shared/widgets/dither_switcher.dart';
 import 'package:iris/shared/widgets/focusable_list_row.dart';
 
 import '../../../../helpers/test_app.dart';
@@ -594,6 +595,11 @@ void main() {
       const listKey = ValueKey('download_episodes_list_anime:header');
       const expandedKey = Key('download_header_expanded_identity');
       const compactKey = Key('download_header_compact_identity');
+      final headerSwitcher = find.descendant(
+        of: find.byKey(const Key('download_header_bar')),
+        matching: find.byType(DitherSwitcher),
+      );
+      final initialSwitcher = tester.element(headerSwitcher.first);
       expect(find.byKey(expandedKey), findsOneWidget);
       expect(find.byKey(compactKey), findsNothing);
       final scrollable = find.descendant(
@@ -607,6 +613,7 @@ void main() {
 
       expect(find.byKey(expandedKey), findsNothing);
       expect(find.byKey(compactKey), findsOneWidget);
+      expect(tester.element(headerSwitcher.first), same(initialSwitcher));
       for (var step = 0; step < 2; step++) {
         await tester.drag(scrollable, const Offset(0, -500));
         await tester.pumpAndSettle();
@@ -617,8 +624,68 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byKey(compactKey), findsNothing);
       expect(find.byKey(expandedKey), findsOneWidget);
+      expect(tester.element(headerSwitcher.first), same(initialSwitcher));
       expect(tester.takeException(), isNull);
     });
+  });
+
+  testWidgets('desktop title header stays fixed in height while scrolling', (
+    tester,
+  ) async {
+    setTestWindowSize(tester, TestWindowSizes.desktop);
+    final items = [
+      for (var index = 1; index <= 24; index++)
+        _libraryDownload(
+          id: 'desk-$index',
+          animeId: 'desk-header',
+          animeTitle: 'Desktop Header Anime',
+          fileName: 'Episode ${index.toString().padLeft(2, '0')}.mkv',
+          status: DownloadStatus.completed,
+          createdAt: DateTime(2026, 10, index),
+        ),
+    ];
+
+    await _pumpApp(
+      tester,
+      BlocProvider(
+        create: (_) => DownloadManagerCubit(
+          repository: _ScriptedDownloadsRepository(items),
+        )..load(),
+        child: DownloadManagerPage(
+          onWatch: (_) {},
+          onOpenTitle: (_) {},
+          onBrowseCatalog: () {},
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final bar = find.byKey(const Key('download_header_bar'));
+    final initialHeight = tester.getSize(bar).height;
+    expect(
+      find.byKey(const Key('download_header_expanded_identity')),
+      findsOneWidget,
+    );
+
+    final scrollable = find.descendant(
+      of: find.byKey(
+        const ValueKey('download_episodes_list_anime:desk-header'),
+      ),
+      matching: find.byType(Scrollable),
+    );
+    await tester.drag(scrollable, const Offset(0, -400));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const Key('download_header_expanded_identity')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const Key('download_header_compact_identity')),
+      findsNothing,
+    );
+    expect(tester.getSize(bar).height, initialHeight);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets(

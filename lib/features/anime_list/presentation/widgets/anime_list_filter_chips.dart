@@ -101,6 +101,7 @@ class AnimeListFilterChips extends StatelessWidget {
 
     return DitherSwitcher(
       collapse: true,
+      resizeDuration: const Duration(milliseconds: 200),
       reverseDuration: DitherList.horizontalRemovalDuration,
       child: !filters.hasAny
           ? const SizedBox.shrink(key: ValueKey(false))

@@ -98,7 +98,7 @@ class _EpisodeMarkPlateState extends State<EpisodeMarkPlate> {
                     alignment: Alignment.topLeft,
                     heightFactor: 1,
                     child: PlayerCountdown(
-                      key: ValueKey('mark_visible_$_version'),
+                      restartToken: _version,
                       running: TickerMode.valuesOf(context).enabled,
                       duration: attention || loading || _engaged || !_intro
                           ? null
@@ -107,7 +107,7 @@ class _EpisodeMarkPlateState extends State<EpisodeMarkPlate> {
                       child: PlayerCountdownBar(
                         color: _open ? Colors.transparent : _secondary,
                         child: PlayerCountdown(
-                          key: ValueKey('mark_collapse_$_collapseVersion'),
+                          restartToken: _collapseVersion,
                           running: TickerMode.valuesOf(context).enabled,
                           duration: _open && !loading
                               ? Duration(
@@ -270,6 +270,9 @@ class _EpisodeMarkPlateState extends State<EpisodeMarkPlate> {
                 child: ExcludeSemantics(
                   child: InkWell(
                     key: const Key('player_mark_toggle'),
+                    mouseCursor: canExpand && !loading
+                        ? SystemMouseCursors.click
+                        : SystemMouseCursors.basic,
                     onTap: canExpand && !loading
                         ? () => setState(() {
                             _open = !_open;

@@ -128,12 +128,12 @@ class SearchToolbar extends StatelessWidget {
           );
 
     final trailing = trailingAction;
-    if (trailing != null && !isWide) {
+    if (!isWide) {
       // The field keeps room for Search, text and Clear beside two buttons.
       const minimumWidth = SearchField.height * 5 + 16;
       return LayoutBuilder(
         builder: (context, constraints) {
-          if (constraints.maxWidth >= minimumWidth) {
+          if (trailing == null || constraints.maxWidth >= minimumWidth) {
             return _row(action, trailing: trailing);
           }
           return Column(

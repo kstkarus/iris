@@ -75,6 +75,7 @@ class MyListSection extends StatelessWidget {
           ),
           child: DitherSwitcher(
             collapse: true,
+            resizeDuration: const Duration(milliseconds: 200),
             duration: const Duration(milliseconds: 220),
             child: content,
           ),
