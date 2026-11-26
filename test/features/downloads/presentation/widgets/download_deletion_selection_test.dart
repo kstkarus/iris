@@ -491,6 +491,47 @@ void main() {
       expect(tester.takeException(), isNull);
     }),
   );
+
+  testWidgets('pause, resume and retry vibrate lightly on touch devices', (
+    tester,
+  ) async {
+    final effects = recordHaptics();
+    setTestWindowSize(tester, const Size(390, 844));
+    final repository = _Downloads([
+      _item('active', 1, DownloadStatus.downloading),
+      _item('paused', 2, DownloadStatus.paused),
+      _item('failed', 3, DownloadStatus.failed),
+    ]);
+    final manager = DownloadManagerCubit(repository: repository)..load();
+    addTearDown(() {
+      unawaited(manager.close());
+      unawaited(repository.changes.close());
+    });
+    await tester.pumpWidget(
+      testApp(
+        BlocProvider.value(
+          value: manager,
+          child: Scaffold(
+            body: DownloadManagerView(
+              titleKey: 'anime:1',
+              onWatch: (_) {},
+              onOpenTitle: (_) {},
+              onBrowseCatalog: () {},
+            ),
+          ),
+        ),
+        theme: buildAppTheme(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('download_action_active')));
+    await tester.tap(find.byKey(const ValueKey('download_action_paused')));
+    await tester.tap(find.byKey(const ValueKey('download_action_failed')));
+    await tester.pump();
+
+    expect(effects, [HapticsType.light, HapticsType.light, HapticsType.light]);
+  });
 }
 
 WidgetTesterCallback _onPlatform(

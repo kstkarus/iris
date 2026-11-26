@@ -1018,18 +1018,27 @@ class _DownloadRowState extends State<_DownloadRow> {
       DownloadStatus.downloading || DownloadStatus.queued => (
         PixelGlyph.pause,
         l10n.downloadPauseButton,
-        () => cubit.pause(item.id),
+        () {
+          AppHaptics.light();
+          cubit.pause(item.id);
+        },
       ),
       // Its own glyph: ▶ only ever means watching.
       DownloadStatus.paused => (
         PixelGlyph.download,
         l10n.downloadResumeButton,
-        () => cubit.resume(item.id),
+        () {
+          AppHaptics.light();
+          cubit.resume(item.id);
+        },
       ),
       DownloadStatus.failed => (
         PixelGlyph.refresh,
         l10n.commonRetry,
-        () => cubit.retry(item.id),
+        () {
+          AppHaptics.light();
+          cubit.retry(item.id);
+        },
       ),
     };
     final statusLabel = downloadStatusLabel(l10n, status);
@@ -1355,18 +1364,30 @@ class _DownloadRowState extends State<_DownloadRow> {
                 ],
               ),
             ),
-            if (barProgress != null && !widget.selecting)
+            if (barProgress != null)
               Positioned(
                 left: 0,
                 right: 0,
                 bottom: 0,
-                child: SegmentedBar(
-                  value: barProgress,
-                  height: barHeight,
-                  segment: 6,
-                  gap: 0,
-                  color: barColor,
-                  trackColor: Colors.transparent,
+                child: IgnorePointer(
+                  child: ExcludeSemantics(
+                    excluding: widget.selecting,
+                    child: AnimatedOpacity(
+                      opacity: widget.selecting ? 0 : 1,
+                      duration: motionDuration(
+                        context,
+                        const Duration(milliseconds: 200),
+                      ),
+                      child: SegmentedBar(
+                        value: barProgress,
+                        height: barHeight,
+                        segment: 6,
+                        gap: 0,
+                        color: barColor,
+                        trackColor: Colors.transparent,
+                      ),
+                    ),
+                  ),
                 ),
               ),
           ],

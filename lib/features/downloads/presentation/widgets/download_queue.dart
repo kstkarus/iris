@@ -746,10 +746,19 @@ class _StatusRowState extends State<_StatusRow> {
     final onAction = deleting
         ? null
         : active
-        ? () => cubit.pause(item.id)
+        ? () {
+            AppHaptics.light();
+            cubit.pause(item.id);
+          }
         : paused
-        ? () => cubit.resume(item.id)
-        : () => cubit.retry(item.id);
+        ? () {
+            AppHaptics.light();
+            cubit.resume(item.id);
+          }
+        : () {
+            AppHaptics.light();
+            cubit.retry(item.id);
+          };
     final action = Semantics(
       label: '$actionLabel: $semanticName',
       button: true,
