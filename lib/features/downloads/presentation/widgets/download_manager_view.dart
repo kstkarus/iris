@@ -27,10 +27,12 @@ import 'package:iris/shared/utils/byte_size_formatter.dart';
 import 'package:iris/shared/utils/desktop_platform.dart';
 import 'package:iris/shared/utils/duration_formatter.dart';
 import 'package:iris/shared/utils/motion_duration.dart';
+import 'package:iris/shared/widgets/adaptive/desktop_dossier_metrics.dart';
 import 'package:iris/shared/widgets/adaptive/window_size_class.dart';
 import 'package:iris/shared/widgets/busy_button_child.dart';
 import 'package:iris/shared/widgets/detail_layout.dart';
 import 'package:iris/shared/widgets/dither_list.dart';
+import 'package:iris/shared/widgets/dither_scroll_edge.dart';
 import 'package:iris/shared/widgets/dither_switcher.dart';
 import 'package:iris/shared/widgets/focusable_list_row.dart';
 import 'package:iris/shared/widgets/pixel_icon.dart';
@@ -83,7 +85,6 @@ class _DownloadManagerViewState extends State<DownloadManagerView> {
     final splitView = WindowSizeClass.of(
       context,
     ).isAtLeast(WindowSizeClass.expanded);
-    final scheme = Theme.of(context).colorScheme;
     return BlocBuilder<DownloadManagerCubit, DownloadManagerState>(
       builder: (context, state) {
         final l10n = AppLocalizations.of(context);
@@ -125,7 +126,6 @@ class _DownloadManagerViewState extends State<DownloadManagerView> {
             titles.isEmpty &&
             _hadGalleryTitles &&
             !MediaQuery.disableAnimationsOf(context);
-        final showSplit = splitView && placeholder == null && titles.isNotEmpty;
         final (Object libraryKey, Widget library) = placeholder != null
             ? (placeholderKey!, placeholder)
             : splitView
@@ -171,15 +171,7 @@ class _DownloadManagerViewState extends State<DownloadManagerView> {
                 if (title != null && context.mounted) widget.onOpenTitle(title);
               },
             ),
-            if (showSplit) ...[
-              const SizedBox(height: 12),
-              Divider(
-                height: 1,
-                thickness: 1,
-                color: DetailLayout.ruleColor(scheme),
-              ),
-            ] else
-              const SizedBox(height: 16),
+            const SizedBox(height: 16),
             Expanded(
               key: const ValueKey('downloads_library_body'),
               child: DitherSwitcher(
@@ -299,75 +291,73 @@ class _SplitLibraryState extends State<_SplitLibrary> {
     if (selectedKey == null) {
       return _EmptyLibrary(onBrowseCatalog: widget.onBrowseCatalog);
     }
-    final scheme = Theme.of(context).colorScheme;
     final selected = widget.titles
         .where((title) => title.key == selectedKey)
         .firstOrNull;
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final sidebarWidth = constraints.maxWidth >= 1000 ? 276.0 : 244.0;
-        final details = DitherSwitcher(
-          expand: true,
-          duration: const Duration(milliseconds: 240),
-          child: _Episodes(
-            key: ValueKey('download_episodes_$selectedKey'),
-            titleKey: selectedKey,
-            title: selected,
-            onWatch: widget.onWatch,
-            onOpenAnime: widget.onOpenAnime,
-            onDownloadMore: widget.onDownloadMore,
-            desktop: true,
-            onTitleDeleted: () {
-              if (_selectedKey == selectedKey &&
-                  !widget.titles.any((title) => title.key == selectedKey)) {
-                setState(() => _selectedKey = widget.titles.firstOrNull?.key);
-              }
-              return true;
-            },
+    final details = DitherSwitcher(
+      expand: true,
+      duration: const Duration(milliseconds: 240),
+      child: _Episodes(
+        key: ValueKey('download_episodes_$selectedKey'),
+        titleKey: selectedKey,
+        title: selected,
+        onWatch: widget.onWatch,
+        onOpenAnime: widget.onOpenAnime,
+        onDownloadMore: widget.onDownloadMore,
+        desktop: true,
+        onTitleDeleted: () {
+          if (_selectedKey == selectedKey &&
+              !widget.titles.any((title) => title.key == selectedKey)) {
+            setState(() => _selectedKey = widget.titles.firstOrNull?.key);
+          }
+          return true;
+        },
+      ),
+    );
+    final sizeClass = WindowSizeClass.of(context);
+    final posterWidth = sizeClass.isAtLeast(WindowSizeClass.large)
+        ? 88.0
+        : 76.0;
+    final gap = DesktopDossierMetrics.gap(sizeClass);
+    final workspaceMaxWidth = DesktopDossierMetrics.workspaceMaxWidth(
+      sizeClass,
+    );
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SizedBox(
+          width: posterWidth,
+          child: DitherScrollEdge(
+            child: DitherList<DownloadTitle>(
+              key: const Key('download_poster_list'),
+              padding: const EdgeInsets.only(bottom: 32),
+              items: widget.titles,
+              keyOf: (title) => title.key,
+              itemBuilder: (context, title) => DownloadPosterOption(
+                title: title,
+                selected: title.key == selectedKey,
+                width: posterWidth,
+                onTap: () {
+                  if (_selectedKey == title.key) return;
+                  AppHaptics.selection();
+                  setState(() => _selectedKey = title.key);
+                },
+              ),
+              rowSpacing: 12,
+            ),
           ),
-        );
-        return Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            SizedBox(
-              width: sidebarWidth,
-              child: DitherList<DownloadTitle>(
-                key: const Key('download_poster_list'),
-                padding: const EdgeInsets.only(top: 16, right: 16, bottom: 32),
-                items: widget.titles,
-                keyOf: (title) => title.key,
-                itemBuilder: (context, title) => DownloadPosterOption(
-                  title: title,
-                  selected: title.key == selectedKey,
-                  onTap: () {
-                    if (_selectedKey == title.key) return;
-                    AppHaptics.selection();
-                    setState(() => _selectedKey = title.key);
-                  },
-                ),
-                rowSpacing: 6,
-              ),
+        ),
+        SizedBox(width: gap),
+        Expanded(
+          child: Align(
+            alignment: AlignmentDirectional.topStart,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: workspaceMaxWidth),
+              child: details,
             ),
-            VerticalDivider(
-              width: 1,
-              thickness: 1,
-              color: DetailLayout.ruleColor(scheme),
-            ),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.only(top: 16, left: 24),
-                child: Align(
-                  alignment: AlignmentDirectional.topStart,
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 780),
-                    child: details,
-                  ),
-                ),
-              ),
-            ),
-          ],
-        );
-      },
+          ),
+        ),
+      ],
     );
   }
 }
@@ -664,7 +654,7 @@ class _EpisodesState extends State<_Episodes> {
           (
             'release:${downloadSourceKey(releases[r].first.magnet)}',
             Padding(
-              padding: EdgeInsets.only(top: r == 0 ? 0 : 20, bottom: 8),
+              padding: EdgeInsets.only(top: r == 0 ? 0 : 24, bottom: 8),
               child: Row(
                 children: [
                   Expanded(

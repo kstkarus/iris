@@ -801,6 +801,10 @@ void main() {
         ),
         findsNothing,
       );
+      expect(
+        find.byTooltip('Death Note\n0 of 2 episodes · 64 B'),
+        findsOneWidget,
+      );
     },
   );
 
