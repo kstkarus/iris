@@ -23,8 +23,10 @@ import 'package:iris/features/settings/presentation/anime_title_labels.dart';
 import 'package:iris/features/settings/presentation/cubit/app_settings_cubit.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/haptics/app_haptics.dart';
+import 'package:iris/shared/widgets/adaptive/desktop_dossier_metrics.dart';
 import 'package:iris/shared/widgets/adaptive/window_size_class.dart';
 import 'package:iris/shared/widgets/detail_layout.dart';
+import 'package:iris/shared/widgets/dither_scroll_edge.dart';
 import 'package:iris/shared/widgets/dither_switcher.dart';
 import 'package:iris/shared/widgets/pixel_separated_text.dart';
 import 'package:iris/shared/widgets/poster_image.dart';
@@ -42,22 +44,15 @@ class PlayerSourceView extends StatelessWidget {
     this.sourceTitle = '',
     this.posterUrl = '',
     this.isOnline = false,
+    this.embeddedDesktop = false,
     super.key,
   });
 
   static const continueBarKey = Key('player_source_continue_bar');
   static const continueButtonKey = Key('player_source_continue_button');
 
-  static const _desktopSplitMinWidth = 1000.0;
-  static const _desktopSplitMinHeight = 500.0;
-
-  static bool isDesktopSplit(BuildContext context) {
-    final sizeClass = WindowSizeClass.of(context);
-    if (!sizeClass.isAtLeast(WindowSizeClass.expanded)) return false;
-    final size = MediaQuery.sizeOf(context);
-    return size.width >= _desktopSplitMinWidth &&
-        size.height >= _desktopSplitMinHeight;
-  }
+  static bool isDesktopSplit(BuildContext context) =>
+      DesktopDossierMetrics.isStandaloneSplit(context);
 
   /// Desktop split puts selection actions directly into `FramedAppBar` so the
   /// episode list never shifts vertically; large text falls back to the inline
@@ -88,6 +83,10 @@ class PlayerSourceView extends StatelessWidget {
   /// An online release, whose episodes come from a server, not a torrent.
   final bool isOnline;
 
+  /// True when embedded inside desktop `AnimeDetailsPage`'s right column
+  /// (whose left rail is owned by `AnimeDetailsDesktopLayout`).
+  final bool embeddedDesktop;
+
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<PlayerSourceCubit, PlayerSourceState>(
@@ -116,6 +115,7 @@ class PlayerSourceView extends StatelessWidget {
               sourceTitle: sourceTitle,
               posterUrl: posterUrl,
               isOnline: isOnline,
+              embeddedDesktop: embeddedDesktop,
               onFileSelected: onFileSelected,
             ),
           ),
@@ -149,9 +149,8 @@ class _SuccessState extends StatelessWidget {
     required this.posterUrl,
     required this.onFileSelected,
     required this.isOnline,
+    required this.embeddedDesktop,
   });
-
-  static const _desktopListMaxWidth = 920.0;
 
   final PlayerSourceReady state;
   final Map<int, WatchProgress> progressByFile;
@@ -163,6 +162,7 @@ class _SuccessState extends StatelessWidget {
   final String posterUrl;
   final ValueChanged<PlayerVideoFile> onFileSelected;
   final bool isOnline;
+  final bool embeddedDesktop;
 
   @override
   Widget build(BuildContext context) {
@@ -176,7 +176,8 @@ class _SuccessState extends StatelessWidget {
     final expanded = sizeClass.isAtLeast(WindowSizeClass.expanded);
     final selecting = state.selecting;
     final scheme = Theme.of(context).colorScheme;
-    final desktopSplit = PlayerSourceView.isDesktopSplit(context);
+    final desktopSplit =
+        embeddedDesktop || PlayerSourceView.isDesktopSplit(context);
     final episodeListLayout = context
         .select<AppSettingsCubit?, EpisodeListLayout>(
           (cubit) => cubit?.state.episodeListLayout ?? EpisodeListLayout.auto,
@@ -210,18 +211,125 @@ class _SuccessState extends StatelessWidget {
     }
 
     if (desktopSplit) {
-      final isLarge = sizeClass.isAtLeast(WindowSizeClass.large);
-      final railWidth = isLarge ? 276.0 : 244.0;
-      final rightGap = isLarge ? 28.0 : 20.0;
+      final railWidth = DesktopDossierMetrics.railWidth(sizeClass);
+      final rightGap = DesktopDossierMetrics.gap(sizeClass);
+      final workspaceMaxWidth = DesktopDossierMetrics.workspaceMaxWidth(
+        sizeClass,
+      );
       final rule = DetailLayout.ruleColor(scheme);
       final tabular = !DetailLayout.isLargeText(context);
       final listHorizontalPadding = useList ? 12.0 : 0.0;
-      final appBarSelection = PlayerSourceView.usesDesktopAppBarSelection(
-        context,
-      );
+      final appBarSelection = embeddedDesktop
+          ? !DetailLayout.isLargeText(context)
+          : PlayerSourceView.usesDesktopAppBarSelection(context);
       final showInlineToolbar = selecting && !appBarSelection;
       final showAppBarError =
           selecting && appBarSelection && state.enqueueFailed;
+
+      final workspace = Align(
+        alignment: AlignmentDirectional.topStart,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: workspaceMaxWidth),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              DitherSwitcher(
+                collapse: true,
+                resizeDuration: const Duration(milliseconds: 200),
+                duration: const Duration(milliseconds: 200),
+                child: showInlineToolbar
+                    ? Padding(
+                        key: const ValueKey('selection_toolbar'),
+                        padding: const EdgeInsets.only(top: 16, bottom: 8),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Padding(
+                              padding: EdgeInsets.symmetric(
+                                horizontal: listHorizontalPadding,
+                              ),
+                              child: _SelectionToolbar(
+                                state: state,
+                                isOnline: isOnline,
+                                progressByFile: progressByFile,
+                                listed: listed,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            Divider(height: 1, thickness: 1, color: rule),
+                          ],
+                        ),
+                      )
+                    : showAppBarError
+                    ? Padding(
+                        key: const ValueKey('appbar_enqueue_error'),
+                        padding: EdgeInsets.fromLTRB(
+                          listHorizontalPadding,
+                          12,
+                          listHorizontalPadding,
+                          0,
+                        ),
+                        child: const ReleaseEnqueueError(),
+                      )
+                    : const SizedBox.shrink(key: ValueKey('no_header')),
+              ),
+              Expanded(
+                child: DitherSwitcher(
+                  expand: true,
+                  duration: const Duration(milliseconds: 260),
+                  child: KeyedSubtree(
+                    key: ValueKey(useList ? 'episode_list' : 'episode_grid'),
+                    child: DitherScrollEdge(
+                      child: useList
+                          ? PlayerEpisodesList(
+                              source: state,
+                              highlightedFileIndex: target?.file.index,
+                              progressByFile: progressByFile,
+                              listed: listed,
+                              metadataByFile: metadataByFile,
+                              horizontalPadding: listHorizontalPadding,
+                              tabular: tabular,
+                              topPadding: showInlineToolbar
+                                  ? 6
+                                  : embeddedDesktop
+                                  ? 0
+                                  : 20,
+                              isOnline: isOnline,
+                              onSelected: onSelected,
+                              onLongPressed: onLongPressed,
+                              onQuickDownload: (file) =>
+                                  enqueueReleaseDownloads(
+                                    context,
+                                    singleIndex: file.index,
+                                  ),
+                            )
+                          : PlayerEpisodeGrid(
+                              source: state,
+                              highlightedFileIndex: target?.file.index,
+                              progressByFile: progressByFile,
+                              listed: listed,
+                              metadataByFile: metadataByFile,
+                              topPadding: showInlineToolbar
+                                  ? 12
+                                  : embeddedDesktop
+                                  ? 0
+                                  : 20,
+                              desktop: true,
+                              isOnline: isOnline,
+                              onSelected: onSelected,
+                              onLongPressed: onLongPressed,
+                            ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+
+      if (embeddedDesktop) return workspace;
 
       return Padding(
         padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
@@ -261,118 +369,8 @@ class _SuccessState extends StatelessWidget {
                     : () => onFileSelected(target.file),
               ),
             ),
-            VerticalDivider(width: 1, thickness: 1, color: rule),
-            Expanded(
-              child: Padding(
-                padding: EdgeInsets.only(left: rightGap),
-                child: Align(
-                  alignment: AlignmentDirectional.topStart,
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(
-                      maxWidth: _desktopListMaxWidth,
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        DitherSwitcher(
-                          collapse: true,
-                          resizeDuration: const Duration(milliseconds: 200),
-                          duration: const Duration(milliseconds: 200),
-                          child: showInlineToolbar
-                              ? Padding(
-                                  key: const ValueKey('selection_toolbar'),
-                                  padding: const EdgeInsets.only(
-                                    top: 16,
-                                    bottom: 8,
-                                  ),
-                                  child: Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.stretch,
-                                    children: [
-                                      Padding(
-                                        padding: EdgeInsets.symmetric(
-                                          horizontal: listHorizontalPadding,
-                                        ),
-                                        child: _SelectionToolbar(
-                                          state: state,
-                                          isOnline: isOnline,
-                                          progressByFile: progressByFile,
-                                          listed: listed,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 12),
-                                      Divider(
-                                        height: 1,
-                                        thickness: 1,
-                                        color: rule,
-                                      ),
-                                    ],
-                                  ),
-                                )
-                              : showAppBarError
-                              ? Padding(
-                                  key: const ValueKey('appbar_enqueue_error'),
-                                  padding: EdgeInsets.fromLTRB(
-                                    listHorizontalPadding,
-                                    12,
-                                    listHorizontalPadding,
-                                    0,
-                                  ),
-                                  child: const ReleaseEnqueueError(),
-                                )
-                              : const SizedBox.shrink(
-                                  key: ValueKey('no_header'),
-                                ),
-                        ),
-                        Expanded(
-                          child: DitherSwitcher(
-                            expand: true,
-                            duration: const Duration(milliseconds: 260),
-                            child: KeyedSubtree(
-                              key: ValueKey(
-                                useList ? 'episode_list' : 'episode_grid',
-                              ),
-                              child: useList
-                                  ? PlayerEpisodesList(
-                                      source: state,
-                                      highlightedFileIndex: target?.file.index,
-                                      progressByFile: progressByFile,
-                                      listed: listed,
-                                      metadataByFile: metadataByFile,
-                                      horizontalPadding: listHorizontalPadding,
-                                      tabular: tabular,
-                                      topPadding: showInlineToolbar ? 6 : 16,
-                                      isOnline: isOnline,
-                                      onSelected: onSelected,
-                                      onLongPressed: onLongPressed,
-                                      onQuickDownload: (file) =>
-                                          enqueueReleaseDownloads(
-                                            context,
-                                            singleIndex: file.index,
-                                          ),
-                                    )
-                                  : PlayerEpisodeGrid(
-                                      source: state,
-                                      highlightedFileIndex: target?.file.index,
-                                      progressByFile: progressByFile,
-                                      listed: listed,
-                                      metadataByFile: metadataByFile,
-                                      topPadding: showInlineToolbar ? 12 : 20,
-                                      desktop: true,
-                                      isOnline: isOnline,
-                                      onSelected: onSelected,
-                                      onLongPressed: onLongPressed,
-                                    ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
+            SizedBox(width: rightGap),
+            Expanded(child: workspace),
           ],
         ),
       );
@@ -550,6 +548,147 @@ class _DesktopDossierRail extends StatelessWidget {
       if (sourceTitle.trim().isNotEmpty) sourceTitle.trim(),
       l10n.animeEpisodeCount('$episodeCount', episodeCount),
     ];
+    final showContinue =
+        !selecting &&
+        target != null &&
+        targetTitle != null &&
+        targetNumber != null &&
+        onContinue != null;
+
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(0, 24, 0, 32),
+      children: [
+        if (posterUrl.isNotEmpty) ...[
+          PosterImage(url: posterUrl, borderColor: rule),
+          const SizedBox(height: 16),
+        ],
+        _DesktopDossierDetails(
+          primaryTitle: primaryTitle,
+          releaseFacts: releaseFacts,
+          showContinue: showContinue,
+          target: target,
+          targetTitle: targetTitle,
+          targetNumber: targetNumber,
+          targetMetadata: targetMetadata,
+          targetProgress: targetProgress,
+          targetDownloaded: targetDownloaded,
+          onContinue: onContinue,
+        ),
+      ],
+    );
+  }
+}
+
+/// Reusable lower rail content for the episode picker when embedded inside
+/// `AnimeDetailsPage`'s sticky poster rail on desktop.
+class PlayerSourceRailDetails extends StatelessWidget {
+  const PlayerSourceRailDetails({
+    required this.animeTitles,
+    required this.sourceTitle,
+    required this.progressByFile,
+    required this.listedEpisodes,
+    required this.episodeMetadata,
+    required this.onFileSelected,
+    this.backAction,
+    super.key,
+  });
+
+  final AnimeTitles? animeTitles;
+  final String sourceTitle;
+  final Map<int, WatchProgress> progressByFile;
+  final int listedEpisodes;
+  final Map<int, EpisodeMetadata> episodeMetadata;
+  final ValueChanged<PlayerVideoFile> onFileSelected;
+  final Widget? backAction;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final titles = animeTitles;
+    final primaryTitle = titles == null
+        ? ''
+        : watchAnimeTitleLabels(context, titles).primary;
+    return BlocBuilder<PlayerSourceCubit, PlayerSourceState>(
+      builder: (context, state) {
+        final ready = state is PlayerSourceReady ? state : null;
+        final files = ready?.files ?? const <PlayerVideoFile>[];
+        final listed = filesCountedInList(files, listedEpisodes);
+        final metadataByFile = episodeMetadataForFiles(files, episodeMetadata);
+        final names = distinctEpisodeNames(files, metadata: metadataByFile);
+        final target = ready == null
+            ? null
+            : continueTarget(files, progressByFile, listed: listed);
+        final releaseFacts = [
+          if (sourceTitle.trim().isNotEmpty) sourceTitle.trim(),
+          if (files.isNotEmpty)
+            l10n.animeEpisodeCount('${files.length}', files.length),
+        ];
+        final showContinue =
+            ready != null &&
+            !ready.selecting &&
+            target != null &&
+            files.isNotEmpty;
+        return _DesktopDossierDetails(
+          primaryTitle: primaryTitle,
+          releaseFacts: releaseFacts,
+          backAction: backAction,
+          showContinue: showContinue,
+          target: target,
+          targetTitle: target == null
+              ? null
+              : (names[target.file.index] ?? target.file.displayName),
+          targetNumber: target == null
+              ? null
+              : episodeNumberLabel(target.file, files.indexOf(target.file)),
+          targetMetadata: target == null
+              ? null
+              : metadataByFile[target.file.index],
+          targetProgress: target == null || target.isNext
+              ? null
+              : progressByFile[target.file.index],
+          targetDownloaded:
+              ready != null &&
+              target != null &&
+              ready.downloadFor(target.file.index)?.status ==
+                  DownloadStatus.completed,
+          onContinue: target == null ? null : () => onFileSelected(target.file),
+        );
+      },
+    );
+  }
+}
+
+class _DesktopDossierDetails extends StatelessWidget {
+  const _DesktopDossierDetails({
+    required this.primaryTitle,
+    required this.releaseFacts,
+    required this.showContinue,
+    required this.target,
+    required this.targetTitle,
+    required this.targetNumber,
+    required this.targetMetadata,
+    required this.targetProgress,
+    required this.targetDownloaded,
+    required this.onContinue,
+    this.backAction,
+  });
+
+  final String primaryTitle;
+  final List<String> releaseFacts;
+  final Widget? backAction;
+  final bool showContinue;
+  final ({PlayerVideoFile file, bool isNext})? target;
+  final String? targetTitle;
+  final String? targetNumber;
+  final EpisodeMetadata? targetMetadata;
+  final WatchProgress? targetProgress;
+  final bool targetDownloaded;
+  final VoidCallback? onContinue;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     final sansSmall = theme.textTheme.bodySmall?.copyWith(
       fontFamily: DetailLayout.sansFont,
       color: scheme.onSurfaceVariant,
@@ -558,31 +697,10 @@ class _DesktopDossierRail extends StatelessWidget {
       theme.textTheme.bodySmall,
       color: scheme.onSurfaceVariant,
     );
-    final showContinue =
-        !selecting &&
-        target != null &&
-        targetTitle != null &&
-        targetNumber != null &&
-        onContinue != null;
-
-    final maxPosterHeight = (MediaQuery.sizeOf(context).height - 310).clamp(
-      160.0,
-      420.0,
-    );
-
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(0, 20, 24, 32),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (posterUrl.isNotEmpty) ...[
-          Align(
-            alignment: AlignmentDirectional.topStart,
-            child: ConstrainedBox(
-              constraints: BoxConstraints(maxHeight: maxPosterHeight),
-              child: PosterImage(url: posterUrl, borderColor: rule),
-            ),
-          ),
-          const SizedBox(height: 16),
-        ],
         if (primaryTitle.isNotEmpty) ...[
           Text(
             primaryTitle,
@@ -605,6 +723,7 @@ class _DesktopDossierRail extends StatelessWidget {
             sansStyle: sansSmall,
             monoStyle: monoSmall,
           ),
+        if (backAction != null) ...[const SizedBox(height: 16), backAction!],
         DitherSwitcher(
           collapse: true,
           resizeDuration: const Duration(milliseconds: 200),

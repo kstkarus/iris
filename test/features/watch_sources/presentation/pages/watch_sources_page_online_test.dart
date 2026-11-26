@@ -30,6 +30,8 @@ import 'package:iris/features/saved_torrents/data/repositories/shared_preference
 import 'package:iris/features/saved_torrents/presentation/cubit/saved_torrents_cubit.dart';
 import 'package:iris/features/saved_torrents/presentation/widgets/add_saved_torrent_sheet.dart';
 import 'package:iris/shared/torrent/torrent_file_picker.dart';
+import 'package:iris/shared/utils/bayer_mask.dart';
+import 'package:iris/shared/widgets/dither_transition.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../helpers/bencode.dart';
 import 'package:iris/shared/online/online_source_link.dart';
@@ -191,37 +193,45 @@ void main() {
     expect(offset(), closeTo(onlineOffset, 0.5));
   }, variant: const TargetPlatformVariant({TargetPlatform.android}));
 
-  testWidgets('fades in only the selected tab and honors reduced motion', (
-    tester,
-  ) async {
-    await _pumpPage(tester, online: _FakeOnlineSources.found());
+  testWidgets(
+    'develops only the selected tab via Bayer dither and honors reduced motion',
+    (tester) async {
+      await _pumpPage(tester, online: _FakeOnlineSources.found());
 
-    await tester.tap(find.text('Torrents'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 90));
+      await tester.tap(find.text('Torrents'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 110));
 
-    expect(find.text('[SubsPlease] Frieren'), findsOneWidget);
-    expect(find.text('AniLibria'), findsNothing);
-    final transitions = tester
-        .widgetList<FadeTransition>(find.byType(FadeTransition))
-        .map((widget) => widget.opacity.value)
-        .toList();
-    expect(transitions.any((value) => value > 0 && value < 1), isTrue);
+      expect(find.text('[SubsPlease] Frieren'), findsOneWidget);
+      expect(find.text('AniLibria'), findsNothing);
+      final masks = tester
+          .widgetList<BayerMasked>(find.byType(BayerMasked))
+          .map((widget) => widget.open)
+          .toList();
+      expect(masks.any((open) => open > 0 && open < BayerMask.steps), isTrue);
 
-    await tester.pumpAndSettle();
-    expect(find.text('[SubsPlease] Frieren'), findsOneWidget);
-    expect(find.text('AniLibria'), findsNothing);
+      await tester.pumpAndSettle();
+      expect(find.text('[SubsPlease] Frieren'), findsOneWidget);
+      expect(find.text('AniLibria'), findsNothing);
 
-    // With reduced motion, switching back completes on the first frame.
-    tester.platformDispatcher.accessibilityFeaturesTestValue =
-        const FakeAccessibilityFeatures(disableAnimations: true);
-    addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
+      // With reduced motion, switching back completes on the first frame.
+      tester.platformDispatcher.accessibilityFeaturesTestValue =
+          const FakeAccessibilityFeatures(disableAnimations: true);
+      addTearDown(
+        tester.platformDispatcher.clearAccessibilityFeaturesTestValue,
+      );
 
-    await tester.tap(find.text('Online'));
-    await tester.pump();
-    expect(find.text('AniLibria'), findsOneWidget);
-    expect(find.text('[SubsPlease] Frieren'), findsNothing);
-  });
+      await tester.tap(find.text('Online'));
+      await tester.pump();
+      expect(find.text('AniLibria'), findsOneWidget);
+      expect(find.text('[SubsPlease] Frieren'), findsNothing);
+      final settledMasks = tester
+          .widgetList<BayerMasked>(find.byType(BayerMasked))
+          .map((widget) => widget.open)
+          .toList();
+      expect(settledMasks.every((open) => open == BayerMask.steps), isTrue);
+    },
+  );
 
   testWidgets('lists every dub on the online tab', (tester) async {
     await _pumpPage(tester, online: _FakeOnlineSources(_dubs));
@@ -497,6 +507,27 @@ void main() {
       expect(tester.takeException(), isNull);
     });
   }
+
+  testWidgets('desktop split anchors cover and title in left dossier rail', (
+    tester,
+  ) async {
+    setTestWindowSize(tester, TestWindowSizes.landscape);
+    await _pumpPage(
+      tester,
+      online: _FakeOnlineSources(_dubs),
+      animeTitles: const AnimeTitles(
+        name: 'Sousou no Frieren',
+        english: "Frieren: Beyond Journey's End",
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text("Frieren: Beyond Journey's End"), findsOneWidget);
+    expect(find.byKey(WatchSourcesPage.addButtonKey), findsOneWidget);
+    expect(find.text('Add torrent'), findsOneWidget);
+    expect(find.text('AniLibria'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 
   group("the user's own torrents", () {
     const magnet =

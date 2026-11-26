@@ -9,7 +9,6 @@ import 'package:iris/entities/user_rate/presentation/user_rate_cubit.dart';
 import 'package:iris/entities/user_rate/presentation/user_rate_state.dart';
 import 'package:iris/entities/watch_progress/domain/watch_progress.dart';
 import 'package:iris/entities/watch_progress/presentation/watch_progress_cubit.dart';
-import 'package:iris/shared/online/online_source_link.dart';
 import 'package:iris/features/player/domain/entities/anime_player_source.dart';
 import 'package:iris/features/player/domain/entities/episode_metadata.dart';
 import 'package:iris/features/player/domain/entities/player_video_file.dart';
@@ -23,25 +22,55 @@ import 'package:iris/features/player/presentation/widgets/player_source_download
 import 'package:iris/features/player/presentation/widgets/player_source_view.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/haptics/app_haptics.dart';
+import 'package:iris/shared/online/online_source_link.dart';
 import 'package:iris/shared/widgets/adaptive/adaptive_content_width.dart';
 import 'package:iris/shared/widgets/adaptive/framed_app_bar.dart';
 import 'package:iris/shared/widgets/adaptive/window_size_class.dart';
+import 'package:iris/shared/widgets/detail_layout.dart';
 import 'package:iris/shared/widgets/dither_switcher.dart';
 import 'package:iris/shared/widgets/page_title.dart';
 import 'package:iris/shared/widgets/pixel_icon.dart';
 
-class PlayerSourcePage extends StatelessWidget {
-  const PlayerSourcePage({required this.args, super.key});
+/// Shared episode-picker coordinator used by both standalone [PlayerSourcePage]
+/// and the inline desktop episode step inside `AnimeDetailsPage`.
+class PlayerSourceHost extends StatelessWidget {
+  const PlayerSourceHost({
+    required this.args,
+    required this.builder,
+    this.active = true,
+    this.embeddedDesktop = false,
+    this.backAction,
+    this.onBackStep,
+    super.key,
+  });
 
   final AnimePlayerSourceArgs args;
+
+  /// Disables keyboard shortcuts and auto-open while the episode step is
+  /// dissolving out in an inline desktop host.
+  final bool active;
+  final bool embeddedDesktop;
+  final Widget? backAction;
+  final VoidCallback? onBackStep;
+
+  final Widget Function(
+    BuildContext context, {
+    required PreferredSizeWidget appBar,
+    required Widget railDetails,
+    required Widget pane,
+    required bool canCancelSelection,
+    required VoidCallback? cancelSelection,
+    required VoidCallback? selectAll,
+    required VoidCallback onEscape,
+  })
+  builder;
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final isOnline = OnlineSourceLink.tryParse(args.magnet) != null;
-    final expanded = WindowSizeClass.of(
-      context,
-    ).isAtLeast(WindowSizeClass.expanded);
+    final sizeClass = WindowSizeClass.of(context);
+    final expanded = sizeClass.isAtLeast(WindowSizeClass.expanded);
     // Pages without an account or an anime have no list (null cubit).
     final listedEpisodes = context.select<UserRateCubit?, int>(
       (cubit) => switch (cubit?.state) {
@@ -61,9 +90,13 @@ class PlayerSourcePage extends StatelessWidget {
     final state = cubit.state;
     final ready = state is PlayerSourceReady ? state : null;
     final selecting = ready?.selecting ?? false;
-    final desktopSplit = PlayerSourceView.isDesktopSplit(context);
+    final desktopSplit =
+        embeddedDesktop || PlayerSourceView.isDesktopSplit(context);
     final desktopAppBarSelection =
-        selecting && PlayerSourceView.usesDesktopAppBarSelection(context);
+        selecting &&
+        (embeddedDesktop
+            ? !DetailLayout.isLargeText(context)
+            : PlayerSourceView.usesDesktopAppBarSelection(context));
     final canCancelSelection = selecting && !ready!.addingBatch;
     final cancel = canCancelSelection ? cubit.cancelSelection : null;
     final selectAll = canCancelSelection
@@ -78,7 +111,8 @@ class PlayerSourcePage extends StatelessWidget {
         : null;
     final compactSelection = selecting && !expanded;
     final selectionTitle = downloadSelectionTitle(l10n, isOnline);
-    final appBar = compactSelection
+
+    final PreferredSizeWidget appBar = compactSelection
         ? FramedAppBar(
             key: const ValueKey('select_downloads'),
             showBackButton: false,
@@ -192,6 +226,49 @@ class PlayerSourcePage extends StatelessWidget {
                 : null,
           );
 
+    void onFileSelected(PlayerVideoFile file) {
+      if (cubit.state case final PlayerSourceReady source) {
+        _openPlayer(
+          context,
+          file: file,
+          source: source,
+          listedEpisodes: listedEpisodes,
+        );
+      }
+    }
+
+    final margin = sizeClass.pageMargin;
+    final pane = PlayerSourceView(
+      isOnline: isOnline,
+      horizontalPadding: embeddedDesktop ? 0 : margin,
+      animeTitles: args.animeTitles,
+      sourceTitle: args.sourceTitle,
+      posterUrl: args.posterUrl,
+      progressByFile: progress,
+      listedEpisodes: listedEpisodes,
+      episodeMetadata: episodeMetadata,
+      embeddedDesktop: embeddedDesktop,
+      onFileSelected: onFileSelected,
+    );
+
+    final railDetails = PlayerSourceRailDetails(
+      animeTitles: args.animeTitles,
+      sourceTitle: args.sourceTitle,
+      progressByFile: progress,
+      listedEpisodes: listedEpisodes,
+      episodeMetadata: episodeMetadata,
+      backAction: backAction,
+      onFileSelected: onFileSelected,
+    );
+
+    void handleEscape() {
+      if (canCancelSelection) {
+        cancel?.call();
+      } else {
+        onBackStep?.call();
+      }
+    }
+
     return BlocListener<PlayerSourceCubit, PlayerSourceState>(
       listenWhen: (previous, next) =>
           previous is! PlayerSourceReady && next is PlayerSourceReady,
@@ -201,7 +278,11 @@ class PlayerSourcePage extends StatelessWidget {
           maxAnimeEpisodeNumber(source.files),
         );
         final wanted = args.autoOpenFileIndex;
-        if (wanted == null || ModalRoute.isCurrentOf(context) == false) return;
+        if (!active ||
+            wanted == null ||
+            ModalRoute.isCurrentOf(context) == false) {
+          return;
+        }
         final file = source.files
             .where((file) => file.index == wanted)
             .firstOrNull;
@@ -214,62 +295,24 @@ class PlayerSourcePage extends StatelessWidget {
           autoOpen: true,
         );
       },
-      child: PopScope(
-        canPop: !canCancelSelection,
-        onPopInvokedWithResult: (didPop, _) {
-          if (!didPop) cancel?.call();
-        },
-        child: CallbackShortcuts(
-          bindings: {
-            const SingleActivator(LogicalKeyboardKey.escape): ?cancel,
+      child: CallbackShortcuts(
+        bindings: {
+          if (active)
             const SingleActivator(LogicalKeyboardKey.keyA, control: true):
                 ?selectAll,
+          if (active)
             const SingleActivator(LogicalKeyboardKey.keyA, meta: true):
                 ?selectAll,
-          },
-          child: FocusScope(
-            autofocus: true,
-            child: Scaffold(
-              appBar: PreferredSize(
-                preferredSize: appBar.preferredSize,
-                child: DitherSwitcher(
-                  expand: true,
-                  duration: const Duration(milliseconds: 200),
-                  child: appBar,
-                ),
-              ),
-              body: SafeArea(
-                child: Builder(
-                  builder: (context) {
-                    final margin = WindowSizeClass.of(context).pageMargin;
-                    return MaxWidthBox(
-                      maxWidth: AdaptiveContentWidth.page + margin * 2,
-                      child: PlayerSourceView(
-                        isOnline: isOnline,
-                        horizontalPadding: margin,
-                        animeTitles: args.animeTitles,
-                        sourceTitle: args.sourceTitle,
-                        posterUrl: args.posterUrl,
-                        progressByFile: progress,
-                        listedEpisodes: listedEpisodes,
-                        episodeMetadata: episodeMetadata,
-                        onFileSelected: (file) {
-                          if (cubit.state case final PlayerSourceReady source) {
-                            _openPlayer(
-                              context,
-                              file: file,
-                              source: source,
-                              listedEpisodes: listedEpisodes,
-                            );
-                          }
-                        },
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ),
-          ),
+        },
+        child: builder(
+          context,
+          appBar: appBar,
+          railDetails: railDetails,
+          pane: pane,
+          canCancelSelection: canCancelSelection,
+          cancelSelection: cancel,
+          selectAll: selectAll,
+          onEscape: handleEscape,
         ),
       ),
     );
@@ -300,7 +343,7 @@ class PlayerSourcePage extends StatelessWidget {
       playFromRelease: source.localSessionId == null,
     );
     try {
-      if (autoOpen) {
+      if (autoOpen && !embeddedDesktop) {
         context.pushReplacementNamed('player', extra: player);
       } else {
         context.pushNamed('player', extra: player);
@@ -311,5 +354,62 @@ class PlayerSourcePage extends StatelessWidget {
         name: 'iris.player.source_page',
       );
     }
+  }
+}
+
+class PlayerSourcePage extends StatelessWidget {
+  const PlayerSourcePage({required this.args, super.key});
+
+  final AnimePlayerSourceArgs args;
+
+  @override
+  Widget build(BuildContext context) {
+    final margin = WindowSizeClass.of(context).pageMargin;
+    return PlayerSourceHost(
+      args: args,
+      builder:
+          (
+            context, {
+            required appBar,
+            required railDetails,
+            required pane,
+            required canCancelSelection,
+            required cancelSelection,
+            required selectAll,
+            required onEscape,
+          }) {
+            return PopScope(
+              canPop: !canCancelSelection,
+              onPopInvokedWithResult: (didPop, _) {
+                if (!didPop) cancelSelection?.call();
+              },
+              child: CallbackShortcuts(
+                bindings: {
+                  const SingleActivator(LogicalKeyboardKey.escape):
+                      ?cancelSelection,
+                },
+                child: FocusScope(
+                  autofocus: true,
+                  child: Scaffold(
+                    appBar: PreferredSize(
+                      preferredSize: appBar.preferredSize,
+                      child: DitherSwitcher(
+                        expand: true,
+                        duration: const Duration(milliseconds: 200),
+                        child: appBar,
+                      ),
+                    ),
+                    body: SafeArea(
+                      child: MaxWidthBox(
+                        maxWidth: AdaptiveContentWidth.page + margin * 2,
+                        child: pane,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            );
+          },
+    );
   }
 }

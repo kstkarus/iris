@@ -10,11 +10,20 @@ import 'package:iris/shared/widgets/page_title.dart';
 /// so the bar only navigates back until the name scrolls under it; then
 /// the bar shows [title].
 class HeadlinePage extends StatefulWidget {
-  const HeadlinePage({required this.title, required this.body, super.key});
+  const HeadlinePage({
+    required this.title,
+    required this.body,
+    this.appBarOverride,
+    super.key,
+  });
 
   /// Empty while the name is not known.
   final String title;
   final Widget body;
+
+  /// Optional replacement bar (used when a desktop dossier page switches its
+  /// right workspace into an inline sub-step such as Sources or Episodes).
+  final PreferredSizeWidget? appBarOverride;
 
   @override
   State<HeadlinePage> createState() => _HeadlinePageState();
@@ -44,9 +53,20 @@ class _HeadlinePageState extends State<HeadlinePage> {
 
   @override
   Widget build(BuildContext context) {
+    final PreferredSizeWidget bar =
+        widget.appBarOverride ??
+        FramedAppBar(
+          key: const ValueKey('headline_bar'),
+          title: _BarTitle(title: widget.title, shown: _headlineGone),
+        );
     return Scaffold(
-      appBar: FramedAppBar(
-        title: _BarTitle(title: widget.title, shown: _headlineGone),
+      appBar: PreferredSize(
+        preferredSize: bar.preferredSize,
+        child: DitherSwitcher(
+          expand: true,
+          duration: const Duration(milliseconds: 200),
+          child: bar,
+        ),
       ),
       body: NotificationListener<ScrollMetricsNotification>(
         onNotification: _checkHeadline,

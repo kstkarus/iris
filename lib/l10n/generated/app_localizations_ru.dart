@@ -2064,4 +2064,10 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get settingsUpdateAvailableHint => 'Доступно обновление';
+
+  @override
+  String get animeDetailsBackToDescriptionButton => 'К описанию';
+
+  @override
+  String get animeDetailsBackToSourcesButton => 'К источникам';
 }

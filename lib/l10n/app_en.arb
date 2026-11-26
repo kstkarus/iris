@@ -1156,5 +1156,7 @@
   "settingsUpdateCheckFailed": "Couldn’t check",
   "settingsUpdateOpen": "Update",
   "settingsUpdateOpenDetails": "Details",
-  "settingsUpdateAvailableHint": "Update available"
+  "settingsUpdateAvailableHint": "Update available",
+  "animeDetailsBackToDescriptionButton": "Back to details",
+  "animeDetailsBackToSourcesButton": "Back to sources"
 }

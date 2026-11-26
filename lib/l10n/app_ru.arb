@@ -680,5 +680,7 @@
   "settingsUpdateCheckFailed": "Не удалось проверить",
   "settingsUpdateOpen": "Обновить",
   "settingsUpdateOpenDetails": "Подробнее",
-  "settingsUpdateAvailableHint": "Доступно обновление"
+  "settingsUpdateAvailableHint": "Доступно обновление",
+  "animeDetailsBackToDescriptionButton": "К описанию",
+  "animeDetailsBackToSourcesButton": "К источникам"
 }

@@ -17,11 +17,16 @@ import 'package:iris/shared/widgets/segmented_bar.dart';
 /// Sources the user actually streamed from this anime's page, most recent
 /// first. Nothing is matched by title: only playback started here counts.
 class RecentlyWatchedSection extends StatelessWidget {
-  const RecentlyWatchedSection({required this.animeId, super.key});
+  const RecentlyWatchedSection({
+    required this.animeId,
+    this.onOpenSource,
+    super.key,
+  });
 
   static const maxSources = 3;
 
   final String animeId;
+  final ValueChanged<AnimePlayerSourceArgs>? onOpenSource;
 
   @override
   Widget build(BuildContext context) {
@@ -44,6 +49,7 @@ class RecentlyWatchedSection extends StatelessWidget {
                     _RecentSource(
                       progress: progress,
                       emphasizeResume: index == 0,
+                      onOpenSource: onOpenSource,
                     ),
                   ],
                 ],
@@ -60,16 +66,24 @@ class RecentlyWatchedSection extends StatelessWidget {
 }
 
 class _RecentSource extends StatelessWidget {
-  const _RecentSource({required this.progress, required this.emphasizeResume});
+  const _RecentSource({
+    required this.progress,
+    required this.emphasizeResume,
+    this.onOpenSource,
+  });
 
   final WatchProgress progress;
   final bool emphasizeResume;
+  final ValueChanged<AnimePlayerSourceArgs>? onOpenSource;
 
   void _continue(BuildContext context) {
-    context.pushNamed(
-      'torrent-stream-files',
-      extra: AnimePlayerSourceArgs.resume(progress),
-    );
+    final args = AnimePlayerSourceArgs.resume(progress);
+    final handler = onOpenSource;
+    if (handler != null) {
+      handler(args);
+      return;
+    }
+    context.pushNamed('torrent-stream-files', extra: args);
   }
 
   /// Says what the button will do: a file only looked at starts from the

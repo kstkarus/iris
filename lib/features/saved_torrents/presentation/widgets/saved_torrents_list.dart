@@ -29,10 +29,23 @@ import 'package:iris/shared/widgets/segmented_bar.dart';
 /// The torrents the user added to an anime, most recently used first. Rows
 /// added or deleted while the list shows come and go cell by cell.
 class SavedTorrentsList extends StatelessWidget {
-  const SavedTorrentsList({required this.onWatch, this.onEmptied, super.key});
+  const SavedTorrentsList({
+    required this.onWatch,
+    this.onEmptied,
+    this.horizontalPadding = 0,
+    this.tabular = false,
+    super.key,
+  });
 
   final ValueChanged<SavedTorrent> onWatch;
   final VoidCallback? onEmptied;
+
+  /// Horizontal gutter inside rows so tap/hover fills can bleed edge-to-edge
+  /// while text and dividers align with the page frame.
+  final double horizontalPadding;
+
+  /// True inside the desktop split layout.
+  final bool tabular;
 
   @override
   Widget build(BuildContext context) {
@@ -43,33 +56,66 @@ class SavedTorrentsList extends StatelessWidget {
     };
     return LayoutBuilder(
       builder: (context, constraints) {
-        final wide = constraints.maxWidth >= WindowSizeClass.mediumMinWidth;
+        final wide =
+            tabular || constraints.maxWidth >= WindowSizeClass.mediumMinWidth;
         final scheme = Theme.of(context).colorScheme;
-        final rule = DetailLayout.ruleColor(scheme);
-        return DitherList<SavedTorrent>(
+        final dividerColor = DetailLayout.ruleColor(
+          scheme,
+        ).withValues(alpha: 0.45);
+        final list = DitherList<SavedTorrent>(
           padding: const EdgeInsets.only(bottom: 24),
           removalDuration: const Duration(milliseconds: 360),
           onEmptied: onEmptied,
           items: state.torrents,
           keyOf: (torrent) => torrent.infoHash,
+          separator: Divider(
+            height: 1,
+            thickness: 1,
+            indent: tabular ? 0 : horizontalPadding,
+            endIndent: tabular ? 0 : horizontalPadding,
+            color: dividerColor,
+          ),
           itemBuilder: (context, torrent) {
             final progress =
                 latestProgress[torrentKeyFromMagnet(torrent.magnet)];
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: Material(
-                color: scheme.surfaceContainerLow,
-                shape: RoundedRectangleBorder(side: BorderSide(color: rule)),
-                child: _TorrentRow(
-                  torrent: torrent,
-                  progress: progress,
-                  highlighted: torrent.infoHash == state.highlightedInfoHash,
-                  wide: wide,
-                  onWatch: () => onWatch(torrent),
-                ),
+            final highlighted = torrent.infoHash == state.highlightedInfoHash;
+            final active = progress != null && !progress.isFinished;
+            return DecoratedBox(
+              decoration: BoxDecoration(
+                border: tabular
+                    ? Border(
+                        left: BorderSide(
+                          width: 2,
+                          color: highlighted || active
+                              ? scheme.onSurface
+                              : Colors.transparent,
+                        ),
+                      )
+                    : null,
+              ),
+              child: _TorrentRow(
+                torrent: torrent,
+                progress: progress,
+                highlighted: highlighted,
+                wide: wide,
+                horizontalPadding: horizontalPadding,
+                onWatch: () => onWatch(torrent),
               ),
             );
           },
+        );
+        if (!tabular) return list;
+        return FocusTraversalGroup(
+          policy: OrderedTraversalPolicy(),
+          child: CallbackShortcuts(
+            bindings: {
+              const SingleActivator(LogicalKeyboardKey.arrowDown): () =>
+                  FocusScope.of(context).nextFocus(),
+              const SingleActivator(LogicalKeyboardKey.arrowUp): () =>
+                  FocusScope.of(context).previousFocus(),
+            },
+            child: list,
+          ),
         );
       },
     );
@@ -85,6 +131,7 @@ class _TorrentRow extends StatefulWidget {
     required this.progress,
     required this.highlighted,
     required this.wide,
+    required this.horizontalPadding,
     required this.onWatch,
   });
 
@@ -97,6 +144,7 @@ class _TorrentRow extends StatefulWidget {
   /// Wide rows end in an arrow, like the catalog's rows; narrow ones
   /// leave the width to the title.
   final bool wide;
+  final double horizontalPadding;
   final VoidCallback onWatch;
 
   @override
@@ -114,6 +162,9 @@ class _TorrentRowState extends State<_TorrentRow> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final trailingPadding = widget.wide
+        ? widget.horizontalPadding
+        : (widget.horizontalPadding - 10).clamp(0.0, double.infinity);
     return FocusableListRow(
       inkKey: const Key('saved_torrent_watch_button'),
       onDelete: () => _deleteWithUndo(context, widget.torrent),
@@ -127,7 +178,12 @@ class _TorrentRowState extends State<_TorrentRow> {
       },
       onSecondaryTap: _menu.open,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(14, 14, 4, 14),
+        padding: EdgeInsets.fromLTRB(
+          widget.horizontalPadding,
+          14,
+          trailingPadding,
+          14,
+        ),
         child: Row(
           children: [
             Expanded(
@@ -138,11 +194,11 @@ class _TorrentRowState extends State<_TorrentRow> {
                     widget.torrent.title,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.titleSmall?.copyWith(
+                    style: theme.textTheme.bodyMedium?.copyWith(
                       fontFamily: DetailLayout.sansFont,
                       fontWeight: FontWeight.w500,
                       fontSize: 15,
-                      height: 1.3,
+                      height: 1.32,
                     ),
                   ),
                   const SizedBox(height: 5),
@@ -157,9 +213,13 @@ class _TorrentRowState extends State<_TorrentRow> {
               onOpenChanged: _setMenuOpen,
             ),
             if (widget.wide)
-              const Padding(
-                padding: EdgeInsets.only(left: 4, right: 8),
-                child: PixelIcon(PixelGlyph.arrowRight, size: 16),
+              Padding(
+                padding: const EdgeInsets.only(left: 4),
+                child: PixelIcon(
+                  PixelGlyph.arrowRight,
+                  size: 14,
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
               ),
           ],
         ),
@@ -275,9 +335,13 @@ class _Status extends StatelessWidget {
             child: ExcludeSemantics(
               child: SegmentedBar(
                 value: progress.fraction,
-                height: 4,
+                height: 3,
                 segment: 6,
-                trackColor: DetailLayout.progressTrackColor(theme.colorScheme),
+                gap: 0,
+                color: theme.colorScheme.tertiary,
+                trackColor: DetailLayout.progressTrackColor(
+                  theme.colorScheme,
+                ).withValues(alpha: 0.45),
               ),
             ),
           ),

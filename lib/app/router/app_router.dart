@@ -19,6 +19,7 @@ import 'package:iris/features/online_sources/domain/repositories/online_quality_
 import 'package:iris/features/anime_details/domain/repositories/anime_details_repository.dart';
 import 'package:iris/features/anime_details/presentation/cubit/anime_details_cubit.dart';
 import 'package:iris/features/anime_details/presentation/cubit/friend_rates_cubit.dart';
+import 'package:iris/features/anime_details/presentation/models/anime_desktop_watch_host.dart';
 import 'package:iris/features/anime_details/presentation/models/anime_details_preview.dart';
 import 'package:iris/features/anime_details/presentation/pages/anime_details_page.dart';
 import 'package:iris/features/anime_list/domain/repositories/anime_genres_repository.dart';
@@ -449,7 +450,10 @@ abstract final class AppRouter {
                   context.read<UserRateCubit>().accountChanged(accountId);
                   context.read<FriendRatesCubit>().show(accountId);
                 },
-                child: AnimeDetailsPage(preview: preview),
+                child: AnimeDetailsPage(
+                  preview: preview,
+                  desktopWatchHost: _desktopWatchHost(),
+                ),
               ),
             );
           },
@@ -719,6 +723,116 @@ PlayerTrackPreferences? _defaultTorrentTracks(
   };
   if (audio == null && subtitle == null) return null;
   return PlayerTrackPreferences(audio: audio, subtitle: subtitle);
+}
+
+AnimeDesktopWatchHost _desktopWatchHost() {
+  return AnimeDesktopWatchHost(
+    buildSourcesScope:
+        (
+          context, {
+          required args,
+          required active,
+          required desktopSplit,
+          required onOpenSource,
+          required builder,
+        }) {
+          return MultiBlocProvider(
+            key: ValueKey('inline_sources_${args.animeId}'),
+            providers: [
+              BlocProvider(
+                create: (_) => WatchSourcesCubit(
+                  animeId: args.animeId,
+                  animeTitles: args.animeTitles,
+                  searchTitles: args.searchTitles,
+                  repository: serviceLocator<WatchSourcesRepository>(),
+                )..loadSources(),
+              ),
+              BlocProvider(
+                create: (_) => OnlineReleasesCubit(
+                  shikimoriId: args.animeId,
+                  titles: args.searchTitles,
+                  search: serviceLocator<OnlineReleasesSearch>(),
+                )..load(),
+              ),
+              BlocProvider(
+                create: (_) => WatchSourcesTabCubit(
+                  repository: serviceLocator<WatchSourcesTabRepository>(),
+                ),
+              ),
+              BlocProvider(
+                create: (_) => SavedTorrentsCubit(
+                  animeId: args.animeId,
+                  repository: serviceLocator<SavedTorrentsRepository>(),
+                )..load(),
+              ),
+            ],
+            child: WatchSourcesHost(
+              args: args,
+              downloadsRepository: serviceLocator<DownloadsRepository>(),
+              active: active,
+              desktopSplit: desktopSplit,
+              onOpenSource: onOpenSource,
+              builder: builder,
+            ),
+          );
+        },
+    buildEpisodesScope:
+        (
+          context, {
+          required args,
+          required active,
+          required desktopSplit,
+          required backAction,
+          required onBackStep,
+          required builder,
+        }) {
+          return MultiBlocProvider(
+            key: ValueKey('inline_episodes_${args.magnet}'),
+            providers: [
+              BlocProvider(
+                create: (_) => PlayerSourceCubit(
+                  args: args,
+                  playerRepository: serviceLocator<PlayerRepository>(),
+                  downloadsRepository: serviceLocator<DownloadsRepository>(),
+                  qualityPreferences:
+                      serviceLocator<OnlineQualityPreferences>(),
+                )..loadSource(),
+              ),
+              if (args.animeId.isNotEmpty)
+                BlocProvider(
+                  create: (_) => EpisodeMetadataCubit(
+                    animeId: args.animeId,
+                    repository: serviceLocator<EpisodeMetadataRepository>(),
+                  )..load(),
+                ),
+            ],
+            child: PlayerSourceHost(
+              args: args,
+              active: active,
+              embeddedDesktop: desktopSplit,
+              backAction: backAction,
+              onBackStep: onBackStep,
+              builder:
+                  (
+                    context, {
+                    required appBar,
+                    required railDetails,
+                    required pane,
+                    required canCancelSelection,
+                    required cancelSelection,
+                    required selectAll,
+                    required onEscape,
+                  }) => builder(
+                    context,
+                    appBar: appBar,
+                    railDetails: railDetails,
+                    pane: pane,
+                    onEscape: onEscape,
+                  ),
+            ),
+          );
+        },
+  );
 }
 
 void _reportInvalidRouteArgs({

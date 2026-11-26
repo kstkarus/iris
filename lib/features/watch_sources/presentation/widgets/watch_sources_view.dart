@@ -1,25 +1,29 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
-import 'package:iris/shared/widgets/pixel_icon.dart';
-import 'package:iris/entities/watch_progress/presentation/watch_progress_cubit.dart';
 import 'package:iris/entities/anime/domain/anime_titles.dart';
+import 'package:iris/entities/watch_progress/presentation/watch_progress_cubit.dart';
 import 'package:iris/features/player/presentation/models/anime_player_source_args.dart';
 import 'package:iris/features/watch_sources/domain/entities/watch_source_item.dart';
 import 'package:iris/features/watch_sources/presentation/cubit/watch_sources_cubit.dart';
 import 'package:iris/features/watch_sources/presentation/cubit/watch_sources_state.dart';
 import 'package:iris/features/watch_sources/presentation/models/watch_sources_sort_option.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
+import 'package:iris/shared/haptics/app_haptics.dart';
 import 'package:iris/shared/torrent/torrent_key.dart';
 import 'package:iris/shared/utils/watched_first.dart';
+import 'package:iris/shared/widgets/adaptive/adaptive_content_width.dart';
 import 'package:iris/shared/widgets/adaptive/show_adaptive_sheet.dart';
 import 'package:iris/shared/widgets/adaptive/window_size_class.dart';
 import 'package:iris/shared/widgets/app_skeleton.dart';
 import 'package:iris/shared/widgets/detail_layout.dart';
+import 'package:iris/shared/widgets/dither_scroll_edge.dart';
 import 'package:iris/shared/widgets/dither_switcher.dart';
 import 'package:iris/shared/widgets/option_toggle.dart';
+import 'package:iris/shared/widgets/pixel_icon.dart';
 import 'package:iris/shared/widgets/search_field.dart';
 import 'package:iris/shared/widgets/search_toolbar.dart';
 import 'package:iris/shared/widgets/source_facts_line.dart';
@@ -34,6 +38,9 @@ class WatchSourcesView extends StatelessWidget {
     required this.onAddTorrent,
     this.posterUrl = '',
     this.downloadedCounts = const {},
+    this.horizontalPadding = 0,
+    this.desktopSplit = false,
+    this.onOpenSource,
     super.key,
   });
 
@@ -42,6 +49,18 @@ class WatchSourcesView extends StatelessWidget {
   final VoidCallback onAddTorrent;
   final String posterUrl;
   final Map<String, int> downloadedCounts;
+
+  /// Horizontal gutter inside rows so tap/hover fills can bleed edge-to-edge
+  /// while text and dividers align with the page frame.
+  final double horizontalPadding;
+
+  /// True inside the desktop split layout where the right column is capped
+  /// beside the poster rail.
+  final bool desktopSplit;
+
+  /// Optional inline handler (used by desktop anime details to stay in the
+  /// same dossier frame instead of pushing a separate route).
+  final ValueChanged<AnimePlayerSourceArgs>? onOpenSource;
 
   @override
   Widget build(BuildContext context) {
@@ -59,6 +78,8 @@ class WatchSourcesView extends StatelessWidget {
                 state: _standInState,
                 posterUrl: posterUrl,
                 downloadedCounts: const {},
+                horizontalPadding: horizontalPadding,
+                desktopSplit: desktopSplit,
               ),
             ),
           ),
@@ -70,25 +91,34 @@ class WatchSourcesView extends StatelessWidget {
                 state: state,
                 posterUrl: posterUrl,
                 downloadedCounts: downloadedCounts,
+                horizontalPadding: horizontalPadding,
+                desktopSplit: desktopSplit,
+                onOpenSource: onOpenSource,
               ),
             ),
           ),
           WatchSourcesEmpty() => (
             'empty',
-            MessageView(
-              message: l10n.watchSourcesEmpty,
-              action: OutlinedButton(
-                key: addTorrentKey,
-                onPressed: onAddTorrent,
-                child: Text(l10n.watchSourcesAddOwnTorrent),
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
+              child: MessageView(
+                message: l10n.watchSourcesEmpty,
+                action: OutlinedButton(
+                  key: addTorrentKey,
+                  onPressed: onAddTorrent,
+                  child: Text(l10n.watchSourcesAddOwnTorrent),
+                ),
               ),
             ),
           ),
           WatchSourcesFailure() => (
             'failure',
-            RetryView(
-              message: l10n.watchSourcesLoadError,
-              onRetry: () => context.read<WatchSourcesCubit>().loadSources(),
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
+              child: RetryView(
+                message: l10n.watchSourcesLoadError,
+                onRetry: () => context.read<WatchSourcesCubit>().loadSources(),
+              ),
             ),
           ),
         };
@@ -106,11 +136,20 @@ class _LoadedState extends StatelessWidget {
     required this.state,
     required this.posterUrl,
     required this.downloadedCounts,
+    required this.horizontalPadding,
+    required this.desktopSplit,
+    this.onOpenSource,
   });
+
+  static const _splitTabularMinWidth = 680.0;
+  static const _downloadsColumnMinWidth = 780.0;
 
   final WatchSourcesLoaded state;
   final String posterUrl;
   final Map<String, int> downloadedCounts;
+  final double horizontalPadding;
+  final bool desktopSplit;
+  final ValueChanged<AnimePlayerSourceArgs>? onOpenSource;
 
   @override
   Widget build(BuildContext context) {
@@ -123,27 +162,46 @@ class _LoadedState extends StatelessWidget {
             state.visibleItems,
             (item) => watchedKeys.contains(torrentKeyFromMagnet(item.magnet)),
           );
+    final largeText = DetailLayout.isLargeText(context);
     return LayoutBuilder(
       builder: (context, constraints) {
         final tabular =
-            constraints.maxWidth >= WindowSizeClass.expandedMinWidth;
+            !largeText &&
+            constraints.maxWidth >=
+                (desktopSplit
+                    ? _splitTabularMinWidth
+                    : WindowSizeClass.expandedMinWidth);
+        final showDownloads = constraints.maxWidth >= _downloadsColumnMinWidth;
+        final controlsPadding = desktopSplit ? 0.0 : horizontalPadding;
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _SearchControls(
-              initialQuery: state.searchQuery,
-              isWide: constraints.maxWidth >= WindowSizeClass.mediumMinWidth,
-              sorted: state.sortOption != WatchSourcesSortOption.seedersDesc,
-              onSort: () => _openSortSheet(context),
+            Padding(
+              padding: EdgeInsets.fromLTRB(
+                controlsPadding,
+                4,
+                controlsPadding,
+                0,
+              ),
+              child: _SearchControls(
+                initialQuery: state.searchQuery,
+                isWide: constraints.maxWidth >= WindowSizeClass.mediumMinWidth,
+                showSortAction: !tabular,
+                sorted: state.sortOption != WatchSourcesSortOption.seedersDesc,
+                onSort: () => _openSortSheet(context),
+              ),
             ),
-            const SizedBox(height: 24),
+            SizedBox(height: tabular ? 16 : 12),
             // Keep focus on the column button while the rows change order.
             if (tabular && items.isNotEmpty)
               _TableHeader(
                 sortOption: state.sortOption,
                 onSort: context.read<WatchSourcesCubit>().updateSortOption,
+                horizontalPadding: horizontalPadding,
+                showDownloads: showDownloads,
               ),
             Expanded(
+              key: const ValueKey('watch_sources_body'),
               // A new order or empty-search swap dissolves in briskly;
               // filtering within non-empty results updates immediately.
               child: DitherSwitcher(
@@ -152,17 +210,40 @@ class _LoadedState extends StatelessWidget {
                 child: KeyedSubtree(
                   key: ValueKey((state.sortOption, items.isEmpty)),
                   child: items.isEmpty
-                      ? MessageView(
-                          message: AppLocalizations.of(
-                            context,
-                          ).watchSourcesSearchEmpty,
+                      ? Padding(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: horizontalPadding,
+                          ),
+                          child: MessageView(
+                            message: AppLocalizations.of(
+                              context,
+                            ).watchSourcesSearchEmpty,
+                          ),
                         )
-                      : _SourcesTable(
+                      : tabular
+                      ? _SourcesTable(
                           items: items,
                           watchedKeys: watchedKeys,
                           posterUrl: posterUrl,
                           downloadedCounts: downloadedCounts,
                           tabular: tabular,
+                          showDownloads: showDownloads,
+                          horizontalPadding: horizontalPadding,
+                          desktopSplit: desktopSplit,
+                          onOpenSource: onOpenSource,
+                        )
+                      : DitherScrollEdge(
+                          child: _SourcesTable(
+                            items: items,
+                            watchedKeys: watchedKeys,
+                            posterUrl: posterUrl,
+                            downloadedCounts: downloadedCounts,
+                            tabular: tabular,
+                            showDownloads: showDownloads,
+                            horizontalPadding: horizontalPadding,
+                            desktopSplit: desktopSplit,
+                            onOpenSource: onOpenSource,
+                          ),
                         ),
                 ),
               ),
@@ -190,12 +271,14 @@ class _SearchControls extends StatefulWidget {
   const _SearchControls({
     required this.initialQuery,
     required this.isWide,
+    required this.showSortAction,
     required this.sorted,
     required this.onSort,
   });
 
   final String initialQuery;
   final bool isWide;
+  final bool showSortAction;
   final bool sorted;
   final VoidCallback onSort;
 
@@ -217,12 +300,24 @@ class _SearchControlsState extends State<_SearchControls> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
+    final field = SearchField(
+      controller: _controller,
+      hintText: l10n.watchSourcesSearchHint,
+      onChanged: context.read<WatchSourcesCubit>().updateSearchQuery,
+    );
+    if (!widget.showSortAction) {
+      return Align(
+        alignment: AlignmentDirectional.centerStart,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(
+            maxWidth: AdaptiveContentWidth.form,
+          ),
+          child: field,
+        ),
+      );
+    }
     return SearchToolbar(
-      searchField: SearchField(
-        controller: _controller,
-        hintText: l10n.watchSourcesSearchHint,
-        onChanged: context.read<WatchSourcesCubit>().updateSearchQuery,
-      ),
+      searchField: field,
       actionIcon: PixelGlyph.sort,
       actionLabel: l10n.watchSourcesSortButton,
       actionActive: widget.sorted,
@@ -286,8 +381,11 @@ class _SortSheetState extends State<_SortSheet> {
                       label: _formatSortLabel(l10n, option),
                       selected: option == _selectedOption,
                       exclusive: true,
-                      onChanged: (_) =>
-                          setState(() => _selectedOption = option),
+                      onChanged: (_) {
+                        if (option == _selectedOption) return;
+                        AppHaptics.selection();
+                        setState(() => _selectedOption = option);
+                      },
                     ),
                   ],
                 ],
@@ -340,14 +438,14 @@ final _standInItems = [
 /// Column widths of the wide table, gaps included; the release name takes
 /// the rest.
 abstract final class _Columns {
-  static const size = 112.0;
-  static const seeders = 80.0;
-  static const downloads = 104.0;
-  static const date = 120.0;
+  static const size = 96.0;
+  static const seeders = 72.0;
+  static const downloads = 92.0;
+  static const date = 104.0;
 }
 
 /// Each row opens the release. Wide windows line the tracker numbers up
-/// in columns under a header.
+/// in columns under an open editorial header.
 class _SourcesTable extends StatelessWidget {
   const _SourcesTable({
     required this.items,
@@ -355,6 +453,10 @@ class _SourcesTable extends StatelessWidget {
     required this.posterUrl,
     required this.downloadedCounts,
     required this.tabular,
+    required this.showDownloads,
+    required this.horizontalPadding,
+    required this.desktopSplit,
+    required this.onOpenSource,
   });
 
   final List<WatchSourceItem> items;
@@ -362,56 +464,94 @@ class _SourcesTable extends StatelessWidget {
   final String posterUrl;
   final Map<String, int> downloadedCounts;
   final bool tabular;
+  final bool showDownloads;
+  final double horizontalPadding;
+  final bool desktopSplit;
+  final ValueChanged<AnimePlayerSourceArgs>? onOpenSource;
 
   @override
   Widget build(BuildContext context) {
     final cubit = context.read<WatchSourcesCubit>();
     final scheme = Theme.of(context).colorScheme;
-    final rule = DetailLayout.ruleColor(scheme);
-    return ListView.builder(
+    final dividerColor = DetailLayout.ruleColor(scheme).withValues(alpha: 0.45);
+    final dividerIndent = desktopSplit ? 0.0 : horizontalPadding;
+
+    final list = ListView.builder(
       padding: const EdgeInsets.only(bottom: 24),
       itemCount: items.length,
       itemBuilder: (context, index) {
         final item = items[index];
         final key = torrentKeyFromMagnet(item.magnet);
-        final row = _WatchSourceRow(
-          item: item,
-          tabular: tabular,
-          watched: watchedKeys.contains(key),
-          downloadedCount: downloadedCounts[key] ?? 0,
-          animeId: cubit.animeId,
-          animeTitles: cubit.animeTitles,
-          posterUrl: posterUrl,
-        );
-        if (!tabular) {
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 10),
-            child: Material(
-              color: scheme.surfaceContainerLow,
-              shape: RoundedRectangleBorder(side: BorderSide(color: rule)),
-              child: row,
-            ),
-          );
-        }
-        return Material(
-          color: scheme.surfaceContainerLow,
-          shape: Border(
-            left: BorderSide(color: rule),
-            right: BorderSide(color: rule),
-            bottom: BorderSide(color: rule),
+        final watched = watchedKeys.contains(key);
+        final row = DecoratedBox(
+          decoration: BoxDecoration(
+            border: tabular
+                ? Border(
+                    left: BorderSide(
+                      width: 2,
+                      color: watched ? scheme.onSurface : Colors.transparent,
+                    ),
+                  )
+                : null,
           ),
-          child: row,
+          child: _WatchSourceRow(
+            item: item,
+            tabular: tabular,
+            showDownloads: showDownloads,
+            horizontalPadding: horizontalPadding,
+            watched: watched,
+            downloadedCount: downloadedCounts[key] ?? 0,
+            animeId: cubit.animeId,
+            animeTitles: cubit.animeTitles,
+            posterUrl: posterUrl,
+            onOpenSource: onOpenSource,
+          ),
+        );
+        if (index == items.length - 1) return row;
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            row,
+            Divider(
+              height: 1,
+              thickness: 1,
+              indent: dividerIndent,
+              endIndent: dividerIndent,
+              color: dividerColor,
+            ),
+          ],
         );
       },
+    );
+    if (!tabular) return list;
+    return FocusTraversalGroup(
+      policy: OrderedTraversalPolicy(),
+      child: CallbackShortcuts(
+        bindings: {
+          const SingleActivator(LogicalKeyboardKey.arrowDown): () =>
+              FocusScope.of(context).nextFocus(),
+          const SingleActivator(LogicalKeyboardKey.arrowUp): () =>
+              FocusScope.of(context).previousFocus(),
+        },
+        child: list,
+      ),
     );
   }
 }
 
 class _TableHeader extends StatelessWidget {
-  const _TableHeader({required this.sortOption, required this.onSort});
+  const _TableHeader({
+    required this.sortOption,
+    required this.onSort,
+    required this.horizontalPadding,
+    required this.showDownloads,
+  });
 
   final WatchSourcesSortOption sortOption;
   final ValueChanged<WatchSourcesSortOption> onSort;
+  final double horizontalPadding;
+  final bool showDownloads;
 
   @override
   Widget build(BuildContext context) {
@@ -431,16 +571,19 @@ class _TableHeader extends StatelessWidget {
           button: true,
           selected: selected,
           child: InkWell(
-            onTap: () => onSort(option),
+            onTap: () {
+              if (!selected) AppHaptics.selection();
+              onSort(option);
+            },
             mouseCursor: SystemMouseCursors.click,
             hoverColor: scheme.onSurface.withValues(alpha: 0.08),
             focusColor: scheme.onSurface.withValues(alpha: 0.16),
             child: ConstrainedBox(
-              constraints: const BoxConstraints(minHeight: 44),
+              constraints: const BoxConstraints(minHeight: 40),
               child: Stack(
                 children: [
                   Padding(
-                    padding: const EdgeInsets.only(top: 10, bottom: 14),
+                    padding: const EdgeInsets.only(top: 8, bottom: 12),
                     child: Align(
                       alignment: leading
                           ? AlignmentDirectional.centerStart
@@ -478,13 +621,19 @@ class _TableHeader extends StatelessWidget {
       );
     }
 
-    return Material(
-      color: scheme.surfaceContainerLow,
-      shape: Border.fromBorderSide(
-        BorderSide(color: DetailLayout.ruleColor(scheme)),
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(color: DetailLayout.ruleColor(scheme)),
+        ),
       ),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14),
+        padding: EdgeInsets.fromLTRB(
+          horizontalPadding + 2,
+          0,
+          horizontalPadding,
+          0,
+        ),
         child: IntrinsicHeight(
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -505,11 +654,12 @@ class _TableHeader extends StatelessWidget {
                 WatchSourcesSortOption.seedersDesc,
                 width: _Columns.seeders,
               ),
-              cell(
-                l10n.watchSourcesColumnDownloads,
-                WatchSourcesSortOption.downloadsDesc,
-                width: _Columns.downloads,
-              ),
+              if (showDownloads)
+                cell(
+                  l10n.watchSourcesColumnDownloads,
+                  WatchSourcesSortOption.downloadsDesc,
+                  width: _Columns.downloads,
+                ),
               cell(
                 l10n.watchSourcesColumnDate,
                 WatchSourcesSortOption.publishedAtDesc,
@@ -527,15 +677,20 @@ class _WatchSourceRow extends StatelessWidget {
   const _WatchSourceRow({
     required this.item,
     required this.tabular,
+    required this.showDownloads,
+    required this.horizontalPadding,
     required this.watched,
     required this.downloadedCount,
     required this.animeId,
     required this.animeTitles,
     required this.posterUrl,
+    required this.onOpenSource,
   });
 
   final WatchSourceItem item;
   final bool tabular;
+  final bool showDownloads;
+  final double horizontalPadding;
 
   /// The user streamed this release before.
   final bool watched;
@@ -543,6 +698,7 @@ class _WatchSourceRow extends StatelessWidget {
   final String animeId;
   final AnimeTitles animeTitles;
   final String posterUrl;
+  final ValueChanged<AnimePlayerSourceArgs>? onOpenSource;
 
   @override
   Widget build(BuildContext context) {
@@ -558,7 +714,8 @@ class _WatchSourceRow extends StatelessWidget {
                   : DateFormat.yMMMd(l10n.localeName))
               .format(published);
     final cellStyle = DetailLayout.monoTelemetryStyle(
-      theme.textTheme.bodyMedium,
+      theme.textTheme.bodySmall,
+      color: theme.colorScheme.onSurfaceVariant,
     );
     final facts = [
       if (downloadedCount > 0)
@@ -583,10 +740,11 @@ class _WatchSourceRow extends StatelessWidget {
       children: [
         Text(
           item.title,
-          maxLines: 3,
+          maxLines: tabular ? 2 : 3,
           overflow: TextOverflow.ellipsis,
           style: theme.textTheme.bodyMedium?.copyWith(
             fontFamily: DetailLayout.sansFont,
+            fontSize: 15,
             fontWeight: FontWeight.w500,
             height: 1.32,
           ),
@@ -603,23 +761,37 @@ class _WatchSourceRow extends StatelessWidget {
       ],
     );
 
-    Widget cell(String text, double width) => SizedBox(
+    Widget cell(String text, double width, {Color? color}) => SizedBox(
       width: width,
-      child: Text(text, textAlign: TextAlign.end, style: cellStyle),
+      child: Text(
+        text,
+        textAlign: TextAlign.end,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: color == null ? cellStyle : cellStyle?.copyWith(color: color),
+      ),
     );
 
     return TapRow(
       inkKey: const Key('watch_source_watch_button'),
       onTap: () => _open(context),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        padding: EdgeInsets.symmetric(
+          horizontal: horizontalPadding,
+          vertical: tabular ? 13 : 14,
+        ),
         child: Row(
           children: [
             Expanded(child: title),
             if (tabular) ...[
               cell(item.size, _Columns.size),
-              cell(numbers.format(item.seeders), _Columns.seeders),
-              cell(numbers.format(item.downloads), _Columns.downloads),
+              cell(
+                numbers.format(item.seeders),
+                _Columns.seeders,
+                color: theme.colorScheme.onSurface,
+              ),
+              if (showDownloads)
+                cell(numbers.format(item.downloads), _Columns.downloads),
               cell(date, _Columns.date),
             ],
           ],
@@ -629,16 +801,19 @@ class _WatchSourceRow extends StatelessWidget {
   }
 
   void _open(BuildContext context) {
-    context.pushNamed(
-      'torrent-stream-files',
-      extra: AnimePlayerSourceArgs(
-        animeId: animeId,
-        animeTitles: animeTitles,
-        sourceTitle: item.title,
-        magnet: item.magnet,
-        posterUrl: posterUrl,
-      ),
+    final sourceArgs = AnimePlayerSourceArgs(
+      animeId: animeId,
+      animeTitles: animeTitles,
+      sourceTitle: item.title,
+      magnet: item.magnet,
+      posterUrl: posterUrl,
     );
+    final handler = onOpenSource;
+    if (handler != null) {
+      handler(sourceArgs);
+      return;
+    }
+    context.pushNamed('torrent-stream-files', extra: sourceArgs);
   }
 }
 

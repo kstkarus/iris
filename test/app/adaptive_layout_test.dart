@@ -355,7 +355,7 @@ void main() {
       expect(tester.takeException(), isNull);
 
       GoRouter.of(
-        tester.element(find.byType(PlayerSourcePage)),
+        tester.element(find.byType(PlayerSourceHost)),
       ).goNamed('downloads');
       await pumpUntilVisible(
         tester,

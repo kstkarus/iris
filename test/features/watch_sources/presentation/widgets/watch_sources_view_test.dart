@@ -1,7 +1,9 @@
+import 'package:flutter/foundation.dart' show defaultTargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+import 'package:haptic_feedback/haptic_feedback.dart';
 
 import 'package:iris/entities/anime/domain/anime_titles.dart';
 import 'package:iris/features/watch_sources/presentation/cubit/watch_sources_tab_cubit.dart';
@@ -24,6 +26,7 @@ import 'package:iris/shared/widgets/search_field.dart';
 import 'package:iris/features/saved_torrents/presentation/cubit/saved_torrents_cubit.dart';
 import '../../../../helpers/memory_saved_torrents_repository.dart';
 import '../../../../helpers/fake_watch_progress_repository.dart';
+import '../../../../helpers/record_haptics.dart';
 import '../../../../helpers/test_app.dart';
 import '../../../../helpers/test_window.dart';
 import '../../watch_sources_test_doubles.dart';
@@ -346,16 +349,57 @@ void main() {
       expect(find.text('[SubsPlease] Frieren - 28 (1080p)'), findsOneWidget);
       expect(tester.takeException(), isNull);
 
-      // Narrow windows show the action as an icon, named by its tooltip.
-      await tester.tap(
-        entry.value.width < 600 ? find.byTooltip('Sort') : find.text('Sort'),
-      );
-      await tester.pumpAndSettle();
-
-      expect(find.text('Apply'), findsOneWidget);
+      if (entry.value.width >= 1000) {
+        // Tabular desktop layout sorts directly via column headers.
+        expect(find.text('Sort'), findsNothing);
+        await tester.tap(find.text('Size'));
+        await tester.pumpAndSettle();
+        expect(_topTitle(tester), frierenMostDownloadedSource.title);
+      } else {
+        // Narrow windows show the action as an icon, named by its tooltip.
+        await tester.tap(
+          entry.value.width < 600 ? find.byTooltip('Sort') : find.text('Sort'),
+        );
+        await tester.pumpAndSettle();
+        expect(find.text('Apply'), findsOneWidget);
+      }
       expect(tester.takeException(), isNull);
     });
   }
+
+  testWidgets(
+    'sort changes vibrate selection on Android only when option changes',
+    (tester) async {
+      final effects = recordHaptics();
+      setTestWindowSize(tester, TestWindowSizes.phone);
+      final cubit = frierenSourcesCubit(FixedWatchSourcesRepository())
+        ..loadSources();
+      addTearDown(cubit.close);
+
+      await _pumpView(tester, cubit: cubit);
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byTooltip('Sort'));
+      await tester.pumpAndSettle();
+
+      // Re-tapping the already-selected default option stays silent.
+      await tester.tap(find.text('Seeders'));
+      await tester.pumpAndSettle();
+      expect(effects, isEmpty);
+
+      // Picking a different sort option vibrates selection on Android only.
+      await tester.tap(find.text('Size'));
+      await tester.pumpAndSettle();
+      expect(effects, [
+        if (defaultTargetPlatform == TargetPlatform.android)
+          HapticsType.selection,
+      ]);
+    },
+    variant: const TargetPlatformVariant({
+      TargetPlatform.android,
+      TargetPlatform.windows,
+    }),
+  );
 }
 
 Future<void> _pumpView(

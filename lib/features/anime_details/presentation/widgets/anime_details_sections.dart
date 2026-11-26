@@ -86,23 +86,30 @@ class AnimeDetailsTitles extends StatelessWidget {
 
 /// Primary action button that opens online and torrent watch sources.
 class AnimeDetailsWatchSourcesButton extends StatelessWidget {
-  const AnimeDetailsWatchSourcesButton({required this.head, super.key});
+  const AnimeDetailsWatchSourcesButton({
+    required this.head,
+    this.onPressed,
+    super.key,
+  });
 
   final AnimeDetailsPreview head;
+  final VoidCallback? onPressed;
 
   @override
   Widget build(BuildContext context) {
     return Skeleton.unite(
       child: FilledButton(
-        onPressed: () => context.pushNamed(
-          'anime-watch-sources',
-          pathParameters: {'id': head.anime.id},
-          extra: AnimeWatchSourcesArgs.forAnime(
-            animeId: head.anime.id,
-            animeTitles: head.anime.titles,
-            posterUrl: head.anime.posterUrl,
-          ),
-        ),
+        onPressed:
+            onPressed ??
+            () => context.pushNamed(
+              'anime-watch-sources',
+              pathParameters: {'id': head.anime.id},
+              extra: AnimeWatchSourcesArgs.forAnime(
+                animeId: head.anime.id,
+                animeTitles: head.anime.titles,
+                posterUrl: head.anime.posterUrl,
+              ),
+            ),
         child: Text(
           AppLocalizations.of(context).animeDetailsChooseSourceButton,
         ),

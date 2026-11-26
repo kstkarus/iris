@@ -8,8 +8,10 @@ import 'package:iris/features/characters/presentation/character_names.dart';
 import 'package:iris/features/characters/presentation/widgets/character_sections.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/widgets/adaptive/adaptive_content_width.dart';
+import 'package:iris/shared/widgets/adaptive/desktop_dossier_metrics.dart';
 import 'package:iris/shared/widgets/adaptive/window_size_class.dart';
 import 'package:iris/shared/widgets/detail_layout.dart';
+import 'package:iris/shared/widgets/dither_switcher.dart';
 import 'package:iris/shared/widgets/poster_image.dart';
 import 'package:iris/shared/widgets/status_views.dart';
 
@@ -63,8 +65,8 @@ class _CharacterDesktopLayoutState extends State<CharacterDesktopLayout> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final isLarge = widget.sizeClass.isAtLeast(WindowSizeClass.large);
-    final posterWidth = isLarge ? 296.0 : 240.0;
-    final gap = isLarge ? 44.0 : 28.0;
+    final posterWidth = DesktopDossierMetrics.railWidth(widget.sizeClass);
+    final gap = DesktopDossierMetrics.gap(widget.sizeClass);
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -109,17 +111,34 @@ class _CharacterDesktopLayoutState extends State<CharacterDesktopLayout> {
                       minSize: 24,
                       maxLines: 3,
                     ),
-                    if (widget.onRetry != null) ...[
-                      const SizedBox(height: 16),
-                      DetailRetryBanner(
-                        message: l10n.characterLoadError,
-                        onRetry: widget.onRetry!,
-                      ),
-                    ],
-                    if (widget.onRetry == null)
-                      CharacterDescriptionSection(
-                        description: widget.details?.description,
-                      ),
+                    DitherSwitcher(
+                      resizeDuration: const Duration(milliseconds: 200),
+                      collapse: true,
+                      duration: const Duration(milliseconds: 220),
+                      child: widget.onRetry == null
+                          ? const SizedBox.shrink(key: ValueKey('no_retry'))
+                          : Padding(
+                              key: const ValueKey('retry'),
+                              padding: const EdgeInsets.only(top: 16),
+                              child: DetailRetryBanner(
+                                message: l10n.characterLoadError,
+                                onRetry: widget.onRetry!,
+                              ),
+                            ),
+                    ),
+                    DitherSwitcher(
+                      resizeDuration: const Duration(milliseconds: 200),
+                      collapse: true,
+                      duration: const Duration(milliseconds: 220),
+                      child: widget.onRetry == null
+                          ? CharacterDescriptionSection(
+                              key: const ValueKey('description'),
+                              description: widget.details?.description,
+                            )
+                          : const SizedBox.shrink(
+                              key: ValueKey('no_description'),
+                            ),
+                    ),
                     CharacterAppearancesSection(
                       appearances: widget.details?.appearances ?? const [],
                       onOpenAnime: widget.onOpenAnime,

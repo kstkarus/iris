@@ -14,6 +14,7 @@ import 'package:iris/features/anime_details/presentation/widgets/my_list_section
 import 'package:iris/features/anime_details/presentation/widgets/recently_watched_section.dart';
 import 'package:iris/features/anime_details/presentation/widgets/related_anime_section.dart';
 import 'package:iris/features/characters/presentation/widgets/characters_section.dart';
+import 'package:iris/features/player/presentation/models/anime_player_source_args.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/models/details_description.dart';
 import 'package:iris/shared/widgets/adaptive/window_size_class.dart';
@@ -27,9 +28,22 @@ import 'package:iris/shared/widgets/status_views.dart';
 /// shown as is and the rest is pixel noise in the shape of the page; the
 /// details develop out of it as they arrive.
 class AnimeDetailsView extends StatelessWidget {
-  const AnimeDetailsView({this.preview, super.key});
+  const AnimeDetailsView({
+    this.preview,
+    this.onChooseSources,
+    this.onOpenRecentSource,
+    this.stepKey = 'overview',
+    this.railStepOverride,
+    this.rightStepOverride,
+    super.key,
+  });
 
   final AnimeDetailsPreview? preview;
+  final ValueChanged<AnimeDetailsPreview>? onChooseSources;
+  final ValueChanged<AnimePlayerSourceArgs>? onOpenRecentSource;
+  final Object stepKey;
+  final Widget? railStepOverride;
+  final Widget? rightStepOverride;
 
   @override
   Widget build(BuildContext context) {
@@ -43,18 +57,33 @@ class AnimeDetailsView extends StatelessWidget {
             key: const ValueKey('content'),
             head: preview,
             loading: true,
+            onChooseSources: onChooseSources,
+            onOpenRecentSource: onOpenRecentSource,
+            stepKey: stepKey,
+            railStepOverride: railStepOverride,
+            rightStepOverride: rightStepOverride,
           ),
           AnimeDetailsSuccess(:final details) => _Content(
             key: const ValueKey('content'),
             head: AnimeDetailsPreview.fromDetails(details),
             description: details.description,
             related: details.related,
+            onChooseSources: onChooseSources,
+            onOpenRecentSource: onOpenRecentSource,
+            stepKey: stepKey,
+            railStepOverride: railStepOverride,
+            rightStepOverride: rightStepOverride,
           ),
           // What the list already knew stays, with its way to the sources.
           AnimeDetailsFailure() when preview != null => _Content(
             key: const ValueKey('content'),
             head: preview,
             onRetry: retry,
+            onChooseSources: onChooseSources,
+            onOpenRecentSource: onOpenRecentSource,
+            stepKey: stepKey,
+            railStepOverride: railStepOverride,
+            rightStepOverride: rightStepOverride,
           ),
           AnimeDetailsFailure() => RetryView(
             key: const ValueKey('failure'),
@@ -97,6 +126,11 @@ class _Content extends StatelessWidget {
     this.description,
     this.related = const [],
     this.onRetry,
+    this.onChooseSources,
+    this.onOpenRecentSource,
+    this.stepKey = 'overview',
+    this.railStepOverride,
+    this.rightStepOverride,
     super.key,
   });
 
@@ -105,6 +139,11 @@ class _Content extends StatelessWidget {
   final DetailsDescription? description;
   final VoidCallback? onRetry;
   final List<RelatedAnime> related;
+  final ValueChanged<AnimeDetailsPreview>? onChooseSources;
+  final ValueChanged<AnimePlayerSourceArgs>? onOpenRecentSource;
+  final Object stepKey;
+  final Widget? railStepOverride;
+  final Widget? rightStepOverride;
 
   @override
   Widget build(BuildContext context) {
@@ -123,6 +162,17 @@ class _Content extends StatelessWidget {
               related: related,
               onRetry: onRetry,
               sizeClass: sizeClass,
+              onChooseSources: onChooseSources,
+              onOpenRecentSource: onOpenRecentSource,
+              stepKey: stepKey,
+              railStepOverride: railStepOverride,
+              rightStepOverride: rightStepOverride,
+            );
+          }
+          if (rightStepOverride != null) {
+            return Padding(
+              padding: const EdgeInsets.only(top: 16),
+              child: rightStepOverride,
             );
           }
           return _StackedLayout(

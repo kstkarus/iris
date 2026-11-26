@@ -3499,6 +3499,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Update available'**
   String get settingsUpdateAvailableHint;
+
+  /// No description provided for @animeDetailsBackToDescriptionButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Back to details'**
+  String get animeDetailsBackToDescriptionButton;
+
+  /// No description provided for @animeDetailsBackToSourcesButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Back to sources'**
+  String get animeDetailsBackToSourcesButton;
 }
 
 class _AppLocalizationsDelegate

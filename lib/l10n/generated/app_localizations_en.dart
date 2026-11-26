@@ -2030,4 +2030,10 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get settingsUpdateAvailableHint => 'Update available';
+
+  @override
+  String get animeDetailsBackToDescriptionButton => 'Back to details';
+
+  @override
+  String get animeDetailsBackToSourcesButton => 'Back to sources';
 }
