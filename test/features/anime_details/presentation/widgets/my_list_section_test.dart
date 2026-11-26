@@ -182,7 +182,7 @@ void main() {
     await tester.tap(find.text('Watching'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Shikimori did not save the change.'), findsOneWidget);
+    expect(find.text('Couldn’t save to Shikimori.'), findsOneWidget);
     expect(find.text('Add to list'), findsOneWidget);
     expect(effects, [HapticsType.selection, HapticsType.error]);
   });

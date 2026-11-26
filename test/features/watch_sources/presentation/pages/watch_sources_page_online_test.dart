@@ -383,10 +383,7 @@ void main() {
       lessThan(tester.getTopLeft(find.text('AniLibria')).dy),
     );
     // Only the dub watched from is marked, though all share the progress.
-    expect(
-      find.textContaining('You watched this', findRichText: true),
-      findsOneWidget,
-    );
+    expect(find.textContaining('Watched', findRichText: true), findsOneWidget);
   });
 
   testWidgets('without an online release the torrents are the page', (
@@ -487,7 +484,7 @@ void main() {
     expect(find.text('Torrents'), findsOneWidget);
 
     online.fail = false;
-    await tester.tap(find.text('Try Again'));
+    await tester.tap(find.text('Try again'));
     await tester.pumpAndSettle();
 
     expect(online.searches, 2);

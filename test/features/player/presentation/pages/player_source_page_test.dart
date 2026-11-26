@@ -209,7 +209,7 @@ void main() {
       await tester.tap(_button('Download 2 episodes'));
       await tester.pumpAndSettle();
       expect(page.ready.selected, {2});
-      expect(_text('Couldn’t add to the queue. Try again.'), findsOneWidget);
+      expect(_text('Couldn’t add to the queue.'), findsOneWidget);
 
       fixture.reject.clear();
       await tester.tap(_button('Download 1 episode'));

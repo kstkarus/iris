@@ -144,14 +144,14 @@ void main() {
     expect(_pageTwoCalls(repository), 1);
 
     await tester.dragUntilVisible(
-      find.text('Try Again'),
+      find.text('Try again'),
       find.byType(CustomScrollView),
       const Offset(0, -500),
     );
     await tester.pumpAndSettle();
     expect(_pageTwoCalls(repository), 1);
 
-    await tester.tap(find.text('Try Again'));
+    await tester.tap(find.text('Try again'));
     await tester.pumpAndSettle();
 
     expect(_pageTwoCalls(repository), 2);

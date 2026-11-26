@@ -225,7 +225,7 @@ void main() {
         expect(
           find.descendant(
             of: delete,
-            matching: find.text(lastFile ? 'Deleting' : 'Удаляем'),
+            matching: find.text(lastFile ? 'Deleting' : 'Удаление'),
           ),
           findsOneWidget,
         );

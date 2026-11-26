@@ -49,7 +49,7 @@ void main() {
     await tester.pumpWidget(
       testApp(RetryView(message: 'Failed', onRetry: () => retries++)),
     );
-    await tester.tap(find.text('Try Again'));
+    await tester.tap(find.text('Try again'));
     expect(retries, 1);
   });
 
@@ -69,7 +69,7 @@ void main() {
 
     await tester.pumpWidget(footer(failed: true));
     expect(find.text('No more'), findsOneWidget);
-    await tester.tap(find.text('Try Again'));
+    await tester.tap(find.text('Try again'));
     expect(retries, 1);
 
     await tester.pumpWidget(footer());

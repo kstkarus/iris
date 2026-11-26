@@ -158,7 +158,7 @@ void main() {
     expect(find.text('Frieren'), findsOneWidget);
     expect(find.text('Unable to load the character.'), findsOneWidget);
     repository.failing = false;
-    await tester.tap(find.text('Try Again'));
+    await tester.tap(find.text('Try again'));
     await tester.pumpAndSettle();
     expect(find.text('An elf mage.'), findsOneWidget);
   });
@@ -171,7 +171,7 @@ void main() {
     );
 
     expect(find.text('Unable to load the character.'), findsOneWidget);
-    expect(find.text('Try Again'), findsOneWidget);
+    expect(find.text('Try again'), findsOneWidget);
   });
 
   testWidgets('long names stay fully visible on a narrow screen', (

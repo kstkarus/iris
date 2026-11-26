@@ -125,7 +125,7 @@ abstract class AppLocalizations {
   /// No description provided for @downloadFilesTemporaryBusy.
   ///
   /// In en, this message translates to:
-  /// **'The player is using these files. You can clear them after playback.'**
+  /// **'Stop playback to clear these files.'**
   String get downloadFilesTemporaryBusy;
 
   /// No description provided for @downloadFilesClearTemporary.
@@ -149,7 +149,7 @@ abstract class AppLocalizations {
   /// No description provided for @downloadFilesClearFailed.
   ///
   /// In en, this message translates to:
-  /// **'Unable to delete temporary files. Try again.'**
+  /// **'Couldn’t delete temporary files.'**
   String get downloadFilesClearFailed;
 
   /// No description provided for @downloadFilesSaved.
@@ -215,7 +215,7 @@ abstract class AppLocalizations {
   /// No description provided for @downloadQueueReorderFailed.
   ///
   /// In en, this message translates to:
-  /// **'Unable to change download order. Try again.'**
+  /// **'Couldn’t reorder the queue.'**
   String get downloadQueueReorderFailed;
 
   /// No description provided for @downloadQueuePaused.
@@ -227,13 +227,13 @@ abstract class AppLocalizations {
   /// No description provided for @downloadQueueAttention.
   ///
   /// In en, this message translates to:
-  /// **'Needs attention'**
+  /// **'Failed'**
   String get downloadQueueAttention;
 
   /// No description provided for @downloadQueueFinished.
   ///
   /// In en, this message translates to:
-  /// **'All downloads are complete. Your episodes are in the library.'**
+  /// **'All downloads finished.'**
   String get downloadQueueFinished;
 
   /// No description provided for @downloadQueueNoWaiting.
@@ -263,7 +263,7 @@ abstract class AppLocalizations {
   /// No description provided for @commonRetry.
   ///
   /// In en, this message translates to:
-  /// **'Try Again'**
+  /// **'Try again'**
   String get commonRetry;
 
   /// No description provided for @commonSignIn.
@@ -407,7 +407,7 @@ abstract class AppLocalizations {
   /// No description provided for @downloadFailedMessage.
   ///
   /// In en, this message translates to:
-  /// **'The torrent stopped with an error. Try again later.'**
+  /// **'Download failed'**
   String get downloadFailedMessage;
 
   /// No description provided for @downloadWatchButton.
@@ -449,7 +449,7 @@ abstract class AppLocalizations {
   /// No description provided for @downloadDeleteMessage.
   ///
   /// In en, this message translates to:
-  /// **'“{name}” will be removed from the device.'**
+  /// **'“{name}” will be removed from this device.'**
   String downloadDeleteMessage(String name);
 
   /// No description provided for @animeKindTv.
@@ -521,7 +521,7 @@ abstract class AppLocalizations {
   /// No description provided for @animeListLoadMoreError.
   ///
   /// In en, this message translates to:
-  /// **'Unable to load more anime.'**
+  /// **'Couldn’t load more.'**
   String get animeListLoadMoreError;
 
   /// No description provided for @animeListSearchHint.
@@ -533,7 +533,7 @@ abstract class AppLocalizations {
   /// No description provided for @animeListFilterSortButton.
   ///
   /// In en, this message translates to:
-  /// **'Filter & Sort'**
+  /// **'Filter & sort'**
   String get animeListFilterSortButton;
 
   /// No description provided for @animeListSortSectionTitle.
@@ -569,7 +569,7 @@ abstract class AppLocalizations {
   /// No description provided for @animeListSortAiredOn.
   ///
   /// In en, this message translates to:
-  /// **'Aired On'**
+  /// **'Release date'**
   String get animeListSortAiredOn;
 
   /// No description provided for @animeListResetButton.
@@ -593,19 +593,19 @@ abstract class AppLocalizations {
   /// No description provided for @animeListCriteriaEmpty.
   ///
   /// In en, this message translates to:
-  /// **'Nothing found for selected criteria.'**
+  /// **'Nothing matches these filters.'**
   String get animeListCriteriaEmpty;
 
   /// No description provided for @animeDetailsLoading.
   ///
   /// In en, this message translates to:
-  /// **'Loading anime details'**
+  /// **'Loading anime'**
   String get animeDetailsLoading;
 
   /// No description provided for @animeDetailsLoadError.
   ///
   /// In en, this message translates to:
-  /// **'Unable to load anime details.'**
+  /// **'Couldn’t load anime.'**
   String get animeDetailsLoadError;
 
   /// No description provided for @watchSourcesTitle.
@@ -689,7 +689,7 @@ abstract class AppLocalizations {
   /// No description provided for @watchSourcesSearchEmpty.
   ///
   /// In en, this message translates to:
-  /// **'No sources match your search.'**
+  /// **'No matching sources.'**
   String get watchSourcesSearchEmpty;
 
   /// No description provided for @watchSourcesSortButton.
@@ -743,7 +743,7 @@ abstract class AppLocalizations {
   /// No description provided for @playerSourceTitle.
   ///
   /// In en, this message translates to:
-  /// **'Choose File'**
+  /// **'Choose file'**
   String get playerSourceTitle;
 
   /// No description provided for @playerSourcePreparing.
@@ -755,13 +755,13 @@ abstract class AppLocalizations {
   /// No description provided for @playerSourceUnsupported.
   ///
   /// In en, this message translates to:
-  /// **'This source is not suitable for playback.'**
+  /// **'Unsupported source.'**
   String get playerSourceUnsupported;
 
   /// No description provided for @playerSourceUnableToPrepare.
   ///
   /// In en, this message translates to:
-  /// **'Unable to prepare this source.'**
+  /// **'Couldn’t open this source.'**
   String get playerSourceUnableToPrepare;
 
   /// No description provided for @playerSourceEpisodesTitle.
@@ -845,7 +845,7 @@ abstract class AppLocalizations {
   /// No description provided for @playerUnableToPrepareFirstFrame.
   ///
   /// In en, this message translates to:
-  /// **'The stream is open, but the player could not prepare the first frame.'**
+  /// **'Couldn’t display video.'**
   String get playerUnableToPrepareFirstFrame;
 
   /// No description provided for @playerAudioTracksTitle.
@@ -881,7 +881,7 @@ abstract class AppLocalizations {
   /// Read out over a locked player.
   ///
   /// In en, this message translates to:
-  /// **'Screen locked, tap to unlock'**
+  /// **'Screen locked. Tap to unlock'**
   String get playerScreenLocked;
 
   /// Label of the player slider that sets the screen brightness.
@@ -899,7 +899,7 @@ abstract class AppLocalizations {
   /// No description provided for @playerDecoderSettingsDescription.
   ///
   /// In en, this message translates to:
-  /// **'Change this only if video stutters or shows green frames on your device. Technical details below show the decoder in use.'**
+  /// **'Only change if video stutters or glitches.'**
   String get playerDecoderSettingsDescription;
 
   /// No description provided for @playerDecoderAutoSafe.
@@ -953,7 +953,7 @@ abstract class AppLocalizations {
   /// No description provided for @playerSubtitleAppearanceTitle.
   ///
   /// In en, this message translates to:
-  /// **'Subtitle Appearance'**
+  /// **'Subtitle appearance'**
   String get playerSubtitleAppearanceTitle;
 
   /// No description provided for @playerSubtitleLibassLabel.
@@ -965,7 +965,7 @@ abstract class AppLocalizations {
   /// No description provided for @playerSubtitleLibassDescription.
   ///
   /// In en, this message translates to:
-  /// **'Uses native subtitle rendering for better compatibility with anime releases.'**
+  /// **'Preserves ASS/SSA fonts, styles, and positioned signs.'**
   String get playerSubtitleLibassDescription;
 
   /// No description provided for @playerSubtitleSizeLabel.
@@ -1031,7 +1031,7 @@ abstract class AppLocalizations {
   /// No description provided for @playerSubtitleOverrideHint.
   ///
   /// In en, this message translates to:
-  /// **'A custom colour, background or position replaces the release\'s styling: styled signs become plain text.'**
+  /// **'A custom color, background, or position replaces the release’s styling: styled signs become plain text.'**
   String get playerSubtitleOverrideHint;
 
   /// No description provided for @playerAdvancedTitle.
@@ -1067,7 +1067,7 @@ abstract class AppLocalizations {
   /// No description provided for @playerRestartHint.
   ///
   /// In en, this message translates to:
-  /// **'The decoder and ASS rendering apply by restarting the video where it is.'**
+  /// **'Changing the decoder or ASS rendering restarts playback at the current position.'**
   String get playerRestartHint;
 
   /// No description provided for @playerDecoderRestartHint.
@@ -1175,7 +1175,7 @@ abstract class AppLocalizations {
   /// No description provided for @invalidRouteArgumentsMessage.
   ///
   /// In en, this message translates to:
-  /// **'This screen was opened with invalid navigation data.'**
+  /// **'Couldn’t open this screen.'**
   String get invalidRouteArgumentsMessage;
 
   /// No description provided for @playerPlayButton.
@@ -1295,7 +1295,7 @@ abstract class AppLocalizations {
   /// No description provided for @downloadDeleteFailed.
   ///
   /// In en, this message translates to:
-  /// **'Unable to delete the files. Close the file if it is open and try again'**
+  /// **'Couldn’t delete the files. One may still be open.'**
   String get downloadDeleteFailed;
 
   /// No description provided for @playerResumedFrom.
@@ -1457,7 +1457,7 @@ abstract class AppLocalizations {
   /// No description provided for @watchSourceUsedBadge.
   ///
   /// In en, this message translates to:
-  /// **'You watched this'**
+  /// **'Watched'**
   String get watchSourceUsedBadge;
 
   /// No description provided for @playerEpisodesTitle.
@@ -1541,13 +1541,13 @@ abstract class AppLocalizations {
   /// No description provided for @playerPictureInPictureOff.
   ///
   /// In en, this message translates to:
-  /// **'Picture in picture is turned off for iris in the system settings.'**
+  /// **'Picture in picture is turned off for Iris in system settings.'**
   String get playerPictureInPictureOff;
 
   /// No description provided for @playerPictureInPictureFailed.
   ///
   /// In en, this message translates to:
-  /// **'Couldn\'t open the mini player.'**
+  /// **'Couldn’t open the mini player.'**
   String get playerPictureInPictureFailed;
 
   /// No description provided for @playerRestoreFromPictureInPicture.
@@ -1715,13 +1715,13 @@ abstract class AppLocalizations {
   /// No description provided for @animeDetailsShowCover.
   ///
   /// In en, this message translates to:
-  /// **'Show the original cover'**
+  /// **'Show original cover'**
   String get animeDetailsShowCover;
 
   /// No description provided for @animeDetailsShowHalftone.
   ///
   /// In en, this message translates to:
-  /// **'Show the halftone'**
+  /// **'Show halftone'**
   String get animeDetailsShowHalftone;
 
   /// No description provided for @watchSourcesColumnRelease.
@@ -1865,7 +1865,7 @@ abstract class AppLocalizations {
   /// No description provided for @profileSignInMessage.
   ///
   /// In en, this message translates to:
-  /// **'Track what you\'ve watched and keep up with airing anime and friends'**
+  /// **'Sync your lists, episode progress, and friends from Shikimori'**
   String get profileSignInMessage;
 
   /// No description provided for @profileSignInUnavailable.
@@ -1883,13 +1883,13 @@ abstract class AppLocalizations {
   /// No description provided for @profileSignInNetworkError.
   ///
   /// In en, this message translates to:
-  /// **'No response. Check your connection.'**
+  /// **'No response from Shikimori.'**
   String get profileSignInNetworkError;
 
   /// No description provided for @profileSignInRejected.
   ///
   /// In en, this message translates to:
-  /// **'Couldn’t sign in. Try again.'**
+  /// **'Couldn’t sign in.'**
   String get profileSignInRejected;
 
   /// No description provided for @profileSessionExpired.
@@ -1973,13 +1973,13 @@ abstract class AppLocalizations {
   /// No description provided for @userRateLoadError.
   ///
   /// In en, this message translates to:
-  /// **'Your list did not load.'**
+  /// **'Couldn’t load list.'**
   String get userRateLoadError;
 
   /// No description provided for @userRateSaveError.
   ///
   /// In en, this message translates to:
-  /// **'Shikimori did not save the change.'**
+  /// **'Couldn’t save to Shikimori.'**
   String get userRateSaveError;
 
   /// No description provided for @userRateScore.
@@ -2117,13 +2117,13 @@ abstract class AppLocalizations {
   /// No description provided for @profileListLoadError.
   ///
   /// In en, this message translates to:
-  /// **'The list did not load.'**
+  /// **'Couldn’t load list.'**
   String get profileListLoadError;
 
   /// No description provided for @profileListLoading.
   ///
   /// In en, this message translates to:
-  /// **'Loading the list'**
+  /// **'Loading list'**
   String get profileListLoading;
 
   /// No description provided for @profileFriendsTab.
@@ -2141,7 +2141,7 @@ abstract class AppLocalizations {
   /// No description provided for @profileFriendsLoadError.
   ///
   /// In en, this message translates to:
-  /// **'Friends did not load.'**
+  /// **'Couldn’t load friends.'**
   String get profileFriendsLoadError;
 
   /// No description provided for @profileFriendsLoading.
@@ -2171,7 +2171,7 @@ abstract class AppLocalizations {
   /// No description provided for @appUpdateOpenFailed.
   ///
   /// In en, this message translates to:
-  /// **'Could not open the download.'**
+  /// **'Couldn’t open the download link.'**
   String get appUpdateOpenFailed;
 
   /// No description provided for @appUpdateNotificationTitle.
@@ -2249,13 +2249,13 @@ abstract class AppLocalizations {
   /// No description provided for @appUpdateWhatsNew.
   ///
   /// In en, this message translates to:
-  /// **'What\'s new'**
+  /// **'What’s new'**
   String get appUpdateWhatsNew;
 
   /// No description provided for @appUpdateNoNotes.
   ///
   /// In en, this message translates to:
-  /// **'No release notes were provided.'**
+  /// **'No release notes.'**
   String get appUpdateNoNotes;
 
   /// No description provided for @appUpdateCancelDownload.
@@ -2315,7 +2315,7 @@ abstract class AppLocalizations {
   /// No description provided for @appUpdateFailureNetwork.
   ///
   /// In en, this message translates to:
-  /// **'Couldn\'t download the update. Check your connection.'**
+  /// **'Couldn’t download the update. Network error.'**
   String get appUpdateFailureNetwork;
 
   /// No description provided for @appUpdateFailureInvalidFile.
@@ -2327,13 +2327,13 @@ abstract class AppLocalizations {
   /// No description provided for @appUpdateFailureStorage.
   ///
   /// In en, this message translates to:
-  /// **'Couldn\'t save the update. Check available storage.'**
+  /// **'Not enough storage for the update.'**
   String get appUpdateFailureStorage;
 
   /// No description provided for @appUpdateFailureInstall.
   ///
   /// In en, this message translates to:
-  /// **'Couldn\'t open the installer.'**
+  /// **'Couldn’t open the installer.'**
   String get appUpdateFailureInstall;
 
   /// No description provided for @appUpdateFailurePermission.
@@ -2387,7 +2387,7 @@ abstract class AppLocalizations {
   /// No description provided for @characterLoading.
   ///
   /// In en, this message translates to:
-  /// **'Loading the character'**
+  /// **'Loading character'**
   String get characterLoading;
 
   /// No description provided for @characterLoadError.
@@ -2609,19 +2609,19 @@ abstract class AppLocalizations {
   /// No description provided for @playerMarkNextPending.
   ///
   /// In en, this message translates to:
-  /// **'Show another mark: {current} of {total}'**
+  /// **'Next mark: {current} of {total}'**
   String playerMarkNextPending(int current, int total);
 
   /// No description provided for @profileSigningInHint.
   ///
   /// In en, this message translates to:
-  /// **'Finish signing in in the browser. Coming back here before that cancels it.'**
+  /// **'Complete sign-in in your browser. Returning early cancels it.'**
   String get profileSigningInHint;
 
   /// No description provided for @profileSignInPortBusy.
   ///
   /// In en, this message translates to:
-  /// **'Another program holds port 43821, which sign-in needs. Close it and try again.'**
+  /// **'Port 43821 is in use by another app.'**
   String get profileSignInPortBusy;
 
   /// No description provided for @profileListTab.
@@ -2633,7 +2633,7 @@ abstract class AppLocalizations {
   /// No description provided for @profileListEmptyHint.
   ///
   /// In en, this message translates to:
-  /// **'The status is set on an anime’s page.'**
+  /// **'Set a status from an anime’s page.'**
   String get profileListEmptyHint;
 
   /// No description provided for @profileListProgress.
@@ -2669,7 +2669,7 @@ abstract class AppLocalizations {
   /// No description provided for @savedTorrentsSaveFailed.
   ///
   /// In en, this message translates to:
-  /// **'Couldn\'t save the torrent. Try again.'**
+  /// **'Couldn’t save the torrent.'**
   String get savedTorrentsSaveFailed;
 
   /// No description provided for @savedTorrentsDeleted.
@@ -2699,7 +2699,7 @@ abstract class AppLocalizations {
   /// No description provided for @userRateLoading.
   ///
   /// In en, this message translates to:
-  /// **'Loading my list'**
+  /// **'Loading list'**
   String get userRateLoading;
 
   /// No description provided for @downloadNoPeers.
@@ -2729,25 +2729,25 @@ abstract class AppLocalizations {
   /// No description provided for @downloadFailedNoSpace.
   ///
   /// In en, this message translates to:
-  /// **'The device ran out of space. Free some up and try again.'**
+  /// **'Out of storage space'**
   String get downloadFailedNoSpace;
 
   /// No description provided for @downloadFailedNoAccess.
   ///
   /// In en, this message translates to:
-  /// **'The app may not write to the downloads folder.'**
+  /// **'Can’t write to downloads folder'**
   String get downloadFailedNoAccess;
 
   /// No description provided for @downloadFailedFileMissing.
   ///
   /// In en, this message translates to:
-  /// **'The file is gone from the device. Try again to download it anew.'**
+  /// **'File not found'**
   String get downloadFailedFileMissing;
 
   /// No description provided for @downloadFailedCouldNotStart.
   ///
   /// In en, this message translates to:
-  /// **'The download did not start. Check the connection and try again.'**
+  /// **'Couldn’t start download'**
   String get downloadFailedCouldNotStart;
 
   /// No description provided for @downloadSelectionEpisodeTitle.
@@ -2759,19 +2759,19 @@ abstract class AppLocalizations {
   /// No description provided for @downloadFailedConnectionLost.
   ///
   /// In en, this message translates to:
-  /// **'The video server stopped answering. Try again to pick up where it stopped.'**
+  /// **'Connection to server lost'**
   String get downloadFailedConnectionLost;
 
   /// No description provided for @downloadFailedNotDownloadable.
   ///
   /// In en, this message translates to:
-  /// **'This dub can\'t be downloaded, only watched online.'**
+  /// **'Streaming only'**
   String get downloadFailedNotDownloadable;
 
   /// No description provided for @downloadDeleteProgressLost.
   ///
   /// In en, this message translates to:
-  /// **'The {size} downloaded so far will be lost.'**
+  /// **'{size} already downloaded will be deleted.'**
   String downloadDeleteProgressLost(String size);
 
   /// No description provided for @downloadAnnounceCompleted.
@@ -2831,7 +2831,7 @@ abstract class AppLocalizations {
   /// No description provided for @savedTorrentsFileReadFailed.
   ///
   /// In en, this message translates to:
-  /// **'Couldn\'t read the file. Try again.'**
+  /// **'Couldn’t read the file.'**
   String get savedTorrentsFileReadFailed;
 
   /// No description provided for @savedTorrentsFromFile.
@@ -2933,7 +2933,7 @@ abstract class AppLocalizations {
   /// No description provided for @searchRecentEmpty.
   ///
   /// In en, this message translates to:
-  /// **'Your recent searches will appear here.'**
+  /// **'No recent searches yet.'**
   String get searchRecentEmpty;
 
   /// No description provided for @searchRecentClear.
@@ -2999,7 +2999,7 @@ abstract class AppLocalizations {
   /// No description provided for @downloadDeleteUnfinished.
   ///
   /// In en, this message translates to:
-  /// **'Unfinished downloads will be cancelled.'**
+  /// **'Unfinished downloads will be canceled.'**
   String get downloadDeleteUnfinished;
 
   /// No description provided for @downloadDeleting.
@@ -3083,7 +3083,7 @@ abstract class AppLocalizations {
   /// No description provided for @playerSourceQueueFailed.
   ///
   /// In en, this message translates to:
-  /// **'Couldn’t add to the queue. Try again.'**
+  /// **'Couldn’t add to the queue.'**
   String get playerSourceQueueFailed;
 
   /// No description provided for @playerSourceUnwatched.
@@ -3281,7 +3281,7 @@ abstract class AppLocalizations {
   /// No description provided for @settingsAnimejoyErrorNetwork.
   ///
   /// In en, this message translates to:
-  /// **'No response. Check your connection.'**
+  /// **'No response from AnimeJoy.'**
   String get settingsAnimejoyErrorNetwork;
 
   /// No description provided for @settingsAnimejoyErrorUnavailable.
@@ -3401,7 +3401,7 @@ abstract class AppLocalizations {
   /// No description provided for @settingsAnimeTitleLanguageAuto.
   ///
   /// In en, this message translates to:
-  /// **'App language'**
+  /// **'Auto'**
   String get settingsAnimeTitleLanguageAuto;
 
   /// No description provided for @settingsAnimeTitleLanguageRussian.

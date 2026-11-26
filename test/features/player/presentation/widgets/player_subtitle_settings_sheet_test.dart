@@ -41,7 +41,7 @@ void main() {
       ),
     );
 
-    expect(find.text('Subtitle Appearance'), findsNothing);
+    expect(find.text('Subtitle appearance'), findsNothing);
     expect(find.text('Decoder: Auto'), findsOneWidget);
     await tester.tap(find.text('Advanced'));
     await tester.pumpAndSettle();
@@ -82,7 +82,7 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(
-        find.text('Subtitle Appearance'),
+        find.text('Subtitle appearance'),
         showAppearance ? findsOneWidget : findsNothing,
       );
     }
@@ -193,7 +193,7 @@ void main() {
       repository: MemorySubtitlePreferencesRepository(),
     );
     const warning =
-        "A custom colour, background or position replaces the release's "
+        'A custom color, background, or position replaces the release’s '
         'styling: styled signs become plain text.';
 
     await tester.pumpWidget(

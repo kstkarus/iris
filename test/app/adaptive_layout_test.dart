@@ -408,7 +408,7 @@ void main() {
       await pumpUntilVisible(tester, find.byKey(_firstPlayerEpisode));
       await tester.pumpAndSettle();
 
-      expect(find.text('Choose File'), findsOneWidget);
+      expect(find.text('Choose file'), findsOneWidget);
       expect(find.byKey(const ValueKey('player_episode_1')), findsOneWidget);
       expect(tester.takeException(), isNull);
 
@@ -531,8 +531,8 @@ void main() {
           .read<AnimeListBloc>();
       await tester.tap(
         size.width < 600
-            ? find.byTooltip('Filter & Sort')
-            : find.text('Filter & Sort'),
+            ? find.byTooltip('Filter & sort')
+            : find.text('Filter & sort'),
       );
       await tester.pumpAndSettle();
       await tester.tap(find.text('Movie'));

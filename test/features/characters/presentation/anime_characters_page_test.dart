@@ -73,7 +73,7 @@ void main() {
     expect(find.text('Unable to load the characters.'), findsOneWidget);
 
     repository.failing = false;
-    await tester.tap(find.text('Try Again'));
+    await tester.tap(find.text('Try again'));
     await tester.runAsync(() => Future<void>.delayed(Duration.zero));
     await tester.pumpAndSettle();
     expect(find.text('Aura'), findsOneWidget);

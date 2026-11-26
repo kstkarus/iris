@@ -143,7 +143,7 @@ void main() {
     await tester.pump();
     await tester.pump();
 
-    expect(find.text('No response. Check your connection.'), findsOneWidget);
+    expect(find.text('No response from Shikimori.'), findsOneWidget);
   });
 
   testWidgets('a session Shikimori ended asks to sign in again', (
@@ -171,7 +171,7 @@ void main() {
     expect(lists.requests.single.userId, testAccount.id);
     expect(find.text('Anime 1'), findsOneWidget);
     expect(
-      find.textContaining('5 из 12 эп.', findRichText: true),
+      find.textContaining('5 из 12 сер.', findRichText: true),
       findsOneWidget,
     );
     expect(find.text('8'), findsOneWidget);
@@ -228,7 +228,7 @@ void main() {
     await chooseStatus(tester, 'dropped');
 
     expect(find.text('Nothing in “Dropped”'), findsOneWidget);
-    expect(find.text('The status is set on an anime’s page.'), findsOneWidget);
+    expect(find.text('Set a status from an anime’s page.'), findsOneWidget);
   });
 
   testWidgets('the previous category fades out before the new list appears', (
@@ -274,10 +274,10 @@ void main() {
     lists.failure = Exception('offline');
     await pumpPage(tester, FakeAuthRepository(restored: testAccount));
     await tester.pumpAndSettle();
-    expect(find.text('The list did not load.'), findsOneWidget);
+    expect(find.text('Couldn’t load list.'), findsOneWidget);
 
     lists.failure = null;
-    await tester.tap(find.widgetWithText(FilledButton, 'Try Again'));
+    await tester.tap(find.widgetWithText(FilledButton, 'Try again'));
     await tester.pumpAndSettle();
 
     expect(find.text('Anime 1'), findsOneWidget);
@@ -335,10 +335,10 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(UserListView.friendsTabKey));
     await tester.pumpAndSettle();
-    expect(find.text('Friends did not load.'), findsOneWidget);
+    expect(find.text('Couldn’t load friends.'), findsOneWidget);
 
     friends.friendsFailure = null;
-    await tester.tap(find.widgetWithText(FilledButton, 'Try Again'));
+    await tester.tap(find.widgetWithText(FilledButton, 'Try again'));
     await tester.pumpAndSettle();
 
     expect(find.text('friend_7'), findsOneWidget);

@@ -314,7 +314,7 @@ void main() {
       await _deliverPlayerEvent(tester);
       await tester.tap(find.byKey(const Key('player_settings_button')));
       await tester.pumpAndSettle();
-      expect(find.text('Subtitle Appearance'), findsOneWidget);
+      expect(find.text('Subtitle appearance'), findsOneWidget);
       platform.emitTracks(after);
       await _deliverPlayerEvent(tester);
       final retained = engine.availableTracks.value.subtitle.single;
@@ -322,7 +322,7 @@ void main() {
       expect(retained.codec, 'hdmv_pgs_subtitle');
       expect(retained.title, 'Russian PGS');
       expect(retained.language, 'ru');
-      expect(find.text('Subtitle Appearance'), findsNothing);
+      expect(find.text('Subtitle appearance'), findsNothing);
       platform.emitTrack(
         const Track(subtitle: SubtitleTrack('1', 'Old', 'en')),
       );
@@ -416,7 +416,7 @@ void main() {
       await tester.tap(find.byKey(const Key('player_settings_button')));
       await tester.pumpAndSettle();
 
-      expect(find.text('Subtitle Appearance'), findsNothing);
+      expect(find.text('Subtitle appearance'), findsNothing);
       expect(find.text('Playback speed'), findsOneWidget);
       platformPlayer.emitTracks(
         const Tracks(
@@ -427,21 +427,21 @@ void main() {
         ),
       );
       await _deliverPlayerEvent(tester);
-      expect(find.text('Subtitle Appearance'), findsOneWidget);
+      expect(find.text('Subtitle appearance'), findsOneWidget);
 
       platformPlayer.emitTrack(
         const Track(subtitle: SubtitleTrack('2', 'English', 'en')),
       );
       await _deliverPlayerEvent(tester);
-      expect(find.text('Subtitle Appearance'), findsNothing);
+      expect(find.text('Subtitle appearance'), findsNothing);
 
       platformPlayer.emitTrack(Track(subtitle: SubtitleTrack.no()));
       await _deliverPlayerEvent(tester);
-      expect(find.text('Subtitle Appearance'), findsOneWidget);
+      expect(find.text('Subtitle appearance'), findsOneWidget);
 
       platformPlayer.emitTracks(const Tracks());
       await _deliverPlayerEvent(tester);
-      expect(find.text('Subtitle Appearance'), findsNothing);
+      expect(find.text('Subtitle appearance'), findsNothing);
       expect(find.text('Playback speed'), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
@@ -688,7 +688,7 @@ void main() {
     final platformPlayer = await _failMidStream(tester);
     expect(find.text('Unable to start playback.'), findsOneWidget);
 
-    await tester.tap(find.text('Try Again'));
+    await tester.tap(find.text('Try again'));
     await tester.pump();
 
     expect(platformPlayer.openCount, 2);
@@ -752,7 +752,7 @@ void main() {
     expect(find.text('Unable to start playback.'), findsOneWidget);
 
     // Retry, though, asks for a fresh link.
-    await tester.tap(find.text('Try Again'));
+    await tester.tap(find.text('Try again'));
     await tester.pump();
     expect(repository.renewedSessions, [_session]);
     expect((platformPlayer.lastOpened! as Media).uri, _renewedUrl);
@@ -1357,7 +1357,7 @@ void main() {
 
     // mpv takes no notice of the start position and plays from 0.
     platformPlayer.nativeProperties['time-pos'] = '0.000000';
-    await tester.tap(find.text('Try Again'));
+    await tester.tap(find.text('Try again'));
     await _deliverPlayerEvent(tester);
     await tester.pump();
 
@@ -1370,7 +1370,7 @@ void main() {
     final platformPlayer = await _failMidStream(tester);
 
     platformPlayer.nativeProperties['time-pos'] = '120.040000';
-    await tester.tap(find.text('Try Again'));
+    await tester.tap(find.text('Try again'));
     await _deliverPlayerEvent(tester);
     await tester.pump();
 
@@ -1392,13 +1392,8 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(seconds: 46));
 
-    expect(
-      find.text(
-        'The stream is open, but the player could not prepare the first frame.',
-      ),
-      findsOneWidget,
-    );
-    expect(find.text('Try Again'), findsOneWidget);
+    expect(find.text('Couldn’t display video.'), findsOneWidget);
+    expect(find.text('Try again'), findsOneWidget);
     expect(platformPlayer.pauseCount, 1);
   });
 
@@ -3776,7 +3771,7 @@ void main() {
       expect(platformPlayer.volumes, isEmpty);
 
       expect(platformPlayer.openCount, 1);
-      await tester.tap(find.widgetWithText(FilledButton, 'Try Again'));
+      await tester.tap(find.widgetWithText(FilledButton, 'Try again'));
       await tester.pump();
       expect(platformPlayer.openCount, 2, reason: 'retry opens the stream');
 
@@ -4018,7 +4013,7 @@ void main() {
       await tester.tap(find.byKey(const Key('player_settings_button')));
       await tester.pumpAndSettle();
       expect(find.text('Playback speed'), findsOneWidget);
-      expect(find.text('Subtitle Appearance'), findsOneWidget);
+      expect(find.text('Subtitle appearance'), findsOneWidget);
 
       await tester.tap(find.text('1.5×'));
       await tester.pump();
@@ -4741,7 +4736,7 @@ void main() {
         await tester.pump();
         expect(fixture.engine.pictureInPictureSubtitles, isFalse);
         expect(fixture.player.nativeProperties['sub-visibility'], 'no');
-        expect(find.text("Couldn't open the mini player."), findsOneWidget);
+        expect(find.text("Couldn’t open the mini player."), findsOneWidget);
       },
     );
 
@@ -4774,7 +4769,7 @@ void main() {
       await tester.pump();
       expect(fixture.engine.pictureInPictureSubtitles, isFalse);
       expect(fixture.player.nativeProperties['sub-visibility'], 'no');
-      expect(find.text("Couldn't open the mini player."), findsOneWidget);
+      expect(find.text("Couldn’t open the mini player."), findsOneWidget);
     });
 
     testWidgets(
@@ -4802,7 +4797,7 @@ void main() {
         fixture.calls.where((call) => call.method == 'attachPlayer'),
         isEmpty,
       );
-      expect(find.text("Couldn't open the mini player."), findsOneWidget);
+      expect(find.text("Couldn’t open the mini player."), findsOneWidget);
     });
 
     Future<_FakePlatformPlayer> open(
@@ -4856,7 +4851,7 @@ void main() {
 
       expect(
         find.text(
-          'Picture in picture is turned off for iris in the system settings.',
+          'Picture in picture is turned off for Iris in system settings.',
         ),
         findsOneWidget,
       );
@@ -4872,10 +4867,10 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
 
-      expect(find.text("Couldn't open the mini player."), findsOneWidget);
+      expect(find.text("Couldn’t open the mini player."), findsOneWidget);
       expect(
         find.text(
-          'Picture in picture is turned off for iris in the system settings.',
+          'Picture in picture is turned off for Iris in system settings.',
         ),
         findsNothing,
       );
@@ -4893,7 +4888,7 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
 
-      expect(find.text("Couldn't open the mini player."), findsOneWidget);
+      expect(find.text("Couldn’t open the mini player."), findsOneWidget);
     });
 
     testWidgets('tell the window what plays and in what shape, and let go '

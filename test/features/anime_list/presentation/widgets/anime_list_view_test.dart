@@ -105,7 +105,7 @@ void main() {
     final inSearch = _catalogOffset(tester);
     expect(inSearch, 0);
     expect(find.byKey(const Key('catalog_recent_searches')), findsOneWidget);
-    expect(find.text('Your recent searches will appear here.'), findsOneWidget);
+    expect(find.text('No recent searches yet.'), findsOneWidget);
     expect(find.byKey(SearchToolbar.cancelButtonKey), findsOneWidget);
 
     // Typing a letter and taking it back changes the grid, not the page.
@@ -275,7 +275,7 @@ void main() {
     );
     await _pumpCatalog(tester, repository);
 
-    await tester.tap(find.text('Filter & Sort'));
+    await tester.tap(find.text('Filter & sort'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Score'));
     await tester.tap(find.text('Movie'));
@@ -297,7 +297,7 @@ void main() {
     );
     await _pumpCatalog(tester, repository);
 
-    await tester.tap(find.text('Filter & Sort'));
+    await tester.tap(find.text('Filter & sort'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Score'));
     await tester.tap(find.text('Movie'));
@@ -336,10 +336,7 @@ void main() {
       expect(history.state, isEmpty);
       await tester.pumpAndSettle();
       expect(find.text('fullmetal'), findsNothing);
-      expect(
-        find.text('Your recent searches will appear here.'),
-        findsOneWidget,
-      );
+      expect(find.text('No recent searches yet.'), findsOneWidget);
       await tester.enterText(find.byType(TextField), 'fullmetal');
       await tester.testTextInput.receiveAction(TextInputAction.search);
       await tester.pumpAndSettle();
@@ -577,7 +574,7 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.text('Unable to load anime list.'), findsOneWidget);
-        expect(find.text('Try Again'), findsOneWidget);
+        expect(find.text('Try again'), findsOneWidget);
         expect(
           find.byKey(ContinueWatchingButton.buttonKey),
           watched ? findsOneWidget : findsNothing,
@@ -629,7 +626,7 @@ void main() {
     expect(find.text('Unable to load anime list.'), findsOneWidget);
 
     repository.recover = true;
-    await tester.tap(find.text('Try Again'));
+    await tester.tap(find.text('Try again'));
     await tester.pump();
     await tester.pumpAndSettle();
 

@@ -196,7 +196,7 @@ void main() {
     expect(
       find.descendant(
         of: find.byKey(_animeTitles),
-        matching: find.text('App language'),
+        matching: find.text('Auto'),
       ),
       findsOneWidget,
     );
@@ -503,7 +503,7 @@ void main() {
       );
 
       expect(find.text('Couldn’t verify session'), findsOneWidget);
-      expect(find.text('No response. Check your connection.'), findsOneWidget);
+      expect(find.text('No response from AnimeJoy.'), findsOneWidget);
       expect(
         find.byKey(AnimejoyAccountSection.verifyButtonKey),
         findsOneWidget,

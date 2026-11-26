@@ -33,7 +33,7 @@ void main() {
     await tester.pumpWidget(_app(cubit..loadAnime()));
     await tester.pump();
 
-    expect(find.bySemanticsLabel('Loading anime details'), findsOneWidget);
+    expect(find.bySemanticsLabel('Loading anime'), findsOneWidget);
     semantics.dispose();
   });
 
@@ -191,7 +191,7 @@ void main() {
 
     for (final fact in [
       'Следующая',
-      '7 серия через 3 дня',
+      'Серия 7 · через 3 дня',
       'Студия',
       'Bones, MAPPA',
       'Жанры',
@@ -278,11 +278,11 @@ void main() {
 
     await tester.pumpAndSettle();
 
-    expect(find.text('Unable to load anime details.'), findsOneWidget);
-    expect(find.text('Try Again'), findsOneWidget);
+    expect(find.text('Couldn’t load anime.'), findsOneWidget);
+    expect(find.text('Try again'), findsOneWidget);
 
     repository.shouldFail = false;
-    await tester.tap(find.text('Try Again'));
+    await tester.tap(find.text('Try again'));
     await tester.pump();
     await tester.pumpAndSettle();
 
@@ -300,14 +300,14 @@ void main() {
 
     expect(find.text('Fullmetal Alchemist: Brotherhood'), findsOneWidget);
     expect(find.text('Choose source'), findsOneWidget);
-    expect(find.text('Unable to load anime details.'), findsOneWidget);
+    expect(find.text('Couldn’t load anime.'), findsOneWidget);
 
     repository.shouldFail = false;
-    await tester.ensureVisible(find.text('Try Again'));
-    await tester.tap(find.text('Try Again'));
+    await tester.ensureVisible(find.text('Try again'));
+    await tester.tap(find.text('Try again'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Unable to load anime details.'), findsNothing);
+    expect(find.text('Couldn’t load anime.'), findsNothing);
     expect(find.text(fmaDetails.description.text), findsOneWidget);
   });
 

@@ -122,7 +122,7 @@ void main() {
     final add = find.byKey(AddSavedTorrentForm.saveButtonKey);
     await tester.tap(add);
     await tester.pumpAndSettle();
-    expect(find.text("Couldn't save the torrent. Try again."), findsOneWidget);
+    expect(find.text("Couldn’t save the torrent."), findsOneWidget);
     expect(find.text('Frieren BD'), findsOneWidget);
     expect(canAdd(tester), isTrue);
     expect(effects, [HapticsType.error]);
@@ -302,7 +302,7 @@ void main() {
     error = StateError('permission denied');
     await tester.tap(find.byKey(AddSavedTorrentForm.fileButtonKey));
     await tester.pumpAndSettle();
-    expect(find.text("Couldn't read the file. Try again."), findsOneWidget);
+    expect(find.text("Couldn’t read the file."), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }

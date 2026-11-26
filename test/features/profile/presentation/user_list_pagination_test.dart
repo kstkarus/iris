@@ -149,7 +149,7 @@ void main() {
     expect(repository.requests.map((request) => request.page), [1, 2]);
 
     repository.failSecondPage = false;
-    await tester.tap(find.widgetWithText(TextButton, 'Try Again'));
+    await tester.tap(find.widgetWithText(TextButton, 'Try again'));
     await tester.pumpAndSettle();
     expect(repository.requests.map((request) => request.page), [1, 2, 2]);
     expect(cubit.state.entries.length, 31);
@@ -195,7 +195,7 @@ void main() {
     expect(find.byType(InlineRetry), findsOneWidget);
 
     repository.failure = null;
-    final tryAgain = find.widgetWithText(TextButton, 'Try Again');
+    final tryAgain = find.widgetWithText(TextButton, 'Try again');
     await tester.ensureVisible(tryAgain);
     await tester.pumpAndSettle();
     await tester.tap(tryAgain);
@@ -272,7 +272,7 @@ void main() {
       if (fail) {
         expect(find.byType(InlineRetry), findsOneWidget);
         repository.failSecondPage = false;
-        await tester.tap(find.widgetWithText(TextButton, 'Try Again'));
+        await tester.tap(find.widgetWithText(TextButton, 'Try again'));
         await tester.pumpAndSettle();
         expect(repository.requests.map((request) => request.page), [1, 2, 2]);
       }

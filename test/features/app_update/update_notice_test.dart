@@ -75,7 +75,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(opened, [testRelease(3).downloadUrl]);
-    expect(find.text('Could not open the download.'), findsNothing);
+    expect(find.text('Couldn’t open the download link.'), findsNothing);
   });
 
   testWidgets('iOS notice opens release notes sheet and launches the IPA URL', (
@@ -116,7 +116,7 @@ void main() {
     await tester.tap(download);
     await tester.pumpAndSettle();
     expect(opened, [ipaRelease.downloadUrl]);
-    expect(find.text('Could not open the download.'), findsNothing);
+    expect(find.text('Couldn’t open the download link.'), findsNothing);
   });
 
   testWidgets('a download nothing could open says so inside the sheet', (
@@ -133,7 +133,7 @@ void main() {
     expect(
       find.descendant(
         of: find.byKey(UpdateNotice.footerKey),
-        matching: find.text('Could not open the download.'),
+        matching: find.text('Couldn’t open the download link.'),
       ),
       findsOneWidget,
     );
@@ -196,7 +196,7 @@ void main() {
       findsOneWidget,
     );
     expect(
-      find.descendant(of: sheet, matching: find.text("What's new")),
+      find.descendant(of: sheet, matching: find.text("What’s new")),
       findsOneWidget,
     );
     expect(
@@ -608,7 +608,7 @@ void main() {
         expect(downloads.installCalls, attempt);
         expect(cubit.state.failure, AppUpdateFailureKind.install);
         expect(
-          find.text("Couldn't open the installer.").hitTestable(),
+          find.text("Couldn’t open the installer.").hitTestable(),
           findsOneWidget,
         );
         expect(tester.takeException(), isNull);
@@ -710,7 +710,7 @@ void main() {
     install.complete();
     await tester.pumpAndSettle();
     expect(cubit.state.phase, AppUpdatePhase.ready);
-    expect(find.text("Couldn't open the installer."), findsOneWidget);
+    expect(find.text("Couldn’t open the installer."), findsOneWidget);
     expect(find.text('Retry install'), findsOneWidget);
   });
 
@@ -843,7 +843,7 @@ void main() {
 
       await tester.pumpAndSettle();
       expect(
-        find.text("Couldn't download the update. Check your connection."),
+        find.text("Couldn’t download the update. Network error."),
         findsOneWidget,
       );
       expect(tester.hasRunningAnimations, isFalse);

@@ -518,7 +518,7 @@ void main() {
         'Frieren, Episode 01, Second release, More actions',
         'Pause: Frieren, Episode 01, Active release',
         'Resume: Frieren, Episode 01, Paused release',
-        'Try Again: Frieren, Episode 01, Failed release',
+        'Try again: Frieren, Episode 01, Failed release',
         'Resume: Local release, Episode 01',
         'Resume: Local movie',
       ]) {
@@ -699,10 +699,7 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('queue_next_3')));
       await tester.pumpAndSettle();
       expect(repository.waiting, ['1', '3', '4', '2']);
-      expect(
-        find.text('Unable to change download order. Try again.'),
-        findsOneWidget,
-      );
+      expect(find.text('Couldn’t reorder the queue.'), findsOneWidget);
       await _close(tester, repository, harness);
     },
   );

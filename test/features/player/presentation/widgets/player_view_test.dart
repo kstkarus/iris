@@ -60,9 +60,9 @@ void main() {
     await tester.pumpWidget(_wrap(cubit: cubit));
 
     expect(find.text('Unable to start playback.'), findsOneWidget);
-    expect(find.text('Try Again'), findsOneWidget);
+    expect(find.text('Try again'), findsOneWidget);
 
-    await tester.tap(find.text('Try Again'));
+    await tester.tap(find.text('Try again'));
     expect(cubit.loadCalls, 1);
   });
 

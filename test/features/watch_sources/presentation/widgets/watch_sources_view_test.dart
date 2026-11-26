@@ -147,7 +147,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('No sources match your search.'), findsOneWidget);
+    expect(find.text('No matching sources.'), findsOneWidget);
     expect(find.text('No sources found.'), findsNothing);
 
     // Clearing search returns to the results list cleanly.
@@ -176,7 +176,7 @@ void main() {
       await tester.pump();
       await tester.pump();
 
-      expect(find.text('No sources match your search.'), findsOneWidget);
+      expect(find.text('No matching sources.'), findsOneWidget);
     },
   );
 
@@ -278,10 +278,7 @@ void main() {
 
     expect(_topTitle(tester), '[ASW] Frieren - 27');
     expect(find.byKey(const Key('watch_source_used_badge')), findsOneWidget);
-    expect(
-      find.textContaining('You watched this', findRichText: true),
-      findsOneWidget,
-    );
+    expect(find.textContaining('Watched', findRichText: true), findsOneWidget);
   });
 
   testWidgets('shows empty state when there are no results from repository', (
@@ -308,10 +305,10 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Unable to load sources.'), findsOneWidget);
-    expect(find.text('Try Again'), findsOneWidget);
+    expect(find.text('Try again'), findsOneWidget);
 
     repository.shouldFail = false;
-    await tester.tap(find.text('Try Again'));
+    await tester.tap(find.text('Try again'));
     await tester.pump();
     await tester.pumpAndSettle();
 

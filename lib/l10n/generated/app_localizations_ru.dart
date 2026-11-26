@@ -22,20 +22,19 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get downloadFilesTemporaryBusy =>
-      'Файлы использует плеер. Очистка станет доступна после просмотра.';
+      'Очистка недоступна во время просмотра.';
 
   @override
   String get downloadFilesClearTemporary => 'Очистить временные файлы';
 
   @override
-  String get downloadFilesClearingTemporary => 'Очищаем временные файлы';
+  String get downloadFilesClearingTemporary => 'Очистка временных файлов';
 
   @override
   String get downloadFilesTemporaryCleared => 'Временные файлы удалены';
 
   @override
-  String get downloadFilesClearFailed =>
-      'Не удалось удалить временные файлы. Попробуйте ещё раз.';
+  String get downloadFilesClearFailed => 'Не удалось удалить временные файлы.';
 
   @override
   String get downloadFilesSaved => 'Скачанные серии';
@@ -57,10 +56,10 @@ class AppLocalizationsRu extends AppLocalizations {
   String get downloadQueueWaiting => 'Далее';
 
   @override
-  String get downloadQueueMoveUp => 'Поднять выше';
+  String get downloadQueueMoveUp => 'Выше';
 
   @override
-  String get downloadQueueMoveDown => 'Опустить ниже';
+  String get downloadQueueMoveDown => 'Ниже';
 
   @override
   String get downloadQueueMove => 'Переместить серию';
@@ -70,20 +69,19 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get downloadQueueReorderFailed =>
-      'Не удалось изменить порядок загрузки. Попробуйте ещё раз.';
+      'Не удалось изменить порядок очереди.';
 
   @override
   String get downloadQueuePaused => 'На паузе';
 
   @override
-  String get downloadQueueAttention => 'Требует внимания';
+  String get downloadQueueAttention => 'Ошибки';
 
   @override
-  String get downloadQueueFinished =>
-      'Все загрузки завершены. Готовые серии находятся в библиотеке.';
+  String get downloadQueueFinished => 'Все серии скачаны.';
 
   @override
-  String get downloadQueueNoWaiting => 'Следующих серий пока нет.';
+  String get downloadQueueNoWaiting => 'В очереди больше ничего нет.';
 
   @override
   String downloadBytesProgress(String downloaded, String total) {
@@ -127,7 +125,7 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get downloadsEmpty =>
-      'Скачивайте серии со страницы аниме, чтобы смотреть без интернета.';
+      'Серии можно скачать со страницы аниме, чтобы смотреть без интернета.';
 
   @override
   String get downloadSelectionTitle => 'Скачать файлы';
@@ -140,7 +138,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get downloadFileButton => 'Скачать';
 
   @override
-  String get downloadAddingToQueue => 'Добавляем в очередь';
+  String get downloadAddingToQueue => 'Добавление в очередь';
 
   @override
   String downloadSelectionLoading(int percent) {
@@ -177,8 +175,7 @@ class AppLocalizationsRu extends AppLocalizations {
       'Ход загрузки серий и обновлений приложения';
 
   @override
-  String get downloadFailedMessage =>
-      'Торрент остановился с ошибкой. Попробуйте позже.';
+  String get downloadFailedMessage => 'Ошибка загрузки';
 
   @override
   String get downloadWatchButton => 'Смотреть';
@@ -200,7 +197,7 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String downloadDeleteMessage(String name) {
-    return '«$name» удалится с устройства.';
+    return 'Это удалит «$name» с устройства.';
   }
 
   @override
@@ -249,7 +246,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get animeListLoadError => 'Не удалось загрузить список аниме.';
 
   @override
-  String get animeListLoadMoreError => 'Не удалось загрузить ещё аниме.';
+  String get animeListLoadMoreError => 'Не удалось загрузить дальше.';
 
   @override
   String get animeListSearchHint => 'Поиск аниме';
@@ -279,26 +276,25 @@ class AppLocalizationsRu extends AppLocalizations {
   String get animeListResetButton => 'Сбросить';
 
   @override
-  String get animeListEmpty => 'Сейчас список аниме пуст.';
+  String get animeListEmpty => 'Список пуст.';
 
   @override
-  String get animeListSearchEmpty => 'По вашему запросу ничего не найдено.';
+  String get animeListSearchEmpty => 'Ничего не найдено.';
 
   @override
-  String get animeListCriteriaEmpty =>
-      'Ничего не найдено для выбранных критериев.';
+  String get animeListCriteriaEmpty => 'С такими фильтрами ничего не найдено.';
 
   @override
-  String get animeDetailsLoading => 'Загрузка деталей аниме';
+  String get animeDetailsLoading => 'Загрузка аниме';
 
   @override
-  String get animeDetailsLoadError => 'Не удалось загрузить детали аниме.';
+  String get animeDetailsLoadError => 'Не удалось загрузить аниме.';
 
   @override
   String get watchSourcesTitle => 'Источники';
 
   @override
-  String get watchSourcesLoading => 'Загружаем источники';
+  String get watchSourcesLoading => 'Загрузка источников';
 
   @override
   String get watchSourcesLoadError => 'Не удалось загрузить источники.';
@@ -313,7 +309,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get watchSourcesTorrentsSection => 'Торренты';
 
   @override
-  String get watchSourcesOnlineLoading => 'Ищем онлайн-источники';
+  String get watchSourcesOnlineLoading => 'Поиск онлайн-источников';
 
   @override
   String get watchSourcesOnlineLoadError => 'Онлайн-источники не ответили.';
@@ -338,7 +334,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get watchSourcesSearchHint => 'Поиск источников';
 
   @override
-  String get watchSourcesSearchEmpty => 'Ничего не найдено по вашему поиску.';
+  String get watchSourcesSearchEmpty => 'Ничего не найдено.';
 
   @override
   String get watchSourcesSortButton => 'Сортировка';
@@ -368,21 +364,19 @@ class AppLocalizationsRu extends AppLocalizations {
   String get playerSourceTitle => 'Выбор файла';
 
   @override
-  String get playerSourcePreparing => 'Подготавливаем файлы торрента';
+  String get playerSourcePreparing => 'Подготовка файлов торрента';
 
   @override
-  String get playerSourceUnsupported =>
-      'Этот источник не подходит для просмотра.';
+  String get playerSourceUnsupported => 'Источник не поддерживается.';
 
   @override
-  String get playerSourceUnableToPrepare =>
-      'Не удалось подготовить этот источник.';
+  String get playerSourceUnableToPrepare => 'Не удалось открыть источник.';
 
   @override
   String get playerSourceEpisodesTitle => 'Выбор серии';
 
   @override
-  String get playerSourceEpisodesPreparing => 'Загружаем серии';
+  String get playerSourceEpisodesPreparing => 'Загрузка серий';
 
   @override
   String playerEpisodeMinutes(int minutes) {
@@ -390,7 +384,7 @@ class AppLocalizationsRu extends AppLocalizations {
   }
 
   @override
-  String get playerPreparing => 'Подготавливаем видео';
+  String get playerPreparing => 'Подготовка видео';
 
   @override
   String get playerBuffering => 'Буферизация';
@@ -440,8 +434,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get playerUnableToStart => 'Не удалось начать воспроизведение.';
 
   @override
-  String get playerUnableToPrepareFirstFrame =>
-      'Поток открыт, но плеер не смог подготовить первый кадр.';
+  String get playerUnableToPrepareFirstFrame => 'Не удалось показать видео.';
 
   @override
   String get playerAudioTracksTitle => 'Аудио';
@@ -460,7 +453,7 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get playerScreenLocked =>
-      'Экран заблокирован, коснитесь, чтобы разблокировать';
+      'Экран заблокирован. Коснитесь, чтобы разблокировать';
 
   @override
   String get playerBrightness => 'Яркость';
@@ -470,7 +463,7 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get playerDecoderSettingsDescription =>
-      'Меняйте это, только если видео тормозит или показывает зелёные кадры на вашем устройстве. Текущий декодер видно в технических подробностях ниже.';
+      'Меняйте, если видео тормозит или отображается с артефактами.';
 
   @override
   String get playerDecoderAutoSafe => 'Авто (рекомендуется)';
@@ -511,7 +504,7 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get playerSubtitleLibassDescription =>
-      'Использует нативный рендер субтитров для лучшей совместимости с аниме-релизами.';
+      'Сохраняет шрифты, стили и положение надписей в ASS/SSA.';
 
   @override
   String get playerSubtitleSizeLabel => 'Размер';
@@ -541,11 +534,11 @@ class AppLocalizationsRu extends AppLocalizations {
   String get playerSubtitleSizeLarger => 'Крупнее';
 
   @override
-  String get playerSubtitleSizeLargest => 'Самый крупный';
+  String get playerSubtitleSizeLargest => 'Очень крупный';
 
   @override
   String get playerSubtitleOverrideHint =>
-      'Свой цвет, фон и положение заменяют оформление релиза: стилизованные надписи станут обычным текстом.';
+      'Свой цвет, фон или положение отключат стили релиза: надписи станут обычным текстом.';
 
   @override
   String get playerAdvancedTitle => 'Дополнительно';
@@ -566,7 +559,7 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get playerRestartHint =>
-      'Декодер и рендер ASS применяются перезапуском видео с того же места.';
+      'Смена декодера или рендера ASS перезапустит видео с того же места.';
 
   @override
   String get playerDecoderRestartHint =>
@@ -621,11 +614,10 @@ class AppLocalizationsRu extends AppLocalizations {
   String get playerTracksUnavailable => 'Нет доступных дорожек';
 
   @override
-  String get invalidRouteArgumentsMessage =>
-      'Этот экран был открыт с некорректными данными навигации.';
+  String get invalidRouteArgumentsMessage => 'Не удалось открыть страницу.';
 
   @override
-  String get playerPlayButton => 'Играть';
+  String get playerPlayButton => 'Воспроизвести';
 
   @override
   String get playerPauseButton => 'Пауза';
@@ -647,7 +639,7 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get savedTorrentsInvalidMagnet =>
-      'Это не magnet-ссылка с хэшем раздачи (xt=urn:btih:…).';
+      'Нужна magnet-ссылка с хэшем (xt=urn:btih:…).';
 
   @override
   String get savedTorrentsSaveButton => 'Сохранить';
@@ -679,18 +671,18 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String savedTorrentsOpenedOn(String date) {
-    return 'Открывали $date';
+    return 'Открыта $date';
   }
 
   @override
   String get downloadStorageClearCache => 'Очистить';
 
   @override
-  String get downloadsLoading => 'Загружаем список файлов';
+  String get downloadsLoading => 'Загрузка списка файлов';
 
   @override
   String get downloadDeleteFailed =>
-      'Не удалось удалить файлы. Закройте файл, если он открыт, и попробуйте снова';
+      'Не удалось удалить файлы. Возможно, один из них открыт.';
 
   @override
   String playerResumedFrom(String position) {
@@ -726,13 +718,13 @@ class AppLocalizationsRu extends AppLocalizations {
   String get playerPartEnding => 'Эндинг';
 
   @override
-  String get playerPartRecap => 'Пересказ';
+  String get playerPartRecap => 'Рекап';
 
   @override
   String get playerSkipOpening => 'Пропустить опенинг';
 
   @override
-  String get playerSkipRecap => 'Пропустить пересказ';
+  String get playerSkipRecap => 'Пропустить рекап';
 
   @override
   String playerSkipForward(int seconds) {
@@ -763,7 +755,7 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String watchProgressLastFile(String fileName) {
-    return 'Последняя: $fileName';
+    return 'Файл: $fileName';
   }
 
   @override
@@ -785,7 +777,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get recentlyWatchedTitle => 'Недавно смотрели';
 
   @override
-  String get watchSourceUsedBadge => 'Вы смотрели';
+  String get watchSourceUsedBadge => 'Смотрели';
 
   @override
   String get playerEpisodesTitle => 'Серии';
@@ -836,7 +828,7 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get playerPictureInPictureOff =>
-      'Картинка в картинке выключена для iris в настройках системы.';
+      'Картинка в картинке выключена для Iris в настройках системы.';
 
   @override
   String get playerPictureInPictureFailed => 'Не удалось открыть мини-плеер.';
@@ -942,7 +934,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get animeDetailsFactStatus => 'Статус';
 
   @override
-  String get animeDetailsFactEpisodes => 'Эпизоды';
+  String get animeDetailsFactEpisodes => 'Серии';
 
   @override
   String get animeDetailsFactScore => 'Оценка';
@@ -1037,19 +1029,19 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get profileSignInMessage =>
-      'Отмечайте просмотренное, следите за онгоингами и друзьями';
+      'Синхронизация списков, отметок серий и друзей с Шикимори';
 
   @override
-  String get profileSignInUnavailable => 'Вход не настроен в этой сборке';
+  String get profileSignInUnavailable => 'В этой сборке вход не настроен';
 
   @override
-  String get profileSigningIn => 'Ждём Шикимори';
+  String get profileSigningIn => 'Ожидание Шикимори';
 
   @override
-  String get profileSignInNetworkError => 'Нет ответа. Проверьте сеть.';
+  String get profileSignInNetworkError => 'Нет ответа от Шикимори.';
 
   @override
-  String get profileSignInRejected => 'Не удалось войти. Попробуйте ещё раз.';
+  String get profileSignInRejected => 'Не удалось войти.';
 
   @override
   String get profileSessionExpired => 'Сессия истекла. Войдите снова.';
@@ -1085,7 +1077,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get userRateEpisodeLess => 'На серию меньше';
 
   @override
-  String get userRateEpisodeMore => 'Ещё серия';
+  String get userRateEpisodeMore => 'На серию больше';
 
   @override
   String userRateEpisodesWatched(String count) {
@@ -1093,10 +1085,10 @@ class AppLocalizationsRu extends AppLocalizations {
   }
 
   @override
-  String get userRateLoadError => 'Список не загрузился.';
+  String get userRateLoadError => 'Не удалось загрузить список.';
 
   @override
-  String get userRateSaveError => 'Шикимори не сохранил изменение.';
+  String get userRateSaveError => 'Не удалось сохранить на Шикимори.';
 
   @override
   String userRateScore(int score) {
@@ -1186,7 +1178,7 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String animeNextEpisode(int episode, String when) {
-    return '$episode серия $when';
+    return 'Серия $episode · $when';
   }
 
   @override
@@ -1195,10 +1187,10 @@ class AppLocalizationsRu extends AppLocalizations {
   }
 
   @override
-  String get profileListLoadError => 'Список не загрузился.';
+  String get profileListLoadError => 'Не удалось загрузить список.';
 
   @override
-  String get profileListLoading => 'Загружаем список';
+  String get profileListLoading => 'Загрузка списка';
 
   @override
   String get profileFriendsTab => 'Друзья';
@@ -1207,10 +1199,10 @@ class AppLocalizationsRu extends AppLocalizations {
   String get profileFriendsEmpty => 'На Шикимори пока нет друзей.';
 
   @override
-  String get profileFriendsLoadError => 'Друзья не загрузились.';
+  String get profileFriendsLoadError => 'Не удалось загрузить список друзей.';
 
   @override
-  String get profileFriendsLoading => 'Загружаем друзей';
+  String get profileFriendsLoading => 'Загрузка друзей';
 
   @override
   String get animeDetailsFriendsTitle => 'Друзья';
@@ -1222,7 +1214,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get appUpdateLater => 'Позже';
 
   @override
-  String get appUpdateOpenFailed => 'Не удалось открыть загрузку.';
+  String get appUpdateOpenFailed => 'Не удалось открыть ссылку на скачивание.';
 
   @override
   String get appUpdateNotificationTitle => 'Обновление Iris';
@@ -1233,11 +1225,11 @@ class AppLocalizationsRu extends AppLocalizations {
   }
 
   @override
-  String get appUpdateNoticeDownloading => 'Скачиваем';
+  String get appUpdateNoticeDownloading => 'Скачивание';
 
   @override
   String appUpdateNoticeDownloadingVersion(String version) {
-    return 'Скачиваем $version';
+    return 'Скачивание $version';
   }
 
   @override
@@ -1256,19 +1248,19 @@ class AppLocalizationsRu extends AppLocalizations {
   String get appUpdateNoticeFailed => 'Не удалось скачать';
 
   @override
-  String get appUpdateNoticeVerifying => 'Проверяем файл';
+  String get appUpdateNoticeVerifying => 'Проверка файла';
 
   @override
-  String get appUpdateNoticeInstalling => 'Открываем установщик';
+  String get appUpdateNoticeInstalling => 'Запуск установщика';
 
   @override
-  String get appUpdateNoticeRestarting => 'Перезапускаем Iris';
+  String get appUpdateNoticeRestarting => 'Перезапуск Iris';
 
   @override
   String get appUpdateWhatsNew => 'Что нового';
 
   @override
-  String get appUpdateNoNotes => 'Список изменений не указан.';
+  String get appUpdateNoNotes => 'Без описания изменений.';
 
   @override
   String get appUpdateCancelDownload => 'Отменить';
@@ -1301,14 +1293,13 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get appUpdateFailureNetwork =>
-      'Не удалось скачать обновление. Проверьте подключение.';
+      'Не удалось скачать обновление. Ошибка сети.';
 
   @override
   String get appUpdateFailureInvalidFile => 'Файл повреждён';
 
   @override
-  String get appUpdateFailureStorage =>
-      'Не удалось сохранить обновление. Проверьте свободное место.';
+  String get appUpdateFailureStorage => 'Не хватает места для обновления.';
 
   @override
   String get appUpdateFailureInstall => 'Не удалось открыть установщик.';
@@ -1378,12 +1369,12 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String playerMarked(int episode) {
-    return '$episode серия отмечена';
+    return 'Серия $episode отмечена';
   }
 
   @override
   String playerMarkOffer(int episode) {
-    return 'Отметить $episode серию на Шикимори?';
+    return 'Отметить серию $episode на Шикимори?';
   }
 
   @override
@@ -1391,7 +1382,7 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String playerMarkFailed(int episode) {
-    return 'Не удалось отметить $episode серию';
+    return 'Не удалось отметить серию $episode';
   }
 
   @override
@@ -1402,30 +1393,30 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String playerMarkUnset(int episode) {
-    return '$episode серия не отмечена';
+    return 'Серия $episode не отмечена';
   }
 
   @override
   String playerMarkWaiting(int episode) {
-    return 'Отметка $episode-й серии ждёт отправки';
+    return 'Серия $episode · ждёт отправки';
   }
 
   @override
   String playerMarkSyncFailed(int episode) {
-    return '$episode серия · ошибка синхронизации';
+    return 'Серия $episode · ошибка синхронизации';
   }
 
   @override
-  String get playerMarkConflict => 'Запись изменилась в списке';
+  String get playerMarkConflict => 'Запись уже изменилась на Шикимори';
 
   @override
-  String get playerMarkSaving => 'Отмечаем';
+  String get playerMarkSaving => 'Сохранение';
 
   @override
-  String get playerUnmarkSaving => 'Отменяем';
+  String get playerUnmarkSaving => 'Отмена отметки';
 
   @override
-  String get playerRestoreSaving => 'Возвращаем отметку';
+  String get playerRestoreSaving => 'Возврат отметки';
 
   @override
   String get playerMarkShortMarked => 'Отмечена';
@@ -1446,7 +1437,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get playerMarkShortConflict => 'Запись изменилась';
 
   @override
-  String get playerMarkShortRestoreSaving => 'Возвращаем';
+  String get playerMarkShortRestoreSaving => 'Возврат';
 
   @override
   String get playerMarkRestore => 'Вернуть';
@@ -1467,31 +1458,31 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String playerMarkNextPending(int current, int total) {
-    return 'Показать другую отметку: $current из $total';
+    return 'Следующая отметка: $current из $total';
   }
 
   @override
   String get profileSigningInHint =>
-      'Закончите вход в браузере. Если вернуться сюда раньше, вход отменится.';
+      'Завершите вход в браузере. Если вернуться раньше, он прервётся.';
 
   @override
   String get profileSignInPortBusy =>
-      'Порт 43821, нужный для входа, занят другой программой. Закройте её и попробуйте снова.';
+      'Порт 43821 для входа занят другой программой.';
 
   @override
   String get profileListTab => 'Список';
 
   @override
-  String get profileListEmptyHint => 'Статус ставится на странице аниме.';
+  String get profileListEmptyHint => 'Статус выбирается на странице аниме.';
 
   @override
   String profileListProgress(int watched, int total) {
-    return '$watched из $total эп.';
+    return '$watched из $total сер.';
   }
 
   @override
   String profileListWatched(int watched) {
-    return '$watched эп.';
+    return '$watched сер.';
   }
 
   @override
@@ -1501,11 +1492,10 @@ class AppLocalizationsRu extends AppLocalizations {
   String get savedTorrentsAddConfirm => 'Добавить';
 
   @override
-  String get savedTorrentsAdding => 'Добавляем раздачу';
+  String get savedTorrentsAdding => 'Добавление раздачи';
 
   @override
-  String get savedTorrentsSaveFailed =>
-      'Не удалось сохранить торрент. Попробуйте ещё раз.';
+  String get savedTorrentsSaveFailed => 'Не удалось сохранить раздачу.';
 
   @override
   String get savedTorrentsDeleted => 'Раздача удалена';
@@ -1524,7 +1514,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get commonUndo => 'Отменить';
 
   @override
-  String get userRateLoading => 'Загружаем мой список';
+  String get userRateLoading => 'Загрузка списка';
 
   @override
   String get downloadNoPeers => 'пока нет пиров';
@@ -1543,35 +1533,29 @@ class AppLocalizationsRu extends AppLocalizations {
   }
 
   @override
-  String get downloadFailedNoSpace =>
-      'На устройстве кончилось место. Освободите его и повторите.';
+  String get downloadFailedNoSpace => 'Нет места на диске';
 
   @override
-  String get downloadFailedNoAccess =>
-      'Приложению нельзя писать в папку загрузок.';
+  String get downloadFailedNoAccess => 'Нет доступа к папке загрузок';
 
   @override
-  String get downloadFailedFileMissing =>
-      'Файл пропал с устройства. Повторите, чтобы скачать заново.';
+  String get downloadFailedFileMissing => 'Файл не найден';
 
   @override
-  String get downloadFailedCouldNotStart =>
-      'Загрузка не началась. Проверьте интернет и повторите.';
+  String get downloadFailedCouldNotStart => 'Не удалось начать загрузку';
 
   @override
   String get downloadSelectionEpisodeTitle => 'Скачать серии';
 
   @override
-  String get downloadFailedConnectionLost =>
-      'Сервер с видео перестал отвечать. Повторите — загрузка продолжится с того же места.';
+  String get downloadFailedConnectionLost => 'Потеряно соединение с сервером';
 
   @override
-  String get downloadFailedNotDownloadable =>
-      'Эту озвучку не скачать, её можно только смотреть онлайн.';
+  String get downloadFailedNotDownloadable => 'Доступно только онлайн';
 
   @override
   String downloadDeleteProgressLost(String size) {
-    return 'Уже скачанные $size пропадут.';
+    return 'Скачанные $size будут удалены.';
   }
 
   @override
@@ -1608,8 +1592,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get savedTorrentsFileTooLarge => 'Файл слишком большой для торрента.';
 
   @override
-  String get savedTorrentsFileReadFailed =>
-      'Не удалось прочитать файл. Попробуйте ещё раз.';
+  String get savedTorrentsFileReadFailed => 'Не удалось прочитать файл.';
 
   @override
   String get savedTorrentsFromFile => 'из файла';
@@ -1645,8 +1628,7 @@ class AppLocalizationsRu extends AppLocalizations {
   }
 
   @override
-  String get downloadTitleEmpty =>
-      'На устройстве больше нет серий этого тайтла.';
+  String get downloadTitleEmpty => 'Скачанных серий этого аниме нет.';
 
   @override
   String downloadEpisodeLabel(String number) {
@@ -1691,7 +1673,7 @@ class AppLocalizationsRu extends AppLocalizations {
   }
 
   @override
-  String get searchRecentEmpty => 'Недавние запросы появятся здесь.';
+  String get searchRecentEmpty => 'Недавних запросов пока нет.';
 
   @override
   String get searchRecentClear => 'Очистить историю';
@@ -1750,10 +1732,11 @@ class AppLocalizationsRu extends AppLocalizations {
   }
 
   @override
-  String get downloadDeleteUnfinished => 'Незавершённые загрузки отменятся.';
+  String get downloadDeleteUnfinished =>
+      'Незавершённые загрузки будут отменены.';
 
   @override
-  String get downloadDeleting => 'Удаляем';
+  String get downloadDeleting => 'Удаление';
 
   @override
   String downloadDeleteSelectionFailed(int count) {
@@ -1826,8 +1809,7 @@ class AppLocalizationsRu extends AppLocalizations {
   }
 
   @override
-  String get playerSourceQueueFailed =>
-      'Не удалось добавить в очередь. Попробуйте ещё раз.';
+  String get playerSourceQueueFailed => 'Не удалось добавить в очередь.';
 
   @override
   String get playerSourceUnwatched => 'Не просмотрено';
@@ -1912,16 +1894,16 @@ class AppLocalizationsRu extends AppLocalizations {
   String get settingsAccountSignedOut => 'Не подключён';
 
   @override
-  String get settingsCheckingSession => 'Проверяем сессию';
+  String get settingsCheckingSession => 'Проверка сессии';
 
   @override
-  String get settingsSigningIn => 'Входим';
+  String get settingsSigningIn => 'Вход';
 
   @override
   String get settingsAnimejoySignedIn => 'Подключён';
 
   @override
-  String get settingsAnimejoyUnverified => 'Сессия не подтверждена';
+  String get settingsAnimejoyUnverified => 'Не удалось проверить сессию';
 
   @override
   String get settingsAnimejoyExpired => 'Сессия истекла. Войдите снова.';
@@ -1955,7 +1937,7 @@ class AppLocalizationsRu extends AppLocalizations {
       'Неверный логин или пароль';
 
   @override
-  String get settingsAnimejoyErrorNetwork => 'Нет ответа. Проверьте сеть.';
+  String get settingsAnimejoyErrorNetwork => 'Нет ответа от AnimeJoy.';
 
   @override
   String get settingsAnimejoyErrorUnavailable => 'Вход сейчас недоступен';
@@ -2015,7 +1997,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get settingsAnimeTitleLanguageLabel => 'Названия аниме';
 
   @override
-  String get settingsAnimeTitleLanguageAuto => 'По языку';
+  String get settingsAnimeTitleLanguageAuto => 'Авто';
 
   @override
   String get settingsAnimeTitleLanguageRussian => 'Русские';
@@ -2027,7 +2009,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get settingsAnimeTitleLanguageEnglish => 'Английские';
 
   @override
-  String get settingsEpisodeListLayoutLabel => 'Список серий';
+  String get settingsEpisodeListLayoutLabel => 'Вид серий';
 
   @override
   String get settingsEpisodeListLayoutAuto => 'Авто';
@@ -2048,7 +2030,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get settingsCheckUpdates => 'Проверить';
 
   @override
-  String get settingsUpdateChecking => 'Проверяем';
+  String get settingsUpdateChecking => 'Проверка';
 
   @override
   String get settingsUpdateUpToDate => 'Актуальная версия';

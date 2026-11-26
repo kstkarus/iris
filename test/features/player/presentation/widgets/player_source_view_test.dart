@@ -308,10 +308,7 @@ void main() {
 
     await tester.pumpWidget(_wrap(cubit: cubit));
 
-    expect(
-      find.text('This source is not suitable for playback.'),
-      findsOneWidget,
-    );
+    expect(find.text('Unsupported source.'), findsOneWidget);
   });
   testWidgets(
     'shows Tenrai titles and filler/recap tags on rows and the continue card',

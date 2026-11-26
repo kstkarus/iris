@@ -117,7 +117,7 @@ void main() {
       tester,
       find.byKey(const Key('saved_torrent_watch_button')),
     );
-    await pumpUntilVisible(tester, find.text('Choose File'));
+    await pumpUntilVisible(tester, find.text('Choose file'));
     await tester.pumpAndSettle();
     await _tapVisible(tester, find.byKey(const ValueKey('player_episode_0')));
     await pumpUntilVisible(tester, _playerSurface);

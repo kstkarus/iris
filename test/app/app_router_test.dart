@@ -40,10 +40,7 @@ void main() {
       router.goNamed(route, extra: 'bad');
       await tester.pumpAndSettle();
 
-      expect(
-        find.text('This screen was opened with invalid navigation data.'),
-        findsOneWidget,
-      );
+      expect(find.text('Couldn’t open this screen.'), findsOneWidget);
     });
   }
 

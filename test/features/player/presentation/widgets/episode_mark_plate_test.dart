@@ -177,7 +177,7 @@ void main() {
     await tester.tap(find.byKey(const Key('player_mark_toggle')));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
-    expect(find.text('Try Again'), findsOneWidget);
+    expect(find.text('Try again'), findsOneWidget);
   });
 
   testWidgets('fits the available width with double text size', (tester) async {

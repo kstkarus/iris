@@ -23,7 +23,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get downloadFilesTemporaryBusy =>
-      'The player is using these files. You can clear them after playback.';
+      'Stop playback to clear these files.';
 
   @override
   String get downloadFilesClearTemporary => 'Clear temporary files';
@@ -35,8 +35,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get downloadFilesTemporaryCleared => 'Temporary files deleted';
 
   @override
-  String get downloadFilesClearFailed =>
-      'Unable to delete temporary files. Try again.';
+  String get downloadFilesClearFailed => 'Couldn’t delete temporary files.';
 
   @override
   String get downloadFilesSaved => 'Downloaded episodes';
@@ -69,18 +68,16 @@ class AppLocalizationsEn extends AppLocalizations {
   String get downloadQueueChanged => 'Download order changed';
 
   @override
-  String get downloadQueueReorderFailed =>
-      'Unable to change download order. Try again.';
+  String get downloadQueueReorderFailed => 'Couldn’t reorder the queue.';
 
   @override
   String get downloadQueuePaused => 'Paused';
 
   @override
-  String get downloadQueueAttention => 'Needs attention';
+  String get downloadQueueAttention => 'Failed';
 
   @override
-  String get downloadQueueFinished =>
-      'All downloads are complete. Your episodes are in the library.';
+  String get downloadQueueFinished => 'All downloads finished.';
 
   @override
   String get downloadQueueNoWaiting => 'No episodes waiting.';
@@ -99,7 +96,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get appName => 'Iris';
 
   @override
-  String get commonRetry => 'Try Again';
+  String get commonRetry => 'Try again';
 
   @override
   String get commonSignIn => 'Sign in';
@@ -176,8 +173,7 @@ class AppLocalizationsEn extends AppLocalizations {
       'Download progress for episodes and app updates';
 
   @override
-  String get downloadFailedMessage =>
-      'The torrent stopped with an error. Try again later.';
+  String get downloadFailedMessage => 'Download failed';
 
   @override
   String get downloadWatchButton => 'Watch';
@@ -199,7 +195,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String downloadDeleteMessage(String name) {
-    return '“$name” will be removed from the device.';
+    return '“$name” will be removed from this device.';
   }
 
   @override
@@ -246,13 +242,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get animeListLoadError => 'Unable to load anime list.';
 
   @override
-  String get animeListLoadMoreError => 'Unable to load more anime.';
+  String get animeListLoadMoreError => 'Couldn’t load more.';
 
   @override
   String get animeListSearchHint => 'Search anime';
 
   @override
-  String get animeListFilterSortButton => 'Filter & Sort';
+  String get animeListFilterSortButton => 'Filter & sort';
 
   @override
   String get animeListSortSectionTitle => 'Sort';
@@ -270,7 +266,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get animeListSortScore => 'Score';
 
   @override
-  String get animeListSortAiredOn => 'Aired On';
+  String get animeListSortAiredOn => 'Release date';
 
   @override
   String get animeListResetButton => 'Reset';
@@ -282,13 +278,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get animeListSearchEmpty => 'No anime found for your search.';
 
   @override
-  String get animeListCriteriaEmpty => 'Nothing found for selected criteria.';
+  String get animeListCriteriaEmpty => 'Nothing matches these filters.';
 
   @override
-  String get animeDetailsLoading => 'Loading anime details';
+  String get animeDetailsLoading => 'Loading anime';
 
   @override
-  String get animeDetailsLoadError => 'Unable to load anime details.';
+  String get animeDetailsLoadError => 'Couldn’t load anime.';
 
   @override
   String get watchSourcesTitle => 'Watch sources';
@@ -334,7 +330,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get watchSourcesSearchHint => 'Search sources';
 
   @override
-  String get watchSourcesSearchEmpty => 'No sources match your search.';
+  String get watchSourcesSearchEmpty => 'No matching sources.';
 
   @override
   String get watchSourcesSortButton => 'Sort';
@@ -361,17 +357,16 @@ class AppLocalizationsEn extends AppLocalizations {
   String get watchSourcesSortTitle => 'Title';
 
   @override
-  String get playerSourceTitle => 'Choose File';
+  String get playerSourceTitle => 'Choose file';
 
   @override
   String get playerSourcePreparing => 'Preparing torrent files';
 
   @override
-  String get playerSourceUnsupported =>
-      'This source is not suitable for playback.';
+  String get playerSourceUnsupported => 'Unsupported source.';
 
   @override
-  String get playerSourceUnableToPrepare => 'Unable to prepare this source.';
+  String get playerSourceUnableToPrepare => 'Couldn’t open this source.';
 
   @override
   String get playerSourceEpisodesTitle => 'Choose an episode';
@@ -433,8 +428,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get playerUnableToStart => 'Unable to start playback.';
 
   @override
-  String get playerUnableToPrepareFirstFrame =>
-      'The stream is open, but the player could not prepare the first frame.';
+  String get playerUnableToPrepareFirstFrame => 'Couldn’t display video.';
 
   @override
   String get playerAudioTracksTitle => 'Audio';
@@ -452,7 +446,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get playerUnlockScreen => 'Unlock';
 
   @override
-  String get playerScreenLocked => 'Screen locked, tap to unlock';
+  String get playerScreenLocked => 'Screen locked. Tap to unlock';
 
   @override
   String get playerBrightness => 'Brightness';
@@ -462,7 +456,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get playerDecoderSettingsDescription =>
-      'Change this only if video stutters or shows green frames on your device. Technical details below show the decoder in use.';
+      'Only change if video stutters or glitches.';
 
   @override
   String get playerDecoderAutoSafe => 'Auto (recommended)';
@@ -496,14 +490,14 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get playerSubtitleAppearanceTitle => 'Subtitle Appearance';
+  String get playerSubtitleAppearanceTitle => 'Subtitle appearance';
 
   @override
   String get playerSubtitleLibassLabel => 'Improved ASS/SSA rendering';
 
   @override
   String get playerSubtitleLibassDescription =>
-      'Uses native subtitle rendering for better compatibility with anime releases.';
+      'Preserves ASS/SSA fonts, styles, and positioned signs.';
 
   @override
   String get playerSubtitleSizeLabel => 'Size';
@@ -537,7 +531,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get playerSubtitleOverrideHint =>
-      'A custom colour, background or position replaces the release\'s styling: styled signs become plain text.';
+      'A custom color, background, or position replaces the release’s styling: styled signs become plain text.';
 
   @override
   String get playerAdvancedTitle => 'Advanced';
@@ -558,7 +552,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get playerRestartHint =>
-      'The decoder and ASS rendering apply by restarting the video where it is.';
+      'Changing the decoder or ASS rendering restarts playback at the current position.';
 
   @override
   String get playerDecoderRestartHint =>
@@ -613,8 +607,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get playerTracksUnavailable => 'Not available';
 
   @override
-  String get invalidRouteArgumentsMessage =>
-      'This screen was opened with invalid navigation data.';
+  String get invalidRouteArgumentsMessage => 'Couldn’t open this screen.';
 
   @override
   String get playerPlayButton => 'Play';
@@ -682,7 +675,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get downloadDeleteFailed =>
-      'Unable to delete the files. Close the file if it is open and try again';
+      'Couldn’t delete the files. One may still be open.';
 
   @override
   String playerResumedFrom(String position) {
@@ -777,7 +770,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get recentlyWatchedTitle => 'Recently watched';
 
   @override
-  String get watchSourceUsedBadge => 'You watched this';
+  String get watchSourceUsedBadge => 'Watched';
 
   @override
   String get playerEpisodesTitle => 'Episodes';
@@ -829,10 +822,10 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get playerPictureInPictureOff =>
-      'Picture in picture is turned off for iris in the system settings.';
+      'Picture in picture is turned off for Iris in system settings.';
 
   @override
-  String get playerPictureInPictureFailed => 'Couldn\'t open the mini player.';
+  String get playerPictureInPictureFailed => 'Couldn’t open the mini player.';
 
   @override
   String get playerRestoreFromPictureInPicture => 'Restore player';
@@ -946,10 +939,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get animeDetailsDescriptionTitle => 'Synopsis';
 
   @override
-  String get animeDetailsShowCover => 'Show the original cover';
+  String get animeDetailsShowCover => 'Show original cover';
 
   @override
-  String get animeDetailsShowHalftone => 'Show the halftone';
+  String get animeDetailsShowHalftone => 'Show halftone';
 
   @override
   String get watchSourcesColumnRelease => 'Release';
@@ -1024,7 +1017,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get profileSignInMessage =>
-      'Track what you\'ve watched and keep up with airing anime and friends';
+      'Sync your lists, episode progress, and friends from Shikimori';
 
   @override
   String get profileSignInUnavailable => 'Sign-in is not set up in this build';
@@ -1033,10 +1026,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get profileSigningIn => 'Waiting for Shikimori';
 
   @override
-  String get profileSignInNetworkError => 'No response. Check your connection.';
+  String get profileSignInNetworkError => 'No response from Shikimori.';
 
   @override
-  String get profileSignInRejected => 'Couldn’t sign in. Try again.';
+  String get profileSignInRejected => 'Couldn’t sign in.';
 
   @override
   String get profileSessionExpired => 'Session expired. Sign in again.';
@@ -1080,10 +1073,10 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get userRateLoadError => 'Your list did not load.';
+  String get userRateLoadError => 'Couldn’t load list.';
 
   @override
-  String get userRateSaveError => 'Shikimori did not save the change.';
+  String get userRateSaveError => 'Couldn’t save to Shikimori.';
 
   @override
   String userRateScore(int score) {
@@ -1180,10 +1173,10 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get profileListLoadError => 'The list did not load.';
+  String get profileListLoadError => 'Couldn’t load list.';
 
   @override
-  String get profileListLoading => 'Loading the list';
+  String get profileListLoading => 'Loading list';
 
   @override
   String get profileFriendsTab => 'Friends';
@@ -1192,7 +1185,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get profileFriendsEmpty => 'No friends on Shikimori yet.';
 
   @override
-  String get profileFriendsLoadError => 'Friends did not load.';
+  String get profileFriendsLoadError => 'Couldn’t load friends.';
 
   @override
   String get profileFriendsLoading => 'Loading friends';
@@ -1207,7 +1200,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get appUpdateLater => 'Later';
 
   @override
-  String get appUpdateOpenFailed => 'Could not open the download.';
+  String get appUpdateOpenFailed => 'Couldn’t open the download link.';
 
   @override
   String get appUpdateNotificationTitle => 'Iris update';
@@ -1250,10 +1243,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get appUpdateNoticeRestarting => 'Restarting Iris';
 
   @override
-  String get appUpdateWhatsNew => 'What\'s new';
+  String get appUpdateWhatsNew => 'What’s new';
 
   @override
-  String get appUpdateNoNotes => 'No release notes were provided.';
+  String get appUpdateNoNotes => 'No release notes.';
 
   @override
   String get appUpdateCancelDownload => 'Cancel';
@@ -1286,17 +1279,16 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get appUpdateFailureNetwork =>
-      'Couldn\'t download the update. Check your connection.';
+      'Couldn’t download the update. Network error.';
 
   @override
   String get appUpdateFailureInvalidFile => 'File damaged';
 
   @override
-  String get appUpdateFailureStorage =>
-      'Couldn\'t save the update. Check available storage.';
+  String get appUpdateFailureStorage => 'Not enough storage for the update.';
 
   @override
-  String get appUpdateFailureInstall => 'Couldn\'t open the installer.';
+  String get appUpdateFailureInstall => 'Couldn’t open the installer.';
 
   @override
   String get appUpdateFailurePermission =>
@@ -1326,7 +1318,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get charactersEmpty => 'No characters are listed.';
 
   @override
-  String get characterLoading => 'Loading the character';
+  String get characterLoading => 'Loading character';
 
   @override
   String get characterLoadError => 'Unable to load the character.';
@@ -1452,22 +1444,21 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String playerMarkNextPending(int current, int total) {
-    return 'Show another mark: $current of $total';
+    return 'Next mark: $current of $total';
   }
 
   @override
   String get profileSigningInHint =>
-      'Finish signing in in the browser. Coming back here before that cancels it.';
+      'Complete sign-in in your browser. Returning early cancels it.';
 
   @override
-  String get profileSignInPortBusy =>
-      'Another program holds port 43821, which sign-in needs. Close it and try again.';
+  String get profileSignInPortBusy => 'Port 43821 is in use by another app.';
 
   @override
   String get profileListTab => 'List';
 
   @override
-  String get profileListEmptyHint => 'The status is set on an anime’s page.';
+  String get profileListEmptyHint => 'Set a status from an anime’s page.';
 
   @override
   String profileListProgress(int watched, int total) {
@@ -1489,8 +1480,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get savedTorrentsAdding => 'Adding torrent';
 
   @override
-  String get savedTorrentsSaveFailed =>
-      'Couldn\'t save the torrent. Try again.';
+  String get savedTorrentsSaveFailed => 'Couldn’t save the torrent.';
 
   @override
   String get savedTorrentsDeleted => 'Torrent deleted';
@@ -1509,7 +1499,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get commonUndo => 'Undo';
 
   @override
-  String get userRateLoading => 'Loading my list';
+  String get userRateLoading => 'Loading list';
 
   @override
   String get downloadNoPeers => 'no peers yet';
@@ -1528,35 +1518,29 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get downloadFailedNoSpace =>
-      'The device ran out of space. Free some up and try again.';
+  String get downloadFailedNoSpace => 'Out of storage space';
 
   @override
-  String get downloadFailedNoAccess =>
-      'The app may not write to the downloads folder.';
+  String get downloadFailedNoAccess => 'Can’t write to downloads folder';
 
   @override
-  String get downloadFailedFileMissing =>
-      'The file is gone from the device. Try again to download it anew.';
+  String get downloadFailedFileMissing => 'File not found';
 
   @override
-  String get downloadFailedCouldNotStart =>
-      'The download did not start. Check the connection and try again.';
+  String get downloadFailedCouldNotStart => 'Couldn’t start download';
 
   @override
   String get downloadSelectionEpisodeTitle => 'Download episodes';
 
   @override
-  String get downloadFailedConnectionLost =>
-      'The video server stopped answering. Try again to pick up where it stopped.';
+  String get downloadFailedConnectionLost => 'Connection to server lost';
 
   @override
-  String get downloadFailedNotDownloadable =>
-      'This dub can\'t be downloaded, only watched online.';
+  String get downloadFailedNotDownloadable => 'Streaming only';
 
   @override
   String downloadDeleteProgressLost(String size) {
-    return 'The $size downloaded so far will be lost.';
+    return '$size already downloaded will be deleted.';
   }
 
   @override
@@ -1594,8 +1578,7 @@ class AppLocalizationsEn extends AppLocalizations {
       'This file is too large to be a torrent.';
 
   @override
-  String get savedTorrentsFileReadFailed =>
-      'Couldn\'t read the file. Try again.';
+  String get savedTorrentsFileReadFailed => 'Couldn’t read the file.';
 
   @override
   String get savedTorrentsFromFile => 'from a file';
@@ -1668,7 +1651,7 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get searchRecentEmpty => 'Your recent searches will appear here.';
+  String get searchRecentEmpty => 'No recent searches yet.';
 
   @override
   String get searchRecentClear => 'Clear history';
@@ -1726,7 +1709,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get downloadDeleteUnfinished =>
-      'Unfinished downloads will be cancelled.';
+      'Unfinished downloads will be canceled.';
 
   @override
   String get downloadDeleting => 'Deleting';
@@ -1796,7 +1779,7 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get playerSourceQueueFailed => 'Couldn’t add to the queue. Try again.';
+  String get playerSourceQueueFailed => 'Couldn’t add to the queue.';
 
   @override
   String get playerSourceUnwatched => 'Unwatched';
@@ -1920,8 +1903,7 @@ class AppLocalizationsEn extends AppLocalizations {
       'Wrong username or password';
 
   @override
-  String get settingsAnimejoyErrorNetwork =>
-      'No response. Check your connection.';
+  String get settingsAnimejoyErrorNetwork => 'No response from AnimeJoy.';
 
   @override
   String get settingsAnimejoyErrorUnavailable => 'Sign-in unavailable';
@@ -1981,7 +1963,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsAnimeTitleLanguageLabel => 'Anime titles';
 
   @override
-  String get settingsAnimeTitleLanguageAuto => 'App language';
+  String get settingsAnimeTitleLanguageAuto => 'Auto';
 
   @override
   String get settingsAnimeTitleLanguageRussian => 'Russian';
