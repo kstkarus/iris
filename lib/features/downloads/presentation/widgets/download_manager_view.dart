@@ -27,7 +27,6 @@ import 'package:iris/shared/utils/byte_size_formatter.dart';
 import 'package:iris/shared/utils/desktop_platform.dart';
 import 'package:iris/shared/utils/duration_formatter.dart';
 import 'package:iris/shared/utils/motion_duration.dart';
-import 'package:iris/shared/widgets/adaptive/show_app_dialog.dart';
 import 'package:iris/shared/widgets/adaptive/window_size_class.dart';
 import 'package:iris/shared/widgets/busy_button_child.dart';
 import 'package:iris/shared/widgets/detail_layout.dart';
@@ -35,7 +34,6 @@ import 'package:iris/shared/widgets/dither_list.dart';
 import 'package:iris/shared/widgets/dither_switcher.dart';
 import 'package:iris/shared/widgets/focusable_list_row.dart';
 import 'package:iris/shared/widgets/pixel_icon.dart';
-import 'package:iris/shared/widgets/pixel_separated_text.dart';
 import 'package:iris/shared/widgets/quality_badge.dart';
 import 'package:iris/shared/widgets/row_menu_button.dart';
 import 'package:iris/shared/widgets/segmented_bar.dart';
@@ -448,117 +446,6 @@ class _DownloadsMenuState extends State<_DownloadsMenu> {
             },
             child: Text(asksForMore(l10n.downloadDeleteAll)),
           ),
-      ],
-    );
-  }
-}
-
-Future<void> _showDownloadStatus(
-  BuildContext context, {
-  required String itemId,
-}) async {
-  final cubit = context.read<DownloadManagerCubit>();
-  await showAppDialog<void>(
-    context: context,
-    builder: (context) => BlocProvider<DownloadManagerCubit>.value(
-      value: cubit,
-      child: _DownloadStatusDialog(itemId: itemId),
-    ),
-  );
-}
-
-class _DownloadStatusDialog extends StatelessWidget {
-  const _DownloadStatusDialog({required this.itemId});
-
-  final String itemId;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    return AlertDialog(
-      key: const Key('download_status_dialog'),
-      scrollable: true,
-      title: Text(l10n.downloadStatusDetails),
-      content: SizedBox(
-        width: 560,
-        child: BlocBuilder<DownloadManagerCubit, DownloadManagerState>(
-          builder: (context, state) {
-            final item = state.downloads
-                .where((item) => item.id == itemId)
-                .firstOrNull;
-            if (item == null) {
-              return Text(
-                l10n.downloadTitleEmpty,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  fontFamily: DetailLayout.sansFont,
-                ),
-              );
-            }
-            final number = downloadEpisodeNumber(item);
-            final factsText = _facts(l10n, item);
-            final factsSans = theme.textTheme.bodySmall?.copyWith(
-              fontFamily: DetailLayout.sansFont,
-              color: scheme.onSurfaceVariant,
-            );
-            final factsMono = DetailLayout.monoTelemetryStyle(
-              theme.textTheme.bodySmall,
-              color: scheme.onSurfaceVariant,
-            );
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (number != null) ...[
-                  Text(
-                    l10n.downloadEpisodeLabel(
-                      number.toString().padLeft(2, '0'),
-                    ),
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      fontFamily: DetailLayout.sansFont,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                ],
-                Text(
-                  downloadStatusLabel(l10n, item.status),
-                  style: theme.textTheme.labelLarge?.copyWith(
-                    fontFamily: DetailLayout.sansFont,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                if (factsText.isNotEmpty) ...[
-                  const SizedBox(height: 4),
-                  PixelSeparatedText.spans([
-                    for (final part in factsText.split(' · '))
-                      DetailLayout.mixedDataSpan(
-                        part,
-                        sansStyle: factsSans,
-                        monoStyle: factsMono,
-                      ),
-                  ], style: factsSans),
-                ],
-                if (item.failure case final failure?) ...[
-                  const SizedBox(height: 8),
-                  Text(
-                    downloadFailureMessage(l10n, failure),
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      fontFamily: DetailLayout.sansFont,
-                      color: scheme.error,
-                    ),
-                  ),
-                ],
-              ],
-            );
-          },
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: Text(MaterialLocalizations.of(context).closeButtonTooltip),
-        ),
       ],
     );
   }
@@ -1156,13 +1043,14 @@ class _DownloadRowState extends State<_DownloadRow> {
       ),
     };
     final statusLabel = downloadStatusLabel(l10n, status);
-    final inlineDetail = status == DownloadStatus.downloading
-        ? item.totalBytes > 0
-              ? '${(progress * 100).round()}%'
-              : statusLabel
-        : status == DownloadStatus.completed
-        ? null
-        : statusLabel;
+    final inlineDetail = switch (status) {
+      DownloadStatus.downloading =>
+        item.totalBytes > 0 ? '${(progress * 100).round()}%' : statusLabel,
+      DownloadStatus.completed => null,
+      DownloadStatus.failed =>
+        failure != null ? downloadFailureMessage(l10n, failure) : statusLabel,
+      _ => statusLabel,
+    };
     final numericProgress =
         status == DownloadStatus.downloading && item.totalBytes > 0;
     final detailColor = switch ((status, numericProgress)) {
@@ -1191,9 +1079,15 @@ class _DownloadRowState extends State<_DownloadRow> {
       ),
       _ => null,
     };
-    final speedDetail =
+    final noPeers =
         status == DownloadStatus.downloading &&
-            item.downloadRateBytesPerSecond > 0
+        !item.isOnline &&
+        item.peers == 0 &&
+        item.downloadRateBytesPerSecond == 0;
+    final speedDetail = noPeers
+        ? l10n.downloadNoPeers
+        : status == DownloadStatus.downloading &&
+              item.downloadRateBytesPerSecond > 0
         ? formatTransferRate(l10n, item.downloadRateBytesPerSecond)
         : null;
     final watchTimeText = partialWatch
@@ -1252,7 +1146,7 @@ class _DownloadRowState extends State<_DownloadRow> {
       if (inlineDetail != null)
         Text(
           inlineDetail,
-          maxLines: 1,
+          maxLines: status == DownloadStatus.failed ? 2 : 1,
           overflow: TextOverflow.ellipsis,
           style: numericProgress
               ? detailMono?.copyWith(
@@ -1273,7 +1167,7 @@ class _DownloadRowState extends State<_DownloadRow> {
           speedDetail,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: detailMono,
+          style: noPeers ? detailSans : detailMono,
         ),
       if (watchTimeText != null)
         Text(
@@ -1289,14 +1183,6 @@ class _DownloadRowState extends State<_DownloadRow> {
     final hasMetadata = metadataItems.isNotEmpty;
 
     final menuChildren = [
-      if (!completed)
-        MenuItemButton(
-          key: const Key('download_status'),
-          onPressed: widget.disabled
-              ? null
-              : () => _showDownloadStatus(context, itemId: item.id),
-          child: Text(l10n.downloadStatusDetails),
-        ),
       MenuItemButton(
         key: const Key('download_delete'),
         onPressed: widget.disabled ? null : () => _confirmDelete(context, name),
@@ -1320,8 +1206,6 @@ class _DownloadRowState extends State<_DownloadRow> {
           ? widget.onSelect
           : completed
           ? () => widget.onWatch(item)
-          : status == DownloadStatus.failed
-          ? () => _showDownloadStatus(context, itemId: item.id)
           : null,
       onLongPress: widget.disabled || widget.selecting
           ? null
@@ -1511,54 +1395,6 @@ class _DownloadRowState extends State<_DownloadRow> {
   Future<void> _confirmDelete(BuildContext context, String name) async {
     await confirmDownloadDeletion(context, [widget.item], name);
   }
-}
-
-/// Sizes, and while downloading how long is left at what speed; peers
-/// only when there are none, which is why it stands. An online episode has
-/// no peers, and its size is a guess (`~`) until it is done, or unknown
-/// before it starts.
-String _facts(AppLocalizations l10n, DownloadItem item) {
-  final finished = item.status == DownloadStatus.completed;
-  final total = item.totalBytes <= 0
-      ? null
-      : [
-          if (item.isOnline && !finished) '~',
-          formatByteSize(l10n, item.totalBytes),
-        ].join();
-  final loaded = [formatByteSize(l10n, item.downloadedBytes), ?total];
-  final facts = switch (item.status) {
-    DownloadStatus.completed => total ?? '',
-    // Nothing of it is here yet: only how big it will be.
-    DownloadStatus.queued when item.downloadedBytes == 0 => total ?? '',
-    DownloadStatus.downloading => [
-      if (item.totalBytes > 0)
-        '${(downloadDisplayProgress(item) * 100).round()}%',
-      if (item.totalBytes > 0)
-        loaded.join(' / ')
-      else if (item.downloadedBytes > 0)
-        formatByteSize(l10n, item.downloadedBytes),
-      if (item.peers == 0 && !item.isOnline)
-        l10n.downloadNoPeers
-      else ...[
-        ?_timeLeft(l10n, item),
-        formatTransferRate(l10n, item.downloadRateBytesPerSecond),
-      ],
-    ].join(' · '),
-    _ => loaded.join(' / '),
-  };
-  return facts;
-}
-
-/// "~3 min" at the current speed; null while there is no speed to go by.
-String? _timeLeft(AppLocalizations l10n, DownloadItem item) {
-  final rate = item.downloadRateBytesPerSecond;
-  final left = item.totalBytes - item.downloadedBytes;
-  if (rate <= 0 || left <= 0) return null;
-  final seconds = left / rate;
-  if (seconds < 60) return l10n.downloadTimeLeftUnderMinute;
-  final minutes = (seconds / 60).ceil();
-  if (minutes < 60) return l10n.downloadTimeLeftMinutes(minutes);
-  return l10n.downloadTimeLeftHours(minutes ~/ 60, minutes % 60);
 }
 
 int _byEpisode(DownloadItem left, DownloadItem right) {

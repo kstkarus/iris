@@ -688,6 +688,122 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  test('downloadTitleProgress reflects the whole anime across torrent and '
+      'unsized online queues', () {
+    final onlineQueue = downloadTitles([
+      _libraryDownload(
+        id: 'on-1',
+        animeId: 'online',
+        animeTitle: 'Death Note',
+        fileName: 'Episode 01',
+        status: DownloadStatus.downloading,
+        downloadedBytes: 64,
+        totalBytes: 100,
+        createdAt: DateTime(2026, 10, 1),
+      ),
+      for (var i = 2; i <= 4; i++)
+        _libraryDownload(
+          id: 'on-$i',
+          animeId: 'online',
+          animeTitle: 'Death Note',
+          fileName: 'Episode 0$i',
+          status: DownloadStatus.queued,
+          downloadedBytes: 0,
+          totalBytes: 0,
+          createdAt: DateTime(2026, 10, i),
+        ),
+    ]).single;
+    expect(downloadTitleProgress(onlineQueue), closeTo(0.16, 0.001));
+
+    final torrentQueue = downloadTitles([
+      _libraryDownload(
+        id: 'tor-1',
+        animeId: 'torrent',
+        animeTitle: 'Frieren',
+        fileName: '01.mkv',
+        status: DownloadStatus.completed,
+        downloadedBytes: 500,
+        totalBytes: 500,
+        createdAt: DateTime(2026, 10, 1),
+      ),
+      _libraryDownload(
+        id: 'tor-2',
+        animeId: 'torrent',
+        animeTitle: 'Frieren',
+        fileName: '02.mkv',
+        status: DownloadStatus.downloading,
+        downloadedBytes: 250,
+        totalBytes: 500,
+        createdAt: DateTime(2026, 10, 2),
+      ),
+      _libraryDownload(
+        id: 'tor-3',
+        animeId: 'torrent',
+        animeTitle: 'Frieren',
+        fileName: '03.mkv',
+        status: DownloadStatus.queued,
+        downloadedBytes: 0,
+        totalBytes: 1000,
+        createdAt: DateTime(2026, 10, 3),
+      ),
+    ]).single;
+    expect(downloadTitleProgress(torrentQueue), closeTo(750 / 2000, 0.001));
+  });
+
+  testWidgets(
+    'desktop sidebar title omits bottom progress bar beside selection stripe',
+    (tester) async {
+      setTestWindowSize(tester, TestWindowSizes.desktop);
+      final items = [
+        _libraryDownload(
+          id: 'dl-1',
+          animeId: 'dn',
+          animeTitle: 'Death Note',
+          fileName: 'Episode 01',
+          status: DownloadStatus.downloading,
+          downloadedBytes: 64,
+          totalBytes: 100,
+          createdAt: DateTime(2026, 10, 1),
+        ),
+        _libraryDownload(
+          id: 'dl-2',
+          animeId: 'dn',
+          animeTitle: 'Death Note',
+          fileName: 'Episode 02',
+          status: DownloadStatus.queued,
+          downloadedBytes: 0,
+          totalBytes: 0,
+          createdAt: DateTime(2026, 10, 2),
+        ),
+      ];
+
+      await _pumpApp(
+        tester,
+        BlocProvider(
+          create: (_) => DownloadManagerCubit(
+            repository: _ScriptedDownloadsRepository(items),
+          )..load(),
+          child: DownloadManagerPage(
+            onWatch: (_) {},
+            onOpenTitle: (_) {},
+            onBrowseCatalog: () {},
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final sidebarOption = find.byType(DownloadPosterOption);
+      expect(sidebarOption, findsOneWidget);
+      expect(
+        find.descendant(
+          of: sidebarOption,
+          matching: find.byType(FractionallySizedBox),
+        ),
+        findsNothing,
+      );
+    },
+  );
+
   testWidgets(
     'phone title header survives resize, large text, and reduced motion',
     (tester) async {
@@ -968,19 +1084,6 @@ void main() {
       return repository;
     }
 
-    Future<void> openStatus(WidgetTester tester) async {
-      await tester.longPress(find.text('Episode 06'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const Key('download_status')));
-      await tester.pumpAndSettle();
-      expect(find.byKey(const Key('download_status_dialog')), findsOneWidget);
-    }
-
-    Finder statusText(String text) => find.descendant(
-      of: find.byKey(const Key('download_status_dialog')),
-      matching: find.textContaining(text),
-    );
-
     testWidgets('multiple releases retain their headings', (tester) async {
       final first = download().copyWith(
         id: 'first-release',
@@ -1259,22 +1362,9 @@ void main() {
         tester.platformDispatcher.textScaleFactorTestValue = 2;
         repository.push([item]);
         await tester.pumpAndSettle();
-        expect(tester.takeException(), isNull);
-        await tester.longPress(rowFor(tester, item.id));
-        await tester.pumpAndSettle();
-        await tester.tap(find.byKey(const Key('download_status')));
-        await tester.pumpAndSettle();
         expect(find.text('10:00:00 / 24:00:00'), findsOneWidget);
         expect(tester.takeException(), isNull);
       });
-    });
-
-    testWidgets('status shows transfer ETA', (tester) async {
-      await pump(tester, download());
-      expect(find.text('Episode 06'), findsOneWidget);
-      await openStatus(tester);
-
-      expect(statusText('~5 min left'), findsOneWidget);
     });
 
     testWidgets(
@@ -1325,27 +1415,42 @@ void main() {
       },
     );
 
-    testWidgets('status gives speed and sizes in full', (tester) async {
+    testWidgets('inline row shows speed and compact sizes', (tester) async {
       await pump(tester, download(rate: (12.3 * 1024 * 1024).round()));
-      await openStatus(tester);
+      final row = rowFor(tester, 'frieren-6');
 
-      expect(statusText('12 MB/s'), findsOneWidget);
-      expect(statusText('12.3'), findsNothing);
-      expect(statusText('300.0 MB / 600.0 MB'), findsOneWidget);
+      expect(
+        find.descendant(of: row, matching: find.textContaining('12 MB/s')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: row, matching: find.textContaining('12.3')),
+        findsNothing,
+      );
+      expect(
+        find.descendant(of: row, matching: find.text('300 MB / 600 MB')),
+        findsOneWidget,
+      );
     });
 
-    testWidgets('status names a missing swarm instead of zero speed', (
+    testWidgets('inline row names a missing swarm instead of zero speed', (
       tester,
     ) async {
       await pump(tester, download(rate: 0, peers: 0));
-      await openStatus(tester);
+      final row = rowFor(tester, 'frieren-6');
 
-      expect(statusText('no peers yet'), findsOneWidget);
-      expect(statusText('left'), findsNothing);
+      expect(
+        find.descendant(of: row, matching: find.text('no peers yet')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: row, matching: find.textContaining('/s')),
+        findsNothing,
+      );
     });
 
     testWidgets(
-      'status has online estimates and speed but no requested quality',
+      'inline row shows online estimates and speed without no-peers label',
       (tester) async {
         await pump(
           tester,
@@ -1355,12 +1460,20 @@ void main() {
             magnet: 'online:anilibria/9542?anime=52991',
           ),
         );
-        await openStatus(tester);
+        final row = rowFor(tester, 'frieren-6');
 
-        expect(statusText('no peers yet'), findsNothing);
-        expect(statusText('300.0 MB / ~600.0 MB'), findsOneWidget);
-        expect(statusText('MB/s'), findsOneWidget);
-        expect(statusText('1080p'), findsNothing);
+        expect(
+          find.descendant(of: row, matching: find.text('no peers yet')),
+          findsNothing,
+        );
+        expect(
+          find.descendant(of: row, matching: find.text('300 MB / ~600 MB')),
+          findsOneWidget,
+        );
+        expect(
+          find.descendant(of: row, matching: find.textContaining('MB/s')),
+          findsOneWidget,
+        );
       },
     );
 
@@ -1376,8 +1489,6 @@ void main() {
 
       expect(find.text('99%'), findsOneWidget);
       expect(find.byTooltip('Pause'), findsOneWidget);
-      await openStatus(tester);
-      expect(statusText('99%'), findsOneWidget);
     });
 
     testWidgets(
@@ -1405,22 +1516,14 @@ void main() {
           find.descendant(of: row, matching: find.textContaining('0 B')),
           findsNothing,
         );
-        await openStatus(tester);
-
-        // Unknown size must not become a fake zero size or zero-percent value.
         expect(
-          find.descendant(
-            of: find.byKey(const Key('download_status_dialog')),
-            matching: find.text('0 B'),
-          ),
+          find.descendant(of: row, matching: find.textContaining('~')),
           findsNothing,
         );
-        expect(statusText('0%'), findsNothing);
-        expect(statusText('~'), findsNothing);
       },
     );
 
-    testWidgets('paused watch history and live info survive the page scope', (
+    testWidgets('paused watch history and live progress update inline', (
       tester,
     ) async {
       final item = download(status: DownloadStatus.paused);
@@ -1464,20 +1567,25 @@ void main() {
         find.descendant(of: row, matching: find.text('12:34 / 24:00')),
         findsOneWidget,
       );
-
-      await openStatus(tester);
-      expect(find.text('12:34 / 24:00'), findsOneWidget);
-      expect(statusText('300.0 MB / 600.0 MB'), findsOneWidget);
+      expect(
+        find.descendant(of: row, matching: find.text('300 MB / 600 MB')),
+        findsOneWidget,
+      );
 
       repository.push([item.copyWith(downloadedBytes: 400 * 1024 * 1024)]);
       await tester.pumpAndSettle();
-      expect(statusText('400.0 MB / 600.0 MB'), findsOneWidget);
-      expect(statusText('300.0 MB / 600.0 MB'), findsNothing);
+      expect(
+        find.descendant(of: row, matching: find.text('400 MB / 600 MB')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: row, matching: find.text('300 MB / 600 MB')),
+        findsNothing,
+      );
 
       repository.push([]);
       await tester.pumpAndSettle();
       expect(find.byType(FocusableListRow), findsNothing);
-      expect(statusText('No episodes remain on this device.'), findsOneWidget);
     });
 
     testWidgets('unknown watch duration shows only the current position', (
@@ -1531,20 +1639,24 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('status for a queued file shows its known size', (
-      tester,
-    ) async {
+    testWidgets('queued file row shows its known size inline', (tester) async {
       await pump(
         tester,
         download(status: DownloadStatus.queued, downloaded: 0, rate: 0),
       );
-      await openStatus(tester);
+      final row = rowFor(tester, 'frieren-6');
 
-      expect(statusText('0 B /'), findsNothing);
-      expect(statusText('600'), findsOneWidget);
+      expect(
+        find.descendant(of: row, matching: find.textContaining('0 B /')),
+        findsNothing,
+      );
+      expect(
+        find.descendant(of: row, matching: find.text('600 MB')),
+        findsOneWidget,
+      );
     });
 
-    testWidgets('status keeps the failure reason and next step', (
+    testWidgets('failed row shows concise failure reason inline', (
       tester,
     ) async {
       await pump(
@@ -1554,15 +1666,15 @@ void main() {
           error: 'No space left on device',
         ),
       );
-      await openStatus(tester);
+      final row = rowFor(tester, 'frieren-6');
 
       expect(
-        statusText('The device ran out of space. Free some up and try again.'),
+        find.descendant(of: row, matching: find.text('Out of storage space')),
         findsOneWidget,
       );
     });
 
-    testWidgets('status explains that retry resumes a lost video server', (
+    testWidgets('failed online row shows connection lost reason inline', (
       tester,
     ) async {
       await pump(
@@ -1573,12 +1685,12 @@ void main() {
           error: downloadConnectionLostMessage,
         ),
       );
-      await openStatus(tester);
+      final row = rowFor(tester, 'frieren-6');
 
       expect(
-        statusText(
-          'The video server stopped answering. '
-          'Try again to pick up where it stopped.',
+        find.descendant(
+          of: row,
+          matching: find.text('Connection to server lost'),
         ),
         findsOneWidget,
       );
@@ -1591,7 +1703,6 @@ void main() {
 
       await tester.longPress(find.text('Episode 06'));
       await tester.pumpAndSettle();
-      expect(find.byKey(const Key('download_status')), findsOneWidget);
       expect(find.byKey(const Key('download_delete')), findsOneWidget);
 
       await tester.tapAt(Offset.zero);
@@ -1600,11 +1711,10 @@ void main() {
 
       await tester.tap(find.text('Episode 06'), buttons: kSecondaryButton);
       await tester.pumpAndSettle();
-      expect(find.byKey(const Key('download_status')), findsOneWidget);
       expect(find.byKey(const Key('download_delete')), findsOneWidget);
     });
 
-    testWidgets('completed downloads offer deletion without status details', (
+    testWidgets('completed downloads offer deletion from the row menu', (
       tester,
     ) async {
       await pump(
@@ -1619,7 +1729,6 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byKey(const Key('download_delete')), findsOneWidget);
-      expect(find.byKey(const Key('download_status')), findsNothing);
     });
 
     testWidgets('asks to delete on the Delete key', (tester) async {
@@ -1704,7 +1813,7 @@ void main() {
           const CustomSemanticsAction(label: 'More actions'),
         );
         await tester.pumpAndSettle();
-        expect(find.byKey(const Key('download_status')), findsOneWidget);
+        expect(find.byKey(const Key('download_delete')), findsOneWidget);
       } finally {
         semantics.dispose();
       }
@@ -1742,10 +1851,7 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(
-          find.text(
-            'Unable to delete the files. Close the file if it is open and '
-            'try again',
-          ),
+          find.text('Couldn’t delete the files. One may still be open.'),
           deletable ? findsNothing : findsOneWidget,
         );
       },
@@ -1914,6 +2020,8 @@ DownloadItem _libraryDownload({
   required String fileName,
   required DownloadStatus status,
   required DateTime createdAt,
+  int totalBytes = 100,
+  int? downloadedBytes,
 }) => DownloadItem(
   id: id,
   animeId: animeId,
@@ -1924,8 +2032,9 @@ DownloadItem _libraryDownload({
   fileName: fileName,
   relativePath: fileName,
   localPath: fileName,
-  totalBytes: 100,
-  downloadedBytes: status == DownloadStatus.completed ? 100 : 50,
+  totalBytes: totalBytes,
+  downloadedBytes:
+      downloadedBytes ?? (status == DownloadStatus.completed ? totalBytes : 50),
   downloadRateBytesPerSecond: 10,
   peers: 2,
   status: status,

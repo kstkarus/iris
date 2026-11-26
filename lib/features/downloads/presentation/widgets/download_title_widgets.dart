@@ -493,8 +493,6 @@ class DownloadPosterOption extends StatelessWidget {
       theme.textTheme.bodySmall,
       color: scheme.onSurfaceVariant,
     );
-    final downloading = status == DownloadStatus.downloading;
-    final progress = downloading ? _titleProgress(title) : 0.0;
 
     return Tooltip(
       message: name,
@@ -520,84 +518,62 @@ class DownloadPosterOption extends StatelessWidget {
                 ),
               ),
             ),
-            child: Stack(
+            padding: const EdgeInsets.all(10),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                Padding(
-                  padding: const EdgeInsets.all(10),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
+                DownloadTitlePoster(title: title, width: 42),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      DownloadTitlePoster(title: title, width: 42),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              name,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: theme.textTheme.bodyMedium?.copyWith(
-                                fontFamily: DetailLayout.sansFont,
-                                fontWeight: selected
-                                    ? FontWeight.w600
-                                    : FontWeight.w500,
-                                height: 1.2,
-                                color: scheme.onSurface,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Row(
-                              children: [
-                                if (statusMark != null) ...[
-                                  statusMark,
-                                  const SizedBox(width: 6),
-                                ],
-                                Expanded(
-                                  child: PixelSeparatedText.spans(
-                                    [
-                                      DetailLayout.mixedDataSpan(
-                                        countText,
-                                        sansStyle: metaSans,
-                                        monoStyle: metaMono,
-                                      ),
-                                      if (bytes > 0)
-                                        DetailLayout.mixedDataSpan(
-                                          formatByteSize(
-                                            l10n,
-                                            bytes,
-                                            compact: true,
-                                          ),
-                                          sansStyle: metaSans,
-                                          monoStyle: metaMono,
-                                        ),
-                                    ],
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: metaSans,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
+                      Text(
+                        name,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          fontFamily: DetailLayout.sansFont,
+                          fontWeight: selected
+                              ? FontWeight.w600
+                              : FontWeight.w500,
+                          height: 1.2,
+                          color: scheme.onSurface,
                         ),
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          if (statusMark != null) ...[
+                            statusMark,
+                            const SizedBox(width: 6),
+                          ],
+                          Expanded(
+                            child: PixelSeparatedText.spans(
+                              [
+                                DetailLayout.mixedDataSpan(
+                                  countText,
+                                  sansStyle: metaSans,
+                                  monoStyle: metaMono,
+                                ),
+                                if (bytes > 0)
+                                  DetailLayout.mixedDataSpan(
+                                    formatByteSize(l10n, bytes, compact: true),
+                                    sansStyle: metaSans,
+                                    monoStyle: metaMono,
+                                  ),
+                              ],
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: metaSans,
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
                 ),
-                if (downloading && progress > 0)
-                  Positioned(
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    child: _ThinProgressBar(
-                      value: progress,
-                      height: 2,
-                      color: scheme.tertiary,
-                      trackColor: Colors.transparent,
-                    ),
-                  ),
               ],
             ),
           ),
@@ -777,7 +753,7 @@ class _GalleryTitle extends StatelessWidget {
   }) {
     final scheme = Theme.of(context).colorScheme;
     final downloading = status == DownloadStatus.downloading;
-    final progress = downloading ? _titleProgress(title) : 0.0;
+    final progress = downloading ? downloadTitleProgress(title) : 0.0;
     final progressOverlay = downloading && progress > 0
         ? Positioned(
             left: 1,
@@ -960,15 +936,36 @@ double _lineHeight(BuildContext context, TextStyle? style, {int lines = 2}) {
   return height;
 }
 
-double _titleProgress(DownloadTitle title) {
-  final downloading = title.items.where(
-    (item) => item.status == DownloadStatus.downloading,
-  );
-  final items = downloading.isEmpty ? title.items : downloading;
-  final total = items.fold<int>(0, (sum, item) => sum + item.totalBytes);
-  if (total <= 0) return 0;
-  return (items.fold<int>(0, (sum, item) => sum + item.downloadedBytes) / total)
-      .clamp(0.0, 1.0);
+/// Overall download progress across every episode in [title], in `0..1`.
+///
+/// Uses exact byte totals when every item knows its size (torrents), and
+/// falls back to per-episode progress when queued items do not yet know their
+/// byte size (online HLS downloads) so one active episode does not read as
+/// progress for the whole anime.
+double downloadTitleProgress(DownloadTitle title) {
+  final items = title.items;
+  if (items.isEmpty) return 0;
+  if (items.every((item) => item.totalBytes > 0)) {
+    final total = items.fold<int>(0, (sum, item) => sum + item.totalBytes);
+    if (total <= 0) return 0;
+    final downloaded = items.fold<int>(
+      0,
+      (sum, item) => sum + item.downloadedBytes.clamp(0, item.totalBytes),
+    );
+    return (downloaded / total).clamp(0.0, 1.0);
+  }
+  var completedFraction = 0.0;
+  for (final item in items) {
+    if (item.status == DownloadStatus.completed) {
+      completedFraction += 1.0;
+    } else if (item.totalBytes > 0) {
+      completedFraction += (item.downloadedBytes / item.totalBytes).clamp(
+        0.0,
+        1.0,
+      );
+    }
+  }
+  return (completedFraction / items.length).clamp(0.0, 1.0);
 }
 
 int _galleryColumns(double width) {
