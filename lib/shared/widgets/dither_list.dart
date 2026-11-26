@@ -24,10 +24,12 @@ class DitherList<T> extends StatefulWidget {
     this.rowSpacing = 0,
     this.removalDuration,
     this.onEmptied,
+    Widget? separator,
     super.key,
   }) : assert(crossAxisCount > 0),
+       assert(separator == null || crossAxisCount == 1),
        _layout = _ListLayout.scroll,
-       _separator = null;
+       _separator = separator;
 
   /// A short list inside an existing scroll view, such as a sheet.
   const DitherList.column({
@@ -238,7 +240,13 @@ class _DitherListState<T> extends State<DitherList<T>> {
             child: AdaptiveGridRow(
               columns: widget.crossAxisCount,
               spacing: widget.columnSpacing,
-              children: [for (final entry in rowEntries) _presence(entry)],
+              children: [
+                for (final entry in rowEntries)
+                  _presence(
+                    entry,
+                    preceded: widget.crossAxisCount == 1 && rowIndex > 0,
+                  ),
+              ],
             ),
           ),
         );

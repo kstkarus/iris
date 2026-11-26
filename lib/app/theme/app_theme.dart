@@ -112,6 +112,7 @@ ThemeData buildAppTheme({
     ),
     filledButtonTheme: FilledButtonThemeData(
       style: ButtonStyle(
+        mouseCursor: _clickableCursor,
         minimumSize: const WidgetStatePropertyAll(buttonSize),
         padding: const WidgetStatePropertyAll(buttonPadding),
         textStyle: const WidgetStatePropertyAll(buttonText),
@@ -137,6 +138,7 @@ ThemeData buildAppTheme({
     ),
     outlinedButtonTheme: OutlinedButtonThemeData(
       style: ButtonStyle(
+        mouseCursor: _clickableCursor,
         minimumSize: const WidgetStatePropertyAll(buttonSize),
         padding: const WidgetStatePropertyAll(buttonPadding),
         textStyle: const WidgetStatePropertyAll(buttonText),
@@ -155,6 +157,7 @@ ThemeData buildAppTheme({
     ),
     textButtonTheme: TextButtonThemeData(
       style: ButtonStyle(
+        mouseCursor: _clickableCursor,
         minimumSize: const WidgetStatePropertyAll(Size(48, 44)),
         padding: const WidgetStatePropertyAll(
           EdgeInsets.symmetric(horizontal: 12),
@@ -173,6 +176,7 @@ ThemeData buildAppTheme({
     ),
     iconButtonTheme: IconButtonThemeData(
       style: ButtonStyle(
+        mouseCursor: _clickableCursor,
         minimumSize: const WidgetStatePropertyAll(Size.square(44)),
         shape: const WidgetStatePropertyAll(square),
         foregroundColor: _unlessDisabled(
@@ -238,6 +242,7 @@ ThemeData buildAppTheme({
     ),
     listTileTheme: ListTileThemeData(
       shape: square,
+      mouseCursor: _clickableCursor,
       iconColor: scheme.onSurfaceVariant,
       titleTextStyle: text.bodyMedium?.copyWith(color: scheme.onSurface),
       subtitleTextStyle: text.bodySmall?.copyWith(
@@ -285,6 +290,7 @@ ThemeData buildAppTheme({
     ),
     menuButtonTheme: MenuButtonThemeData(
       style: ButtonStyle(
+        mouseCursor: _clickableCursor,
         foregroundColor: _unlessDisabled(
           menuScheme.onSurface,
           disabled: menuScheme.onSurfaceVariant,
@@ -334,9 +340,11 @@ ThemeData buildAppTheme({
       inactiveTrackColor: scheme.surfaceContainerHighest,
     ),
     switchTheme: SwitchThemeData(
+      mouseCursor: _clickableCursor,
       trackOutlineColor: WidgetStatePropertyAll(scheme.outline),
     ),
     radioTheme: RadioThemeData(
+      mouseCursor: _clickableCursor,
       fillColor: WidgetStateProperty.resolveWith(
         (states) => states.contains(WidgetState.selected)
             ? scheme.onSurface
@@ -344,6 +352,7 @@ ThemeData buildAppTheme({
       ),
     ),
     checkboxTheme: CheckboxThemeData(
+      mouseCursor: _clickableCursor,
       shape: square,
       side: BorderSide(color: scheme.onSurfaceVariant, width: 1.5),
       fillColor: WidgetStateProperty.resolveWith(
@@ -379,6 +388,12 @@ WidgetStateProperty<BorderSide> _focusRing(ColorScheme scheme) =>
           ? BorderSide(color: scheme.onSurface, width: 2)
           : BorderSide.none,
     );
+
+final _clickableCursor = WidgetStateProperty.resolveWith<MouseCursor>(
+  (states) => states.contains(WidgetState.disabled)
+      ? SystemMouseCursors.basic
+      : SystemMouseCursors.click,
+);
 
 WidgetStateProperty<Color> _unlessDisabled(
   Color enabled, {

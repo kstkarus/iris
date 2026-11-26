@@ -157,6 +157,9 @@ class _Cell<T> extends StatelessWidget {
       inMutuallyExclusiveGroup: true,
       label: option.label,
       child: InkWell(
+        mouseCursor: onTap != null
+            ? SystemMouseCursors.click
+            : SystemMouseCursors.basic,
         onTap: onTap,
         child: ConstrainedBox(
           constraints: BoxConstraints(minHeight: height),

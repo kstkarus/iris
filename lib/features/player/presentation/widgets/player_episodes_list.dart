@@ -385,6 +385,7 @@ class _EpisodeRowState extends State<_EpisodeRow> {
           triggerMode: TooltipTriggerMode.manual,
           child: InkResponse(
             key: ValueKey('player_episode_download_${file.index}'),
+            mouseCursor: SystemMouseCursors.click,
             onTap: onQuickDownload,
             radius: 16,
             child: SizedBox.square(

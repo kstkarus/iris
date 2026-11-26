@@ -85,6 +85,7 @@ class MarkedTab extends StatelessWidget {
       button: true,
       label: semanticLabel,
       child: InkWell(
+        mouseCursor: SystemMouseCursors.click,
         onTap: () {
           if (!selected && selectionFeedback) AppHaptics.selection();
           onTap();

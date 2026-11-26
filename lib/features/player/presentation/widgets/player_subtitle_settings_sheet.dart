@@ -568,6 +568,7 @@ class _AdvancedState extends State<_Advanced> {
         Semantics(
           expanded: _expanded,
           child: InkWell(
+            mouseCursor: SystemMouseCursors.click,
             onTap: _toggle,
             child: ConstrainedBox(
               constraints: const BoxConstraints(minHeight: 56),

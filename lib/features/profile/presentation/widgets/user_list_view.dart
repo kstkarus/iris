@@ -1031,6 +1031,9 @@ class _EntryRow extends StatelessWidget {
       ),
       child: InkWell(
         key: ValueKey('user_list_entry_${anime.id}'),
+        mouseCursor: onOpen != null
+            ? SystemMouseCursors.click
+            : SystemMouseCursors.basic,
         onTap: onOpen,
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 10),

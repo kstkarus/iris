@@ -5,7 +5,7 @@ import 'package:iris/features/characters/domain/entities/character_summary.dart'
 import 'package:iris/features/characters/presentation/character_names.dart';
 import 'package:iris/l10n/generated/app_localizations.dart';
 import 'package:iris/shared/widgets/poster_image.dart';
-import 'package:iris/shared/widgets/tap_row.dart';
+import 'package:iris/shared/widgets/poster_tap_surface.dart';
 
 /// Room for a portrait and its name in a row of [CharacterTile]s.
 abstract final class CharacterTileSizes {
@@ -28,17 +28,24 @@ class CharacterTile extends StatelessWidget {
       button: true,
       label: name,
       excludeSemantics: true,
-      child: TapRow(
+      child: PosterTapSurface(
         inkKey: ValueKey('character_${character.id}'),
         onTap: () => context.pushNamed(
           'character',
           pathParameters: {'id': character.id},
           extra: character,
         ),
-        child: Column(
+        builder: (context, hovered, focused) => Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            PosterImage(url: character.posterUrl),
+            PosterHoverFrame(
+              hovered: hovered,
+              focused: focused,
+              poster: PosterImage(
+                url: character.posterUrl,
+                borderColor: Colors.transparent,
+              ),
+            ),
             const SizedBox(height: 8),
             Text(
               name,

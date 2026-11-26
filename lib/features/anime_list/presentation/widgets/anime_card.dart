@@ -10,7 +10,7 @@ import 'package:iris/shared/utils/incomplete_date.dart';
 import 'package:iris/shared/widgets/detail_layout.dart';
 import 'package:iris/shared/widgets/pixel_separated_text.dart';
 import 'package:iris/shared/widgets/poster_image.dart';
-import 'package:iris/shared/widgets/tap_row.dart';
+import 'package:iris/shared/widgets/poster_tap_surface.dart';
 
 /// A catalog title: the cover first, then the names and one short line of
 /// facts. Airing titles carry the signal mark; one in the user's list
@@ -62,26 +62,22 @@ class AnimeCard extends StatelessWidget {
         (textScaler.scale(style.fontSize!) * (style.height ?? 1))
             .ceilToDouble();
 
-    return TapRow(
+    return PosterTapSurface(
       onTap: onTap,
-      child: Padding(
+      builder: (context, hovered, focused) => Padding(
         padding: const EdgeInsets.symmetric(vertical: 4),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            DecoratedBox(
-              position: DecorationPosition.foreground,
-              decoration: BoxDecoration(
-                border: Border.all(color: DetailLayout.ruleColor(scheme)),
+            PosterHoverFrame(
+              hovered: hovered,
+              focused: focused,
+              poster: PosterImage(
+                url: anime.posterUrl,
+                borderColor: Colors.transparent,
               ),
-              child: Stack(
-                children: [
-                  PosterImage(
-                    url: anime.posterUrl,
-                    borderColor: Colors.transparent,
-                  ),
-                  if (rate != null)
-                    PositionedDirectional(
+              overlay: rate != null
+                  ? PositionedDirectional(
                       start: 0,
                       bottom: 0,
                       end: 0,
@@ -92,9 +88,8 @@ class AnimeCard extends StatelessWidget {
                           totalEpisodes: anime.episodes,
                         ),
                       ),
-                    ),
-                ],
-              ),
+                    )
+                  : null,
             ),
             const SizedBox(height: 10),
             ConstrainedBox(
