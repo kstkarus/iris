@@ -4,11 +4,14 @@ Notable changes to iris, newest first. The format follows [Keep a Changelog](htt
 
 ## [Unreleased]
 
+## [1.6.4] - 2026-11-26
+
 ### Загрузки
 
 - На широких экранах слева вернулась компактная полка постеров с рамкой выбора, живым индикатором загрузки в углу и подсказкой со сводкой при наведении. Пропало дублирование названия аниме, убраны лишние разделители, добавлено плавное растворение списков при прокрутке, а ширина колонки серий адаптируется под экран.
 - Причина ошибки и отсутствие пиров теперь отображаются прямо в строке серии, а дублирующий пункт «Состояние загрузки» убран из меню.
 - Общий прогресс аниме в галерее и на полке постеров теперь учитывает все серии в очереди, а не только текущую.
+- Кнопки паузы, продолжения и повтора в загрузках и очереди теперь дают лёгкий тактильный отклик на телефонах, а полоса прогресса в строке плавно скрывается при входе в режим выбора.
 
 ### Аниме и интерфейс
 
@@ -448,7 +451,8 @@ First published release.
 - Update notice on Android and Windows when a newer release is published.
 - App icon.
 
-[Unreleased]: https://github.com/kstkarus/iris/compare/v1.6.3...HEAD
+[Unreleased]: https://github.com/kstkarus/iris/compare/v1.6.4...HEAD
+[1.6.4]: https://github.com/kstkarus/iris/compare/v1.6.3...v1.6.4
 [1.6.3]: https://github.com/kstkarus/iris/compare/v1.6.2...v1.6.3
 [1.6.2]: https://github.com/kstkarus/iris/compare/v1.6.1...v1.6.2
 [1.6.1]: https://github.com/kstkarus/iris/compare/v1.6.0...v1.6.1
