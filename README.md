@@ -1,55 +1,49 @@
-# iris
+<p align="center">
+  <img src="web/icons/Icon-512.png" alt="iris icon" width="72" height="72">
+</p>
 
-An ad-free anime client for Android, Windows and iOS. It browses the [Shikimori](https://shikimori.io) catalog, plays episodes from online sources and torrents in its own player, downloads them for offline viewing and syncs watch progress with a Shikimori list.
+<h1 align="center">iris</h1>
 
-The interface is in English and Russian, with bundled Medeo Mono and Medeo Sans fonts. Online sources offer Russian dubs and subtitles only; torrents come in whatever languages their releases have.
+<p align="center">
+  An ad-free anime client for Android, Windows, and iOS.<br>
+  Browse the <a href="https://shikimori.io">Shikimori</a> catalog, stream from online sources and torrents in an in-app mpv player, download episodes for offline viewing, and sync your watch progress.
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/catalog_desktop.png" alt="Catalog on desktop" width="100%">
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/catalog_phone.png" alt="Catalog on phone" width="24%">
+  <img src="docs/screenshots/title_phone.png" alt="Anime details on phone" width="24%">
+  <img src="docs/screenshots/sources_phone.png" alt="Watch sources on phone" width="24%">
+  <img src="docs/screenshots/downloads_phone.png" alt="Downloads on phone" width="24%">
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/title_desktop.png" alt="Anime details on desktop" width="49%">
+  <img src="docs/screenshots/downloads_desktop.png" alt="Downloads on desktop" width="49%">
+</p>
+
+The interface is available in English and Russian. Online sources provide Russian dubs and subtitles; torrents carry whatever audio and subtitle tracks their releases include.
 
 ## Features
 
-- **Catalog.** Popular titles, search, and filters by type, status, genre, season, rating and episode length. Results fill the available window and load more as you scroll. When signed in, covers show the title's status in your list. Applied filters can be removed individually, and search keeps a local history of recent queries.
-- **Title pages.** Details, description, dubs, related titles, characters with their own pages, and the Shikimori friends who have the title in their lists.
-- **Sources.** Online releases from AniLibria, yummy_anime and AnimeJoy, and torrents from Nyaa through a public API mirror. Each release lets you watch and download from the same screen. The player uses a completed local copy when it is available. AnimeJoy uses its own player and AllVideo, with Alloha and then Kodik as subtitle fallbacks; access to otakujoy.fun may require a VPN. You can add your own torrent to an anime, as a magnet link or a `.torrent` file.
-- **Player.** mpv through `media_kit`, with the same full-screen controls on every platform:
-  - audio selection when multiple tracks are available, controls for separate subtitle tracks, playback speed and decoder choice;
-  - a timeline divided by the file's chapters or by the opening and ending;
-  - opening skip, based on chapters or [AniSkip](https://api.aniskip.com);
-  - next-episode prompt and resume from the last position;
-  - on phones, swipe seeking, brightness control and a screen lock;
-  - on Android and supported iOS 15+ devices, system picture in picture with playback controls;
-  - on Windows, a resizable picture-in-picture window above other apps, without restarting playback.
+- **Catalog & search.** Browse popular, top-rated, and recent anime with filters by type, status, genre, season, age rating, episode length, and your Shikimori list.
+- **Title & character pages.** Synopsis, metadata, related titles, character pages, and Shikimori friends who have the title in their lists.
+- **Online & torrent sources.** Watch or download from AniLibria, yummy_anime, AnimeJoy, and Nyaa, or attach your own magnet link or `.torrent` file to any anime.
+- **In-app player.** Built on `mpv` (`media_kit`) with torrent streaming piece by piece, audio and ASS/SSA subtitle controls, opening skip via chapters or [AniSkip](https://api.aniskip.com), resume and next-episode prompts, touch gestures on phones, and picture in picture on Android, iOS 15+, and Windows.
+- **Offline downloads.** Download online episodes and torrent files in a resumable queue with batch selection, drag reordering, and temporary cache cleanup. Completed files play from disk automatically.
+- **Shikimori sync.** Manage status, score, and episode counts with automatic episode marking and an offline retry queue.
+- **In-app updates.** Checks GitHub Releases and downloads verified updates inside the app on Android and Windows (installer builds).
 
-  Torrents stream piece by piece, without downloading the whole file first.
-- **Downloads.** A compact poster gallery on phones and a selectable poster rail beside episodes on desktop (above them in narrow windows). An empty library explains offline viewing and opens the catalog. A title keeps its name available while scrolling, and episode rows show playback position and total duration. Release headings carry the source and known video quality; Download status shows live transfer details and failure guidance. Open the anime page from the title menu, select episodes individually or in a batch, reorder waiting downloads by dragging or using the menu, download more from the same release, watch completed files or select downloads for one confirmed deletion. Torrent and online downloads resume after a pause, an error or an app restart. The shared Downloads header opens a full queue page and Files. Files lists titles by downloaded size and clears leftover torrent playback files without deleting downloaded episodes.
-- **Shikimori account.** Status, score and episode count for any title. Finishing an episode updates the count in your list, and episodes counted there show as watched on every device. Offline marks stay on the device and retry while Iris is open or when you return to it; the player shows marks waiting to sync and lets you retry them. A confirmed reset or new rewatch on Shikimori takes priority over older queued marks.
-- **Settings.** Manage Shikimori and AnimeJoy sign-in, choose a theme, set the interface and anime title languages, and pick default audio and subtitle languages for torrents.
-- **Updates.** On Android and Windows the app checks this repository's latest release. Android shows release notes, downloads and verifies the APK inside Iris, then opens the system installer. Windows installed through the per-user installer downloads and verifies updates inside Iris, then saves progress and the download queue before an explicit restart and install. Portable Windows builds open the ZIP in the browser.
-
-`media_kit_video` 2.0.1 is included locally with an iOS AVKit PiP bridge;
-its other platforms are unchanged.
-
-## Screenshots
-
-<p align="center">
-  <img src="docs/screenshots/catalog_desktop.png" alt="The catalog on a desktop window" width="100%">
-</p>
-
-<p align="center">
-  <img src="docs/screenshots/catalog_phone.png" alt="The catalog on a phone" width="24%">
-  <img src="docs/screenshots/title_phone.png" alt="A title page" width="24%">
-  <img src="docs/screenshots/characters_phone.png" alt="Related titles and characters on a title page" width="24%">
-  <img src="docs/screenshots/sources_phone.png" alt="Online dubs of a title" width="24%">
-</p>
-
-<p align="center">
-  <img src="docs/screenshots/title_desktop.png" alt="A title page on a desktop window" width="69.2%">
-  <img src="docs/screenshots/character_phone.png" alt="A character's page" width="20%">
-</p>
+See [docs/behaviour.md](docs/behaviour.md) for detailed behavior across features.
 
 ## Install
 
-Builds are published on the [Releases](https://github.com/kstkarus/iris/releases) page.
+Prebuilt packages are published on the [Releases](https://github.com/kstkarus/iris/releases) page.
 
-- **Android.** Choose the APK for your device's processor:
+- **Android.** Pick the APK matching your device's ABI:
 
   | APK | For |
   |---|---|
@@ -58,22 +52,18 @@ Builds are published on the [Releases](https://github.com/kstkarus/iris/releases
   | `iris-X.Y.Z-android-x86_64.apk` | emulators and Chromebooks |
   | `iris-X.Y.Z-android-universal.apk` | any device (about twice the size) |
 
-  Any of these installs over another. The app then offers updates for its own processor.
-- **Windows.** Run `iris-X.Y.Z-windows-x64-setup.exe` to install for your user and receive updates inside Iris. For a portable copy, unpack `iris-X.Y.Z-windows-x64.zip` and run `iris.exe`; update it by unpacking the new archive over the old folder.
-- **iOS 15+.** `iris-X.Y.Z-ios-unsigned.ipa`. Sign it with your certificate and provisioning profile before installing on an iPhone or iPad. Tested less than Android and Windows.
-
-## Disclaimer
-
-iris is not affiliated with Shikimori, AniLibria, yummy_anime, Kodik, Aksor, Nyaa or AniSkip. It does not host or distribute video: it plays streams and torrents published by third parties. You are responsible for complying with the laws of your country. Torrent playback and downloads share data with other peers, who can see your IP address.
+  Any variant can install over another, and subsequent updates match your device's ABI.
+- **Windows.** Run `iris-X.Y.Z-windows-x64-setup.exe` for a per-user install with in-app updates, or unpack `iris-X.Y.Z-windows-x64.zip` for a portable copy.
+- **iOS 15+.** `iris-X.Y.Z-ios-unsigned.ipa`. Sign with your own certificate and provisioning profile before installing. Tested less than Android and Windows.
 
 ## Development
 
 Requirements:
 
-- Flutter 3.47.4, stable channel (the version CI uses);
-- JDK 17 and Android Studio, for Android;
-- Visual Studio 2022 with "Desktop development with C++", for Windows;
-- Xcode on macOS, for iOS.
+- Flutter 3.47.4 (stable channel)
+- JDK 17 and Android Studio (Android)
+- Visual Studio 2022 with "Desktop development with C++" (Windows)
+- Xcode on macOS (iOS)
 
 ```bash
 flutter pub get
@@ -81,16 +71,34 @@ flutter run --dart-define-from-file=config/shikimori.json
 flutter run -d windows --dart-define-from-file=config/shikimori.json
 ```
 
-On Android, `flutter run` installs a separate "iris dev" app, so a local build never replaces an installed release or its data.
+On Android, `flutter run` installs a separate `iris dev` app so local builds never overwrite a release install. `media_kit_video` 2.0.1 is vendored under `packages/media_kit_video` with an iOS AVKit PiP bridge.
 
 ### Shikimori sign-in (optional)
 
-Copy `config/shikimori.example.json` to `config/shikimori.json` (git-ignored) and fill in the id and secret of a [Shikimori OAuth application](https://shikimori.io/oauth/applications). It needs the `user_rates` scope and these redirect URIs: `iris://oauth/callback`, `iris-dev://oauth/callback` and `http://127.0.0.1:43821/oauth/callback`. Without the file, sign-in is turned off. The secret is compiled into the app and can be extracted from a build, so forks should register their own application.
+Copy `config/shikimori.example.json` to `config/shikimori.json` (git-ignored) and fill in the client ID and secret of a [Shikimori OAuth application](https://shikimori.io/oauth/applications) with the `user_rates` scope and these redirect URIs:
 
-## Contributing
+- `iris://oauth/callback`
+- `iris-dev://oauth/callback`
+- `http://127.0.0.1:43821/oauth/callback`
 
-Issues and pull requests are welcome. Before opening one, run `dart format .`, `flutter analyze` and `flutter test`, and `flutter gen-l10n` after editing `lib/l10n/*.arb`. Pull requests and pushes to `main` run analysis and tests in CI; release builds wait for these checks too.
+Without this file, sign-in is disabled.
+
+### Checks
+
+Before opening a pull request, run:
+
+```bash
+dart format .
+flutter analyze
+flutter test
+```
+
+If you edit ARB files in `lib/l10n/`, regenerate localizations with `flutter gen-l10n`.
+
+## Disclaimer
+
+iris is not affiliated with Shikimori, AniLibria, yummy_anime, AnimeJoy, Kodik, Aksor, Nyaa, or AniSkip. It does not host or distribute video; it plays streams and torrents published by third parties. You are responsible for complying with the laws of your country. Torrent playback and downloads share data with other peers, who can see your IP address.
 
 ## License
 
-iris is released under the [MIT License](LICENSE). The online source extractors are ported from [anicli-api](https://github.com/vypivshiy/anicli-api) (MIT); this and other third-party licenses are listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+Released under the [MIT License](LICENSE). Online source extractors are ported from [anicli-api](https://github.com/vypivshiy/anicli-api) (MIT); third-party notices are listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
